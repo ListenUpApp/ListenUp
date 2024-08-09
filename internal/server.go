@@ -1,26 +1,30 @@
 package internal
 
 import (
+	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/auth/v1/authv1connect"
 	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/server/v1/serverv1connect"
 	"connectrpc.com/grpcreflect"
+	"github.com/ListenUpApp/ListenUp/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers"
-	"github.com/dgraph-io/badger/v4"
+	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"net/http"
 )
 
 type Server struct {
-	db             *badger.DB
+	db             db.DBInterface // Use DBInterface instead of *badger.DB
 	serverHandlers *handlers.ServerHandler
+	authHandlers   *auth.AuthHandlers
 }
 
-func NewServer(db *badger.DB) *Server {
+func NewServer(database db.DBInterface) *Server { // Accept DBInterface
 	serverHandlers := handlers.NewServerHandler()
 
 	return &Server{
-		db:             db,
+		db:             database,
 		serverHandlers: serverHandlers,
+		authHandlers:   auth.NewAuthHandlers(db.NewGopherUserStore(database)),
 	}
 }
 
@@ -32,6 +36,9 @@ func (s Server) StartServer() {
 
 	path, handler := serverv1connect.NewServerServiceHandler(s.serverHandlers)
 	mux.Handle(path, handler)
+
+	authPath, authHandler := authv1connect.NewAuthServiceHandler(s.authHandlers)
+	mux.Handle(authPath, authHandler)
 
 	mux.Handle(grpcreflect.NewHandlerV1(reflector))
 
