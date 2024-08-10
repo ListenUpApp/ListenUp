@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"context"
 	"github.com/ListenUpApp/ListenUp/internal/common"
+	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
 	"github.com/ListenUpApp/ListenUp/internal/validator"
@@ -36,20 +37,19 @@ func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore) *Auth
 }
 
 func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
-	// Validate request
 	violations := validator.ValidateLoginRequest(req)
 	if violations != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid login request: %v", violations)
 	}
 
-	// Get user from database
 	user, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err != nil {
+		logger.Error("Could Not find User", "email", req.Msg.GetEmail())
 		return nil, status.Errorf(codes.NotFound, "user not found")
 	}
 
-	// Check password
 	if utils.CheckPasswordHash(req.Msg.GetPassword(), user.HashedPassword) == false {
+		logger.Error("Could Not find User", "email", req.Msg.GetEmail())
 		return nil, status.Errorf(codes.InvalidArgument, "incorrect password")
 	}
 
@@ -57,6 +57,7 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 	//todo Change these time variables to Server Config variables
 	accessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
 	if err != nil {
+		logger.Error("Could not generate access token", "Error", err)
 		return nil, status.Errorf(codes.Internal, "could not generate access token")
 	}
 
@@ -64,15 +65,16 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 	//todo Change these time variables to Server Config variables
 	refreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
 	if err != nil {
+		logger.Error("Could not generate refresh token", "Error", err)
 		return nil, status.Errorf(codes.Internal, "could not generate refresh token")
 	}
 
 	err = h.authStore.StoreRefreshToken(ctx, user.User.Id, refreshToken)
 	if err != nil {
+		logger.Error("Could not generate access token", "Error", err)
 		return nil, status.Errorf(codes.Internal, "could not store refresh token")
 	}
 
-	// Create response
 	res := connect.NewResponse(&authv1.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -122,6 +124,7 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 	err = h.userStore.CreateUser(ctx, &createUserParms)
 	// TODO check if this was the root user let's change the Init flag.
 	if err != nil {
+
 		return nil, status.Errorf(codes.Internal, "Unable to save user to Database")
 	}
 
@@ -137,39 +140,46 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 
 	userID, ok := claims["user_id"].(string)
 	if !ok {
+		logger.Error("Invalid Claim Format")
 		return nil, status.Errorf(codes.Internal, "invalid claim format")
 	}
 
 	// Check if the refresh token exists in the database
 	storedToken, err := h.authStore.GetRefreshToken(ctx, userID)
 	if err != nil {
+		logger.Error("Could not retrieve refresh token")
 		return nil, status.Errorf(codes.Internal, "could not retrieve refresh token")
 	}
 
 	if storedToken != req.Msg.GetRefreshToken() {
+		logger.Warn("Refresh token has been revoked")
 		return nil, status.Errorf(codes.Unauthenticated, "refresh token has been revoked")
 	}
 
 	user, err := h.userStore.GetUserById(ctx, userID)
 	if err != nil {
+		logger.Warn("Could not retrieve user")
 		return nil, status.Errorf(codes.Internal, "could not retrieve user")
 	}
 
 	//todo Change these time variables to Server Config variables
 	newAccessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, ACCESS_TTL)
 	if err != nil {
+		logger.Error("Could not generate new access token")
 		return nil, status.Errorf(codes.Internal, "could not generate new access token")
 	}
 
 	//todo Change these time variables to Server Config variables
 	newRefreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, REFRESH_TTL)
 	if err != nil {
+		logger.Error("Could not generate new refresh token")
 		return nil, status.Errorf(codes.Internal, "could not generate new refresh token")
 	}
 
 	// Update refresh token in the database
 	err = h.authStore.UpdateRefreshToken(ctx, user.User.Id, newRefreshToken)
 	if err != nil {
+		logger.Error("Could not update refresh token")
 		return nil, status.Errorf(codes.Internal, "could not update refresh token")
 	}
 
