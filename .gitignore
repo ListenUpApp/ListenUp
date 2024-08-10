@@ -26,3 +26,4 @@ go.work.sum
 
 badger-data
 .idea
+.DS_STORE

@@ -1,4 +1,4 @@
-package handlers
+package server
 
 import (
 	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"

@@ -1,20 +1,20 @@
 package main
 
 import (
-	badger "github.com/ListenUpApp/ListenUp/db"
 	"github.com/ListenUpApp/ListenUp/internal"
+	"github.com/ListenUpApp/ListenUp/internal/db"
 	"log"
 )
 
 func main() {
-	db, err := badger.InitDB("./badger-data")
+	database, err := db.InitDB("./badger-data", nil)
 
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	defer badger.CloseDB()
+	defer db.CloseDB()
 
-	server := internal.NewServer(db)
+	server := internal.NewServer(database)
 	server.StartServer()
 }
