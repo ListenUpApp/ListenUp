@@ -14,7 +14,6 @@ func FieldViolation(field string, err error) *errdetails.BadRequest_FieldViolati
 	}
 }
 
-// TOOD convert this function to use Connect information.
 func InvalidArgumentError(violations []*errdetails.BadRequest_FieldViolation) error {
 	badRequest := &errdetails.BadRequest{FieldViolations: violations}
 	statusInvalid := status.New(codes.InvalidArgument, "invalid parameters")

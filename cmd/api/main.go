@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/ListenUpApp/ListenUp/db"
 	"github.com/ListenUpApp/ListenUp/internal"
+	"github.com/ListenUpApp/ListenUp/internal/db"
 	"log"
 )
 

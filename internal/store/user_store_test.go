@@ -1,4 +1,4 @@
-package db
+package store
 
 import (
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
@@ -56,7 +56,7 @@ func TestCreateUser(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewGopherUserStore(db)
+	store := NewBadgerUserStore(db)
 
 	user := createTestUser()
 
@@ -79,7 +79,7 @@ func TestGetUserById(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewGopherUserStore(db)
+	store := NewBadgerUserStore(db)
 
 	user := createTestUser()
 
@@ -104,7 +104,7 @@ func TestGetUserByEmail(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewGopherUserStore(db)
+	store := NewBadgerUserStore(db)
 
 	user := createTestUser()
 
@@ -134,7 +134,7 @@ func TestCreateDuplicateUser(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewGopherUserStore(db)
+	store := NewBadgerUserStore(db)
 
 	user := createTestUser()
 

@@ -6,40 +6,38 @@ import (
 	userv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
 	"connectrpc.com/connect"
 	"context"
-	"errors"
-	"github.com/ListenUpApp/ListenUp/db"
 	"github.com/ListenUpApp/ListenUp/internal/common"
-	"github.com/golang-jwt/jwt"
+	"github.com/ListenUpApp/ListenUp/internal/store"
+	"github.com/ListenUpApp/ListenUp/internal/utils"
+	"github.com/ListenUpApp/ListenUp/internal/validator"
 	gonanoid "github.com/matoous/go-nanoid/v2"
-	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
 
+const (
+	ACCESS_TTL  = 1 * time.Hour
+	REFRESH_TTL = (14 * 24) * time.Hour
+)
+
 type AuthHandlers struct {
-	userStore  db.UserStore
-	authStore  db.AuthStore
-	jwtSecret  []byte
-	accessTTL  time.Duration
-	refreshTTL time.Duration
+	userStore store.UserStore
+	authStore store.AuthStore
 	authv1connect.UnimplementedAuthServiceHandler
 }
 
-func NewAuthHandlers(userStore db.UserStore, authStore db.AuthStore, jwtSecret []byte, accessTTL, refreshTTL time.Duration) *AuthHandlers {
+func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore) *AuthHandlers {
 	return &AuthHandlers{
-		userStore:  userStore,
-		authStore:  authStore,
-		jwtSecret:  jwtSecret,
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
+		userStore: userStore,
+		authStore: authStore,
 	}
 }
 
 func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
 	// Validate request
-	violations := ValidateLoginRequest(req)
+	violations := validator.ValidateLoginRequest(req)
 	if violations != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid login request: %v", violations)
 	}
@@ -51,18 +49,20 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 	}
 
 	// Check password
-	if checkPasswordHash(req.Msg.GetPassword(), user.HashedPassword) == false {
+	if utils.CheckPasswordHash(req.Msg.GetPassword(), user.HashedPassword) == false {
 		return nil, status.Errorf(codes.InvalidArgument, "incorrect password")
 	}
 
 	// Generate access token
-	accessToken, err := h.generateToken(user.User.Id, user.User.Role, user.User.Email, h.accessTTL)
+	//todo Change these time variables to Server Config variables
+	accessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate access token")
 	}
 
 	// Generate refresh token
-	refreshToken, err := h.generateToken(user.User.Id, "", "", h.refreshTTL)
+	//todo Change these time variables to Server Config variables
+	refreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate refresh token")
 	}
@@ -84,7 +84,7 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 }
 
 func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[authv1.RegisterRequest]) (*connect.Response[authv1.RegisterResponse], error) {
-	violations := ValidateRegisterRequest(req)
+	violations := validator.ValidateRegisterRequest(req)
 	if len(violations) > 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, common.InvalidArgumentError(violations))
 	}
@@ -103,7 +103,7 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 	}
 
 	// Hash the password.
-	hashedPassword, err := hashPassword(req.Msg.GetPassword())
+	hashedPassword, err := utils.HashPassword(req.Msg.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to hash password")
 	}
@@ -133,7 +133,7 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 
 func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[authv1.RefreshTokenRequest]) (*connect.Response[authv1.RefreshTokenResponse], error) {
 	// Parse and validate refresh token
-	claims, err := h.parseToken(req.Msg.GetRefreshToken())
+	claims, err := utils.ParseToken(req.Msg.GetRefreshToken())
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid refresh token")
 	}
@@ -160,13 +160,15 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 	}
 
 	// Generate new access token
-	newAccessToken, err := h.generateToken(user.User.Id, user.User.Role, user.User.Email, h.accessTTL)
+	//todo Change these time variables to Server Config variables
+	newAccessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, ACCESS_TTL)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate new access token")
 	}
 
 	// Generate new refresh token
-	newRefreshToken, err := h.generateToken(user.User.Id, "", "", h.refreshTTL)
+	//todo Change these time variables to Server Config variables
+	newRefreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, REFRESH_TTL)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate new refresh token")
 	}
@@ -183,56 +185,4 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 	})
 
 	return res, nil
-}
-
-func (h *AuthHandlers) generateToken(userID, role, email string, expiration time.Duration) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(expiration).Unix(),
-	}
-
-	if role != "" {
-		claims["role"] = role
-	}
-	if email != "" {
-		claims["email"] = email
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(h.jwtSecret)
-}
-
-func (h *AuthHandlers) parseToken(tokenString string) (jwt.MapClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return h.jwtSecret, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, errors.New("invalid token")
-}
-
-func hashPassword(password string) (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedPassword), nil
-}
-
-func checkPasswordHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(password))
-	if err != nil {
-		return false
-	}
-	return true
 }

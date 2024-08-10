@@ -1,4 +1,4 @@
-package db
+package store
 
 import (
 	"context"
@@ -15,7 +15,7 @@ func TestStoreRefreshToken(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAuthStore(db)
+	store := NewBadgerAuthStore(db)
 	ctx := context.Background()
 
 	err := store.StoreRefreshToken(ctx, "user1", "token123")
@@ -31,7 +31,7 @@ func TestGetRefreshToken(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAuthStore(db)
+	store := NewBadgerAuthStore(db)
 	ctx := context.Background()
 
 	// Store a token
@@ -52,7 +52,7 @@ func TestUpdateRefreshToken(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAuthStore(db)
+	store := NewBadgerAuthStore(db)
 	ctx := context.Background()
 
 	// Store initial token
@@ -73,7 +73,7 @@ func TestDeleteRefreshToken(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAuthStore(db)
+	store := NewBadgerAuthStore(db)
 	ctx := context.Background()
 
 	// Store a token
@@ -93,7 +93,7 @@ func TestCleanupExpiredTokens(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAuthStore(db)
+	store := NewBadgerAuthStore(db)
 	ctx := context.Background()
 
 	// Store tokens with different creation times

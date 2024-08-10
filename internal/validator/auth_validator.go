@@ -1,4 +1,4 @@
-package auth
+package validator
 
 import (
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
