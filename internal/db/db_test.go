@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockDB is a mock type for DBInterface
 type MockDB struct {
 	mock.Mock
 }
@@ -34,12 +33,9 @@ func (m *MockDB) NewTransaction(update bool) *badger.Txn {
 	return args.Get(0).(*badger.Txn)
 }
 
-// Add other methods from DBInterface here as needed
-
 func TestInitDB(t *testing.T) {
 	assert := assert.New(t)
 
-	// Test successful initialization
 	mockDB := new(MockDB)
 	mockOpener := func(opt badger.Options) (DBInterface, error) {
 		return mockDB, nil

@@ -67,7 +67,6 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 		return nil, status.Errorf(codes.Internal, "could not generate refresh token")
 	}
 
-	// Store refresh token in the database
 	err = h.authStore.StoreRefreshToken(ctx, user.User.Id, refreshToken)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not store refresh token")
@@ -102,7 +101,6 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 		return nil, status.Errorf(codes.Internal, "Could not generate ID")
 	}
 
-	// Hash the password.
 	hashedPassword, err := utils.HashPassword(req.Msg.GetPassword())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to hash password")
@@ -124,7 +122,7 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 	err = h.userStore.CreateUser(ctx, &createUserParms)
 	// TODO check if this was the root user let's change the Init flag.
 	if err != nil {
-		// Do something
+		return nil, status.Errorf(codes.Internal, "Unable to save user to Database")
 	}
 
 	res := connect.NewResponse(&authv1.RegisterResponse{})
@@ -132,7 +130,6 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 }
 
 func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[authv1.RefreshTokenRequest]) (*connect.Response[authv1.RefreshTokenResponse], error) {
-	// Parse and validate refresh token
 	claims, err := utils.ParseToken(req.Msg.GetRefreshToken())
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid refresh token")
@@ -153,20 +150,17 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 		return nil, status.Errorf(codes.Unauthenticated, "refresh token has been revoked")
 	}
 
-	// Get user from database
 	user, err := h.userStore.GetUserById(ctx, userID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not retrieve user")
 	}
 
-	// Generate new access token
 	//todo Change these time variables to Server Config variables
 	newAccessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, ACCESS_TTL)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate new access token")
 	}
 
-	// Generate new refresh token
 	//todo Change these time variables to Server Config variables
 	newRefreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, REFRESH_TTL)
 	if err != nil {

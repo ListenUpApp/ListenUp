@@ -3,6 +3,7 @@ package validator
 import (
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
 	"connectrpc.com/connect"
+	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -18,7 +19,8 @@ func validateRequest(v interface{}) []*errdetails.BadRequest_FieldViolation {
 
 	var violations []*errdetails.BadRequest_FieldViolation
 
-	validationErrors, ok := err.(validator.ValidationErrors)
+	var validationErrors validator.ValidationErrors
+	ok := errors.As(err, &validationErrors)
 	if !ok {
 		return []*errdetails.BadRequest_FieldViolation{
 			{
