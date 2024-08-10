@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
+	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/dgraph-io/badger/v4"
 	"time"
 )
@@ -18,7 +19,6 @@ type AuthStore interface {
 	CleanupExpiredTokens(ctx context.Context, expirationTime time.Duration) error
 }
 
-// ErrTokenNotFound is returned when a token is not found in the database
 var ErrTokenNotFound = errors.New("token not found")
 
 type BadgerAuthStore struct {
@@ -29,14 +29,12 @@ func NewBadgerAuthStore(db db.DBInterface) *BadgerAuthStore {
 	return &BadgerAuthStore{db: db}
 }
 
-// TokenInfo stores information about a token
 type TokenInfo struct {
 	UserID    string    `json:"user_id"`
 	Token     string    `json:"token"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// StoreRefreshToken stores a refresh token for a user
 func (s *BadgerAuthStore) StoreRefreshToken(ctx context.Context, userID, token string) error {
 	tokenInfo := TokenInfo{
 		UserID:    userID,
@@ -45,6 +43,7 @@ func (s *BadgerAuthStore) StoreRefreshToken(ctx context.Context, userID, token s
 	}
 
 	data, err := json.Marshal(tokenInfo)
+	logger.Error("Failed to marshal token info", "Error", err)
 	if err != nil {
 		return fmt.Errorf("failed to marshal token info: %w", err)
 	}
@@ -55,7 +54,6 @@ func (s *BadgerAuthStore) StoreRefreshToken(ctx context.Context, userID, token s
 	})
 }
 
-// GetRefreshToken retrieves the refresh token for a user
 func (s *BadgerAuthStore) GetRefreshToken(ctx context.Context, userID string) (string, error) {
 	var tokenInfo TokenInfo
 
@@ -63,7 +61,7 @@ func (s *BadgerAuthStore) GetRefreshToken(ctx context.Context, userID string) (s
 		key := []byte(fmt.Sprintf("refresh_token:%s", userID))
 		item, err := txn.Get(key)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if errors.Is(err, badger.ErrKeyNotFound) {
 				return ErrTokenNotFound
 			}
 			return err
@@ -81,12 +79,10 @@ func (s *BadgerAuthStore) GetRefreshToken(ctx context.Context, userID string) (s
 	return tokenInfo.Token, nil
 }
 
-// UpdateRefreshToken updates the refresh token for a user
 func (s *BadgerAuthStore) UpdateRefreshToken(ctx context.Context, userID, newToken string) error {
 	return s.StoreRefreshToken(ctx, userID, newToken) // In BadgerDB, storing overwrites existing value
 }
 
-// DeleteRefreshToken deletes the refresh token for a user
 func (s *BadgerAuthStore) DeleteRefreshToken(ctx context.Context, userID string) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		key := []byte(fmt.Sprintf("refresh_token:%s", userID))
@@ -94,7 +90,6 @@ func (s *BadgerAuthStore) DeleteRefreshToken(ctx context.Context, userID string)
 	})
 }
 
-// CleanupExpiredTokens removes expired refresh tokens
 func (s *BadgerAuthStore) CleanupExpiredTokens(ctx context.Context, expirationTime time.Duration) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions

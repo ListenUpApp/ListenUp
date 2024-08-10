@@ -10,6 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.26.0
 	golang.org/x/net v0.28.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240808171019-573a1156607a
@@ -17,7 +18,10 @@ require (
 	google.golang.org/protobuf v1.34.2
 )
 
-require github.com/golang/protobuf v1.5.4 // indirect
+require (
+	github.com/golang/protobuf v1.5.4 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+)
 
 require (
 	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240809023229-bbccc31051e5.1
@@ -35,7 +39,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

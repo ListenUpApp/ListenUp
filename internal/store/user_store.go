@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
+	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/dgraph-io/badger/v4"
 	"google.golang.org/protobuf/proto"
 	"strings"
@@ -39,8 +40,10 @@ func (g *BadgerUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser)
 		userKey := []byte(userPrefix + user.User.Id)
 		_, err := txn.Get(userKey)
 		if err == nil {
+			logger.Warn("A user with the ID already exists", "User ID", user.User.Id)
 			return fmt.Errorf("user with ID %s already exists", user.User.Id)
 		} else if !errors.Is(err, badger.ErrKeyNotFound) {
+			logger.Error("error checking for existing user", "error", err)
 			return fmt.Errorf("error checking for existing user: %w", err)
 		}
 
@@ -50,22 +53,26 @@ func (g *BadgerUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser)
 		defer it.Close()
 
 		for it.Seek(emailPrefix); it.ValidForPrefix(emailPrefix); it.Next() {
+			logger.Warn("A user with this email already exists", "Email", user.User.Email)
 			return fmt.Errorf("user with email %s already exists", user.User.Email)
 		}
 
 		// If we've reached here, both ID and email are unique
 		authUserBytes, err := proto.Marshal(user)
 		if err != nil {
+			logger.Error("Failed to unmarshal AuthUser", "Error", err)
 			return fmt.Errorf("failed to marshal AuthUser: %w", err)
 		}
 
 		if err := txn.Set(userKey, authUserBytes); err != nil {
+			logger.Error("Failed to set AuthUser in BadgerDB", "Error", err)
 			return fmt.Errorf("failed to set AuthUser in BadgerDB: %w", err)
 		}
 
 		// Create email index
 		emailKey := append(emailPrefix, []byte(user.User.Id)...)
 		if err := txn.Set(emailKey, nil); err != nil {
+			logger.Error("Failed to set email index in BadgerDB", "Error", err)
 			return fmt.Errorf("failed to set email index in BadgerDB: %w", err)
 		}
 
@@ -80,13 +87,16 @@ func (g *BadgerUserStore) GetUserById(ctx context.Context, id string) (*authv1.A
 		item, err := txn.Get([]byte(userPrefix + id))
 		if err != nil {
 			if errors.Is(err, badger.ErrKeyNotFound) {
+				logger.Warn("A user was not found with this ID", "ID", id)
 				return fmt.Errorf("user not found: %w", err)
 			}
+			logger.Error("Failed to set email index in BadgerDB", "Error", err)
 			return fmt.Errorf("failed to get user from BadgerDB: %w", err)
 		}
 
 		return item.Value(func(val []byte) error {
 			if err := proto.Unmarshal(val, &authUser); err != nil {
+				logger.Error("Failed to unmarshal AuthUser", "Error", err)
 				return fmt.Errorf("failed to unmarshal AuthUser: %w", err)
 			}
 			return nil
@@ -113,6 +123,7 @@ func (g *BadgerUserStore) GetUserByEmail(ctx context.Context, email string) (*au
 			userID = string(k[len(prefix):])
 			return nil // Found the first matching email, exit the loop
 		}
+		logger.Warn("Could not find user with the email", "Email", email)
 		return fmt.Errorf("user not found for email: %s", email)
 	})
 
