@@ -24,8 +24,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240809023229-bbccc31051e5.1
-	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240809023229-bbccc31051e5.2
+	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240810230246-7deccf322c9b.1
+	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240810230246-7deccf322c9b.2
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect

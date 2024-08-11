@@ -5,6 +5,7 @@ import (
 	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/server/v1/serverv1connect"
 	"connectrpc.com/connect"
 	"connectrpc.com/grpcreflect"
+	"context"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
@@ -23,14 +24,27 @@ type Server struct {
 }
 
 func NewServer(database db.DBInterface) *Server {
+	ctx := context.Background()
 	serverHandlers := server.NewServerHandler()
+
+	serverStore := store.NewBadgerServerStore(database)
 	authStore := store.NewBadgerAuthStore(database)
 	userStore := store.NewBadgerUserStore(database)
+
+	result, _ := serverStore.GetServer(ctx)
+	if result == nil {
+		// We don't have a server, so create a new one.
+		logger.Info("Setting up server for the first time")
+		err := serverStore.CreateServer(ctx)
+		if err != nil {
+			logger.Error("Could not create a new server record.")
+		}
+	}
 
 	return &Server{
 		db:             database,
 		serverHandlers: serverHandlers,
-		authHandlers:   auth.NewAuthHandlers(userStore, authStore),
+		authHandlers:   auth.NewAuthHandlers(userStore, authStore, serverStore),
 	}
 }
 

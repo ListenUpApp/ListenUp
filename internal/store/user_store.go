@@ -28,10 +28,8 @@ type BadgerUserStore struct {
 	db db.DBInterface
 }
 
-func NewBadgerUserStore(db db.DBInterface) *BadgerUserStore {
-	return &BadgerUserStore{
-		db: db,
-	}
+func NewBadgerUserStore(db db.DBInterface) UserStore {
+	return UserStore(&BadgerUserStore{db: db})
 }
 
 func (g *BadgerUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser) error {

@@ -3,9 +3,11 @@ package auth
 import (
 	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/auth/v1/authv1connect"
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
+	permissionv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/permission/v1"
 	userv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
 	"connectrpc.com/connect"
 	"context"
+	"errors"
 	"github.com/ListenUpApp/ListenUp/internal/common"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
@@ -24,15 +26,17 @@ const (
 )
 
 type AuthHandlers struct {
-	userStore store.UserStore
-	authStore store.AuthStore
+	userStore   store.UserStore
+	authStore   store.AuthStore
+	serverStore store.ServerStore
 	authv1connect.UnimplementedAuthServiceHandler
 }
 
-func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore) *AuthHandlers {
+func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore, serverStore store.ServerStore) *AuthHandlers {
 	return &AuthHandlers{
-		userStore: userStore,
-		authStore: authStore,
+		userStore:   userStore,
+		authStore:   authStore,
+		serverStore: serverStore,
 	}
 }
 
@@ -54,16 +58,14 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 	}
 
 	// Generate access token
-	//todo Change these time variables to Server Config variables
-	accessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
+	accessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, ACCESS_TTL)
 	if err != nil {
 		logger.Error("Could not generate access token", "Error", err)
 		return nil, status.Errorf(codes.Internal, "could not generate access token")
 	}
 
 	// Generate refresh token
-	//todo Change these time variables to Server Config variables
-	refreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, time.Hour)
+	refreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, REFRESH_TTL)
 	if err != nil {
 		logger.Error("Could not generate refresh token", "Error", err)
 		return nil, status.Errorf(codes.Internal, "could not generate refresh token")
@@ -93,19 +95,36 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 	// Check if the user already exists.
 	_, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err == nil {
-		return nil, status.Errorf(codes.AlreadyExists, "A User with that username already exists")
+		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("A User with that username already exists"))
 	}
 
-	// TODO check if the server is in Init Mode or not to define the root user.
+	server, err := h.serverStore.GetServer(ctx)
+
+	if err != nil {
+		logger.Error("Unable to retrieve an instance of the server.")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("Could not retrieve server"))
+	}
+	if server == nil || server.Server == nil {
+		logger.Error("Server or Server.Server is nil.")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("Invalid server state"))
+	}
+
+	var role = permissionv1.Role_ROLE_UNSPECIFIED
+	if !server.Server.IsSetUp {
+		role = permissionv1.Role_ROLE_ROOT
+	} else {
+		role = permissionv1.Role_ROLE_USER
+	}
 
 	id, err := gonanoid.Generate("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 8)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Could not generate ID")
+		logger.Error("Could not generate ID")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("Could not generate ID"))
 	}
 
 	hashedPassword, err := utils.HashPassword(req.Msg.GetPassword())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to hash password")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("Failed to hash password"))
 	}
 	newUser := userv1.User{
 		Id:                  id,
@@ -113,19 +132,29 @@ func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[au
 		Email:               req.Msg.GetEmail(),
 		CreatedAt:           timestamppb.Now(),
 		LastLogin:           timestamppb.Now(),
-		Role:                0,
+		Role:                role,
 		OverridePermissions: nil,
 	}
 
-	createUserParms := authv1.AuthUser{
+	createUserParams := authv1.AuthUser{
 		HashedPassword: hashedPassword,
 		User:           &newUser,
 	}
-	err = h.userStore.CreateUser(ctx, &createUserParms)
-	// TODO check if this was the root user let's change the Init flag.
+	err = h.userStore.CreateUser(ctx, &createUserParams)
 	if err != nil {
+		logger.Error("Could not Save user to the database", "Email", req.Msg.GetEmail())
+		return nil, connect.NewError(connect.CodeInternal, errors.New("Unable to save user to Database"))
+	}
 
-		return nil, status.Errorf(codes.Internal, "Unable to save user to Database")
+	if !server.Server.IsSetUp {
+		err := h.serverStore.UpdateServer(ctx, func(server *authv1.AuthServer) error {
+			server.Server.IsSetUp = true
+			return nil
+		})
+		if err != nil {
+			logger.Error("Could not update server setup status.")
+			return nil, connect.NewError(connect.CodeInternal, errors.New("Could not update server setup status"))
+		}
 	}
 
 	res := connect.NewResponse(&authv1.RegisterResponse{})
@@ -162,14 +191,12 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 		return nil, status.Errorf(codes.Internal, "could not retrieve user")
 	}
 
-	//todo Change these time variables to Server Config variables
 	newAccessToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, ACCESS_TTL)
 	if err != nil {
 		logger.Error("Could not generate new access token")
 		return nil, status.Errorf(codes.Internal, "could not generate new access token")
 	}
 
-	//todo Change these time variables to Server Config variables
 	newRefreshToken, err := utils.GenerateToken(user.User.Id, int32(user.User.Role), user.User.Email, REFRESH_TTL)
 	if err != nil {
 		logger.Error("Could not generate new refresh token")
