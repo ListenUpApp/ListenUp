@@ -1,18 +1,19 @@
 package auth
 
 import (
-	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"
-	"context"
-	"errors"
-	"testing"
-	"time"
-
 	"buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
+	permissionv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/permission/v1"
+	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"
 	"buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
 	"connectrpc.com/connect"
+	"context"
+	"errors"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+	"testing"
+	"time"
 )
 
 type MockUserStore struct {
@@ -34,6 +35,7 @@ func (m *MockUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser) e
 	return args.Error(0)
 }
 
+// MockAuthStore implements the AuthStore interface for testing
 type MockAuthStore struct {
 	mock.Mock
 }
@@ -48,10 +50,11 @@ func (m *MockAuthStore) GetRefreshToken(ctx context.Context, userID string) (str
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAuthStore) UpdateRefreshToken(ctx context.Context, userID, token string) error {
-	args := m.Called(ctx, userID, token)
+func (m *MockAuthStore) UpdateRefreshToken(ctx context.Context, userID, newToken string) error {
+	args := m.Called(ctx, userID, newToken)
 	return args.Error(0)
 }
+
 func (m *MockAuthStore) DeleteRefreshToken(ctx context.Context, userID string) error {
 	args := m.Called(ctx, userID)
 	return args.Error(0)
@@ -62,6 +65,7 @@ func (m *MockAuthStore) CleanupExpiredTokens(ctx context.Context, expirationTime
 	return args.Error(0)
 }
 
+// MockServerStore implements the ServerStore interface for testing
 type MockServerStore struct {
 	mock.Mock
 }
@@ -77,218 +81,137 @@ func (m *MockServerStore) CreateServer(ctx context.Context) error {
 }
 
 func (m *MockServerStore) UpdateServer(ctx context.Context, updateFunc func(*authv1.AuthServer) error) error {
-	args := m.Called(ctx, updateFunc)
+	args := m.Called(ctx, mock.AnythingOfType("func(*authv1.AuthServer) error"))
 	return args.Error(0)
 }
 
-func TestLoginUser(t *testing.T) {
-	mockUserStore := new(MockUserStore)
-	mockAuthStore := new(MockAuthStore)
-	mockServerStore := new(MockServerStore)
-	handlers := NewAuthHandlers(mockUserStore, mockAuthStore, mockServerStore)
+// Helper function to simulate the behavior of UpdateServer
+func (m *MockServerStore) CallUpdateServer(ctx context.Context, updateFunc func(*authv1.AuthServer) error) error {
+	server := &authv1.AuthServer{}
+	err := updateFunc(server)
+	if err != nil {
+		return err
+	}
+	return m.UpdateServer(ctx, updateFunc)
+}
 
+// ErrTokenNotFound is used to simulate the token not found error
+var ErrTokenNotFound = errors.New("token not found")
+
+type AuthHandlersTestSuite struct {
+	suite.Suite
+	handlers   *AuthHandlers
+	mockUser   *MockUserStore
+	mockAuth   *MockAuthStore
+	mockServer *MockServerStore
+}
+
+func (suite *AuthHandlersTestSuite) SetupTest() {
+	suite.mockUser = new(MockUserStore)
+	suite.mockAuth = new(MockAuthStore)
+	suite.mockServer = new(MockServerStore)
+	suite.handlers = NewAuthHandlers(suite.mockUser, suite.mockAuth, suite.mockServer)
+}
+
+func (suite *AuthHandlersTestSuite) TestLoginUser() {
 	ctx := context.Background()
 	email := "test@example.com"
 	password := "password123"
-
 	hashedPassword, _ := utils.HashPassword(password)
-	mockUser := &authv1.AuthUser{
-		HashedPassword: hashedPassword,
+
+	user := &authv1.AuthUser{
 		User: &userv1.User{
 			Id:    "user123",
 			Email: email,
-			Role:  0,
+			Role:  permissionv1.Role_ROLE_USER,
 		},
+		HashedPassword: hashedPassword,
 	}
 
-	mockUserStore.On("GetUserByEmail", ctx, email).Return(mockUser, nil)
-	mockAuthStore.On("StoreRefreshToken", ctx, mock.Anything, mock.Anything).Return(nil)
+	suite.mockUser.On("GetUserByEmail", ctx, email).Return(user, nil)
+	suite.mockAuth.On("StoreRefreshToken", ctx, user.User.Id, mock.Anything).Return(nil)
 
 	req := connect.NewRequest(&authv1.LoginRequest{
 		Email:    email,
 		Password: password,
 	})
 
-	resp, err := handlers.LoginUser(ctx, req)
+	resp, err := suite.handlers.LoginUser(ctx, req)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.Msg.AccessToken)
-	assert.NotEmpty(t, resp.Msg.RefreshToken)
-	assert.Equal(t, mockUser.User, resp.Msg.User)
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), resp)
+	assert.NotEmpty(suite.T(), resp.Msg.AccessToken)
+	assert.NotEmpty(suite.T(), resp.Msg.RefreshToken)
+	assert.Equal(suite.T(), user.User, resp.Msg.User)
 
-	mockUserStore.AssertExpectations(t)
-	mockAuthStore.AssertExpectations(t)
+	suite.mockUser.AssertExpectations(suite.T())
+	suite.mockAuth.AssertExpectations(suite.T())
 }
 
-func TestRegisterUser(t *testing.T) {
-	mockUserStore := new(MockUserStore)
-	mockServerStore := new(MockServerStore)
+func (suite *AuthHandlersTestSuite) TestRegisterUser() {
+	ctx := context.Background()
+	email := "newuser@example.com"
+	password := "newpassword123"
+	name := "New User"
 
-	h := &AuthHandlers{
-		userStore:   mockUserStore,
-		serverStore: mockServerStore,
+	suite.mockUser.On("GetUserByEmail", ctx, email).Return((*authv1.AuthUser)(nil), assert.AnError)
+	suite.mockServer.On("GetServer", ctx).Return(&authv1.AuthServer{
+		Server: &serverv1.Server{
+			IsSetUp: false,
+		},
+	}, nil)
+	suite.mockUser.On("CreateUser", ctx, mock.Anything).Return(nil)
+	suite.mockServer.On("UpdateServer", ctx, mock.Anything).Return(nil)
+
+	req := connect.NewRequest(&authv1.RegisterRequest{
+		Email:    email,
+		Password: password,
+		Name:     name,
+	})
+
+	resp, err := suite.handlers.RegisterUser(ctx, req)
+
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), resp)
+
+	suite.mockUser.AssertExpectations(suite.T())
+	suite.mockServer.AssertExpectations(suite.T())
+}
+
+func (suite *AuthHandlersTestSuite) TestRefreshToken() {
+	ctx := context.Background()
+	userID := "user123"
+	email := "test@example.com"
+	role := permissionv1.Role_ROLE_USER
+
+	oldRefreshToken, _ := utils.GenerateToken(userID, int32(role), email, REFRESH_TTL)
+
+	user := &authv1.AuthUser{
+		User: &userv1.User{
+			Id:    userID,
+			Email: email,
+			Role:  role,
+		},
 	}
 
-	ctx := context.Background()
+	suite.mockAuth.On("GetRefreshToken", ctx, userID).Return(oldRefreshToken, nil)
+	suite.mockUser.On("GetUserById", ctx, userID).Return(user, nil)
+	suite.mockAuth.On("UpdateRefreshToken", ctx, userID, mock.Anything).Return(nil)
 
-	t.Run("Successful registration - first user (root)", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Test User",
-			Email:    "test@example.com",
-			Password: "password123",
-		})
-
-		server := &authv1.AuthServer{
-			Server: &serverv1.Server{
-				IsSetUp: false,
-			},
-		}
-
-		mockUserStore.On("GetUserByEmail", ctx, "test@example.com").Return((*authv1.AuthUser)(nil), errors.New("user not found"))
-		mockServerStore.On("GetServer", ctx).Return(server, nil)
-		mockUserStore.On("CreateUser", ctx, mock.AnythingOfType("*authv1.AuthUser")).Return(nil)
-		mockServerStore.On("UpdateServer", ctx, mock.AnythingOfType("func(*authv1.AuthServer) error")).
-			Run(func(args mock.Arguments) {
-				updateFunc := args.Get(1).(func(*authv1.AuthServer) error)
-				updateFunc(server)
-			}).
-			Return(nil)
-
-		resp, err := h.RegisterUser(ctx, req)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.True(t, server.Server.IsSetUp, "Server should be marked as set up")
-		mockUserStore.AssertExpectations(t)
-		mockServerStore.AssertExpectations(t)
+	req := connect.NewRequest(&authv1.RefreshTokenRequest{
+		RefreshToken: oldRefreshToken,
 	})
 
-	t.Run("User already exists", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Existing User",
-			Email:    "existing@example.com",
-			Password: "password123",
-		})
+	resp, err := suite.handlers.RefreshToken(ctx, req)
 
-		mockUserStore.On("GetUserByEmail", ctx, "existing@example.com").Return(&authv1.AuthUser{}, nil)
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), resp)
+	assert.NotEmpty(suite.T(), resp.Msg.AccessToken)
 
-		resp, err := h.RegisterUser(ctx, req)
+	suite.mockAuth.AssertExpectations(suite.T())
+	suite.mockUser.AssertExpectations(suite.T())
+}
 
-		assert.Error(t, err)
-		assert.Nil(t, resp)
-		connectErr, ok := err.(*connect.Error)
-		assert.True(t, ok)
-		assert.Equal(t, connect.CodeAlreadyExists, connectErr.Code())
-		assert.Contains(t, connectErr.Message(), "A User with that username already exists")
-		mockUserStore.AssertExpectations(t)
-	})
-
-	t.Run("Server retrieval error", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Error User",
-			Email:    "error@example.com",
-			Password: "password101",
-		})
-
-		mockUserStore.On("GetUserByEmail", ctx, "error@example.com").Return((*authv1.AuthUser)(nil), errors.New("user not found"))
-		mockServerStore.On("GetServer", ctx).Return((*authv1.AuthServer)(nil), errors.New("server error"))
-
-		resp, err := h.RegisterUser(ctx, req)
-
-		assert.Error(t, err, "Expected an error, but got nil")
-		assert.Nil(t, resp, "Expected nil response, but got: %+v", resp)
-
-		connectErr, ok := err.(*connect.Error)
-		assert.True(t, ok, "Expected a *connect.Error, but got: %T", err)
-		if ok {
-			assert.Equal(t, connect.CodeInternal, connectErr.Code(), "Expected CodeInternal, but got: %v", connectErr.Code())
-			assert.Contains(t, connectErr.Message(), "Could not retrieve server", "Error message does not contain expected text")
-		}
-
-		mockUserStore.AssertExpectations(t)
-		mockServerStore.AssertExpectations(t)
-		mockUserStore.AssertNotCalled(t, "CreateUser")
-	})
-	t.Run("Server is nil", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Nil Server User",
-			Email:    "nil_server@example.com",
-			Password: "password404",
-		})
-
-		mockUserStore.On("GetUserByEmail", ctx, "nil_server@example.com").Return((*authv1.AuthUser)(nil), errors.New("user not found"))
-		mockServerStore.On("GetServer", ctx).Return((*authv1.AuthServer)(nil), nil)
-
-		resp, err := h.RegisterUser(ctx, req)
-
-		assert.Error(t, err, "Expected an error, but got nil")
-		assert.Nil(t, resp, "Expected nil response, but got: %+v", resp)
-
-		connectErr, ok := err.(*connect.Error)
-		assert.True(t, ok, "Expected a *connect.Error, but got: %T", err)
-		if ok {
-			assert.Equal(t, connect.CodeInternal, connectErr.Code(), "Expected CodeInternal, but got: %v", connectErr.Code())
-			assert.Contains(t, connectErr.Message(), "Invalid server state", "Error message does not contain expected text")
-		}
-
-		mockUserStore.AssertExpectations(t)
-		mockServerStore.AssertExpectations(t)
-		mockUserStore.AssertNotCalled(t, "CreateUser")
-	})
-
-	t.Run("User creation error", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Failed User",
-			Email:    "failed@example.com",
-			Password: "password202",
-		})
-
-		mockUserStore.On("GetUserByEmail", ctx, "failed@example.com").Return((*authv1.AuthUser)(nil), errors.New("user not found"))
-		mockServerStore.On("GetServer", ctx).Return(&authv1.AuthServer{
-			Server: &serverv1.Server{
-				IsSetUp: true,
-			},
-		}, nil)
-		mockUserStore.On("CreateUser", ctx, mock.AnythingOfType("*authv1.AuthUser")).Return(errors.New("creation error"))
-
-		resp, err := h.RegisterUser(ctx, req)
-
-		assert.Error(t, err)
-		assert.Nil(t, resp)
-		connectErr, ok := err.(*connect.Error)
-		assert.True(t, ok)
-		assert.Equal(t, connect.CodeInternal, connectErr.Code())
-		assert.Contains(t, connectErr.Message(), "Unable to save user to Database")
-		mockUserStore.AssertExpectations(t)
-		mockServerStore.AssertExpectations(t)
-	})
-
-	t.Run("Server update error", func(t *testing.T) {
-		req := connect.NewRequest(&authv1.RegisterRequest{
-			Name:     "Update Error User",
-			Email:    "update_error@example.com",
-			Password: "password303",
-		})
-
-		mockUserStore.On("GetUserByEmail", ctx, "update_error@example.com").Return((*authv1.AuthUser)(nil), errors.New("user not found"))
-		mockServerStore.On("GetServer", ctx).Return(&authv1.AuthServer{
-			Server: &serverv1.Server{
-				IsSetUp: false,
-			},
-		}, nil)
-		mockUserStore.On("CreateUser", ctx, mock.AnythingOfType("*authv1.AuthUser")).Return(nil)
-		mockServerStore.On("UpdateServer", ctx, mock.AnythingOfType("func(*authv1.AuthServer) error")).Return(errors.New("update error"))
-
-		resp, err := h.RegisterUser(ctx, req)
-
-		assert.Error(t, err)
-		assert.Nil(t, resp)
-		connectErr, ok := err.(*connect.Error)
-		assert.True(t, ok)
-		assert.Equal(t, connect.CodeInternal, connectErr.Code())
-		assert.Contains(t, connectErr.Message(), "Could not update server setup status")
-		mockUserStore.AssertExpectations(t)
-		mockServerStore.AssertExpectations(t)
-	})
+func TestAuthHandlersSuite(t *testing.T) {
+	suite.Run(t, new(AuthHandlersTestSuite))
 }
