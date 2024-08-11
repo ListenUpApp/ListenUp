@@ -1,7 +1,7 @@
-buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240809023229-bbccc31051e5.1 h1:Q9ts8WuegRB/7jrbhbEp0uuY2tJlCeeOHlC6/pQhaJ4=
-buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240809023229-bbccc31051e5.1/go.mod h1:AQWb/qZJO/Srlz6j4w22W952lO7zCvAV5TjuzIvusPc=
-buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240809023229-bbccc31051e5.2 h1:+TdKja7X6/jETFg7YX4r1+6SQHKSFvfhMPylFojEP1Y=
-buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240809023229-bbccc31051e5.2/go.mod h1:3IagWjualH/SNzFB7w5XPeIMWG72acqRMIiWFIDDzX8=
+buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240810230246-7deccf322c9b.1 h1:sqa+zbHaezGnNV5M1/SU8q4ebre3bkBixzfbS4NheAc=
+buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240810230246-7deccf322c9b.1/go.mod h1:yv+6CxiTGnn1AtYbLUAMW1wGIjebjiaseE7N+Yhe6lI=
+buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240810230246-7deccf322c9b.2 h1:Rz94wBIdhi0rOjze/HrQnQrUf9KTKEJvBwvmcuwIHq0=
+buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240810230246-7deccf322c9b.2/go.mod h1:3IagWjualH/SNzFB7w5XPeIMWG72acqRMIiWFIDDzX8=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 connectrpc.com/connect v1.16.2 h1:ybd6y+ls7GOlb7Bh5C8+ghA6SvCBajHwxssO2CGFjqE=
 connectrpc.com/connect v1.16.2/go.mod h1:n2kgwskMHXC+lVqb18wngEpF95ldBHXjZYJussz5FRc=
