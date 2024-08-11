@@ -31,8 +31,8 @@ func NewServer(database db.DBInterface) *Server {
 	authStore := store.NewBadgerAuthStore(database)
 	userStore := store.NewBadgerUserStore(database)
 
-	_, err := serverStore.GetServer(ctx)
-	if err != nil {
+	result, _ := serverStore.GetServer(ctx)
+	if result == nil {
 		// We don't have a server, so create a new one.
 		logger.Info("Setting up server for the first time")
 		err := serverStore.CreateServer(ctx)

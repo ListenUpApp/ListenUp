@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestBadgerServerStore_CreateServer(t *testing.T) {
+func TestCreateServer(t *testing.T) {
 	testDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
@@ -27,7 +27,7 @@ func TestBadgerServerStore_CreateServer(t *testing.T) {
 	})
 }
 
-func TestBadgerServerStore_GetServer(t *testing.T) {
+func TestGetServer(t *testing.T) {
 	testDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
@@ -51,7 +51,7 @@ func TestBadgerServerStore_GetServer(t *testing.T) {
 	})
 }
 
-func TestBadgerServerStore_UpdateServer(t *testing.T) {
+func TestUpdateServer(t *testing.T) {
 	testDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
@@ -85,7 +85,7 @@ func TestBadgerServerStore_UpdateServer(t *testing.T) {
 	})
 }
 
-func TestBadgerServerStore_FullFlow(t *testing.T) {
+func TestFullFlow(t *testing.T) {
 	testDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
