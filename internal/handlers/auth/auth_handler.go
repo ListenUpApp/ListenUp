@@ -11,7 +11,6 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
-	"github.com/ListenUpApp/ListenUp/internal/validator"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -39,11 +38,11 @@ func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore, serve
 	}
 }
 
-func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
-	violations := validator.ValidateLoginRequest(req)
-	if violations != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid login request: %v", violations)
-	}
+func (h *AuthHandlers) Login(ctx context.Context, req *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
+	//violations := validator.ValidateLoginRequest(req)
+	//if violations != nil {
+	//	return nil, status.Errorf(codes.InvalidArgument, "Invalid login request: %v", violations)
+	//}
 
 	user, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())
 	if err != nil {

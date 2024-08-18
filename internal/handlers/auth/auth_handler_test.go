@@ -136,7 +136,7 @@ func (suite *AuthHandlersTestSuite) TestLoginUser() {
 		Password: password,
 	})
 
-	resp, err := suite.handlers.LoginUser(ctx, req)
+	resp, err := suite.handlers.Login(ctx, req)
 
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), resp)
