@@ -25,12 +25,12 @@ type Server struct {
 
 func NewServer(database db.DBInterface) *Server {
 	ctx := context.Background()
-	serverHandlers := server.NewServerHandler()
 
 	serverStore := store.NewBadgerServerStore(database)
 	authStore := store.NewBadgerAuthStore(database)
 	userStore := store.NewBadgerUserStore(database)
 
+	serverHandlers := server.NewServerHandler(serverStore)
 	result, _ := serverStore.GetServer(ctx)
 	if result == nil {
 		// We don't have a server, so create a new one.

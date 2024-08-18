@@ -13,7 +13,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.26.0
 	golang.org/x/net v0.28.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240808171019-573a1156607a
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 )
@@ -24,8 +24,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240810230246-7deccf322c9b.1
-	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240810230246-7deccf322c9b.2
+	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240817182909-9ac25321bfd6.1
+	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240817182909-9ac25321bfd6.2
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
