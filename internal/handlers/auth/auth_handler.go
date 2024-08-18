@@ -8,7 +8,6 @@ import (
 	"connectrpc.com/connect"
 	"context"
 	"errors"
-	"github.com/ListenUpApp/ListenUp/internal/common"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
@@ -86,11 +85,11 @@ func (h *AuthHandlers) LoginUser(ctx context.Context, req *connect.Request[authv
 	return res, nil
 }
 
-func (h *AuthHandlers) RegisterUser(ctx context.Context, req *connect.Request[authv1.RegisterRequest]) (*connect.Response[authv1.RegisterResponse], error) {
-	violations := validator.ValidateRegisterRequest(req)
-	if len(violations) > 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, common.InvalidArgumentError(violations))
-	}
+func (h *AuthHandlers) Register(ctx context.Context, req *connect.Request[authv1.RegisterRequest]) (*connect.Response[authv1.RegisterResponse], error) {
+	//violations := validator.ValidateRegisterRequest(req)
+	//if len(violations) > 0 {
+	//	return nil, connect.NewError(connect.CodeInvalidArgument, common.InvalidArgumentError(violations))
+	//}
 
 	// Check if the user already exists.
 	_, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())

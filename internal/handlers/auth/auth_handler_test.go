@@ -169,7 +169,7 @@ func (suite *AuthHandlersTestSuite) TestRegisterUser() {
 		Name:     name,
 	})
 
-	resp, err := suite.handlers.RegisterUser(ctx, req)
+	resp, err := suite.handlers.Register(ctx, req)
 
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), resp)
