@@ -2,6 +2,7 @@ package store
 
 import (
 	libraryv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/library/v1"
+	"errors"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/dgraph-io/badger/v4"
@@ -33,7 +34,7 @@ func (s *BadgerLibraryStore) CreateLibrary(library *libraryv1.Library) error {
 		_, err := txn.Get(key)
 		if err == nil {
 			return fmt.Errorf("library with ID %s already exists", library.Id)
-		} else if err != badger.ErrKeyNotFound {
+		} else if !errors.Is(badger.ErrKeyNotFound, err) {
 			return fmt.Errorf("error checking for existing library: %v", err)
 		}
 
@@ -56,7 +57,7 @@ func (s *BadgerLibraryStore) GetLibraryByID(id string) (*libraryv1.Library, erro
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(keyPrefixLibrary + id))
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if errors.Is(badger.ErrKeyNotFound, err) {
 				return fmt.Errorf("library not found: %s", id)
 			}
 			return fmt.Errorf("error retrieving library: %v", err)
