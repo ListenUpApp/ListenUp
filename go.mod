@@ -1,6 +1,6 @@
 module github.com/ListenUpApp/ListenUp
 
-go 1.22.6
+go 1.23.0
 
 require (
 	connectrpc.com/connect v1.16.2
@@ -13,7 +13,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.26.0
 	golang.org/x/net v0.28.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240820151423-278611b39280
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 )
@@ -24,8 +24,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240817182909-9ac25321bfd6.1
-	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240817182909-9ac25321bfd6.2
+	buf.build/gen/go/listenup/listenup/connectrpc/go v1.16.2-20240821010310-234c44b0c9d7.1
+	buf.build/gen/go/listenup/listenup/protocolbuffers/go v1.34.2-20240821010310-234c44b0c9d7.2
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
