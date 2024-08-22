@@ -12,6 +12,9 @@ import (
 type LibraryStore interface {
 	CreateLibrary(library *libraryv1.Library) error
 	GetLibraryByID(id string) (*libraryv1.Library, error)
+	AddDirectory(libraryID string, directory *libraryv1.Directory) error
+	GetAllLibraries() ([]*libraryv1.Library, error)
+	GetLibrariesByIDs(ids []string) ([]*libraryv1.Library, error)
 }
 
 type BadgerLibraryStore struct {
@@ -25,6 +28,7 @@ func NewBadgerLibraryStore(dbInstance db.DBInterface) LibraryStore {
 const (
 	keyPrefixLibrary      = "library:"
 	keyPrefixIndexLibrary = "index:library:"
+	keyPrefixUserLibrary  = "user:library:"
 )
 
 func (s *BadgerLibraryStore) CreateLibrary(library *libraryv1.Library) error {
@@ -52,6 +56,69 @@ func (s *BadgerLibraryStore) CreateLibrary(library *libraryv1.Library) error {
 	})
 }
 
+func (s *BadgerLibraryStore) GetAllLibraries() ([]*libraryv1.Library, error) {
+	var libraries []*libraryv1.Library
+
+	err := s.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte(keyPrefixLibrary)
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			var library libraryv1.Library
+			err := item.Value(func(val []byte) error {
+				return proto.Unmarshal(val, &library)
+			})
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal library: %v", err)
+			}
+			libraries = append(libraries, &library)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return libraries, nil
+}
+
+func (s *BadgerLibraryStore) GetLibrariesByIDs(ids []string) ([]*libraryv1.Library, error) {
+	var libraries []*libraryv1.Library
+
+	err := s.db.View(func(txn *badger.Txn) error {
+		for _, id := range ids {
+			item, err := txn.Get([]byte(keyPrefixLibrary + id))
+			if err != nil {
+				if errors.Is(badger.ErrKeyNotFound, err) {
+					continue
+				}
+				return fmt.Errorf("error accessing library %s: %v", id, err)
+			}
+
+			var library libraryv1.Library
+			err = item.Value(func(val []byte) error {
+				return proto.Unmarshal(val, &library)
+			})
+			if err != nil {
+				return fmt.Errorf("error unmarshaling library %s: %v", id, err)
+			}
+
+			libraries = append(libraries, &library)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return libraries, nil
+}
+
 func (s *BadgerLibraryStore) GetLibraryByID(id string) (*libraryv1.Library, error) {
 	var library libraryv1.Library
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -68,6 +135,52 @@ func (s *BadgerLibraryStore) GetLibraryByID(id string) (*libraryv1.Library, erro
 		})
 	})
 
+	if err != nil {
+		return nil, err
+	}
+
+	return &library, nil
+}
+
+func (s *BadgerLibraryStore) AddDirectory(libraryID string, directory *libraryv1.Directory) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		// Get the existing library
+		library, err := s.getLibraryByIDTxn(txn, libraryID)
+		if err != nil {
+			return err
+		}
+
+		// Add the new directory
+		library.Directories = append(library.Directories, directory)
+
+		// Marshal and save the updated library
+		data, err := proto.Marshal(library)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated library: %v", err)
+		}
+
+		key := []byte(keyPrefixLibrary + libraryID)
+		if err := txn.Set(key, data); err != nil {
+			return fmt.Errorf("failed to save updated library: %v", err)
+		}
+
+		return nil
+	})
+}
+
+func (s *BadgerLibraryStore) getLibraryByIDTxn(txn *badger.Txn, id string) (*libraryv1.Library, error) {
+	var library libraryv1.Library
+	item, err := txn.Get([]byte(keyPrefixLibrary + id))
+	if err != nil {
+		if errors.Is(badger.ErrKeyNotFound, err) {
+			return nil, fmt.Errorf("library not found: %s", id)
+		}
+		return nil, fmt.Errorf("error retrieving library: %v", err)
+	}
+
+	err = item.Value(func(val []byte) error {
+		return proto.Unmarshal(val, &library)
+	})
 	if err != nil {
 		return nil, err
 	}
