@@ -5,7 +5,6 @@ import (
 	permissionv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/permission/v1"
 	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"
 	"buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
-	"connectrpc.com/connect"
 	"context"
 	"errors"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
@@ -131,18 +130,18 @@ func (suite *AuthHandlersTestSuite) TestLoginUser() {
 	suite.mockUser.On("GetUserByEmail", ctx, email).Return(user, nil)
 	suite.mockAuth.On("StoreRefreshToken", ctx, user.User.Id, mock.Anything).Return(nil)
 
-	req := connect.NewRequest(&authv1.LoginRequest{
+	req := &authv1.LoginRequest{
 		Email:    email,
 		Password: password,
-	})
+	}
 
 	resp, err := suite.handlers.Login(ctx, req)
 
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), resp)
-	assert.NotEmpty(suite.T(), resp.Msg.AccessToken)
-	assert.NotEmpty(suite.T(), resp.Msg.RefreshToken)
-	assert.Equal(suite.T(), user.User, resp.Msg.User)
+	assert.NotEmpty(suite.T(), resp.AccessToken)
+	assert.NotEmpty(suite.T(), resp.RefreshToken)
+	assert.Equal(suite.T(), user.User, resp.User)
 
 	suite.mockUser.AssertExpectations(suite.T())
 	suite.mockAuth.AssertExpectations(suite.T())
@@ -163,11 +162,11 @@ func (suite *AuthHandlersTestSuite) TestRegisterUser() {
 	suite.mockUser.On("CreateUser", ctx, mock.Anything).Return(nil)
 	suite.mockServer.On("UpdateServer", ctx, mock.Anything).Return(nil)
 
-	req := connect.NewRequest(&authv1.RegisterRequest{
+	req := &authv1.RegisterRequest{
 		Email:    email,
 		Password: password,
 		Name:     name,
-	})
+	}
 
 	resp, err := suite.handlers.Register(ctx, req)
 
@@ -198,15 +197,15 @@ func (suite *AuthHandlersTestSuite) TestRefreshToken() {
 	suite.mockUser.On("GetUserById", ctx, userID).Return(user, nil)
 	suite.mockAuth.On("UpdateRefreshToken", ctx, userID, mock.Anything).Return(nil)
 
-	req := connect.NewRequest(&authv1.RefreshTokenRequest{
+	req := &authv1.RefreshTokenRequest{
 		RefreshToken: oldRefreshToken,
-	})
+	}
 
 	resp, err := suite.handlers.RefreshToken(ctx, req)
 
 	assert.NoError(suite.T(), err)
 	assert.NotNil(suite.T(), resp)
-	assert.NotEmpty(suite.T(), resp.Msg.AccessToken)
+	assert.NotEmpty(suite.T(), resp.AccessToken)
 
 	suite.mockAuth.AssertExpectations(suite.T())
 	suite.mockUser.AssertExpectations(suite.T())

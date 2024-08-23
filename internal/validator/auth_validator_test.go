@@ -5,70 +5,59 @@ import (
 	"testing"
 
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestValidateRegisterRequest(t *testing.T) {
 	tests := []struct {
 		name          string
-		input         *connect.Request[authv1.RegisterRequest]
+		input         *authv1.RegisterRequest
 		expectedError bool
 		errorFields   []string
 	}{
 		{
 			name: "Valid request",
-			input: &connect.Request[authv1.RegisterRequest]{
-				Msg: &authv1.RegisterRequest{
-					Email:    "test@example.com",
-					Name:     "John Doe",
-					Password: "password123",
-				},
+			input: &authv1.RegisterRequest{
+				Email:    "test@example.com",
+				Name:     "John Doe",
+				Password: "password123",
 			},
 			expectedError: false,
 		},
 		{
 			name: "Invalid email",
-			input: &connect.Request[authv1.RegisterRequest]{
-				Msg: &authv1.RegisterRequest{
-					Email:    "invalid-email",
-					Name:     "John Doe",
-					Password: "password123",
-				},
+			input: &authv1.RegisterRequest{
+				Email:    "invalid-email",
+				Name:     "John Doe",
+				Password: "password123",
 			},
 			expectedError: true,
 			errorFields:   []string{"Email"},
 		},
 		{
 			name: "Missing name",
-			input: &connect.Request[authv1.RegisterRequest]{
-				Msg: &authv1.RegisterRequest{
-					Email:    "test@example.com",
-					Password: "password123",
-				},
+			input: &authv1.RegisterRequest{
+				Email:    "test@example.com",
+				Password: "password123",
 			},
 			expectedError: true,
 			errorFields:   []string{"Name"},
 		},
 		{
 			name: "Password too short",
-			input: &connect.Request[authv1.RegisterRequest]{
-				Msg: &authv1.RegisterRequest{
-					Email:    "test@example.com",
-					Name:     "John Doe",
-					Password: "short",
-				},
+			input: &authv1.RegisterRequest{
+				Email:    "test@example.com",
+				Name:     "John Doe",
+				Password: "short",
 			},
 			expectedError: true,
 			errorFields:   []string{"Password"},
 		},
 		{
 			name: "Multiple errors",
-			input: &connect.Request[authv1.RegisterRequest]{
-				Msg: &authv1.RegisterRequest{
-					Email:    "invalid-email",
-					Password: "short",
-				},
+			input: &authv1.RegisterRequest{
+				Email:    "invalid-email",
+				Password: "short",
 			},
 			expectedError: true,
 			errorFields:   []string{"Email", "Name", "Password"},
@@ -94,49 +83,41 @@ func TestValidateRegisterRequest(t *testing.T) {
 func TestValidateLoginRequest(t *testing.T) {
 	tests := []struct {
 		name          string
-		input         *connect.Request[authv1.LoginRequest]
+		input         *authv1.LoginRequest
 		expectedError bool
 		errorFields   []string
 	}{
 		{
 			name: "Valid request",
-			input: &connect.Request[authv1.LoginRequest]{
-				Msg: &authv1.LoginRequest{
-					Email:    "test@example.com",
-					Password: "password123",
-				},
+			input: &authv1.LoginRequest{
+				Email:    "test@example.com",
+				Password: "password123",
 			},
 			expectedError: false,
 		},
 		{
 			name: "Invalid email",
-			input: &connect.Request[authv1.LoginRequest]{
-				Msg: &authv1.LoginRequest{
-					Email:    "invalid-email",
-					Password: "password123",
-				},
+			input: &authv1.LoginRequest{
+				Email:    "invalid-email",
+				Password: "password123",
 			},
 			expectedError: true,
 			errorFields:   []string{"Email"},
 		},
 		{
 			name: "Password too short",
-			input: &connect.Request[authv1.LoginRequest]{
-				Msg: &authv1.LoginRequest{
-					Email:    "test@example.com",
-					Password: "short",
-				},
+			input: &authv1.LoginRequest{
+				Email:    "test@example.com",
+				Password: "short",
 			},
 			expectedError: true,
 			errorFields:   []string{"Password"},
 		},
 		{
 			name: "Multiple errors",
-			input: &connect.Request[authv1.LoginRequest]{
-				Msg: &authv1.LoginRequest{
-					Email:    "invalid-email",
-					Password: "short",
-				},
+			input: &authv1.LoginRequest{
+				Email:    "invalid-email",
+				Password: "short",
 			},
 			expectedError: true,
 			errorFields:   []string{"Email", "Password"},

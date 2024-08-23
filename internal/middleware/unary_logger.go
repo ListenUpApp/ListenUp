@@ -1,51 +1,53 @@
 package middleware
 
 import (
-	"connectrpc.com/connect"
 	"context"
-	"github.com/ListenUpApp/ListenUp/internal/logger"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"time"
 )
 
-func LoggingInterceptor() connect.UnaryInterceptorFunc {
-	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
-		return connect.UnaryFunc(func(
-			ctx context.Context,
-			req connect.AnyRequest,
-		) (connect.AnyResponse, error) {
-			start := time.Now()
+func LoggingInterceptor(logger Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
 
-			logger.With(
-				"method", req.Spec().Procedure,
-			).Info("Received request")
+		logger.With(
+			"method", info.FullMethod,
+		).Info("Received request")
 
-			res, err := next(ctx, req)
+		res, err := handler(ctx, req)
 
-			duration := time.Since(start)
-			logFields := []interface{}{
-				"method", req.Spec().Procedure,
-				"duration", duration.String(),
-			}
+		duration := time.Since(start)
+		logFields := []interface{}{
+			"method", info.FullMethod,
+			"duration", duration.String(),
+		}
 
-			if err != nil {
-				connectErr, ok := err.(*connect.Error)
-				if ok {
-					logFields = append(logFields,
-						"status", connectErr.Code().String(),
-						"error", connectErr.Message(),
-					)
-				} else {
-					logFields = append(logFields,
-						"error", err.Error(),
-					)
-				}
-				logger.With(logFields...).Error("Request failed")
+		if err != nil {
+			st, ok := status.FromError(err)
+			if ok {
+				logFields = append(logFields,
+					"status", st.Code().String(),
+					"error", st.Message(),
+				)
 			} else {
-				logFields = append(logFields, "status", "OK")
-				logger.With(logFields...).Info("Request completed")
+				logFields = append(logFields,
+					"error", err.Error(),
+				)
 			}
+			logger.With(logFields...).Error("Request failed")
+		} else {
+			logFields = append(logFields, "status", codes.OK.String())
+			logger.With(logFields...).Info("Request completed")
+		}
 
-			return res, err
-		})
-	})
+		return res, err
+	}
+}
+
+type Logger interface {
+	With(keyvals ...interface{}) Logger
+	Info(msg string)
+	Error(msg string)
 }

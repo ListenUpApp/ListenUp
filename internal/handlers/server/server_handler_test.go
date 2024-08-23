@@ -3,11 +3,12 @@ package server
 import (
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
 	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"
-	"connectrpc.com/connect"
 	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"testing"
 )
 
@@ -41,12 +42,12 @@ func TestNewServerHandler(t *testing.T) {
 func TestServerPing(t *testing.T) {
 	handler := NewServerHandler(nil) // serverStore not needed for Ping
 
-	req := connect.NewRequest(&serverv1.PingRequest{})
+	req := &serverv1.PingRequest{}
 	resp, err := handler.Ping(context.Background(), req)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "Pong", resp.Msg.Message)
+	assert.Equal(t, "Pong", resp.Message)
 }
 
 func TestGetServerSuccess(t *testing.T) {
@@ -63,13 +64,13 @@ func TestGetServerSuccess(t *testing.T) {
 
 	mockStore.On("GetServer", mock.Anything).Return(expectedAuthServer, nil)
 
-	req := connect.NewRequest(&serverv1.GetServerRequest{})
+	req := &serverv1.GetServerRequest{}
 	resp, err := handler.GetServer(context.Background(), req)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, expectedAuthServer.Server.IsSetUp, resp.Msg.Server.IsSetUp)
-	assert.Equal(t, expectedAuthServer.Server.Config, resp.Msg.Server.Config)
+	assert.Equal(t, expectedAuthServer.Server.IsSetUp, resp.Server.IsSetUp)
+	assert.Equal(t, expectedAuthServer.Server.Config, resp.Server.Config)
 
 	mockStore.AssertExpectations(t)
 }
@@ -80,16 +81,16 @@ func TestGetServerError(t *testing.T) {
 
 	mockStore.On("GetServer", mock.Anything).Return((*authv1.AuthServer)(nil), errors.New("database error"))
 
-	req := connect.NewRequest(&serverv1.GetServerRequest{})
+	req := &serverv1.GetServerRequest{}
 	resp, err := handler.GetServer(context.Background(), req)
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 
-	connectErr, ok := err.(*connect.Error)
-	assert.True(t, ok)
-	assert.Equal(t, connect.CodeNotFound, connectErr.Code())
-	assert.Equal(t, "Could not retrieve server", connectErr.Message())
+	st, ok := status.FromError(err)
+	assert.True(t, ok, "Expected gRPC status error, got %T", err)
+	assert.Equal(t, codes.NotFound, st.Code())
+	assert.Equal(t, "could not retrieve server", st.Message())
 
 	mockStore.AssertExpectations(t)
 }
