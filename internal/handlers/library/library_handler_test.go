@@ -2,10 +2,11 @@ package library
 
 import (
 	libraryv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/library/v1"
-	"connectrpc.com/connect"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"testing"
 )
 
@@ -72,8 +73,8 @@ func TestGetLibrary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("GetLibraryByID", tc.libraryID).Return(tc.mockLibrary, tc.mockError)
 
-			req := connect.NewRequest(&libraryv1.GetLibraryRequest{Id: tc.libraryID})
-			resp, err := handler.GetLibrary(*req)
+			req := &libraryv1.GetLibraryRequest{Id: tc.libraryID}
+			resp, err := handler.GetLibrary(req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -81,7 +82,7 @@ func TestGetLibrary(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
-				assert.Equal(t, tc.mockLibrary, resp.Msg.Library)
+				assert.Equal(t, tc.mockLibrary, resp.Library)
 			}
 
 			mockStore.AssertExpectations(t)
@@ -98,7 +99,7 @@ func TestListLibraries(t *testing.T) {
 		mockLibraries  []*libraryv1.Library
 		mockError      error
 		expectedError  bool
-		expectedCode   connect.Code
+		expectedCode   codes.Code
 		expectedLength int
 	}{
 		{
@@ -116,7 +117,7 @@ func TestListLibraries(t *testing.T) {
 			mockLibraries:  nil,
 			mockError:      errors.New("database error"),
 			expectedError:  true,
-			expectedCode:   connect.CodeInternal,
+			expectedCode:   codes.Internal,
 			expectedLength: 0,
 		},
 	}
@@ -125,21 +126,21 @@ func TestListLibraries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("GetAllLibraries").Return(tc.mockLibraries, tc.mockError).Once()
 
-			req := connect.NewRequest(&libraryv1.ListLibrariesRequest{})
-			resp, err := handler.ListLibraries(*req)
+			req := &libraryv1.ListLibrariesRequest{}
+			resp, err := handler.ListLibraries(req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
 				assert.Nil(t, resp)
-				connectErr, ok := err.(*connect.Error)
-				assert.True(t, ok, "Expected connect.Error, got %T", err)
+				st, ok := status.FromError(err)
+				assert.True(t, ok, "Expected status.Status error, got %T", err)
 				if ok {
-					assert.Equal(t, tc.expectedCode, connectErr.Code())
+					assert.Equal(t, tc.expectedCode, st.Code())
 				}
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
-				assert.Len(t, resp.Msg.Libraries, tc.expectedLength)
+				assert.Len(t, resp.Libraries, tc.expectedLength)
 			}
 
 			mockStore.AssertExpectations(t)
@@ -156,7 +157,7 @@ func TestCreateLibrary(t *testing.T) {
 		request       *libraryv1.CreateLibraryRequest
 		mockError     error
 		expectedError bool
-		expectedCode  connect.Code
+		expectedCode  codes.Code
 	}{
 		{
 			name: "Successful creation",
@@ -176,7 +177,7 @@ func TestCreateLibrary(t *testing.T) {
 			},
 			mockError:     errors.New("database error"),
 			expectedError: true,
-			expectedCode:  connect.CodeInternal,
+			expectedCode:  codes.Internal,
 		},
 	}
 
@@ -184,16 +185,16 @@ func TestCreateLibrary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("CreateLibrary", mock.AnythingOfType("*libraryv1.Library")).Return(tc.mockError).Once()
 
-			req := connect.NewRequest(tc.request)
-			resp, err := handler.CreateLibrary(*req)
+			req := tc.request
+			resp, err := handler.CreateLibrary(req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
 				assert.Nil(t, resp)
-				connectErr, ok := err.(*connect.Error)
-				assert.True(t, ok, "Expected connect.Error, got %T", err)
+				st, ok := status.FromError(err)
+				assert.True(t, ok, "Expected gRPC status error, got %T", err)
 				if ok {
-					assert.Equal(t, tc.expectedCode, connectErr.Code())
+					assert.Equal(t, tc.expectedCode, st.Code())
 				}
 			} else {
 				assert.NoError(t, err)
@@ -244,11 +245,11 @@ func TestAddDirectoryToLibrary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("AddDirectory", tc.libraryID, tc.directory).Return(tc.mockError)
 
-			req := connect.NewRequest(&libraryv1.AddDirectoryToLibraryRequest{
+			req := &libraryv1.AddDirectoryToLibraryRequest{
 				LibraryId: tc.libraryID,
 				Directory: tc.directory,
-			})
-			resp, err := handler.AddDirectoryToLibrary(*req)
+			}
+			resp, err := handler.AddDirectoryToLibrary(req)
 
 			if tc.expectedError {
 				assert.Error(t, err)

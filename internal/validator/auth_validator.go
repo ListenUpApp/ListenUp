@@ -2,7 +2,6 @@ package validator
 
 import (
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
-	"connectrpc.com/connect"
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
@@ -40,24 +39,24 @@ func validateRequest(v interface{}) []*errdetails.BadRequest_FieldViolation {
 	return violations
 }
 
-func ValidateRegisterRequest(req *connect.Request[authv1.RegisterRequest]) []*errdetails.BadRequest_FieldViolation {
+func ValidateRegisterRequest(req *authv1.RegisterRequest) []*errdetails.BadRequest_FieldViolation {
 	return validateRequest(struct {
 		Email    string `validate:"required,email"`
 		Name     string `validate:"required"`
 		Password string `validate:"required,min=8"`
 	}{
-		Email:    req.Msg.GetEmail(),
-		Name:     req.Msg.GetName(),
-		Password: req.Msg.GetPassword(),
+		Email:    req.GetEmail(),
+		Name:     req.GetName(),
+		Password: req.GetPassword(),
 	})
 }
 
-func ValidateLoginRequest(req *connect.Request[authv1.LoginRequest]) []*errdetails.BadRequest_FieldViolation {
+func ValidateLoginRequest(req *authv1.LoginRequest) []*errdetails.BadRequest_FieldViolation {
 	return validateRequest(struct {
 		Email    string `validate:"required,email"`
 		Password string `validate:"required,min=8"`
 	}{
-		Email:    req.Msg.GetEmail(),
-		Password: req.Msg.GetPassword(),
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
 	})
 }

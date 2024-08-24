@@ -1,26 +1,25 @@
 package internal
 
 import (
-	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/auth/v1/authv1connect"
-	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/server/v1/serverv1connect"
-	"connectrpc.com/connect"
-	"connectrpc.com/grpcreflect"
+	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/auth/v1/authv1grpc"
+	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/server/v1/serverv1grpc"
 	"context"
+	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
-	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/store"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-	"net/http"
+	"google.golang.org/grpc"
+	"net"
 )
 
 type Server struct {
 	db             db.DBInterface
 	serverHandlers *server.ServerHandler
 	authHandlers   *auth.AuthHandlers
+	grpcServer     *grpc.Server
+	listener       net.Listener
 }
 
 func NewServer(database db.DBInterface) *Server {
@@ -48,26 +47,35 @@ func NewServer(database db.DBInterface) *Server {
 	}
 }
 
-func (s Server) StartServer() {
+func (s *Server) StartServer() error {
+	lis, err := net.Listen("tcp", ":50051") // Or whatever port you want to use
+	if err != nil {
+		return fmt.Errorf("failed to listen: %v", err)
+	}
+	s.listener = lis
 
-	mux := http.NewServeMux()
+	s.grpcServer = grpc.NewServer()
+	serverv1grpc.RegisterServerServiceServer(s.grpcServer, s.serverHandlers)
+	authv1grpc.RegisterAuthServiceServer(s.grpcServer, s.authHandlers)
 
-	reflector := grpcreflect.NewStaticReflector(
-		serverv1connect.ServerServiceName)
+	logger.Info("Starting Server", "address", lis.Addr().String())
 
-	interceptor := connect.WithInterceptors(middleware.LoggingInterceptor())
+	return s.grpcServer.Serve(lis)
+}
 
-	path, handler := serverv1connect.NewServerServiceHandler(s.serverHandlers, interceptor)
-	mux.Handle(path, handler)
+func (s *Server) Shutdown(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.grpcServer.GracefulStop()
+		close(done)
+	}()
 
-	authPath, authHandler := authv1connect.NewAuthServiceHandler(s.authHandlers, interceptor)
-	mux.Handle(authPath, authHandler)
-
-	mux.Handle(grpcreflect.NewHandlerV1(reflector))
-
-	logger.Info("Starting Server")
-	http.ListenAndServe(
-		":50051",
-		h2c.NewHandler(mux, &http2.Server{}),
-	)
+	select {
+	case <-ctx.Done():
+		// Force stop if graceful stop didn't finish in time
+		s.grpcServer.Stop()
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
 }

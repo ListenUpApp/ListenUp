@@ -1,7 +1,6 @@
 package common
 
 import (
-	"connectrpc.com/connect"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,8 +22,4 @@ func InvalidArgumentError(violations []*errdetails.BadRequest_FieldViolation) er
 		return statusInvalid.Err()
 	}
 	return statusDetails.Err()
-}
-
-func UnAuthenticatedError(err error) error {
-	return connect.NewError(connect.CodeUnauthenticated, err)
 }

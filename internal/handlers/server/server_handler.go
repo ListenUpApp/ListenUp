@@ -2,10 +2,10 @@ package server
 
 import (
 	serverv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/server/v1"
-	"connectrpc.com/connect"
 	"context"
-	"errors"
 	"github.com/ListenUpApp/ListenUp/internal/store"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ServerHandler struct {
@@ -18,19 +18,19 @@ func NewServerHandler(serverStore store.ServerStore) *ServerHandler {
 	}
 }
 
-func (s *ServerHandler) Ping(context.Context, *connect.Request[serverv1.PingRequest]) (*connect.Response[serverv1.PingResponse], error) {
-	res := connect.NewResponse(&serverv1.PingResponse{
+func (s *ServerHandler) Ping(context.Context, *serverv1.PingRequest) (*serverv1.PingResponse, error) {
+	res := &serverv1.PingResponse{
 		Message: "Pong",
-	})
+	}
 
 	return res, nil
 }
 
-func (s *ServerHandler) GetServer(ctx context.Context, request *connect.Request[serverv1.GetServerRequest]) (*connect.Response[serverv1.GetServerResponse], error) {
+func (s *ServerHandler) GetServer(ctx context.Context, request *serverv1.GetServerRequest) (*serverv1.GetServerResponse, error) {
 	server, err := s.serverStore.GetServer(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("Could not retrieve server"))
+		return nil, status.Errorf(codes.NotFound, "could not retrieve server")
 	}
-	res := connect.NewResponse(&serverv1.GetServerResponse{Server: server.Server})
+	res := &serverv1.GetServerResponse{Server: server.Server}
 	return res, nil
 }

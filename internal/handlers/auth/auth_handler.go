@@ -1,13 +1,10 @@
 package auth
 
 import (
-	"buf.build/gen/go/listenup/listenup/connectrpc/go/listenup/auth/v1/authv1connect"
 	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
 	permissionv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/permission/v1"
 	userv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
-	"connectrpc.com/connect"
 	"context"
-	"errors"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"github.com/ListenUpApp/ListenUp/internal/utils"
@@ -27,7 +24,6 @@ type AuthHandlers struct {
 	userStore   store.UserStore
 	authStore   store.AuthStore
 	serverStore store.ServerStore
-	authv1connect.UnimplementedAuthServiceHandler
 }
 
 func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore, serverStore store.ServerStore) *AuthHandlers {
@@ -38,20 +34,20 @@ func NewAuthHandlers(userStore store.UserStore, authStore store.AuthStore, serve
 	}
 }
 
-func (h *AuthHandlers) Login(ctx context.Context, req *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
+func (h *AuthHandlers) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
 	//violations := validator.ValidateLoginRequest(req)
 	//if violations != nil {
 	//	return nil, status.Errorf(codes.InvalidArgument, "Invalid login request: %v", violations)
 	//}
 
-	user, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())
+	user, err := h.userStore.GetUserByEmail(ctx, req.GetEmail())
 	if err != nil {
-		logger.Error("Could Not find User", "email", req.Msg.GetEmail())
+		logger.Error("Could Not find User", "email", req.GetEmail())
 		return nil, status.Errorf(codes.NotFound, "user not found")
 	}
 
-	if utils.CheckPasswordHash(req.Msg.GetPassword(), user.HashedPassword) == false {
-		logger.Error("Could Not find User", "email", req.Msg.GetEmail())
+	if utils.CheckPasswordHash(req.GetPassword(), user.HashedPassword) == false {
+		logger.Error("Could Not find User", "email", req.GetEmail())
 		return nil, status.Errorf(codes.InvalidArgument, "incorrect password")
 	}
 
@@ -75,36 +71,36 @@ func (h *AuthHandlers) Login(ctx context.Context, req *connect.Request[authv1.Lo
 		return nil, status.Errorf(codes.Internal, "could not store refresh token")
 	}
 
-	res := connect.NewResponse(&authv1.LoginResponse{
+	res := &authv1.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User:         user.User,
-	})
+	}
 
 	return res, nil
 }
 
-func (h *AuthHandlers) Register(ctx context.Context, req *connect.Request[authv1.RegisterRequest]) (*connect.Response[authv1.RegisterResponse], error) {
+func (h *AuthHandlers) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
 	//violations := validator.ValidateRegisterRequest(req)
 	//if len(violations) > 0 {
 	//	return nil, connect.NewError(connect.CodeInvalidArgument, common.InvalidArgumentError(violations))
 	//}
 
 	// Check if the user already exists.
-	_, err := h.userStore.GetUserByEmail(ctx, req.Msg.GetEmail())
+	_, err := h.userStore.GetUserByEmail(ctx, req.GetEmail())
 	if err == nil {
-		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("A User with that username already exists"))
+		return nil, status.Errorf(codes.Unauthenticated, "A User with that username already exists")
 	}
 
 	server, err := h.serverStore.GetServer(ctx)
 
 	if err != nil {
 		logger.Error("Unable to retrieve an instance of the server.")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("Could not retrieve server"))
+		return nil, status.Errorf(codes.Internal, "could not retrieve server")
 	}
 	if server == nil || server.Server == nil {
 		logger.Error("Server or Server.Server is nil.")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("Invalid server state"))
+		return nil, status.Errorf(codes.Internal, "invalid server state")
 	}
 
 	var role = permissionv1.Role_ROLE_UNSPECIFIED
@@ -117,17 +113,17 @@ func (h *AuthHandlers) Register(ctx context.Context, req *connect.Request[authv1
 	id, err := gonanoid.Generate("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 8)
 	if err != nil {
 		logger.Error("Could not generate ID")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("Could not generate ID"))
+		return nil, status.Errorf(codes.Internal, "could not generate user id")
 	}
 
-	hashedPassword, err := utils.HashPassword(req.Msg.GetPassword())
+	hashedPassword, err := utils.HashPassword(req.GetPassword())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("Failed to hash password"))
+		return nil, status.Errorf(codes.Internal, "failed to hash password")
 	}
 	newUser := userv1.User{
 		Id:                  id,
-		Name:                req.Msg.GetName(),
-		Email:               req.Msg.GetEmail(),
+		Name:                req.GetName(),
+		Email:               req.GetEmail(),
 		CreatedAt:           timestamppb.Now(),
 		LastLogin:           timestamppb.Now(),
 		Role:                role,
@@ -140,8 +136,8 @@ func (h *AuthHandlers) Register(ctx context.Context, req *connect.Request[authv1
 	}
 	err = h.userStore.CreateUser(ctx, &createUserParams)
 	if err != nil {
-		logger.Error("Could not Save user to the database", "Email", req.Msg.GetEmail())
-		return nil, connect.NewError(connect.CodeInternal, errors.New("Unable to save user to Database"))
+		logger.Error("Could not Save user to the database", "Email", req.GetEmail())
+		return nil, status.Errorf(codes.Internal, "unable to save user in database")
 	}
 
 	if !server.Server.IsSetUp {
@@ -151,16 +147,16 @@ func (h *AuthHandlers) Register(ctx context.Context, req *connect.Request[authv1
 		})
 		if err != nil {
 			logger.Error("Could not update server setup status.")
-			return nil, connect.NewError(connect.CodeInternal, errors.New("Could not update server setup status"))
+			return nil, status.Errorf(codes.Internal, "could not update server status")
 		}
 	}
 
-	res := connect.NewResponse(&authv1.RegisterResponse{})
+	res := &authv1.RegisterResponse{}
 	return res, nil
 }
 
-func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[authv1.RefreshTokenRequest]) (*connect.Response[authv1.RefreshTokenResponse], error) {
-	claims, err := utils.ParseToken(req.Msg.GetRefreshToken())
+func (h *AuthHandlers) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
+	claims, err := utils.ParseToken(req.GetRefreshToken())
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid refresh token")
 	}
@@ -178,7 +174,7 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 		return nil, status.Errorf(codes.Internal, "could not retrieve refresh token")
 	}
 
-	if storedToken != req.Msg.GetRefreshToken() {
+	if storedToken != req.GetRefreshToken() {
 		logger.Warn("Refresh token has been revoked")
 		return nil, status.Errorf(codes.Unauthenticated, "refresh token has been revoked")
 	}
@@ -209,9 +205,9 @@ func (h *AuthHandlers) RefreshToken(ctx context.Context, req *connect.Request[au
 	}
 
 	// Create response
-	res := connect.NewResponse(&authv1.RefreshTokenResponse{
+	res := &authv1.RefreshTokenResponse{
 		AccessToken: newAccessToken,
-	})
+	}
 
 	return res, nil
 }
