@@ -4,13 +4,14 @@ import (
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/auth/v1/authv1grpc"
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/server/v1/serverv1grpc"
 	"context"
+	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"net"
 )
 
 type Server struct {
@@ -18,6 +19,7 @@ type Server struct {
 	serverHandlers *server.ServerHandler
 	authHandlers   *auth.AuthHandlers
 	grpcServer     *grpc.Server
+	listener       net.Listener
 }
 
 func NewServer(database db.DBInterface) *Server {
@@ -45,15 +47,35 @@ func NewServer(database db.DBInterface) *Server {
 	}
 }
 
-func (s Server) StartServer() {
+func (s *Server) StartServer() error {
+	lis, err := net.Listen("tcp", ":50051") // Or whatever port you want to use
+	if err != nil {
+		return fmt.Errorf("failed to listen: %v", err)
+	}
+	s.listener = lis
 
-	s.grpcServer = grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
-
+	s.grpcServer = grpc.NewServer()
 	serverv1grpc.RegisterServerServiceServer(s.grpcServer, s.serverHandlers)
-
 	authv1grpc.RegisterAuthServiceServer(s.grpcServer, s.authHandlers)
 
-	logger.Info("Starting Server")
+	logger.Info("Starting Server", "address", lis.Addr().String())
 
-	logger.Info("address", "gRPC Server listening")
+	return s.grpcServer.Serve(lis)
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.grpcServer.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Force stop if graceful stop didn't finish in time
+		s.grpcServer.Stop()
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
 }
