@@ -2,11 +2,13 @@ package internal
 
 import (
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/auth/v1/authv1grpc"
+	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/library/v1/libraryv1grpc"
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/server/v1/serverv1grpc"
 	"context"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
+	"github.com/ListenUpApp/ListenUp/internal/handlers/library"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/store"
@@ -15,11 +17,12 @@ import (
 )
 
 type Server struct {
-	db             db.DBInterface
-	serverHandlers *server.ServerHandler
-	authHandlers   *auth.AuthHandlers
-	grpcServer     *grpc.Server
-	listener       net.Listener
+	db              db.DBInterface
+	serverHandlers  *server.ServerHandler
+	authHandlers    *auth.AuthHandlers
+	libraryHandlers *library.LibraryHandler
+	grpcServer      *grpc.Server
+	listener        net.Listener
 }
 
 func NewServer(database db.DBInterface) *Server {
@@ -57,6 +60,7 @@ func (s *Server) StartServer() error {
 	s.grpcServer = grpc.NewServer()
 	serverv1grpc.RegisterServerServiceServer(s.grpcServer, s.serverHandlers)
 	authv1grpc.RegisterAuthServiceServer(s.grpcServer, s.authHandlers)
+	libraryv1grpc.RegisterLibraryServiceServer(s.grpcServer, s.libraryHandlers)
 
 	logger.Info("Starting Server", "address", lis.Addr().String())
 

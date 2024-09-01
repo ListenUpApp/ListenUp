@@ -43,8 +43,9 @@ func (s *BadgerAuthStore) StoreRefreshToken(ctx context.Context, userID, token s
 	}
 
 	data, err := json.Marshal(tokenInfo)
-	logger.Error("Failed to marshal token info", "Error", err)
+
 	if err != nil {
+		logger.Error("Failed to marshal token info", "Error", err)
 		return fmt.Errorf("failed to marshal token info: %w", err)
 	}
 

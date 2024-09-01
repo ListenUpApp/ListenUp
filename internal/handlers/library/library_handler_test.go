@@ -2,6 +2,7 @@ package library
 
 import (
 	libraryv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/library/v1"
+	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -72,9 +73,9 @@ func TestGetLibrary(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("GetLibraryByID", tc.libraryID).Return(tc.mockLibrary, tc.mockError)
-
+			ctx := context.Background()
 			req := &libraryv1.GetLibraryRequest{Id: tc.libraryID}
-			resp, err := handler.GetLibrary(req)
+			resp, err := handler.GetLibrary(ctx, req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -125,9 +126,9 @@ func TestListLibraries(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore.On("GetAllLibraries").Return(tc.mockLibraries, tc.mockError).Once()
-
+			ctx := context.Background()
 			req := &libraryv1.ListLibrariesRequest{}
-			resp, err := handler.ListLibraries(req)
+			resp, err := handler.ListLibraries(ctx, req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -186,7 +187,8 @@ func TestCreateLibrary(t *testing.T) {
 			mockStore.On("CreateLibrary", mock.AnythingOfType("*libraryv1.Library")).Return(tc.mockError).Once()
 
 			req := tc.request
-			resp, err := handler.CreateLibrary(req)
+			ctx := context.Background()
+			resp, err := handler.CreateLibrary(ctx, req)
 
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -249,7 +251,8 @@ func TestAddDirectoryToLibrary(t *testing.T) {
 				LibraryId: tc.libraryID,
 				Directory: tc.directory,
 			}
-			resp, err := handler.AddDirectoryToLibrary(req)
+			ctx := context.Background()
+			resp, err := handler.AddDirectoryToLibrary(ctx, req)
 
 			if tc.expectedError {
 				assert.Error(t, err)

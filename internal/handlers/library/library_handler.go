@@ -2,6 +2,7 @@ package library
 
 import (
 	libraryv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/library/v1"
+	"context"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"google.golang.org/grpc/codes"
@@ -19,7 +20,7 @@ func NewLibraryHandler(libraryStore store.LibraryStore) *LibraryHandler {
 	}
 }
 
-func (h *LibraryHandler) GetLibrary(req *libraryv1.GetLibraryRequest) (*libraryv1.GetLibraryResponse, error) {
+func (h *LibraryHandler) GetLibrary(ctx context.Context, req *libraryv1.GetLibraryRequest) (*libraryv1.GetLibraryResponse, error) {
 	// TODO Authorization
 
 	library, err := h.libraryStore.GetLibraryByID(req.GetId())
@@ -33,7 +34,7 @@ func (h *LibraryHandler) GetLibrary(req *libraryv1.GetLibraryRequest) (*libraryv
 	return res, nil
 }
 
-func (h *LibraryHandler) ListLibraries(req *libraryv1.ListLibrariesRequest) (*libraryv1.ListLibrariesResponse, error) {
+func (h *LibraryHandler) ListLibraries(ctx context.Context, req *libraryv1.ListLibrariesRequest) (*libraryv1.ListLibrariesResponse, error) {
 	libraries, err := h.libraryStore.GetAllLibraries()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -45,7 +46,7 @@ func (h *LibraryHandler) ListLibraries(req *libraryv1.ListLibrariesRequest) (*li
 	return res, nil
 }
 
-func (h *LibraryHandler) CreateLibrary(req *libraryv1.CreateLibraryRequest) (*libraryv1.CreateLibraryResponse, error) {
+func (h *LibraryHandler) CreateLibrary(ctx context.Context, req *libraryv1.CreateLibraryRequest) (*libraryv1.CreateLibraryResponse, error) {
 	id, err := gonanoid.Generate("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 8)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -66,14 +67,14 @@ func (h *LibraryHandler) CreateLibrary(req *libraryv1.CreateLibraryRequest) (*li
 	return res, nil
 }
 
-func (h *LibraryHandler) GetLibrariesForUser(req *libraryv1.GetLibrariesForUserRequest) (*libraryv1.GetLibrariesForUserResponse, error) {
+func (h *LibraryHandler) GetLibrariesForUser(ctx context.Context, req *libraryv1.GetLibrariesForUserRequest) (*libraryv1.GetLibrariesForUserResponse, error) {
 	// TODO Authorization
 	// TODO implement
 	res := &libraryv1.GetLibrariesForUserResponse{}
 
 	return res, nil
 }
-func (h *LibraryHandler) AddDirectoryToLibrary(req *libraryv1.AddDirectoryToLibraryRequest) (*libraryv1.AddDirectoryToLibraryResponse, error) {
+func (h *LibraryHandler) AddDirectoryToLibrary(ctx context.Context, req *libraryv1.AddDirectoryToLibraryRequest) (*libraryv1.AddDirectoryToLibraryResponse, error) {
 	// TODO Authorization
 
 	err := h.libraryStore.AddDirectory(req.GetLibraryId(), req.GetDirectory())
