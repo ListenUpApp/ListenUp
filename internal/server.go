@@ -2,12 +2,14 @@ package internal
 
 import (
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/auth/v1/authv1grpc"
+	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/folder/v1/folderv1grpc"
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/library/v1/libraryv1grpc"
 	"buf.build/gen/go/listenup/listenup/grpc/go/listenup/server/v1/serverv1grpc"
 	"context"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/auth"
+	"github.com/ListenUpApp/ListenUp/internal/handlers/folder"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/library"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
@@ -21,6 +23,7 @@ type Server struct {
 	serverHandlers  *server.ServerHandler
 	authHandlers    *auth.AuthHandlers
 	libraryHandlers *library.LibraryHandler
+	folderHandlers  *folder.FolderHandler
 	grpcServer      *grpc.Server
 	listener        net.Listener
 }
@@ -31,6 +34,7 @@ func NewServer(database db.DBInterface) *Server {
 	serverStore := store.NewBadgerServerStore(database)
 	authStore := store.NewBadgerAuthStore(database)
 	userStore := store.NewBadgerUserStore(database)
+	libraryStore := store.NewBadgerLibraryStore(database)
 
 	serverHandlers := server.NewServerHandler(serverStore)
 	result, _ := serverStore.GetServer(ctx)
@@ -44,9 +48,11 @@ func NewServer(database db.DBInterface) *Server {
 	}
 
 	return &Server{
-		db:             database,
-		serverHandlers: serverHandlers,
-		authHandlers:   auth.NewAuthHandlers(userStore, authStore, serverStore),
+		db:              database,
+		serverHandlers:  serverHandlers,
+		authHandlers:    auth.NewAuthHandlers(userStore, authStore, serverStore),
+		libraryHandlers: library.NewLibraryHandler(libraryStore),
+		folderHandlers:  folder.NewFoldersHandler(),
 	}
 }
 
@@ -61,6 +67,7 @@ func (s *Server) StartServer() error {
 	serverv1grpc.RegisterServerServiceServer(s.grpcServer, s.serverHandlers)
 	authv1grpc.RegisterAuthServiceServer(s.grpcServer, s.authHandlers)
 	libraryv1grpc.RegisterLibraryServiceServer(s.grpcServer, s.libraryHandlers)
+	folderv1grpc.RegisterFolderServiceServer(s.grpcServer, s.folderHandlers)
 
 	logger.Info("Starting Server", "address", lis.Addr().String())
 
