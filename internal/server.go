@@ -13,6 +13,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/handlers/library"
 	"github.com/ListenUpApp/ListenUp/internal/handlers/server"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
+	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/store"
 	"google.golang.org/grpc"
 	"net"
@@ -51,7 +52,7 @@ func NewServer(database db.DBInterface) *Server {
 		db:              database,
 		serverHandlers:  serverHandlers,
 		authHandlers:    auth.NewAuthHandlers(userStore, authStore, serverStore),
-		libraryHandlers: library.NewLibraryHandler(libraryStore),
+		libraryHandlers: library.NewLibraryHandler(libraryStore, userStore),
 		folderHandlers:  folder.NewFoldersHandler(),
 	}
 }
@@ -63,7 +64,7 @@ func (s *Server) StartServer() error {
 	}
 	s.listener = lis
 
-	s.grpcServer = grpc.NewServer()
+	s.grpcServer = grpc.NewServer(grpc.UnaryInterceptor(middleware.AuthInterceptor))
 	serverv1grpc.RegisterServerServiceServer(s.grpcServer, s.serverHandlers)
 	authv1grpc.RegisterAuthServiceServer(s.grpcServer, s.authHandlers)
 	libraryv1grpc.RegisterLibraryServiceServer(s.grpcServer, s.libraryHandlers)
