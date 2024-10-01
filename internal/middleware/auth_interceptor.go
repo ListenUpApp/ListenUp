@@ -14,7 +14,7 @@ import (
 // Define a key for our claims in the context
 type contextKey string
 
-const claimsKey contextKey = "claims"
+const ClaimsKey contextKey = "claims"
 
 // Claims is our custom claims struct
 type Claims struct {
@@ -75,13 +75,13 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 
 	//TODO add role and other authorization logic here.
 
-	newCtx := context.WithValue(ctx, claimsKey, claims)
+	newCtx := context.WithValue(ctx, ClaimsKey, claims)
 
 	return handler(newCtx, req)
 }
 
 func GetClaimsFromContext(ctx context.Context) (*Claims, error) {
-	claims, ok := ctx.Value(claimsKey).(*Claims)
+	claims, ok := ctx.Value(ClaimsKey).(*Claims)
 	if !ok {
 		return nil, status.Errorf(codes.Internal, "claims not found in context")
 	}

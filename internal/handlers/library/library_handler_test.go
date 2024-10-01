@@ -1,9 +1,13 @@
 package library
 
 import (
+	authv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/auth/v1"
+	folderv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/folder/v1"
 	libraryv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/library/v1"
+	userv1 "buf.build/gen/go/listenup/listenup/protocolbuffers/go/listenup/user/v1"
 	"context"
 	"errors"
+	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
@@ -16,7 +20,7 @@ type MockLibraryStore struct {
 }
 
 func (m *MockLibraryStore) GetLibrariesByIDs(ids []string) ([]*libraryv1.Library, error) {
-	args := m.Called()
+	args := m.Called(ids)
 	return args.Get(0).([]*libraryv1.Library), args.Error(1)
 }
 
@@ -40,9 +44,34 @@ func (m *MockLibraryStore) AddDirectory(libraryID string, directory *libraryv1.D
 	return args.Error(0)
 }
 
+type MockUserStore struct {
+	mock.Mock
+}
+
+func (m *MockUserStore) GetUserById(ctx context.Context, id string) (*authv1.AuthUser, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*authv1.AuthUser), args.Error(1)
+}
+
+func (m *MockUserStore) UpdateUser(ctx context.Context, user *authv1.AuthUser) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockUserStore) GetUserByEmail(ctx context.Context, email string) (*authv1.AuthUser, error) {
+	args := m.Called(ctx, email)
+	return args.Get(0).(*authv1.AuthUser), args.Error(1)
+}
+
 func TestGetLibrary(t *testing.T) {
-	mockStore := new(MockLibraryStore)
-	handler := NewLibraryHandler(mockStore)
+	mockLibraryStore := new(MockLibraryStore)
+	mockUserStore := new(MockUserStore)
+	handler := NewLibraryHandler(mockLibraryStore, mockUserStore)
 
 	testCases := []struct {
 		name          string
@@ -72,7 +101,7 @@ func TestGetLibrary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore.On("GetLibraryByID", tc.libraryID).Return(tc.mockLibrary, tc.mockError)
+			mockLibraryStore.On("GetLibraryByID", tc.libraryID).Return(tc.mockLibrary, tc.mockError)
 			ctx := context.Background()
 			req := &libraryv1.GetLibraryRequest{Id: tc.libraryID}
 			resp, err := handler.GetLibrary(ctx, req)
@@ -86,14 +115,15 @@ func TestGetLibrary(t *testing.T) {
 				assert.Equal(t, tc.mockLibrary, resp.Library)
 			}
 
-			mockStore.AssertExpectations(t)
+			mockLibraryStore.AssertExpectations(t)
 		})
 	}
 }
 
 func TestListLibraries(t *testing.T) {
-	mockStore := new(MockLibraryStore)
-	handler := NewLibraryHandler(mockStore)
+	mockLibraryStore := new(MockLibraryStore)
+	mockUserStore := new(MockUserStore)
+	handler := NewLibraryHandler(mockLibraryStore, mockUserStore)
 
 	testCases := []struct {
 		name           string
@@ -125,7 +155,7 @@ func TestListLibraries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore.On("GetAllLibraries").Return(tc.mockLibraries, tc.mockError).Once()
+			mockLibraryStore.On("GetAllLibraries").Return(tc.mockLibraries, tc.mockError).Once()
 			ctx := context.Background()
 			req := &libraryv1.ListLibrariesRequest{}
 			resp, err := handler.ListLibraries(ctx, req)
@@ -144,19 +174,21 @@ func TestListLibraries(t *testing.T) {
 				assert.Len(t, resp.Libraries, tc.expectedLength)
 			}
 
-			mockStore.AssertExpectations(t)
+			mockLibraryStore.AssertExpectations(t)
 		})
 	}
 }
 
 func TestCreateLibrary(t *testing.T) {
-	mockStore := new(MockLibraryStore)
-	handler := NewLibraryHandler(mockStore)
+	mockLibraryStore := new(MockLibraryStore)
+	mockUserStore := new(MockUserStore)
+	handler := NewLibraryHandler(mockLibraryStore, mockUserStore)
 
 	testCases := []struct {
 		name          string
 		request       *libraryv1.CreateLibraryRequest
-		mockError     error
+		mockUser      *authv1.AuthUser
+		createError   error
 		expectedError bool
 		expectedCode  codes.Code
 	}{
@@ -164,11 +196,18 @@ func TestCreateLibrary(t *testing.T) {
 			name: "Successful creation",
 			request: &libraryv1.CreateLibraryRequest{
 				Name: "New Library",
-				Directories: []*libraryv1.Directory{
-					{Id: "1", Name: "Dir 1", Path: "/path1"},
+				Folders: []*folderv1.Folder{
+					{Name: "Dir 1", Path: "/path1"},
 				},
 			},
-			mockError:     nil,
+			mockUser: &authv1.AuthUser{
+				User: &userv1.User{
+					Id:               "user1",
+					CurrentLibraryId: "",
+					LibraryIds:       []string{},
+				},
+			},
+			createError:   nil,
 			expectedError: false,
 		},
 		{
@@ -176,7 +215,8 @@ func TestCreateLibrary(t *testing.T) {
 			request: &libraryv1.CreateLibraryRequest{
 				Name: "Failed Library",
 			},
-			mockError:     errors.New("database error"),
+			mockUser:      nil, // We don't expect GetUserById to be called in this case
+			createError:   errors.New("database error"),
 			expectedError: true,
 			expectedCode:  codes.Internal,
 		},
@@ -184,11 +224,17 @@ func TestCreateLibrary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore.On("CreateLibrary", mock.AnythingOfType("*libraryv1.Library")).Return(tc.mockError).Once()
+			// Set up CreateLibrary expectation
+			mockLibraryStore.On("CreateLibrary", mock.AnythingOfType("*libraryv1.Library")).Return(tc.createError).Once()
 
-			req := tc.request
-			ctx := context.Background()
-			resp, err := handler.CreateLibrary(ctx, req)
+			if tc.createError == nil {
+				// Only expect GetUserById and UpdateUser to be called if library creation is successful
+				mockUserStore.On("GetUserById", mock.Anything, "user1").Return(tc.mockUser, nil).Once()
+				mockUserStore.On("UpdateUser", mock.Anything, mock.AnythingOfType("*authv1.AuthUser")).Return(nil).Once()
+			}
+
+			ctx := context.WithValue(context.Background(), middleware.ClaimsKey, &middleware.Claims{UserID: "user1"})
+			resp, err := handler.CreateLibrary(ctx, tc.request)
 
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -201,29 +247,33 @@ func TestCreateLibrary(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
+				assert.NotEmpty(t, resp.Library.Id)
+				assert.Equal(t, tc.request.Name, resp.Library.Name)
+				assert.Len(t, resp.Library.Directories, len(tc.request.Folders))
 			}
 
-			mockStore.AssertExpectations(t)
+			mockLibraryStore.AssertExpectations(t)
+			mockUserStore.AssertExpectations(t)
 		})
 	}
 }
 
 func TestAddDirectoryToLibrary(t *testing.T) {
-	mockStore := new(MockLibraryStore)
-	handler := NewLibraryHandler(mockStore)
+	mockLibraryStore := new(MockLibraryStore)
+	mockUserStore := new(MockUserStore)
+	handler := NewLibraryHandler(mockLibraryStore, mockUserStore)
 
 	testCases := []struct {
 		name          string
 		libraryID     string
-		directory     *libraryv1.Directory
+		directory     *folderv1.Folder
 		mockError     error
 		expectedError bool
 	}{
 		{
 			name:      "Successful addition",
 			libraryID: "123",
-			directory: &libraryv1.Directory{
-				Id:   "dir1",
+			directory: &folderv1.Folder{
 				Name: "New Directory",
 				Path: "/new/path",
 			},
@@ -233,8 +283,7 @@ func TestAddDirectoryToLibrary(t *testing.T) {
 		{
 			name:      "Error adding directory",
 			libraryID: "456",
-			directory: &libraryv1.Directory{
-				Id:   "dir2",
+			directory: &folderv1.Folder{
 				Name: "Failed Directory",
 				Path: "/failed/path",
 			},
@@ -245,7 +294,7 @@ func TestAddDirectoryToLibrary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore.On("AddDirectory", tc.libraryID, tc.directory).Return(tc.mockError)
+			mockLibraryStore.On("AddDirectory", tc.libraryID, mock.AnythingOfType("*libraryv1.Directory")).Return(tc.mockError)
 
 			req := &libraryv1.AddDirectoryToLibraryRequest{
 				LibraryId: tc.libraryID,
@@ -262,7 +311,86 @@ func TestAddDirectoryToLibrary(t *testing.T) {
 				assert.NotNil(t, resp)
 			}
 
-			mockStore.AssertExpectations(t)
+			mockLibraryStore.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetLibrariesForUser(t *testing.T) {
+	mockLibraryStore := new(MockLibraryStore)
+	mockUserStore := new(MockUserStore)
+	handler := NewLibraryHandler(mockLibraryStore, mockUserStore)
+
+	testCases := []struct {
+		name           string
+		userID         string
+		mockUser       *authv1.AuthUser
+		mockLibraries  []*libraryv1.Library
+		mockError      error
+		expectedError  bool
+		expectedCode   codes.Code
+		expectedLength int
+	}{
+		{
+			name:   "Successful retrieval",
+			userID: "user1",
+			mockUser: &authv1.AuthUser{
+				User: &userv1.User{
+					Id:         "user1",
+					LibraryIds: []string{"lib1", "lib2"},
+				},
+			},
+			mockLibraries: []*libraryv1.Library{
+				{Id: "lib1", Name: "Library 1"},
+				{Id: "lib2", Name: "Library 2"},
+			},
+			mockError:      nil,
+			expectedError:  false,
+			expectedLength: 2,
+		},
+		{
+			name:   "User not found",
+			userID: "user2",
+			mockUser: &authv1.AuthUser{
+				User: &userv1.User{
+					Id: "user2",
+				},
+			},
+			mockLibraries:  nil,
+			mockError:      errors.New("user not found"),
+			expectedError:  true,
+			expectedCode:   codes.NotFound,
+			expectedLength: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockUserStore.On("GetUserById", mock.Anything, tc.userID).Return(tc.mockUser, tc.mockError).Once()
+			if tc.mockError == nil {
+				mockLibraryStore.On("GetLibrariesByIDs", tc.mockUser.User.LibraryIds).Return(tc.mockLibraries, nil).Once()
+			}
+
+			ctx := context.WithValue(context.Background(), middleware.ClaimsKey, &middleware.Claims{UserID: tc.userID})
+			req := &libraryv1.GetLibrariesForUserRequest{}
+			resp, err := handler.GetLibrariesForUser(ctx, req)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+				st, ok := status.FromError(err)
+				assert.True(t, ok, "Expected status.Status error, got %T", err)
+				if ok {
+					assert.Equal(t, tc.expectedCode, st.Code())
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Len(t, resp.Libraries, tc.expectedLength)
+			}
+
+			mockUserStore.AssertExpectations(t)
+			mockLibraryStore.AssertExpectations(t)
 		})
 	}
 }
