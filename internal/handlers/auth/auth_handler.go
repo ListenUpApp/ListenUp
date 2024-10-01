@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ACCESS_TTL  = 1 * time.Hour
+	ACCESS_TTL  = 162 * time.Hour
 	REFRESH_TTL = (14 * 24) * time.Hour
 )
 

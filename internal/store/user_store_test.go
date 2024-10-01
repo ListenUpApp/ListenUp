@@ -160,3 +160,113 @@ func TestCreateDuplicateUser(t *testing.T) {
 	})
 	assert.Error(t, err)
 }
+
+func TestUpdateUser(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewBadgerUserStore(db)
+
+	// Create initial user
+	user := createTestUser()
+	err := store.CreateUser(context.Background(), &authv1.AuthUser{
+		HashedPassword: "password123",
+		User:           user,
+	})
+	require.NoError(t, err)
+
+	t.Run("UpdateExistingUser", func(t *testing.T) {
+		updatedUser := &authv1.AuthUser{
+			HashedPassword: "newpassword456",
+			User: &userv1.User{
+				Id:    user.Id,
+				Email: user.Email,
+				Name:  "Updated Name",
+			},
+		}
+
+		err := store.UpdateUser(context.Background(), updatedUser)
+		assert.NoError(t, err)
+
+		fetchedUser, err := store.GetUserById(context.Background(), user.Id)
+		assert.NoError(t, err)
+		assert.Equal(t, "Updated Name", fetchedUser.User.Name)
+		assert.Equal(t, "newpassword456", fetchedUser.HashedPassword)
+	})
+
+	t.Run("UpdateNonExistentUser", func(t *testing.T) {
+		nonExistentUser := &authv1.AuthUser{
+			User: &userv1.User{
+				Id:    "non-existent-id",
+				Email: "nonexistent@example.com",
+			},
+		}
+
+		err := store.UpdateUser(context.Background(), nonExistentUser)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "user with ID non-existent-id not found")
+	})
+
+	t.Run("UpdateUserEmail", func(t *testing.T) {
+		updatedUser := &authv1.AuthUser{
+			HashedPassword: "password123",
+			User: &userv1.User{
+				Id:    user.Id,
+				Email: "newemail@example.com",
+				Name:  user.Name,
+			},
+		}
+
+		err := store.UpdateUser(context.Background(), updatedUser)
+		assert.NoError(t, err)
+
+		fetchedUser, err := store.GetUserByEmail(context.Background(), "newemail@example.com")
+		assert.NoError(t, err)
+		assert.Equal(t, user.Id, fetchedUser.User.Id)
+
+		_, err = store.GetUserByEmail(context.Background(), user.Email)
+		assert.Error(t, err, "Old email should not exist")
+	})
+
+	t.Run("UpdateToExistingEmail", func(t *testing.T) {
+		// Create a second user
+		secondUser := createSecondTestUser()
+		err := store.CreateUser(context.Background(), &authv1.AuthUser{
+			HashedPassword: "password789",
+			User:           secondUser,
+		})
+		require.NoError(t, err)
+
+		// Try to update the first user's email to the second user's email
+		updatedUser := &authv1.AuthUser{
+			HashedPassword: "password123",
+			User: &userv1.User{
+				Id:    user.Id,
+				Email: secondUser.Email,
+				Name:  user.Name,
+			},
+		}
+
+		err = store.UpdateUser(context.Background(), updatedUser)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "user with email second-user@example.com already exists")
+	})
+
+	t.Run("UpdateEmailCaseInsensitive", func(t *testing.T) {
+		updatedUser := &authv1.AuthUser{
+			HashedPassword: "password123",
+			User: &userv1.User{
+				Id:    user.Id,
+				Email: "NeWeMaIl@ExAmPlE.cOm",
+				Name:  user.Name,
+			},
+		}
+
+		err := store.UpdateUser(context.Background(), updatedUser)
+		assert.NoError(t, err)
+
+		fetchedUser, err := store.GetUserByEmail(context.Background(), "newemail@example.com")
+		assert.NoError(t, err)
+		assert.Equal(t, user.Id, fetchedUser.User.Id)
+	})
+}

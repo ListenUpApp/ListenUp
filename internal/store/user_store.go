@@ -16,6 +16,7 @@ type UserStore interface {
 	CreateUser(ctx context.Context, user *authv1.AuthUser) error
 	GetUserById(ctx context.Context, id string) (*authv1.AuthUser, error)
 	GetUserByEmail(ctx context.Context, id string) (*authv1.AuthUser, error)
+	UpdateUser(ctx context.Context, user *authv1.AuthUser) error
 }
 
 const (
@@ -129,4 +130,72 @@ func (g *BadgerUserStore) GetUserByEmail(ctx context.Context, email string) (*au
 		return nil, err
 	}
 	return g.GetUserById(ctx, userID)
+}
+
+func (g *BadgerUserStore) UpdateUser(ctx context.Context, user *authv1.AuthUser) error {
+	return g.db.Update(func(txn *badger.Txn) error {
+		// Check if user exists
+		userKey := []byte(userPrefix + user.User.Id)
+		item, err := txn.Get(userKey)
+		if err != nil {
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				logger.Warn("User not found for update", "User ID", user.User.Id)
+				return fmt.Errorf("user with ID %s not found", user.User.Id)
+			}
+			logger.Error("Error checking for existing user", "error", err)
+			return fmt.Errorf("error checking for existing user: %w", err)
+		}
+
+		// Unmarshal existing user
+		var existingUser authv1.AuthUser
+		err = item.Value(func(val []byte) error {
+			return proto.Unmarshal(val, &existingUser)
+		})
+		if err != nil {
+			logger.Error("Failed to unmarshal existing AuthUser", "Error", err)
+			return fmt.Errorf("failed to unmarshal existing AuthUser: %w", err)
+		}
+
+		// Check if email is being updated
+		if strings.ToLower(existingUser.User.Email) != strings.ToLower(user.User.Email) {
+			// Delete old email index
+			oldEmailPrefix := []byte(emailIndex + strings.ToLower(existingUser.User.Email) + emailSeparator)
+			oldEmailKey := append(oldEmailPrefix, []byte(user.User.Id)...)
+			if err := txn.Delete(oldEmailKey); err != nil {
+				logger.Error("Failed to delete old email index", "Error", err)
+				return fmt.Errorf("failed to delete old email index: %w", err)
+			}
+
+			// Check if new email already exists
+			newEmailPrefix := []byte(emailIndex + strings.ToLower(user.User.Email) + emailSeparator)
+			it := txn.NewIterator(badger.DefaultIteratorOptions)
+			defer it.Close()
+
+			for it.Seek(newEmailPrefix); it.ValidForPrefix(newEmailPrefix); it.Next() {
+				logger.Warn("A user with this email already exists", "Email", user.User.Email)
+				return fmt.Errorf("user with email %s already exists", user.User.Email)
+			}
+
+			// Create new email index
+			newEmailKey := append(newEmailPrefix, []byte(user.User.Id)...)
+			if err := txn.Set(newEmailKey, nil); err != nil {
+				logger.Error("Failed to set new email index in BadgerDB", "Error", err)
+				return fmt.Errorf("failed to set new email index in BadgerDB: %w", err)
+			}
+		}
+
+		// Marshal and save updated user
+		updatedUserBytes, err := proto.Marshal(user)
+		if err != nil {
+			logger.Error("Failed to marshal updated AuthUser", "Error", err)
+			return fmt.Errorf("failed to marshal updated AuthUser: %w", err)
+		}
+
+		if err := txn.Set(userKey, updatedUserBytes); err != nil {
+			logger.Error("Failed to set updated AuthUser in BadgerDB", "Error", err)
+			return fmt.Errorf("failed to set updated AuthUser in BadgerDB: %w", err)
+		}
+
+		return nil
+	})
 }

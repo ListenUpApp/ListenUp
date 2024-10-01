@@ -33,6 +33,10 @@ func (m *MockUserStore) CreateUser(ctx context.Context, user *authv1.AuthUser) e
 	args := m.Called(ctx, user)
 	return args.Error(0)
 }
+func (m *MockUserStore) UpdateUser(ctx context.Context, user *authv1.AuthUser) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
 
 // MockAuthStore implements the AuthStore interface for testing
 type MockAuthStore struct {
