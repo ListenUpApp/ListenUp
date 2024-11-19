@@ -1,0 +1,11 @@
+package pages
+import "github.com/ListenUpApp/ListenUp/web/view/layouts"
+
+templ Home() {
+    @layouts.Base("Home Page") {
+        <div class="prose lg:prose-xl p-4">
+            <h1 class="text-2xl">Welcome to ListenUp</h1>
+            <p>This is a sample homepage served with Templ and Gin.</p>
+        </div>
+    }
+}
