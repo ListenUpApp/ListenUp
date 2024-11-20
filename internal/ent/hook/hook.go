@@ -9,6 +9,30 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 )
 
+// The ServerFunc type is an adapter to allow the use of ordinary
+// function as Server mutator.
+type ServerFunc func(context.Context, *ent.ServerMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ServerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ServerMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ServerMutation", m)
+}
+
+// The ServerConfigFunc type is an adapter to allow the use of ordinary
+// function as ServerConfig mutator.
+type ServerConfigFunc func(context.Context, *ent.ServerConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ServerConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ServerConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ServerConfigMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)

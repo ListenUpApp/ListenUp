@@ -1,0 +1,16 @@
+package auth
+
+import "github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+
+templ Reigster(rootUser bool) {
+	@layouts.Base("Register")
+		<h1>Register Page</h1>
+    <div>
+    if !rootUser {
+        <span>No Users Found</span>
+    } else {
+    <span>Found a User</span>
+       }
+    </div>
+
+    }

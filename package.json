@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "dev": "tailwindcss --input ./web/static/css/input.css --output ./web/static/css/app.css --watch --verbose",
-    "build": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/app.css --minify"
+    "dev": "tailwindcss --input ./internal/web/static/css/input.css --output ./internal/web/static/css/app.css --watch --verbose",
+    "build": "tailwindcss -i ./internal/web/static/css/input.css -o ./internal/web/static/css/app.css --minify"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.15"

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/api/handler"
+	"github.com/ListenUpApp/ListenUp/internal/api/repository"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
@@ -30,12 +32,31 @@ func main() {
 	}
 	defer client.Close()
 
+	ctx := context.Background()
+
 	r := gin.Default()
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 
-	handlers := handler.NewHandler()
-	handlers.RegisterRoutes(r)
+	serverRepo := repository.NewServerRepository(client)
+
+	srv, err := serverRepo.GetServer(ctx)
+
+	if err != nil {
+		fmt.Errorf("could not check server status")
+	}
+
+	if srv == nil {
+		_, err := serverRepo.CreateServer(ctx)
+		if err != nil {
+			fmt.Errorf("could not create server")
+		}
+	}
+
+	handlers := handler.NewHandler(*serverRepo)
+	handlers.RegisterAppRoutes(r)
+	handlers.RegisterApiRoutes(r)
+
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}

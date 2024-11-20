@@ -2,8 +2,48 @@
 
 package ent
 
+import (
+	"time"
+
+	"github.com/ListenUpApp/ListenUp/internal/ent/schema"
+	"github.com/ListenUpApp/ListenUp/internal/ent/server"
+	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
+)
+
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	serverFields := schema.Server{}.Fields()
+	_ = serverFields
+	// serverDescSetup is the schema descriptor for setup field.
+	serverDescSetup := serverFields[0].Descriptor()
+	// server.DefaultSetup holds the default value on creation for the setup field.
+	server.DefaultSetup = serverDescSetup.Default.(bool)
+	// serverDescCreatedAt is the schema descriptor for created_at field.
+	serverDescCreatedAt := serverFields[1].Descriptor()
+	// server.DefaultCreatedAt holds the default value on creation for the created_at field.
+	server.DefaultCreatedAt = serverDescCreatedAt.Default.(func() time.Time)
+	// serverDescUpdatedAt is the schema descriptor for updated_at field.
+	serverDescUpdatedAt := serverFields[2].Descriptor()
+	// server.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	server.DefaultUpdatedAt = serverDescUpdatedAt.Default.(func() time.Time)
+	// server.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	server.UpdateDefaultUpdatedAt = serverDescUpdatedAt.UpdateDefault.(func() time.Time)
+	serverconfigFields := schema.ServerConfig{}.Fields()
+	_ = serverconfigFields
+	// serverconfigDescName is the schema descriptor for name field.
+	serverconfigDescName := serverconfigFields[0].Descriptor()
+	// serverconfig.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	serverconfig.NameValidator = serverconfigDescName.Validators[0].(func(string) error)
+	// serverconfigDescCreatedAt is the schema descriptor for created_at field.
+	serverconfigDescCreatedAt := serverconfigFields[1].Descriptor()
+	// serverconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	serverconfig.DefaultCreatedAt = serverconfigDescCreatedAt.Default.(func() time.Time)
+	// serverconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	serverconfigDescUpdatedAt := serverconfigFields[2].Descriptor()
+	// serverconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	serverconfig.DefaultUpdatedAt = serverconfigDescUpdatedAt.Default.(func() time.Time)
+	// serverconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	serverconfig.UpdateDefaultUpdatedAt = serverconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
 }
