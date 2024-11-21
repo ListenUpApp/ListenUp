@@ -2,18 +2,20 @@ package handler
 
 import (
 	"fmt"
-	"github.com/ListenUpApp/ListenUp/internal/api/repository"
+	"github.com/ListenUpApp/ListenUp/internal/repository"
+	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages/auth"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	serverRepo *repository.ServerRepository
+	serverRepo  *repository.ServerRepository
+	authService *service.AuthService
 }
 
-func NewHandler(serverRepo repository.ServerRepository) *Handler {
-	return &Handler{serverRepo: &serverRepo}
+func NewHandler(serverRepo repository.ServerRepository, authService service.AuthService) *Handler {
+	return &Handler{serverRepo: &serverRepo, authService: &authService}
 }
 
 func (h *Handler) RegisterAppRoutes(r *gin.Engine) {
@@ -36,6 +38,7 @@ func (h *Handler) RegisterApiRoutes(r *gin.Engine) {
 		auth := public.Group("/auth")
 		{
 			auth.GET("/ping", h.Ping)
+			auth.POST("/register", h.Register)
 		}
 	}
 }

@@ -13,7 +13,8 @@ templ Reigster(rootUser bool) {
         <div class="bg-white w-full md:max-w-xl px-4 py-6 md:py-8 md:px-6 h-full rounded-t-3xl md:rounded-3xl md:max-w-lg md:max-h-min overflow-y-auto ">
             <h1 class="text-secondary-700 font-medium text-3xl mb-2">Welcome to ListenUp!</h1>
             <p class="text-secondary-500 text-sm">Enter the root account information below</p>
-        <form action="" class="mt-8 space-y-6">
+        <form class="mt-8 space-y-6" hx-post="/api/v1/auth/register"
+                                              hx-ext="json-enc">
             <div>
               <label for="first-name">First Name</label>
               <div class="mt-2">
@@ -44,7 +45,7 @@ templ Reigster(rootUser bool) {
                 <input type="password" name="confirmPassword" id="confirm-password" class="input" placeholder="Confirm Password">
               </div>
             </div>
-            <button type="submit" hx-post="/api/v1/auth/login" class="btn btn-primary w-full">Register</button>
+            <button type="submit" class="btn btn-primary w-full">Register</button>
         </form>
         </div>
     </div>

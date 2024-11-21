@@ -6,6 +6,7 @@ require (
 	entgo.io/ent v0.14.1
 	github.com/a-h/templ v0.2.793
 	github.com/gin-gonic/gin v1.10.0
+	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	golang.org/x/net v0.31.0
 )

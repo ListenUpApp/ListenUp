@@ -752,7 +752,7 @@ select {
 label {
   display: block;
   font-size: 0.875rem;
-  line-height: 1.5rem;
+  line-height: 1.25rem;
   font-weight: 400;
   --tw-text-opacity: 1;
   color: rgb(91 107 134 / var(--tw-text-opacity, 1));
@@ -767,9 +767,10 @@ label {
   padding-bottom: 1rem;
   padding-left: 1rem;
   padding-right: 1rem;
-  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.5rem;
   --tw-text-opacity: 1;
-  color: rgb(56 66 82 / var(--tw-text-opacity, 1));
+  color: rgb(91 107 134 / var(--tw-text-opacity, 1));
   --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
@@ -779,19 +780,17 @@ label {
   --tw-ring-inset: inset;
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(209 213 219 / var(--tw-ring-opacity, 1));
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-property: all;
+  transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
 }
 
 .input::-moz-placeholder {
-  font-weight: 400;
   --tw-text-opacity: 1;
   color: rgb(168 179 196 / var(--tw-text-opacity, 1));
 }
 
 .input::placeholder {
-  font-weight: 400;
   --tw-text-opacity: 1;
   color: rgb(168 179 196 / var(--tw-text-opacity, 1));
 }
@@ -805,21 +804,14 @@ label {
   --tw-ring-color: rgb(244 129 106 / var(--tw-ring-opacity, 1));
 }
 
-@media (min-width: 640px) {
-  .input {
-    font-size: 0.875rem;
-    line-height: 1.5rem;
-  }
-}
-
 .btn {
   border-radius: 0.75rem;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
   padding-top: 1rem;
   padding-bottom: 1rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
   font-weight: 600;
   --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);

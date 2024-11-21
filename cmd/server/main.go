@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/api/handler"
-	"github.com/ListenUpApp/ListenUp/internal/api/repository"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	"github.com/ListenUpApp/ListenUp/internal/repository"
+	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
@@ -39,6 +40,8 @@ func main() {
 	r.Use(gin.Logger())
 
 	serverRepo := repository.NewServerRepository(client)
+	userRepo := repository.NewUserRepository(client)
+	authService := service.NewAuthService(userRepo)
 
 	srv, err := serverRepo.GetServer(ctx)
 
@@ -53,7 +56,7 @@ func main() {
 		}
 	}
 
-	handlers := handler.NewHandler(*serverRepo)
+	handlers := handler.NewHandler(*serverRepo, *authService)
 	handlers.RegisterAppRoutes(r)
 	handlers.RegisterApiRoutes(r)
 
