@@ -8,7 +8,25 @@ module.exports = {
         "./internal/web/view/pages/*.go"
     ],
     theme: {
+        fontFamily: {
+            'sans': ['poppins', 'sans-serif'],
+        },
         extend: {},
     },
-    plugins: [],
+    plugins: [
+        require('daisyui'),
+    ],
+    daisyui: {
+        themes: [
+            {
+                listenup: {
+                    "primary": "#F05A3B",
+                    "secondary": "#384252",
+                    "accent": "#8292AA",
+                    "base-100": "#F6F0F0"
+                }
+            }
+        ],
+        styled: false,
+    }
 }
