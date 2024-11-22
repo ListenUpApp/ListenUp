@@ -1,15 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"github.com/ListenUpApp/ListenUp/internal/api/handler"
+	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	"github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
+	"github.com/ListenUpApp/ListenUp/internal/server"
 	"github.com/ListenUpApp/ListenUp/internal/service"
-	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
 	"log"
+	"os"
 )
 
 func initDB() (*ent.Client, error) {
@@ -27,40 +28,57 @@ func initDB() (*ent.Client, error) {
 }
 
 func main() {
+	cfg, err := config.LoadConfig("./")
+	if err != nil {
+		log.Fatal("Cannot load configuration:", err)
+	}
+
+	appLogger := logger.New(cfg.Logger)
+
+	// todo init this with our DB env variables
 	client, err := initDB()
 	if err != nil {
-		log.Fatalf("failed opening connection to sqlite: %v", err)
+		log.Fatal("failed opening connection to sqlite: %v", err)
 	}
 	defer client.Close()
 
 	ctx := context.Background()
 
-	r := gin.Default()
-	r.Use(gin.Recovery())
-	r.Use(gin.Logger())
-
-	serverRepo := repository.NewServerRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	authService := service.NewAuthService(userRepo)
-
-	srv, err := serverRepo.GetServer(ctx)
+	// Init Repos
+	repos, err := repository.NewRepositories(repository.Config{
+		Client: client,
+		Logger: appLogger,
+	})
 
 	if err != nil {
-		fmt.Errorf("could not check server status")
+		log.Fatal("Failed to initialize repositories", "error", err)
+		os.Exit(1)
 	}
 
-	if srv == nil {
-		_, err := serverRepo.CreateServer(ctx)
-		if err != nil {
-			fmt.Errorf("could not create server")
-		}
+	// Init Services
+	services, err := service.NewServices(service.Deps{
+		Repos:  repos,
+		Logger: appLogger,
+	})
+	if err != nil {
+		appLogger.Error("Failed to initialize services", "error", err)
+		os.Exit(1)
 	}
 
-	handlers := handler.NewHandler(*serverRepo, *authService)
-	handlers.RegisterAppRoutes(r)
-	handlers.RegisterApiRoutes(r)
+	srv := server.New(server.Config{
+		Config:   cfg,
+		Logger:   appLogger,
+		Services: services,
+	})
+	// Check server status and initialize if needed
+	if err := srv.Init(ctx); err != nil {
+		appLogger.Error("Failed to initialize server", "error", err)
+		os.Exit(1)
+	}
 
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal(err)
+	// Start the server
+	if err := srv.Run(); err != nil {
+		appLogger.Error("Server failed", "error", err)
+		os.Exit(1)
 	}
 }
