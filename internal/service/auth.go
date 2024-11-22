@@ -13,13 +13,17 @@ import (
 )
 
 type AuthService struct {
-	userRepo *repository.UserRepository
-	logger   *slog.Logger
+	userRepo   *repository.UserRepository
+	serverRepo *repository.ServerRepository
+	logger     *slog.Logger
 }
 
 func NewAuthService(cfg ServiceConfig) (*AuthService, error) {
 	if cfg.UserRepo == nil {
 		return nil, fmt.Errorf("user repository is required")
+	}
+	if cfg.ServerRepo == nil {
+		return nil, fmt.Errorf("server repository is required")
 	}
 	if cfg.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
@@ -79,9 +83,15 @@ func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterReque
 			"error", err)
 		return errorhandling.NewInternalError(err, "error creating user")
 	}
-
 	s.logger.InfoContext(ctx, "User registered successfully",
 		"email", req.Email)
+
+	_, err = s.serverRepo.UpdateServerSetup(ctx, true)
+
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Failed to update server's setup status", "error", err)
+		return errorhandling.NewInternalError(err, "error updating server")
+	}
 
 	return nil
 }

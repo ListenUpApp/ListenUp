@@ -33,3 +33,7 @@ func (s *ServerService) GetServer(ctx context.Context) (*ent.Server, error) {
 func (s *ServerService) CreateServer(ctx context.Context) (*ent.Server, error) {
 	return s.serverRepo.CreateServer(ctx)
 }
+
+func (s *ServerService) UpdateServerSetupStatus(ctx context.Context, setup bool) (*ent.Server, error) {
+	return s.serverRepo.UpdateServerSetup(ctx, setup)
+}

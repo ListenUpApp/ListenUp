@@ -34,7 +34,11 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *AuthHandler) LoginPage(c *gin.Context) {
-	page := auth.Login()
+	data := forms.LoginData{
+		Error:  "",
+		Fields: make(map[string]string),
+	}
+	page := auth.Login(data)
 	err := page.Render(c.Request.Context(), c.Writer)
 	if err != nil {
 		fmt.Errorf("Error Rendering Page")
