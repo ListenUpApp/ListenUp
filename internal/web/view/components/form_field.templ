@@ -1,0 +1,39 @@
+package components
+
+import "fmt"
+
+type FormField struct {
+    Label       string
+    Name        string
+    Type        string
+    Placeholder string
+    Error       string
+}
+
+templ InputField(field FormField) {
+    <div>
+        <label for={ field.Name }>{ field.Label }</label>
+        <div class="relative mt-2 rounded-md shadow-sm">
+            <input
+                type={ field.Type }
+                name={ field.Name }
+                id={ field.Name }
+                class={ templ.Class("input " + map[bool]string{true: "text-red-900 ring-red-300 placeholder:text-red-300 focus:ring-red-500", false: ""}[field.Error != ""]) }
+                placeholder={ field.Placeholder }
+                aria-invalid={ fmt.Sprintf("%t", field.Error != "") }
+                if field.Error != "" {
+                    aria-describedby={ field.Name + "-error" }
+                }>
+            if field.Error != "" {
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                    <svg class="size-5 text-red-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+            }
+        </div>
+        if field.Error != "" {
+            <p class="mt-2 text-sm text-red-600" id={ field.Name + "-error" }>{ field.Error }</p>
+        }
+    </div>
+}

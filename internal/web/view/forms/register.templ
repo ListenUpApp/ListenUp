@@ -1,0 +1,71 @@
+package forms
+
+import "github.com/ListenUpApp/ListenUp/internal/web/view/components"
+
+type RegisterData struct {
+    RootUser bool
+    Error    string
+    Fields   map[string]string
+}
+
+templ RegisterForm(data RegisterData) {
+        <form class="mt-8 space-y-6" hx-post="/auth/register"
+        hx-swap="outerHTML"
+                                           hx-ext="json-enc"
+                                           hx-indicator="#submit-button">
+            @components.InputField(components.FormField{
+                            Label: "First Name",
+                            Name: "firstName",
+                            Type: "text",
+                            Placeholder: "Enter your First Name",
+                            Error: data.Fields["firstName"],
+                            })
+                        @components.InputField(components.FormField{
+                            Label: "Last Name",
+                            Name: "lastName",
+                            Type: "text",
+                            Placeholder: "Enter your Last Name",
+                            Error: data.Fields["lastName"],
+                        })
+
+                        @components.InputField(components.FormField{
+                            Label: "Email",
+                            Name: "email",
+                            Type: "email",
+                            Placeholder: "Enter your Email",
+                            Error: data.Fields["email"],
+                        })
+
+                        @components.InputField(components.FormField{
+                            Label: "Password",
+                            Name: "password",
+                            Type: "password",
+                            Placeholder: "Enter your Password",
+                            Error: data.Fields["password"],
+                        })
+
+                        @components.InputField(components.FormField{
+                            Label: "Confirm Password",
+                            Name: "confirmPassword",
+                            Type: "password",
+                            Placeholder: "Confirm Password",
+                            Error: data.Fields["confirmPassword"],
+                        })
+                        <button
+                            type="submit"
+                            id="submit-button"
+                            class="btn btn-primary w-full"
+                            htmx-request:disabled
+                            htmx-request:opacity-50
+                            htmx-request:cursor-not-allowed
+                        >
+                            <span class="htmx-indicator:hidden">Register</span>
+                            <span class="htmx-request:inline hidden">
+                                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                        </button>
+        </form>
+}

@@ -14,6 +14,9 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/ListenUpApp/ListenUp/internal/ent/server"
+	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 )
 
@@ -22,6 +25,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Server is the client for interacting with the Server builders.
+	Server *ServerClient
+	// ServerConfig is the client for interacting with the ServerConfig builders.
+	ServerConfig *ServerConfigClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 }
@@ -35,6 +42,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Server = NewServerClient(c.config)
+	c.ServerConfig = NewServerConfigClient(c.config)
 	c.User = NewUserClient(c.config)
 }
 
@@ -126,9 +135,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:          ctx,
+		config:       cfg,
+		Server:       NewServerClient(cfg),
+		ServerConfig: NewServerConfigClient(cfg),
+		User:         NewUserClient(cfg),
 	}, nil
 }
 
@@ -146,16 +157,18 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:          ctx,
+		config:       cfg,
+		Server:       NewServerClient(cfg),
+		ServerConfig: NewServerConfigClient(cfg),
+		User:         NewUserClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		User.
+//		Server.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -177,22 +190,328 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Server.Use(hooks...)
+	c.ServerConfig.Use(hooks...)
 	c.User.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.Server.Intercept(interceptors...)
+	c.ServerConfig.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *ServerMutation:
+		return c.Server.mutate(ctx, m)
+	case *ServerConfigMutation:
+		return c.ServerConfig.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// ServerClient is a client for the Server schema.
+type ServerClient struct {
+	config
+}
+
+// NewServerClient returns a client for the Server from the given config.
+func NewServerClient(c config) *ServerClient {
+	return &ServerClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `server.Hooks(f(g(h())))`.
+func (c *ServerClient) Use(hooks ...Hook) {
+	c.hooks.Server = append(c.hooks.Server, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `server.Intercept(f(g(h())))`.
+func (c *ServerClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Server = append(c.inters.Server, interceptors...)
+}
+
+// Create returns a builder for creating a Server entity.
+func (c *ServerClient) Create() *ServerCreate {
+	mutation := newServerMutation(c.config, OpCreate)
+	return &ServerCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Server entities.
+func (c *ServerClient) CreateBulk(builders ...*ServerCreate) *ServerCreateBulk {
+	return &ServerCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ServerClient) MapCreateBulk(slice any, setFunc func(*ServerCreate, int)) *ServerCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ServerCreateBulk{err: fmt.Errorf("calling to ServerClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ServerCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ServerCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Server.
+func (c *ServerClient) Update() *ServerUpdate {
+	mutation := newServerMutation(c.config, OpUpdate)
+	return &ServerUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ServerClient) UpdateOne(s *Server) *ServerUpdateOne {
+	mutation := newServerMutation(c.config, OpUpdateOne, withServer(s))
+	return &ServerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ServerClient) UpdateOneID(id int) *ServerUpdateOne {
+	mutation := newServerMutation(c.config, OpUpdateOne, withServerID(id))
+	return &ServerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Server.
+func (c *ServerClient) Delete() *ServerDelete {
+	mutation := newServerMutation(c.config, OpDelete)
+	return &ServerDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ServerClient) DeleteOne(s *Server) *ServerDeleteOne {
+	return c.DeleteOneID(s.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ServerClient) DeleteOneID(id int) *ServerDeleteOne {
+	builder := c.Delete().Where(server.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ServerDeleteOne{builder}
+}
+
+// Query returns a query builder for Server.
+func (c *ServerClient) Query() *ServerQuery {
+	return &ServerQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeServer},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Server entity by its id.
+func (c *ServerClient) Get(ctx context.Context, id int) (*Server, error) {
+	return c.Query().Where(server.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ServerClient) GetX(ctx context.Context, id int) *Server {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryConfig queries the config edge of a Server.
+func (c *ServerClient) QueryConfig(s *Server) *ServerConfigQuery {
+	query := (&ServerConfigClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(server.Table, server.FieldID, id),
+			sqlgraph.To(serverconfig.Table, serverconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, server.ConfigTable, server.ConfigColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ServerClient) Hooks() []Hook {
+	return c.hooks.Server
+}
+
+// Interceptors returns the client interceptors.
+func (c *ServerClient) Interceptors() []Interceptor {
+	return c.inters.Server
+}
+
+func (c *ServerClient) mutate(ctx context.Context, m *ServerMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ServerCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ServerUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ServerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ServerDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Server mutation op: %q", m.Op())
+	}
+}
+
+// ServerConfigClient is a client for the ServerConfig schema.
+type ServerConfigClient struct {
+	config
+}
+
+// NewServerConfigClient returns a client for the ServerConfig from the given config.
+func NewServerConfigClient(c config) *ServerConfigClient {
+	return &ServerConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `serverconfig.Hooks(f(g(h())))`.
+func (c *ServerConfigClient) Use(hooks ...Hook) {
+	c.hooks.ServerConfig = append(c.hooks.ServerConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `serverconfig.Intercept(f(g(h())))`.
+func (c *ServerConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ServerConfig = append(c.inters.ServerConfig, interceptors...)
+}
+
+// Create returns a builder for creating a ServerConfig entity.
+func (c *ServerConfigClient) Create() *ServerConfigCreate {
+	mutation := newServerConfigMutation(c.config, OpCreate)
+	return &ServerConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ServerConfig entities.
+func (c *ServerConfigClient) CreateBulk(builders ...*ServerConfigCreate) *ServerConfigCreateBulk {
+	return &ServerConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ServerConfigClient) MapCreateBulk(slice any, setFunc func(*ServerConfigCreate, int)) *ServerConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ServerConfigCreateBulk{err: fmt.Errorf("calling to ServerConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ServerConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ServerConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ServerConfig.
+func (c *ServerConfigClient) Update() *ServerConfigUpdate {
+	mutation := newServerConfigMutation(c.config, OpUpdate)
+	return &ServerConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ServerConfigClient) UpdateOne(sc *ServerConfig) *ServerConfigUpdateOne {
+	mutation := newServerConfigMutation(c.config, OpUpdateOne, withServerConfig(sc))
+	return &ServerConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ServerConfigClient) UpdateOneID(id int) *ServerConfigUpdateOne {
+	mutation := newServerConfigMutation(c.config, OpUpdateOne, withServerConfigID(id))
+	return &ServerConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ServerConfig.
+func (c *ServerConfigClient) Delete() *ServerConfigDelete {
+	mutation := newServerConfigMutation(c.config, OpDelete)
+	return &ServerConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ServerConfigClient) DeleteOne(sc *ServerConfig) *ServerConfigDeleteOne {
+	return c.DeleteOneID(sc.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ServerConfigClient) DeleteOneID(id int) *ServerConfigDeleteOne {
+	builder := c.Delete().Where(serverconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ServerConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for ServerConfig.
+func (c *ServerConfigClient) Query() *ServerConfigQuery {
+	return &ServerConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeServerConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ServerConfig entity by its id.
+func (c *ServerConfigClient) Get(ctx context.Context, id int) (*ServerConfig, error) {
+	return c.Query().Where(serverconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ServerConfigClient) GetX(ctx context.Context, id int) *ServerConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryServer queries the server edge of a ServerConfig.
+func (c *ServerConfigClient) QueryServer(sc *ServerConfig) *ServerQuery {
+	query := (&ServerClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(serverconfig.Table, serverconfig.FieldID, id),
+			sqlgraph.To(server.Table, server.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, serverconfig.ServerTable, serverconfig.ServerColumn),
+		)
+		fromV = sqlgraph.Neighbors(sc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ServerConfigClient) Hooks() []Hook {
+	return c.hooks.ServerConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *ServerConfigClient) Interceptors() []Interceptor {
+	return c.inters.ServerConfig
+}
+
+func (c *ServerConfigClient) mutate(ctx context.Context, m *ServerConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ServerConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ServerConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ServerConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ServerConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ServerConfig mutation op: %q", m.Op())
 	}
 }
 
@@ -257,7 +576,7 @@ func (c *UserClient) UpdateOne(u *User) *UserUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *UserClient) UpdateOneID(id int) *UserUpdateOne {
+func (c *UserClient) UpdateOneID(id string) *UserUpdateOne {
 	mutation := newUserMutation(c.config, OpUpdateOne, withUserID(id))
 	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -274,7 +593,7 @@ func (c *UserClient) DeleteOne(u *User) *UserDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *UserClient) DeleteOneID(id int) *UserDeleteOne {
+func (c *UserClient) DeleteOneID(id string) *UserDeleteOne {
 	builder := c.Delete().Where(user.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -291,12 +610,12 @@ func (c *UserClient) Query() *UserQuery {
 }
 
 // Get returns a User entity by its id.
-func (c *UserClient) Get(ctx context.Context, id int) (*User, error) {
+func (c *UserClient) Get(ctx context.Context, id string) (*User, error) {
 	return c.Query().Where(user.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *UserClient) GetX(ctx context.Context, id int) *User {
+func (c *UserClient) GetX(ctx context.Context, id string) *User {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -332,9 +651,9 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		User []ent.Hook
+		Server, ServerConfig, User []ent.Hook
 	}
 	inters struct {
-		User []ent.Interceptor
+		Server, ServerConfig, User []ent.Interceptor
 	}
 )

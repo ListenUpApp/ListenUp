@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    label {
+       @apply block
+       text-sm
+       font-normal
+       text-secondary-600
+    }
+    .input {
+        @apply block
+        w-full
+        rounded-xl
+        border-0
+        text-secondary-600
+        text-base
+        shadow-sm
+        ring-1
+        ring-inset
+        ring-gray-300
+        placeholder:text-secondary-400
+        focus:ring-2
+        focus:ring-inset
+        focus:ring-primary-600
+        py-4
+        px-4
+        transition-all
+        duration-200
+        ease-in-out;
+    }
+
+    .btn {
+        @apply rounded-xl
+        px-6
+        py-4
+        text-lg
+        font-semibold
+        shadow-sm
+        focus-visible:outline
+        focus-visible:outline-2
+        focus-visible:outline-offset-2;
+    }
+
+    .btn-primary {
+        @apply text-white
+        bg-primary-700
+        hover:bg-primary-600
+        focus-visible:outline-primary-600
+        transition-colors;
+    }
+}

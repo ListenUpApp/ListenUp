@@ -2,8 +2,81 @@
 
 package ent
 
+import (
+	"time"
+
+	"github.com/ListenUpApp/ListenUp/internal/ent/schema"
+	"github.com/ListenUpApp/ListenUp/internal/ent/server"
+	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
+	"github.com/ListenUpApp/ListenUp/internal/ent/user"
+)
+
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	serverFields := schema.Server{}.Fields()
+	_ = serverFields
+	// serverDescSetup is the schema descriptor for setup field.
+	serverDescSetup := serverFields[0].Descriptor()
+	// server.DefaultSetup holds the default value on creation for the setup field.
+	server.DefaultSetup = serverDescSetup.Default.(bool)
+	// serverDescCreatedAt is the schema descriptor for created_at field.
+	serverDescCreatedAt := serverFields[1].Descriptor()
+	// server.DefaultCreatedAt holds the default value on creation for the created_at field.
+	server.DefaultCreatedAt = serverDescCreatedAt.Default.(func() time.Time)
+	// serverDescUpdatedAt is the schema descriptor for updated_at field.
+	serverDescUpdatedAt := serverFields[2].Descriptor()
+	// server.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	server.DefaultUpdatedAt = serverDescUpdatedAt.Default.(func() time.Time)
+	// server.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	server.UpdateDefaultUpdatedAt = serverDescUpdatedAt.UpdateDefault.(func() time.Time)
+	serverconfigFields := schema.ServerConfig{}.Fields()
+	_ = serverconfigFields
+	// serverconfigDescName is the schema descriptor for name field.
+	serverconfigDescName := serverconfigFields[0].Descriptor()
+	// serverconfig.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	serverconfig.NameValidator = serverconfigDescName.Validators[0].(func(string) error)
+	// serverconfigDescCreatedAt is the schema descriptor for created_at field.
+	serverconfigDescCreatedAt := serverconfigFields[1].Descriptor()
+	// serverconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	serverconfig.DefaultCreatedAt = serverconfigDescCreatedAt.Default.(func() time.Time)
+	// serverconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	serverconfigDescUpdatedAt := serverconfigFields[2].Descriptor()
+	// serverconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	serverconfig.DefaultUpdatedAt = serverconfigDescUpdatedAt.Default.(func() time.Time)
+	// serverconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	serverconfig.UpdateDefaultUpdatedAt = serverconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescFirstName is the schema descriptor for first_name field.
+	userDescFirstName := userFields[1].Descriptor()
+	// user.FirstNameValidator is a validator for the "first_name" field. It is called by the builders before save.
+	user.FirstNameValidator = userDescFirstName.Validators[0].(func(string) error)
+	// userDescLastName is the schema descriptor for last_name field.
+	userDescLastName := userFields[2].Descriptor()
+	// user.LastNameValidator is a validator for the "last_name" field. It is called by the builders before save.
+	user.LastNameValidator = userDescLastName.Validators[0].(func(string) error)
+	// userDescEmail is the schema descriptor for email field.
+	userDescEmail := userFields[3].Descriptor()
+	// user.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	user.EmailValidator = userDescEmail.Validators[0].(func(string) error)
+	// userDescPasswordHash is the schema descriptor for password_hash field.
+	userDescPasswordHash := userFields[4].Descriptor()
+	// user.PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
+	user.PasswordHashValidator = userDescPasswordHash.Validators[0].(func(string) error)
+	// userDescCreatedAt is the schema descriptor for created_at field.
+	userDescCreatedAt := userFields[5].Descriptor()
+	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
+	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time.Time)
+	// userDescUpdatedAt is the schema descriptor for updated_at field.
+	userDescUpdatedAt := userFields[6].Descriptor()
+	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time.Time)
+	// user.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	user.UpdateDefaultUpdatedAt = userDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// userDescID is the schema descriptor for id field.
+	userDescID := userFields[0].Descriptor()
+	// user.DefaultID holds the default value on creation for the id field.
+	user.DefaultID = userDescID.Default.(func() string)
 }
