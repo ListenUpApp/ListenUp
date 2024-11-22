@@ -29,7 +29,16 @@ func NewAuthHandler(config Config) *AuthHandler {
 
 func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/register", h.RegisterPage)
+	router.GET("/login", h.LoginPage)
 	router.POST("/register", h.Register)
+}
+
+func (h *AuthHandler) LoginPage(c *gin.Context) {
+	page := auth.Login()
+	err := page.Render(c.Request.Context(), c.Writer)
+	if err != nil {
+		fmt.Errorf("Error Rendering Page")
+	}
 }
 
 func (h *AuthHandler) RegisterPage(c *gin.Context) {
@@ -80,7 +89,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.Header("HX-Redirect", "/dashboard")
+	c.Header("HX-Redirect", "/auth/login")
 }
 
 func (h *AuthHandler) getErrorMessage(err error) string {

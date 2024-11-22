@@ -7,7 +7,7 @@ import "github.com/ListenUpApp/ListenUp/internal/web/view/forms"
 templ Register(data forms.RegisterData) {
     @layouts.Auth("Register") {
             <h1 class="text-secondary-700 font-medium text-3xl mb-2">Welcome to ListenUp!</h1>
-            <p class="text-secondary-500 text-sm">You're the first one here! Enter the root account information below:</p>
+            <p class="text-secondary-500 text-sm">You're the first one here! Enter the admins information below:</p>
             @forms.RegisterForm(data)
     }
 }
