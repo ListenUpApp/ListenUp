@@ -7,6 +7,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/server"
 	"github.com/ListenUpApp/ListenUp/internal/service"
+	"github.com/ListenUpApp/ListenUp/internal/util"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
 	"log"
@@ -41,6 +42,10 @@ func main() {
 		log.Fatal("failed opening connection to sqlite: %v", err)
 	}
 	defer client.Close()
+
+	if err := util.InitializeAuth(cfg.Cookie); err != nil {
+		log.Fatalf("Failed to initialize JWT system: %v", err)
+	}
 
 	ctx := context.Background()
 

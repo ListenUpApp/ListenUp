@@ -10,6 +10,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/ListenUpApp/ListenUp/pkg/validator"
 	"log/slog"
+	"time"
 )
 
 type AuthService struct {
@@ -30,8 +31,9 @@ func NewAuthService(cfg ServiceConfig) (*AuthService, error) {
 	}
 
 	return &AuthService{
-		userRepo: cfg.UserRepo,
-		logger:   cfg.Logger,
+		userRepo:   cfg.UserRepo,
+		serverRepo: cfg.ServerRepo,
+		logger:     cfg.Logger,
 	}, nil
 }
 
@@ -96,7 +98,63 @@ func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterReque
 	return nil
 }
 
+func (s *AuthService) LoginUser(ctx context.Context, req models.LoginRequest) (*models.LoginResponse, error) {
+	// Validate request
+	if err := s.ValidateLoginRequest(req); err != nil {
+		return nil, err
+	}
+
+	dbUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		var appErr *errorhandling.AppError
+		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
+			return nil, errorhandling.NewNotFoundError("dbUser with that email does not exist")
+		}
+	}
+
+	if !util.CheckPasswordHash(req.Password, dbUser.PasswordHash) {
+		return nil, errorhandling.NewUnauthorizedError("invalid credentials")
+	}
+
+	token, err := util.GenerateToken(dbUser.ID, 0, dbUser.Email, 24*30*time.Hour)
+	if err != nil {
+		return nil, errorhandling.NewInternalError(err, "failed to generate token")
+	}
+	user := models.User{
+		ID:        dbUser.ID,
+		Email:     dbUser.Email,
+		FirstName: dbUser.FirstName,
+		LastName:  dbUser.LastName,
+	}
+
+	return &models.LoginResponse{
+		Token: token,
+		User:  user,
+	}, nil
+}
+
+func (s *AuthService) IsServerSetup(ctx context.Context) (bool, error) {
+	if s.serverRepo == nil {
+		return false, fmt.Errorf("server repository not initialized")
+	}
+
+	srv, err := s.serverRepo.GetServer(ctx)
+	if err != nil {
+		s.logger.Error("failed to get server status", "error", err)
+		return false, fmt.Errorf("failed to get server: %w", err)
+	}
+
+	return srv.Setup, nil
+}
+
 func (s *AuthService) ValidateRegisterRequest(req models.RegisterRequest) error {
+	if errors := validator.Validate(req); len(errors) > 0 {
+		return errorhandling.NewValidationError("validation failed").WithData(errors)
+	}
+	return nil
+}
+
+func (s *AuthService) ValidateLoginRequest(req models.LoginRequest) error {
 	if errors := validator.Validate(req); len(errors) > 0 {
 		return errorhandling.NewValidationError("validation failed").WithData(errors)
 	}

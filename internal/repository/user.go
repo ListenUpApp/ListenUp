@@ -24,7 +24,7 @@ func NewUserRepository(cfg Config) *UserRepository {
 func (u *UserRepository) GetUserById(ctx context.Context, id string) (*ent.User, error) {
 	dbUser, err := u.client.User.Query().
 		Where(user.IDEQ(id)).
-		First(ctx)
+		Only(ctx)
 
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -42,7 +42,7 @@ func (u *UserRepository) GetUserById(ctx context.Context, id string) (*ent.User,
 func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent.User, error) {
 	dbUser, err := u.client.User.Query().
 		Where(user.EmailEQ(email)).
-		First(ctx)
+		Only(ctx)
 
 	if err != nil {
 		if ent.IsNotFound(err) {

@@ -8,6 +8,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/handler/web"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
+	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/gin-gonic/gin"
 	"log/slog"
 	"net/http"
@@ -28,6 +29,8 @@ type Config struct {
 }
 
 func New(cfg Config) *Server {
+	util.InitializeAuth(cfg.Config.Cookie)
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
@@ -76,13 +79,13 @@ func (s *Server) setupRoutes() {
 
 	apiGroup := s.router.Group("/api/v1")
 	{
-		// Public routes
+		// Public API routes
 		apiHandler.RegisterPublicRoutes(apiGroup)
 
-		// Protected routes
-		protected := apiGroup.Group("")
-		// todo auth middleware goes here
-		apiHandler.RegisterProtectedRoutes(protected)
+		// Protected API routes
+		apiProtected := apiGroup.Group("")
+		apiProtected.Use(util.APIAuth())
+		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
 	// Web routes
@@ -92,12 +95,12 @@ func (s *Server) setupRoutes() {
 		Config:   s.config,
 	})
 
-	// Public web routes
-	webPublicGroup := s.router.Group("")
-	webHandler.RegisterPublicRoutes(webPublicGroup)
+	// Public web routes (auth pages)
+	webHandler.RegisterPublicRoutes(s.router.Group(""))
 
+	// All other web routes are protected
 	protected := s.router.Group("")
-	// todo auth middleware goes here
+	protected.Use(util.WebAuth())
 	webHandler.RegisterProtectedRoutes(protected)
 }
 
