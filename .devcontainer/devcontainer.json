@@ -9,8 +9,8 @@
                 "golang.go",
                 "bradlc.vscode-tailwindcss",
                 "a-h.templ",
-                "dbaeumer.vscode-eslint",
-                "esbenp.prettier-vscode"
+                "alexcvzz.vscode-sqlite",
+                "tamasfe.even-better-toml",
             ],
             "settings": {
                 "go.toolsManagement.checkForUpdates": "local",
