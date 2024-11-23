@@ -15,6 +15,14 @@ templ RegisterForm(data RegisterData) {
 		hx-swap="outerHTML"
 		hx-ext="json-enc"
 		hx-indicator="#submit-button"
+		x-data="{
+            isValid: false,
+            checkValidity() {
+                this.isValid = this.$el.querySelectorAll('[required]:invalid').length === 0
+            }
+        }"
+        x-init="checkValidity()"
+        @input="checkValidity()"
 	>
 		@components.InputField(components.FormField{
 			Label:       "First Name",
@@ -63,16 +71,10 @@ templ RegisterForm(data RegisterData) {
 			type="submit"
 			id="submit-button"
 			class="btn btn-primary w-full"
-			disabled
 			htmx-request:disabled
 			htmx-request:opacity-50
 			htmx-request:cursor-not-allowed
-			_="on keyup from closest <form/> debounced at 150ms
-                                        if (<[required]:invalid/>).length > 0
-                                            add @disabled
-                                            then exit
-                                        end
-                                        remove @disabled"
+			x-bind:disabled="!isValid"
 		>
 			<span class="htmx-indicator:hidden">Register</span>
 			<span class="htmx-request:inline hidden">
