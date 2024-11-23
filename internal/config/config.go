@@ -10,6 +10,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Logger   LoggerConfig
+	Cookie   CookieConfig
 }
 
 type AppConfig struct {
@@ -29,6 +30,11 @@ type LoggerConfig struct {
 	Level string `mapstructure:"LOG_LEVEL"`
 }
 
+type CookieConfig struct {
+	Domain     string
+	CookiePath string
+}
+
 func LoadConfig(path string) (*Config, error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName(".env")
@@ -40,6 +46,8 @@ func LoadConfig(path string) (*Config, error) {
 	viper.SetDefault("Server.Port", 8080)
 	viper.SetDefault("Database.Name", "listenup")
 	viper.SetDefault("Logger.Level", "info")
+	viper.SetDefault("Cookie.Domain", "")
+	viper.SetDefault("Cookie.CookiePath", "/")
 
 	// Bind environment variables
 	viper.BindEnv("App.Environment", "ENV")

@@ -70,3 +70,11 @@ func NewInternalError(err error, message string) *AppError {
 		Err:     err,
 	}
 }
+
+func NewUnauthorizedError(message string) *AppError {
+	return &AppError{
+		Type:    ErrorTypeUnauthorized,
+		Message: message,
+		Code:    http.StatusUnauthorized,
+	}
+}

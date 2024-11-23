@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/config"
+	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
 	"github.com/ListenUpApp/ListenUp/internal/handler/web"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
+	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/gin-gonic/gin"
 	"log/slog"
 	"net/http"
@@ -28,6 +31,8 @@ type Config struct {
 }
 
 func New(cfg Config) *Server {
+	util.InitializeAuth(cfg.Config.Cookie)
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
@@ -48,14 +53,18 @@ func New(cfg Config) *Server {
 }
 
 func (s *Server) Init(ctx context.Context) error {
-	srv, err := s.services.Server.GetServer(ctx)
+	_, err := s.services.Server.GetServer(ctx)
 	if err != nil {
-		return fmt.Errorf("checking server status: %w", err)
-	}
-
-	if srv == nil {
-		if _, err := s.services.Server.CreateServer(ctx); err != nil {
-			return fmt.Errorf("creating server: %w", err)
+		var appErr *errorhandling.AppError
+		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
+			// Server doesn't exist, let's create one
+			_, err = s.services.Server.CreateServer(ctx)
+			if err != nil {
+				return fmt.Errorf("creating server: %w", err)
+			}
+		} else {
+			// Any other error should cause initialization to fail
+			return fmt.Errorf("checking server status: %w", err)
 		}
 	}
 
@@ -76,13 +85,13 @@ func (s *Server) setupRoutes() {
 
 	apiGroup := s.router.Group("/api/v1")
 	{
-		// Public routes
+		// Public API routes
 		apiHandler.RegisterPublicRoutes(apiGroup)
 
-		// Protected routes
-		protected := apiGroup.Group("")
-		// todo auth middleware goes here
-		apiHandler.RegisterProtectedRoutes(protected)
+		// Protected API routes
+		apiProtected := apiGroup.Group("")
+		apiProtected.Use(util.APIAuth())
+		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
 	// Web routes
@@ -92,12 +101,12 @@ func (s *Server) setupRoutes() {
 		Config:   s.config,
 	})
 
-	// Public web routes
-	webPublicGroup := s.router.Group("")
-	webHandler.RegisterPublicRoutes(webPublicGroup)
+	// Public web routes (auth pages)
+	webHandler.RegisterPublicRoutes(s.router.Group(""))
 
+	// All other web routes are protected
 	protected := s.router.Group("")
-	// todo auth middleware goes here
+	protected.Use(util.WebAuth())
 	webHandler.RegisterProtectedRoutes(protected)
 }
 

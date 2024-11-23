@@ -17,8 +17,9 @@ type Deps struct {
 
 func NewServices(deps Deps) (*Services, error) {
 	authService, err := NewAuthService(ServiceConfig{
-		UserRepo: deps.Repos.User,
-		Logger:   deps.Logger,
+		UserRepo:   deps.Repos.User,
+		ServerRepo: deps.Repos.Server,
+		Logger:     deps.Logger,
 	})
 
 	serverService, err := NewServerService(ServiceConfig{
