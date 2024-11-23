@@ -2,17 +2,21 @@ package web
 
 import (
 	"fmt"
+	"log/slog"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/service"
+	"github.com/ListenUpApp/ListenUp/internal/util"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
-	"log/slog"
 )
 
 type Handler struct {
-	auth   *AuthHandler
-	logger *slog.Logger
-	config *config.Config
+	auth     *AuthHandler
+	services *service.Services
+	logger   *slog.Logger
+	config   *config.Config
 }
 
 type Config struct {
@@ -23,9 +27,10 @@ type Config struct {
 
 func NewHandler(cfg Config) *Handler {
 	return &Handler{
-		auth:   NewAuthHandler(cfg),
-		logger: cfg.Logger,
-		config: cfg.Config,
+		auth:     NewAuthHandler(cfg),
+		services: cfg.Services,
+		logger:   cfg.Logger,
+		config:   cfg.Config,
 	}
 }
 
@@ -42,8 +47,20 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 }
 
 func (h *Handler) HomePage(c *gin.Context) {
-	page := pages.Home()
-	err := page.Render(c.Request.Context(), c.Writer)
+	claims, err := util.GetCustomClaims(c)
+	if err != nil {
+		fmt.Errorf("Error getting claims")
+	}
+	user, err := h.services.User.GetUserByID(c, claims.UserID)
+	if err != nil {
+		fmt.Errorf("Error getting user")
+	}
+	data := layouts.AppData{
+		PageName: "Home",
+		User:     *user,
+	}
+	page := pages.Home(data)
+	err = page.Render(c.Request.Context(), c.Writer)
 	if err != nil {
 		fmt.Errorf("Error Rendering Page")
 	}

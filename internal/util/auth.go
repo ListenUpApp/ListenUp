@@ -5,9 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/ListenUpApp/ListenUp/internal/config"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,6 +12,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ListenUpApp/ListenUp/internal/config"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -47,6 +48,14 @@ const (
 
 type jwtKeyManager struct {
 	signingKey []byte
+}
+
+// CustomClaims extends jwt.MapClaims to provide strongly typed fields
+type CustomClaims struct {
+	UserID string `json:"user_id"`
+	Role   int32  `json:"role,omitempty"`
+	Email  string `json:"email,omitempty"`
+	jwt.MapClaims
 }
 
 // InitializeAuth sets up both cookie and JWT systems
@@ -123,16 +132,13 @@ func getJWTSecret() []byte {
 
 // Token Management
 func GenerateToken(userID string, role int32, email string, expiration time.Duration) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(expiration).Unix(),
-	}
-
-	if role != 0 {
-		claims["role"] = role
-	}
-	if email != "" {
-		claims["email"] = email
+	claims := CustomClaims{
+		UserID: userID,
+		Role:   role,
+		Email:  email,
+		MapClaims: jwt.MapClaims{
+			"exp": time.Now().Add(expiration).Unix(),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -282,4 +288,54 @@ func APIAuth() gin.HandlerFunc {
 		c.Set("claims", claims)
 		c.Next()
 	}
+}
+
+// GetUserIDFromClaims safely extracts the user ID from the context
+func GetUserIDFromClaims(c *gin.Context) (string, error) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		return "", fmt.Errorf("no claims found in context")
+	}
+
+	mapClaims, ok := claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid claims type in context")
+	}
+
+	userID, ok := mapClaims["user_id"].(string)
+	if !ok {
+		return "", fmt.Errorf("user_id not found in claims or invalid type")
+	}
+
+	return userID, nil
+}
+
+// GetCustomClaims extracts all custom claims from the context
+func GetCustomClaims(c *gin.Context) (*CustomClaims, error) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		return nil, fmt.Errorf("no claims found in context")
+	}
+
+	mapClaims, ok := claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid claims type in context")
+	}
+
+	customClaims := &CustomClaims{
+		MapClaims: mapClaims,
+	}
+
+	// Extract typed fields
+	if userID, ok := mapClaims["user_id"].(string); ok {
+		customClaims.UserID = userID
+	}
+	if role, ok := mapClaims["role"].(float64); ok { // JWT numbers are float64
+		customClaims.Role = int32(role)
+	}
+	if email, ok := mapClaims["email"].(string); ok {
+		customClaims.Email = email
+	}
+
+	return customClaims, nil
 }

@@ -1,13 +1,15 @@
 package service
 
 import (
-	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"log/slog"
+
+	"github.com/ListenUpApp/ListenUp/internal/repository"
 )
 
 type Services struct {
 	Auth   *AuthService
 	Server *ServerService
+	User   *UserService
 }
 
 type Deps struct {
@@ -27,6 +29,11 @@ func NewServices(deps Deps) (*Services, error) {
 		Logger:     deps.Logger,
 	})
 
+	userService, err := NewUserService(ServiceConfig{
+		UserRepo: deps.Repos.User,
+		Logger:   deps.Logger,
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +41,7 @@ func NewServices(deps Deps) (*Services, error) {
 	return &Services{
 		Auth:   authService,
 		Server: serverService,
+		User:   userService,
 	}, nil
 }
 
