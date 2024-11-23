@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - audiobooks:/workspace/audiobooks
+      - go-deps:/go:cached
+      - node_modules:/workspace/node_modules
+    command: sleep infinity
+    environment:
+      - GO111MODULE=on
+      - GOPATH=/go
+      - PATH=/go/bin:${PATH}
+      - NODE_ENV=development
+
+volumes:
+  audiobooks:
+    name: audiobooks
+  go-deps:
+    name: go-deps
+  node_modules:
+    name: node_modules

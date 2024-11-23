@@ -1,0 +1,33 @@
+{
+    "name": "ListenUp",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "bradlc.vscode-tailwindcss",
+                "a-h.templ",
+                "alexcvzz.vscode-sqlite",
+                "tamasfe.even-better-toml",
+            ],
+            "settings": {
+                "go.toolsManagement.checkForUpdates": "local",
+                "go.useLanguageServer": true,
+                "go.gopath": "/go"
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "features": {
+        "ghcr.io/devcontainers/features/go:1": {
+            "version": "latest"
+        },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
+    "initializeCommand": "chmod +x ${localWorkspaceFolder}/.devcontainer/post-create.sh",
+    "postCreateCommand": "./.devcontainer/post-create.sh"
+}
