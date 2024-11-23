@@ -50,4 +50,9 @@
         focus-visible:outline-primary-600
         transition-colors;
     }
+    .btn[disabled] {
+        @apply bg-secondary-200
+        text-black
+        cursor-not-allowed
+    }
 }

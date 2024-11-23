@@ -114,7 +114,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err := h.service.RegisterUser(c.Request.Context(), req); err != nil {
 		data := forms.RegisterData{
 			RootUser: false,
-			Error:    h.getErrorMessage(err),
+			Error:    h.getRegisterErrorMessage(err),
 			Fields:   make(map[string]string),
 		}
 
@@ -150,7 +150,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	response, err := h.service.LoginUser(c.Request.Context(), req)
 	if err != nil {
 		data := forms.LoginData{
-			Error:  h.getErrorMessage(err),
+			Error:  h.getLoginErrorMessage(err),
 			Fields: make(map[string]string),
 		}
 
@@ -181,7 +181,22 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.Header("HX-Redirect", "/auth/login")
 }
 
-func (h *AuthHandler) getErrorMessage(err error) string {
+func (h *AuthHandler) getLoginErrorMessage(err error) string {
+	var appErr *errorhandling.AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Type {
+		case errorhandling.ErrorTypeValidation:
+			return "Please check the form for errors"
+		case errorhandling.ErrorTypeUnauthorized, errorhandling.ErrorTypeNotFound:
+			return "Invalid email or password"
+		case errorhandling.ErrorTypeInternal:
+			return "An unexpected error occurred. Please try again"
+		}
+	}
+	return "An unexpected error occurred. Please try again"
+}
+
+func (h *AuthHandler) getRegisterErrorMessage(err error) string {
 	var appErr *errorhandling.AppError
 	if errors.As(err, &appErr) {
 		switch appErr.Type {

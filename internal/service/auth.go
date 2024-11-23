@@ -108,12 +108,13 @@ func (s *AuthService) LoginUser(ctx context.Context, req models.LoginRequest) (*
 	if err != nil {
 		var appErr *errorhandling.AppError
 		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
-			return nil, errorhandling.NewNotFoundError("dbUser with that email does not exist")
+			return nil, errorhandling.NewUnauthorizedError("Invalid email or password")
 		}
+		return nil, err
 	}
 
 	if !util.CheckPasswordHash(req.Password, dbUser.PasswordHash) {
-		return nil, errorhandling.NewUnauthorizedError("invalid credentials")
+		return nil, errorhandling.NewUnauthorizedError("Invalid email or password")
 	}
 
 	token, err := util.GenerateToken(dbUser.ID, 0, dbUser.Email, 24*30*time.Hour)
