@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/config"
+	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
 	"github.com/ListenUpApp/ListenUp/internal/handler/web"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
@@ -51,14 +53,18 @@ func New(cfg Config) *Server {
 }
 
 func (s *Server) Init(ctx context.Context) error {
-	srv, err := s.services.Server.GetServer(ctx)
+	_, err := s.services.Server.GetServer(ctx)
 	if err != nil {
-		return fmt.Errorf("checking server status: %w", err)
-	}
-
-	if srv == nil {
-		if _, err := s.services.Server.CreateServer(ctx); err != nil {
-			return fmt.Errorf("creating server: %w", err)
+		var appErr *errorhandling.AppError
+		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
+			// Server doesn't exist, let's create one
+			_, err = s.services.Server.CreateServer(ctx)
+			if err != nil {
+				return fmt.Errorf("creating server: %w", err)
+			}
+		} else {
+			// Any other error should cause initialization to fail
+			return fmt.Errorf("checking server status: %w", err)
 		}
 	}
 
