@@ -1037,6 +1037,11 @@ label {
   margin-right: -0.5rem;
 }
 
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .-mr-2 {
   margin-right: -0.5rem;
 }
@@ -1047,6 +1052,10 @@ label {
 
 .mb-4 {
   margin-bottom: 1rem;
+}
+
+.mb-6 {
+  margin-bottom: 1.5rem;
 }
 
 .mb-8 {
@@ -1438,6 +1447,10 @@ label {
   padding: 1rem;
 }
 
+.p-8 {
+  padding: 2rem;
+}
+
 .px-3 {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
@@ -1530,6 +1543,11 @@ label {
   line-height: 2.25rem;
 }
 
+.text-4xl {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+}
+
 .text-5xl {
   font-size: 3rem;
   line-height: 1;
@@ -1558,6 +1576,10 @@ label {
 .text-xl {
   font-size: 1.25rem;
   line-height: 1.75rem;
+}
+
+.font-bold {
+  font-weight: 700;
 }
 
 .font-medium {
@@ -1605,6 +1627,11 @@ label {
 .text-red-900 {
   --tw-text-opacity: 1;
   color: rgb(127 29 29 / var(--tw-text-opacity, 1));
+}
+
+.text-secondary-400 {
+  --tw-text-opacity: 1;
+  color: rgb(168 179 196 / var(--tw-text-opacity, 1));
 }
 
 .text-secondary-500 {
@@ -1830,6 +1857,10 @@ label {
   .md\:max-h-min {
     max-height: -moz-min-content;
     max-height: min-content;
+  }
+
+  .md\:w-auto {
+    width: auto;
   }
 
   .md\:max-w-lg {

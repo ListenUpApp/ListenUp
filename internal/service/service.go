@@ -7,9 +7,10 @@ import (
 )
 
 type Services struct {
-	Auth   *AuthService
-	Server *ServerService
-	User   *UserService
+	Auth    *AuthService
+	Server  *ServerService
+	User    *UserService
+	Library *LibraryService
 }
 
 type Deps struct {
@@ -33,21 +34,27 @@ func NewServices(deps Deps) (*Services, error) {
 		UserRepo: deps.Repos.User,
 		Logger:   deps.Logger,
 	})
+	libraryService, err := NewLibraryService(ServiceConfig{
+		LibraryRepo: deps.Repos.Library,
+		Logger:      deps.Logger,
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &Services{
-		Auth:   authService,
-		Server: serverService,
-		User:   userService,
+		Auth:    authService,
+		Server:  serverService,
+		User:    userService,
+		Library: libraryService,
 	}, nil
 }
 
 // ServiceConfig shared configuration for services
 type ServiceConfig struct {
-	UserRepo   *repository.UserRepository
-	ServerRepo *repository.ServerRepository
-	Logger     *slog.Logger
+	UserRepo    *repository.UserRepository
+	ServerRepo  *repository.ServerRepository
+	LibraryRepo *repository.LibraryRepository
+	Logger      *slog.Logger
 }

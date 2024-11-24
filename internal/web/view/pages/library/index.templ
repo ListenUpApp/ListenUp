@@ -1,16 +1,26 @@
 package library
 
-import "github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+import (
+	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/partials"
+)
 
 templ LibraryIndexPage(pageName string) {
-    @layouts.App(pageName) {
-        @LibraryIndexContent()
-    }
+	@layouts.App(pageName) {
+		@LibraryIndexContent()
+	}
 }
 
 templ LibraryIndexContent() {
-    <div class="prose lg:prose-xl p-4">
-        <h1 class="text-2xl">Library Page</h1>
-        <p>If You had books they would be here.</p>
-    </div>
+	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
+		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
+			@partials.LibraryStatus()
+		} else {
+			<div class="prose lg:prose-xl p-4">
+				<h1 class="text-2xl">Welcome to ListenUp</h1>
+				<p>This is a sample homepage served with Templ and Gin.</p>
+			</div>
+		}
+	}
 }

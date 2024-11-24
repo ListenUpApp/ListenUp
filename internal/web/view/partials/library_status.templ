@@ -1,0 +1,30 @@
+package partials
+
+import appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+
+templ LibraryStatus() {
+	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
+		if !appCtx.LibrariesExist {
+			<div class="flex flex-col h-full items-center justify-center">
+				<div class="bg-white rounded-xl p-8 max-w-lg w-full mx-auto text-center">
+					<div class="flex flex-col items-center">
+						<h2 class="text-4xl font-bold text-secondary-700 mb-2">Welcome to ListenUp!</h2>
+						<p class="text-secondary-400 mb-6">It looks like no library has been created yet.</p>
+						<button
+							href="/library/new"
+							class="btn btn-primary w-full md:w-auto"
+							hx-get="/library/new"
+							hx-target="main"
+						>
+							Create Your First Library
+						</button>
+					</div>
+				</div>
+			</div>
+		} else if appCtx.ActiveLibrary == nil {
+			<div class="flex flex-col items-center justify-center p-8 text-center">
+				<h2>Select a Library</h2>
+			</div>
+		}
+	}
+}

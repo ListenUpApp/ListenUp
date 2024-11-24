@@ -1,15 +1,16 @@
 package layouts
 
 import (
-	"github.com/ListenUpApp/ListenUp/internal/middleware"
+	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 )
 
 templ App(pageName string) {
-	if data, ok := ctx.Value("app_context").(middleware.AppContext); ok {
+	if data, ok := appcontext.GetAppContext(ctx); ok {
 		@Base(pageName) {
 			<!-- Off-canvas menu for mobile -->
-			<div x-data="{ 
+			<div
+				x-data="{ 
 					open: false,
 					currentPath: window.location.pathname,
 					isActive(path) {
@@ -348,10 +349,8 @@ templ App(pageName string) {
 							</div>
 						</div>
 					</div>
-					<main class="flex-1 overflow-auto bg-white md:bg-primary-bg" id="main-content">
-						<div class="px-4 sm:px-6 lg:px-8">
-							{ children... }
-						</div>
+					<main class="flex-1 overflow-auto bg-white md:bg-primary-bg px-4 sm:px-6 lg:px-8" id="main-content">
+						{ children... }
 					</main>
 				</div>
 			</div>

@@ -40,14 +40,32 @@ func (l *LibraryRepository) GetLibraryById(ctx context.Context, id string) (*ent
 	return dbLibrary, nil
 }
 
+func (l *LibraryRepository) GetCurrentLibraryForUser(ctx context.Context, userId string) (*ent.Library, error) {
+	dbLibrary, err := l.client.User.Query().Where(user.IDEQ(userId)).QueryActiveLibrary().Only(ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, errorhandling.NewNotFoundError("no library instance found")
+		}
+		l.logger.ErrorContext(ctx, "Failed to query active library",
+			"error", err)
+		return nil, errorhandling.NewInternalError(err, "failed to query active library")
+	}
+
+	return dbLibrary, nil
+
+}
+
 func (l *LibraryRepository) GetLibrariesByUserId(ctx context.Context, userId string) ([]*ent.Library, error) {
 	dbLibraries, err := l.client.User.Query().Where(user.IDEQ(userId)).QueryLibraries().All(ctx)
 
 	if err != nil {
-		l.logger.ErrorContext(ctx, "Failed to get libraries by user ID",
-			"user_id", userId,
+		if ent.IsNotFound(err) {
+			return nil, errorhandling.NewNotFoundError("no libraries found on the existing user")
+		}
+		l.logger.ErrorContext(ctx, "Failed to query user's libraries",
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query libraries")
+		return nil, errorhandling.NewInternalError(err, "failed to query user's libraries")
 	}
 
 	return dbLibraries, nil

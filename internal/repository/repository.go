@@ -9,6 +9,7 @@ import (
 type Repositories struct {
 	User   *UserRepository
 	Server *ServerRepository
+	Library *LibraryRepository
 }
 
 type Config struct {
@@ -27,5 +28,6 @@ func NewRepositories(cfg Config) (*Repositories, error) {
 	return &Repositories{
 		User:   NewUserRepository(cfg),
 		Server: NewServerRepository(cfg),
+		Library: NewLibraryRepository(cfg),
 	}, nil
 }

@@ -1,13 +1,13 @@
 package web
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
-	"github.com/ListenUpApp/ListenUp/internal/middleware"
+	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
+	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,6 +23,14 @@ type Config struct {
 	Services *service.Services
 	Logger   *slog.Logger
 	Config   *config.Config
+}
+
+type RenderConfig struct {
+	Writer    gin.ResponseWriter
+	Logger    *slog.Logger
+	Path      string
+	PageTitle string
+	IsHTMX    bool
 }
 
 func NewHandler(cfg Config) *Handler {
@@ -51,36 +59,45 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 	}
 }
 
-func (h *Handler) HomePage(c *gin.Context) {
-	appCtx, exists := middleware.GetAppContext(c)
+func RenderPage(c *gin.Context, cfg RenderConfig, fullPage, partial templ.Component) error {
+	appCtx, exists := appcontext.GetAppContextFromGin(c)
 	if !exists {
-		h.logger.Error("app context not found")
+		cfg.Logger.Error("app context not found")
 		c.String(500, "Error: app context not found")
-		return
+		return nil
 	}
 
 	// Create a new context with the app context value
-	ctx := context.WithValue(c.Request.Context(), "app_context", appCtx)
+	ctx := appcontext.WithAppContext(c.Request.Context(), appCtx)
 
-	if c.GetHeader("HX-Request") == "true" {
-		err := pages.HomeContent().Render(ctx, c.Writer)
-		if err != nil {
-			h.logger.Error("error rendering page",
-				"error", err,
-				"path", c.Request.URL.Path)
-			c.String(500, "Error rendering page")
-			return
-		}
-		return
+	component := fullPage
+	if cfg.IsHTMX {
+		component = partial
 	}
 
-	// For regular requests, return the full page
-	err := pages.HomePage("Home").Render(ctx, c.Writer)
+	err := component.Render(ctx, cfg.Writer)
 	if err != nil {
-		h.logger.Error("error rendering page",
+		cfg.Logger.Error("error rendering page",
 			"error", err,
-			"path", c.Request.URL.Path)
+			"path", cfg.Path)
 		c.String(500, "Error rendering page")
+	}
+
+	return err
+}
+
+func (h *Handler) HomePage(c *gin.Context) {
+	err := RenderPage(c, RenderConfig{
+		Writer:    c.Writer,
+		Logger:    h.logger,
+		Path:      c.Request.URL.Path,
+		PageTitle: "Home",
+		IsHTMX:    c.GetHeader("HX-Request") == "true",
+	},
+		pages.HomePage("Home"),
+		pages.HomeContent())
+
+	if err != nil {
 		return
 	}
 }

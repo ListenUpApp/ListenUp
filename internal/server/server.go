@@ -94,6 +94,7 @@ func (s *Server) setupRoutes() {
 		apiProtected := apiGroup.Group("")
 		apiProtected.Use(middleware.APIAuth())
 		apiProtected.Use(middleware.WithUser(s.services.User))
+		apiProtected.Use(middleware.WithLibrary(s.services.Library))
 		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
@@ -111,6 +112,7 @@ func (s *Server) setupRoutes() {
 	protected := s.router.Group("")
 	protected.Use(middleware.WebAuth())
 	protected.Use(middleware.WithUser(s.services.User))
+	protected.Use(middleware.WithLibrary(s.services.Library))
 	webHandler.RegisterProtectedRoutes(protected)
 
 	s.router.NoRoute(func(c *gin.Context) {
