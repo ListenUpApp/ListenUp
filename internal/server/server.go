@@ -14,6 +14,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
 )
 
@@ -111,6 +112,18 @@ func (s *Server) setupRoutes() {
 	protected.Use(middleware.WebAuth())
 	protected.Use(middleware.WithUser(s.services.User))
 	webHandler.RegisterProtectedRoutes(protected)
+
+	s.router.NoRoute(func(c *gin.Context) {
+		page := pages.NotFound("Not Found")
+		err := page.Render(c, c.Writer)
+		if err != nil {
+			s.logger.Error("error rendering page",
+				"error", err,
+				"path", c.Request.URL.Path)
+			c.String(500, "Error rendering page")
+			return
+		}
+	})
 }
 
 func (s *Server) Run() error {

@@ -2,7 +2,7 @@ package layouts
 
 templ Base(title string) {
 	<!DOCTYPE html>
-	<html lang="en" class="h-screen">
+	<html lang="en" class="h-full">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -20,7 +20,7 @@ templ Base(title string) {
 			// Optional: HTMX extensions
 			<script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
 		</head>
-		<body class="h-full">
+		<body class="h-full overflow-hidden">
 			{ children... }
 		</body>
 	</html>
