@@ -5,16 +5,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/ListenUpApp/ListenUp/internal/config"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/ListenUpApp/ListenUp/internal/config"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -47,6 +46,14 @@ const (
 
 type jwtKeyManager struct {
 	signingKey []byte
+}
+
+// CustomClaims extends jwt.MapClaims to provide strongly typed fields
+type CustomClaims struct {
+	UserID string `json:"user_id"`
+	Role   int32  `json:"role,omitempty"`
+	Email  string `json:"email,omitempty"`
+	jwt.MapClaims
 }
 
 // InitializeAuth sets up both cookie and JWT systems
@@ -123,16 +130,13 @@ func getJWTSecret() []byte {
 
 // Token Management
 func GenerateToken(userID string, role int32, email string, expiration time.Duration) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(expiration).Unix(),
-	}
-
-	if role != 0 {
-		claims["role"] = role
-	}
-	if email != "" {
-		claims["email"] = email
+	claims := CustomClaims{
+		UserID: userID,
+		Role:   role,
+		Email:  email,
+		MapClaims: jwt.MapClaims{
+			"exp": time.Now().Add(expiration).Unix(),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -208,78 +212,52 @@ func GetAuthCookie(c *gin.Context) (string, error) {
 	return c.Cookie(TokenCookieName)
 }
 
-func WebAuth() gin.HandlerFunc {
-	if !isInitialized {
-		panic("Auth system not initialized")
+// GetUserIDFromClaims safely extracts the user ID from the context
+func GetUserIDFromClaims(c *gin.Context) (string, error) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		return "", fmt.Errorf("no claims found in context")
 	}
 
-	return func(c *gin.Context) {
-		tokenString, err := GetAuthCookie(c)
-		if err != nil {
-			slog.Info("no auth cookie found, redirecting to login",
-				"path", c.Request.URL.Path)
-			c.Header("HX-Redirect", "/auth/login")
-			c.Header("Location", "/auth/login")
-			c.Status(http.StatusTemporaryRedirect) // Add status code
-			c.Abort()
-			return
-		}
-
-		claims, err := ParseToken(tokenString)
-		if err != nil {
-			slog.Info("invalid token, redirecting to login",
-				"path", c.Request.URL.Path,
-				"error", err)
-			ClearAuthCookie(c)
-			c.Header("HX-Redirect", "/auth/login")
-			c.Header("Location", "/auth/login")
-			c.Status(http.StatusTemporaryRedirect) // Add status code
-			c.Abort()
-			return
-		}
-
-		c.Set("claims", claims)
-		c.Next()
+	mapClaims, ok := claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid claims type in context")
 	}
+
+	userID, ok := mapClaims["user_id"].(string)
+	if !ok {
+		return "", fmt.Errorf("user_id not found in claims or invalid type")
+	}
+
+	return userID, nil
 }
 
-func APIAuth() gin.HandlerFunc {
-	if !isInitialized {
-		panic("Auth system not initialized")
+// GetCustomClaims extracts all custom claims from the context
+func GetCustomClaims(c *gin.Context) (*CustomClaims, error) {
+	claims, exists := c.Get("claims")
+	if !exists {
+		return nil, fmt.Errorf("no claims found in context")
 	}
 
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   "unauthorized",
-				"message": "Valid authentication token required",
-			})
-			c.Abort()
-			return
-		}
-
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := ParseToken(token)
-		if err != nil {
-			var response gin.H
-			if errors.Is(err, ErrExpiredToken) {
-				response = gin.H{
-					"error":   "token_expired",
-					"message": "Token has expired",
-				}
-			} else {
-				response = gin.H{
-					"error":   "invalid_token",
-					"message": "Invalid authentication token",
-				}
-			}
-			c.JSON(http.StatusUnauthorized, response)
-			c.Abort()
-			return
-		}
-
-		c.Set("claims", claims)
-		c.Next()
+	mapClaims, ok := claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid claims type in context")
 	}
+
+	customClaims := &CustomClaims{
+		MapClaims: mapClaims,
+	}
+
+	// Extract typed fields
+	if userID, ok := mapClaims["user_id"].(string); ok {
+		customClaims.UserID = userID
+	}
+	if role, ok := mapClaims["role"].(float64); ok { // JWT numbers are float64
+		customClaims.Role = int32(role)
+	}
+	if email, ok := mapClaims["email"].(string); ok {
+		customClaims.Email = email
+	}
+
+	return customClaims, nil
 }

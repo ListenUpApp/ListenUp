@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
@@ -11,9 +14,8 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
-	"log/slog"
-	"net/http"
 )
 
 type Server struct {
@@ -90,7 +92,8 @@ func (s *Server) setupRoutes() {
 
 		// Protected API routes
 		apiProtected := apiGroup.Group("")
-		apiProtected.Use(util.APIAuth())
+		apiProtected.Use(middleware.APIAuth())
+		apiProtected.Use(middleware.WithUser(s.services.User))
 		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
@@ -106,8 +109,21 @@ func (s *Server) setupRoutes() {
 
 	// All other web routes are protected
 	protected := s.router.Group("")
-	protected.Use(util.WebAuth())
+	protected.Use(middleware.WebAuth())
+	protected.Use(middleware.WithUser(s.services.User))
 	webHandler.RegisterProtectedRoutes(protected)
+
+	s.router.NoRoute(func(c *gin.Context) {
+		page := pages.NotFound("Not Found")
+		err := page.Render(c, c.Writer)
+		if err != nil {
+			s.logger.Error("error rendering page",
+				"error", err,
+				"path", c.Request.URL.Path)
+			c.String(500, "Error rendering page")
+			return
+		}
+	})
 }
 
 func (s *Server) Run() error {

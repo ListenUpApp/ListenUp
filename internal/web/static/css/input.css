@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 @layer components {
-    label {
-       @apply block
+  label {
+    @apply block
        text-sm
        font-normal
-       text-secondary-600
-    }
-    .input {
-        @apply block
+       text-secondary-600;
+  }
+  .input {
+    @apply block
         w-full
         rounded-xl
         border-0
@@ -29,10 +29,10 @@
         transition-all
         duration-200
         ease-in-out;
-    }
+  }
 
-    .btn {
-        @apply rounded-xl
+  .btn {
+    @apply rounded-xl
         px-6
         py-4
         text-lg
@@ -41,18 +41,49 @@
         focus-visible:outline
         focus-visible:outline-2
         focus-visible:outline-offset-2;
-    }
+  }
 
-    .btn-primary {
-        @apply text-white
+  .btn-primary {
+    @apply text-white
         bg-primary-700
         hover:bg-primary-600
         focus-visible:outline-primary-600
         transition-colors;
-    }
-    .btn[disabled] {
-        @apply bg-secondary-200
+  }
+  .btn[disabled] {
+    @apply bg-secondary-200
         text-black
-        cursor-not-allowed
+        cursor-not-allowed;
+  }
+    /* Mobile Menu Item Classes */
+    .mobile-menu-item {
+      @apply flex gap-x-3 px-2 py-4 font-semibold text-secondary-600 hover:bg-gray-50 hover:text-primary-600 items-center;
+    }
+  
+    .mobile-menu-item.active {
+      @apply flex gap-x-3 bg-primary-700 px-2 py-4 font-semibold text-white;
+    }
+  
+    /* Desktop Menu Item Classes */
+    .desktop-menu-item {
+      @apply flex px-8 gap-x-3 py-4 my-6 text-secondary-600 text-lg hover:bg-gray-50 hover:text-primary-600 items-center;
+    }
+  
+    .desktop-menu-item.active {
+      @apply bg-primary-700 text-white  transition-colors;
+    }
+  
+    /* Icon Classes */
+    .menu-icon {
+      @apply shrink-0 text-gray-400;
+    }
+  
+    .active .menu-icon {
+      @apply  shrink-0 text-white;
+    }
+  
+    /* Settings/Logout Item */
+    .menu-footer-item {
+      @apply flex gap-x-3 rounded-md px-6 pb-6 font-semibold max-w-full text-secondary-600 hover:bg-gray-50 hover:text-primary-600 items-center;
     }
 }

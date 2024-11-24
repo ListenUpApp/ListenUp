@@ -1,18 +1,21 @@
 package web
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
+	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
-	"log/slog"
 )
 
 type Handler struct {
-	auth   *AuthHandler
-	logger *slog.Logger
-	config *config.Config
+	auth     *AuthHandler
+	services *service.Services
+	logger   *slog.Logger
+	config   *config.Config
 }
 
 type Config struct {
@@ -23,9 +26,10 @@ type Config struct {
 
 func NewHandler(cfg Config) *Handler {
 	return &Handler{
-		auth:   NewAuthHandler(cfg),
-		logger: cfg.Logger,
-		config: cfg.Config,
+		auth:     NewAuthHandler(cfg),
+		services: cfg.Services,
+		logger:   cfg.Logger,
+		config:   cfg.Config,
 	}
 }
 
@@ -42,9 +46,35 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 }
 
 func (h *Handler) HomePage(c *gin.Context) {
-	page := pages.Home()
-	err := page.Render(c.Request.Context(), c.Writer)
+	appCtx, exists := middleware.GetAppContext(c)
+	if !exists {
+		h.logger.Error("app context not found")
+		c.String(500, "Error: app context not found")
+		return
+	}
+
+	// Create a new context with the app context value
+	ctx := context.WithValue(c.Request.Context(), "app_context", appCtx)
+
+	if c.GetHeader("HX-Request") == "true" {
+		err := pages.HomeContent().Render(ctx, c.Writer)
+		if err != nil {
+			h.logger.Error("error rendering page",
+				"error", err,
+				"path", c.Request.URL.Path)
+			c.String(500, "Error rendering page")
+			return
+		}
+		return
+	}
+
+	// For regular requests, return the full page
+	err := pages.HomePage("Home").Render(ctx, c.Writer)
 	if err != nil {
-		fmt.Errorf("Error Rendering Page")
+		h.logger.Error("error rendering page",
+			"error", err,
+			"path", c.Request.URL.Path)
+		c.String(500, "Error rendering page")
+		return
 	}
 }

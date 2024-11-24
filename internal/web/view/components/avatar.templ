@@ -1,0 +1,97 @@
+package components
+
+import "strings"
+
+templ Avatar(src string, firstName string, lastName string, variant string, size string, status string) {
+	if variant == "square" {
+		<span class="relative inline-block">
+			if src != "" {
+				<img
+					src={ src }
+					alt={ getAltText(firstName, lastName) }
+					class={ "rounded-md " + getSizeClass(size) }
+				/>
+			} else {
+				<span
+					class={ "inline-flex items-center justify-center rounded-md bg-gray-500 " + getSizeClass(size) }
+				>
+					<span
+						class={ "font-medium text-white " + getTextSizeClass(size) }
+					>
+						{ getInitials(firstName, lastName) }
+					</span>
+				</span>
+			}
+		</span>
+	} else {
+		if src != "" {
+			<img
+				src={ src }
+				alt={ getAltText(firstName, lastName) }
+				class={ "inline-block rounded-full " + getSizeClass(size) }
+			/>
+		} else {
+			<span
+				class={ "inline-flex items-center justify-center rounded-full bg-gray-500 " + getSizeClass(size) }
+			>
+				<span
+					class={ "font-medium text-white " + getTextSizeClass(size) }
+				>
+					{ getInitials(firstName, lastName) }
+				</span>
+			</span>
+		}
+	}
+}
+
+func getSizeClass(size string) string {
+	switch size {
+	case "sm":
+		return "size-8"
+	case "lg":
+		return "size-14"
+	default: // md is default
+		return "size-12"
+	}
+}
+
+func getTextSizeClass(size string) string {
+	switch size {
+	case "sm":
+		return "text-sm"
+	case "lg":
+		return "text-xl"
+	default: // md is default
+		return "text-lg"
+	}
+}
+
+func getAltText(firstName string, lastName string) string {
+	if firstName == "" && lastName == "" {
+		return "Profile picture"
+	}
+	if lastName == "" {
+		return firstName + "'s profile picture"
+	}
+	return firstName + " " + lastName + "'s profile picture"
+}
+
+func getInitials(firstName string, lastName string) string {
+	if firstName == "" && lastName == "" {
+		return ""
+	}
+
+	initials := ""
+
+	// Add first name initial if it exists
+	if len(firstName) > 0 {
+		initials += strings.ToUpper(firstName[:1])
+	}
+
+	// Add last name initial if it exists
+	if len(lastName) > 0 {
+		initials += strings.ToUpper(lastName[:1])
+	}
+
+	return initials
+}

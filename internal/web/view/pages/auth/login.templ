@@ -6,7 +6,7 @@ import (
 )
 
 templ Login(data forms.LoginData) {
-	@layouts.Auth("Register") {
+	@layouts.Auth("Login") {
 		<h1 class="text-secondary-700 font-medium text-3xl mb-2">Welcome to ListenUp!</h1>
 		<p class="text-secondary-500 text-sm">Sign in to your account below: </p>
 		@forms.LoginForm(data)
