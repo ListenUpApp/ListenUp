@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
@@ -12,8 +15,6 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/gin-gonic/gin"
-	"log/slog"
-	"net/http"
 )
 
 type Server struct {
@@ -90,7 +91,8 @@ func (s *Server) setupRoutes() {
 
 		// Protected API routes
 		apiProtected := apiGroup.Group("")
-		apiProtected.Use(util.APIAuth())
+		apiProtected.Use(middleware.APIAuth())
+		apiProtected.Use(middleware.WithUser(s.services.User))
 		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
@@ -106,7 +108,8 @@ func (s *Server) setupRoutes() {
 
 	// All other web routes are protected
 	protected := s.router.Group("")
-	protected.Use(util.WebAuth())
+	protected.Use(middleware.WebAuth())
+	protected.Use(middleware.WithUser(s.services.User))
 	webHandler.RegisterProtectedRoutes(protected)
 }
 

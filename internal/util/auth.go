@@ -5,11 +5,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -212,82 +210,6 @@ func ClearAuthCookie(c *gin.Context) {
 
 func GetAuthCookie(c *gin.Context) (string, error) {
 	return c.Cookie(TokenCookieName)
-}
-
-func WebAuth() gin.HandlerFunc {
-	if !isInitialized {
-		panic("Auth system not initialized")
-	}
-
-	return func(c *gin.Context) {
-		tokenString, err := GetAuthCookie(c)
-		if err != nil {
-			slog.Info("no auth cookie found, redirecting to login",
-				"path", c.Request.URL.Path)
-			c.Header("HX-Redirect", "/auth/login")
-			c.Header("Location", "/auth/login")
-			c.Status(http.StatusTemporaryRedirect) // Add status code
-			c.Abort()
-			return
-		}
-
-		claims, err := ParseToken(tokenString)
-		if err != nil {
-			slog.Info("invalid token, redirecting to login",
-				"path", c.Request.URL.Path,
-				"error", err)
-			ClearAuthCookie(c)
-			c.Header("HX-Redirect", "/auth/login")
-			c.Header("Location", "/auth/login")
-			c.Status(http.StatusTemporaryRedirect) // Add status code
-			c.Abort()
-			return
-		}
-
-		c.Set("claims", claims)
-		c.Next()
-	}
-}
-
-func APIAuth() gin.HandlerFunc {
-	if !isInitialized {
-		panic("Auth system not initialized")
-	}
-
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   "unauthorized",
-				"message": "Valid authentication token required",
-			})
-			c.Abort()
-			return
-		}
-
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := ParseToken(token)
-		if err != nil {
-			var response gin.H
-			if errors.Is(err, ErrExpiredToken) {
-				response = gin.H{
-					"error":   "token_expired",
-					"message": "Token has expired",
-				}
-			} else {
-				response = gin.H{
-					"error":   "invalid_token",
-					"message": "Invalid authentication token",
-				}
-			}
-			c.JSON(http.StatusUnauthorized, response)
-			c.Abort()
-			return
-		}
-
-		c.Set("claims", claims)
-		c.Next()
-	}
 }
 
 // GetUserIDFromClaims safely extracts the user ID from the context

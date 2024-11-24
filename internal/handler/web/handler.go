@@ -1,13 +1,11 @@
 package web
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/service"
-	"github.com/ListenUpApp/ListenUp/internal/util"
-	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
 )
@@ -47,21 +45,24 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 }
 
 func (h *Handler) HomePage(c *gin.Context) {
-	claims, err := util.GetCustomClaims(c)
-	if err != nil {
-		fmt.Errorf("Error getting claims")
+	// Get the app context
+	appCtx, exists := c.Get("app_context")
+	if !exists {
+		h.logger.Error("no app_context found in gin context")
+		c.String(500, "Server Error")
+		return
 	}
-	user, err := h.services.User.GetUserByID(c, claims.UserID)
+
+	// Create a new context with the app context
+	ctx := context.WithValue(c.Request.Context(), "app_context", appCtx)
+
+	page := pages.Home("Home")
+	err := page.Render(ctx, c.Writer) // Use our modified context
 	if err != nil {
-		fmt.Errorf("Error getting user")
-	}
-	data := layouts.AppData{
-		PageName: "Home",
-		User:     *user,
-	}
-	page := pages.Home(data)
-	err = page.Render(c.Request.Context(), c.Writer)
-	if err != nil {
-		fmt.Errorf("Error Rendering Page")
+		h.logger.Error("error rendering page",
+			"error", err,
+			"path", c.Request.URL.Path)
+		c.String(500, "Error rendering page")
+		return
 	}
 }

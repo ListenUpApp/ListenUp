@@ -1,18 +1,13 @@
 package layouts
 
 import (
-	"github.com/ListenUpApp/ListenUp/internal/models"
+	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 )
 
-type AppData struct {
-	PageName string
-	User     models.User
-}
-
-templ App(data AppData) {
-	@Base(data.PageName) {
-		<div x-data="{open: false}" class="h-full">
+templ App(pageName string) {
+	if data, ok := ctx.Value("app_context").(middleware.AppContext); ok {
+		@Base(pageName) {
 			<!-- Off-canvas menu for mobile -->
 			<div
 				class="relative z-50 lg:hidden"
@@ -302,6 +297,14 @@ templ App(data AppData) {
 					</div>
 				</main>
 			</div>
+		}
+	} else {
+		<div>
+			<h1>Session Error</h1>
+			<p>Your session appears to be invalid. Please try logging in again.</p>
+			<script>
+                window.location.href = "/auth/login";
+            </script>
 		</div>
 	}
 }
