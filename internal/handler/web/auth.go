@@ -2,29 +2,23 @@ package web
 
 import (
 	"errors"
-	"github.com/ListenUpApp/ListenUp/internal/config"
+	"net/http"
+
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/models"
-	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/forms"
 	auth "github.com/ListenUpApp/ListenUp/internal/web/view/pages/auth"
 	"github.com/gin-gonic/gin"
-	"log/slog"
-	"net/http"
 )
 
 type AuthHandler struct {
-	service *service.AuthService
-	logger  *slog.Logger
-	config  *config.Config
+	*BaseHandler
 }
 
-func NewAuthHandler(config Config) *AuthHandler {
+func NewAuthHandler(cfg Config, base *BaseHandler) *AuthHandler {
 	return &AuthHandler{
-		service: config.Services.Auth,
-		logger:  config.Logger,
-		config:  config.Config,
+		BaseHandler: base,
 	}
 }
 
@@ -37,19 +31,14 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *AuthHandler) registerPageHandler(c *gin.Context) {
-	isSetup, err := h.service.IsServerSetup(c.Request.Context())
+	isSetup, err := h.services.Auth.IsServerSetup(c.Request.Context())
 	if err != nil {
-		h.logger.Error("failed to check server setup", "error", err)
-		c.Status(http.StatusInternalServerError)
+		h.RenderError(c, http.StatusInternalServerError, "Failed to check server setup")
 		return
 	}
 
 	if isSetup {
-		h.logger.Info("server already setup, redirecting to login")
-		c.Header("HX-Redirect", "/auth/login")
-		c.Header("Location", "/auth/register")
-		c.Status(http.StatusTemporaryRedirect) // Add this
-		c.Abort()
+		h.HTMXRedirect(c, "/auth/login")
 		return
 	}
 
@@ -59,29 +48,18 @@ func (h *AuthHandler) registerPageHandler(c *gin.Context) {
 		Fields:   make(map[string]string),
 	}
 
-	page := auth.Register(data)
-	err = page.Render(c.Request.Context(), c.Writer)
-	if err != nil {
-		h.logger.Error("failed to render register page", "error", err)
-		c.Status(http.StatusInternalServerError)
-		return
-	}
+	h.RenderPublicComponent(c, auth.Register(data))
 }
 
 func (h *AuthHandler) loginPageHandler(c *gin.Context) {
-	isSetup, err := h.service.IsServerSetup(c.Request.Context())
+	isSetup, err := h.services.Auth.IsServerSetup(c.Request.Context())
 	if err != nil {
-		h.logger.Error("failed to check server setup", "error", err)
-		c.Status(http.StatusInternalServerError)
+		h.RenderError(c, http.StatusInternalServerError, "Failed to check server setup")
 		return
 	}
 
 	if !isSetup {
-		h.logger.Info("server not setup, redirecting to register")
-		c.Header("HX-Redirect", "/auth/register")
-		c.Header("Location", "/auth/register")
-		c.Status(http.StatusTemporaryRedirect)
-		c.Abort()
+		h.HTMXRedirect(c, "/auth/register")
 		return
 	}
 
@@ -90,95 +68,113 @@ func (h *AuthHandler) loginPageHandler(c *gin.Context) {
 		Fields: make(map[string]string),
 	}
 
-	page := auth.Login(data)
-	err = page.Render(c.Request.Context(), c.Writer)
-	if err != nil {
-		h.logger.Error("failed to render login page", "error", err)
-		c.Status(http.StatusInternalServerError)
-		return
-	}
+	h.RenderPublicComponent(c, auth.Login(data))
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		data := forms.RegisterData{
+	if err := c.ShouldBind(&req); err != nil {
+		h.logger.Debug("json binding error", "error", err)
+		h.RenderPublicComponent(c, forms.RegisterForm(forms.RegisterData{
 			RootUser: false,
 			Error:    "Invalid request format",
 			Fields:   make(map[string]string),
-		}
-		forms.RegisterForm(data).Render(c.Request.Context(), c.Writer)
+		}))
 		return
 	}
 
-	if err := h.service.RegisterUser(c.Request.Context(), req); err != nil {
-		data := forms.RegisterData{
+	// Validate the request
+	if errors := h.Validate(req); len(errors) > 0 {
+		h.RenderPublicComponent(c, forms.RegisterForm(forms.RegisterData{
 			RootUser: false,
-			Error:    h.getRegisterErrorMessage(err),
-			Fields:   make(map[string]string),
-		}
-
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) {
-			switch appErr.Type {
-			case errorhandling.ErrorTypeValidation:
-				// Use the validation errors returned from service
-				data.Fields = appErr.Data.(map[string]string)
-			case errorhandling.ErrorTypeConflict:
-				data.Fields["email"] = appErr.Message
-			}
-		}
-
-		forms.RegisterForm(data).Render(c.Request.Context(), c.Writer)
+			Error:    "Please check the form for errors",
+			Fields:   errors,
+		}))
 		return
 	}
 
-	c.Header("HX-Redirect", "/auth/login")
+	if err := h.services.Auth.RegisterUser(c.Request.Context(), req); err != nil {
+		data := h.handleRegisterError(err)
+		h.RenderPublicComponent(c, forms.RegisterForm(data))
+		return
+	}
+
+	h.HTMXRedirect(c, "/auth/login")
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		data := forms.LoginData{
+	if err := c.ShouldBind(&req); err != nil {
+		h.RenderPublicComponent(c, forms.LoginForm(forms.LoginData{
 			Error:  "Invalid request format",
 			Fields: make(map[string]string),
-		}
-		forms.LoginForm(data).Render(c.Request.Context(), c.Writer)
+		}))
 		return
 	}
 
-	response, err := h.service.LoginUser(c.Request.Context(), req)
+	// Validate the request
+	if errors := h.Validate(req); len(errors) > 0 {
+		h.RenderPublicComponent(c, forms.LoginForm(forms.LoginData{
+			Error:  "Please check the form for errors",
+			Fields: errors,
+		}))
+		return
+	}
+
+	response, err := h.services.Auth.LoginUser(c.Request.Context(), req)
 	if err != nil {
-		data := forms.LoginData{
-			Error:  h.getLoginErrorMessage(err),
-			Fields: make(map[string]string),
-		}
-
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) {
-			switch appErr.Type {
-			case errorhandling.ErrorTypeValidation:
-				data.Fields = appErr.Data.(map[string]string)
-			case errorhandling.ErrorTypeConflict:
-				data.Fields["email"] = appErr.Message
-			}
-		}
-
-		forms.LoginForm(data).Render(c.Request.Context(), c.Writer)
+		data := h.handleLoginError(err)
+		h.RenderPublicComponent(c, forms.LoginForm(data))
 		return
 	}
 
-	// Set auth cookie
 	util.SetAuthCookie(c, response.Token)
-	c.Header("HX-Redirect", "/")
+	h.HTMXRedirect(c, "/")
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Clear the auth cookie
 	util.ClearAuthCookie(c)
+	h.HTMXRedirect(c, "/auth/login")
+}
 
-	// Redirect to login page
-	c.Header("HX-Redirect", "/auth/login")
+
+func (h *AuthHandler) handleLoginError(err error) forms.LoginData {
+	data := forms.LoginData{
+		Error:  h.getLoginErrorMessage(err),
+		Fields: make(map[string]string),
+	}
+
+	var appErr *errorhandling.AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Type {
+		case errorhandling.ErrorTypeValidation:
+			data.Fields = appErr.Data.(map[string]string)
+		case errorhandling.ErrorTypeConflict:
+			data.Fields["email"] = appErr.Message
+		}
+	}
+
+	return data
+}
+
+func (h *AuthHandler) handleRegisterError(err error) forms.RegisterData {
+	data := forms.RegisterData{
+		RootUser: false,
+		Error:    h.getRegisterErrorMessage(err),
+		Fields:   make(map[string]string),
+	}
+
+	var appErr *errorhandling.AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Type {
+		case errorhandling.ErrorTypeValidation:
+			data.Fields = appErr.Data.(map[string]string)
+		case errorhandling.ErrorTypeConflict:
+			data.Fields["email"] = appErr.Message
+		}
+	}
+
+	return data
 }
 
 func (h *AuthHandler) getLoginErrorMessage(err error) string {

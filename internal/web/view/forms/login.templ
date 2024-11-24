@@ -12,7 +12,6 @@ templ LoginForm(data LoginData) {
 		class="mt-8 space-y-6"
 		hx-post="/auth/login"
 		hx-swap="outerHTML"
-		hx-ext="json-enc"
 		hx-indicator="#submit-button"
 		x-data="{
             isValid: false,
@@ -20,8 +19,8 @@ templ LoginForm(data LoginData) {
                 this.isValid = this.$el.querySelectorAll('[required]:invalid').length === 0
             }
         }"
-        x-init="checkValidity()"
-        @input="checkValidity()"
+		x-init="checkValidity()"
+		@input="checkValidity()"
 	>
 		@components.InputField(components.FormField{
 			Label:       "Email",

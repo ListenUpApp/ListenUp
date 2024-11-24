@@ -1,42 +1,39 @@
 package web
 
 import (
-	"log/slog"
-
-	"github.com/ListenUpApp/ListenUp/internal/config"
-	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages/library"
 	"github.com/gin-gonic/gin"
 )
 
 type LibraryHandler struct {
-	service *service.Services
-	logger  *slog.Logger
-	config  *config.Config
+	*BaseHandler
 }
 
-func NewLibraryHandler(config Config) *LibraryHandler {
+func NewLibraryHandler(cfg Config, handler *BaseHandler) *LibraryHandler {
 	return &LibraryHandler{
-		service: config.Services,
-		logger:  config.Logger,
-		config:  config.Config,
+		BaseHandler: handler,
 	}
 }
 
 func (h *LibraryHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/", h.LibraryIndex)
+	router.GET("/new", h.LibraryCreate)
 }
 
 func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
-	err := RenderPage(c, RenderConfig{
-		Writer:    c.Writer,
-		Logger:    h.logger,
-		Path:      c.Request.URL.Path,
-		PageTitle: "Library",
-		IsHTMX:    c.GetHeader("HX-Request") == "true",
-	},
+	err := h.RenderPage(c, "Library",
 		library.LibraryIndexPage("Library"),
 		library.LibraryIndexContent())
+
+	if err != nil {
+		return
+	}
+}
+
+func (h *LibraryHandler) LibraryCreate(c *gin.Context) {
+	err := h.RenderPage(c, "Create Library",
+		library.CreateLibraryPage("Create New Library"),
+		library.CreateLibraryContent())
 
 	if err != nil {
 		return

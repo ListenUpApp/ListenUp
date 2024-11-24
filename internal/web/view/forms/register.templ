@@ -13,7 +13,6 @@ templ RegisterForm(data RegisterData) {
 		class="mt-8 space-y-6"
 		hx-post="/auth/register"
 		hx-swap="outerHTML"
-		hx-ext="json-enc"
 		hx-indicator="#submit-button"
 		x-data="{
             isValid: false,
@@ -21,8 +20,8 @@ templ RegisterForm(data RegisterData) {
                 this.isValid = this.$el.querySelectorAll('[required]:invalid').length === 0
             }
         }"
-        x-init="checkValidity()"
-        @input="checkValidity()"
+		x-init="checkValidity()"
+		@input="checkValidity()"
 	>
 		@components.InputField(components.FormField{
 			Label:       "First Name",

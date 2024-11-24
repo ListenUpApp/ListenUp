@@ -1,0 +1,13 @@
+package library
+
+import "github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+
+templ CreateLibraryPage(pageTitle string) {
+	@layouts.Base(pageTitle) {
+		@CreateLibraryContent()
+	}
+}
+
+templ CreateLibraryContent() {
+	<h2>Create Library</h2>
+}

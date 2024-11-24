@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
@@ -24,12 +26,14 @@ type Server struct {
 	services   *service.Services
 	router     *gin.Engine
 	httpServer *http.Server
+	validator  *validator.Validate
 }
 
 type Config struct {
-	Config   *config.Config
-	Logger   *slog.Logger
-	Services *service.Services
+	Config    *config.Config
+	Logger    *slog.Logger
+	Services  *service.Services
+	Validator *validator.Validate
 }
 
 func New(cfg Config) *Server {
@@ -51,6 +55,7 @@ func New(cfg Config) *Server {
 		services:   cfg.Services,
 		router:     router, // Use the same router instance
 		httpServer: httpServer,
+		validator:  cfg.Validator,
 	}
 }
 
@@ -100,9 +105,10 @@ func (s *Server) setupRoutes() {
 
 	// Web routes
 	webHandler := web.NewHandler(web.Config{
-		Services: s.services,
-		Logger:   s.logger,
-		Config:   s.config,
+		Services:  s.services,
+		Logger:    s.logger,
+		Config:    s.config,
+		Validator: s.validator,
 	})
 
 	// Public web routes (auth pages)

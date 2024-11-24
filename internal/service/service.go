@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/repository"
+	"github.com/go-playground/validator/v10"
 )
 
 type Services struct {
@@ -14,8 +15,9 @@ type Services struct {
 }
 
 type Deps struct {
-	Repos  *repository.Repositories
-	Logger *slog.Logger
+	Repos     *repository.Repositories
+	Logger    *slog.Logger
+	Validator *validator.Validate
 }
 
 func NewServices(deps Deps) (*Services, error) {
@@ -23,6 +25,7 @@ func NewServices(deps Deps) (*Services, error) {
 		UserRepo:   deps.Repos.User,
 		ServerRepo: deps.Repos.Server,
 		Logger:     deps.Logger,
+		Validator:  deps.Validator,
 	})
 
 	serverService, err := NewServerService(ServiceConfig{
@@ -57,4 +60,5 @@ type ServiceConfig struct {
 	ServerRepo  *repository.ServerRepository
 	LibraryRepo *repository.LibraryRepository
 	Logger      *slog.Logger
+	Validator   *validator.Validate
 }
