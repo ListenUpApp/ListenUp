@@ -9,6 +9,30 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 )
 
+// The FolderFunc type is an adapter to allow the use of ordinary
+// function as Folder mutator.
+type FolderFunc func(context.Context, *ent.FolderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FolderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FolderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FolderMutation", m)
+}
+
+// The LibraryFunc type is an adapter to allow the use of ordinary
+// function as Library mutator.
+type LibraryFunc func(context.Context, *ent.LibraryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LibraryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LibraryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LibraryMutation", m)
+}
+
 // The ServerFunc type is an adapter to allow the use of ordinary
 // function as Server mutator.
 type ServerFunc func(context.Context, *ent.ServerMutation) (ent.Value, error)

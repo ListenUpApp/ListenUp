@@ -9,7 +9,19 @@ templ App(pageName string) {
 	if data, ok := ctx.Value("app_context").(middleware.AppContext); ok {
 		@Base(pageName) {
 			<!-- Off-canvas menu for mobile -->
-			<div x-data="{ open: false }" class="h-full">
+			<div x-data="{ 
+					open: false,
+					currentPath: window.location.pathname,
+					isActive(path) {
+						return (path === '/' && this.currentPath === '/') || 
+							(path !== '/' && this.currentPath.startsWith(path))
+					}
+				}"
+				x-init="document.body.addEventListener('htmx:afterSettle', () => {
+            				currentPath = window.location.pathname
+        				})"
+				class="h-full"
+			>
 				<div
 					class="relative z-50 lg:hidden"
 					role="dialog"
@@ -69,7 +81,8 @@ templ App(pageName string) {
 														hx-get="/"
 														hx-target="#main-content"
 														hx-push-url="true"
-														class="mobile-menu-item active"
+														:class="{ 'active': isActive('/') }"
+														class="mobile-menu-item"
 														@click="open = false"
 													>
 														<i class="fa fa-solid fa-house menu-icon"></i>
@@ -83,6 +96,7 @@ templ App(pageName string) {
 														hx-get="/library"
 														hx-target="#main-content"
 														hx-push-url="true"
+														:class="{ 'active': isActive('/library') }"
 														@click="open = false"
 													>
 														<i class="fa fa-solid fa-book-blank menu-icon"></i>
@@ -150,7 +164,12 @@ templ App(pageName string) {
 					<!-- Sidebar component -->
 					<div class="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white  pt-8">
 						<div class="flex h-16 shrink-0 items-center mb-4 px-6">
-							<a href="/"><img class="h-16 w-auto" src="/static/images/listen-up-horizontal.svg" alt="ListenUp Logo"/></a>
+							<a
+								href="/"
+								hx-get="/"
+								hx-target="#main-content"
+								hx-push-url="true"
+							><img class="h-16 w-auto" src="/static/images/listen-up-horizontal.svg" alt="ListenUp Logo"/></a>
 						</div>
 						<hr/>
 						<!-- Desktop Menu -->
@@ -161,6 +180,10 @@ templ App(pageName string) {
 										<li>
 											<a
 												href="/"
+												hx-get="/"
+												hx-target="#main-content"
+												hx-push-url="true"
+												:class="{ 'active': isActive('/') }"
 												class="desktop-menu-item active"
 											>
 												<i class="fa fa-solid fa-house menu-icon"></i>
@@ -174,6 +197,7 @@ templ App(pageName string) {
 												hx-get="/library"
 												hx-target="#main-content"
 												hx-push-url="true"
+												:class="{ 'active': isActive('/library') }"
 											>
 												<i class="fa fa-solid fa-book-blank menu-icon"></i>
 												Library

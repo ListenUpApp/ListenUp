@@ -5,6 +5,8 @@ package ent
 import (
 	"time"
 
+	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/schema"
 	"github.com/ListenUpApp/ListenUp/internal/ent/server"
 	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
@@ -15,6 +17,18 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	folderFields := schema.Folder{}.Fields()
+	_ = folderFields
+	// folderDescID is the schema descriptor for id field.
+	folderDescID := folderFields[0].Descriptor()
+	// folder.DefaultID holds the default value on creation for the id field.
+	folder.DefaultID = folderDescID.Default.(func() string)
+	libraryFields := schema.Library{}.Fields()
+	_ = libraryFields
+	// libraryDescID is the schema descriptor for id field.
+	libraryDescID := libraryFields[0].Descriptor()
+	// library.DefaultID holds the default value on creation for the id field.
+	library.DefaultID = libraryDescID.Default.(func() string)
 	serverFields := schema.Server{}.Fields()
 	_ = serverFields
 	// serverDescSetup is the schema descriptor for setup field.

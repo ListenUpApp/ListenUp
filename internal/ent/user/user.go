@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -25,8 +26,24 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// EdgeLibraries holds the string denoting the libraries edge name in mutations.
+	EdgeLibraries = "libraries"
+	// EdgeActiveLibrary holds the string denoting the active_library edge name in mutations.
+	EdgeActiveLibrary = "active_library"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// LibrariesTable is the table that holds the libraries relation/edge. The primary key declared below.
+	LibrariesTable = "user_libraries"
+	// LibrariesInverseTable is the table name for the Library entity.
+	// It exists in this package in order to avoid circular dependency with the "library" package.
+	LibrariesInverseTable = "libraries"
+	// ActiveLibraryTable is the table that holds the active_library relation/edge.
+	ActiveLibraryTable = "users"
+	// ActiveLibraryInverseTable is the table name for the Library entity.
+	// It exists in this package in order to avoid circular dependency with the "library" package.
+	ActiveLibraryInverseTable = "libraries"
+	// ActiveLibraryColumn is the table column denoting the active_library relation/edge.
+	ActiveLibraryColumn = "user_active_library"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -40,10 +57,27 @@ var Columns = []string{
 	FieldUpdatedAt,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "users"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"user_active_library",
+}
+
+var (
+	// LibrariesPrimaryKey and LibrariesColumn2 are the table columns denoting the
+	// primary key for the libraries relation (M2M).
+	LibrariesPrimaryKey = []string{"user_id", "library_id"}
+)
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -105,4 +139,39 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByLibrariesCount orders the results by libraries count.
+func ByLibrariesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newLibrariesStep(), opts...)
+	}
+}
+
+// ByLibraries orders the results by libraries terms.
+func ByLibraries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newLibrariesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByActiveLibraryField orders the results by active_library field.
+func ByActiveLibraryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newActiveLibraryStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newLibrariesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(LibrariesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, LibrariesTable, LibrariesPrimaryKey...),
+	)
+}
+func newActiveLibraryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ActiveLibraryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, ActiveLibraryTable, ActiveLibraryColumn),
+	)
 }

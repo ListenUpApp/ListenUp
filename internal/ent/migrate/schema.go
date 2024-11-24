@@ -8,6 +8,30 @@ import (
 )
 
 var (
+	// FoldersColumns holds the columns for the "folders" table.
+	FoldersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "path", Type: field.TypeString},
+		{Name: "last_scanned_at", Type: field.TypeTime},
+	}
+	// FoldersTable holds the schema information for the "folders" table.
+	FoldersTable = &schema.Table{
+		Name:       "folders",
+		Columns:    FoldersColumns,
+		PrimaryKey: []*schema.Column{FoldersColumns[0]},
+	}
+	// LibrariesColumns holds the columns for the "libraries" table.
+	LibrariesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+	}
+	// LibrariesTable holds the schema information for the "libraries" table.
+	LibrariesTable = &schema.Table{
+		Name:       "libraries",
+		Columns:    LibrariesColumns,
+		PrimaryKey: []*schema.Column{LibrariesColumns[0]},
+	}
 	// ServersColumns holds the columns for the "servers" table.
 	ServersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -66,21 +90,89 @@ var (
 		{Name: "password_hash", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "user_active_library", Type: field.TypeString, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{
 		Name:       "users",
 		Columns:    UsersColumns,
 		PrimaryKey: []*schema.Column{UsersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "users_libraries_active_library",
+				Columns:    []*schema.Column{UsersColumns[7]},
+				RefColumns: []*schema.Column{LibrariesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
+	// LibraryFoldersColumns holds the columns for the "library_folders" table.
+	LibraryFoldersColumns = []*schema.Column{
+		{Name: "library_id", Type: field.TypeString},
+		{Name: "folder_id", Type: field.TypeString},
+	}
+	// LibraryFoldersTable holds the schema information for the "library_folders" table.
+	LibraryFoldersTable = &schema.Table{
+		Name:       "library_folders",
+		Columns:    LibraryFoldersColumns,
+		PrimaryKey: []*schema.Column{LibraryFoldersColumns[0], LibraryFoldersColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "library_folders_library_id",
+				Columns:    []*schema.Column{LibraryFoldersColumns[0]},
+				RefColumns: []*schema.Column{LibrariesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "library_folders_folder_id",
+				Columns:    []*schema.Column{LibraryFoldersColumns[1]},
+				RefColumns: []*schema.Column{FoldersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// UserLibrariesColumns holds the columns for the "user_libraries" table.
+	UserLibrariesColumns = []*schema.Column{
+		{Name: "user_id", Type: field.TypeString},
+		{Name: "library_id", Type: field.TypeString},
+	}
+	// UserLibrariesTable holds the schema information for the "user_libraries" table.
+	UserLibrariesTable = &schema.Table{
+		Name:       "user_libraries",
+		Columns:    UserLibrariesColumns,
+		PrimaryKey: []*schema.Column{UserLibrariesColumns[0], UserLibrariesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_libraries_user_id",
+				Columns:    []*schema.Column{UserLibrariesColumns[0]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "user_libraries_library_id",
+				Columns:    []*schema.Column{UserLibrariesColumns[1]},
+				RefColumns: []*schema.Column{LibrariesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		FoldersTable,
+		LibrariesTable,
 		ServersTable,
 		ServerConfigsTable,
 		UsersTable,
+		LibraryFoldersTable,
+		UserLibrariesTable,
 	}
 )
 
 func init() {
 	ServerConfigsTable.ForeignKeys[0].RefTable = ServersTable
+	UsersTable.ForeignKeys[0].RefTable = LibrariesTable
+	LibraryFoldersTable.ForeignKeys[0].RefTable = LibrariesTable
+	LibraryFoldersTable.ForeignKeys[1].RefTable = FoldersTable
+	UserLibrariesTable.ForeignKeys[0].RefTable = UsersTable
+	UserLibrariesTable.ForeignKeys[1].RefTable = LibrariesTable
 }

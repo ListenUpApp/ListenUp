@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 )
 
@@ -29,8 +30,43 @@ type User struct {
 	// Time when the user was created
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Time when the user was last updated
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
-	selectValues sql.SelectValues
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges               UserEdges `json:"edges"`
+	user_active_library *string
+	selectValues        sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Libraries holds the value of the libraries edge.
+	Libraries []*Library `json:"libraries,omitempty"`
+	// ActiveLibrary holds the value of the active_library edge.
+	ActiveLibrary *Library `json:"active_library,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// LibrariesOrErr returns the Libraries value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) LibrariesOrErr() ([]*Library, error) {
+	if e.loadedTypes[0] {
+		return e.Libraries, nil
+	}
+	return nil, &NotLoadedError{edge: "libraries"}
+}
+
+// ActiveLibraryOrErr returns the ActiveLibrary value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) ActiveLibraryOrErr() (*Library, error) {
+	if e.ActiveLibrary != nil {
+		return e.ActiveLibrary, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: library.Label}
+	}
+	return nil, &NotLoadedError{edge: "active_library"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -42,6 +78,8 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
+		case user.ForeignKeys[0]: // user_active_library
+			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -99,6 +137,13 @@ func (u *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				u.UpdatedAt = value.Time
 			}
+		case user.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field user_active_library", values[i])
+			} else if value.Valid {
+				u.user_active_library = new(string)
+				*u.user_active_library = value.String
+			}
 		default:
 			u.selectValues.Set(columns[i], values[i])
 		}
@@ -110,6 +155,16 @@ func (u *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (u *User) Value(name string) (ent.Value, error) {
 	return u.selectValues.Get(name)
+}
+
+// QueryLibraries queries the "libraries" edge of the User entity.
+func (u *User) QueryLibraries() *LibraryQuery {
+	return NewUserClient(u.config).QueryLibraries(u)
+}
+
+// QueryActiveLibrary queries the "active_library" edge of the User entity.
+func (u *User) QueryActiveLibrary() *LibraryQuery {
+	return NewUserClient(u.config).QueryActiveLibrary(u)
 }
 
 // Update returns a builder for updating this User.

@@ -13,6 +13,7 @@ import (
 
 type Handler struct {
 	auth     *AuthHandler
+	library  *LibraryHandler
 	services *service.Services
 	logger   *slog.Logger
 	config   *config.Config
@@ -27,6 +28,7 @@ type Config struct {
 func NewHandler(cfg Config) *Handler {
 	return &Handler{
 		auth:     NewAuthHandler(cfg),
+		library:  NewLibraryHandler(cfg),
 		services: cfg.Services,
 		logger:   cfg.Logger,
 		config:   cfg.Config,
@@ -43,6 +45,10 @@ func (h *Handler) RegisterPublicRoutes(r *gin.RouterGroup) {
 
 func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 	r.GET("/", h.HomePage)
+	library := r.Group("/library")
+	{
+		h.library.RegisterRoutes(library)
+	}
 }
 
 func (h *Handler) HomePage(c *gin.Context) {

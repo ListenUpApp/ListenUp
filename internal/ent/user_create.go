@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 )
 
@@ -84,6 +85,40 @@ func (uc *UserCreate) SetNillableID(s *string) *UserCreate {
 		uc.SetID(*s)
 	}
 	return uc
+}
+
+// AddLibraryIDs adds the "libraries" edge to the Library entity by IDs.
+func (uc *UserCreate) AddLibraryIDs(ids ...string) *UserCreate {
+	uc.mutation.AddLibraryIDs(ids...)
+	return uc
+}
+
+// AddLibraries adds the "libraries" edges to the Library entity.
+func (uc *UserCreate) AddLibraries(l ...*Library) *UserCreate {
+	ids := make([]string, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return uc.AddLibraryIDs(ids...)
+}
+
+// SetActiveLibraryID sets the "active_library" edge to the Library entity by ID.
+func (uc *UserCreate) SetActiveLibraryID(id string) *UserCreate {
+	uc.mutation.SetActiveLibraryID(id)
+	return uc
+}
+
+// SetNillableActiveLibraryID sets the "active_library" edge to the Library entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableActiveLibraryID(id *string) *UserCreate {
+	if id != nil {
+		uc = uc.SetActiveLibraryID(*id)
+	}
+	return uc
+}
+
+// SetActiveLibrary sets the "active_library" edge to the Library entity.
+func (uc *UserCreate) SetActiveLibrary(l *Library) *UserCreate {
+	return uc.SetActiveLibraryID(l.ID)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -233,6 +268,39 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := uc.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := uc.mutation.LibrariesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.ActiveLibraryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.ActiveLibraryTable,
+			Columns: []string{user.ActiveLibraryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_active_library = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

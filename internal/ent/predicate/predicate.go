@@ -6,6 +6,12 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Folder is the predicate function for folder builders.
+type Folder func(*sql.Selector)
+
+// Library is the predicate function for library builders.
+type Library func(*sql.Selector)
+
 // Server is the predicate function for server builders.
 type Server func(*sql.Selector)
 

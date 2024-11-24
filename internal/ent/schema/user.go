@@ -1,10 +1,12 @@
 package schema
 
 import (
+	"time"
+
 	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"github.com/ListenUpApp/ListenUp/internal/util"
-	"time"
 )
 
 // User holds the schema definition for the User entity.
@@ -47,5 +49,9 @@ func (User) Fields() []ent.Field {
 
 // Edges of the User.
 func (User) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.To("libraries", Library.Type),
+		edge.To("active_library", Library.Type).
+			Unique(),
+	}
 }
