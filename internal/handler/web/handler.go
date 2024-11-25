@@ -10,11 +10,11 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-
 type Handler struct {
 	*BaseHandler
 	auth    *AuthHandler
 	library *LibraryHandler
+	folder  *FolderHandler
 }
 
 type Config struct {
@@ -26,15 +26,16 @@ type Config struct {
 
 func NewHandler(cfg Config) *Handler {
 	baseHandler := &BaseHandler{
-		logger:   cfg.Logger,
-		services: cfg.Services,
-		config:   cfg.Config,
+		logger:    cfg.Logger,
+		services:  cfg.Services,
+		config:    cfg.Config,
 		validator: cfg.Validator,
 	}
 	return &Handler{
 		BaseHandler: baseHandler,
 		auth:        NewAuthHandler(cfg, baseHandler),
 		library:     NewLibraryHandler(cfg, baseHandler),
+		folder:      NewFolderHandler(cfg, baseHandler),
 	}
 }
 
@@ -51,6 +52,10 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 	library := r.Group("/library")
 	{
 		h.library.RegisterRoutes(library)
+	}
+	folder := r.Group("/folder")
+	{
+		h.folder.RegisterRoutes(folder)
 	}
 }
 

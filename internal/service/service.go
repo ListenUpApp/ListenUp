@@ -12,6 +12,7 @@ type Services struct {
 	Server  *ServerService
 	User    *UserService
 	Library *LibraryService
+	Folder  *FolderService
 }
 
 type Deps struct {
@@ -42,6 +43,11 @@ func NewServices(deps Deps) (*Services, error) {
 		Logger:      deps.Logger,
 	})
 
+	folderService, err := NewFolderService(ServiceConfig{
+		FolderRepo: deps.Repos.Folder,
+		Logger:     deps.Logger,
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +57,7 @@ func NewServices(deps Deps) (*Services, error) {
 		Server:  serverService,
 		User:    userService,
 		Library: libraryService,
+		Folder:  folderService,
 	}, nil
 }
 
@@ -59,6 +66,7 @@ type ServiceConfig struct {
 	UserRepo    *repository.UserRepository
 	ServerRepo  *repository.ServerRepository
 	LibraryRepo *repository.LibraryRepository
+	FolderRepo  *repository.FolderRepository
 	Logger      *slog.Logger
 	Validator   *validator.Validate
 }

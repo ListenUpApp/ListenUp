@@ -39,3 +39,5 @@ func (h *LibraryHandler) LibraryCreate(c *gin.Context) {
 		return
 	}
 }
+
+// func (h *LibraryHandler) FolderBrowser(c *gin.Context)

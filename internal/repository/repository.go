@@ -2,14 +2,16 @@ package repository
 
 import (
 	"fmt"
-	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"log/slog"
+
+	"github.com/ListenUpApp/ListenUp/internal/ent"
 )
 
 type Repositories struct {
-	User   *UserRepository
-	Server *ServerRepository
+	User    *UserRepository
+	Server  *ServerRepository
 	Library *LibraryRepository
+	Folder  *FolderRepository
 }
 
 type Config struct {
@@ -26,8 +28,9 @@ func NewRepositories(cfg Config) (*Repositories, error) {
 	}
 
 	return &Repositories{
-		User:   NewUserRepository(cfg),
-		Server: NewServerRepository(cfg),
+		User:    NewUserRepository(cfg),
+		Server:  NewServerRepository(cfg),
 		Library: NewLibraryRepository(cfg),
+		Folder:  NewFolderRepository(cfg),
 	}, nil
 }
