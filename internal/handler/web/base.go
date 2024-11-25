@@ -97,11 +97,11 @@ func (h *BaseHandler) RenderPage(c *gin.Context, pageTitle string, fullPage, par
 		if currentPage != "" {
 			pageTitle = currentPage
 		}
-
+		c.Header("Content-Type", "text/html")
 		c.Header("HX-Push-Url", c.Request.URL.Path)
 		c.Header("HX-Replace-Url", "true")
 		c.Header("HX-Title", pageTitle)
-		c.Header("X-Page-Title", pageTitle)
+		c.Header("X-Page-Title", "ListenUp | "+pageTitle)
 	}
 
 	return h.RenderComponent(c, component)

@@ -56,7 +56,7 @@ func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 
 func (h *Handler) HomePage(c *gin.Context) {
 	err := h.RenderPage(c, "Home",
-		pages.HomePage("Home"),
+		pages.HomePage(),
 		pages.HomeContent())
 
 	if err != nil {

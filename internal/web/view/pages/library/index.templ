@@ -6,13 +6,14 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/web/view/partials"
 )
 
-templ LibraryIndexPage(pageName string) {
-	@layouts.App(pageName) {
+templ LibraryIndexPage() {
+	@layouts.App() {
 		@LibraryIndexContent()
 	}
 }
 
 templ LibraryIndexContent() {
+	<title>ListenUp | Library</title>
 	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
 		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
 			@partials.LibraryStatus()

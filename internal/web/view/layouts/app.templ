@@ -5,9 +5,9 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 )
 
-templ App(pageName string) {
+templ App() {
 	if data, ok := appcontext.GetAppContext(ctx); ok {
-		@Base(pageName) {
+		@Base() {
 			<!-- Off-canvas menu for mobile -->
 			<div
 				x-data="{ 

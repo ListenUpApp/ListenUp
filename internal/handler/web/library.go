@@ -22,7 +22,7 @@ func (h *LibraryHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
 	err := h.RenderPage(c, "Library",
-		library.LibraryIndexPage("Library"),
+		library.LibraryIndexPage(),
 		library.LibraryIndexContent())
 
 	if err != nil {
@@ -32,7 +32,7 @@ func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
 
 func (h *LibraryHandler) LibraryCreate(c *gin.Context) {
 	err := h.RenderPage(c, "Create Library",
-		library.CreateLibraryPage("Create New Library"),
+		library.CreateLibraryPage(),
 		library.CreateLibraryContent())
 
 	if err != nil {

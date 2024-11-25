@@ -122,7 +122,7 @@ func (s *Server) setupRoutes() {
 	webHandler.RegisterProtectedRoutes(protected)
 
 	s.router.NoRoute(func(c *gin.Context) {
-		page := pages.NotFound("Not Found")
+		page := pages.NotFound()
 		err := page.Render(c, c.Writer)
 		if err != nil {
 			s.logger.Error("error rendering page",
