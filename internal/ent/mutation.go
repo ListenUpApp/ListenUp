@@ -11,6 +11,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
 	"github.com/ListenUpApp/ListenUp/internal/ent/server"
 	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
@@ -26,10 +28,1158 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
+	TypeFolder       = "Folder"
+	TypeLibrary      = "Library"
 	TypeServer       = "Server"
 	TypeServerConfig = "ServerConfig"
 	TypeUser         = "User"
 )
+
+// FolderMutation represents an operation that mutates the Folder nodes in the graph.
+type FolderMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *string
+	name             *string
+	_path            *string
+	last_scanned_at  *time.Time
+	clearedFields    map[string]struct{}
+	libraries        map[string]struct{}
+	removedlibraries map[string]struct{}
+	clearedlibraries bool
+	done             bool
+	oldValue         func(context.Context) (*Folder, error)
+	predicates       []predicate.Folder
+}
+
+var _ ent.Mutation = (*FolderMutation)(nil)
+
+// folderOption allows management of the mutation configuration using functional options.
+type folderOption func(*FolderMutation)
+
+// newFolderMutation creates new mutation for the Folder entity.
+func newFolderMutation(c config, op Op, opts ...folderOption) *FolderMutation {
+	m := &FolderMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeFolder,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withFolderID sets the ID field of the mutation.
+func withFolderID(id string) folderOption {
+	return func(m *FolderMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Folder
+		)
+		m.oldValue = func(ctx context.Context) (*Folder, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Folder.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withFolder sets the old Folder of the mutation.
+func withFolder(node *Folder) folderOption {
+	return func(m *FolderMutation) {
+		m.oldValue = func(context.Context) (*Folder, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m FolderMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m FolderMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Folder entities.
+func (m *FolderMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *FolderMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *FolderMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Folder.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *FolderMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *FolderMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Folder entity.
+// If the Folder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FolderMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *FolderMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPath sets the "path" field.
+func (m *FolderMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *FolderMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the Folder entity.
+// If the Folder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FolderMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *FolderMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetLastScannedAt sets the "last_scanned_at" field.
+func (m *FolderMutation) SetLastScannedAt(t time.Time) {
+	m.last_scanned_at = &t
+}
+
+// LastScannedAt returns the value of the "last_scanned_at" field in the mutation.
+func (m *FolderMutation) LastScannedAt() (r time.Time, exists bool) {
+	v := m.last_scanned_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastScannedAt returns the old "last_scanned_at" field's value of the Folder entity.
+// If the Folder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FolderMutation) OldLastScannedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastScannedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastScannedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastScannedAt: %w", err)
+	}
+	return oldValue.LastScannedAt, nil
+}
+
+// ClearLastScannedAt clears the value of the "last_scanned_at" field.
+func (m *FolderMutation) ClearLastScannedAt() {
+	m.last_scanned_at = nil
+	m.clearedFields[folder.FieldLastScannedAt] = struct{}{}
+}
+
+// LastScannedAtCleared returns if the "last_scanned_at" field was cleared in this mutation.
+func (m *FolderMutation) LastScannedAtCleared() bool {
+	_, ok := m.clearedFields[folder.FieldLastScannedAt]
+	return ok
+}
+
+// ResetLastScannedAt resets all changes to the "last_scanned_at" field.
+func (m *FolderMutation) ResetLastScannedAt() {
+	m.last_scanned_at = nil
+	delete(m.clearedFields, folder.FieldLastScannedAt)
+}
+
+// AddLibraryIDs adds the "libraries" edge to the Library entity by ids.
+func (m *FolderMutation) AddLibraryIDs(ids ...string) {
+	if m.libraries == nil {
+		m.libraries = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.libraries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLibraries clears the "libraries" edge to the Library entity.
+func (m *FolderMutation) ClearLibraries() {
+	m.clearedlibraries = true
+}
+
+// LibrariesCleared reports if the "libraries" edge to the Library entity was cleared.
+func (m *FolderMutation) LibrariesCleared() bool {
+	return m.clearedlibraries
+}
+
+// RemoveLibraryIDs removes the "libraries" edge to the Library entity by IDs.
+func (m *FolderMutation) RemoveLibraryIDs(ids ...string) {
+	if m.removedlibraries == nil {
+		m.removedlibraries = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.libraries, ids[i])
+		m.removedlibraries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLibraries returns the removed IDs of the "libraries" edge to the Library entity.
+func (m *FolderMutation) RemovedLibrariesIDs() (ids []string) {
+	for id := range m.removedlibraries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LibrariesIDs returns the "libraries" edge IDs in the mutation.
+func (m *FolderMutation) LibrariesIDs() (ids []string) {
+	for id := range m.libraries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLibraries resets all changes to the "libraries" edge.
+func (m *FolderMutation) ResetLibraries() {
+	m.libraries = nil
+	m.clearedlibraries = false
+	m.removedlibraries = nil
+}
+
+// Where appends a list predicates to the FolderMutation builder.
+func (m *FolderMutation) Where(ps ...predicate.Folder) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the FolderMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *FolderMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Folder, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *FolderMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *FolderMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Folder).
+func (m *FolderMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *FolderMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.name != nil {
+		fields = append(fields, folder.FieldName)
+	}
+	if m._path != nil {
+		fields = append(fields, folder.FieldPath)
+	}
+	if m.last_scanned_at != nil {
+		fields = append(fields, folder.FieldLastScannedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *FolderMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case folder.FieldName:
+		return m.Name()
+	case folder.FieldPath:
+		return m.Path()
+	case folder.FieldLastScannedAt:
+		return m.LastScannedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *FolderMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case folder.FieldName:
+		return m.OldName(ctx)
+	case folder.FieldPath:
+		return m.OldPath(ctx)
+	case folder.FieldLastScannedAt:
+		return m.OldLastScannedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Folder field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FolderMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case folder.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case folder.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case folder.FieldLastScannedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastScannedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Folder field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *FolderMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *FolderMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FolderMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Folder numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *FolderMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(folder.FieldLastScannedAt) {
+		fields = append(fields, folder.FieldLastScannedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *FolderMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *FolderMutation) ClearField(name string) error {
+	switch name {
+	case folder.FieldLastScannedAt:
+		m.ClearLastScannedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Folder nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *FolderMutation) ResetField(name string) error {
+	switch name {
+	case folder.FieldName:
+		m.ResetName()
+		return nil
+	case folder.FieldPath:
+		m.ResetPath()
+		return nil
+	case folder.FieldLastScannedAt:
+		m.ResetLastScannedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Folder field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *FolderMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.libraries != nil {
+		edges = append(edges, folder.EdgeLibraries)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *FolderMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case folder.EdgeLibraries:
+		ids := make([]ent.Value, 0, len(m.libraries))
+		for id := range m.libraries {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *FolderMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedlibraries != nil {
+		edges = append(edges, folder.EdgeLibraries)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *FolderMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case folder.EdgeLibraries:
+		ids := make([]ent.Value, 0, len(m.removedlibraries))
+		for id := range m.removedlibraries {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *FolderMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedlibraries {
+		edges = append(edges, folder.EdgeLibraries)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *FolderMutation) EdgeCleared(name string) bool {
+	switch name {
+	case folder.EdgeLibraries:
+		return m.clearedlibraries
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *FolderMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Folder unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *FolderMutation) ResetEdge(name string) error {
+	switch name {
+	case folder.EdgeLibraries:
+		m.ResetLibraries()
+		return nil
+	}
+	return fmt.Errorf("unknown Folder edge %s", name)
+}
+
+// LibraryMutation represents an operation that mutates the Library nodes in the graph.
+type LibraryMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *string
+	name                *string
+	clearedFields       map[string]struct{}
+	users               map[string]struct{}
+	removedusers        map[string]struct{}
+	clearedusers        bool
+	active_users        map[string]struct{}
+	removedactive_users map[string]struct{}
+	clearedactive_users bool
+	folders             map[string]struct{}
+	removedfolders      map[string]struct{}
+	clearedfolders      bool
+	done                bool
+	oldValue            func(context.Context) (*Library, error)
+	predicates          []predicate.Library
+}
+
+var _ ent.Mutation = (*LibraryMutation)(nil)
+
+// libraryOption allows management of the mutation configuration using functional options.
+type libraryOption func(*LibraryMutation)
+
+// newLibraryMutation creates new mutation for the Library entity.
+func newLibraryMutation(c config, op Op, opts ...libraryOption) *LibraryMutation {
+	m := &LibraryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeLibrary,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withLibraryID sets the ID field of the mutation.
+func withLibraryID(id string) libraryOption {
+	return func(m *LibraryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Library
+		)
+		m.oldValue = func(ctx context.Context) (*Library, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Library.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withLibrary sets the old Library of the mutation.
+func withLibrary(node *Library) libraryOption {
+	return func(m *LibraryMutation) {
+		m.oldValue = func(context.Context) (*Library, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m LibraryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m LibraryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Library entities.
+func (m *LibraryMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *LibraryMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *LibraryMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Library.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *LibraryMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *LibraryMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Library entity.
+// If the Library object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LibraryMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *LibraryMutation) ResetName() {
+	m.name = nil
+}
+
+// AddUserIDs adds the "users" edge to the User entity by ids.
+func (m *LibraryMutation) AddUserIDs(ids ...string) {
+	if m.users == nil {
+		m.users = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.users[ids[i]] = struct{}{}
+	}
+}
+
+// ClearUsers clears the "users" edge to the User entity.
+func (m *LibraryMutation) ClearUsers() {
+	m.clearedusers = true
+}
+
+// UsersCleared reports if the "users" edge to the User entity was cleared.
+func (m *LibraryMutation) UsersCleared() bool {
+	return m.clearedusers
+}
+
+// RemoveUserIDs removes the "users" edge to the User entity by IDs.
+func (m *LibraryMutation) RemoveUserIDs(ids ...string) {
+	if m.removedusers == nil {
+		m.removedusers = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.users, ids[i])
+		m.removedusers[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedUsers returns the removed IDs of the "users" edge to the User entity.
+func (m *LibraryMutation) RemovedUsersIDs() (ids []string) {
+	for id := range m.removedusers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// UsersIDs returns the "users" edge IDs in the mutation.
+func (m *LibraryMutation) UsersIDs() (ids []string) {
+	for id := range m.users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetUsers resets all changes to the "users" edge.
+func (m *LibraryMutation) ResetUsers() {
+	m.users = nil
+	m.clearedusers = false
+	m.removedusers = nil
+}
+
+// AddActiveUserIDs adds the "active_users" edge to the User entity by ids.
+func (m *LibraryMutation) AddActiveUserIDs(ids ...string) {
+	if m.active_users == nil {
+		m.active_users = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.active_users[ids[i]] = struct{}{}
+	}
+}
+
+// ClearActiveUsers clears the "active_users" edge to the User entity.
+func (m *LibraryMutation) ClearActiveUsers() {
+	m.clearedactive_users = true
+}
+
+// ActiveUsersCleared reports if the "active_users" edge to the User entity was cleared.
+func (m *LibraryMutation) ActiveUsersCleared() bool {
+	return m.clearedactive_users
+}
+
+// RemoveActiveUserIDs removes the "active_users" edge to the User entity by IDs.
+func (m *LibraryMutation) RemoveActiveUserIDs(ids ...string) {
+	if m.removedactive_users == nil {
+		m.removedactive_users = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.active_users, ids[i])
+		m.removedactive_users[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedActiveUsers returns the removed IDs of the "active_users" edge to the User entity.
+func (m *LibraryMutation) RemovedActiveUsersIDs() (ids []string) {
+	for id := range m.removedactive_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ActiveUsersIDs returns the "active_users" edge IDs in the mutation.
+func (m *LibraryMutation) ActiveUsersIDs() (ids []string) {
+	for id := range m.active_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetActiveUsers resets all changes to the "active_users" edge.
+func (m *LibraryMutation) ResetActiveUsers() {
+	m.active_users = nil
+	m.clearedactive_users = false
+	m.removedactive_users = nil
+}
+
+// AddFolderIDs adds the "folders" edge to the Folder entity by ids.
+func (m *LibraryMutation) AddFolderIDs(ids ...string) {
+	if m.folders == nil {
+		m.folders = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.folders[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFolders clears the "folders" edge to the Folder entity.
+func (m *LibraryMutation) ClearFolders() {
+	m.clearedfolders = true
+}
+
+// FoldersCleared reports if the "folders" edge to the Folder entity was cleared.
+func (m *LibraryMutation) FoldersCleared() bool {
+	return m.clearedfolders
+}
+
+// RemoveFolderIDs removes the "folders" edge to the Folder entity by IDs.
+func (m *LibraryMutation) RemoveFolderIDs(ids ...string) {
+	if m.removedfolders == nil {
+		m.removedfolders = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.folders, ids[i])
+		m.removedfolders[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFolders returns the removed IDs of the "folders" edge to the Folder entity.
+func (m *LibraryMutation) RemovedFoldersIDs() (ids []string) {
+	for id := range m.removedfolders {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FoldersIDs returns the "folders" edge IDs in the mutation.
+func (m *LibraryMutation) FoldersIDs() (ids []string) {
+	for id := range m.folders {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFolders resets all changes to the "folders" edge.
+func (m *LibraryMutation) ResetFolders() {
+	m.folders = nil
+	m.clearedfolders = false
+	m.removedfolders = nil
+}
+
+// Where appends a list predicates to the LibraryMutation builder.
+func (m *LibraryMutation) Where(ps ...predicate.Library) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the LibraryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *LibraryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Library, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *LibraryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *LibraryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Library).
+func (m *LibraryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *LibraryMutation) Fields() []string {
+	fields := make([]string, 0, 1)
+	if m.name != nil {
+		fields = append(fields, library.FieldName)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *LibraryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case library.FieldName:
+		return m.Name()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *LibraryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case library.FieldName:
+		return m.OldName(ctx)
+	}
+	return nil, fmt.Errorf("unknown Library field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LibraryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case library.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Library field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *LibraryMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *LibraryMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LibraryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Library numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *LibraryMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *LibraryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *LibraryMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Library nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *LibraryMutation) ResetField(name string) error {
+	switch name {
+	case library.FieldName:
+		m.ResetName()
+		return nil
+	}
+	return fmt.Errorf("unknown Library field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *LibraryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.users != nil {
+		edges = append(edges, library.EdgeUsers)
+	}
+	if m.active_users != nil {
+		edges = append(edges, library.EdgeActiveUsers)
+	}
+	if m.folders != nil {
+		edges = append(edges, library.EdgeFolders)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *LibraryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case library.EdgeUsers:
+		ids := make([]ent.Value, 0, len(m.users))
+		for id := range m.users {
+			ids = append(ids, id)
+		}
+		return ids
+	case library.EdgeActiveUsers:
+		ids := make([]ent.Value, 0, len(m.active_users))
+		for id := range m.active_users {
+			ids = append(ids, id)
+		}
+		return ids
+	case library.EdgeFolders:
+		ids := make([]ent.Value, 0, len(m.folders))
+		for id := range m.folders {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *LibraryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedusers != nil {
+		edges = append(edges, library.EdgeUsers)
+	}
+	if m.removedactive_users != nil {
+		edges = append(edges, library.EdgeActiveUsers)
+	}
+	if m.removedfolders != nil {
+		edges = append(edges, library.EdgeFolders)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *LibraryMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case library.EdgeUsers:
+		ids := make([]ent.Value, 0, len(m.removedusers))
+		for id := range m.removedusers {
+			ids = append(ids, id)
+		}
+		return ids
+	case library.EdgeActiveUsers:
+		ids := make([]ent.Value, 0, len(m.removedactive_users))
+		for id := range m.removedactive_users {
+			ids = append(ids, id)
+		}
+		return ids
+	case library.EdgeFolders:
+		ids := make([]ent.Value, 0, len(m.removedfolders))
+		for id := range m.removedfolders {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *LibraryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedusers {
+		edges = append(edges, library.EdgeUsers)
+	}
+	if m.clearedactive_users {
+		edges = append(edges, library.EdgeActiveUsers)
+	}
+	if m.clearedfolders {
+		edges = append(edges, library.EdgeFolders)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *LibraryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case library.EdgeUsers:
+		return m.clearedusers
+	case library.EdgeActiveUsers:
+		return m.clearedactive_users
+	case library.EdgeFolders:
+		return m.clearedfolders
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *LibraryMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Library unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *LibraryMutation) ResetEdge(name string) error {
+	switch name {
+	case library.EdgeUsers:
+		m.ResetUsers()
+		return nil
+	case library.EdgeActiveUsers:
+		m.ResetActiveUsers()
+		return nil
+	case library.EdgeFolders:
+		m.ResetFolders()
+		return nil
+	}
+	return fmt.Errorf("unknown Library edge %s", name)
+}
 
 // ServerMutation represents an operation that mutates the Server nodes in the graph.
 type ServerMutation struct {
@@ -1036,19 +2186,24 @@ func (m *ServerConfigMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *string
-	first_name    *string
-	last_name     *string
-	email         *string
-	password_hash *string
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*User, error)
-	predicates    []predicate.User
+	op                    Op
+	typ                   string
+	id                    *string
+	first_name            *string
+	last_name             *string
+	email                 *string
+	password_hash         *string
+	created_at            *time.Time
+	updated_at            *time.Time
+	clearedFields         map[string]struct{}
+	libraries             map[string]struct{}
+	removedlibraries      map[string]struct{}
+	clearedlibraries      bool
+	active_library        *string
+	clearedactive_library bool
+	done                  bool
+	oldValue              func(context.Context) (*User, error)
+	predicates            []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -1371,6 +2526,99 @@ func (m *UserMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// AddLibraryIDs adds the "libraries" edge to the Library entity by ids.
+func (m *UserMutation) AddLibraryIDs(ids ...string) {
+	if m.libraries == nil {
+		m.libraries = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.libraries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLibraries clears the "libraries" edge to the Library entity.
+func (m *UserMutation) ClearLibraries() {
+	m.clearedlibraries = true
+}
+
+// LibrariesCleared reports if the "libraries" edge to the Library entity was cleared.
+func (m *UserMutation) LibrariesCleared() bool {
+	return m.clearedlibraries
+}
+
+// RemoveLibraryIDs removes the "libraries" edge to the Library entity by IDs.
+func (m *UserMutation) RemoveLibraryIDs(ids ...string) {
+	if m.removedlibraries == nil {
+		m.removedlibraries = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.libraries, ids[i])
+		m.removedlibraries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLibraries returns the removed IDs of the "libraries" edge to the Library entity.
+func (m *UserMutation) RemovedLibrariesIDs() (ids []string) {
+	for id := range m.removedlibraries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LibrariesIDs returns the "libraries" edge IDs in the mutation.
+func (m *UserMutation) LibrariesIDs() (ids []string) {
+	for id := range m.libraries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLibraries resets all changes to the "libraries" edge.
+func (m *UserMutation) ResetLibraries() {
+	m.libraries = nil
+	m.clearedlibraries = false
+	m.removedlibraries = nil
+}
+
+// SetActiveLibraryID sets the "active_library" edge to the Library entity by id.
+func (m *UserMutation) SetActiveLibraryID(id string) {
+	m.active_library = &id
+}
+
+// ClearActiveLibrary clears the "active_library" edge to the Library entity.
+func (m *UserMutation) ClearActiveLibrary() {
+	m.clearedactive_library = true
+}
+
+// ActiveLibraryCleared reports if the "active_library" edge to the Library entity was cleared.
+func (m *UserMutation) ActiveLibraryCleared() bool {
+	return m.clearedactive_library
+}
+
+// ActiveLibraryID returns the "active_library" edge ID in the mutation.
+func (m *UserMutation) ActiveLibraryID() (id string, exists bool) {
+	if m.active_library != nil {
+		return *m.active_library, true
+	}
+	return
+}
+
+// ActiveLibraryIDs returns the "active_library" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ActiveLibraryID instead. It exists only for internal usage by the builders.
+func (m *UserMutation) ActiveLibraryIDs() (ids []string) {
+	if id := m.active_library; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetActiveLibrary resets all changes to the "active_library" edge.
+func (m *UserMutation) ResetActiveLibrary() {
+	m.active_library = nil
+	m.clearedactive_library = false
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -1589,48 +2837,102 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.libraries != nil {
+		edges = append(edges, user.EdgeLibraries)
+	}
+	if m.active_library != nil {
+		edges = append(edges, user.EdgeActiveLibrary)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeLibraries:
+		ids := make([]ent.Value, 0, len(m.libraries))
+		for id := range m.libraries {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeActiveLibrary:
+		if id := m.active_library; id != nil {
+			return []ent.Value{*id}
+		}
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.removedlibraries != nil {
+		edges = append(edges, user.EdgeLibraries)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeLibraries:
+		ids := make([]ent.Value, 0, len(m.removedlibraries))
+		for id := range m.removedlibraries {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.clearedlibraries {
+		edges = append(edges, user.EdgeLibraries)
+	}
+	if m.clearedactive_library {
+		edges = append(edges, user.EdgeActiveLibrary)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
+	switch name {
+	case user.EdgeLibraries:
+		return m.clearedlibraries
+	case user.EdgeActiveLibrary:
+		return m.clearedactive_library
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
+	switch name {
+	case user.EdgeActiveLibrary:
+		m.ClearActiveLibrary()
+		return nil
+	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
+	switch name {
+	case user.EdgeLibraries:
+		m.ResetLibraries()
+		return nil
+	case user.EdgeActiveLibrary:
+		m.ResetActiveLibrary()
+		return nil
+	}
 	return fmt.Errorf("unknown User edge %s", name)
 }

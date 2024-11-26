@@ -1,0 +1,144 @@
+package library
+
+import (
+	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+)
+
+type CreateLibraryData struct {
+	Error       string
+	Fields      map[string]string
+	LibraryName string
+}
+
+templ CreateLibraryPage(data CreateLibraryData) {
+	@layouts.App() {
+		@CreateLibraryContent(data)
+	}
+}
+
+// Update the template to handle errors
+templ CreateLibraryContent(data CreateLibraryData) {
+	<title>ListenUp | New Library</title>
+	<div class="flex justify-center items-center h-full">
+		<div class="flex flex-col w-full bg-white shadow-sm md:shadow-none rounded-xl max-w-2xl">
+			<div class="p-6">
+				<h2 class="text-secondary-700 text-xl">Create New Library</h2>
+			</div>
+			<hr/>
+			<form
+				id="library-form"
+				class="p-6 space-y-6"
+				hx-post="/library/new"
+				hx-swap="outerHTML"
+				hx-indicator="#submit-button"
+				enctype="multipart/form-data"
+				hx-encoding="multipart/form-data"
+				x-data="{
+                    selectedFolders: [],
+                    isValid: false,
+                    
+                    checkValidity() {
+                        const hasName = this.$el.querySelectorAll('[required]:invalid').length === 0;
+                        const hasFolders = this.selectedFolders.length > 0;
+                        this.isValid = hasName && hasFolders;
+                    },
+                    
+                    addFolder(folder) {
+                        if (!this.selectedFolders.includes(folder)) {
+                            this.selectedFolders.push(folder);
+                            this.checkValidity();
+                        }
+                    },
+                    
+                    removeFolder(folder) {
+                        this.selectedFolders = this.selectedFolders.filter(f => f !== folder);
+                        this.checkValidity();
+                    },
+
+                    getFolderName(path) {
+                        return path.split('/').pop();
+                    }
+                }"
+				x-init="checkValidity()"
+				@input="checkValidity()"
+				@folder-selected.window="addFolder($event.detail.path)"
+			>
+				<div class="space-y-4">
+					@components.InputField(components.FormField{
+						Label:       "Library Name",
+						Name:        "libraryName",
+						Type:        "text",
+						Required:    true,
+						Placeholder: "Library Name",
+						Error:       data.Fields["libraryName"],
+					})
+				</div>
+				<div class="space-y-4">
+					<div class="space-y-2">
+						<label class="label">Library Folders</label>
+						<template x-if="selectedFolders.length === 0">
+							<p class="text-sm text-gray-500 text-semibold">No folders selected</p>
+						</template>
+						<template x-for="(folder, index) in selectedFolders">
+							<div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+								<div class="flex items-center space-x-2 text-primary-700">
+									<i class="fa-solid fa-folder"></i>
+									<span class="text-sm text-secondary-700" x-text="folder"></span>
+								</div>
+								<button
+									type="button"
+									@click="removeFolder(folder)"
+									class="text-gray-400 hover:text-gray-500"
+								>
+									<i class="fa-solid fa-xmark text-lg"></i>
+								</button>
+							</div>
+						</template>
+						<template x-for="(folder, index) in selectedFolders">
+							<div>
+								<input type="hidden" :name="`folders.${index}.name`" :value="folder.split('/').pop()"/>
+								<input type="hidden" :name="`folders.${index}.path`" :value="folder"/>
+							</div>
+						</template>
+					</div>
+					<div class="flex items-center justify-between">
+						<button
+							type="button"
+							class="text-primary-600 hover:text-primary-700 flex items-center align-middle"
+							hx-get="/folder/os?new=true"
+							hx-target="#modal-container"
+							hx-swap="beforeend"
+						>
+							<i class="fa-solid fa-plus mr-2"></i>
+							Add Folder
+						</button>
+					</div>
+				</div>
+				if data.Error != "" {
+					@components.ErrorBox(data.Error)
+				}
+				<div class="pt-4">
+					<button
+						type="submit"
+						id="submit-button"
+						class="btn btn-primary w-full"
+						x-bind:disabled="!isValid"
+						htmx-request:disabled
+						htmx-request:opacity-50
+						htmx-request:cursor-not-allowed
+					>
+						<span class="htmx-indicator:hidden">Create Library</span>
+						<span class="htmx-request:inline hidden">
+							<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+						</span>
+					</button>
+				</div>
+			</form>
+		</div>
+		<div id="modal-container"></div>
+	</div>
+}

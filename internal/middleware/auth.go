@@ -6,15 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ListenUpApp/ListenUp/internal/models"
+	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/gin-gonic/gin"
 )
-
-type AppContext struct {
-	User models.User
-}
 
 // WebAuth handles web-based authentication via cookies
 func WebAuth() gin.HandlerFunc {
@@ -108,11 +104,13 @@ func WithUser(userService *service.UserService) gin.HandlerFunc {
 			return
 		}
 
-		appCtx := AppContext{
+		ctx := appcontext.AppContext{
 			User: *user,
 		}
 
-		c.Set("app_context", appCtx)
+		// Set in both contexts
+		appcontext.SetInAll(c, ctx)
+
 		slog.Info("user context set successfully",
 			"user_id", user.ID,
 			"path", c.Request.URL.Path)
@@ -121,11 +119,11 @@ func WithUser(userService *service.UserService) gin.HandlerFunc {
 }
 
 // GetAppContext retrieves the AppContext from the gin context
-func GetAppContext(c *gin.Context) (AppContext, bool) {
+func GetAppContext(c *gin.Context) (appcontext.AppContext, bool) {
 	ctx, exists := c.Get("app_context")
 	if !exists {
-		return AppContext{}, false
+		return appcontext.AppContext{}, false
 	}
-	appCtx, ok := ctx.(AppContext)
+	appCtx, ok := ctx.(appcontext.AppContext)
 	return appCtx, ok
 }

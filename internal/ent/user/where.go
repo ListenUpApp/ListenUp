@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
 )
 
@@ -432,6 +433,52 @@ func UpdatedAtLT(v time.Time) predicate.User {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HasLibraries applies the HasEdge predicate on the "libraries" edge.
+func HasLibraries() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, LibrariesTable, LibrariesPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasLibrariesWith applies the HasEdge predicate on the "libraries" edge with a given conditions (other predicates).
+func HasLibrariesWith(preds ...predicate.Library) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newLibrariesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasActiveLibrary applies the HasEdge predicate on the "active_library" edge.
+func HasActiveLibrary() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, ActiveLibraryTable, ActiveLibraryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasActiveLibraryWith applies the HasEdge predicate on the "active_library" edge with a given conditions (other predicates).
+func HasActiveLibraryWith(preds ...predicate.Library) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newActiveLibraryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

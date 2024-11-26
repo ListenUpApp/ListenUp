@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
@@ -24,12 +26,14 @@ type Server struct {
 	services   *service.Services
 	router     *gin.Engine
 	httpServer *http.Server
+	validator  *validator.Validate
 }
 
 type Config struct {
-	Config   *config.Config
-	Logger   *slog.Logger
-	Services *service.Services
+	Config    *config.Config
+	Logger    *slog.Logger
+	Services  *service.Services
+	Validator *validator.Validate
 }
 
 func New(cfg Config) *Server {
@@ -51,6 +55,7 @@ func New(cfg Config) *Server {
 		services:   cfg.Services,
 		router:     router, // Use the same router instance
 		httpServer: httpServer,
+		validator:  cfg.Validator,
 	}
 }
 
@@ -94,14 +99,16 @@ func (s *Server) setupRoutes() {
 		apiProtected := apiGroup.Group("")
 		apiProtected.Use(middleware.APIAuth())
 		apiProtected.Use(middleware.WithUser(s.services.User))
+		apiProtected.Use(middleware.WithLibrary(s.services.Library))
 		apiHandler.RegisterProtectedRoutes(apiProtected)
 	}
 
 	// Web routes
 	webHandler := web.NewHandler(web.Config{
-		Services: s.services,
-		Logger:   s.logger,
-		Config:   s.config,
+		Services:  s.services,
+		Logger:    s.logger,
+		Config:    s.config,
+		Validator: s.validator,
 	})
 
 	// Public web routes (auth pages)
@@ -111,10 +118,11 @@ func (s *Server) setupRoutes() {
 	protected := s.router.Group("")
 	protected.Use(middleware.WebAuth())
 	protected.Use(middleware.WithUser(s.services.User))
+	protected.Use(middleware.WithLibrary(s.services.Library))
 	webHandler.RegisterProtectedRoutes(protected)
 
 	s.router.NoRoute(func(c *gin.Context) {
-		page := pages.NotFound("Not Found")
+		page := pages.NotFound()
 		err := page.Render(c, c.Writer)
 		if err != nil {
 			s.logger.Error("error rendering page",

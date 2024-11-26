@@ -15,6 +15,8 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/server"
 	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
@@ -25,6 +27,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Folder is the client for interacting with the Folder builders.
+	Folder *FolderClient
+	// Library is the client for interacting with the Library builders.
+	Library *LibraryClient
 	// Server is the client for interacting with the Server builders.
 	Server *ServerClient
 	// ServerConfig is the client for interacting with the ServerConfig builders.
@@ -42,6 +48,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Folder = NewFolderClient(c.config)
+	c.Library = NewLibraryClient(c.config)
 	c.Server = NewServerClient(c.config)
 	c.ServerConfig = NewServerConfigClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -137,6 +145,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:          ctx,
 		config:       cfg,
+		Folder:       NewFolderClient(cfg),
+		Library:      NewLibraryClient(cfg),
 		Server:       NewServerClient(cfg),
 		ServerConfig: NewServerConfigClient(cfg),
 		User:         NewUserClient(cfg),
@@ -159,6 +169,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:          ctx,
 		config:       cfg,
+		Folder:       NewFolderClient(cfg),
+		Library:      NewLibraryClient(cfg),
 		Server:       NewServerClient(cfg),
 		ServerConfig: NewServerConfigClient(cfg),
 		User:         NewUserClient(cfg),
@@ -168,7 +180,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Server.
+//		Folder.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -190,6 +202,8 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Folder.Use(hooks...)
+	c.Library.Use(hooks...)
 	c.Server.Use(hooks...)
 	c.ServerConfig.Use(hooks...)
 	c.User.Use(hooks...)
@@ -198,6 +212,8 @@ func (c *Client) Use(hooks ...Hook) {
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.Folder.Intercept(interceptors...)
+	c.Library.Intercept(interceptors...)
 	c.Server.Intercept(interceptors...)
 	c.ServerConfig.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
@@ -206,6 +222,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *FolderMutation:
+		return c.Folder.mutate(ctx, m)
+	case *LibraryMutation:
+		return c.Library.mutate(ctx, m)
 	case *ServerMutation:
 		return c.Server.mutate(ctx, m)
 	case *ServerConfigMutation:
@@ -214,6 +234,336 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// FolderClient is a client for the Folder schema.
+type FolderClient struct {
+	config
+}
+
+// NewFolderClient returns a client for the Folder from the given config.
+func NewFolderClient(c config) *FolderClient {
+	return &FolderClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `folder.Hooks(f(g(h())))`.
+func (c *FolderClient) Use(hooks ...Hook) {
+	c.hooks.Folder = append(c.hooks.Folder, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `folder.Intercept(f(g(h())))`.
+func (c *FolderClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Folder = append(c.inters.Folder, interceptors...)
+}
+
+// Create returns a builder for creating a Folder entity.
+func (c *FolderClient) Create() *FolderCreate {
+	mutation := newFolderMutation(c.config, OpCreate)
+	return &FolderCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Folder entities.
+func (c *FolderClient) CreateBulk(builders ...*FolderCreate) *FolderCreateBulk {
+	return &FolderCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FolderClient) MapCreateBulk(slice any, setFunc func(*FolderCreate, int)) *FolderCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FolderCreateBulk{err: fmt.Errorf("calling to FolderClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FolderCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FolderCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Folder.
+func (c *FolderClient) Update() *FolderUpdate {
+	mutation := newFolderMutation(c.config, OpUpdate)
+	return &FolderUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FolderClient) UpdateOne(f *Folder) *FolderUpdateOne {
+	mutation := newFolderMutation(c.config, OpUpdateOne, withFolder(f))
+	return &FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FolderClient) UpdateOneID(id string) *FolderUpdateOne {
+	mutation := newFolderMutation(c.config, OpUpdateOne, withFolderID(id))
+	return &FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Folder.
+func (c *FolderClient) Delete() *FolderDelete {
+	mutation := newFolderMutation(c.config, OpDelete)
+	return &FolderDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FolderClient) DeleteOne(f *Folder) *FolderDeleteOne {
+	return c.DeleteOneID(f.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FolderClient) DeleteOneID(id string) *FolderDeleteOne {
+	builder := c.Delete().Where(folder.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FolderDeleteOne{builder}
+}
+
+// Query returns a query builder for Folder.
+func (c *FolderClient) Query() *FolderQuery {
+	return &FolderQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFolder},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Folder entity by its id.
+func (c *FolderClient) Get(ctx context.Context, id string) (*Folder, error) {
+	return c.Query().Where(folder.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FolderClient) GetX(ctx context.Context, id string) *Folder {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLibraries queries the libraries edge of a Folder.
+func (c *FolderClient) QueryLibraries(f *Folder) *LibraryQuery {
+	query := (&LibraryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := f.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, id),
+			sqlgraph.To(library.Table, library.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, folder.LibrariesTable, folder.LibrariesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(f.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *FolderClient) Hooks() []Hook {
+	return c.hooks.Folder
+}
+
+// Interceptors returns the client interceptors.
+func (c *FolderClient) Interceptors() []Interceptor {
+	return c.inters.Folder
+}
+
+func (c *FolderClient) mutate(ctx context.Context, m *FolderMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FolderCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FolderUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FolderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Folder mutation op: %q", m.Op())
+	}
+}
+
+// LibraryClient is a client for the Library schema.
+type LibraryClient struct {
+	config
+}
+
+// NewLibraryClient returns a client for the Library from the given config.
+func NewLibraryClient(c config) *LibraryClient {
+	return &LibraryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `library.Hooks(f(g(h())))`.
+func (c *LibraryClient) Use(hooks ...Hook) {
+	c.hooks.Library = append(c.hooks.Library, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `library.Intercept(f(g(h())))`.
+func (c *LibraryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Library = append(c.inters.Library, interceptors...)
+}
+
+// Create returns a builder for creating a Library entity.
+func (c *LibraryClient) Create() *LibraryCreate {
+	mutation := newLibraryMutation(c.config, OpCreate)
+	return &LibraryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Library entities.
+func (c *LibraryClient) CreateBulk(builders ...*LibraryCreate) *LibraryCreateBulk {
+	return &LibraryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LibraryClient) MapCreateBulk(slice any, setFunc func(*LibraryCreate, int)) *LibraryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LibraryCreateBulk{err: fmt.Errorf("calling to LibraryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LibraryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LibraryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Library.
+func (c *LibraryClient) Update() *LibraryUpdate {
+	mutation := newLibraryMutation(c.config, OpUpdate)
+	return &LibraryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LibraryClient) UpdateOne(l *Library) *LibraryUpdateOne {
+	mutation := newLibraryMutation(c.config, OpUpdateOne, withLibrary(l))
+	return &LibraryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LibraryClient) UpdateOneID(id string) *LibraryUpdateOne {
+	mutation := newLibraryMutation(c.config, OpUpdateOne, withLibraryID(id))
+	return &LibraryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Library.
+func (c *LibraryClient) Delete() *LibraryDelete {
+	mutation := newLibraryMutation(c.config, OpDelete)
+	return &LibraryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LibraryClient) DeleteOne(l *Library) *LibraryDeleteOne {
+	return c.DeleteOneID(l.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LibraryClient) DeleteOneID(id string) *LibraryDeleteOne {
+	builder := c.Delete().Where(library.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LibraryDeleteOne{builder}
+}
+
+// Query returns a query builder for Library.
+func (c *LibraryClient) Query() *LibraryQuery {
+	return &LibraryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLibrary},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Library entity by its id.
+func (c *LibraryClient) Get(ctx context.Context, id string) (*Library, error) {
+	return c.Query().Where(library.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LibraryClient) GetX(ctx context.Context, id string) *Library {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUsers queries the users edge of a Library.
+func (c *LibraryClient) QueryUsers(l *Library) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := l.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(library.Table, library.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, library.UsersTable, library.UsersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(l.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryActiveUsers queries the active_users edge of a Library.
+func (c *LibraryClient) QueryActiveUsers(l *Library) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := l.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(library.Table, library.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, library.ActiveUsersTable, library.ActiveUsersColumn),
+		)
+		fromV = sqlgraph.Neighbors(l.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFolders queries the folders edge of a Library.
+func (c *LibraryClient) QueryFolders(l *Library) *FolderQuery {
+	query := (&FolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := l.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(library.Table, library.FieldID, id),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, library.FoldersTable, library.FoldersPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(l.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LibraryClient) Hooks() []Hook {
+	return c.hooks.Library
+}
+
+// Interceptors returns the client interceptors.
+func (c *LibraryClient) Interceptors() []Interceptor {
+	return c.inters.Library
+}
+
+func (c *LibraryClient) mutate(ctx context.Context, m *LibraryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LibraryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LibraryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LibraryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LibraryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Library mutation op: %q", m.Op())
 	}
 }
 
@@ -623,6 +973,38 @@ func (c *UserClient) GetX(ctx context.Context, id string) *User {
 	return obj
 }
 
+// QueryLibraries queries the libraries edge of a User.
+func (c *UserClient) QueryLibraries(u *User) *LibraryQuery {
+	query := (&LibraryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(library.Table, library.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, user.LibrariesTable, user.LibrariesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryActiveLibrary queries the active_library edge of a User.
+func (c *UserClient) QueryActiveLibrary(u *User) *LibraryQuery {
+	query := (&LibraryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(library.Table, library.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.ActiveLibraryTable, user.ActiveLibraryColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -651,9 +1033,9 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Server, ServerConfig, User []ent.Hook
+		Folder, Library, Server, ServerConfig, User []ent.Hook
 	}
 	inters struct {
-		Server, ServerConfig, User []ent.Interceptor
+		Folder, Library, Server, ServerConfig, User []ent.Interceptor
 	}
 )

@@ -1,12 +1,11 @@
 package layouts
 
-templ Base(title string) {
+templ Base() {
 	<!DOCTYPE html>
 	<html lang="en" class="h-full">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>{ title }</title>
 			// Load compiled Tailwind CSS
 			<link href="/static/css/app.css" rel="stylesheet"/>
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -18,7 +17,7 @@ templ Base(title string) {
 			<script src="https://unpkg.com/htmx-ext-ws@2.0.1/ws.js"></script>
 			<script src="//unpkg.com/alpinejs" defer></script>
 			// Optional: HTMX extensions
-			<script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
+			<script src="https://unpkg.com/htmx.org/dist/ext/alpine-morph.js"></script>
 		</head>
 		<body class="h-full overflow-hidden">
 			{ children... }

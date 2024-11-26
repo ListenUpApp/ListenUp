@@ -1,35 +1,41 @@
 package web
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
-	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type Handler struct {
-	auth     *AuthHandler
-	services *service.Services
-	logger   *slog.Logger
-	config   *config.Config
+	*BaseHandler
+	auth    *AuthHandler
+	library *LibraryHandler
+	folder  *FolderHandler
 }
 
 type Config struct {
-	Services *service.Services
-	Logger   *slog.Logger
-	Config   *config.Config
+	Services  *service.Services
+	Logger    *slog.Logger
+	Config    *config.Config
+	Validator *validator.Validate
 }
 
 func NewHandler(cfg Config) *Handler {
+	baseHandler := &BaseHandler{
+		logger:    cfg.Logger,
+		services:  cfg.Services,
+		config:    cfg.Config,
+		validator: cfg.Validator,
+	}
 	return &Handler{
-		auth:     NewAuthHandler(cfg),
-		services: cfg.Services,
-		logger:   cfg.Logger,
-		config:   cfg.Config,
+		BaseHandler: baseHandler,
+		auth:        NewAuthHandler(cfg, baseHandler),
+		library:     NewLibraryHandler(cfg, baseHandler),
+		folder:      NewFolderHandler(cfg, baseHandler),
 	}
 }
 
@@ -43,38 +49,22 @@ func (h *Handler) RegisterPublicRoutes(r *gin.RouterGroup) {
 
 func (h *Handler) RegisterProtectedRoutes(r *gin.RouterGroup) {
 	r.GET("/", h.HomePage)
+	library := r.Group("/library")
+	{
+		h.library.RegisterRoutes(library)
+	}
+	folder := r.Group("/folder")
+	{
+		h.folder.RegisterRoutes(folder)
+	}
 }
 
 func (h *Handler) HomePage(c *gin.Context) {
-	appCtx, exists := middleware.GetAppContext(c)
-	if !exists {
-		h.logger.Error("app context not found")
-		c.String(500, "Error: app context not found")
-		return
-	}
+	err := h.RenderPage(c, "Home",
+		pages.HomePage(),
+		pages.HomeContent())
 
-	// Create a new context with the app context value
-	ctx := context.WithValue(c.Request.Context(), "app_context", appCtx)
-
-	if c.GetHeader("HX-Request") == "true" {
-		err := pages.HomeContent().Render(ctx, c.Writer)
-		if err != nil {
-			h.logger.Error("error rendering page",
-				"error", err,
-				"path", c.Request.URL.Path)
-			c.String(500, "Error rendering page")
-			return
-		}
-		return
-	}
-
-	// For regular requests, return the full page
-	err := pages.HomePage("Home").Render(ctx, c.Writer)
 	if err != nil {
-		h.logger.Error("error rendering page",
-			"error", err,
-			"path", c.Request.URL.Path)
-		c.String(500, "Error rendering page")
 		return
 	}
 }

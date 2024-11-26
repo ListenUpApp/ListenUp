@@ -13,16 +13,16 @@ type User struct {
 }
 
 type RegisterRequest struct {
-	FirstName       string `json:"firstName" validate:"required"`
-	LastName        string `json:"lastName" validate:"required"`
-	Email           string `json:"email" validate:"required,email"`
-	Password        string `json:"password" validate:"required"`
-	ConfirmPassword string `json:"confirmPassword" validate:"required,eqfield=Password"`
+	FirstName       string `json:"firstName" form:"firstName" validate:"required"`
+	LastName        string `json:"lastName" form:"lastName" validate:"required"`
+	Email           string `json:"email" form:"email" validate:"required,email"`
+	Password        string `json:"password" form:"password" validate:"required"`
+	ConfirmPassword string `json:"confirmPassword" form:"confirmPassword" validate:"required,eqfield=Password"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" form:"email" validate:"required,email"`
+	Password string `json:"password" form:"password" validate:"required"`
 }
 
 type LoginResponse struct {

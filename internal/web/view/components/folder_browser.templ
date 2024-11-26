@@ -1,0 +1,199 @@
+package components
+
+import (
+	"github.com/ListenUpApp/ListenUp/internal/models"
+	"path/filepath"
+	"strings"
+)
+
+templ FolderBrowser(folders *models.GetFolderResponse) {
+	<div
+		id="folder-browser-modal"
+		class="relative z-10"
+		x-data="{ 
+            isOpen: true,
+            selectedPath: '/',
+            selectedName: '/',
+            
+            closeModal() {
+                this.isOpen = false;
+                this.$el.remove();
+            },
+            
+            updateSelected(path) {
+                this.selectedPath = path;
+                this.selectedName = path.split('/').filter(Boolean).pop() || '/';
+            },
+
+            resetToRoot() {
+                // Force navigation to root
+                const rootList = document.getElementById('folder-list');
+                if (rootList) {
+                    htmx.ajax('GET', '/folder/os?path=/', {
+                        target: '#folder-list',
+                        swap: 'innerHTML'
+                    });
+                }
+                this.updateSelected('/');
+            }
+        }"
+		x-init="
+            resetToRoot();
+            document.addEventListener('htmx:afterSwap', (evt) => {
+                if (evt.detail.target.id === 'folder-list') {
+                    Alpine.initTree(evt.detail.target);
+                }
+            });
+        "
+		x-show="isOpen"
+		x-transition
+		@keydown.escape.window="closeModal()"
+		aria-labelledby="modal-title"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="fixed inset-0 bg-gray-500/75 transition-opacity"></div>
+		<div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+			<div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+				<div class="relative transform overflow-hidden rounded-lg bg-white pb-4 pt-5 text-left shadow-xl transition-all my-8 w-full max-w-2xl">
+					<div class="absolute right-0 top-0 px-4 pr-4 pt-4">
+						<button
+							type="button"
+							class="rounded-md bg-white text-gray-400 hover:text-gray-500"
+							@click="closeModal()"
+						>
+							<span class="sr-only">Close</span>
+							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+							</svg>
+						</button>
+					</div>
+					<div class="sm:flex">
+						<div class="w-full">
+							<h3 class="leading-6 text-secondary-700 text-xl mb-4 px-6">Select Folder</h3>
+							<hr/>
+							<div
+								id="folder-list"
+								class="rounded-lg h-96 px-6 overflow-y-auto"
+								hx-preserve="true"
+							>
+								@FolderContent(folders)
+							</div>
+						</div>
+					</div>
+					<div class="mt-5 sm:mt-4 px-6 flex justify-end">
+						<form
+							class="contents"
+							@submit.prevent="
+                                window.dispatchEvent(new CustomEvent('folder-selected', {
+                                    detail: {
+                                        path: selectedPath,
+                                        name: selectedName
+                                    }
+                                }));
+                                closeModal();
+                            "
+						>
+							<button type="submit" class="btn btn-primary mr-6">
+								Select
+							</button>
+						</form>
+						<button
+							type="button"
+							class="mr-6 text-primary-700"
+							@click="closeModal()"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ FolderContent(folder *models.GetFolderResponse) {
+	if folder == nil {
+		<div class="p-4 text-gray-500">No folders found</div>
+	} else {
+		if folder.Path != "/" {
+			<div class="p-2 hover:bg-gray-50 cursor-pointer flex items-center">
+				<button
+					class="flex items-center w-full text-xl"
+					hx-get={ "/folder/os?path=" + filepath.Dir(folder.Path) }
+					hx-target="#folder-list"
+					hx-swap="innerHTML"
+					@click={ "updateSelected('" + filepath.Dir(folder.Path) + "')" }
+				>
+					<i class="fa fa-turn-up text-gray-900"></i>
+					<span class="text-gray-900">...</span>
+				</button>
+			</div>
+		}
+		for _, subFolder := range folder.SubFolders {
+			<div class="p-2 hover:bg-gray-50 cursor-pointer">
+				<button
+					class="flex items-center w-full"
+					hx-get={ "/folder/os?path=" + subFolder.Path }
+					hx-target="#folder-list"
+					hx-swap="innerHTML"
+					@click={ "updateSelected('" + subFolder.Path + "')" }
+				>
+					<i class="fa-solid fa-folder text-primary-700 mr-2"></i>
+					<span class="text-secondary-700">{ subFolder.Name }</span>
+				</button>
+			</div>
+		}
+	}
+}
+
+templ SelectedFolder(path string) {
+	<div class="flex items-center justify-between space-x-2 p-2 bg-gray-50 rounded">
+		<div class="flex items-center space-x-2">
+			<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"></path>
+			</svg>
+			<span class="text-gray-900">{ path }</span>
+		</div>
+		<button
+			type="button"
+			class="text-gray-400 hover:text-gray-500"
+			hx-delete="/folder/os/select"
+			hx-target="#selected-folder"
+		>
+			<span class="sr-only">Remove</span>
+				
+		</button>
+		<input type="hidden" name="folder_path" value={ path }/>
+	</div>
+}
+
+// Helper struct for path parts
+type pathPart struct {
+	name     string
+	fullPath string
+}
+
+// Helper function to split path into parts
+func splitPath(path string) []pathPart {
+	if path == "" || path == "/" {
+		return nil
+	}
+
+	parts := strings.Split(path, "/")
+	var result []pathPart
+	currentPath := ""
+
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		currentPath += "/" + part
+		result = append(result, pathPart{
+			name:     part,
+			fullPath: currentPath,
+		})
+	}
+
+	return result
+}

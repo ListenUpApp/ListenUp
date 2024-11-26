@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"os"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/logger"
@@ -8,10 +11,9 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/server"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
+	"github.com/go-playground/validator/v10"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
-	"log"
-	"os"
 )
 
 func initDB() (*ent.Client, error) {
@@ -35,7 +37,7 @@ func main() {
 	}
 
 	appLogger := logger.New(cfg.Logger)
-
+	validate := validator.New()
 	// todo init this with our DB env variables
 	client, err := initDB()
 	if err != nil {
@@ -62,8 +64,9 @@ func main() {
 
 	// Init Services
 	services, err := service.NewServices(service.Deps{
-		Repos:  repos,
-		Logger: appLogger,
+		Repos:     repos,
+		Logger:    appLogger,
+		Validator: validate,
 	})
 	if err != nil {
 		appLogger.Error("Failed to initialize services", "error", err)
@@ -71,9 +74,10 @@ func main() {
 	}
 
 	srv := server.New(server.Config{
-		Config:   cfg,
-		Logger:   appLogger,
-		Services: services,
+		Config:    cfg,
+		Logger:    appLogger,
+		Services:  services,
+		Validator: validate,
 	})
 	// Check server status and initialize if needed
 	if err := srv.Init(ctx); err != nil {

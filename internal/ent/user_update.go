@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 )
@@ -90,9 +91,70 @@ func (uu *UserUpdate) SetUpdatedAt(t time.Time) *UserUpdate {
 	return uu
 }
 
+// AddLibraryIDs adds the "libraries" edge to the Library entity by IDs.
+func (uu *UserUpdate) AddLibraryIDs(ids ...string) *UserUpdate {
+	uu.mutation.AddLibraryIDs(ids...)
+	return uu
+}
+
+// AddLibraries adds the "libraries" edges to the Library entity.
+func (uu *UserUpdate) AddLibraries(l ...*Library) *UserUpdate {
+	ids := make([]string, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return uu.AddLibraryIDs(ids...)
+}
+
+// SetActiveLibraryID sets the "active_library" edge to the Library entity by ID.
+func (uu *UserUpdate) SetActiveLibraryID(id string) *UserUpdate {
+	uu.mutation.SetActiveLibraryID(id)
+	return uu
+}
+
+// SetNillableActiveLibraryID sets the "active_library" edge to the Library entity by ID if the given value is not nil.
+func (uu *UserUpdate) SetNillableActiveLibraryID(id *string) *UserUpdate {
+	if id != nil {
+		uu = uu.SetActiveLibraryID(*id)
+	}
+	return uu
+}
+
+// SetActiveLibrary sets the "active_library" edge to the Library entity.
+func (uu *UserUpdate) SetActiveLibrary(l *Library) *UserUpdate {
+	return uu.SetActiveLibraryID(l.ID)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
+}
+
+// ClearLibraries clears all "libraries" edges to the Library entity.
+func (uu *UserUpdate) ClearLibraries() *UserUpdate {
+	uu.mutation.ClearLibraries()
+	return uu
+}
+
+// RemoveLibraryIDs removes the "libraries" edge to Library entities by IDs.
+func (uu *UserUpdate) RemoveLibraryIDs(ids ...string) *UserUpdate {
+	uu.mutation.RemoveLibraryIDs(ids...)
+	return uu
+}
+
+// RemoveLibraries removes "libraries" edges to Library entities.
+func (uu *UserUpdate) RemoveLibraries(l ...*Library) *UserUpdate {
+	ids := make([]string, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return uu.RemoveLibraryIDs(ids...)
+}
+
+// ClearActiveLibrary clears the "active_library" edge to the Library entity.
+func (uu *UserUpdate) ClearActiveLibrary() *UserUpdate {
+	uu.mutation.ClearActiveLibrary()
+	return uu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -183,6 +245,80 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := uu.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if uu.mutation.LibrariesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedLibrariesIDs(); len(nodes) > 0 && !uu.mutation.LibrariesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.LibrariesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.ActiveLibraryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.ActiveLibraryTable,
+			Columns: []string{user.ActiveLibraryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.ActiveLibraryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.ActiveLibraryTable,
+			Columns: []string{user.ActiveLibraryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -265,9 +401,70 @@ func (uuo *UserUpdateOne) SetUpdatedAt(t time.Time) *UserUpdateOne {
 	return uuo
 }
 
+// AddLibraryIDs adds the "libraries" edge to the Library entity by IDs.
+func (uuo *UserUpdateOne) AddLibraryIDs(ids ...string) *UserUpdateOne {
+	uuo.mutation.AddLibraryIDs(ids...)
+	return uuo
+}
+
+// AddLibraries adds the "libraries" edges to the Library entity.
+func (uuo *UserUpdateOne) AddLibraries(l ...*Library) *UserUpdateOne {
+	ids := make([]string, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return uuo.AddLibraryIDs(ids...)
+}
+
+// SetActiveLibraryID sets the "active_library" edge to the Library entity by ID.
+func (uuo *UserUpdateOne) SetActiveLibraryID(id string) *UserUpdateOne {
+	uuo.mutation.SetActiveLibraryID(id)
+	return uuo
+}
+
+// SetNillableActiveLibraryID sets the "active_library" edge to the Library entity by ID if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableActiveLibraryID(id *string) *UserUpdateOne {
+	if id != nil {
+		uuo = uuo.SetActiveLibraryID(*id)
+	}
+	return uuo
+}
+
+// SetActiveLibrary sets the "active_library" edge to the Library entity.
+func (uuo *UserUpdateOne) SetActiveLibrary(l *Library) *UserUpdateOne {
+	return uuo.SetActiveLibraryID(l.ID)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uuo *UserUpdateOne) Mutation() *UserMutation {
 	return uuo.mutation
+}
+
+// ClearLibraries clears all "libraries" edges to the Library entity.
+func (uuo *UserUpdateOne) ClearLibraries() *UserUpdateOne {
+	uuo.mutation.ClearLibraries()
+	return uuo
+}
+
+// RemoveLibraryIDs removes the "libraries" edge to Library entities by IDs.
+func (uuo *UserUpdateOne) RemoveLibraryIDs(ids ...string) *UserUpdateOne {
+	uuo.mutation.RemoveLibraryIDs(ids...)
+	return uuo
+}
+
+// RemoveLibraries removes "libraries" edges to Library entities.
+func (uuo *UserUpdateOne) RemoveLibraries(l ...*Library) *UserUpdateOne {
+	ids := make([]string, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return uuo.RemoveLibraryIDs(ids...)
+}
+
+// ClearActiveLibrary clears the "active_library" edge to the Library entity.
+func (uuo *UserUpdateOne) ClearActiveLibrary() *UserUpdateOne {
+	uuo.mutation.ClearActiveLibrary()
+	return uuo
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -387,6 +584,80 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if value, ok := uuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if uuo.mutation.LibrariesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedLibrariesIDs(); len(nodes) > 0 && !uuo.mutation.LibrariesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.LibrariesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   user.LibrariesTable,
+			Columns: user.LibrariesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.ActiveLibraryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.ActiveLibraryTable,
+			Columns: []string{user.ActiveLibraryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.ActiveLibraryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   user.ActiveLibraryTable,
+			Columns: []string{user.ActiveLibraryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: uuo.config}
 	_spec.Assign = _node.assignValues

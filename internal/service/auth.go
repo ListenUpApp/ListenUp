@@ -4,19 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"time"
+
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/util"
-	"github.com/ListenUpApp/ListenUp/pkg/validator"
-	"log/slog"
-	"time"
+	"github.com/go-playground/validator/v10"
 )
 
 type AuthService struct {
 	userRepo   *repository.UserRepository
 	serverRepo *repository.ServerRepository
 	logger     *slog.Logger
+	validator  *validator.Validate
 }
 
 func NewAuthService(cfg ServiceConfig) (*AuthService, error) {
@@ -34,6 +36,7 @@ func NewAuthService(cfg ServiceConfig) (*AuthService, error) {
 		userRepo:   cfg.UserRepo,
 		serverRepo: cfg.ServerRepo,
 		logger:     cfg.Logger,
+		validator:  cfg.Validator,
 	}, nil
 }
 
@@ -149,14 +152,58 @@ func (s *AuthService) IsServerSetup(ctx context.Context) (bool, error) {
 }
 
 func (s *AuthService) ValidateRegisterRequest(req models.RegisterRequest) error {
-	if errors := validator.Validate(req); len(errors) > 0 {
+	err := s.validator.Struct(req)
+	if err == nil {
+		return nil
+	}
+
+	errors := make(map[string]string)
+
+	for _, err := range err.(validator.ValidationErrors) {
+		switch err.Tag() {
+		case "required":
+			errors[err.Field()] = "This field is required"
+		case "email":
+			errors[err.Field()] = "Invalid email format"
+		case "min":
+			errors[err.Field()] = "Must be at least " + err.Param() + " characters long"
+		case "max":
+			errors[err.Field()] = "Must not exceed " + err.Param() + " characters"
+		case "passwd":
+			errors[err.Field()] = "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"
+		case "eqfield":
+			errors[err.Field()] = "Passwords do not match"
+		default:
+			errors[err.Field()] = "Invalid value"
+		}
+	}
+
+	if len(errors) > 0 {
 		return errorhandling.NewValidationError("validation failed").WithData(errors)
 	}
 	return nil
 }
 
 func (s *AuthService) ValidateLoginRequest(req models.LoginRequest) error {
-	if errors := validator.Validate(req); len(errors) > 0 {
+	err := s.validator.Struct(req)
+	if err == nil {
+		return nil
+	}
+
+	errors := make(map[string]string)
+
+	for _, err := range err.(validator.ValidationErrors) {
+		switch err.Tag() {
+		case "required":
+			errors[err.Field()] = "This field is required"
+		case "email":
+			errors[err.Field()] = "Invalid email format"
+		default:
+			errors[err.Field()] = "Invalid value"
+		}
+	}
+
+	if len(errors) > 0 {
 		return errorhandling.NewValidationError("validation failed").WithData(errors)
 	}
 	return nil

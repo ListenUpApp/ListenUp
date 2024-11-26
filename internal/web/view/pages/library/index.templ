@@ -1,0 +1,33 @@
+package library
+
+import (
+	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/partials"
+)
+
+templ LibraryIndexPage() {
+	@layouts.App() {
+		@LibraryIndexContent()
+	}
+}
+
+templ LibraryIndexContent() {
+	if data, ok := appcontext.GetAppContext(ctx); ok {
+		if data.ActiveLibrary.Name != "" {
+			<title>ListenUp | { data.ActiveLibrary.Name }</title>
+		} else {
+			<title>ListenUp | Library</title>
+		}
+	}
+	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
+		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
+			@partials.LibraryStatus()
+		} else {
+			<div class="prose lg:prose-xl p-4">
+				<h1 class="text-2xl">Welcome to ListenUp</h1>
+				<p>This is a sample homepage served with Templ and Gin.</p>
+			</div>
+		}
+	}
+}

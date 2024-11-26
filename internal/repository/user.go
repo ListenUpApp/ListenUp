@@ -2,11 +2,14 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/models"
-	"log/slog"
 )
 
 type UserRepository struct {
@@ -83,4 +86,70 @@ func (u *UserRepository) CreateUser(ctx context.Context, user models.CreateUser)
 		"email", dbUser.Email)
 
 	return dbUser, nil
+}
+
+func (u *UserRepository) AddLibraryToUser(ctx context.Context, userId string, libraryId string) error {
+	// Start transaction
+	tx, err := u.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Get user
+	user, err := tx.User.Get(ctx, userId)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return errorhandling.NewNotFoundError("user not found")
+		}
+		return errorhandling.NewInternalError(err, "failed to get user")
+	}
+
+	// Update user by adding library
+	err = tx.User.UpdateOne(user).
+		AddLibraryIDs(libraryId).
+		Exec(ctx)
+	if err != nil {
+		return errorhandling.NewInternalError(err, "failed to add library to user")
+	}
+
+	return tx.Commit()
+}
+
+func (u *UserRepository) UpdateActiveLibrary(ctx context.Context, userId string, libraryId string) error {
+	// Use a transaction to ensure atomicity
+	tx, err := u.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Verify the user has access to the library
+	exists, err := tx.User.Query().
+		Where(
+			user.ID(userId),
+			user.HasLibrariesWith(library.ID(libraryId)),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("verifying library access: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("user does not have access to library")
+	}
+
+	// Update the active library
+	err = tx.User.UpdateOne(
+		tx.User.Query().
+			Where(user.ID(userId)).
+			OnlyX(ctx),
+	).
+		SetActiveLibraryID(libraryId).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("updating active library: %w", err)
+	}
+
+	// Commit the transaction
+	return tx.Commit()
 }
