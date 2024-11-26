@@ -86,16 +86,36 @@ func (l *LibraryService) GetCurrentLibrary(ctx context.Context, userId string) (
 }
 
 func (l *LibraryService) CreateLibrary(ctx context.Context, userId string, params models.CreateLibraryRequest) (*models.Library, error) {
+	// Validate library name
+	if params.Name == "" {
+		return nil, errorhandling.NewValidationError("Library name is required")
+	}
+
+	// Validate folders
+	if len(params.Folders) == 0 {
+		return nil, errorhandling.NewValidationError("At least one folder must be selected")
+	}
+
+	// Check if library name already exists for user
+	exists, err := l.libraryRepo.LibraryExistsForUser(ctx, userId, params.Name)
+	if err != nil {
+		return nil, errorhandling.NewInternalError(err, "Failed to check library existence")
+	}
+	if exists {
+		return nil, errorhandling.NewConflictError("A library with this name already exists")
+	}
+
 	// Process folders
 	var dbFolders []*ent.Folder
 	for _, folder := range params.Folders {
+
 		newFolder, err := l.folderRepo.CreateFolder(ctx, folder.Name, folder.Path)
 		if err != nil {
 			l.logger.ErrorContext(ctx, "Failed to create folder",
 				"name", folder.Name,
 				"path", folder.Path,
 				"error", err)
-			return nil, fmt.Errorf("failed to create folders: %w", err)
+			return nil, errorhandling.NewInternalError(err, "Failed to create folder")
 		}
 		dbFolders = append(dbFolders, newFolder)
 	}
@@ -106,7 +126,7 @@ func (l *LibraryService) CreateLibrary(ctx context.Context, userId string, param
 		l.logger.ErrorContext(ctx, "Failed to create library",
 			"name", params.Name,
 			"error", err)
-		return nil, fmt.Errorf("failed to create library: %w", err)
+		return nil, errorhandling.NewInternalError(err, "Failed to create library")
 	}
 
 	// Add library to user's libraries
@@ -116,7 +136,7 @@ func (l *LibraryService) CreateLibrary(ctx context.Context, userId string, param
 			"userId", userId,
 			"libraryId", newLibrary.ID,
 			"error", err)
-		return nil, fmt.Errorf("failed to associate library with user: %w", err)
+		return nil, errorhandling.NewInternalError(err, "Failed to associate library with user")
 	}
 
 	// Update user's active library
@@ -126,7 +146,7 @@ func (l *LibraryService) CreateLibrary(ctx context.Context, userId string, param
 			"userId", userId,
 			"libraryId", newLibrary.ID,
 			"error", err)
-		return nil, fmt.Errorf("failed to update user settings: %w", err)
+		return nil, errorhandling.NewInternalError(err, "Failed to update user settings")
 	}
 
 	return &models.Library{

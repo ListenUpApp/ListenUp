@@ -171,3 +171,22 @@ func (l *LibraryRepository) AddFoldersToLibrary(ctx context.Context, libraryID s
 
 	return nil
 }
+
+// Check if a library with this name exists for the user
+func (r *LibraryRepository) LibraryExistsForUser(ctx context.Context, userId string, name string) (bool, error) {
+
+	count, err := r.client.Library.Query().
+		Where(
+			library.HasUsersWith(
+				user.ID(userId),
+			),
+			library.NameEqualFold(name),
+		).
+		Count(ctx)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check library existence: %w", err)
+	}
+
+	return count > 0, nil
+}

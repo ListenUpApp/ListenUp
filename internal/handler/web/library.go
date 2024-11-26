@@ -1,9 +1,11 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages/library"
@@ -37,11 +39,18 @@ func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
 }
 
 func (h *LibraryHandler) CreateLibraryPage(c *gin.Context) {
+	data := library.CreateLibraryData{
+		Error:  "",
+		Fields: make(map[string]string),
+	}
+
 	err := h.RenderPage(c, "Create Library",
-		library.CreateLibraryPage(),
-		library.CreateLibraryContent())
+		library.CreateLibraryPage(data),
+		library.CreateLibraryContent(data))
 
 	if err != nil {
+		// Log the error if needed
+		h.logger.ErrorContext(c.Request.Context(), "Failed to render library page", "error", err)
 		return
 	}
 }
@@ -50,13 +59,16 @@ func (h *LibraryHandler) CreateLibrary(c *gin.Context) {
 	// Parse form manually since we have nested data
 	if err := c.Request.ParseForm(); err != nil {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to parse form", "error", err)
-		h.HTMXRedirect(c, "/library")
+		h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+			Error:  "Failed to process form data",
+			Fields: make(map[string]string),
+		}))
 		return
 	}
 
 	// Create request object
 	req := models.CreateLibraryRequest{
-		Name:    c.PostForm("name"),
+		Name:    c.PostForm("libraryName"),
 		Folders: make([]models.CreateFolderRequest, 0),
 	}
 
@@ -87,12 +99,6 @@ func (h *LibraryHandler) CreateLibrary(c *gin.Context) {
 		}
 	}
 
-	// Log the parsed request
-	h.logger.InfoContext(c.Request.Context(), "Parsed request",
-		"name", req.Name,
-		"folderCount", len(req.Folders),
-		"folders", req.Folders)
-
 	// Get app context
 	appCtx, _ := middleware.GetAppContext(c)
 
@@ -103,7 +109,38 @@ func (h *LibraryHandler) CreateLibrary(c *gin.Context) {
 			"userId", appCtx.User.ID,
 			"error", err,
 			"requestData", req)
-		h.HTMXRedirect(c, "/library")
+
+		var appErr *errorhandling.AppError
+		if errors.As(err, &appErr) {
+			switch appErr.Type {
+			case errorhandling.ErrorTypeValidation:
+				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+					Error: appErr.Message,
+					Fields: map[string]string{
+						"libraryName": appErr.Message,
+					},
+				}))
+			case errorhandling.ErrorTypeConflict:
+				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+					Error: appErr.Message,
+					Fields: map[string]string{
+						"libraryName": "This library name is already taken",
+					},
+				}))
+			default:
+				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+					Error:  "An unexpected error occurred. Please try again.",
+					Fields: make(map[string]string),
+				}))
+			}
+			return
+		}
+
+		// If it's not an AppError, return a generic error
+		h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+			Error:  "Failed to create library. Please try again",
+			Fields: make(map[string]string),
+		}))
 		return
 	}
 

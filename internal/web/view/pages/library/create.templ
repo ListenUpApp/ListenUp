@@ -5,36 +5,22 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
 )
 
-templ CreateLibraryPage() {
+type CreateLibraryData struct {
+	Error       string
+	Fields      map[string]string
+	LibraryName string
+}
+
+templ CreateLibraryPage(data CreateLibraryData) {
 	@layouts.App() {
-		@CreateLibraryContent()
+		@CreateLibraryContent(data)
 	}
 }
 
-templ CreateLibraryContent() {
+// Update the template to handle errors
+templ CreateLibraryContent(data CreateLibraryData) {
 	<title>ListenUp | New Library</title>
-	<div
-		class="flex justify-center items-center h-full"
-		x-data="{
-            libraryName: '',
-            selectedFolders: [],
-            
-            addFolder(folder) {
-                if (!this.selectedFolders.includes(folder)) {
-                    this.selectedFolders.push(folder);
-                }
-            },
-            
-            removeFolder(folder) {
-                this.selectedFolders = this.selectedFolders.filter(f => f !== folder);
-            },
-
-            getFolderName(path) {
-                return path.split('/').pop();
-            }
-        }"
-		@folder-selected.window="addFolder($event.detail.path)"
-	>
+	<div class="flex justify-center items-center h-full">
 		<div class="flex flex-col w-full bg-white shadow-sm md:shadow-none rounded-xl max-w-2xl">
 			<div class="p-6">
 				<h2 class="text-secondary-700 text-xl">Create New Library</h2>
@@ -45,8 +31,38 @@ templ CreateLibraryContent() {
 				class="p-6 space-y-6"
 				hx-post="/library/new"
 				hx-swap="outerHTML"
+				hx-indicator="#submit-button"
 				enctype="multipart/form-data"
 				hx-encoding="multipart/form-data"
+				x-data="{
+                    selectedFolders: [],
+                    isValid: false,
+                    
+                    checkValidity() {
+                        const hasName = this.$el.querySelectorAll('[required]:invalid').length === 0;
+                        const hasFolders = this.selectedFolders.length > 0;
+                        this.isValid = hasName && hasFolders;
+                    },
+                    
+                    addFolder(folder) {
+                        if (!this.selectedFolders.includes(folder)) {
+                            this.selectedFolders.push(folder);
+                            this.checkValidity();
+                        }
+                    },
+                    
+                    removeFolder(folder) {
+                        this.selectedFolders = this.selectedFolders.filter(f => f !== folder);
+                        this.checkValidity();
+                    },
+
+                    getFolderName(path) {
+                        return path.split('/').pop();
+                    }
+                }"
+				x-init="checkValidity()"
+				@input="checkValidity()"
+				@folder-selected.window="addFolder($event.detail.path)"
 			>
 				<div class="space-y-4">
 					@components.InputField(components.FormField{
@@ -55,7 +71,7 @@ templ CreateLibraryContent() {
 						Type:        "text",
 						Required:    true,
 						Placeholder: "Library Name",
-						Error:       "",
+						Error:       data.Fields["libraryName"],
 					})
 				</div>
 				<div class="space-y-4">
@@ -99,17 +115,30 @@ templ CreateLibraryContent() {
 						</button>
 					</div>
 				</div>
+				if data.Error != "" {
+					@components.ErrorBox(data.Error)
+				}
 				<div class="pt-4">
 					<button
 						type="submit"
+						id="submit-button"
 						class="btn btn-primary w-full"
-						x-bind:disabled="!libraryName || selectedFolders.length === 0"
+						x-bind:disabled="!isValid"
+						htmx-request:disabled
+						htmx-request:opacity-50
+						htmx-request:cursor-not-allowed
 					>
-						Create Library
+						<span class="htmx-indicator:hidden">Create Library</span>
+						<span class="htmx-request:inline hidden">
+							<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+						</span>
 					</button>
 				</div>
 			</form>
 		</div>
+		<div id="modal-container"></div>
 	</div>
-	<div id="modal-container"></div>
 }
