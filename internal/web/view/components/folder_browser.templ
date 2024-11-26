@@ -68,20 +68,20 @@ templ FolderBrowser(folders *models.GetFolderResponse) {
 							</svg>
 						</button>
 					</div>
-					<div class="sm:flex sm:items-start">
+					<div class="sm:flex">
 						<div class="w-full">
 							<h3 class="leading-6 text-secondary-700 text-xl mb-4 px-6">Select Folder</h3>
 							<hr/>
 							<div
 								id="folder-list"
-								class="rounded-lg max-h-96 px-6 overflow-y-auto"
+								class="rounded-lg h-96 px-6 overflow-y-auto"
 								hx-preserve="true"
 							>
 								@FolderContent(folders)
 							</div>
 						</div>
 					</div>
-					<div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse px-6">
+					<div class="mt-5 sm:mt-4 px-6 flex justify-end">
 						<form
 							class="contents"
 							@submit.prevent="
@@ -94,7 +94,7 @@ templ FolderBrowser(folders *models.GetFolderResponse) {
                                 closeModal();
                             "
 						>
-							<button type="submit" class="btn btn-primary">
+							<button type="submit" class="btn btn-primary mr-6">
 								Select
 							</button>
 						</form>
@@ -119,15 +119,13 @@ templ FolderContent(folder *models.GetFolderResponse) {
 		if folder.Path != "/" {
 			<div class="p-2 hover:bg-gray-50 cursor-pointer flex items-center">
 				<button
-					class="flex items-center w-full"
+					class="flex items-center w-full text-xl"
 					hx-get={ "/folder/os?path=" + filepath.Dir(folder.Path) }
 					hx-target="#folder-list"
 					hx-swap="innerHTML"
 					@click={ "updateSelected('" + filepath.Dir(folder.Path) + "')" }
 				>
-					<svg class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"></path>
-					</svg>
+					<i class="fa fa-turn-up text-gray-900"></i>
 					<span class="text-gray-900">...</span>
 				</button>
 			</div>
@@ -164,9 +162,7 @@ templ SelectedFolder(path string) {
 			hx-target="#selected-folder"
 		>
 			<span class="sr-only">Remove</span>
-			<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-				<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"></path>
-			</svg>
+				
 		</button>
 		<input type="hidden" name="folder_path" value={ path }/>
 	</div>

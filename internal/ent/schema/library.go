@@ -50,6 +50,7 @@ func (Folder) Fields() []ent.Field {
 			Immutable().
 			Comment("Unique identifier for the folder"),
 		field.String("name").
+			Unique().
 			Comment("The folder's name"),
 		field.String("path").
 			Comment("The folders' path"),

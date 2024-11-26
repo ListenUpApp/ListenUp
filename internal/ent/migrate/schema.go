@@ -11,7 +11,7 @@ var (
 	// FoldersColumns holds the columns for the "folders" table.
 	FoldersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, Unique: true},
 		{Name: "path", Type: field.TypeString},
 		{Name: "last_scanned_at", Type: field.TypeTime, Nullable: true},
 	}

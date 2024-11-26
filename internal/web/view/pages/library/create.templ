@@ -1,6 +1,9 @@
 package library
 
-import "github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+import (
+	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+)
 
 templ CreateLibraryPage() {
 	@layouts.App() {
@@ -11,7 +14,7 @@ templ CreateLibraryPage() {
 templ CreateLibraryContent() {
 	<title>ListenUp | New Library</title>
 	<div
-		class="flex h-full"
+		class="flex justify-center items-center h-full"
 		x-data="{
             libraryName: '',
             selectedFolders: [],
@@ -32,7 +35,7 @@ templ CreateLibraryContent() {
         }"
 		@folder-selected.window="addFolder($event.detail.path)"
 	>
-		<div class="flex flex-col w-full bg-white rounded-xl">
+		<div class="flex flex-col w-full bg-white shadow-sm md:shadow-none rounded-xl max-w-2xl">
 			<div class="p-6">
 				<h2 class="text-secondary-700 text-xl">Create New Library</h2>
 			</div>
@@ -46,45 +49,33 @@ templ CreateLibraryContent() {
 				hx-encoding="multipart/form-data"
 			>
 				<div class="space-y-4">
-					<label class="block text-sm font-medium text-gray-700">Library Name</label>
-					<input type="text" name="name" x-model="libraryName" class="w-full px-3 py-2 border rounded-md" required/>
+					@components.InputField(components.FormField{
+						Label:       "Library Name",
+						Name:        "libraryName",
+						Type:        "text",
+						Required:    true,
+						Placeholder: "Library Name",
+						Error:       "",
+					})
 				</div>
 				<div class="space-y-4">
-					<div class="flex items-center justify-between">
-						<label class="block text-sm font-medium text-gray-700">Library Folders</label>
-						<button
-							type="button"
-							class="text-primary-600 hover:text-primary-700 flex items-center"
-							hx-get="/folder/os?new=true"
-							hx-target="#modal-container"
-							hx-swap="beforeend"
-						>
-							<svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
-							</svg>
-							Add Folder
-						</button>
-					</div>
 					<div class="space-y-2">
+						<label class="label">Library Folders</label>
 						<template x-if="selectedFolders.length === 0">
-							<p class="text-sm text-gray-500">No folders selected</p>
+							<p class="text-sm text-gray-500 text-semibold">No folders selected</p>
 						</template>
 						<template x-for="(folder, index) in selectedFolders">
 							<div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-								<div class="flex items-center space-x-2">
-									<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-									</svg>
-									<span class="text-sm text-gray-900" x-text="folder"></span>
+								<div class="flex items-center space-x-2 text-primary-700">
+									<i class="fa-solid fa-folder"></i>
+									<span class="text-sm text-secondary-700" x-text="folder"></span>
 								</div>
 								<button
 									type="button"
 									@click="removeFolder(folder)"
 									class="text-gray-400 hover:text-gray-500"
 								>
-									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-									</svg>
+									<i class="fa-solid fa-xmark text-lg"></i>
 								</button>
 							</div>
 						</template>
@@ -94,6 +85,18 @@ templ CreateLibraryContent() {
 								<input type="hidden" :name="`folders.${index}.path`" :value="folder"/>
 							</div>
 						</template>
+					</div>
+					<div class="flex items-center justify-between">
+						<button
+							type="button"
+							class="text-primary-600 hover:text-primary-700 flex items-center align-middle"
+							hx-get="/folder/os?new=true"
+							hx-target="#modal-container"
+							hx-swap="beforeend"
+						>
+							<i class="fa-solid fa-plus mr-2"></i>
+							Add Folder
+						</button>
 					</div>
 				</div>
 				<div class="pt-4">
