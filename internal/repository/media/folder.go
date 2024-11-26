@@ -1,4 +1,4 @@
-package repository
+package media
 
 import (
 	"context"
@@ -14,22 +14,15 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/models"
 )
 
-type FolderRepository struct {
+type folderRepository struct {
 	client *ent.Client
 	logger *slog.Logger
 }
 
-func NewFolderRepository(cfg Config) *FolderRepository {
-	return &FolderRepository{
-		client: cfg.Client,
-		logger: cfg.Logger,
-	}
-}
-
 var excludedPrefixes = []string{"/sys", "/proc", "/run", "/dev"}
 
-func (f *FolderRepository) GetFolderById(ctx context.Context, id string) (*ent.Folder, error) {
-	dbFolder, err := f.client.Folder.Query().
+func (r *folderRepository) GetByID(ctx context.Context, id string) (*ent.Folder, error) {
+	dbFolder, err := r.client.Folder.Query().
 		Where(folder.IDEQ(id)).
 		Only(ctx)
 
@@ -37,7 +30,7 @@ func (f *FolderRepository) GetFolderById(ctx context.Context, id string) (*ent.F
 		if ent.IsNotFound(err) {
 			return nil, errorhandling.NewNotFoundError("folder not found")
 		}
-		f.logger.ErrorContext(ctx, "Failed to get folder by ID",
+		r.logger.ErrorContext(ctx, "Failed to get folder by ID",
 			"folder_id", id,
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "failed to query folder")
@@ -47,33 +40,33 @@ func (f *FolderRepository) GetFolderById(ctx context.Context, id string) (*ent.F
 }
 
 // TODO switch this function over to using Validation methods
-func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path string) (*ent.Folder, error) {
+func (r *folderRepository) Create(ctx context.Context, params models.CreateFolderRequest) (*ent.Folder, error) {
 	// Input validation
-	if strings.TrimSpace(name) == "" {
+	if strings.TrimSpace(params.Name) == "" {
 		return nil, errorhandling.NewValidationError("Folder name cannot be empty").
 			WithData(map[string]string{"name": "Folder name is required"})
 	}
 
-	if strings.TrimSpace(path) == "" {
+	if strings.TrimSpace(params.Path) == "" {
 		return nil, errorhandling.NewValidationError("Folder path cannot be empty").
 			WithData(map[string]string{"path": "Folder path is required"})
 	}
 
 	// Start transaction
-	tx, err := f.client.Tx(ctx)
+	tx, err := r.client.Tx(ctx)
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to start transaction for folder creation",
+		r.logger.ErrorContext(ctx, "Failed to start transaction for folder creation",
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "Failed to initiate folder creation")
 	}
 
 	// Check if folder with same path already exists
 	exists, err := tx.Folder.Query().
-		Where(folder.PathEQ(path)).
+		Where(folder.PathEQ(params.Path)).
 		Exist(ctx)
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to check folder existence",
-			"path", path,
+		r.logger.ErrorContext(ctx, "Failed to check folder existence",
+			"path", params.Path,
 			"error", err)
 		tx.Rollback()
 		return nil, errorhandling.NewInternalError(err, "Failed to verify folder uniqueness")
@@ -81,7 +74,7 @@ func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path s
 	if exists {
 		tx.Rollback()
 		return nil, errorhandling.NewConflictError(
-			fmt.Sprintf("Folder with path '%s' already exists", path),
+			fmt.Sprintf("Folder with path '%s' already exists", params.Path),
 		).WithData(map[string]string{
 			"path": "This folder path is already in use",
 		})
@@ -89,14 +82,14 @@ func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path s
 
 	// Create the folder
 	dbFolder, err := tx.Folder.Create().
-		SetName(name).
-		SetPath(path).
+		SetName(params.Name).
+		SetPath(params.Path).
 		Save(ctx)
 
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to create folder",
-			"name", name,
-			"path", path,
+		r.logger.ErrorContext(ctx, "Failed to create folder",
+			"name", params.Name,
+			"path", params.Path,
 			"error", err)
 		tx.Rollback()
 		return nil, errorhandling.NewInternalError(err, "Failed to create folder")
@@ -104,27 +97,27 @@ func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path s
 
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
-		f.logger.ErrorContext(ctx, "Failed to commit folder creation transaction",
-			"name", name,
-			"path", path,
+		r.logger.ErrorContext(ctx, "Failed to commit folder creation transaction",
+			"name", params.Name,
+			"path", params.Path,
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "Failed to complete folder creation")
 	}
 
 	// Fetch the created folder to ensure we have the latest state
-	createdFolder, err := f.client.Folder.
+	createdFolder, err := r.client.Folder.
 		Query().
 		Where(folder.ID(dbFolder.ID)).
 		Only(ctx)
 
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to fetch created folder",
+		r.logger.ErrorContext(ctx, "Failed to fetch created folder",
 			"id", dbFolder.ID,
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "Failed to verify folder creation")
 	}
 
-	f.logger.InfoContext(ctx, "Successfully created folder",
+	r.logger.InfoContext(ctx, "Successfully created folder",
 		"id", createdFolder.ID,
 		"name", createdFolder.Name,
 		"path", createdFolder.Path)
@@ -132,18 +125,18 @@ func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path s
 	return createdFolder, nil
 }
 
-func (f *FolderRepository) GetOSFolderWithDepth(ctx context.Context, path string, depth int) (*models.GetFolderResponse, error) {
-	if err := f.ValidateOSPath(ctx, path); err != nil {
+func (r *folderRepository) GetOSFolderWithDepth(ctx context.Context, path string, depth int) (*models.GetFolderResponse, error) {
+	if err := r.ValidateOSPath(ctx, path); err != nil {
 		return nil, err
 	}
 
-	return f.scanFolderRecursively(ctx, path, depth, 0)
+	return r.scanFolderRecursively(ctx, path, depth, 0)
 }
 
-func (f *FolderRepository) scanFolderRecursively(ctx context.Context, path string, maxDepth, currentDepth int) (*models.GetFolderResponse, error) {
+func (r *folderRepository) scanFolderRecursively(ctx context.Context, path string, maxDepth, currentDepth int) (*models.GetFolderResponse, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to get folder info",
+		r.logger.ErrorContext(ctx, "Failed to get folder info",
 			"path", path,
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "failed to get folder info")
@@ -163,7 +156,7 @@ func (f *FolderRepository) scanFolderRecursively(ctx context.Context, path strin
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to read directory",
+		r.logger.ErrorContext(ctx, "Failed to read directory",
 			"path", path,
 			"error", err)
 		return nil, errorhandling.NewInternalError(err, "failed to read directory")
@@ -175,11 +168,11 @@ func (f *FolderRepository) scanFolderRecursively(ctx context.Context, path strin
 		}
 
 		fullPath := filepath.Join(path, entry.Name())
-		if f.shouldExcludePath(fullPath) {
+		if r.shouldExcludePath(fullPath) {
 			continue
 		}
 
-		subFolder, err := f.scanFolderRecursively(ctx, fullPath, maxDepth, currentDepth+1)
+		subFolder, err := r.scanFolderRecursively(ctx, fullPath, maxDepth, currentDepth+1)
 		if err != nil {
 			continue // Log but don't fail the entire scan
 		}
@@ -190,12 +183,12 @@ func (f *FolderRepository) scanFolderRecursively(ctx context.Context, path strin
 	return result, nil
 }
 
-func (f *FolderRepository) ValidateOSPath(ctx context.Context, path string) error {
+func (r *folderRepository) ValidateOSPath(ctx context.Context, path string) error {
 	if !filepath.IsAbs(path) {
 		return errorhandling.NewValidationError("path must be absolute")
 	}
 
-	if f.shouldExcludePath(path) {
+	if r.shouldExcludePath(path) {
 		return errorhandling.NewValidationError("path is in excluded directory")
 	}
 
@@ -204,7 +197,7 @@ func (f *FolderRepository) ValidateOSPath(ctx context.Context, path string) erro
 		if os.IsNotExist(err) {
 			return errorhandling.NewNotFoundError("path does not exist")
 		}
-		f.logger.ErrorContext(ctx, "Failed to check path",
+		r.logger.ErrorContext(ctx, "Failed to check path",
 			"path", path,
 			"error", err)
 		return errorhandling.NewInternalError(err, "failed to check path")
@@ -213,7 +206,7 @@ func (f *FolderRepository) ValidateOSPath(ctx context.Context, path string) erro
 	return nil
 }
 
-func (f *FolderRepository) shouldExcludePath(path string) bool {
+func (r *folderRepository) shouldExcludePath(path string) bool {
 	for _, prefix := range excludedPrefixes {
 		if strings.HasPrefix(path, prefix) {
 			return true

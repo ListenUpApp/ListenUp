@@ -11,7 +11,7 @@ import (
 )
 
 // WithLibrary enriches the AppContext with library information
-func WithLibrary(libraryService *service.LibraryService) gin.HandlerFunc {
+func WithLibrary(libraryService *service.MediaService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		appCtx, exists := appcontext.GetAppContextFromGin(c)
 		if !exists {

@@ -103,7 +103,7 @@ func (h *LibraryHandler) CreateLibrary(c *gin.Context) {
 	appCtx, _ := middleware.GetAppContext(c)
 
 	// Create library
-	_, err := h.services.Library.CreateLibrary(c.Request.Context(), appCtx.User.ID, req)
+	_, err := h.services.Media.CreateLibrary(c.Request.Context(), appCtx.User.ID, req)
 	if err != nil {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to create library",
 			"userId", appCtx.User.ID,

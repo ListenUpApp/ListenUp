@@ -72,7 +72,7 @@ func (h *FolderHandler) getFolderData(c *gin.Context, path string) (*models.GetF
 		Depth: 1,
 	}
 
-	folders, err := h.services.Folder.GetFolderStructure(c.Request.Context(), request)
+	folders, err := h.services.Media.GetFolderStructure(c.Request.Context(), request)
 	if err != nil {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to get folders",
 			"path", path,
@@ -125,7 +125,7 @@ func (h *FolderHandler) SelectOSFolder(c *gin.Context) {
 		Depth: 0,
 	}
 
-	_, err := h.services.Folder.GetFolderStructure(c.Request.Context(), request)
+	_, err := h.services.Media.GetFolderStructure(c.Request.Context(), request)
 	if err != nil {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to validate folder path",
 			"path", path,
