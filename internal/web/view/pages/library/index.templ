@@ -13,7 +13,13 @@ templ LibraryIndexPage() {
 }
 
 templ LibraryIndexContent() {
-	<title>ListenUp | Library</title>
+	if data, ok := appcontext.GetAppContext(ctx); ok {
+		if data.ActiveLibrary.Name != "" {
+			<title>ListenUp | { data.ActiveLibrary.Name }</title>
+		} else {
+			<title>ListenUp | Library</title>
+		}
+	}
 	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
 		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
 			@partials.LibraryStatus()
