@@ -6,14 +6,7 @@ type Library struct {
 	Folders []Folder `json:"folders"`
 }
 
-
-
 type CreateLibraryRequest struct {
-	Name    string               `json:"name"`
-	Folders []CreateFoldeRequest `json:"folders"`
-}
-
-type CreateFoldeRequest struct {
-	Name string `json:"id"`
-	Path string `json:"path"`
+	Name    string               `json:"name" form:"name"`
+	Folders []CreateFolderRequest `json:"folders" form:"folders"`
 }

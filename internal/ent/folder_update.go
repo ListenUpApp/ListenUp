@@ -71,6 +71,12 @@ func (fu *FolderUpdate) SetNillableLastScannedAt(t *time.Time) *FolderUpdate {
 	return fu
 }
 
+// ClearLastScannedAt clears the value of the "last_scanned_at" field.
+func (fu *FolderUpdate) ClearLastScannedAt() *FolderUpdate {
+	fu.mutation.ClearLastScannedAt()
+	return fu
+}
+
 // AddLibraryIDs adds the "libraries" edge to the Library entity by IDs.
 func (fu *FolderUpdate) AddLibraryIDs(ids ...string) *FolderUpdate {
 	fu.mutation.AddLibraryIDs(ids...)
@@ -156,6 +162,9 @@ func (fu *FolderUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := fu.mutation.LastScannedAt(); ok {
 		_spec.SetField(folder.FieldLastScannedAt, field.TypeTime, value)
+	}
+	if fu.mutation.LastScannedAtCleared() {
+		_spec.ClearField(folder.FieldLastScannedAt, field.TypeTime)
 	}
 	if fu.mutation.LibrariesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -261,6 +270,12 @@ func (fuo *FolderUpdateOne) SetNillableLastScannedAt(t *time.Time) *FolderUpdate
 	if t != nil {
 		fuo.SetLastScannedAt(*t)
 	}
+	return fuo
+}
+
+// ClearLastScannedAt clears the value of the "last_scanned_at" field.
+func (fuo *FolderUpdateOne) ClearLastScannedAt() *FolderUpdateOne {
+	fuo.mutation.ClearLastScannedAt()
 	return fuo
 }
 
@@ -379,6 +394,9 @@ func (fuo *FolderUpdateOne) sqlSave(ctx context.Context) (_node *Folder, err err
 	}
 	if value, ok := fuo.mutation.LastScannedAt(); ok {
 		_spec.SetField(folder.FieldLastScannedAt, field.TypeTime, value)
+	}
+	if fuo.mutation.LastScannedAtCleared() {
+		_spec.ClearField(folder.FieldLastScannedAt, field.TypeTime)
 	}
 	if fuo.mutation.LibrariesCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -137,7 +137,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	h.HTMXRedirect(c, "/auth/login")
 }
 
-
 func (h *AuthHandler) handleLoginError(err error) forms.LoginData {
 	data := forms.LoginData{
 		Error:  h.getLoginErrorMessage(err),

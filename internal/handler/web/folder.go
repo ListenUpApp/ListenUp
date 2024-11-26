@@ -32,25 +32,26 @@ func (h *FolderHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *FolderHandler) GetOSFolder(c *gin.Context) {
 	path := c.Query("path")
-	if path == "" {
+
+	// For modal open (non-folder-list target), always use root
+	if c.GetHeader("HX-Target") != "folder-list" {
 		path = "/"
 	}
 
 	folders, err := h.getFolderData(c, path)
 	if err != nil {
-		return // Error already handled in getFolderData
+		return
 	}
 
-	// For HTMX requests, only return the content
-	if c.GetHeader("HX-Request") == "true" && c.Query("path") != "" {
-		// Just update the content area for navigation
+	// For navigation within the modal
+	if c.GetHeader("HX-Target") == "folder-list" {
 		if err := h.RenderPublicComponent(c, components.FolderContent(folders)); err != nil {
 			h.RenderError(c, http.StatusInternalServerError, "Failed to render folder content")
 		}
 		return
 	}
 
-	// For initial modal open or full refreshes, render the full modal
+	// For initial modal render
 	if err := h.RenderPublicComponent(c, components.FolderBrowser(folders)); err != nil {
 		h.RenderError(c, http.StatusInternalServerError, "Failed to render folder browser")
 	}
@@ -66,7 +67,7 @@ func (h *FolderHandler) getFolderData(c *gin.Context, path string) (*models.GetF
 		path = filepath.Join("/", path)
 	}
 
-	request := models.GetFoldeRequest{
+	request := models.GetFolderRequest{
 		Path:  path,
 		Depth: 1,
 	}
@@ -84,7 +85,7 @@ func (h *FolderHandler) getFolderData(c *gin.Context, path string) (*models.GetF
 			case errorhandling.ErrorTypeValidation:
 				h.RenderError(c, http.StatusBadRequest, appErr.Message)
 			case errorhandling.ErrorTypeUnauthorized:
-				h.RenderError(c, http.StatusUnauthorized, "Unauthorized access to folder")
+				h.RenderError(c, http.StatusUnauthorized, "Unvauthorized access to folder")
 			default:
 				h.RenderError(c, http.StatusInternalServerError, "Failed to access folder")
 			}
@@ -119,7 +120,7 @@ func (h *FolderHandler) SelectOSFolder(c *gin.Context) {
 	name := filepath.Base(path)
 
 	// Validate the path exists
-	request := models.GetFoldeRequest{
+	request := models.GetFolderRequest{
 		Path:  path,
 		Depth: 0,
 	}

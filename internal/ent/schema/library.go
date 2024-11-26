@@ -53,7 +53,8 @@ func (Folder) Fields() []ent.Field {
 			Comment("The folder's name"),
 		field.String("path").
 			Comment("The folders' path"),
-			field.Time("last_scanned_at").
+		field.Time("last_scanned_at").
+			Optional().
 			Comment(("Time when the folder was last scanned")),
 	}
 }
@@ -62,6 +63,6 @@ func (Folder) Fields() []ent.Field {
 func (Folder) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("libraries", Library.Type).
-		Ref("folders"),
+			Ref("folders"),
 	}
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -45,8 +46,49 @@ func (f *FolderRepository) GetFolderById(ctx context.Context, id string) (*ent.F
 	return dbFolder, nil
 }
 
+// TODO switch this function over to using Validation methods
 func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path string) (*ent.Folder, error) {
-	dbFolder, err := f.client.Folder.Create().
+	// Input validation
+	if strings.TrimSpace(name) == "" {
+		return nil, errorhandling.NewValidationError("Folder name cannot be empty").
+			WithData(map[string]string{"name": "Folder name is required"})
+	}
+
+	if strings.TrimSpace(path) == "" {
+		return nil, errorhandling.NewValidationError("Folder path cannot be empty").
+			WithData(map[string]string{"path": "Folder path is required"})
+	}
+
+	// Start transaction
+	tx, err := f.client.Tx(ctx)
+	if err != nil {
+		f.logger.ErrorContext(ctx, "Failed to start transaction for folder creation",
+			"error", err)
+		return nil, errorhandling.NewInternalError(err, "Failed to initiate folder creation")
+	}
+
+	// Check if folder with same path already exists
+	exists, err := tx.Folder.Query().
+		Where(folder.PathEQ(path)).
+		Exist(ctx)
+	if err != nil {
+		f.logger.ErrorContext(ctx, "Failed to check folder existence",
+			"path", path,
+			"error", err)
+		tx.Rollback()
+		return nil, errorhandling.NewInternalError(err, "Failed to verify folder uniqueness")
+	}
+	if exists {
+		tx.Rollback()
+		return nil, errorhandling.NewConflictError(
+			fmt.Sprintf("Folder with path '%s' already exists", path),
+		).WithData(map[string]string{
+			"path": "This folder path is already in use",
+		})
+	}
+
+	// Create the folder
+	dbFolder, err := tx.Folder.Create().
 		SetName(name).
 		SetPath(path).
 		Save(ctx)
@@ -56,25 +98,38 @@ func (f *FolderRepository) CreateFolder(ctx context.Context, name string, path s
 			"name", name,
 			"path", path,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to create folder")
+		tx.Rollback()
+		return nil, errorhandling.NewInternalError(err, "Failed to create folder")
 	}
 
-	return dbFolder, nil
-}
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		f.logger.ErrorContext(ctx, "Failed to commit folder creation transaction",
+			"name", name,
+			"path", path,
+			"error", err)
+		return nil, errorhandling.NewInternalError(err, "Failed to complete folder creation")
+	}
 
-func (f *FolderRepository) AddFolderToLibrary(ctx context.Context, folder *ent.Folder, library *ent.Library) error {
-	_, err := library.Update().
-		AddFolders(folder).
-		Save(ctx)
+	// Fetch the created folder to ensure we have the latest state
+	createdFolder, err := f.client.Folder.
+		Query().
+		Where(folder.ID(dbFolder.ID)).
+		Only(ctx)
 
 	if err != nil {
-		f.logger.ErrorContext(ctx, "Failed to add folder to library",
-			"folder_id", folder.ID,
-			"library_id", library.ID,
+		f.logger.ErrorContext(ctx, "Failed to fetch created folder",
+			"id", dbFolder.ID,
 			"error", err)
-		return errorhandling.NewInternalError(err, "failed to add folder to library")
+		return nil, errorhandling.NewInternalError(err, "Failed to verify folder creation")
 	}
-	return nil
+
+	f.logger.InfoContext(ctx, "Successfully created folder",
+		"id", createdFolder.ID,
+		"name", createdFolder.Name,
+		"path", createdFolder.Path)
+
+	return createdFolder, nil
 }
 
 func (f *FolderRepository) GetOSFolderWithDepth(ctx context.Context, path string, depth int) (*models.GetFolderResponse, error) {

@@ -13,7 +13,7 @@ var (
 		{Name: "id", Type: field.TypeString, Unique: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "path", Type: field.TypeString},
-		{Name: "last_scanned_at", Type: field.TypeTime},
+		{Name: "last_scanned_at", Type: field.TypeTime, Nullable: true},
 	}
 	// FoldersTable holds the schema information for the "folders" table.
 	FoldersTable = &schema.Table{

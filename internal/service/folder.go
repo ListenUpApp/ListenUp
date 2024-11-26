@@ -28,6 +28,6 @@ func NewFolderService(cfg ServiceConfig) (*FolderService, error) {
 	}, nil
 }
 
-func (f *FolderService) GetFolderStructure(ctx context.Context, req models.GetFoldeRequest) (*models.GetFolderResponse, error) {
+func (f *FolderService) GetFolderStructure(ctx context.Context, req models.GetFolderRequest) (*models.GetFolderResponse, error) {
 	return f.folderRepo.GetOSFolderWithDepth(ctx, req.Path, req.Depth)
 }

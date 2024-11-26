@@ -260,9 +260,22 @@ func (m *FolderMutation) OldLastScannedAt(ctx context.Context) (v time.Time, err
 	return oldValue.LastScannedAt, nil
 }
 
+// ClearLastScannedAt clears the value of the "last_scanned_at" field.
+func (m *FolderMutation) ClearLastScannedAt() {
+	m.last_scanned_at = nil
+	m.clearedFields[folder.FieldLastScannedAt] = struct{}{}
+}
+
+// LastScannedAtCleared returns if the "last_scanned_at" field was cleared in this mutation.
+func (m *FolderMutation) LastScannedAtCleared() bool {
+	_, ok := m.clearedFields[folder.FieldLastScannedAt]
+	return ok
+}
+
 // ResetLastScannedAt resets all changes to the "last_scanned_at" field.
 func (m *FolderMutation) ResetLastScannedAt() {
 	m.last_scanned_at = nil
+	delete(m.clearedFields, folder.FieldLastScannedAt)
 }
 
 // AddLibraryIDs adds the "libraries" edge to the Library entity by ids.
@@ -451,7 +464,11 @@ func (m *FolderMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *FolderMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(folder.FieldLastScannedAt) {
+		fields = append(fields, folder.FieldLastScannedAt)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -464,6 +481,11 @@ func (m *FolderMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *FolderMutation) ClearField(name string) error {
+	switch name {
+	case folder.FieldLastScannedAt:
+		m.ClearLastScannedAt()
+		return nil
+	}
 	return fmt.Errorf("unknown Folder nullable field %s", name)
 }
 

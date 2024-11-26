@@ -39,6 +39,14 @@ func (fc *FolderCreate) SetLastScannedAt(t time.Time) *FolderCreate {
 	return fc
 }
 
+// SetNillableLastScannedAt sets the "last_scanned_at" field if the given value is not nil.
+func (fc *FolderCreate) SetNillableLastScannedAt(t *time.Time) *FolderCreate {
+	if t != nil {
+		fc.SetLastScannedAt(*t)
+	}
+	return fc
+}
+
 // SetID sets the "id" field.
 func (fc *FolderCreate) SetID(s string) *FolderCreate {
 	fc.mutation.SetID(s)
@@ -116,9 +124,6 @@ func (fc *FolderCreate) check() error {
 	}
 	if _, ok := fc.mutation.Path(); !ok {
 		return &ValidationError{Name: "path", err: errors.New(`ent: missing required field "Folder.path"`)}
-	}
-	if _, ok := fc.mutation.LastScannedAt(); !ok {
-		return &ValidationError{Name: "last_scanned_at", err: errors.New(`ent: missing required field "Folder.last_scanned_at"`)}
 	}
 	return nil
 }

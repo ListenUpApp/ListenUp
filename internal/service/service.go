@@ -40,6 +40,8 @@ func NewServices(deps Deps) (*Services, error) {
 	})
 	libraryService, err := NewLibraryService(ServiceConfig{
 		LibraryRepo: deps.Repos.Library,
+		FolderRepo:  deps.Repos.Folder,
+		UserRepo:    deps.Repos.User,
 		Logger:      deps.Logger,
 	})
 

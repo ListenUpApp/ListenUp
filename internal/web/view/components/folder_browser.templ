@@ -11,39 +11,43 @@ templ FolderBrowser(folders *models.GetFolderResponse) {
 		id="folder-browser-modal"
 		class="relative z-10"
 		x-data="{ 
-			isOpen: true,
-			selectedPath: '/',
-			selectedName: '',
-			closeModal() {
-				this.isOpen = false;
-				this.$el.remove();
-			},
-			updateSelected(path) {
-				this.selectedPath = path;
-				this.selectedName = path.split('/').filter(Boolean).pop() || '/';
-			},
-			handleSubmit(e) {
-				e.preventDefault();
-				const form = e.target;
-				htmx.trigger(form, 'htmx:xhr:loadstart', {});
-				
-				fetch('/folder', {
-					method: 'POST',
-					body: new FormData(form)
-				}).then(response => {
-					if (response.ok) {
-						this.closeModal();
-					}
-					htmx.trigger(form, 'htmx:xhr:loadend', {});
-				});
-			}
-		}"
-		x-init={ "updateSelected('" + folders.Path + "')" }
+            isOpen: true,
+            selectedPath: '/',
+            selectedName: '/',
+            
+            closeModal() {
+                this.isOpen = false;
+                this.$el.remove();
+            },
+            
+            updateSelected(path) {
+                this.selectedPath = path;
+                this.selectedName = path.split('/').filter(Boolean).pop() || '/';
+            },
+
+            resetToRoot() {
+                // Force navigation to root
+                const rootList = document.getElementById('folder-list');
+                if (rootList) {
+                    htmx.ajax('GET', '/folder/os?path=/', {
+                        target: '#folder-list',
+                        swap: 'innerHTML'
+                    });
+                }
+                this.updateSelected('/');
+            }
+        }"
+		x-init="
+            resetToRoot();
+            document.addEventListener('htmx:afterSwap', (evt) => {
+                if (evt.detail.target.id === 'folder-list') {
+                    Alpine.initTree(evt.detail.target);
+                }
+            });
+        "
 		x-show="isOpen"
 		x-transition
 		@keydown.escape.window="closeModal()"
-		@htmx:afterSwap="Alpine.initTree($root)"
-		@update-selected.window="updateSelected($event.detail)"
 		aria-labelledby="modal-title"
 		role="dialog"
 		aria-modal="true"
@@ -68,52 +72,32 @@ templ FolderBrowser(folders *models.GetFolderResponse) {
 						<div class="w-full">
 							<h3 class="leading-6 text-secondary-700 text-xl mb-4 px-6">Select Folder</h3>
 							<hr/>
-							if folders != nil && folders.Path != "/" {
-								<div class="mb-4 flex items-center text-sm text-gray-500 space-x-2">
-									<button
-										class="hover:text-gray-700"
-										hx-get="/folder/os"
-										hx-target="#folder-content"
-										hx-swap="innerHTML"
-										@click="$dispatch('update-selected', '/')"
-									>
-										Root
-									</button>
-									for _, part := range splitPath(folders.Path) {
-										<span>/</span>
-										<button
-											class="hover:text-gray-700"
-											hx-get={ "/folder/os?path=" + part.fullPath }
-											hx-target="#folder-content"
-											hx-swap="innerHTML"
-											@click={ "$dispatch('update-selected', '" + part.fullPath + "')" }
-										>
-											{ part.name }
-										</button>
-									}
-								</div>
-							}
-							<div id="folder-content" class="rounded-lg max-h-96 mt-4 px-6 overflow-y-auto">
+							<div
+								id="folder-list"
+								class="rounded-lg max-h-96 px-6 overflow-y-auto"
+								hx-preserve="true"
+							>
 								@FolderContent(folders)
 							</div>
 						</div>
 					</div>
 					<div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse px-6">
-						if folders != nil {
-							<form
-								class="contents"
-								@submit="handleSubmit"
-							>
-								<input type="hidden" name="path" x-bind:value="selectedPath"/>
-								<input type="hidden" name="name" x-bind:value="selectedName"/>
-								<button
-									type="submit"
-									class="btn btn-primary"
-								>
-									Select
-								</button>
-							</form>
-						}
+						<form
+							class="contents"
+							@submit.prevent="
+                                window.dispatchEvent(new CustomEvent('folder-selected', {
+                                    detail: {
+                                        path: selectedPath,
+                                        name: selectedName
+                                    }
+                                }));
+                                closeModal();
+                            "
+						>
+							<button type="submit" class="btn btn-primary">
+								Select
+							</button>
+						</form>
 						<button
 							type="button"
 							class="mr-6 text-primary-700"
@@ -137,9 +121,9 @@ templ FolderContent(folder *models.GetFolderResponse) {
 				<button
 					class="flex items-center w-full"
 					hx-get={ "/folder/os?path=" + filepath.Dir(folder.Path) }
-					hx-target="#folder-content"
+					hx-target="#folder-list"
 					hx-swap="innerHTML"
-					@click={ "$dispatch('update-selected', '" + filepath.Dir(folder.Path) + "')" }
+					@click={ "updateSelected('" + filepath.Dir(folder.Path) + "')" }
 				>
 					<svg class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"></path>
@@ -153,9 +137,9 @@ templ FolderContent(folder *models.GetFolderResponse) {
 				<button
 					class="flex items-center w-full"
 					hx-get={ "/folder/os?path=" + subFolder.Path }
-					hx-target="#folder-content"
+					hx-target="#folder-list"
 					hx-swap="innerHTML"
-					@click={ "$dispatch('update-selected', '" + subFolder.Path + "')" }
+					@click={ "updateSelected('" + subFolder.Path + "')" }
 				>
 					<i class="fa-solid fa-folder text-primary-700 mr-2"></i>
 					<span class="text-secondary-700">{ subFolder.Name }</span>

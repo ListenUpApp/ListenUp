@@ -9,7 +9,7 @@ type Folder struct {
 	LastScannedAt time.Time `json:lastScannedAt`
 }
 
-type GetFoldeRequest struct {
+type GetFolderRequest struct {
 	Path  string `json:"path"`
 	Depth int    `json:"depth"`
 }

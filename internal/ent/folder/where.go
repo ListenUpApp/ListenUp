@@ -250,6 +250,16 @@ func LastScannedAtLTE(v time.Time) predicate.Folder {
 	return predicate.Folder(sql.FieldLTE(FieldLastScannedAt, v))
 }
 
+// LastScannedAtIsNil applies the IsNil predicate on the "last_scanned_at" field.
+func LastScannedAtIsNil() predicate.Folder {
+	return predicate.Folder(sql.FieldIsNull(FieldLastScannedAt))
+}
+
+// LastScannedAtNotNil applies the NotNil predicate on the "last_scanned_at" field.
+func LastScannedAtNotNil() predicate.Folder {
+	return predicate.Folder(sql.FieldNotNull(FieldLastScannedAt))
+}
+
 // HasLibraries applies the HasEdge predicate on the "libraries" edge.
 func HasLibraries() predicate.Folder {
 	return predicate.Folder(func(s *sql.Selector) {
