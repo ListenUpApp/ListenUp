@@ -57,6 +57,42 @@ func (s *MediaService) GetFolderStructure(ctx context.Context, req models.GetFol
 	return folder, nil
 }
 
+func (s *MediaService) GetAllFolders(ctx context.Context) ([]*models.Folder, error) {
+	folders, err := s.mediaRepo.Folders.GetAll(ctx)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetAllFolders", nil)
+	}
+
+	var result []*models.Folder
+	for _, f := range folders {
+		result = append(result, &models.Folder{
+			ID:   f.ID,
+			Name: f.Name,
+			Path: f.Path,
+		})
+	}
+
+	return result, nil
+}
+
+func (s *MediaService) ValidateFolderPath(ctx context.Context, path string) error {
+	return s.mediaRepo.Folders.ValidateOSPath(ctx, path)
+}
+
+func (s *MediaService) HandleNewAudioFile(ctx context.Context, path string) error {
+	// For now, just log the detection
+	s.logger.InfoContext(ctx, "New audio file detected",
+		"path", path)
+
+	// TODO: Implement actual file processing logic
+	// - Extract metadata
+	// - Add to database
+	// - Process cover art
+	// - etc.
+
+	return nil
+}
+
 func (s *MediaService) GetUsersLibraries(ctx context.Context, userId string) ([]*models.Library, error) {
 	dbLibraries, err := s.mediaRepo.Library.GetAllForUser(ctx, userId)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 
 type FolderOperations interface {
 	GetByID(ctx context.Context, id string) (*ent.Folder, error)
+	GetAll(ctx context.Context) ([]*ent.Folder, error)
 	Create(ctx context.Context, params models.CreateFolderRequest) (*ent.Folder, error)
 	GetOSFolderWithDepth(ctx context.Context, path string, depth int) (*models.GetFolderResponse, error)
 	ValidateOSPath(ctx context.Context, path string) error

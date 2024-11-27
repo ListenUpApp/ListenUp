@@ -44,6 +44,17 @@ func (r *folderRepository) GetByID(ctx context.Context, id string) (*ent.Folder,
 	return dbFolder, nil
 }
 
+func (r *folderRepository) GetAll(ctx context.Context) ([]*ent.Folder, error) {
+	dbFolders, err := r.client.Folder.Query().All(ctx)
+	if err != nil {
+		r.logger.ErrorContext(ctx, "Failed to get all folders", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query all folders", err).
+			WithOperation("GetAll")
+	}
+
+	return dbFolders, nil
+}
+
 func (r *folderRepository) Create(ctx context.Context, params models.CreateFolderRequest) (*ent.Folder, error) {
 	// Input validation
 	if strings.TrimSpace(params.Name) == "" {
