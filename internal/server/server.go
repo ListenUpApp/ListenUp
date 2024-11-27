@@ -2,17 +2,16 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/handler/api"
 	"github.com/ListenUpApp/ListenUp/internal/handler/web"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
@@ -22,7 +21,7 @@ import (
 
 type Server struct {
 	config     *config.Config
-	logger     *slog.Logger
+	logger     *logging.AppLogger
 	services   *service.Services
 	router     *gin.Engine
 	httpServer *http.Server
@@ -31,18 +30,33 @@ type Server struct {
 
 type Config struct {
 	Config    *config.Config
-	Logger    *slog.Logger
+	Logger    *logging.AppLogger
 	Services  *service.Services
 	Validator *validator.Validate
 }
 
-func New(cfg Config) *Server {
+func New(cfg Config) (*Server, error) {
+	if cfg.Config == nil {
+		return nil, appErr.NewHandlerError(appErr.ErrValidation, "config is required", nil).
+			WithOperation("NewServer")
+	}
+	if cfg.Logger == nil {
+		return nil, appErr.NewHandlerError(appErr.ErrValidation, "logger is required", nil).
+			WithOperation("NewServer")
+	}
+	if cfg.Services == nil {
+		return nil, appErr.NewHandlerError(appErr.ErrValidation, "services are required", nil).
+			WithOperation("NewServer")
+	}
+
 	util.InitializeAuth(cfg.Config.Cookie)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(gin.Logger())
-	router.Use(middleware.ErrorHandler(cfg.Logger))
+
+	// Create request logger
+	reqLogger := middleware.NewRequestLogger(cfg.Logger)
+	router.Use(reqLogger.Logger())
 
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Config.Server.Port),
@@ -53,25 +67,25 @@ func New(cfg Config) *Server {
 		config:     cfg.Config,
 		logger:     cfg.Logger,
 		services:   cfg.Services,
-		router:     router, // Use the same router instance
+		router:     router,
 		httpServer: httpServer,
 		validator:  cfg.Validator,
-	}
+	}, nil
 }
 
 func (s *Server) Init(ctx context.Context) error {
 	_, err := s.services.Server.GetServer(ctx)
 	if err != nil {
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
-			// Server doesn't exist, let's create one
+		if appErr.IsNotFound(err) {
+			// Server doesn't exist, create one
 			_, err = s.services.Server.CreateServer(ctx)
 			if err != nil {
-				return fmt.Errorf("creating server: %w", err)
+				return appErr.NewHandlerError(appErr.ErrInternal, "failed to create server", err).
+					WithOperation("ServerInit")
 			}
 		} else {
-			// Any other error should cause initialization to fail
-			return fmt.Errorf("checking server status: %w", err)
+			return appErr.NewHandlerError(appErr.ErrInternal, "failed to check server status", err).
+				WithOperation("ServerInit")
 		}
 	}
 
@@ -92,10 +106,8 @@ func (s *Server) setupRoutes() {
 
 	apiGroup := s.router.Group("/api/v1")
 	{
-		// Public API routes
 		apiHandler.RegisterPublicRoutes(apiGroup)
 
-		// Protected API routes
 		apiProtected := apiGroup.Group("")
 		apiProtected.Use(middleware.APIAuth())
 		apiProtected.Use(middleware.WithUser(s.services.User))
@@ -111,27 +123,38 @@ func (s *Server) setupRoutes() {
 		Validator: s.validator,
 	})
 
-	// Public web routes (auth pages)
 	webHandler.RegisterPublicRoutes(s.router.Group(""))
 
-	// All other web routes are protected
 	protected := s.router.Group("")
 	protected.Use(middleware.WebAuth())
 	protected.Use(middleware.WithUser(s.services.User))
 	protected.Use(middleware.WithLibrary(s.services.Media))
 	webHandler.RegisterProtectedRoutes(protected)
 
-	s.router.NoRoute(func(c *gin.Context) {
-		page := pages.NotFound()
-		err := page.Render(c, c.Writer)
-		if err != nil {
-			s.logger.Error("error rendering page",
-				"error", err,
-				"path", c.Request.URL.Path)
-			c.String(500, "Error rendering page")
-			return
-		}
-	})
+	// 404 handler
+	s.router.NoRoute(s.handleNotFound)
+}
+
+func (s *Server) handleNotFound(c *gin.Context) {
+	page := pages.NotFound()
+	if err := page.Render(c, c.Writer); err != nil {
+		s.logger.ErrorContext(c.Request.Context(), "Failed to render 404 page",
+			"error", err,
+			"path", c.Request.URL.Path)
+
+		renderErr := appErr.NewHandlerError(appErr.ErrInternal, "failed to render page", err).
+			WithOperation("NotFoundHandler").
+			WithData(map[string]interface{}{
+				"path": c.Request.URL.Path,
+			})
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error": gin.H{
+				"message": renderErr.Message,
+			},
+		})
+	}
 }
 
 func (s *Server) Run() error {
@@ -139,10 +162,22 @@ func (s *Server) Run() error {
 		"port", s.config.Server.Port,
 		"env", s.config.App.Environment)
 
-	return s.httpServer.ListenAndServe()
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return appErr.NewHandlerError(appErr.ErrInternal, "server failed to start", err).
+			WithOperation("ServerRun").
+			WithData(map[string]interface{}{
+				"port": s.config.Server.Port,
+				"env":  s.config.App.Environment,
+			})
+	}
+	return nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info("Shutting down server")
-	return s.httpServer.Shutdown(ctx)
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		return appErr.NewHandlerError(appErr.ErrInternal, "failed to shutdown server", err).
+			WithOperation("ServerShutdown")
+	}
+	return nil
 }

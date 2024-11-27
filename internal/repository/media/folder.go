@@ -3,20 +3,20 @@ package media
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 )
 
 type folderRepository struct {
 	client *ent.Client
-	logger *slog.Logger
+	logger *logging.AppLogger
 }
 
 var excludedPrefixes = []string{"/sys", "/proc", "/run", "/dev"}
@@ -28,37 +28,46 @@ func (r *folderRepository) GetByID(ctx context.Context, id string) (*ent.Folder,
 
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errorhandling.NewNotFoundError("folder not found")
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "folder not found", err).
+				WithOperation("GetByID").
+				WithField("id").
+				WithData(map[string]interface{}{"folder_id": id})
 		}
 		r.logger.ErrorContext(ctx, "Failed to get folder by ID",
 			"folder_id", id,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query folder")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query folder", err).
+			WithOperation("GetByID").
+			WithData(map[string]interface{}{"folder_id": id})
 	}
 
 	return dbFolder, nil
 }
 
-// TODO switch this function over to using Validation methods
 func (r *folderRepository) Create(ctx context.Context, params models.CreateFolderRequest) (*ent.Folder, error) {
 	// Input validation
 	if strings.TrimSpace(params.Name) == "" {
-		return nil, errorhandling.NewValidationError("Folder name cannot be empty").
-			WithData(map[string]string{"name": "Folder name is required"})
+		return nil, appErr.NewRepositoryError(appErr.ErrValidation, "folder name cannot be empty", nil).
+			WithOperation("Create").
+			WithField("name").
+			WithData(map[string]interface{}{"name": "Folder name is required"})
 	}
 
 	if strings.TrimSpace(params.Path) == "" {
-		return nil, errorhandling.NewValidationError("Folder path cannot be empty").
-			WithData(map[string]string{"path": "Folder path is required"})
+		return nil, appErr.NewRepositoryError(appErr.ErrValidation, "folder path cannot be empty", nil).
+			WithOperation("Create").
+			WithField("path").
+			WithData(map[string]interface{}{"path": "Folder path is required"})
 	}
 
 	// Start transaction
 	tx, err := r.client.Tx(ctx)
 	if err != nil {
-		r.logger.ErrorContext(ctx, "Failed to start transaction for folder creation",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "Failed to initiate folder creation")
+		r.logger.ErrorContext(ctx, "Failed to start transaction for folder creation", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to initiate folder creation", err).
+			WithOperation("Create")
 	}
+	defer tx.Rollback()
 
 	// Check if folder with same path already exists
 	exists, err := tx.Folder.Query().
@@ -68,16 +77,15 @@ func (r *folderRepository) Create(ctx context.Context, params models.CreateFolde
 		r.logger.ErrorContext(ctx, "Failed to check folder existence",
 			"path", params.Path,
 			"error", err)
-		tx.Rollback()
-		return nil, errorhandling.NewInternalError(err, "Failed to verify folder uniqueness")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to verify folder uniqueness", err).
+			WithOperation("Create").
+			WithData(map[string]interface{}{"path": params.Path})
 	}
 	if exists {
-		tx.Rollback()
-		return nil, errorhandling.NewConflictError(
-			fmt.Sprintf("Folder with path '%s' already exists", params.Path),
-		).WithData(map[string]string{
-			"path": "This folder path is already in use",
-		})
+		return nil, appErr.NewRepositoryError(appErr.ErrConflict, fmt.Sprintf("folder with path '%s' already exists", params.Path), nil).
+			WithOperation("Create").
+			WithField("path").
+			WithData(map[string]interface{}{"path": "This folder path is already in use"})
 	}
 
 	// Create the folder
@@ -91,8 +99,12 @@ func (r *folderRepository) Create(ctx context.Context, params models.CreateFolde
 			"name", params.Name,
 			"path", params.Path,
 			"error", err)
-		tx.Rollback()
-		return nil, errorhandling.NewInternalError(err, "Failed to create folder")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create folder", err).
+			WithOperation("Create").
+			WithData(map[string]interface{}{
+				"name": params.Name,
+				"path": params.Path,
+			})
 	}
 
 	// Commit the transaction
@@ -101,7 +113,13 @@ func (r *folderRepository) Create(ctx context.Context, params models.CreateFolde
 			"name", params.Name,
 			"path", params.Path,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "Failed to complete folder creation")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to complete folder creation", err).
+			WithOperation("Create").
+			WithData(map[string]interface{}{
+				"folder_id": dbFolder.ID,
+				"name":      params.Name,
+				"path":      params.Path,
+			})
 	}
 
 	// Fetch the created folder to ensure we have the latest state
@@ -114,7 +132,9 @@ func (r *folderRepository) Create(ctx context.Context, params models.CreateFolde
 		r.logger.ErrorContext(ctx, "Failed to fetch created folder",
 			"id", dbFolder.ID,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "Failed to verify folder creation")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to verify folder creation", err).
+			WithOperation("Create").
+			WithData(map[string]interface{}{"folder_id": dbFolder.ID})
 	}
 
 	r.logger.InfoContext(ctx, "Successfully created folder",
@@ -139,7 +159,9 @@ func (r *folderRepository) scanFolderRecursively(ctx context.Context, path strin
 		r.logger.ErrorContext(ctx, "Failed to get folder info",
 			"path", path,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to get folder info")
+		return nil, appErr.NewRepositoryError(appErr.ErrInternal, "failed to get folder info", err).
+			WithOperation("scanFolderRecursively").
+			WithData(map[string]interface{}{"path": path})
 	}
 
 	result := &models.GetFolderResponse{
@@ -149,7 +171,6 @@ func (r *folderRepository) scanFolderRecursively(ctx context.Context, path strin
 		SubFolders: make([]models.GetFolderResponse, 0),
 	}
 
-	// If we've reached max depth or this isn't a directory, return
 	if currentDepth >= maxDepth || !info.IsDir() {
 		return result, nil
 	}
@@ -159,7 +180,9 @@ func (r *folderRepository) scanFolderRecursively(ctx context.Context, path strin
 		r.logger.ErrorContext(ctx, "Failed to read directory",
 			"path", path,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to read directory")
+		return nil, appErr.NewRepositoryError(appErr.ErrInternal, "failed to read directory", err).
+			WithOperation("scanFolderRecursively").
+			WithData(map[string]interface{}{"path": path})
 	}
 
 	for _, entry := range entries {
@@ -185,22 +208,30 @@ func (r *folderRepository) scanFolderRecursively(ctx context.Context, path strin
 
 func (r *folderRepository) ValidateOSPath(ctx context.Context, path string) error {
 	if !filepath.IsAbs(path) {
-		return errorhandling.NewValidationError("path must be absolute")
+		return appErr.NewRepositoryError(appErr.ErrValidation, "path must be absolute", nil).
+			WithOperation("ValidateOSPath").
+			WithField("path")
 	}
 
 	if r.shouldExcludePath(path) {
-		return errorhandling.NewValidationError("path is in excluded directory")
+		return appErr.NewRepositoryError(appErr.ErrValidation, "path is in excluded directory", nil).
+			WithOperation("ValidateOSPath").
+			WithField("path")
 	}
 
-	// Check if path exists
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return errorhandling.NewNotFoundError("path does not exist")
+			return appErr.NewRepositoryError(appErr.ErrNotFound, "path does not exist", err).
+				WithOperation("ValidateOSPath").
+				WithField("path").
+				WithData(map[string]interface{}{"path": path})
 		}
 		r.logger.ErrorContext(ctx, "Failed to check path",
 			"path", path,
 			"error", err)
-		return errorhandling.NewInternalError(err, "failed to check path")
+		return appErr.NewRepositoryError(appErr.ErrInternal, "failed to check path", err).
+			WithOperation("ValidateOSPath").
+			WithData(map[string]interface{}{"path": path})
 	}
 
 	return nil

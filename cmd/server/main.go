@@ -6,7 +6,7 @@ import (
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
-	"github.com/ListenUpApp/ListenUp/internal/logger"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/server"
 	"github.com/ListenUpApp/ListenUp/internal/service"
@@ -36,7 +36,11 @@ func main() {
 		log.Fatal("Cannot load configuration:", err)
 	}
 
-	appLogger := logger.New(cfg.Logger)
+	appLogger := logging.New(logging.Config{
+		Environment: cfg.App.Environment,
+		LogLevel:    logging.LogLevel(cfg.Logger.Level),
+		Pretty:      true,
+	})
 	validate := validator.New()
 	// todo init this with our DB env variables
 	client, err := initDB()
@@ -73,7 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := server.New(server.Config{
+	srv, err := server.New(server.Config{
 		Config:    cfg,
 		Logger:    appLogger,
 		Services:  services,

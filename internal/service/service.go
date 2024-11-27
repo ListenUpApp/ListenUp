@@ -1,8 +1,7 @@
 package service
 
 import (
-	"log/slog"
-
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/repository/media"
 	"github.com/go-playground/validator/v10"
@@ -17,7 +16,7 @@ type Services struct {
 
 type Deps struct {
 	Repos     *repository.Repositories
-	Logger    *slog.Logger
+	Logger    *logging.AppLogger
 	Validator *validator.Validate
 }
 
@@ -62,6 +61,6 @@ type ServiceConfig struct {
 	UserRepo   *repository.UserRepository
 	ServerRepo *repository.ServerRepository
 	MediaRepo  *media.Repository
-	Logger     *slog.Logger
+	Logger     *logging.AppLogger
 	Validator  *validator.Validate
 }

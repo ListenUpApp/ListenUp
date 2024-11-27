@@ -2,15 +2,16 @@ package repository
 
 import (
 	"context"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
-	"log/slog"
+
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 )
 
 type ServerRepository struct {
 	client *ent.Client
-	logger *slog.Logger
+	logger *logging.AppLogger
 }
 
 func NewServerRepository(cfg Config) *ServerRepository {
@@ -24,11 +25,12 @@ func (s *ServerRepository) GetServer(ctx context.Context) (*ent.Server, error) {
 	server, err := s.client.Server.Query().First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errorhandling.NewNotFoundError("no server instance found")
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no server instance found", err).
+				WithOperation("GetServer")
 		}
-		s.logger.ErrorContext(ctx, "Failed to query server",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query server")
+		s.logger.ErrorContext(ctx, "Failed to query server", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query server", err).
+			WithOperation("GetServer")
 	}
 
 	return server, nil
@@ -37,21 +39,22 @@ func (s *ServerRepository) GetServer(ctx context.Context) (*ent.Server, error) {
 func (s *ServerRepository) CreateServer(ctx context.Context) (*ent.Server, error) {
 	tx, err := s.client.Tx(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to start transaction",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to start transaction")
+		s.logger.ErrorContext(ctx, "Failed to start transaction", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to start transaction", err).
+			WithOperation("CreateServer")
 	}
 	defer tx.Rollback()
 
 	exists, err := tx.Server.Query().Exist(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to check server existence",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to check server existence")
+		s.logger.ErrorContext(ctx, "Failed to check server existence", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to check server existence", err).
+			WithOperation("CreateServer")
 	}
 
 	if exists {
-		return nil, errorhandling.NewConflictError("a server already exists")
+		return nil, appErr.NewRepositoryError(appErr.ErrConflict, "a server already exists", nil).
+			WithOperation("CreateServer")
 	}
 
 	// Create server config
@@ -60,9 +63,12 @@ func (s *ServerRepository) CreateServer(ctx context.Context) (*ent.Server, error
 		Save(ctx)
 
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to create server config",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to create server config")
+		s.logger.ErrorContext(ctx, "Failed to create server config", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create server config", err).
+			WithOperation("CreateServer").
+			WithData(map[string]interface{}{
+				"config_name": "ListenUp",
+			})
 	}
 
 	// Create server
@@ -72,16 +78,23 @@ func (s *ServerRepository) CreateServer(ctx context.Context) (*ent.Server, error
 		Save(ctx)
 
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to create server",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to create server")
+		s.logger.ErrorContext(ctx, "Failed to create server", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create server", err).
+			WithOperation("CreateServer").
+			WithData(map[string]interface{}{
+				"config_id": cfg.ID,
+			})
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to commit transaction",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to commit transaction")
+		s.logger.ErrorContext(ctx, "Failed to commit transaction", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err).
+			WithOperation("CreateServer").
+			WithData(map[string]interface{}{
+				"server_id": srv.ID,
+				"config_id": cfg.ID,
+			})
 	}
 
 	s.logger.InfoContext(ctx, "Server created successfully",
@@ -94,9 +107,9 @@ func (s *ServerRepository) UpdateServerSetup(ctx context.Context, setup bool) (*
 	// Start a transaction
 	tx, err := s.client.Tx(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to start transaction",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to start transaction")
+		s.logger.ErrorContext(ctx, "Failed to start transaction", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to start transaction", err).
+			WithOperation("UpdateServerSetup")
 	}
 	defer tx.Rollback()
 
@@ -104,11 +117,12 @@ func (s *ServerRepository) UpdateServerSetup(ctx context.Context, setup bool) (*
 	server, err := tx.Server.Query().First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errorhandling.NewNotFoundError("no server instance found")
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no server instance found", err).
+				WithOperation("UpdateServerSetup")
 		}
-		s.logger.ErrorContext(ctx, "Failed to query server",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query server")
+		s.logger.ErrorContext(ctx, "Failed to query server", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query server", err).
+			WithOperation("UpdateServerSetup")
 	}
 
 	// Update the server
@@ -117,16 +131,24 @@ func (s *ServerRepository) UpdateServerSetup(ctx context.Context, setup bool) (*
 		Save(ctx)
 
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to update server setup status",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to update server setup status")
+		s.logger.ErrorContext(ctx, "Failed to update server setup status", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to update server setup status", err).
+			WithOperation("UpdateServerSetup").
+			WithData(map[string]interface{}{
+				"server_id": server.ID,
+				"setup":     setup,
+			})
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to commit transaction",
-			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to commit transaction")
+		s.logger.ErrorContext(ctx, "Failed to commit transaction", "error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err).
+			WithOperation("UpdateServerSetup").
+			WithData(map[string]interface{}{
+				"server_id": server.ID,
+				"setup":     setup,
+			})
 	}
 
 	s.logger.InfoContext(ctx, "Server setup status updated successfully",

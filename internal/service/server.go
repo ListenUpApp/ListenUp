@@ -3,14 +3,16 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"	
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
-	"log/slog"
 )
 
 type ServerService struct {
 	serverRepo *repository.ServerRepository
-	logger     *slog.Logger
+	logger     *logging.AppLogger
 }
 
 func NewServerService(cfg ServiceConfig) (*ServerService, error) {
@@ -27,13 +29,41 @@ func NewServerService(cfg ServiceConfig) (*ServerService, error) {
 }
 
 func (s *ServerService) GetServer(ctx context.Context) (*ent.Server, error) {
-	return s.serverRepo.GetServer(ctx)
+	server, err := s.serverRepo.GetServer(ctx)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetServer", map[string]interface{}{
+			"operation": "server_retrieval",
+		})
+	}
+	return server, nil
 }
 
 func (s *ServerService) CreateServer(ctx context.Context) (*ent.Server, error) {
-	return s.serverRepo.CreateServer(ctx)
+	server, err := s.serverRepo.CreateServer(ctx)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "CreateServer", map[string]interface{}{
+			"operation": "server_creation",
+		})
+	}
+
+	s.logger.InfoContext(ctx, "Server created successfully",
+		"server_id", server.ID)
+
+	return server, nil
 }
 
 func (s *ServerService) UpdateServerSetupStatus(ctx context.Context, setup bool) (*ent.Server, error) {
-	return s.serverRepo.UpdateServerSetup(ctx, setup)
+	server, err := s.serverRepo.UpdateServerSetup(ctx, setup)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "UpdateServerSetupStatus", map[string]interface{}{
+			"operation": "server_setup_update",
+			"setup":     setup,
+		})
+	}
+
+	s.logger.InfoContext(ctx, "Server setup status updated",
+		"server_id", server.ID,
+		"setup", setup)
+
+	return server, nil
 }

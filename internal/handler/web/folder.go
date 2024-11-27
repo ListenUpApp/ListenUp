@@ -1,11 +1,10 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"path/filepath"
 
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 	"github.com/gin-gonic/gin"
@@ -13,11 +12,20 @@ import (
 
 type FolderHandler struct {
 	*BaseHandler
+	formHandler *FormHandler
 }
 
-func NewFolderHandler(cfg Config, handler *BaseHandler) *FolderHandler {
+func NewFolderHandler(cfg Config, base *BaseHandler) *FolderHandler {
+
+	formHandler := NewFormHandler()
+
+	formHandler.AddErrorMessage(appErr.ErrNotFound, "Folder not found")
+	formHandler.AddErrorMessage(appErr.ErrUnauthorized, "Unauthorized access to folder")
+	formHandler.AddErrorMessage(appErr.ErrValidation, "Invalid folder path")
+
 	return &FolderHandler{
-		BaseHandler: handler,
+		BaseHandler: base,
+		formHandler: formHandler,
 	}
 }
 
@@ -32,9 +40,10 @@ func (h *FolderHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *FolderHandler) GetOSFolder(c *gin.Context) {
 	path := c.Query("path")
+	isNavigation := c.GetHeader("HX-Target") == "folder-list"
 
 	// For modal open (non-folder-list target), always use root
-	if c.GetHeader("HX-Target") != "folder-list" {
+	if !isNavigation {
 		path = "/"
 	}
 
@@ -44,16 +53,16 @@ func (h *FolderHandler) GetOSFolder(c *gin.Context) {
 	}
 
 	// For navigation within the modal
-	if c.GetHeader("HX-Target") == "folder-list" {
+	if isNavigation {
 		if err := h.RenderPublicComponent(c, components.FolderContent(folders)); err != nil {
-			h.RenderError(c, http.StatusInternalServerError, "Failed to render folder content")
+			h.handleRenderError(c, err, "GetOSFolder.FolderContent")
 		}
 		return
 	}
 
 	// For initial modal render
 	if err := h.RenderPublicComponent(c, components.FolderBrowser(folders)); err != nil {
-		h.RenderError(c, http.StatusInternalServerError, "Failed to render folder browser")
+		h.handleRenderError(c, err, "GetOSFolder.FolderBrowser")
 	}
 }
 
@@ -74,25 +83,16 @@ func (h *FolderHandler) getFolderData(c *gin.Context, path string) (*models.GetF
 
 	folders, err := h.services.Media.GetFolderStructure(c.Request.Context(), request)
 	if err != nil {
+		err = appErr.HandleServiceError(err, "getFolderData", map[string]interface{}{
+			"path": path,
+		})
+
 		h.logger.ErrorContext(c.Request.Context(), "Failed to get folders",
 			"path", path,
 			"error", err)
 
-		if appErr, ok := err.(*errorhandling.AppError); ok {
-			switch appErr.Type {
-			case errorhandling.ErrorTypeNotFound:
-				h.RenderError(c, http.StatusNotFound, "Folder not found")
-			case errorhandling.ErrorTypeValidation:
-				h.RenderError(c, http.StatusBadRequest, appErr.Message)
-			case errorhandling.ErrorTypeUnauthorized:
-				h.RenderError(c, http.StatusUnauthorized, "Unvauthorized access to folder")
-			default:
-				h.RenderError(c, http.StatusInternalServerError, "Failed to access folder")
-			}
-			return nil, err
-		}
-
-		h.RenderError(c, http.StatusInternalServerError, "Failed to get folders")
+		formData := h.formHandler.ProcessError(err, "getFolderData")
+		h.RenderError(c, appErr.HTTPStatusCode(err), formData.Error)
 		return nil, err
 	}
 
@@ -112,7 +112,7 @@ func (h *FolderHandler) getFolderData(c *gin.Context, path string) (*models.GetF
 func (h *FolderHandler) SelectOSFolder(c *gin.Context) {
 	path := c.Query("path")
 	if path == "" {
-		h.RenderError(c, http.StatusBadRequest, "No path provided")
+		h.handleValidationError(c, "path", "No path provided")
 		return
 	}
 
@@ -130,20 +130,37 @@ func (h *FolderHandler) SelectOSFolder(c *gin.Context) {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to validate folder path",
 			"path", path,
 			"error", err)
-		h.RenderError(c, http.StatusBadRequest, "Invalid folder path")
+
+		formData := h.formHandler.ProcessError(err, "SelectOSFolder")
+		h.RenderError(c, appErr.HTTPStatusCode(err), formData.Error)
 		return
 	}
 
-	// Now pass both name and path to the SelectedFolder component
 	if err := h.RenderPublicComponent(c, components.SelectedFolder(name)); err != nil {
-		h.RenderError(c, http.StatusInternalServerError, "Failed to render selected folder")
-		return
+		h.handleRenderError(c, err, "SelectOSFolder.SelectedFolder")
 	}
 }
 
 func (h *FolderHandler) CreateFolder(c *gin.Context) {
-	fmt.Println("Create Route")
 	path := c.PostForm("path")
 	name := c.PostForm("name")
-	h.logger.InfoContext(c.Request.Context(), "Creating Folder", "Name", name, "path", path)
+
+	if path == "" || name == "" {
+		h.handleValidationError(c, "folder", "Both path and name are required")
+		return
+	}
+
+	h.logger.InfoContext(c.Request.Context(), "Creating Folder",
+		"name", name,
+		"path", path)
+
+	// TODO: Implement folder creation logic
+}
+
+func (h *FolderHandler) handleRenderError(c *gin.Context, err error, operation string) {
+	h.logger.ErrorContext(c.Request.Context(), "Render error",
+		"error", err,
+		"operation", operation)
+
+	h.RenderError(c, http.StatusInternalServerError, "Failed to render page")
 }

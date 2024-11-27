@@ -2,9 +2,9 @@ package repository
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository/media"
 )
 
@@ -16,7 +16,7 @@ type Repositories struct {
 
 type Config struct {
 	Client *ent.Client
-	Logger *slog.Logger
+	Logger *logging.AppLogger
 }
 
 func NewRepositories(cfg Config) (*Repositories, error) {

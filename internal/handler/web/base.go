@@ -3,12 +3,12 @@ package web
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,7 @@ import (
 )
 
 type BaseHandler struct {
-	logger    *slog.Logger
+	logger    *logging.AppLogger
 	services  *service.Services
 	config    *config.Config
 	validator *validator.Validate
