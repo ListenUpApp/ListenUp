@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/gin-gonic/gin"
@@ -119,11 +121,21 @@ func WithUser(userService *service.UserService) gin.HandlerFunc {
 }
 
 // GetAppContext retrieves the AppContext from the gin context
-func GetAppContext(c *gin.Context) (appcontext.AppContext, bool) {
+func GetAppContext(c *gin.Context) (appcontext.AppContext, error) {
 	ctx, exists := c.Get("app_context")
 	if !exists {
-		return appcontext.AppContext{}, false
+		return appcontext.AppContext{}, appErr.NewHandlerError(appErr.ErrInternal, "app context not found", nil).
+			WithOperation("GetAppContext")
 	}
+
 	appCtx, ok := ctx.(appcontext.AppContext)
-	return appCtx, ok
+	if !ok {
+		return appcontext.AppContext{}, appErr.NewHandlerError(appErr.ErrInternal, "invalid app context type", nil).
+			WithOperation("GetAppContext").
+			WithData(map[string]interface{}{
+				"context_type": fmt.Sprintf("%T", ctx),
+			})
+	}
+
+	return appCtx, nil
 }

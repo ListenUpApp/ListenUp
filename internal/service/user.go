@@ -3,15 +3,16 @@ package service
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 )
 
 type UserService struct {
 	userRepo *repository.UserRepository
-	logger   *slog.Logger
+	logger   *logging.AppLogger
 }
 
 func NewUserService(cfg ServiceConfig) (*UserService, error) {
@@ -31,7 +32,9 @@ func NewUserService(cfg ServiceConfig) (*UserService, error) {
 func (s *UserService) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	dbUser, err := s.userRepo.GetUserById(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+		return nil, appErr.HandleRepositoryError(err, "GetUserByID", map[string]interface{}{
+			"user_id": id,
+		})
 	}
 
 	user := &models.User{

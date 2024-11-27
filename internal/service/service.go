@@ -1,23 +1,22 @@
 package service
 
 import (
-	"log/slog"
-
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
+	"github.com/ListenUpApp/ListenUp/internal/repository/media"
 	"github.com/go-playground/validator/v10"
 )
 
 type Services struct {
-	Auth    *AuthService
-	Server  *ServerService
-	User    *UserService
-	Library *LibraryService
-	Folder  *FolderService
+	Auth   *AuthService
+	Server *ServerService
+	User   *UserService
+	Media  *MediaService
 }
 
 type Deps struct {
 	Repos     *repository.Repositories
-	Logger    *slog.Logger
+	Logger    *logging.AppLogger
 	Validator *validator.Validate
 }
 
@@ -38,16 +37,11 @@ func NewServices(deps Deps) (*Services, error) {
 		UserRepo: deps.Repos.User,
 		Logger:   deps.Logger,
 	})
-	libraryService, err := NewLibraryService(ServiceConfig{
-		LibraryRepo: deps.Repos.Library,
-		FolderRepo:  deps.Repos.Folder,
-		UserRepo:    deps.Repos.User,
-		Logger:      deps.Logger,
-	})
-
-	folderService, err := NewFolderService(ServiceConfig{
-		FolderRepo: deps.Repos.Folder,
-		Logger:     deps.Logger,
+	mediaService, err := NewMediaService(ServiceConfig{
+		MediaRepo: deps.Repos.Media,
+		UserRepo:  deps.Repos.User,
+		Logger:    deps.Logger,
+		Validator: deps.Validator,
 	})
 
 	if err != nil {
@@ -55,20 +49,18 @@ func NewServices(deps Deps) (*Services, error) {
 	}
 
 	return &Services{
-		Auth:    authService,
-		Server:  serverService,
-		User:    userService,
-		Library: libraryService,
-		Folder:  folderService,
+		Auth:   authService,
+		Server: serverService,
+		User:   userService,
+		Media:  mediaService,
 	}, nil
 }
 
 // ServiceConfig shared configuration for services
 type ServiceConfig struct {
-	UserRepo    *repository.UserRepository
-	ServerRepo  *repository.ServerRepository
-	LibraryRepo *repository.LibraryRepository
-	FolderRepo  *repository.FolderRepository
-	Logger      *slog.Logger
-	Validator   *validator.Validate
+	UserRepo   *repository.UserRepository
+	ServerRepo *repository.ServerRepository
+	MediaRepo  *media.Repository
+	Logger     *logging.AppLogger
+	Validator  *validator.Validate
 }

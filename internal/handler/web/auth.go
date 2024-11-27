@@ -1,10 +1,9 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/forms"
@@ -14,11 +13,19 @@ import (
 
 type AuthHandler struct {
 	*BaseHandler
+	formHandler *FormHandler
 }
 
 func NewAuthHandler(cfg Config, base *BaseHandler) *AuthHandler {
+	formHandler := NewFormHandler()
+
+	// Add auth-specific error messages
+	formHandler.AddErrorMessage(appErr.ErrUnauthorized, "Invalid email or password")
+	formHandler.AddErrorMessage(appErr.ErrConflict, "A user with this email already exists")
+
 	return &AuthHandler{
 		BaseHandler: base,
+		formHandler: formHandler,
 	}
 }
 
@@ -75,27 +82,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.RegisterRequest
 	if err := c.ShouldBind(&req); err != nil {
 		h.logger.Debug("json binding error", "error", err)
-		h.RenderPublicComponent(c, forms.RegisterForm(forms.RegisterData{
-			RootUser: false,
-			Error:    "Invalid request format",
-			Fields:   make(map[string]string),
-		}))
+		h.renderRegisterForm(c, FormData{
+			Error: "Invalid request format",
+		})
 		return
 	}
 
 	// Validate the request
 	if errors := h.Validate(req); len(errors) > 0 {
-		h.RenderPublicComponent(c, forms.RegisterForm(forms.RegisterData{
-			RootUser: false,
-			Error:    "Please check the form for errors",
-			Fields:   errors,
-		}))
+		h.renderRegisterForm(c, FormData{
+			Error:  "Please check the form for errors",
+			Fields: errors,
+		})
 		return
 	}
 
 	if err := h.services.Auth.RegisterUser(c.Request.Context(), req); err != nil {
-		data := h.handleRegisterError(err)
-		h.RenderPublicComponent(c, forms.RegisterForm(data))
+		h.renderRegisterForm(c, h.formHandler.ProcessError(err, "Register"))
 		return
 	}
 
@@ -105,26 +108,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.LoginRequest
 	if err := c.ShouldBind(&req); err != nil {
-		h.RenderPublicComponent(c, forms.LoginForm(forms.LoginData{
-			Error:  "Invalid request format",
-			Fields: make(map[string]string),
-		}))
+		h.renderLoginForm(c, FormData{
+			Error: "Invalid request format",
+		})
 		return
 	}
 
-	// Validate the request
 	if errors := h.Validate(req); len(errors) > 0 {
-		h.RenderPublicComponent(c, forms.LoginForm(forms.LoginData{
+		h.renderLoginForm(c, FormData{
 			Error:  "Please check the form for errors",
 			Fields: errors,
-		}))
+		})
 		return
 	}
 
 	response, err := h.services.Auth.LoginUser(c.Request.Context(), req)
 	if err != nil {
-		data := h.handleLoginError(err)
-		h.RenderPublicComponent(c, forms.LoginForm(data))
+		h.renderLoginForm(c, h.formHandler.ProcessError(err, "Login"))
 		return
 	}
 
@@ -132,76 +132,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	h.HTMXRedirect(c, "/")
 }
 
+// Helper methods for rendering forms
+func (h *AuthHandler) renderRegisterForm(c *gin.Context, data FormData) {
+	h.RenderPublicComponent(c, forms.RegisterForm(forms.RegisterData{
+		RootUser: false,
+		Error:    data.Error,
+		Fields:   data.Fields,
+	}))
+}
+
+func (h *AuthHandler) renderLoginForm(c *gin.Context, data FormData) {
+	h.RenderPublicComponent(c, forms.LoginForm(forms.LoginData{
+		Error:  data.Error,
+		Fields: data.Fields,
+	}))
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
 	util.ClearAuthCookie(c)
 	h.HTMXRedirect(c, "/auth/login")
-}
-
-func (h *AuthHandler) handleLoginError(err error) forms.LoginData {
-	data := forms.LoginData{
-		Error:  h.getLoginErrorMessage(err),
-		Fields: make(map[string]string),
-	}
-
-	var appErr *errorhandling.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Type {
-		case errorhandling.ErrorTypeValidation:
-			data.Fields = appErr.Data.(map[string]string)
-		case errorhandling.ErrorTypeConflict:
-			data.Fields["email"] = appErr.Message
-		}
-	}
-
-	return data
-}
-
-func (h *AuthHandler) handleRegisterError(err error) forms.RegisterData {
-	data := forms.RegisterData{
-		RootUser: false,
-		Error:    h.getRegisterErrorMessage(err),
-		Fields:   make(map[string]string),
-	}
-
-	var appErr *errorhandling.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Type {
-		case errorhandling.ErrorTypeValidation:
-			data.Fields = appErr.Data.(map[string]string)
-		case errorhandling.ErrorTypeConflict:
-			data.Fields["email"] = appErr.Message
-		}
-	}
-
-	return data
-}
-
-func (h *AuthHandler) getLoginErrorMessage(err error) string {
-	var appErr *errorhandling.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Type {
-		case errorhandling.ErrorTypeValidation:
-			return "Please check the form for errors"
-		case errorhandling.ErrorTypeUnauthorized, errorhandling.ErrorTypeNotFound:
-			return "Invalid email or password"
-		case errorhandling.ErrorTypeInternal:
-			return "An unexpected error occurred. Please try again"
-		}
-	}
-	return "An unexpected error occurred. Please try again"
-}
-
-func (h *AuthHandler) getRegisterErrorMessage(err error) string {
-	var appErr *errorhandling.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Type {
-		case errorhandling.ErrorTypeValidation:
-			return "Please check the form for errors"
-		case errorhandling.ErrorTypeConflict:
-			return "A user with this email already exists"
-		case errorhandling.ErrorTypeInternal:
-			return "An unexpected error occurred. Please try again"
-		}
-	}
-	return "An unexpected error occurred. Please try again"
 }

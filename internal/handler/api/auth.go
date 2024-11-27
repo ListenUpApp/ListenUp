@@ -1,18 +1,18 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/ListenUpApp/ListenUp/internal/config"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/gin-gonic/gin"
-	"log/slog"
-	"net/http"
 )
 
 type AuthHandler struct {
 	service *service.AuthService
-	logger  *slog.Logger
+	logger  *logging.AppLogger
 	config  *config.Config
 }
 
@@ -38,10 +38,10 @@ func (h *AuthHandler) Ping(c *gin.Context) {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var createUserReq models.RegisterRequest
 
-	if err := c.ShouldBindJSON(&createUserReq); err != nil {
-		c.Error(errorhandling.NewValidationError("invalid request payload"))
-		return
-	}
+	// if err := c.ShouldBindJSON(&createUserReq); err != nil {
+	// 	c.Error(errorhandling.NewValidationError("invalid request payload"))
+	// 	return
+	// }
 
 	if err := h.service.RegisterUser(c, createUserReq); err != nil {
 		c.Error(err)

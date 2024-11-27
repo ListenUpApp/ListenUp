@@ -2,19 +2,18 @@ package repository
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 )
 
 type UserRepository struct {
 	client *ent.Client
-	logger *slog.Logger
+	logger *logging.AppLogger
 }
 
 func NewUserRepository(cfg Config) *UserRepository {
@@ -31,12 +30,16 @@ func (u *UserRepository) GetUserById(ctx context.Context, id string) (*ent.User,
 
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errorhandling.NewNotFoundError("user not found")
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "user not found", err).
+				WithOperation("GetUserById").
+				WithData(map[string]interface{}{"user_id": id})
 		}
 		u.logger.ErrorContext(ctx, "Failed to get user by ID",
 			"user_id", id,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query user")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query user", err).
+			WithOperation("GetUserById").
+			WithData(map[string]interface{}{"user_id": id})
 	}
 
 	return dbUser, nil
@@ -49,12 +52,17 @@ func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent
 
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errorhandling.NewNotFoundError("user not found")
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "user not found", err).
+				WithOperation("GetUserByEmail").
+				WithField("email").
+				WithData(map[string]interface{}{"email": email})
 		}
 		u.logger.ErrorContext(ctx, "Failed to get user by email",
 			"email", email,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to query user")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query user", err).
+			WithOperation("GetUserByEmail").
+			WithData(map[string]interface{}{"email": email})
 	}
 
 	return dbUser, nil
@@ -73,12 +81,21 @@ func (u *UserRepository) CreateUser(ctx context.Context, user models.CreateUser)
 		if ent.IsConstraintError(err) {
 			u.logger.WarnContext(ctx, "Attempted to create user with existing email",
 				"email", user.Email)
-			return nil, errorhandling.NewConflictError("user with this email already exists")
+			return nil, appErr.NewRepositoryError(appErr.ErrConflict, "user with this email already exists", err).
+				WithOperation("CreateUser").
+				WithField("email").
+				WithData(map[string]interface{}{"email": user.Email})
 		}
 		u.logger.ErrorContext(ctx, "Failed to create user",
 			"email", user.Email,
 			"error", err)
-		return nil, errorhandling.NewInternalError(err, "failed to create user")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create user", err).
+			WithOperation("CreateUser").
+			WithData(map[string]interface{}{
+				"email":     user.Email,
+				"firstName": user.FirstName,
+				"lastName":  user.LastName,
+			})
 	}
 
 	u.logger.InfoContext(ctx, "User created successfully",
@@ -92,7 +109,8 @@ func (u *UserRepository) AddLibraryToUser(ctx context.Context, userId string, li
 	// Start transaction
 	tx, err := u.client.Tx(ctx)
 	if err != nil {
-		return fmt.Errorf("starting transaction: %w", err)
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to start transaction", err).
+			WithOperation("AddLibraryToUser")
 	}
 	defer tx.Rollback()
 
@@ -100,9 +118,13 @@ func (u *UserRepository) AddLibraryToUser(ctx context.Context, userId string, li
 	user, err := tx.User.Get(ctx, userId)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return errorhandling.NewNotFoundError("user not found")
+			return appErr.NewRepositoryError(appErr.ErrNotFound, "user not found", err).
+				WithOperation("AddLibraryToUser").
+				WithData(map[string]interface{}{"user_id": userId})
 		}
-		return errorhandling.NewInternalError(err, "failed to get user")
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to get user", err).
+			WithOperation("AddLibraryToUser").
+			WithData(map[string]interface{}{"user_id": userId})
 	}
 
 	// Update user by adding library
@@ -110,17 +132,32 @@ func (u *UserRepository) AddLibraryToUser(ctx context.Context, userId string, li
 		AddLibraryIDs(libraryId).
 		Exec(ctx)
 	if err != nil {
-		return errorhandling.NewInternalError(err, "failed to add library to user")
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to add library to user", err).
+			WithOperation("AddLibraryToUser").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err).
+			WithOperation("AddLibraryToUser").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
+	}
+
+	return nil
 }
 
 func (u *UserRepository) UpdateActiveLibrary(ctx context.Context, userId string, libraryId string) error {
-	// Use a transaction to ensure atomicity
+	// Start transaction
 	tx, err := u.client.Tx(ctx)
 	if err != nil {
-		return fmt.Errorf("starting transaction: %w", err)
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to start transaction", err).
+			WithOperation("UpdateActiveLibrary")
 	}
 	defer tx.Rollback()
 
@@ -132,10 +169,20 @@ func (u *UserRepository) UpdateActiveLibrary(ctx context.Context, userId string,
 		).
 		Exist(ctx)
 	if err != nil {
-		return fmt.Errorf("verifying library access: %w", err)
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to verify library access", err).
+			WithOperation("UpdateActiveLibrary").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
 	}
 	if !exists {
-		return fmt.Errorf("user does not have access to library")
+		return appErr.NewRepositoryError(appErr.ErrUnauthorized, "user does not have access to library", nil).
+			WithOperation("UpdateActiveLibrary").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
 	}
 
 	// Update the active library
@@ -147,9 +194,22 @@ func (u *UserRepository) UpdateActiveLibrary(ctx context.Context, userId string,
 		SetActiveLibraryID(libraryId).
 		Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("updating active library: %w", err)
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to update active library", err).
+			WithOperation("UpdateActiveLibrary").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
 	}
 
-	// Commit the transaction
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err).
+			WithOperation("UpdateActiveLibrary").
+			WithData(map[string]interface{}{
+				"user_id":    userId,
+				"library_id": libraryId,
+			})
+	}
+
+	return nil
 }

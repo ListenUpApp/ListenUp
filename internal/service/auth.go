@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/util"
@@ -17,7 +16,7 @@ import (
 type AuthService struct {
 	userRepo   *repository.UserRepository
 	serverRepo *repository.ServerRepository
-	logger     *slog.Logger
+	logger     *logging.AppLogger
 	validator  *validator.Validate
 }
 
@@ -43,34 +42,40 @@ func NewAuthService(cfg ServiceConfig) (*AuthService, error) {
 func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterRequest) error {
 	// Validate request
 	if err := s.ValidateRegisterRequest(req); err != nil {
-		return err
+		return err // ValidateRegisterRequest already returns proper error type
 	}
 
 	// Check for existing user
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
+		err = appErr.HandleRepositoryError(err, "RegisterUser", map[string]interface{}{
+			"email": req.Email,
+		})
+		if appErr.IsNotFound(err) {
 			// This is fine - user doesn't exist
 		} else {
 			s.logger.ErrorContext(ctx, "Failed to check existing user",
 				"email", req.Email,
 				"error", err)
-			return errorhandling.NewInternalError(err, "error checking existing user")
+			return err
 		}
 	}
 
 	if existingUser != nil {
 		s.logger.WarnContext(ctx, "Attempted to register existing email",
 			"email", req.Email)
-		return errorhandling.NewConflictError("user with this email already exists")
+		return appErr.NewServiceError(appErr.ErrConflict, "user with this email already exists", nil).
+			WithOperation("RegisterUser").
+			WithField("email").
+			WithData(map[string]interface{}{"email": req.Email})
 	}
 
 	// Hash password
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to hash password", "error", err)
-		return errorhandling.NewInternalError(err, "processing registration")
+		return appErr.NewServiceError(appErr.ErrInternal, "failed to process registration", err).
+			WithOperation("RegisterUser")
 	}
 
 	// Create user
@@ -83,20 +88,21 @@ func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterReque
 
 	_, err = s.userRepo.CreateUser(ctx, createUserParams)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to create user",
-			"email", req.Email,
-			"error", err)
-		return errorhandling.NewInternalError(err, "error creating user")
+		return appErr.HandleRepositoryError(err, "RegisterUser", map[string]interface{}{
+			"email": req.Email,
+		})
 	}
+
+	// Update server setup status
+	_, err = s.serverRepo.UpdateServerSetup(ctx, true)
+	if err != nil {
+		return appErr.HandleRepositoryError(err, "RegisterUser", map[string]interface{}{
+			"operation": "update_server_setup",
+		})
+	}
+
 	s.logger.InfoContext(ctx, "User registered successfully",
 		"email", req.Email)
-
-	_, err = s.serverRepo.UpdateServerSetup(ctx, true)
-
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to update server's setup status", "error", err)
-		return errorhandling.NewInternalError(err, "error updating server")
-	}
 
 	return nil
 }
@@ -104,48 +110,56 @@ func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterReque
 func (s *AuthService) LoginUser(ctx context.Context, req models.LoginRequest) (*models.LoginResponse, error) {
 	// Validate request
 	if err := s.ValidateLoginRequest(req); err != nil {
-		return nil, err
+		return nil, err // ValidateLoginRequest already returns proper error type
 	}
 
+	// Get user by email
 	dbUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) && appErr.Type == errorhandling.ErrorTypeNotFound {
-			return nil, errorhandling.NewUnauthorizedError("Invalid email or password")
+		err = appErr.HandleRepositoryError(err, "LoginUser", map[string]interface{}{
+			"email": req.Email,
+		})
+		if appErr.IsNotFound(err) {
+			return nil, appErr.NewServiceError(appErr.ErrUnauthorized, "invalid email or password", nil).
+				WithOperation("LoginUser")
 		}
 		return nil, err
 	}
 
+	// Check password
 	if !util.CheckPasswordHash(req.Password, dbUser.PasswordHash) {
-		return nil, errorhandling.NewUnauthorizedError("Invalid email or password")
+		return nil, appErr.NewServiceError(appErr.ErrUnauthorized, "invalid email or password", nil).
+			WithOperation("LoginUser")
 	}
 
+	// Generate token
 	token, err := util.GenerateToken(dbUser.ID, 0, dbUser.Email, 24*30*time.Hour)
 	if err != nil {
-		return nil, errorhandling.NewInternalError(err, "failed to generate token")
-	}
-	user := models.User{
-		ID:        dbUser.ID,
-		Email:     dbUser.Email,
-		FirstName: dbUser.FirstName,
-		LastName:  dbUser.LastName,
+		return nil, appErr.NewServiceError(appErr.ErrInternal, "failed to generate token", err).
+			WithOperation("LoginUser").
+			WithData(map[string]interface{}{"user_id": dbUser.ID})
 	}
 
 	return &models.LoginResponse{
 		Token: token,
-		User:  user,
+		User: models.User{
+			ID:        dbUser.ID,
+			Email:     dbUser.Email,
+			FirstName: dbUser.FirstName,
+			LastName:  dbUser.LastName,
+		},
 	}, nil
 }
 
 func (s *AuthService) IsServerSetup(ctx context.Context) (bool, error) {
 	if s.serverRepo == nil {
-		return false, fmt.Errorf("server repository not initialized")
+		return false, appErr.NewServiceError(appErr.ErrInternal, "server repository not initialized", nil).
+			WithOperation("IsServerSetup")
 	}
 
 	srv, err := s.serverRepo.GetServer(ctx)
 	if err != nil {
-		s.logger.Error("failed to get server status", "error", err)
-		return false, fmt.Errorf("failed to get server: %w", err)
+		return false, appErr.HandleRepositoryError(err, "IsServerSetup", nil)
 	}
 
 	return srv.Setup, nil
@@ -158,7 +172,6 @@ func (s *AuthService) ValidateRegisterRequest(req models.RegisterRequest) error 
 	}
 
 	errors := make(map[string]string)
-
 	for _, err := range err.(validator.ValidationErrors) {
 		switch err.Tag() {
 		case "required":
@@ -178,10 +191,9 @@ func (s *AuthService) ValidateRegisterRequest(req models.RegisterRequest) error 
 		}
 	}
 
-	if len(errors) > 0 {
-		return errorhandling.NewValidationError("validation failed").WithData(errors)
-	}
-	return nil
+	return appErr.NewServiceError(appErr.ErrValidation, "validation failed", err).
+		WithOperation("ValidateRegisterRequest").
+		WithData(errors)
 }
 
 func (s *AuthService) ValidateLoginRequest(req models.LoginRequest) error {
@@ -191,7 +203,6 @@ func (s *AuthService) ValidateLoginRequest(req models.LoginRequest) error {
 	}
 
 	errors := make(map[string]string)
-
 	for _, err := range err.(validator.ValidationErrors) {
 		switch err.Tag() {
 		case "required":
@@ -203,8 +214,7 @@ func (s *AuthService) ValidateLoginRequest(req models.LoginRequest) error {
 		}
 	}
 
-	if len(errors) > 0 {
-		return errorhandling.NewValidationError("validation failed").WithData(errors)
-	}
-	return nil
+	return appErr.NewServiceError(appErr.ErrValidation, "validation failed", err).
+		WithOperation("ValidateLoginRequest").
+		WithData(errors)
 }

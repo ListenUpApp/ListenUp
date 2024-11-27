@@ -1,9 +1,8 @@
 package api
 
 import (
-	"log/slog"
-
 	"github.com/ListenUpApp/ListenUp/internal/config"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -11,13 +10,13 @@ import (
 
 type Handler struct {
 	auth      *AuthHandler
-	logger    *slog.Logger
+	logger    *logging.AppLogger
 	config    *config.Config
 	Validator *validator.Validate
 }
 type Config struct {
 	Services *service.Services
-	Logger   *slog.Logger
+	Logger   *logging.AppLogger
 	Config   *config.Config
 }
 

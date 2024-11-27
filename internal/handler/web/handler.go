@@ -1,9 +1,8 @@
 package web
 
 import (
-	"log/slog"
-
 	"github.com/ListenUpApp/ListenUp/internal/config"
+	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
 	"github.com/gin-gonic/gin"
@@ -19,7 +18,7 @@ type Handler struct {
 
 type Config struct {
 	Services  *service.Services
-	Logger    *slog.Logger
+	Logger    *logging.AppLogger
 	Config    *config.Config
 	Validator *validator.Validate
 }

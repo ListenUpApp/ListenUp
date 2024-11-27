@@ -1,21 +1,22 @@
 package middleware
 
 import (
-	"errors"
 	"log/slog"
 
 	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // WithLibrary enriches the AppContext with library information
-func WithLibrary(libraryService *service.LibraryService) gin.HandlerFunc {
+func WithLibrary(libraryService *service.MediaService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		appCtx, exists := appcontext.GetAppContextFromGin(c)
-		if !exists {
-			slog.Error("app context not found in WithLibrary middleware")
+		// Get app context
+		appCtx, err := GetAppContext(c)
+		if err != nil {
+			slog.ErrorContext(c.Request.Context(), "App context not found in WithLibrary middleware",
+				"error", err)
 			c.Next()
 			return
 		}
@@ -23,9 +24,9 @@ func WithLibrary(libraryService *service.LibraryService) gin.HandlerFunc {
 		// Get all libraries to check if any exist
 		libraries, err := libraryService.GetUsersLibraries(c, appCtx.User.ID)
 		if err != nil {
-			slog.Error("error getting libraries in middleware",
+			slog.ErrorContext(c.Request.Context(), "Error getting libraries in middleware",
 				"error", err,
-				"userId", appCtx.User.ID)
+				"user_id", appCtx.User.ID)
 			c.Next()
 			return
 		}
@@ -33,14 +34,15 @@ func WithLibrary(libraryService *service.LibraryService) gin.HandlerFunc {
 		// Get current library if it exists
 		activeLibrary, err := libraryService.GetCurrentLibrary(c, appCtx.User.ID)
 		if err != nil {
-			var appErr *errorhandling.AppError
-			if !errors.As(err, &appErr) || appErr.Type != errorhandling.ErrorTypeNotFound {
-				slog.Error("error getting active library in middleware",
+			// Only continue if it's a not found error
+			if !appErr.IsNotFound(err) {
+				slog.ErrorContext(c.Request.Context(), "Error getting active library in middleware",
 					"error", err,
-					"userId", appCtx.User.ID)
+					"user_id", appCtx.User.ID)
 				c.Next()
 				return
 			}
+			// Not found is okay - user might not have an active library yet
 		}
 
 		// Update context with library information

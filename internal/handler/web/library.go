@@ -1,11 +1,10 @@
 package web
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
-	errorhandling "github.com/ListenUpApp/ListenUp/internal/error_handling"
+	appErr "github.com/ListenUpApp/ListenUp/internal/error"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages/library"
@@ -14,11 +13,17 @@ import (
 
 type LibraryHandler struct {
 	*BaseHandler
+	formHandler *FormHandler
 }
 
-func NewLibraryHandler(cfg Config, handler *BaseHandler) *LibraryHandler {
+func NewLibraryHandler(cfg Config, base *BaseHandler) *LibraryHandler {
+	formHandler := NewFormHandler()
+	// Add library-specific error messages
+	formHandler.AddErrorMessage(appErr.ErrConflict, "This library name is already taken")
+
 	return &LibraryHandler{
-		BaseHandler: handler,
+		BaseHandler: base,
+		formHandler: formHandler,
 	}
 }
 
@@ -29,12 +34,10 @@ func (h *LibraryHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
-	err := h.RenderPage(c, "Library",
+	if err := h.RenderPage(c, "Library",
 		library.LibraryIndexPage(),
-		library.LibraryIndexContent())
-
-	if err != nil {
-		return
+		library.LibraryIndexContent()); err != nil {
+		h.handleRenderError(c, err, "LibraryIndex")
 	}
 }
 
@@ -44,105 +47,105 @@ func (h *LibraryHandler) CreateLibraryPage(c *gin.Context) {
 		Fields: make(map[string]string),
 	}
 
-	err := h.RenderPage(c, "Create Library",
+	if err := h.RenderPage(c, "Create Library",
 		library.CreateLibraryPage(data),
-		library.CreateLibraryContent(data))
-
-	if err != nil {
-		// Log the error if needed
-		h.logger.ErrorContext(c.Request.Context(), "Failed to render library page", "error", err)
-		return
+		library.CreateLibraryContent(data)); err != nil {
+		h.handleRenderError(c, err, "CreateLibraryPage")
 	}
 }
 
 func (h *LibraryHandler) CreateLibrary(c *gin.Context) {
-	// Parse form manually since we have nested data
-	if err := c.Request.ParseForm(); err != nil {
-		h.logger.ErrorContext(c.Request.Context(), "Failed to parse form", "error", err)
-		h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
-			Error:  "Failed to process form data",
-			Fields: make(map[string]string),
-		}))
+	req, err := h.parseLibraryForm(c)
+	if err != nil {
+		h.renderLibraryForm(c, h.formHandler.ProcessError(err, "CreateLibrary"))
 		return
 	}
 
-	// Create request object
-	req := models.CreateLibraryRequest{
-		Name:    c.PostForm("libraryName"),
-		Folders: make([]models.CreateFolderRequest, 0),
+	appCtx, err := middleware.GetAppContext(c)
+	if err != nil {
+		h.renderLibraryForm(c, FormData{
+			Error: "Invalid application state",
+		})
+		return
 	}
 
-	// Get form values
-	formValues := c.Request.PostForm
-
-	// Count how many folders we have by looking for folder.X.name entries
-	folderCount := 0
-	for key := range formValues {
-		if strings.HasPrefix(key, "folders.") && strings.HasSuffix(key, ".name") {
-			folderCount++
-		}
-	}
-
-	// Parse folders
-	for i := 0; i < folderCount; i++ {
-		nameKey := fmt.Sprintf("folders.%d.name", i)
-		pathKey := fmt.Sprintf("folders.%d.path", i)
-
-		name := formValues.Get(nameKey)
-		path := formValues.Get(pathKey)
-
-		if name != "" && path != "" {
-			req.Folders = append(req.Folders, models.CreateFolderRequest{
-				Name: name,
-				Path: path,
-			})
-		}
-	}
-
-	// Get app context
-	appCtx, _ := middleware.GetAppContext(c)
-
-	// Create library
-	_, err := h.services.Library.CreateLibrary(c.Request.Context(), appCtx.User.ID, req)
+	_, err = h.services.Media.CreateLibrary(c.Request.Context(), appCtx.User.ID, req)
 	if err != nil {
 		h.logger.ErrorContext(c.Request.Context(), "Failed to create library",
-			"userId", appCtx.User.ID,
-			"error", err,
-			"requestData", req)
-
-		var appErr *errorhandling.AppError
-		if errors.As(err, &appErr) {
-			switch appErr.Type {
-			case errorhandling.ErrorTypeValidation:
-				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
-					Error: appErr.Message,
-					Fields: map[string]string{
-						"libraryName": appErr.Message,
-					},
-				}))
-			case errorhandling.ErrorTypeConflict:
-				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
-					Error: appErr.Message,
-					Fields: map[string]string{
-						"libraryName": "This library name is already taken",
-					},
-				}))
-			default:
-				h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
-					Error:  "An unexpected error occurred. Please try again.",
-					Fields: make(map[string]string),
-				}))
-			}
-			return
-		}
-
-		// If it's not an AppError, return a generic error
-		h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
-			Error:  "Failed to create library. Please try again",
-			Fields: make(map[string]string),
-		}))
+			"user_id", appCtx.User.ID,
+			"error", err)
+		h.renderLibraryForm(c, h.formHandler.ProcessError(err, "CreateLibrary"))
 		return
 	}
 
 	h.HTMXRedirect(c, "/library")
+}
+
+// Helper methods
+
+func (h *LibraryHandler) parseLibraryForm(c *gin.Context) (models.CreateLibraryRequest, error) {
+	if err := c.Request.ParseForm(); err != nil {
+		return models.CreateLibraryRequest{}, appErr.NewHandlerError(appErr.ErrBadInput, "failed to parse form data", err).
+			WithOperation("parseLibraryForm")
+	}
+
+	req := models.CreateLibraryRequest{
+		Name:    strings.TrimSpace(c.PostForm("libraryName")),
+		Folders: make([]models.CreateFolderRequest, 0),
+	}
+
+	// Validate library name
+	if req.Name == "" {
+		return req, appErr.NewHandlerError(appErr.ErrValidation, "library name is required", nil).
+			WithOperation("parseLibraryForm").
+			WithField("libraryName")
+	}
+
+	// Parse folders
+	formValues := c.Request.PostForm
+	for i := 0; ; i++ {
+		nameKey := fmt.Sprintf("folders.%d.name", i)
+		pathKey := fmt.Sprintf("folders.%d.path", i)
+
+		name := strings.TrimSpace(formValues.Get(nameKey))
+		path := strings.TrimSpace(formValues.Get(pathKey))
+
+		if name == "" && path == "" {
+			break
+		}
+
+		if name == "" || path == "" {
+			return req, appErr.NewHandlerError(appErr.ErrValidation, "both folder name and path are required", nil).
+				WithOperation("parseLibraryForm").
+				WithField(fmt.Sprintf("folders.%d", i))
+		}
+
+		req.Folders = append(req.Folders, models.CreateFolderRequest{
+			Name: name,
+			Path: path,
+		})
+	}
+
+	if len(req.Folders) == 0 {
+		return req, appErr.NewHandlerError(appErr.ErrValidation, "at least one folder is required", nil).
+			WithOperation("parseLibraryForm").
+			WithField("folders")
+	}
+
+	return req, nil
+}
+
+func (h *LibraryHandler) renderLibraryForm(c *gin.Context, formData FormData) {
+	h.RenderComponent(c, library.CreateLibraryContent(library.CreateLibraryData{
+		Error:  formData.Error,
+		Fields: formData.Fields,
+	}))
+}
+
+func (h *LibraryHandler) handleRenderError(c *gin.Context, err error, operation string) {
+	h.logger.ErrorContext(c.Request.Context(), "Render error",
+		"error", err,
+		"operation", operation)
+
+	h.RenderError(c, appErr.HTTPStatusCode(err), "Failed to render page")
 }
