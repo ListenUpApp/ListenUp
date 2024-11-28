@@ -208,16 +208,21 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 
 	case "text":
 		data = string(b)
-		if name == "\xa9nam" {
+		if name == "\xa9nam" && len(m.chapters) == 0 {
 			// Remove 8-byte header
 			text := string(b[8:])
 
+			// More comprehensive pattern matching
 			if strings.Contains(text, "Chapter") ||
 				strings.Contains(text, "Opening Credits") ||
-				strings.Contains(text, "End Credits") {
+				strings.Contains(text, "End Credits") ||
+				strings.Contains(text, "Part") ||
+				strings.Contains(text, "Section") {
 
 				chapter := Chapter{
 					Title: text,
+					// Timestamps will be calculated later when we know the total duration
+					// in the existing code that handles chapter timestamp distribution
 				}
 				m.chapters = append(m.chapters, chapter)
 			}
