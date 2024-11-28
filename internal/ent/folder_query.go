@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
@@ -25,6 +26,7 @@ type FolderQuery struct {
 	inters        []Interceptor
 	predicates    []predicate.Folder
 	withLibraries *LibraryQuery
+	withBooks     *BookQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +78,28 @@ func (fq *FolderQuery) QueryLibraries() *LibraryQuery {
 			sqlgraph.From(folder.Table, folder.FieldID, selector),
 			sqlgraph.To(library.Table, library.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, folder.LibrariesTable, folder.LibrariesPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryBooks chains the current query on the "books" edge.
+func (fq *FolderQuery) QueryBooks() *BookQuery {
+	query := (&BookClient{config: fq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := fq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := fq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, selector),
+			sqlgraph.To(book.Table, book.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, folder.BooksTable, folder.BooksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(fq.driver.Dialect(), step)
 		return fromU, nil
@@ -276,6 +300,7 @@ func (fq *FolderQuery) Clone() *FolderQuery {
 		inters:        append([]Interceptor{}, fq.inters...),
 		predicates:    append([]predicate.Folder{}, fq.predicates...),
 		withLibraries: fq.withLibraries.Clone(),
+		withBooks:     fq.withBooks.Clone(),
 		// clone intermediate query.
 		sql:  fq.sql.Clone(),
 		path: fq.path,
@@ -290,6 +315,17 @@ func (fq *FolderQuery) WithLibraries(opts ...func(*LibraryQuery)) *FolderQuery {
 		opt(query)
 	}
 	fq.withLibraries = query
+	return fq
+}
+
+// WithBooks tells the query-builder to eager-load the nodes that are connected to
+// the "books" edge. The optional arguments are used to configure the query builder of the edge.
+func (fq *FolderQuery) WithBooks(opts ...func(*BookQuery)) *FolderQuery {
+	query := (&BookClient{config: fq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	fq.withBooks = query
 	return fq
 }
 
@@ -371,8 +407,9 @@ func (fq *FolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Folde
 	var (
 		nodes       = []*Folder{}
 		_spec       = fq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			fq.withLibraries != nil,
+			fq.withBooks != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -397,6 +434,13 @@ func (fq *FolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Folde
 		if err := fq.loadLibraries(ctx, query, nodes,
 			func(n *Folder) { n.Edges.Libraries = []*Library{} },
 			func(n *Folder, e *Library) { n.Edges.Libraries = append(n.Edges.Libraries, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := fq.withBooks; query != nil {
+		if err := fq.loadBooks(ctx, query, nodes,
+			func(n *Folder) { n.Edges.Books = []*Book{} },
+			func(n *Folder, e *Book) { n.Edges.Books = append(n.Edges.Books, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -461,6 +505,37 @@ func (fq *FolderQuery) loadLibraries(ctx context.Context, query *LibraryQuery, n
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (fq *FolderQuery) loadBooks(ctx context.Context, query *BookQuery, nodes []*Folder, init func(*Folder), assign func(*Folder, *Book)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Folder)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Book(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(folder.BooksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.folder_books
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "folder_books" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "folder_books" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

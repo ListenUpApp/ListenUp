@@ -4,6 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 )
 
@@ -33,37 +34,17 @@ func (Library) Edges() []ent.Edge {
 		edge.From("active_users", User.Type).
 			Ref("active_library"),
 		edge.To("folders", Folder.Type),
+		edge.To("library_books", Book.Type),
+	}
+}
+
+func (Library) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("name"),
 	}
 }
 
 // Folder holds the schema definition for the Folder entity.
 type Folder struct {
 	ent.Schema
-}
-
-// Fields of the Library
-func (Folder) Fields() []ent.Field {
-	return []ent.Field{
-		field.String("id").
-			DefaultFunc(util.NewID).
-			Unique().
-			Immutable().
-			Comment("Unique identifier for the folder"),
-		field.String("name").
-			Unique().
-			Comment("The folder's name"),
-		field.String("path").
-			Comment("The folders' path"),
-		field.Time("last_scanned_at").
-			Optional().
-			Comment(("Time when the folder was last scanned")),
-	}
-}
-
-// Edges of the Library.
-func (Folder) Edges() []ent.Edge {
-	return []ent.Edge{
-		edge.From("libraries", Library.Type).
-			Ref("folders"),
-	}
 }

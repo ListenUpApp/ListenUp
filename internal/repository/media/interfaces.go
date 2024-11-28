@@ -9,9 +9,11 @@ import (
 
 type FolderOperations interface {
 	GetByID(ctx context.Context, id string) (*ent.Folder, error)
+	GetAll(ctx context.Context) ([]*ent.Folder, error)
 	Create(ctx context.Context, params models.CreateFolderRequest) (*ent.Folder, error)
 	GetOSFolderWithDepth(ctx context.Context, path string, depth int) (*models.GetFolderResponse, error)
 	ValidateOSPath(ctx context.Context, path string) error
+	GetLibrariesForFolder(ctx context.Context, folderID string) ([]*ent.Library, error)
 }
 
 type LibraryOperations interface {
@@ -21,4 +23,6 @@ type LibraryOperations interface {
 	CreateLibrary(ctx context.Context, userId string, params models.CreateLibraryRequest) (*ent.Library, error)
 	AddFolders(ctx context.Context, libraryID string, folders []models.CreateFolderRequest) error
 	ExistsForUser(ctx context.Context, userId string, name string) (bool, error)
+	GetLibrariesWithFolders(ctx context.Context, folderPath string) ([]*ent.Library, error)
+	GetBooks(ctx context.Context, libraryId string, offset, limit int) ([]*ent.Book, int, error)
 }

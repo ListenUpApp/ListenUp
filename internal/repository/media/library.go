@@ -2,8 +2,10 @@ package media
 
 import (
 	"context"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 	appErr "github.com/ListenUpApp/ListenUp/internal/error"
@@ -248,4 +250,89 @@ func (r *libraryRepository) ExistsForUser(ctx context.Context, userId string, na
 	}
 
 	return count > 0, nil
+}
+
+func (r *libraryRepository) GetLibrariesWithFolders(ctx context.Context, folderPath string) ([]*ent.Library, error) {
+	// Get libraries that contain the folder with this path
+	libraries, err := r.client.Library.Query().
+		Where(
+			library.HasFoldersWith(
+				folder.PathEQ(folderPath),
+			),
+		).
+		WithFolders().
+		All(ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found with folder", err).
+				WithOperation("GetLibrariesWithFolders").
+				WithData(map[string]interface{}{
+					"folder_path": folderPath,
+				})
+		}
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query libraries", err).
+			WithOperation("GetLibrariesWithFolders").
+			WithData(map[string]interface{}{
+				"folder_path": folderPath,
+			})
+	}
+
+	if len(libraries) == 0 {
+		return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found with folder", nil).
+			WithOperation("GetLibrariesWithFolders").
+			WithData(map[string]interface{}{
+				"folder_path": folderPath,
+			})
+	}
+
+	return libraries, nil
+}
+
+func (r *libraryRepository) GetBooks(ctx context.Context, libraryId string, offset, limit int) ([]*ent.Book, int, error) {
+	// First get the library to verify it exists
+	dbLibrary, err := r.client.Library.Query().Where(library.IDEQ(libraryId)).Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, 0, appErr.NewRepositoryError(appErr.ErrNotFound, "library not found", err).
+				WithOperation("GetBooks").
+				WithData(map[string]interface{}{
+					"library_id": libraryId,
+				})
+		}
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query library", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	// Get total count
+	total, err := dbLibrary.QueryLibraryBooks().Count(ctx)
+	if err != nil {
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to count books", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	// Get paginated books with authors preloaded
+	books, err := dbLibrary.QueryLibraryBooks().
+		WithAuthors().
+		WithCover().
+		Offset(offset).
+		Limit(limit).
+		Order(ent.Asc(book.FieldTitle)).
+		All(ctx)
+
+	if err != nil {
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query books", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	return books, total, nil
 }

@@ -57,6 +57,42 @@ func (s *MediaService) GetFolderStructure(ctx context.Context, req models.GetFol
 	return folder, nil
 }
 
+func (s *MediaService) GetAllFolders(ctx context.Context) ([]*models.Folder, error) {
+	folders, err := s.mediaRepo.Folders.GetAll(ctx)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetAllFolders", nil)
+	}
+
+	var result []*models.Folder
+	for _, f := range folders {
+		result = append(result, &models.Folder{
+			ID:   f.ID,
+			Name: f.Name,
+			Path: f.Path,
+		})
+	}
+
+	return result, nil
+}
+
+func (s *MediaService) ValidateFolderPath(ctx context.Context, path string) error {
+	return s.mediaRepo.Folders.ValidateOSPath(ctx, path)
+}
+
+func (s *MediaService) HandleNewAudioFile(ctx context.Context, path string) error {
+	// For now, just log the detection
+	s.logger.InfoContext(ctx, "New audio file detected",
+		"path", path)
+
+	// TODO: Implement actual file processing logic
+	// - Extract metadata
+	// - Add to database
+	// - Process cover art
+	// - etc.
+
+	return nil
+}
+
 func (s *MediaService) GetUsersLibraries(ctx context.Context, userId string) ([]*models.Library, error) {
 	dbLibraries, err := s.mediaRepo.Library.GetAllForUser(ctx, userId)
 	if err != nil {
@@ -136,5 +172,70 @@ func (s *MediaService) CreateLibrary(ctx context.Context, userId string, params 
 	return &models.Library{
 		ID:   dbLibrary.ID,
 		Name: dbLibrary.Name,
+	}, nil
+}
+
+func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pageSize int) (*models.BookList, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20 // Default page size
+	}
+
+	// Get books with pagination
+	books, total, err := s.mediaRepo.Library.GetBooks(ctx, libraryId, (page-1)*pageSize, pageSize)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetBooks", map[string]interface{}{
+			"library_id": libraryId,
+			"page":       page,
+			"page_size":  pageSize,
+		})
+	}
+
+	// Convert to ListAudiobook format
+	listBooks := make([]models.ListAudiobook, 0, len(books))
+	for _, book := range books {
+		// Get the first author or create an empty one
+		var author models.ListAuthor
+		authors, err := book.QueryAuthors().All(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to get authors for book",
+				"book_id", book.ID,
+				"error", err)
+		} else if len(authors) > 0 {
+			author = models.ListAuthor{
+				ID:   authors[0].ID,
+				Name: authors[0].Name,
+			}
+		}
+
+		// Get cover information
+		var cover models.Cover
+		if bookCover, err := book.QueryCover().Only(ctx); err == nil {
+			cover = models.Cover{
+				Path:      bookCover.Path,
+				Format:    bookCover.Format,
+				Size:      bookCover.Size,
+				UpdatedAt: bookCover.UpdatedAt,
+			}
+		}
+
+		listBooks = append(listBooks, models.ListAudiobook{
+			ID:     book.ID,
+			Title:  book.Title,
+			Cover:  cover,
+			Author: author,
+		})
+	}
+
+	return &models.BookList{
+		Books: listBooks,
+		Pagination: models.Pagination{
+			CurrentPage: page,
+			PageSize:    pageSize,
+			TotalItems:  total,
+			TotalPages:  (total + pageSize - 1) / pageSize,
+		},
 	}, nil
 }

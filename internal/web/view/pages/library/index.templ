@@ -1,33 +1,104 @@
 package library
 
 import (
+	"fmt"
 	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
+	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/partials"
+	"strconv"
 )
 
-templ LibraryIndexPage() {
+templ LibraryIndexPage(books []models.ListAudiobook, pagination models.Pagination) {
 	@layouts.App() {
-		@LibraryIndexContent()
+		@LibraryIndexContent(books, pagination)
 	}
 }
 
-templ LibraryIndexContent() {
-	if data, ok := appcontext.GetAppContext(ctx); ok {
-		if data.ActiveLibrary.Name != "" {
-			<title>ListenUp | { data.ActiveLibrary.Name }</title>
-		} else {
-			<title>ListenUp | Library</title>
-		}
-	}
+templ LibraryIndexContent(books []models.ListAudiobook, pagination models.Pagination) {
 	if appCtx, ok := appcontext.GetAppContext(ctx); ok {
 		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
 			@partials.LibraryStatus()
 		} else {
-			<div class="prose lg:prose-xl p-4">
-				<h1 class="text-2xl">Welcome to ListenUp</h1>
-				<p>This is a sample homepage served with Templ and Gin.</p>
+			<div>
+				// Book grid
+				<div id="book-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-12 gap-6">
+					for _, book := range books {
+						@BookCard(book)
+					}
+				</div>
+				// Pagination
+				if pagination.TotalPages > 1 {
+					@Pagination(pagination)
+				}
 			</div>
 		}
 	}
+}
+
+templ BookCard(book models.ListAudiobook) {
+	<div class="group relative bg-white p-3 rounded-xl shadow-lg hover:shadow-2xl transition-shadow">
+		<div class="aspect-w-2 aspect-h-3 rounded-xl overflow-hidden bg-gray-100">
+			if book.Cover.Path != "" {
+				<img
+					src={ book.Cover.Path }
+					alt={ book.Title }
+					class="object-cover object-center"
+				/>
+			} else {
+				<div class="flex items-center justify-center h-full bg-gray-200">
+					<img src="https://placehold.co/400x400" alt="">
+				</div>
+			}
+		</div>
+		<div class="mt-4 flex justify-between">
+			<div>
+				<h3 class="text-sm font-medium text-secondary-700">
+					<a class="line-clamp-1" href={ templ.SafeURL("/books/" + book.ID) }>
+						<span aria-hidden="true" class="absolute inset-0"></span>
+						{ book.Title }
+					</a>
+				</h3>
+				<p class="mt-1 text-xs md:text-sm text-secondary-500">{ book.Author.Name }</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ Pagination(p models.Pagination) {
+	<div class="flex justify-center space-x-1 mt-8">
+		// Previous page
+		if p.CurrentPage > 1 {
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("?page=%d", p.CurrentPage-1)) }
+				class="px-4 py-2 text-gray-500 bg-white rounded-md hover:bg-blue-50"
+			>
+				Previous
+			</a>
+		}
+		// Page numbers
+		for i := max(1, p.CurrentPage-2); i <= min(p.TotalPages, p.CurrentPage+2); i++ {
+			if i == p.CurrentPage {
+				<span class="px-4 py-2 text-white bg-blue-500 rounded-md">
+					{ strconv.Itoa(i) }
+				</span>
+			} else {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("?page=%d", i)) }
+					class="px-4 py-2 text-gray-500 bg-white rounded-md hover:bg-blue-50"
+				>
+					{ strconv.Itoa(i) }
+				</a>
+			}
+		}
+		// Next page
+		if p.CurrentPage < p.TotalPages {
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("?page=%d", p.CurrentPage+1)) }
+				class="px-4 py-2 text-gray-500 bg-white rounded-md hover:bg-blue-50"
+			>
+				Next
+			</a>
+		}
+	</div>
 }

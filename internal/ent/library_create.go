@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
@@ -84,6 +85,21 @@ func (lc *LibraryCreate) AddFolders(f ...*Folder) *LibraryCreate {
 		ids[i] = f[i].ID
 	}
 	return lc.AddFolderIDs(ids...)
+}
+
+// AddLibraryBookIDs adds the "library_books" edge to the Book entity by IDs.
+func (lc *LibraryCreate) AddLibraryBookIDs(ids ...string) *LibraryCreate {
+	lc.mutation.AddLibraryBookIDs(ids...)
+	return lc
+}
+
+// AddLibraryBooks adds the "library_books" edges to the Book entity.
+func (lc *LibraryCreate) AddLibraryBooks(b ...*Book) *LibraryCreate {
+	ids := make([]string, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return lc.AddLibraryBookIDs(ids...)
 }
 
 // Mutation returns the LibraryMutation object of the builder.
@@ -212,6 +228,22 @@ func (lc *LibraryCreate) createSpec() (*Library, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := lc.mutation.LibraryBooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   library.LibraryBooksTable,
+			Columns: []string{library.LibraryBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

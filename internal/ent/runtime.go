@@ -5,8 +5,13 @@ package ent
 import (
 	"time"
 
+	"github.com/ListenUpApp/ListenUp/internal/ent/author"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
+	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
+	"github.com/ListenUpApp/ListenUp/internal/ent/chapter"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
+	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
 	"github.com/ListenUpApp/ListenUp/internal/ent/schema"
 	"github.com/ListenUpApp/ListenUp/internal/ent/server"
 	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
@@ -17,6 +22,123 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	authorFields := schema.Author{}.Fields()
+	_ = authorFields
+	// authorDescCreatedAt is the schema descriptor for created_at field.
+	authorDescCreatedAt := authorFields[4].Descriptor()
+	// author.DefaultCreatedAt holds the default value on creation for the created_at field.
+	author.DefaultCreatedAt = authorDescCreatedAt.Default.(func() time.Time)
+	// authorDescUpdatedAt is the schema descriptor for updated_at field.
+	authorDescUpdatedAt := authorFields[5].Descriptor()
+	// author.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	author.DefaultUpdatedAt = authorDescUpdatedAt.Default.(func() time.Time)
+	// author.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	author.UpdateDefaultUpdatedAt = authorDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// authorDescID is the schema descriptor for id field.
+	authorDescID := authorFields[0].Descriptor()
+	// author.DefaultID holds the default value on creation for the id field.
+	author.DefaultID = authorDescID.Default.(func() string)
+	bookFields := schema.Book{}.Fields()
+	_ = bookFields
+	// bookDescExplicit is the schema descriptor for explicit field.
+	bookDescExplicit := bookFields[9].Descriptor()
+	// book.DefaultExplicit holds the default value on creation for the explicit field.
+	book.DefaultExplicit = bookDescExplicit.Default.(bool)
+	// bookDescCreatedAt is the schema descriptor for created_at field.
+	bookDescCreatedAt := bookFields[14].Descriptor()
+	// book.DefaultCreatedAt holds the default value on creation for the created_at field.
+	book.DefaultCreatedAt = bookDescCreatedAt.Default.(func() time.Time)
+	// bookDescUpdatedAt is the schema descriptor for updated_at field.
+	bookDescUpdatedAt := bookFields[15].Descriptor()
+	// book.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	book.DefaultUpdatedAt = bookDescUpdatedAt.Default.(func() time.Time)
+	// book.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	book.UpdateDefaultUpdatedAt = bookDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// bookDescID is the schema descriptor for id field.
+	bookDescID := bookFields[0].Descriptor()
+	// book.DefaultID holds the default value on creation for the id field.
+	book.DefaultID = bookDescID.Default.(func() string)
+	bookcoverFields := schema.BookCover{}.Fields()
+	_ = bookcoverFields
+	// bookcoverDescPath is the schema descriptor for path field.
+	bookcoverDescPath := bookcoverFields[0].Descriptor()
+	// bookcover.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	bookcover.PathValidator = bookcoverDescPath.Validators[0].(func(string) error)
+	// bookcoverDescFormat is the schema descriptor for format field.
+	bookcoverDescFormat := bookcoverFields[1].Descriptor()
+	// bookcover.FormatValidator is a validator for the "format" field. It is called by the builders before save.
+	bookcover.FormatValidator = func() func(string) error {
+		validators := bookcoverDescFormat.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(format string) error {
+			for _, fn := range fns {
+				if err := fn(format); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// bookcoverDescSize is the schema descriptor for size field.
+	bookcoverDescSize := bookcoverFields[2].Descriptor()
+	// bookcover.SizeValidator is a validator for the "size" field. It is called by the builders before save.
+	bookcover.SizeValidator = bookcoverDescSize.Validators[0].(func(int64) error)
+	// bookcoverDescUpdatedAt is the schema descriptor for updated_at field.
+	bookcoverDescUpdatedAt := bookcoverFields[3].Descriptor()
+	// bookcover.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	bookcover.DefaultUpdatedAt = bookcoverDescUpdatedAt.Default.(func() time.Time)
+	// bookcover.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	bookcover.UpdateDefaultUpdatedAt = bookcoverDescUpdatedAt.UpdateDefault.(func() time.Time)
+	chapterFields := schema.Chapter{}.Fields()
+	_ = chapterFields
+	// chapterDescIndex is the schema descriptor for index field.
+	chapterDescIndex := chapterFields[0].Descriptor()
+	// chapter.IndexValidator is a validator for the "index" field. It is called by the builders before save.
+	chapter.IndexValidator = chapterDescIndex.Validators[0].(func(int) error)
+	// chapterDescTitle is the schema descriptor for title field.
+	chapterDescTitle := chapterFields[1].Descriptor()
+	// chapter.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	chapter.TitleValidator = func() func(string) error {
+		validators := chapterDescTitle.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(title string) error {
+			for _, fn := range fns {
+				if err := fn(title); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// chapterDescStart is the schema descriptor for start field.
+	chapterDescStart := chapterFields[2].Descriptor()
+	// chapter.StartValidator is a validator for the "start" field. It is called by the builders before save.
+	chapter.StartValidator = chapterDescStart.Validators[0].(func(float64) error)
+	// chapterDescEnd is the schema descriptor for end field.
+	chapterDescEnd := chapterFields[3].Descriptor()
+	// chapter.EndValidator is a validator for the "end" field. It is called by the builders before save.
+	chapter.EndValidator = func() func(float64) error {
+		validators := chapterDescEnd.Validators
+		fns := [...]func(float64) error{
+			validators[0].(func(float64) error),
+			validators[1].(func(float64) error),
+		}
+		return func(end float64) error {
+			for _, fn := range fns {
+				if err := fn(end); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	folderFields := schema.Folder{}.Fields()
 	_ = folderFields
 	// folderDescID is the schema descriptor for id field.
@@ -29,6 +151,22 @@ func init() {
 	libraryDescID := libraryFields[0].Descriptor()
 	// library.DefaultID holds the default value on creation for the id field.
 	library.DefaultID = libraryDescID.Default.(func() string)
+	narratorFields := schema.Narrator{}.Fields()
+	_ = narratorFields
+	// narratorDescCreatedAt is the schema descriptor for created_at field.
+	narratorDescCreatedAt := narratorFields[4].Descriptor()
+	// narrator.DefaultCreatedAt holds the default value on creation for the created_at field.
+	narrator.DefaultCreatedAt = narratorDescCreatedAt.Default.(func() time.Time)
+	// narratorDescUpdatedAt is the schema descriptor for updated_at field.
+	narratorDescUpdatedAt := narratorFields[5].Descriptor()
+	// narrator.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	narrator.DefaultUpdatedAt = narratorDescUpdatedAt.Default.(func() time.Time)
+	// narrator.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	narrator.UpdateDefaultUpdatedAt = narratorDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// narratorDescID is the schema descriptor for id field.
+	narratorDescID := narratorFields[0].Descriptor()
+	// narrator.DefaultID holds the default value on creation for the id field.
+	narrator.DefaultID = narratorDescID.Default.(func() string)
 	serverFields := schema.Server{}.Fields()
 	_ = serverFields
 	// serverDescSetup is the schema descriptor for setup field.

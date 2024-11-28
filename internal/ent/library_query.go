@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
@@ -21,13 +22,14 @@ import (
 // LibraryQuery is the builder for querying Library entities.
 type LibraryQuery struct {
 	config
-	ctx             *QueryContext
-	order           []library.OrderOption
-	inters          []Interceptor
-	predicates      []predicate.Library
-	withUsers       *UserQuery
-	withActiveUsers *UserQuery
-	withFolders     *FolderQuery
+	ctx              *QueryContext
+	order            []library.OrderOption
+	inters           []Interceptor
+	predicates       []predicate.Library
+	withUsers        *UserQuery
+	withActiveUsers  *UserQuery
+	withFolders      *FolderQuery
+	withLibraryBooks *BookQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -123,6 +125,28 @@ func (lq *LibraryQuery) QueryFolders() *FolderQuery {
 			sqlgraph.From(library.Table, library.FieldID, selector),
 			sqlgraph.To(folder.Table, folder.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, false, library.FoldersTable, library.FoldersPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(lq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryLibraryBooks chains the current query on the "library_books" edge.
+func (lq *LibraryQuery) QueryLibraryBooks() *BookQuery {
+	query := (&BookClient{config: lq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := lq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := lq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(library.Table, library.FieldID, selector),
+			sqlgraph.To(book.Table, book.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, library.LibraryBooksTable, library.LibraryBooksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(lq.driver.Dialect(), step)
 		return fromU, nil
@@ -317,14 +341,15 @@ func (lq *LibraryQuery) Clone() *LibraryQuery {
 		return nil
 	}
 	return &LibraryQuery{
-		config:          lq.config,
-		ctx:             lq.ctx.Clone(),
-		order:           append([]library.OrderOption{}, lq.order...),
-		inters:          append([]Interceptor{}, lq.inters...),
-		predicates:      append([]predicate.Library{}, lq.predicates...),
-		withUsers:       lq.withUsers.Clone(),
-		withActiveUsers: lq.withActiveUsers.Clone(),
-		withFolders:     lq.withFolders.Clone(),
+		config:           lq.config,
+		ctx:              lq.ctx.Clone(),
+		order:            append([]library.OrderOption{}, lq.order...),
+		inters:           append([]Interceptor{}, lq.inters...),
+		predicates:       append([]predicate.Library{}, lq.predicates...),
+		withUsers:        lq.withUsers.Clone(),
+		withActiveUsers:  lq.withActiveUsers.Clone(),
+		withFolders:      lq.withFolders.Clone(),
+		withLibraryBooks: lq.withLibraryBooks.Clone(),
 		// clone intermediate query.
 		sql:  lq.sql.Clone(),
 		path: lq.path,
@@ -361,6 +386,17 @@ func (lq *LibraryQuery) WithFolders(opts ...func(*FolderQuery)) *LibraryQuery {
 		opt(query)
 	}
 	lq.withFolders = query
+	return lq
+}
+
+// WithLibraryBooks tells the query-builder to eager-load the nodes that are connected to
+// the "library_books" edge. The optional arguments are used to configure the query builder of the edge.
+func (lq *LibraryQuery) WithLibraryBooks(opts ...func(*BookQuery)) *LibraryQuery {
+	query := (&BookClient{config: lq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	lq.withLibraryBooks = query
 	return lq
 }
 
@@ -442,10 +478,11 @@ func (lq *LibraryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Libr
 	var (
 		nodes       = []*Library{}
 		_spec       = lq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			lq.withUsers != nil,
 			lq.withActiveUsers != nil,
 			lq.withFolders != nil,
+			lq.withLibraryBooks != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -484,6 +521,13 @@ func (lq *LibraryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Libr
 		if err := lq.loadFolders(ctx, query, nodes,
 			func(n *Library) { n.Edges.Folders = []*Folder{} },
 			func(n *Library, e *Folder) { n.Edges.Folders = append(n.Edges.Folders, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := lq.withLibraryBooks; query != nil {
+		if err := lq.loadLibraryBooks(ctx, query, nodes,
+			func(n *Library) { n.Edges.LibraryBooks = []*Book{} },
+			func(n *Library, e *Book) { n.Edges.LibraryBooks = append(n.Edges.LibraryBooks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -640,6 +684,37 @@ func (lq *LibraryQuery) loadFolders(ctx context.Context, query *FolderQuery, nod
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (lq *LibraryQuery) loadLibraryBooks(ctx context.Context, query *BookQuery, nodes []*Library, init func(*Library), assign func(*Library, *Book)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Library)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Book(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(library.LibraryBooksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.library_library_books
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "library_library_books" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "library_library_books" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

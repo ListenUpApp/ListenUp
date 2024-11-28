@@ -12,10 +12,20 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// Author is the client for interacting with the Author builders.
+	Author *AuthorClient
+	// Book is the client for interacting with the Book builders.
+	Book *BookClient
+	// BookCover is the client for interacting with the BookCover builders.
+	BookCover *BookCoverClient
+	// Chapter is the client for interacting with the Chapter builders.
+	Chapter *ChapterClient
 	// Folder is the client for interacting with the Folder builders.
 	Folder *FolderClient
 	// Library is the client for interacting with the Library builders.
 	Library *LibraryClient
+	// Narrator is the client for interacting with the Narrator builders.
+	Narrator *NarratorClient
 	// Server is the client for interacting with the Server builders.
 	Server *ServerClient
 	// ServerConfig is the client for interacting with the ServerConfig builders.
@@ -153,8 +163,13 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.Author = NewAuthorClient(tx.config)
+	tx.Book = NewBookClient(tx.config)
+	tx.BookCover = NewBookCoverClient(tx.config)
+	tx.Chapter = NewChapterClient(tx.config)
 	tx.Folder = NewFolderClient(tx.config)
 	tx.Library = NewLibraryClient(tx.config)
+	tx.Narrator = NewNarratorClient(tx.config)
 	tx.Server = NewServerClient(tx.config)
 	tx.ServerConfig = NewServerConfigClient(tx.config)
 	tx.User = NewUserClient(tx.config)
@@ -167,7 +182,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Folder.QueryXXX(), the query will be executed
+// applies a query, for example: Author.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

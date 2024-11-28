@@ -13,6 +13,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/handler/web"
 	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/middleware"
+	"github.com/ListenUpApp/ListenUp/internal/scanner"
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/pages"
@@ -26,6 +27,7 @@ type Server struct {
 	router     *gin.Engine
 	httpServer *http.Server
 	validator  *validator.Validate
+	scanner    *scanner.Scanner
 }
 
 type Config struct {
@@ -62,6 +64,20 @@ func New(cfg Config) (*Server, error) {
 		Addr:    fmt.Sprintf(":%d", cfg.Config.Server.Port),
 		Handler: router,
 	}
+	scanner, err := scanner.New(scanner.Config{
+		Logger:         cfg.Logger,
+		ContentService: cfg.Services.Content,
+		MediaService: cfg.Services.Media,
+	})
+	if err != nil {
+		return nil, appErr.NewHandlerError(appErr.ErrInternal, "failed to create scanner", err).
+			WithOperation("NewServer")
+	}
+
+	// Initialize scanner with existing folders
+	if err := scanner.InitializeFromDB(context.Background()); err != nil {
+		cfg.Logger.Error("Failed to initialize scanner with existing folders", "error", err)
+	}
 
 	return &Server{
 		config:     cfg.Config,
@@ -70,6 +86,7 @@ func New(cfg Config) (*Server, error) {
 		router:     router,
 		httpServer: httpServer,
 		validator:  cfg.Validator,
+		scanner:    scanner,
 	}, nil
 }
 
@@ -162,6 +179,8 @@ func (s *Server) Run() error {
 		"port", s.config.Server.Port,
 		"env", s.config.App.Environment)
 
+	s.scanner.Start()
+
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return appErr.NewHandlerError(appErr.ErrInternal, "server failed to start", err).
 			WithOperation("ServerRun").
@@ -175,6 +194,12 @@ func (s *Server) Run() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info("Shutting down server")
+
+	// Stop the scanner
+	if err := s.scanner.Stop(); err != nil {
+		s.logger.Error("Failed to stop scanner", "error", err)
+	}
+
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		return appErr.NewHandlerError(appErr.ErrInternal, "failed to shutdown server", err).
 			WithOperation("ServerShutdown")

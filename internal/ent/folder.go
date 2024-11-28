@@ -34,9 +34,11 @@ type Folder struct {
 type FolderEdges struct {
 	// Libraries holds the value of the libraries edge.
 	Libraries []*Library `json:"libraries,omitempty"`
+	// Books holds the value of the books edge.
+	Books []*Book `json:"books,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // LibrariesOrErr returns the Libraries value or an error if the edge
@@ -46,6 +48,15 @@ func (e FolderEdges) LibrariesOrErr() ([]*Library, error) {
 		return e.Libraries, nil
 	}
 	return nil, &NotLoadedError{edge: "libraries"}
+}
+
+// BooksOrErr returns the Books value or an error if the edge
+// was not loaded in eager-loading.
+func (e FolderEdges) BooksOrErr() ([]*Book, error) {
+	if e.loadedTypes[1] {
+		return e.Books, nil
+	}
+	return nil, &NotLoadedError{edge: "books"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -112,6 +123,11 @@ func (f *Folder) Value(name string) (ent.Value, error) {
 // QueryLibraries queries the "libraries" edge of the Folder entity.
 func (f *Folder) QueryLibraries() *LibraryQuery {
 	return NewFolderClient(f.config).QueryLibraries(f)
+}
+
+// QueryBooks queries the "books" edge of the Folder entity.
+func (f *Folder) QueryBooks() *BookQuery {
+	return NewFolderClient(f.config).QueryBooks(f)
 }
 
 // Update returns a builder for updating this Folder.
