@@ -99,39 +99,6 @@ func ReadAtoms(r io.ReadSeeker) (Metadata, error) {
 	err := m.readAtoms(r)
 	return m, err
 }
-
-func dumpHex(data []byte, prefix string) {
-	const width = 16
-	for i := 0; i < len(data); i += width {
-		end := i + width
-		if end > len(data) {
-			end = len(data)
-		}
-
-		// Print hex
-		fmt.Printf("%s%04x: ", prefix, i)
-		for j := i; j < end; j++ {
-			fmt.Printf("%02x ", data[j])
-		}
-
-		// Fill any remaining space if we're at the end
-		for j := end; j < i+width; j++ {
-			fmt.Printf("   ")
-		}
-
-		// Print ASCII
-		fmt.Printf(" |")
-		for j := i; j < end; j++ {
-			if data[j] >= 32 && data[j] <= 126 {
-				fmt.Printf("%c", data[j])
-			} else {
-				fmt.Printf(".")
-			}
-		}
-		fmt.Println("|")
-	}
-}
-
 func (m *metadataMP4) readAtoms(r io.ReadSeeker) error {
 	for {
 		name, size, err := readAtomHeader(r)
@@ -141,8 +108,6 @@ func (m *metadataMP4) readAtoms(r io.ReadSeeker) error {
 			}
 			return err
 		}
-
-		fmt.Printf("Found atom: %q size: %d\n", name, size)
 
 		switch name {
 		case "mvhd":
@@ -235,8 +200,6 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 			}
 		}
 	}
-
-	fmt.Printf("Atom %q has content type %q\n", name, contentType)
 
 	var data interface{}
 	switch contentType {
