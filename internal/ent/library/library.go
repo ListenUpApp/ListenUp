@@ -20,6 +20,8 @@ const (
 	EdgeActiveUsers = "active_users"
 	// EdgeFolders holds the string denoting the folders edge name in mutations.
 	EdgeFolders = "folders"
+	// EdgeLibraryBooks holds the string denoting the library_books edge name in mutations.
+	EdgeLibraryBooks = "library_books"
 	// Table holds the table name of the library in the database.
 	Table = "libraries"
 	// UsersTable is the table that holds the users relation/edge. The primary key declared below.
@@ -39,6 +41,13 @@ const (
 	// FoldersInverseTable is the table name for the Folder entity.
 	// It exists in this package in order to avoid circular dependency with the "folder" package.
 	FoldersInverseTable = "folders"
+	// LibraryBooksTable is the table that holds the library_books relation/edge.
+	LibraryBooksTable = "books"
+	// LibraryBooksInverseTable is the table name for the Book entity.
+	// It exists in this package in order to avoid circular dependency with the "book" package.
+	LibraryBooksInverseTable = "books"
+	// LibraryBooksColumn is the table column denoting the library_books relation/edge.
+	LibraryBooksColumn = "library_library_books"
 )
 
 // Columns holds all SQL columns for library fields.
@@ -125,6 +134,20 @@ func ByFolders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newFoldersStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByLibraryBooksCount orders the results by library_books count.
+func ByLibraryBooksCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newLibraryBooksStep(), opts...)
+	}
+}
+
+// ByLibraryBooks orders the results by library_books terms.
+func ByLibraryBooks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newLibraryBooksStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUsersStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -144,5 +167,12 @@ func newFoldersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(FoldersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, false, FoldersTable, FoldersPrimaryKey...),
+	)
+}
+func newLibraryBooksStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(LibraryBooksInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, LibraryBooksTable, LibraryBooksColumn),
 	)
 }

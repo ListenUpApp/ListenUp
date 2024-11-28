@@ -9,6 +9,54 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 )
 
+// The AuthorFunc type is an adapter to allow the use of ordinary
+// function as Author mutator.
+type AuthorFunc func(context.Context, *ent.AuthorMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AuthorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AuthorMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuthorMutation", m)
+}
+
+// The BookFunc type is an adapter to allow the use of ordinary
+// function as Book mutator.
+type BookFunc func(context.Context, *ent.BookMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f BookFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.BookMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BookMutation", m)
+}
+
+// The BookCoverFunc type is an adapter to allow the use of ordinary
+// function as BookCover mutator.
+type BookCoverFunc func(context.Context, *ent.BookCoverMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f BookCoverFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.BookCoverMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BookCoverMutation", m)
+}
+
+// The ChapterFunc type is an adapter to allow the use of ordinary
+// function as Chapter mutator.
+type ChapterFunc func(context.Context, *ent.ChapterMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChapterFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChapterMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChapterMutation", m)
+}
+
 // The FolderFunc type is an adapter to allow the use of ordinary
 // function as Folder mutator.
 type FolderFunc func(context.Context, *ent.FolderMutation) (ent.Value, error)
@@ -31,6 +79,18 @@ func (f LibraryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LibraryMutation", m)
+}
+
+// The NarratorFunc type is an adapter to allow the use of ordinary
+// function as Narrator mutator.
+type NarratorFunc func(context.Context, *ent.NarratorMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f NarratorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.NarratorMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.NarratorMutation", m)
 }
 
 // The ServerFunc type is an adapter to allow the use of ordinary

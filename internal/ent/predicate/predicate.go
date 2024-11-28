@@ -6,11 +6,26 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Author is the predicate function for author builders.
+type Author func(*sql.Selector)
+
+// Book is the predicate function for book builders.
+type Book func(*sql.Selector)
+
+// BookCover is the predicate function for bookcover builders.
+type BookCover func(*sql.Selector)
+
+// Chapter is the predicate function for chapter builders.
+type Chapter func(*sql.Selector)
+
 // Folder is the predicate function for folder builders.
 type Folder func(*sql.Selector)
 
 // Library is the predicate function for library builders.
 type Library func(*sql.Selector)
+
+// Narrator is the predicate function for narrator builders.
+type Narrator func(*sql.Selector)
 
 // Server is the predicate function for server builders.
 type Server func(*sql.Selector)

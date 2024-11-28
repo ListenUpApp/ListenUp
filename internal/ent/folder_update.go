@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
@@ -92,6 +93,21 @@ func (fu *FolderUpdate) AddLibraries(l ...*Library) *FolderUpdate {
 	return fu.AddLibraryIDs(ids...)
 }
 
+// AddBookIDs adds the "books" edge to the Book entity by IDs.
+func (fu *FolderUpdate) AddBookIDs(ids ...string) *FolderUpdate {
+	fu.mutation.AddBookIDs(ids...)
+	return fu
+}
+
+// AddBooks adds the "books" edges to the Book entity.
+func (fu *FolderUpdate) AddBooks(b ...*Book) *FolderUpdate {
+	ids := make([]string, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return fu.AddBookIDs(ids...)
+}
+
 // Mutation returns the FolderMutation object of the builder.
 func (fu *FolderUpdate) Mutation() *FolderMutation {
 	return fu.mutation
@@ -116,6 +132,27 @@ func (fu *FolderUpdate) RemoveLibraries(l ...*Library) *FolderUpdate {
 		ids[i] = l[i].ID
 	}
 	return fu.RemoveLibraryIDs(ids...)
+}
+
+// ClearBooks clears all "books" edges to the Book entity.
+func (fu *FolderUpdate) ClearBooks() *FolderUpdate {
+	fu.mutation.ClearBooks()
+	return fu
+}
+
+// RemoveBookIDs removes the "books" edge to Book entities by IDs.
+func (fu *FolderUpdate) RemoveBookIDs(ids ...string) *FolderUpdate {
+	fu.mutation.RemoveBookIDs(ids...)
+	return fu
+}
+
+// RemoveBooks removes "books" edges to Book entities.
+func (fu *FolderUpdate) RemoveBooks(b ...*Book) *FolderUpdate {
+	ids := make([]string, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return fu.RemoveBookIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -211,6 +248,51 @@ func (fu *FolderUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if fu.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := fu.mutation.RemovedBooksIDs(); len(nodes) > 0 && !fu.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := fu.mutation.BooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, fu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{folder.Label}
@@ -294,6 +376,21 @@ func (fuo *FolderUpdateOne) AddLibraries(l ...*Library) *FolderUpdateOne {
 	return fuo.AddLibraryIDs(ids...)
 }
 
+// AddBookIDs adds the "books" edge to the Book entity by IDs.
+func (fuo *FolderUpdateOne) AddBookIDs(ids ...string) *FolderUpdateOne {
+	fuo.mutation.AddBookIDs(ids...)
+	return fuo
+}
+
+// AddBooks adds the "books" edges to the Book entity.
+func (fuo *FolderUpdateOne) AddBooks(b ...*Book) *FolderUpdateOne {
+	ids := make([]string, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return fuo.AddBookIDs(ids...)
+}
+
 // Mutation returns the FolderMutation object of the builder.
 func (fuo *FolderUpdateOne) Mutation() *FolderMutation {
 	return fuo.mutation
@@ -318,6 +415,27 @@ func (fuo *FolderUpdateOne) RemoveLibraries(l ...*Library) *FolderUpdateOne {
 		ids[i] = l[i].ID
 	}
 	return fuo.RemoveLibraryIDs(ids...)
+}
+
+// ClearBooks clears all "books" edges to the Book entity.
+func (fuo *FolderUpdateOne) ClearBooks() *FolderUpdateOne {
+	fuo.mutation.ClearBooks()
+	return fuo
+}
+
+// RemoveBookIDs removes the "books" edge to Book entities by IDs.
+func (fuo *FolderUpdateOne) RemoveBookIDs(ids ...string) *FolderUpdateOne {
+	fuo.mutation.RemoveBookIDs(ids...)
+	return fuo
+}
+
+// RemoveBooks removes "books" edges to Book entities.
+func (fuo *FolderUpdateOne) RemoveBooks(b ...*Book) *FolderUpdateOne {
+	ids := make([]string, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return fuo.RemoveBookIDs(ids...)
 }
 
 // Where appends a list predicates to the FolderUpdate builder.
@@ -436,6 +554,51 @@ func (fuo *FolderUpdateOne) sqlSave(ctx context.Context) (_node *Folder, err err
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(library.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if fuo.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := fuo.mutation.RemovedBooksIDs(); len(nodes) > 0 && !fuo.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := fuo.mutation.BooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   folder.BooksTable,
+			Columns: []string{folder.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

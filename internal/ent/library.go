@@ -33,9 +33,11 @@ type LibraryEdges struct {
 	ActiveUsers []*User `json:"active_users,omitempty"`
 	// Folders holds the value of the folders edge.
 	Folders []*Folder `json:"folders,omitempty"`
+	// LibraryBooks holds the value of the library_books edge.
+	LibraryBooks []*Book `json:"library_books,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // UsersOrErr returns the Users value or an error if the edge
@@ -63,6 +65,15 @@ func (e LibraryEdges) FoldersOrErr() ([]*Folder, error) {
 		return e.Folders, nil
 	}
 	return nil, &NotLoadedError{edge: "folders"}
+}
+
+// LibraryBooksOrErr returns the LibraryBooks value or an error if the edge
+// was not loaded in eager-loading.
+func (e LibraryEdges) LibraryBooksOrErr() ([]*Book, error) {
+	if e.loadedTypes[3] {
+		return e.LibraryBooks, nil
+	}
+	return nil, &NotLoadedError{edge: "library_books"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -125,6 +136,11 @@ func (l *Library) QueryActiveUsers() *UserQuery {
 // QueryFolders queries the "folders" edge of the Library entity.
 func (l *Library) QueryFolders() *FolderQuery {
 	return NewLibraryClient(l.config).QueryFolders(l)
+}
+
+// QueryLibraryBooks queries the "library_books" edge of the Library entity.
+func (l *Library) QueryLibraryBooks() *BookQuery {
+	return NewLibraryClient(l.config).QueryLibraryBooks(l)
 }
 
 // Update returns a builder for updating this Library.
