@@ -19,15 +19,13 @@ type Narrator struct {
 	ID string `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
-	// NameSort holds the value of the "name_sort" field.
-	NameSort string `json:"name_sort,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// ImagePath holds the value of the "image_path" field.
 	ImagePath string `json:"image_path,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
+	// Time when the user was created
 	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
+	// Time when the user was last updated
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the NarratorQuery when eager-loading is set.
@@ -58,7 +56,7 @@ func (*Narrator) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case narrator.FieldID, narrator.FieldName, narrator.FieldNameSort, narrator.FieldDescription, narrator.FieldImagePath:
+		case narrator.FieldID, narrator.FieldName, narrator.FieldDescription, narrator.FieldImagePath:
 			values[i] = new(sql.NullString)
 		case narrator.FieldCreatedAt, narrator.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -88,12 +86,6 @@ func (n *Narrator) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				n.Name = value.String
-			}
-		case narrator.FieldNameSort:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name_sort", values[i])
-			} else if value.Valid {
-				n.NameSort = value.String
 			}
 		case narrator.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -162,9 +154,6 @@ func (n *Narrator) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", n.ID))
 	builder.WriteString("name=")
 	builder.WriteString(n.Name)
-	builder.WriteString(", ")
-	builder.WriteString("name_sort=")
-	builder.WriteString(n.NameSort)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(n.Description)

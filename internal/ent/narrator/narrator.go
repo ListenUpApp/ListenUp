@@ -3,6 +3,8 @@
 package narrator
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -14,8 +16,6 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldNameSort holds the string denoting the name_sort field in the database.
-	FieldNameSort = "name_sort"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldImagePath holds the string denoting the image_path field in the database.
@@ -39,7 +39,6 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
-	FieldNameSort,
 	FieldDescription,
 	FieldImagePath,
 	FieldCreatedAt,
@@ -63,6 +62,12 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
+	DefaultCreatedAt func() time.Time
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
+	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
+	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 )
@@ -78,11 +83,6 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
-}
-
-// ByNameSort orders the results by the name_sort field.
-func ByNameSort(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldNameSort, opts...).ToFunc()
 }
 
 // ByDescription orders the results by the description field.

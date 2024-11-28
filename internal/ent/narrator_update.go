@@ -43,20 +43,6 @@ func (nu *NarratorUpdate) SetNillableName(s *string) *NarratorUpdate {
 	return nu
 }
 
-// SetNameSort sets the "name_sort" field.
-func (nu *NarratorUpdate) SetNameSort(s string) *NarratorUpdate {
-	nu.mutation.SetNameSort(s)
-	return nu
-}
-
-// SetNillableNameSort sets the "name_sort" field if the given value is not nil.
-func (nu *NarratorUpdate) SetNillableNameSort(s *string) *NarratorUpdate {
-	if s != nil {
-		nu.SetNameSort(*s)
-	}
-	return nu
-}
-
 // SetDescription sets the "description" field.
 func (nu *NarratorUpdate) SetDescription(s string) *NarratorUpdate {
 	nu.mutation.SetDescription(s)
@@ -97,31 +83,9 @@ func (nu *NarratorUpdate) ClearImagePath() *NarratorUpdate {
 	return nu
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (nu *NarratorUpdate) SetCreatedAt(t time.Time) *NarratorUpdate {
-	nu.mutation.SetCreatedAt(t)
-	return nu
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (nu *NarratorUpdate) SetNillableCreatedAt(t *time.Time) *NarratorUpdate {
-	if t != nil {
-		nu.SetCreatedAt(*t)
-	}
-	return nu
-}
-
 // SetUpdatedAt sets the "updated_at" field.
 func (nu *NarratorUpdate) SetUpdatedAt(t time.Time) *NarratorUpdate {
 	nu.mutation.SetUpdatedAt(t)
-	return nu
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (nu *NarratorUpdate) SetNillableUpdatedAt(t *time.Time) *NarratorUpdate {
-	if t != nil {
-		nu.SetUpdatedAt(*t)
-	}
 	return nu
 }
 
@@ -168,6 +132,7 @@ func (nu *NarratorUpdate) RemoveBooks(b ...*Book) *NarratorUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (nu *NarratorUpdate) Save(ctx context.Context) (int, error) {
+	nu.defaults()
 	return withHooks(ctx, nu.sqlSave, nu.mutation, nu.hooks)
 }
 
@@ -193,6 +158,14 @@ func (nu *NarratorUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (nu *NarratorUpdate) defaults() {
+	if _, ok := nu.mutation.UpdatedAt(); !ok {
+		v := narrator.UpdateDefaultUpdatedAt()
+		nu.mutation.SetUpdatedAt(v)
+	}
+}
+
 func (nu *NarratorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	_spec := sqlgraph.NewUpdateSpec(narrator.Table, narrator.Columns, sqlgraph.NewFieldSpec(narrator.FieldID, field.TypeString))
 	if ps := nu.mutation.predicates; len(ps) > 0 {
@@ -205,9 +178,6 @@ func (nu *NarratorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := nu.mutation.Name(); ok {
 		_spec.SetField(narrator.FieldName, field.TypeString, value)
 	}
-	if value, ok := nu.mutation.NameSort(); ok {
-		_spec.SetField(narrator.FieldNameSort, field.TypeString, value)
-	}
 	if value, ok := nu.mutation.Description(); ok {
 		_spec.SetField(narrator.FieldDescription, field.TypeString, value)
 	}
@@ -219,9 +189,6 @@ func (nu *NarratorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if nu.mutation.ImagePathCleared() {
 		_spec.ClearField(narrator.FieldImagePath, field.TypeString)
-	}
-	if value, ok := nu.mutation.CreatedAt(); ok {
-		_spec.SetField(narrator.FieldCreatedAt, field.TypeTime, value)
 	}
 	if value, ok := nu.mutation.UpdatedAt(); ok {
 		_spec.SetField(narrator.FieldUpdatedAt, field.TypeTime, value)
@@ -305,20 +272,6 @@ func (nuo *NarratorUpdateOne) SetNillableName(s *string) *NarratorUpdateOne {
 	return nuo
 }
 
-// SetNameSort sets the "name_sort" field.
-func (nuo *NarratorUpdateOne) SetNameSort(s string) *NarratorUpdateOne {
-	nuo.mutation.SetNameSort(s)
-	return nuo
-}
-
-// SetNillableNameSort sets the "name_sort" field if the given value is not nil.
-func (nuo *NarratorUpdateOne) SetNillableNameSort(s *string) *NarratorUpdateOne {
-	if s != nil {
-		nuo.SetNameSort(*s)
-	}
-	return nuo
-}
-
 // SetDescription sets the "description" field.
 func (nuo *NarratorUpdateOne) SetDescription(s string) *NarratorUpdateOne {
 	nuo.mutation.SetDescription(s)
@@ -359,31 +312,9 @@ func (nuo *NarratorUpdateOne) ClearImagePath() *NarratorUpdateOne {
 	return nuo
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (nuo *NarratorUpdateOne) SetCreatedAt(t time.Time) *NarratorUpdateOne {
-	nuo.mutation.SetCreatedAt(t)
-	return nuo
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (nuo *NarratorUpdateOne) SetNillableCreatedAt(t *time.Time) *NarratorUpdateOne {
-	if t != nil {
-		nuo.SetCreatedAt(*t)
-	}
-	return nuo
-}
-
 // SetUpdatedAt sets the "updated_at" field.
 func (nuo *NarratorUpdateOne) SetUpdatedAt(t time.Time) *NarratorUpdateOne {
 	nuo.mutation.SetUpdatedAt(t)
-	return nuo
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (nuo *NarratorUpdateOne) SetNillableUpdatedAt(t *time.Time) *NarratorUpdateOne {
-	if t != nil {
-		nuo.SetUpdatedAt(*t)
-	}
 	return nuo
 }
 
@@ -443,6 +374,7 @@ func (nuo *NarratorUpdateOne) Select(field string, fields ...string) *NarratorUp
 
 // Save executes the query and returns the updated Narrator entity.
 func (nuo *NarratorUpdateOne) Save(ctx context.Context) (*Narrator, error) {
+	nuo.defaults()
 	return withHooks(ctx, nuo.sqlSave, nuo.mutation, nuo.hooks)
 }
 
@@ -465,6 +397,14 @@ func (nuo *NarratorUpdateOne) Exec(ctx context.Context) error {
 func (nuo *NarratorUpdateOne) ExecX(ctx context.Context) {
 	if err := nuo.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (nuo *NarratorUpdateOne) defaults() {
+	if _, ok := nuo.mutation.UpdatedAt(); !ok {
+		v := narrator.UpdateDefaultUpdatedAt()
+		nuo.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -497,9 +437,6 @@ func (nuo *NarratorUpdateOne) sqlSave(ctx context.Context) (_node *Narrator, err
 	if value, ok := nuo.mutation.Name(); ok {
 		_spec.SetField(narrator.FieldName, field.TypeString, value)
 	}
-	if value, ok := nuo.mutation.NameSort(); ok {
-		_spec.SetField(narrator.FieldNameSort, field.TypeString, value)
-	}
 	if value, ok := nuo.mutation.Description(); ok {
 		_spec.SetField(narrator.FieldDescription, field.TypeString, value)
 	}
@@ -511,9 +448,6 @@ func (nuo *NarratorUpdateOne) sqlSave(ctx context.Context) (_node *Narrator, err
 	}
 	if nuo.mutation.ImagePathCleared() {
 		_spec.ClearField(narrator.FieldImagePath, field.TypeString)
-	}
-	if value, ok := nuo.mutation.CreatedAt(); ok {
-		_spec.SetField(narrator.FieldCreatedAt, field.TypeTime, value)
 	}
 	if value, ok := nuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(narrator.FieldUpdatedAt, field.TypeTime, value)

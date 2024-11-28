@@ -256,3 +256,35 @@ func (r *folderRepository) shouldExcludePath(path string) bool {
 	}
 	return false
 }
+
+func (r *folderRepository) GetLibrariesForFolder(ctx context.Context, folderID string) ([]*ent.Library, error) {
+	libraries, err := r.client.Folder.Query().
+		Where(folder.ID(folderID)).
+		QueryLibraries().
+		All(ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found for folder", err).
+				WithOperation("GetLibrariesForFolder").
+				WithData(map[string]interface{}{
+					"folder_id": folderID,
+				})
+		}
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query libraries", err).
+			WithOperation("GetLibrariesForFolder").
+			WithData(map[string]interface{}{
+				"folder_id": folderID,
+			})
+	}
+
+	if len(libraries) == 0 {
+		return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found for folder", nil).
+			WithOperation("GetLibrariesForFolder").
+			WithData(map[string]interface{}{
+				"folder_id": folderID,
+			})
+	}
+
+	return libraries, nil
+}

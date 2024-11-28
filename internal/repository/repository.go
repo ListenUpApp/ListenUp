@@ -5,13 +5,15 @@ import (
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	logging "github.com/ListenUpApp/ListenUp/internal/logger"
+	"github.com/ListenUpApp/ListenUp/internal/repository/content"
 	"github.com/ListenUpApp/ListenUp/internal/repository/media"
 )
 
 type Repositories struct {
-	User   *UserRepository
-	Server *ServerRepository
-	Media  *media.Repository
+	User    *UserRepository
+	Server  *ServerRepository
+	Media   *media.Repository
+	Content *content.Repository
 }
 
 type Config struct {
@@ -28,8 +30,9 @@ func NewRepositories(cfg Config) (*Repositories, error) {
 	}
 
 	return &Repositories{
-		User:   NewUserRepository(cfg),
-		Server: NewServerRepository(cfg),
-		Media:  media.NewRepository(cfg.Client, cfg.Logger),
+		User:    NewUserRepository(cfg),
+		Server:  NewServerRepository(cfg),
+		Media:   media.NewRepository(cfg.Client, cfg.Logger),
+		Content: content.NewRepository(cfg.Client, cfg.Logger),
 	}, nil
 }

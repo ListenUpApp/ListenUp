@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
+	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
 	appErr "github.com/ListenUpApp/ListenUp/internal/error"
@@ -248,4 +249,41 @@ func (r *libraryRepository) ExistsForUser(ctx context.Context, userId string, na
 	}
 
 	return count > 0, nil
+}
+
+func (r *libraryRepository) GetLibrariesWithFolders(ctx context.Context, folderPath string) ([]*ent.Library, error) {
+	// Get libraries that contain the folder with this path
+	libraries, err := r.client.Library.Query().
+		Where(
+			library.HasFoldersWith(
+				folder.PathEQ(folderPath),
+			),
+		).
+		WithFolders().
+		All(ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found with folder", err).
+				WithOperation("GetLibrariesWithFolders").
+				WithData(map[string]interface{}{
+					"folder_path": folderPath,
+				})
+		}
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query libraries", err).
+			WithOperation("GetLibrariesWithFolders").
+			WithData(map[string]interface{}{
+				"folder_path": folderPath,
+			})
+	}
+
+	if len(libraries) == 0 {
+		return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "no libraries found with folder", nil).
+			WithOperation("GetLibrariesWithFolders").
+			WithData(map[string]interface{}{
+				"folder_path": folderPath,
+			})
+	}
+
+	return libraries, nil
 }

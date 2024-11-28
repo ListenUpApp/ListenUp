@@ -27,12 +27,6 @@ func (nc *NarratorCreate) SetName(s string) *NarratorCreate {
 	return nc
 }
 
-// SetNameSort sets the "name_sort" field.
-func (nc *NarratorCreate) SetNameSort(s string) *NarratorCreate {
-	nc.mutation.SetNameSort(s)
-	return nc
-}
-
 // SetDescription sets the "description" field.
 func (nc *NarratorCreate) SetDescription(s string) *NarratorCreate {
 	nc.mutation.SetDescription(s)
@@ -67,9 +61,25 @@ func (nc *NarratorCreate) SetCreatedAt(t time.Time) *NarratorCreate {
 	return nc
 }
 
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (nc *NarratorCreate) SetNillableCreatedAt(t *time.Time) *NarratorCreate {
+	if t != nil {
+		nc.SetCreatedAt(*t)
+	}
+	return nc
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (nc *NarratorCreate) SetUpdatedAt(t time.Time) *NarratorCreate {
 	nc.mutation.SetUpdatedAt(t)
+	return nc
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (nc *NarratorCreate) SetNillableUpdatedAt(t *time.Time) *NarratorCreate {
+	if t != nil {
+		nc.SetUpdatedAt(*t)
+	}
 	return nc
 }
 
@@ -137,6 +147,14 @@ func (nc *NarratorCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (nc *NarratorCreate) defaults() {
+	if _, ok := nc.mutation.CreatedAt(); !ok {
+		v := narrator.DefaultCreatedAt()
+		nc.mutation.SetCreatedAt(v)
+	}
+	if _, ok := nc.mutation.UpdatedAt(); !ok {
+		v := narrator.DefaultUpdatedAt()
+		nc.mutation.SetUpdatedAt(v)
+	}
 	if _, ok := nc.mutation.ID(); !ok {
 		v := narrator.DefaultID()
 		nc.mutation.SetID(v)
@@ -147,9 +165,6 @@ func (nc *NarratorCreate) defaults() {
 func (nc *NarratorCreate) check() error {
 	if _, ok := nc.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Narrator.name"`)}
-	}
-	if _, ok := nc.mutation.NameSort(); !ok {
-		return &ValidationError{Name: "name_sort", err: errors.New(`ent: missing required field "Narrator.name_sort"`)}
 	}
 	if _, ok := nc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Narrator.created_at"`)}
@@ -195,10 +210,6 @@ func (nc *NarratorCreate) createSpec() (*Narrator, *sqlgraph.CreateSpec) {
 	if value, ok := nc.mutation.Name(); ok {
 		_spec.SetField(narrator.FieldName, field.TypeString, value)
 		_node.Name = value
-	}
-	if value, ok := nc.mutation.NameSort(); ok {
-		_spec.SetField(narrator.FieldNameSort, field.TypeString, value)
-		_node.NameSort = value
 	}
 	if value, ok := nc.mutation.Description(); ok {
 		_spec.SetField(narrator.FieldDescription, field.TypeString, value)

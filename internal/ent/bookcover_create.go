@@ -45,6 +45,14 @@ func (bcc *BookCoverCreate) SetUpdatedAt(t time.Time) *BookCoverCreate {
 	return bcc
 }
 
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (bcc *BookCoverCreate) SetNillableUpdatedAt(t *time.Time) *BookCoverCreate {
+	if t != nil {
+		bcc.SetUpdatedAt(*t)
+	}
+	return bcc
+}
+
 // SetBookID sets the "book" edge to the Book entity by ID.
 func (bcc *BookCoverCreate) SetBookID(id string) *BookCoverCreate {
 	bcc.mutation.SetBookID(id)
@@ -63,6 +71,7 @@ func (bcc *BookCoverCreate) Mutation() *BookCoverMutation {
 
 // Save creates the BookCover in the database.
 func (bcc *BookCoverCreate) Save(ctx context.Context) (*BookCover, error) {
+	bcc.defaults()
 	return withHooks(ctx, bcc.sqlSave, bcc.mutation, bcc.hooks)
 }
 
@@ -85,6 +94,14 @@ func (bcc *BookCoverCreate) Exec(ctx context.Context) error {
 func (bcc *BookCoverCreate) ExecX(ctx context.Context) {
 	if err := bcc.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (bcc *BookCoverCreate) defaults() {
+	if _, ok := bcc.mutation.UpdatedAt(); !ok {
+		v := bookcover.DefaultUpdatedAt()
+		bcc.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -200,6 +217,7 @@ func (bccb *BookCoverCreateBulk) Save(ctx context.Context) ([]*BookCover, error)
 	for i := range bccb.builders {
 		func(i int, root context.Context) {
 			builder := bccb.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*BookCoverMutation)
 				if !ok {

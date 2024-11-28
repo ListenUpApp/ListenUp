@@ -19,15 +19,13 @@ type Author struct {
 	ID string `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
-	// NameSort holds the value of the "name_sort" field.
-	NameSort string `json:"name_sort,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// ImagePath holds the value of the "image_path" field.
 	ImagePath string `json:"image_path,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
+	// Time when the user was created
 	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
+	// Time when the user was last updated
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AuthorQuery when eager-loading is set.
@@ -58,7 +56,7 @@ func (*Author) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case author.FieldID, author.FieldName, author.FieldNameSort, author.FieldDescription, author.FieldImagePath:
+		case author.FieldID, author.FieldName, author.FieldDescription, author.FieldImagePath:
 			values[i] = new(sql.NullString)
 		case author.FieldCreatedAt, author.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -88,12 +86,6 @@ func (a *Author) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				a.Name = value.String
-			}
-		case author.FieldNameSort:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name_sort", values[i])
-			} else if value.Valid {
-				a.NameSort = value.String
 			}
 		case author.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -162,9 +154,6 @@ func (a *Author) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", a.ID))
 	builder.WriteString("name=")
 	builder.WriteString(a.Name)
-	builder.WriteString(", ")
-	builder.WriteString("name_sort=")
-	builder.WriteString(a.NameSort)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(a.Description)

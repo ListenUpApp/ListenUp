@@ -77,48 +77,6 @@ func (bu *BookUpdate) AddSize(i int64) *BookUpdate {
 	return bu
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (bu *BookUpdate) SetCreatedAt(t time.Time) *BookUpdate {
-	bu.mutation.SetCreatedAt(t)
-	return bu
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (bu *BookUpdate) SetNillableCreatedAt(t *time.Time) *BookUpdate {
-	if t != nil {
-		bu.SetCreatedAt(*t)
-	}
-	return bu
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (bu *BookUpdate) SetUpdatedAt(t time.Time) *BookUpdate {
-	bu.mutation.SetUpdatedAt(t)
-	return bu
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (bu *BookUpdate) SetNillableUpdatedAt(t *time.Time) *BookUpdate {
-	if t != nil {
-		bu.SetUpdatedAt(*t)
-	}
-	return bu
-}
-
-// SetImportedAt sets the "imported_at" field.
-func (bu *BookUpdate) SetImportedAt(t time.Time) *BookUpdate {
-	bu.mutation.SetImportedAt(t)
-	return bu
-}
-
-// SetNillableImportedAt sets the "imported_at" field if the given value is not nil.
-func (bu *BookUpdate) SetNillableImportedAt(t *time.Time) *BookUpdate {
-	if t != nil {
-		bu.SetImportedAt(*t)
-	}
-	return bu
-}
-
 // SetTitle sets the "title" field.
 func (bu *BookUpdate) SetTitle(s string) *BookUpdate {
 	bu.mutation.SetTitle(s)
@@ -129,20 +87,6 @@ func (bu *BookUpdate) SetTitle(s string) *BookUpdate {
 func (bu *BookUpdate) SetNillableTitle(s *string) *BookUpdate {
 	if s != nil {
 		bu.SetTitle(*s)
-	}
-	return bu
-}
-
-// SetTitleSort sets the "title_sort" field.
-func (bu *BookUpdate) SetTitleSort(s string) *BookUpdate {
-	bu.mutation.SetTitleSort(s)
-	return bu
-}
-
-// SetNillableTitleSort sets the "title_sort" field if the given value is not nil.
-func (bu *BookUpdate) SetNillableTitleSort(s *string) *BookUpdate {
-	if s != nil {
-		bu.SetTitleSort(*s)
 	}
 	return bu
 }
@@ -337,6 +281,12 @@ func (bu *BookUpdate) ClearTags() *BookUpdate {
 	return bu
 }
 
+// SetUpdatedAt sets the "updated_at" field.
+func (bu *BookUpdate) SetUpdatedAt(t time.Time) *BookUpdate {
+	bu.mutation.SetUpdatedAt(t)
+	return bu
+}
+
 // AddChapterIDs adds the "chapters" edge to the Chapter entity by IDs.
 func (bu *BookUpdate) AddChapterIDs(ids ...int) *BookUpdate {
 	bu.mutation.AddChapterIDs(ids...)
@@ -511,6 +461,7 @@ func (bu *BookUpdate) ClearFolder() *BookUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (bu *BookUpdate) Save(ctx context.Context) (int, error) {
+	bu.defaults()
 	return withHooks(ctx, bu.sqlSave, bu.mutation, bu.hooks)
 }
 
@@ -533,6 +484,14 @@ func (bu *BookUpdate) Exec(ctx context.Context) error {
 func (bu *BookUpdate) ExecX(ctx context.Context) {
 	if err := bu.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (bu *BookUpdate) defaults() {
+	if _, ok := bu.mutation.UpdatedAt(); !ok {
+		v := book.UpdateDefaultUpdatedAt()
+		bu.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -571,20 +530,8 @@ func (bu *BookUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := bu.mutation.AddedSize(); ok {
 		_spec.AddField(book.FieldSize, field.TypeInt64, value)
 	}
-	if value, ok := bu.mutation.CreatedAt(); ok {
-		_spec.SetField(book.FieldCreatedAt, field.TypeTime, value)
-	}
-	if value, ok := bu.mutation.UpdatedAt(); ok {
-		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
-	}
-	if value, ok := bu.mutation.ImportedAt(); ok {
-		_spec.SetField(book.FieldImportedAt, field.TypeTime, value)
-	}
 	if value, ok := bu.mutation.Title(); ok {
 		_spec.SetField(book.FieldTitle, field.TypeString, value)
-	}
-	if value, ok := bu.mutation.TitleSort(); ok {
-		_spec.SetField(book.FieldTitleSort, field.TypeString, value)
 	}
 	if value, ok := bu.mutation.Subtitle(); ok {
 		_spec.SetField(book.FieldSubtitle, field.TypeString, value)
@@ -652,6 +599,9 @@ func (bu *BookUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if bu.mutation.TagsCleared() {
 		_spec.ClearField(book.FieldTags, field.TypeJSON)
+	}
+	if value, ok := bu.mutation.UpdatedAt(); ok {
+		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if bu.mutation.ChaptersCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -937,48 +887,6 @@ func (buo *BookUpdateOne) AddSize(i int64) *BookUpdateOne {
 	return buo
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (buo *BookUpdateOne) SetCreatedAt(t time.Time) *BookUpdateOne {
-	buo.mutation.SetCreatedAt(t)
-	return buo
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (buo *BookUpdateOne) SetNillableCreatedAt(t *time.Time) *BookUpdateOne {
-	if t != nil {
-		buo.SetCreatedAt(*t)
-	}
-	return buo
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (buo *BookUpdateOne) SetUpdatedAt(t time.Time) *BookUpdateOne {
-	buo.mutation.SetUpdatedAt(t)
-	return buo
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (buo *BookUpdateOne) SetNillableUpdatedAt(t *time.Time) *BookUpdateOne {
-	if t != nil {
-		buo.SetUpdatedAt(*t)
-	}
-	return buo
-}
-
-// SetImportedAt sets the "imported_at" field.
-func (buo *BookUpdateOne) SetImportedAt(t time.Time) *BookUpdateOne {
-	buo.mutation.SetImportedAt(t)
-	return buo
-}
-
-// SetNillableImportedAt sets the "imported_at" field if the given value is not nil.
-func (buo *BookUpdateOne) SetNillableImportedAt(t *time.Time) *BookUpdateOne {
-	if t != nil {
-		buo.SetImportedAt(*t)
-	}
-	return buo
-}
-
 // SetTitle sets the "title" field.
 func (buo *BookUpdateOne) SetTitle(s string) *BookUpdateOne {
 	buo.mutation.SetTitle(s)
@@ -989,20 +897,6 @@ func (buo *BookUpdateOne) SetTitle(s string) *BookUpdateOne {
 func (buo *BookUpdateOne) SetNillableTitle(s *string) *BookUpdateOne {
 	if s != nil {
 		buo.SetTitle(*s)
-	}
-	return buo
-}
-
-// SetTitleSort sets the "title_sort" field.
-func (buo *BookUpdateOne) SetTitleSort(s string) *BookUpdateOne {
-	buo.mutation.SetTitleSort(s)
-	return buo
-}
-
-// SetNillableTitleSort sets the "title_sort" field if the given value is not nil.
-func (buo *BookUpdateOne) SetNillableTitleSort(s *string) *BookUpdateOne {
-	if s != nil {
-		buo.SetTitleSort(*s)
 	}
 	return buo
 }
@@ -1197,6 +1091,12 @@ func (buo *BookUpdateOne) ClearTags() *BookUpdateOne {
 	return buo
 }
 
+// SetUpdatedAt sets the "updated_at" field.
+func (buo *BookUpdateOne) SetUpdatedAt(t time.Time) *BookUpdateOne {
+	buo.mutation.SetUpdatedAt(t)
+	return buo
+}
+
 // AddChapterIDs adds the "chapters" edge to the Chapter entity by IDs.
 func (buo *BookUpdateOne) AddChapterIDs(ids ...int) *BookUpdateOne {
 	buo.mutation.AddChapterIDs(ids...)
@@ -1384,6 +1284,7 @@ func (buo *BookUpdateOne) Select(field string, fields ...string) *BookUpdateOne 
 
 // Save executes the query and returns the updated Book entity.
 func (buo *BookUpdateOne) Save(ctx context.Context) (*Book, error) {
+	buo.defaults()
 	return withHooks(ctx, buo.sqlSave, buo.mutation, buo.hooks)
 }
 
@@ -1406,6 +1307,14 @@ func (buo *BookUpdateOne) Exec(ctx context.Context) error {
 func (buo *BookUpdateOne) ExecX(ctx context.Context) {
 	if err := buo.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (buo *BookUpdateOne) defaults() {
+	if _, ok := buo.mutation.UpdatedAt(); !ok {
+		v := book.UpdateDefaultUpdatedAt()
+		buo.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -1461,20 +1370,8 @@ func (buo *BookUpdateOne) sqlSave(ctx context.Context) (_node *Book, err error) 
 	if value, ok := buo.mutation.AddedSize(); ok {
 		_spec.AddField(book.FieldSize, field.TypeInt64, value)
 	}
-	if value, ok := buo.mutation.CreatedAt(); ok {
-		_spec.SetField(book.FieldCreatedAt, field.TypeTime, value)
-	}
-	if value, ok := buo.mutation.UpdatedAt(); ok {
-		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
-	}
-	if value, ok := buo.mutation.ImportedAt(); ok {
-		_spec.SetField(book.FieldImportedAt, field.TypeTime, value)
-	}
 	if value, ok := buo.mutation.Title(); ok {
 		_spec.SetField(book.FieldTitle, field.TypeString, value)
-	}
-	if value, ok := buo.mutation.TitleSort(); ok {
-		_spec.SetField(book.FieldTitleSort, field.TypeString, value)
 	}
 	if value, ok := buo.mutation.Subtitle(); ok {
 		_spec.SetField(book.FieldSubtitle, field.TypeString, value)
@@ -1542,6 +1439,9 @@ func (buo *BookUpdateOne) sqlSave(ctx context.Context) (_node *Book, err error) 
 	}
 	if buo.mutation.TagsCleared() {
 		_spec.ClearField(book.FieldTags, field.TypeJSON)
+	}
+	if value, ok := buo.mutation.UpdatedAt(); ok {
+		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if buo.mutation.ChaptersCleared() {
 		edge := &sqlgraph.EdgeSpec{

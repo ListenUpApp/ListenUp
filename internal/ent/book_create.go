@@ -38,33 +38,9 @@ func (bc *BookCreate) SetSize(i int64) *BookCreate {
 	return bc
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (bc *BookCreate) SetCreatedAt(t time.Time) *BookCreate {
-	bc.mutation.SetCreatedAt(t)
-	return bc
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (bc *BookCreate) SetUpdatedAt(t time.Time) *BookCreate {
-	bc.mutation.SetUpdatedAt(t)
-	return bc
-}
-
-// SetImportedAt sets the "imported_at" field.
-func (bc *BookCreate) SetImportedAt(t time.Time) *BookCreate {
-	bc.mutation.SetImportedAt(t)
-	return bc
-}
-
 // SetTitle sets the "title" field.
 func (bc *BookCreate) SetTitle(s string) *BookCreate {
 	bc.mutation.SetTitle(s)
-	return bc
-}
-
-// SetTitleSort sets the "title_sort" field.
-func (bc *BookCreate) SetTitleSort(s string) *BookCreate {
-	bc.mutation.SetTitleSort(s)
 	return bc
 }
 
@@ -189,6 +165,34 @@ func (bc *BookCreate) SetGenres(s []string) *BookCreate {
 // SetTags sets the "tags" field.
 func (bc *BookCreate) SetTags(s []string) *BookCreate {
 	bc.mutation.SetTags(s)
+	return bc
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (bc *BookCreate) SetCreatedAt(t time.Time) *BookCreate {
+	bc.mutation.SetCreatedAt(t)
+	return bc
+}
+
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (bc *BookCreate) SetNillableCreatedAt(t *time.Time) *BookCreate {
+	if t != nil {
+		bc.SetCreatedAt(*t)
+	}
+	return bc
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (bc *BookCreate) SetUpdatedAt(t time.Time) *BookCreate {
+	bc.mutation.SetUpdatedAt(t)
+	return bc
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (bc *BookCreate) SetNillableUpdatedAt(t *time.Time) *BookCreate {
+	if t != nil {
+		bc.SetUpdatedAt(*t)
+	}
 	return bc
 }
 
@@ -331,6 +335,14 @@ func (bc *BookCreate) defaults() {
 		v := book.DefaultExplicit
 		bc.mutation.SetExplicit(v)
 	}
+	if _, ok := bc.mutation.CreatedAt(); !ok {
+		v := book.DefaultCreatedAt()
+		bc.mutation.SetCreatedAt(v)
+	}
+	if _, ok := bc.mutation.UpdatedAt(); !ok {
+		v := book.DefaultUpdatedAt()
+		bc.mutation.SetUpdatedAt(v)
+	}
 	if _, ok := bc.mutation.ID(); !ok {
 		v := book.DefaultID()
 		bc.mutation.SetID(v)
@@ -345,23 +357,17 @@ func (bc *BookCreate) check() error {
 	if _, ok := bc.mutation.Size(); !ok {
 		return &ValidationError{Name: "size", err: errors.New(`ent: missing required field "Book.size"`)}
 	}
+	if _, ok := bc.mutation.Title(); !ok {
+		return &ValidationError{Name: "title", err: errors.New(`ent: missing required field "Book.title"`)}
+	}
+	if _, ok := bc.mutation.Explicit(); !ok {
+		return &ValidationError{Name: "explicit", err: errors.New(`ent: missing required field "Book.explicit"`)}
+	}
 	if _, ok := bc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Book.created_at"`)}
 	}
 	if _, ok := bc.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Book.updated_at"`)}
-	}
-	if _, ok := bc.mutation.ImportedAt(); !ok {
-		return &ValidationError{Name: "imported_at", err: errors.New(`ent: missing required field "Book.imported_at"`)}
-	}
-	if _, ok := bc.mutation.Title(); !ok {
-		return &ValidationError{Name: "title", err: errors.New(`ent: missing required field "Book.title"`)}
-	}
-	if _, ok := bc.mutation.TitleSort(); !ok {
-		return &ValidationError{Name: "title_sort", err: errors.New(`ent: missing required field "Book.title_sort"`)}
-	}
-	if _, ok := bc.mutation.Explicit(); !ok {
-		return &ValidationError{Name: "explicit", err: errors.New(`ent: missing required field "Book.explicit"`)}
 	}
 	if len(bc.mutation.LibraryIDs()) == 0 {
 		return &ValidationError{Name: "library", err: errors.New(`ent: missing required edge "Book.library"`)}
@@ -412,25 +418,9 @@ func (bc *BookCreate) createSpec() (*Book, *sqlgraph.CreateSpec) {
 		_spec.SetField(book.FieldSize, field.TypeInt64, value)
 		_node.Size = value
 	}
-	if value, ok := bc.mutation.CreatedAt(); ok {
-		_spec.SetField(book.FieldCreatedAt, field.TypeTime, value)
-		_node.CreatedAt = value
-	}
-	if value, ok := bc.mutation.UpdatedAt(); ok {
-		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
-		_node.UpdatedAt = value
-	}
-	if value, ok := bc.mutation.ImportedAt(); ok {
-		_spec.SetField(book.FieldImportedAt, field.TypeTime, value)
-		_node.ImportedAt = value
-	}
 	if value, ok := bc.mutation.Title(); ok {
 		_spec.SetField(book.FieldTitle, field.TypeString, value)
 		_node.Title = value
-	}
-	if value, ok := bc.mutation.TitleSort(); ok {
-		_spec.SetField(book.FieldTitleSort, field.TypeString, value)
-		_node.TitleSort = value
 	}
 	if value, ok := bc.mutation.Subtitle(); ok {
 		_spec.SetField(book.FieldSubtitle, field.TypeString, value)
@@ -471,6 +461,14 @@ func (bc *BookCreate) createSpec() (*Book, *sqlgraph.CreateSpec) {
 	if value, ok := bc.mutation.Tags(); ok {
 		_spec.SetField(book.FieldTags, field.TypeJSON, value)
 		_node.Tags = value
+	}
+	if value, ok := bc.mutation.CreatedAt(); ok {
+		_spec.SetField(book.FieldCreatedAt, field.TypeTime, value)
+		_node.CreatedAt = value
+	}
+	if value, ok := bc.mutation.UpdatedAt(); ok {
+		_spec.SetField(book.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
 	}
 	if nodes := bc.mutation.ChaptersIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

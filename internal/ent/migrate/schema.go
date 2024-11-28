@@ -12,7 +12,6 @@ var (
 	AuthorsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
 		{Name: "name", Type: field.TypeString},
-		{Name: "name_sort", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "image_path", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -23,24 +22,13 @@ var (
 		Name:       "authors",
 		Columns:    AuthorsColumns,
 		PrimaryKey: []*schema.Column{AuthorsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "author_name_sort",
-				Unique:  false,
-				Columns: []*schema.Column{AuthorsColumns[2]},
-			},
-		},
 	}
 	// BooksColumns holds the columns for the "books" table.
 	BooksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
 		{Name: "duration", Type: field.TypeFloat64},
 		{Name: "size", Type: field.TypeInt64},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "imported_at", Type: field.TypeTime},
 		{Name: "title", Type: field.TypeString},
-		{Name: "title_sort", Type: field.TypeString},
 		{Name: "subtitle", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "isbn", Type: field.TypeString, Nullable: true},
@@ -51,6 +39,8 @@ var (
 		{Name: "published_date", Type: field.TypeTime, Nullable: true},
 		{Name: "genres", Type: field.TypeJSON, Nullable: true},
 		{Name: "tags", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "folder_books", Type: field.TypeString},
 		{Name: "library_library_books", Type: field.TypeString},
 	}
@@ -62,22 +52,15 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "books_folders_books",
-				Columns:    []*schema.Column{BooksColumns[18]},
+				Columns:    []*schema.Column{BooksColumns[16]},
 				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "books_libraries_library_books",
-				Columns:    []*schema.Column{BooksColumns[19]},
+				Columns:    []*schema.Column{BooksColumns[17]},
 				RefColumns: []*schema.Column{LibrariesColumns[0]},
 				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "book_title_sort",
-				Unique:  false,
-				Columns: []*schema.Column{BooksColumns[7]},
 			},
 		},
 	}
@@ -169,7 +152,6 @@ var (
 	NarratorsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
 		{Name: "name", Type: field.TypeString},
-		{Name: "name_sort", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "image_path", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -180,13 +162,6 @@ var (
 		Name:       "narrators",
 		Columns:    NarratorsColumns,
 		PrimaryKey: []*schema.Column{NarratorsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "narrator_name_sort",
-				Unique:  false,
-				Columns: []*schema.Column{NarratorsColumns[2]},
-			},
-		},
 	}
 	// ServersColumns holds the columns for the "servers" table.
 	ServersColumns = []*schema.Column{

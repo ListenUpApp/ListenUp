@@ -1,10 +1,11 @@
 package schema
 
 import (
+	"time"
+
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
-	"entgo.io/ent/schema/index"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 )
 
@@ -19,22 +20,21 @@ func (Narrator) Fields() []ent.Field {
 			Unique().
 			Immutable(),
 		field.String("name"),
-		field.String("name_sort"),
 		field.String("description").Optional(),
 		field.String("image_path").Optional(),
-		field.Time("created_at"),
-		field.Time("updated_at"),
+		field.Time("created_at").
+			Default(time.Now).
+			Immutable().
+			Comment("Time when the user was created"),
+		field.Time("updated_at").
+			Default(time.Now).
+			UpdateDefault(time.Now).
+			Comment("Time when the user was last updated"),
 	}
 }
 
 func (Narrator) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("books", Book.Type),
-	}
-}
-
-func (Narrator) Indexes() []ent.Index {
-	return []ent.Index{
-		index.Fields("name_sort"),
 	}
 }

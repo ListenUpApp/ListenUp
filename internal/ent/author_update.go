@@ -43,20 +43,6 @@ func (au *AuthorUpdate) SetNillableName(s *string) *AuthorUpdate {
 	return au
 }
 
-// SetNameSort sets the "name_sort" field.
-func (au *AuthorUpdate) SetNameSort(s string) *AuthorUpdate {
-	au.mutation.SetNameSort(s)
-	return au
-}
-
-// SetNillableNameSort sets the "name_sort" field if the given value is not nil.
-func (au *AuthorUpdate) SetNillableNameSort(s *string) *AuthorUpdate {
-	if s != nil {
-		au.SetNameSort(*s)
-	}
-	return au
-}
-
 // SetDescription sets the "description" field.
 func (au *AuthorUpdate) SetDescription(s string) *AuthorUpdate {
 	au.mutation.SetDescription(s)
@@ -97,31 +83,9 @@ func (au *AuthorUpdate) ClearImagePath() *AuthorUpdate {
 	return au
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (au *AuthorUpdate) SetCreatedAt(t time.Time) *AuthorUpdate {
-	au.mutation.SetCreatedAt(t)
-	return au
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (au *AuthorUpdate) SetNillableCreatedAt(t *time.Time) *AuthorUpdate {
-	if t != nil {
-		au.SetCreatedAt(*t)
-	}
-	return au
-}
-
 // SetUpdatedAt sets the "updated_at" field.
 func (au *AuthorUpdate) SetUpdatedAt(t time.Time) *AuthorUpdate {
 	au.mutation.SetUpdatedAt(t)
-	return au
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (au *AuthorUpdate) SetNillableUpdatedAt(t *time.Time) *AuthorUpdate {
-	if t != nil {
-		au.SetUpdatedAt(*t)
-	}
 	return au
 }
 
@@ -168,6 +132,7 @@ func (au *AuthorUpdate) RemoveBooks(b ...*Book) *AuthorUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (au *AuthorUpdate) Save(ctx context.Context) (int, error) {
+	au.defaults()
 	return withHooks(ctx, au.sqlSave, au.mutation, au.hooks)
 }
 
@@ -193,6 +158,14 @@ func (au *AuthorUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (au *AuthorUpdate) defaults() {
+	if _, ok := au.mutation.UpdatedAt(); !ok {
+		v := author.UpdateDefaultUpdatedAt()
+		au.mutation.SetUpdatedAt(v)
+	}
+}
+
 func (au *AuthorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	_spec := sqlgraph.NewUpdateSpec(author.Table, author.Columns, sqlgraph.NewFieldSpec(author.FieldID, field.TypeString))
 	if ps := au.mutation.predicates; len(ps) > 0 {
@@ -205,9 +178,6 @@ func (au *AuthorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := au.mutation.Name(); ok {
 		_spec.SetField(author.FieldName, field.TypeString, value)
 	}
-	if value, ok := au.mutation.NameSort(); ok {
-		_spec.SetField(author.FieldNameSort, field.TypeString, value)
-	}
 	if value, ok := au.mutation.Description(); ok {
 		_spec.SetField(author.FieldDescription, field.TypeString, value)
 	}
@@ -219,9 +189,6 @@ func (au *AuthorUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if au.mutation.ImagePathCleared() {
 		_spec.ClearField(author.FieldImagePath, field.TypeString)
-	}
-	if value, ok := au.mutation.CreatedAt(); ok {
-		_spec.SetField(author.FieldCreatedAt, field.TypeTime, value)
 	}
 	if value, ok := au.mutation.UpdatedAt(); ok {
 		_spec.SetField(author.FieldUpdatedAt, field.TypeTime, value)
@@ -305,20 +272,6 @@ func (auo *AuthorUpdateOne) SetNillableName(s *string) *AuthorUpdateOne {
 	return auo
 }
 
-// SetNameSort sets the "name_sort" field.
-func (auo *AuthorUpdateOne) SetNameSort(s string) *AuthorUpdateOne {
-	auo.mutation.SetNameSort(s)
-	return auo
-}
-
-// SetNillableNameSort sets the "name_sort" field if the given value is not nil.
-func (auo *AuthorUpdateOne) SetNillableNameSort(s *string) *AuthorUpdateOne {
-	if s != nil {
-		auo.SetNameSort(*s)
-	}
-	return auo
-}
-
 // SetDescription sets the "description" field.
 func (auo *AuthorUpdateOne) SetDescription(s string) *AuthorUpdateOne {
 	auo.mutation.SetDescription(s)
@@ -359,31 +312,9 @@ func (auo *AuthorUpdateOne) ClearImagePath() *AuthorUpdateOne {
 	return auo
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (auo *AuthorUpdateOne) SetCreatedAt(t time.Time) *AuthorUpdateOne {
-	auo.mutation.SetCreatedAt(t)
-	return auo
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (auo *AuthorUpdateOne) SetNillableCreatedAt(t *time.Time) *AuthorUpdateOne {
-	if t != nil {
-		auo.SetCreatedAt(*t)
-	}
-	return auo
-}
-
 // SetUpdatedAt sets the "updated_at" field.
 func (auo *AuthorUpdateOne) SetUpdatedAt(t time.Time) *AuthorUpdateOne {
 	auo.mutation.SetUpdatedAt(t)
-	return auo
-}
-
-// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (auo *AuthorUpdateOne) SetNillableUpdatedAt(t *time.Time) *AuthorUpdateOne {
-	if t != nil {
-		auo.SetUpdatedAt(*t)
-	}
 	return auo
 }
 
@@ -443,6 +374,7 @@ func (auo *AuthorUpdateOne) Select(field string, fields ...string) *AuthorUpdate
 
 // Save executes the query and returns the updated Author entity.
 func (auo *AuthorUpdateOne) Save(ctx context.Context) (*Author, error) {
+	auo.defaults()
 	return withHooks(ctx, auo.sqlSave, auo.mutation, auo.hooks)
 }
 
@@ -465,6 +397,14 @@ func (auo *AuthorUpdateOne) Exec(ctx context.Context) error {
 func (auo *AuthorUpdateOne) ExecX(ctx context.Context) {
 	if err := auo.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (auo *AuthorUpdateOne) defaults() {
+	if _, ok := auo.mutation.UpdatedAt(); !ok {
+		v := author.UpdateDefaultUpdatedAt()
+		auo.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -497,9 +437,6 @@ func (auo *AuthorUpdateOne) sqlSave(ctx context.Context) (_node *Author, err err
 	if value, ok := auo.mutation.Name(); ok {
 		_spec.SetField(author.FieldName, field.TypeString, value)
 	}
-	if value, ok := auo.mutation.NameSort(); ok {
-		_spec.SetField(author.FieldNameSort, field.TypeString, value)
-	}
 	if value, ok := auo.mutation.Description(); ok {
 		_spec.SetField(author.FieldDescription, field.TypeString, value)
 	}
@@ -511,9 +448,6 @@ func (auo *AuthorUpdateOne) sqlSave(ctx context.Context) (_node *Author, err err
 	}
 	if auo.mutation.ImagePathCleared() {
 		_spec.ClearField(author.FieldImagePath, field.TypeString)
-	}
-	if value, ok := auo.mutation.CreatedAt(); ok {
-		_spec.SetField(author.FieldCreatedAt, field.TypeTime, value)
 	}
 	if value, ok := auo.mutation.UpdatedAt(); ok {
 		_spec.SetField(author.FieldUpdatedAt, field.TypeTime, value)

@@ -65,7 +65,8 @@ func New(cfg Config) (*Server, error) {
 		Handler: router,
 	}
 	scanner, err := scanner.New(scanner.Config{
-		Logger:       cfg.Logger,
+		Logger:         cfg.Logger,
+		ContentService: cfg.Services.Content,
 		MediaService: cfg.Services.Media,
 	})
 	if err != nil {

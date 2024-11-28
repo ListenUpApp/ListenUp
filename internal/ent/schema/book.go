@@ -1,10 +1,11 @@
 package schema
 
 import (
+	"time"
+
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
-	"entgo.io/ent/schema/index"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 )
 
@@ -17,16 +18,12 @@ type Book struct {
 func (Book) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("id").
-		DefaultFunc(util.NewID).
-		Unique().
-		Immutable(),
+			DefaultFunc(util.NewID).
+			Unique().
+			Immutable(),
 		field.Float("duration"),
 		field.Int64("size"),
-		field.Time("created_at"),
-		field.Time("updated_at"),
-		field.Time("imported_at"),
 		field.String("title"),
-		field.String("title_sort"),
 		field.String("subtitle").Optional(),
 		field.String("description").Optional(),
 		field.String("isbn").Optional(),
@@ -37,6 +34,14 @@ func (Book) Fields() []ent.Field {
 		field.Time("published_date").Optional(),
 		field.Strings("genres").Optional(),
 		field.Strings("tags").Optional(),
+		field.Time("created_at").
+			Default(time.Now).
+			Immutable().
+			Comment("Time when the user was created"),
+		field.Time("updated_at").
+			Default(time.Now).
+			UpdateDefault(time.Now).
+			Comment("Time when the user was last updated"),
 	}
 }
 
@@ -58,9 +63,3 @@ func (Book) Edges() []ent.Edge {
 	}
 }
 
-// Indexes
-func (Book) Indexes() []ent.Index {
-	return []ent.Index{
-		index.Fields("title_sort"),
-	}
-}

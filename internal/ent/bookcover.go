@@ -24,7 +24,7 @@ type BookCover struct {
 	Format string `json:"format,omitempty"`
 	// File size in bytes
 	Size int64 `json:"size,omitempty"`
-	// When the cover was last updated
+	// Time when the user was last updated
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the BookCoverQuery when eager-loading is set.

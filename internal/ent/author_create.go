@@ -27,12 +27,6 @@ func (ac *AuthorCreate) SetName(s string) *AuthorCreate {
 	return ac
 }
 
-// SetNameSort sets the "name_sort" field.
-func (ac *AuthorCreate) SetNameSort(s string) *AuthorCreate {
-	ac.mutation.SetNameSort(s)
-	return ac
-}
-
 // SetDescription sets the "description" field.
 func (ac *AuthorCreate) SetDescription(s string) *AuthorCreate {
 	ac.mutation.SetDescription(s)
@@ -67,9 +61,25 @@ func (ac *AuthorCreate) SetCreatedAt(t time.Time) *AuthorCreate {
 	return ac
 }
 
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (ac *AuthorCreate) SetNillableCreatedAt(t *time.Time) *AuthorCreate {
+	if t != nil {
+		ac.SetCreatedAt(*t)
+	}
+	return ac
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (ac *AuthorCreate) SetUpdatedAt(t time.Time) *AuthorCreate {
 	ac.mutation.SetUpdatedAt(t)
+	return ac
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (ac *AuthorCreate) SetNillableUpdatedAt(t *time.Time) *AuthorCreate {
+	if t != nil {
+		ac.SetUpdatedAt(*t)
+	}
 	return ac
 }
 
@@ -137,6 +147,14 @@ func (ac *AuthorCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (ac *AuthorCreate) defaults() {
+	if _, ok := ac.mutation.CreatedAt(); !ok {
+		v := author.DefaultCreatedAt()
+		ac.mutation.SetCreatedAt(v)
+	}
+	if _, ok := ac.mutation.UpdatedAt(); !ok {
+		v := author.DefaultUpdatedAt()
+		ac.mutation.SetUpdatedAt(v)
+	}
 	if _, ok := ac.mutation.ID(); !ok {
 		v := author.DefaultID()
 		ac.mutation.SetID(v)
@@ -147,9 +165,6 @@ func (ac *AuthorCreate) defaults() {
 func (ac *AuthorCreate) check() error {
 	if _, ok := ac.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Author.name"`)}
-	}
-	if _, ok := ac.mutation.NameSort(); !ok {
-		return &ValidationError{Name: "name_sort", err: errors.New(`ent: missing required field "Author.name_sort"`)}
 	}
 	if _, ok := ac.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Author.created_at"`)}
@@ -195,10 +210,6 @@ func (ac *AuthorCreate) createSpec() (*Author, *sqlgraph.CreateSpec) {
 	if value, ok := ac.mutation.Name(); ok {
 		_spec.SetField(author.FieldName, field.TypeString, value)
 		_node.Name = value
-	}
-	if value, ok := ac.mutation.NameSort(); ok {
-		_spec.SetField(author.FieldNameSort, field.TypeString, value)
-		_node.NameSort = value
 	}
 	if value, ok := ac.mutation.Description(); ok {
 		_spec.SetField(author.FieldDescription, field.TypeString, value)

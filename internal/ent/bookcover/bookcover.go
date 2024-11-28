@@ -72,6 +72,8 @@ var (
 	FormatValidator func(string) error
 	// SizeValidator is a validator for the "size" field. It is called by the builders before save.
 	SizeValidator func(int64) error
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
 )

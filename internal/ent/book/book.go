@@ -3,6 +3,8 @@
 package book
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -16,16 +18,8 @@ const (
 	FieldDuration = "duration"
 	// FieldSize holds the string denoting the size field in the database.
 	FieldSize = "size"
-	// FieldCreatedAt holds the string denoting the created_at field in the database.
-	FieldCreatedAt = "created_at"
-	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
-	FieldUpdatedAt = "updated_at"
-	// FieldImportedAt holds the string denoting the imported_at field in the database.
-	FieldImportedAt = "imported_at"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
-	// FieldTitleSort holds the string denoting the title_sort field in the database.
-	FieldTitleSort = "title_sort"
 	// FieldSubtitle holds the string denoting the subtitle field in the database.
 	FieldSubtitle = "subtitle"
 	// FieldDescription holds the string denoting the description field in the database.
@@ -46,6 +40,10 @@ const (
 	FieldGenres = "genres"
 	// FieldTags holds the string denoting the tags field in the database.
 	FieldTags = "tags"
+	// FieldCreatedAt holds the string denoting the created_at field in the database.
+	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updated_at"
 	// EdgeChapters holds the string denoting the chapters edge name in mutations.
 	EdgeChapters = "chapters"
 	// EdgeCover holds the string denoting the cover edge name in mutations.
@@ -105,11 +103,7 @@ var Columns = []string{
 	FieldID,
 	FieldDuration,
 	FieldSize,
-	FieldCreatedAt,
-	FieldUpdatedAt,
-	FieldImportedAt,
 	FieldTitle,
-	FieldTitleSort,
 	FieldSubtitle,
 	FieldDescription,
 	FieldIsbn,
@@ -120,6 +114,8 @@ var Columns = []string{
 	FieldPublishedDate,
 	FieldGenres,
 	FieldTags,
+	FieldCreatedAt,
+	FieldUpdatedAt,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "books"
@@ -156,6 +152,12 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultExplicit holds the default value on creation for the "explicit" field.
 	DefaultExplicit bool
+	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
+	DefaultCreatedAt func() time.Time
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
+	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
+	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 )
@@ -178,29 +180,9 @@ func BySize(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSize, opts...).ToFunc()
 }
 
-// ByCreatedAt orders the results by the created_at field.
-func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
-}
-
-// ByUpdatedAt orders the results by the updated_at field.
-func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
-}
-
-// ByImportedAt orders the results by the imported_at field.
-func ByImportedAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldImportedAt, opts...).ToFunc()
-}
-
 // ByTitle orders the results by the title field.
 func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
-}
-
-// ByTitleSort orders the results by the title_sort field.
-func ByTitleSort(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldTitleSort, opts...).ToFunc()
 }
 
 // BySubtitle orders the results by the subtitle field.
@@ -241,6 +223,16 @@ func ByPublisher(opts ...sql.OrderTermOption) OrderOption {
 // ByPublishedDate orders the results by the published_date field.
 func ByPublishedDate(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPublishedDate, opts...).ToFunc()
+}
+
+// ByCreatedAt orders the results by the created_at field.
+func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByUpdatedAt orders the results by the updated_at field.
+func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
 // ByChaptersCount orders the results by chapters count.

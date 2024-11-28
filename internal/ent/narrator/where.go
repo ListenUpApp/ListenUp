@@ -70,11 +70,6 @@ func Name(v string) predicate.Narrator {
 	return predicate.Narrator(sql.FieldEQ(FieldName, v))
 }
 
-// NameSort applies equality check predicate on the "name_sort" field. It's identical to NameSortEQ.
-func NameSort(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldEQ(FieldNameSort, v))
-}
-
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.Narrator {
 	return predicate.Narrator(sql.FieldEQ(FieldDescription, v))
@@ -158,71 +153,6 @@ func NameEqualFold(v string) predicate.Narrator {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Narrator {
 	return predicate.Narrator(sql.FieldContainsFold(FieldName, v))
-}
-
-// NameSortEQ applies the EQ predicate on the "name_sort" field.
-func NameSortEQ(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldEQ(FieldNameSort, v))
-}
-
-// NameSortNEQ applies the NEQ predicate on the "name_sort" field.
-func NameSortNEQ(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldNEQ(FieldNameSort, v))
-}
-
-// NameSortIn applies the In predicate on the "name_sort" field.
-func NameSortIn(vs ...string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldIn(FieldNameSort, vs...))
-}
-
-// NameSortNotIn applies the NotIn predicate on the "name_sort" field.
-func NameSortNotIn(vs ...string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldNotIn(FieldNameSort, vs...))
-}
-
-// NameSortGT applies the GT predicate on the "name_sort" field.
-func NameSortGT(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldGT(FieldNameSort, v))
-}
-
-// NameSortGTE applies the GTE predicate on the "name_sort" field.
-func NameSortGTE(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldGTE(FieldNameSort, v))
-}
-
-// NameSortLT applies the LT predicate on the "name_sort" field.
-func NameSortLT(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldLT(FieldNameSort, v))
-}
-
-// NameSortLTE applies the LTE predicate on the "name_sort" field.
-func NameSortLTE(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldLTE(FieldNameSort, v))
-}
-
-// NameSortContains applies the Contains predicate on the "name_sort" field.
-func NameSortContains(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldContains(FieldNameSort, v))
-}
-
-// NameSortHasPrefix applies the HasPrefix predicate on the "name_sort" field.
-func NameSortHasPrefix(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldHasPrefix(FieldNameSort, v))
-}
-
-// NameSortHasSuffix applies the HasSuffix predicate on the "name_sort" field.
-func NameSortHasSuffix(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldHasSuffix(FieldNameSort, v))
-}
-
-// NameSortEqualFold applies the EqualFold predicate on the "name_sort" field.
-func NameSortEqualFold(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldEqualFold(FieldNameSort, v))
-}
-
-// NameSortContainsFold applies the ContainsFold predicate on the "name_sort" field.
-func NameSortContainsFold(v string) predicate.Narrator {
-	return predicate.Narrator(sql.FieldContainsFold(FieldNameSort, v))
 }
 
 // DescriptionEQ applies the EQ predicate on the "description" field.

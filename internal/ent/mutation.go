@@ -52,7 +52,6 @@ type AuthorMutation struct {
 	typ           string
 	id            *string
 	name          *string
-	name_sort     *string
 	description   *string
 	image_path    *string
 	created_at    *time.Time
@@ -204,42 +203,6 @@ func (m *AuthorMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *AuthorMutation) ResetName() {
 	m.name = nil
-}
-
-// SetNameSort sets the "name_sort" field.
-func (m *AuthorMutation) SetNameSort(s string) {
-	m.name_sort = &s
-}
-
-// NameSort returns the value of the "name_sort" field in the mutation.
-func (m *AuthorMutation) NameSort() (r string, exists bool) {
-	v := m.name_sort
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldNameSort returns the old "name_sort" field's value of the Author entity.
-// If the Author object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AuthorMutation) OldNameSort(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldNameSort is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldNameSort requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldNameSort: %w", err)
-	}
-	return oldValue.NameSort, nil
-}
-
-// ResetNameSort resets all changes to the "name_sort" field.
-func (m *AuthorMutation) ResetNameSort() {
-	m.name_sort = nil
 }
 
 // SetDescription sets the "description" field.
@@ -500,12 +463,9 @@ func (m *AuthorMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AuthorMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 5)
 	if m.name != nil {
 		fields = append(fields, author.FieldName)
-	}
-	if m.name_sort != nil {
-		fields = append(fields, author.FieldNameSort)
 	}
 	if m.description != nil {
 		fields = append(fields, author.FieldDescription)
@@ -529,8 +489,6 @@ func (m *AuthorMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case author.FieldName:
 		return m.Name()
-	case author.FieldNameSort:
-		return m.NameSort()
 	case author.FieldDescription:
 		return m.Description()
 	case author.FieldImagePath:
@@ -550,8 +508,6 @@ func (m *AuthorMutation) OldField(ctx context.Context, name string) (ent.Value, 
 	switch name {
 	case author.FieldName:
 		return m.OldName(ctx)
-	case author.FieldNameSort:
-		return m.OldNameSort(ctx)
 	case author.FieldDescription:
 		return m.OldDescription(ctx)
 	case author.FieldImagePath:
@@ -575,13 +531,6 @@ func (m *AuthorMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
-		return nil
-	case author.FieldNameSort:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetNameSort(v)
 		return nil
 	case author.FieldDescription:
 		v, ok := value.(string)
@@ -677,9 +626,6 @@ func (m *AuthorMutation) ResetField(name string) error {
 	switch name {
 	case author.FieldName:
 		m.ResetName()
-		return nil
-	case author.FieldNameSort:
-		m.ResetNameSort()
 		return nil
 	case author.FieldDescription:
 		m.ResetDescription()
@@ -791,11 +737,7 @@ type BookMutation struct {
 	addduration      *float64
 	size             *int64
 	addsize          *int64
-	created_at       *time.Time
-	updated_at       *time.Time
-	imported_at      *time.Time
 	title            *string
-	title_sort       *string
 	subtitle         *string
 	description      *string
 	isbn             *string
@@ -808,6 +750,8 @@ type BookMutation struct {
 	appendgenres     []string
 	tags             *[]string
 	appendtags       []string
+	created_at       *time.Time
+	updated_at       *time.Time
 	clearedFields    map[string]struct{}
 	chapters         map[int]struct{}
 	removedchapters  map[int]struct{}
@@ -1045,114 +989,6 @@ func (m *BookMutation) ResetSize() {
 	m.addsize = nil
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (m *BookMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
-}
-
-// CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *BookMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCreatedAt returns the old "created_at" field's value of the Book entity.
-// If the Book object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BookMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
-	}
-	return oldValue.CreatedAt, nil
-}
-
-// ResetCreatedAt resets all changes to the "created_at" field.
-func (m *BookMutation) ResetCreatedAt() {
-	m.created_at = nil
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (m *BookMutation) SetUpdatedAt(t time.Time) {
-	m.updated_at = &t
-}
-
-// UpdatedAt returns the value of the "updated_at" field in the mutation.
-func (m *BookMutation) UpdatedAt() (r time.Time, exists bool) {
-	v := m.updated_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldUpdatedAt returns the old "updated_at" field's value of the Book entity.
-// If the Book object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BookMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
-	}
-	return oldValue.UpdatedAt, nil
-}
-
-// ResetUpdatedAt resets all changes to the "updated_at" field.
-func (m *BookMutation) ResetUpdatedAt() {
-	m.updated_at = nil
-}
-
-// SetImportedAt sets the "imported_at" field.
-func (m *BookMutation) SetImportedAt(t time.Time) {
-	m.imported_at = &t
-}
-
-// ImportedAt returns the value of the "imported_at" field in the mutation.
-func (m *BookMutation) ImportedAt() (r time.Time, exists bool) {
-	v := m.imported_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImportedAt returns the old "imported_at" field's value of the Book entity.
-// If the Book object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BookMutation) OldImportedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImportedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImportedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImportedAt: %w", err)
-	}
-	return oldValue.ImportedAt, nil
-}
-
-// ResetImportedAt resets all changes to the "imported_at" field.
-func (m *BookMutation) ResetImportedAt() {
-	m.imported_at = nil
-}
-
 // SetTitle sets the "title" field.
 func (m *BookMutation) SetTitle(s string) {
 	m.title = &s
@@ -1187,42 +1023,6 @@ func (m *BookMutation) OldTitle(ctx context.Context) (v string, err error) {
 // ResetTitle resets all changes to the "title" field.
 func (m *BookMutation) ResetTitle() {
 	m.title = nil
-}
-
-// SetTitleSort sets the "title_sort" field.
-func (m *BookMutation) SetTitleSort(s string) {
-	m.title_sort = &s
-}
-
-// TitleSort returns the value of the "title_sort" field in the mutation.
-func (m *BookMutation) TitleSort() (r string, exists bool) {
-	v := m.title_sort
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldTitleSort returns the old "title_sort" field's value of the Book entity.
-// If the Book object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *BookMutation) OldTitleSort(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldTitleSort is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldTitleSort requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTitleSort: %w", err)
-	}
-	return oldValue.TitleSort, nil
-}
-
-// ResetTitleSort resets all changes to the "title_sort" field.
-func (m *BookMutation) ResetTitleSort() {
-	m.title_sort = nil
 }
 
 // SetSubtitle sets the "subtitle" field.
@@ -1734,6 +1534,78 @@ func (m *BookMutation) ResetTags() {
 	delete(m.clearedFields, book.FieldTags)
 }
 
+// SetCreatedAt sets the "created_at" field.
+func (m *BookMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *BookMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Book entity.
+// If the Book object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BookMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *BookMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *BookMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *BookMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Book entity.
+// If the Book object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BookMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *BookMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
 // AddChapterIDs adds the "chapters" edge to the Chapter entity by ids.
 func (m *BookMutation) AddChapterIDs(ids ...int) {
 	if m.chapters == nil {
@@ -2047,27 +1919,15 @@ func (m *BookMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BookMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 15)
 	if m.duration != nil {
 		fields = append(fields, book.FieldDuration)
 	}
 	if m.size != nil {
 		fields = append(fields, book.FieldSize)
 	}
-	if m.created_at != nil {
-		fields = append(fields, book.FieldCreatedAt)
-	}
-	if m.updated_at != nil {
-		fields = append(fields, book.FieldUpdatedAt)
-	}
-	if m.imported_at != nil {
-		fields = append(fields, book.FieldImportedAt)
-	}
 	if m.title != nil {
 		fields = append(fields, book.FieldTitle)
-	}
-	if m.title_sort != nil {
-		fields = append(fields, book.FieldTitleSort)
 	}
 	if m.subtitle != nil {
 		fields = append(fields, book.FieldSubtitle)
@@ -2099,6 +1959,12 @@ func (m *BookMutation) Fields() []string {
 	if m.tags != nil {
 		fields = append(fields, book.FieldTags)
 	}
+	if m.created_at != nil {
+		fields = append(fields, book.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, book.FieldUpdatedAt)
+	}
 	return fields
 }
 
@@ -2111,16 +1977,8 @@ func (m *BookMutation) Field(name string) (ent.Value, bool) {
 		return m.Duration()
 	case book.FieldSize:
 		return m.Size()
-	case book.FieldCreatedAt:
-		return m.CreatedAt()
-	case book.FieldUpdatedAt:
-		return m.UpdatedAt()
-	case book.FieldImportedAt:
-		return m.ImportedAt()
 	case book.FieldTitle:
 		return m.Title()
-	case book.FieldTitleSort:
-		return m.TitleSort()
 	case book.FieldSubtitle:
 		return m.Subtitle()
 	case book.FieldDescription:
@@ -2141,6 +1999,10 @@ func (m *BookMutation) Field(name string) (ent.Value, bool) {
 		return m.Genres()
 	case book.FieldTags:
 		return m.Tags()
+	case book.FieldCreatedAt:
+		return m.CreatedAt()
+	case book.FieldUpdatedAt:
+		return m.UpdatedAt()
 	}
 	return nil, false
 }
@@ -2154,16 +2016,8 @@ func (m *BookMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldDuration(ctx)
 	case book.FieldSize:
 		return m.OldSize(ctx)
-	case book.FieldCreatedAt:
-		return m.OldCreatedAt(ctx)
-	case book.FieldUpdatedAt:
-		return m.OldUpdatedAt(ctx)
-	case book.FieldImportedAt:
-		return m.OldImportedAt(ctx)
 	case book.FieldTitle:
 		return m.OldTitle(ctx)
-	case book.FieldTitleSort:
-		return m.OldTitleSort(ctx)
 	case book.FieldSubtitle:
 		return m.OldSubtitle(ctx)
 	case book.FieldDescription:
@@ -2184,6 +2038,10 @@ func (m *BookMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldGenres(ctx)
 	case book.FieldTags:
 		return m.OldTags(ctx)
+	case book.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case book.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Book field %s", name)
 }
@@ -2207,40 +2065,12 @@ func (m *BookMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetSize(v)
 		return nil
-	case book.FieldCreatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCreatedAt(v)
-		return nil
-	case book.FieldUpdatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetUpdatedAt(v)
-		return nil
-	case book.FieldImportedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImportedAt(v)
-		return nil
 	case book.FieldTitle:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTitle(v)
-		return nil
-	case book.FieldTitleSort:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetTitleSort(v)
 		return nil
 	case book.FieldSubtitle:
 		v, ok := value.(string)
@@ -2311,6 +2141,20 @@ func (m *BookMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTags(v)
+		return nil
+	case book.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case book.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Book field %s", name)
@@ -2451,20 +2295,8 @@ func (m *BookMutation) ResetField(name string) error {
 	case book.FieldSize:
 		m.ResetSize()
 		return nil
-	case book.FieldCreatedAt:
-		m.ResetCreatedAt()
-		return nil
-	case book.FieldUpdatedAt:
-		m.ResetUpdatedAt()
-		return nil
-	case book.FieldImportedAt:
-		m.ResetImportedAt()
-		return nil
 	case book.FieldTitle:
 		m.ResetTitle()
-		return nil
-	case book.FieldTitleSort:
-		m.ResetTitleSort()
 		return nil
 	case book.FieldSubtitle:
 		m.ResetSubtitle()
@@ -2495,6 +2327,12 @@ func (m *BookMutation) ResetField(name string) error {
 		return nil
 	case book.FieldTags:
 		m.ResetTags()
+		return nil
+	case book.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case book.FieldUpdatedAt:
+		m.ResetUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Book field %s", name)
@@ -5257,7 +5095,6 @@ type NarratorMutation struct {
 	typ           string
 	id            *string
 	name          *string
-	name_sort     *string
 	description   *string
 	image_path    *string
 	created_at    *time.Time
@@ -5409,42 +5246,6 @@ func (m *NarratorMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *NarratorMutation) ResetName() {
 	m.name = nil
-}
-
-// SetNameSort sets the "name_sort" field.
-func (m *NarratorMutation) SetNameSort(s string) {
-	m.name_sort = &s
-}
-
-// NameSort returns the value of the "name_sort" field in the mutation.
-func (m *NarratorMutation) NameSort() (r string, exists bool) {
-	v := m.name_sort
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldNameSort returns the old "name_sort" field's value of the Narrator entity.
-// If the Narrator object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *NarratorMutation) OldNameSort(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldNameSort is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldNameSort requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldNameSort: %w", err)
-	}
-	return oldValue.NameSort, nil
-}
-
-// ResetNameSort resets all changes to the "name_sort" field.
-func (m *NarratorMutation) ResetNameSort() {
-	m.name_sort = nil
 }
 
 // SetDescription sets the "description" field.
@@ -5705,12 +5506,9 @@ func (m *NarratorMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *NarratorMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 5)
 	if m.name != nil {
 		fields = append(fields, narrator.FieldName)
-	}
-	if m.name_sort != nil {
-		fields = append(fields, narrator.FieldNameSort)
 	}
 	if m.description != nil {
 		fields = append(fields, narrator.FieldDescription)
@@ -5734,8 +5532,6 @@ func (m *NarratorMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case narrator.FieldName:
 		return m.Name()
-	case narrator.FieldNameSort:
-		return m.NameSort()
 	case narrator.FieldDescription:
 		return m.Description()
 	case narrator.FieldImagePath:
@@ -5755,8 +5551,6 @@ func (m *NarratorMutation) OldField(ctx context.Context, name string) (ent.Value
 	switch name {
 	case narrator.FieldName:
 		return m.OldName(ctx)
-	case narrator.FieldNameSort:
-		return m.OldNameSort(ctx)
 	case narrator.FieldDescription:
 		return m.OldDescription(ctx)
 	case narrator.FieldImagePath:
@@ -5780,13 +5574,6 @@ func (m *NarratorMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
-		return nil
-	case narrator.FieldNameSort:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetNameSort(v)
 		return nil
 	case narrator.FieldDescription:
 		v, ok := value.(string)
@@ -5882,9 +5669,6 @@ func (m *NarratorMutation) ResetField(name string) error {
 	switch name {
 	case narrator.FieldName:
 		m.ResetName()
-		return nil
-	case narrator.FieldNameSort:
-		m.ResetNameSort()
 		return nil
 	case narrator.FieldDescription:
 		m.ResetDescription()
