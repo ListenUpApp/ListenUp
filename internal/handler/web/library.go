@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	appErr "github.com/ListenUpApp/ListenUp/internal/error"
@@ -34,11 +35,57 @@ func (h *LibraryHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
+	appCtx, err := middleware.GetAppContext(c)
+	if err != nil {
+		h.handleRenderError(c, err, "LibraryIndex")
+		return
+	}
+
+	// Get page parameters
+	page, pageSize := h.getPaginationParams(c)
+
+	var books *models.BookList
+	if appCtx.ActiveLibrary != nil {
+		books, err = h.services.Media.GetBooks(c.Request.Context(), appCtx.ActiveLibrary.ID, page, pageSize)
+		if err != nil {
+			h.logger.ErrorContext(c.Request.Context(), "Failed to get books",
+				"library_id", appCtx.ActiveLibrary.ID,
+				"error", err)
+			books = &models.BookList{
+				Books: []models.ListAudiobook{},
+				Pagination: models.Pagination{
+					CurrentPage: 1,
+					PageSize:    pageSize,
+					TotalItems:  0,
+					TotalPages:  0,
+				},
+			}
+		}
+	}
+
 	if err := h.RenderPage(c, "Library",
-		library.LibraryIndexPage(),
-		library.LibraryIndexContent()); err != nil {
+		library.LibraryIndexPage(books.Books, books.Pagination),
+		library.LibraryIndexContent(books.Books, books.Pagination)); err != nil {
 		h.handleRenderError(c, err, "LibraryIndex")
 	}
+}
+
+func (h *LibraryHandler) getPaginationParams(c *gin.Context) (page, pageSize int) {
+	// Parse page number
+	pageStr := c.DefaultQuery("page", "1")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	// Parse page size
+	pageSizeStr := c.DefaultQuery("size", "20")
+	pageSize, err = strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	return page, pageSize
 }
 
 func (h *LibraryHandler) CreateLibraryPage(c *gin.Context) {

@@ -24,4 +24,5 @@ type LibraryOperations interface {
 	AddFolders(ctx context.Context, libraryID string, folders []models.CreateFolderRequest) error
 	ExistsForUser(ctx context.Context, userId string, name string) (bool, error)
 	GetLibrariesWithFolders(ctx context.Context, folderPath string) ([]*ent.Library, error)
+	GetBooks(ctx context.Context, libraryId string, offset, limit int) ([]*ent.Book, int, error)
 }

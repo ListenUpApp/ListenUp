@@ -26,6 +26,18 @@ type Audiobook struct {
 	UpdatedAt     time.Time
 }
 
+type ListAudiobook struct {
+	ID     string
+	Title  string
+	Cover  Cover
+	Author ListAuthor
+}
+
+type BookList struct {
+	Books      []ListAudiobook
+	Pagination Pagination
+}
+
 type CreateAudiobookRequest struct {
 	Title         string
 	Duration      int64

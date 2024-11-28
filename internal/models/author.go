@@ -11,6 +11,11 @@ type Author struct {
 	updatedAt   time.Time
 }
 
+type ListAuthor struct {
+	ID   string
+	Name string
+}
+
 type CreateAuthorRequest struct {
 	Name        string
 	Description string

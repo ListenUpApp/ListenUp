@@ -249,7 +249,7 @@ func (s *Scanner) processFile(path string) {
 	}
 
 	createBookData := models.CreateAudiobookRequest{
-		Title:         cleanString(mergedMeta.Title),
+		Title:         cleanString(audioMeta.Title()),
 		Subtitle:      cleanString(mergedMeta.Subtitle),
 		Duration:      int64(audioMeta.Duration()),
 		Size:          fileInfo.Size(),

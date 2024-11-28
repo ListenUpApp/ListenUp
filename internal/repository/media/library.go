@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
@@ -286,4 +287,52 @@ func (r *libraryRepository) GetLibrariesWithFolders(ctx context.Context, folderP
 	}
 
 	return libraries, nil
+}
+
+func (r *libraryRepository) GetBooks(ctx context.Context, libraryId string, offset, limit int) ([]*ent.Book, int, error) {
+	// First get the library to verify it exists
+	dbLibrary, err := r.client.Library.Query().Where(library.IDEQ(libraryId)).Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, 0, appErr.NewRepositoryError(appErr.ErrNotFound, "library not found", err).
+				WithOperation("GetBooks").
+				WithData(map[string]interface{}{
+					"library_id": libraryId,
+				})
+		}
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query library", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	// Get total count
+	total, err := dbLibrary.QueryLibraryBooks().Count(ctx)
+	if err != nil {
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to count books", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	// Get paginated books with authors preloaded
+	books, err := dbLibrary.QueryLibraryBooks().
+		WithAuthors().
+		WithCover().
+		Offset(offset).
+		Limit(limit).
+		Order(ent.Asc(book.FieldTitle)).
+		All(ctx)
+
+	if err != nil {
+		return nil, 0, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query books", err).
+			WithOperation("GetBooks").
+			WithData(map[string]interface{}{
+				"library_id": libraryId,
+			})
+	}
+
+	return books, total, nil
 }

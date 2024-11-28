@@ -174,3 +174,68 @@ func (s *MediaService) CreateLibrary(ctx context.Context, userId string, params 
 		Name: dbLibrary.Name,
 	}, nil
 }
+
+func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pageSize int) (*models.BookList, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20 // Default page size
+	}
+
+	// Get books with pagination
+	books, total, err := s.mediaRepo.Library.GetBooks(ctx, libraryId, (page-1)*pageSize, pageSize)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetBooks", map[string]interface{}{
+			"library_id": libraryId,
+			"page":       page,
+			"page_size":  pageSize,
+		})
+	}
+
+	// Convert to ListAudiobook format
+	listBooks := make([]models.ListAudiobook, 0, len(books))
+	for _, book := range books {
+		// Get the first author or create an empty one
+		var author models.ListAuthor
+		authors, err := book.QueryAuthors().All(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to get authors for book",
+				"book_id", book.ID,
+				"error", err)
+		} else if len(authors) > 0 {
+			author = models.ListAuthor{
+				ID:   authors[0].ID,
+				Name: authors[0].Name,
+			}
+		}
+
+		// Get cover information
+		var cover models.Cover
+		if bookCover, err := book.QueryCover().Only(ctx); err == nil {
+			cover = models.Cover{
+				Path:      bookCover.Path,
+				Format:    bookCover.Format,
+				Size:      bookCover.Size,
+				UpdatedAt: bookCover.UpdatedAt,
+			}
+		}
+
+		listBooks = append(listBooks, models.ListAudiobook{
+			ID:     book.ID,
+			Title:  book.Title,
+			Cover:  cover,
+			Author: author,
+		})
+	}
+
+	return &models.BookList{
+		Books: listBooks,
+		Pagination: models.Pagination{
+			CurrentPage: page,
+			PageSize:    pageSize,
+			TotalItems:  total,
+			TotalPages:  (total + pageSize - 1) / pageSize,
+		},
+	}, nil
+}
