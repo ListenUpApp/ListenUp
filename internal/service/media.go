@@ -175,6 +175,7 @@ func (s *MediaService) CreateLibrary(ctx context.Context, userId string, params 
 	}, nil
 }
 
+// TODO we're breaking up things between Content and Media repositories and that may no longer make sense.
 func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pageSize int) (*models.BookList, error) {
 	if page < 1 {
 		page = 1
@@ -210,14 +211,31 @@ func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pag
 			}
 		}
 
-		// Get cover information
+		// Get cover information with versions
 		var cover models.Cover
-		if bookCover, err := book.QueryCover().Only(ctx); err == nil {
+		if bookCover, err := book.QueryCover().
+			WithVersions(). // This is the key change!
+			Only(ctx); err == nil {
+
+			// Create the cover versions slice
+			versions := make([]models.CoverVersion, 0)
+			if bookCover.Edges.Versions != nil {
+				for _, v := range bookCover.Edges.Versions {
+					versions = append(versions, models.CoverVersion{
+						Path:   v.Path,
+						Format: v.Format,
+						Size:   v.Size,
+						Suffix: v.Suffix,
+					})
+				}
+			}
+
 			cover = models.Cover{
 				Path:      bookCover.Path,
 				Format:    bookCover.Format,
 				Size:      bookCover.Size,
 				UpdatedAt: bookCover.UpdatedAt,
+				Versions:  versions, // Add the versions to the cover
 			}
 		}
 

@@ -16,7 +16,6 @@ type Services struct {
 	User    *UserService
 	Media   *MediaService
 	Content *ContentService
-	Image   *ImageService
 }
 
 type Deps struct {
@@ -27,11 +26,6 @@ type Deps struct {
 }
 
 func NewServices(deps Deps) (*Services, error) {
-	imageService, err := NewImageService(deps.Config.Metadata, deps.Logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create image service: %w", err)
-	}
-
 	authService, err := NewAuthService(ServiceConfig{
 		UserRepo:   deps.Repos.User,
 		ServerRepo: deps.Repos.Server,
@@ -69,11 +63,11 @@ func NewServices(deps Deps) (*Services, error) {
 	}
 
 	contentService, err := NewContentService(ServiceConfig{
-		MediaRepo:    deps.Repos.Media,
-		ContentRepo:  deps.Repos.Content,
-		ImageService: imageService,
-		Logger:       deps.Logger,
-		Validator:    deps.Validator,
+		MediaRepo:   deps.Repos.Media,
+		ContentRepo: deps.Repos.Content,
+		config:      deps.Config,
+		Logger:      deps.Logger,
+		Validator:   deps.Validator,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create content service: %w", err)
@@ -85,17 +79,16 @@ func NewServices(deps Deps) (*Services, error) {
 		User:    userService,
 		Media:   mediaService,
 		Content: contentService,
-		Image:   imageService,
 	}, nil
 }
 
 // ServiceConfig shared configuration for services
 type ServiceConfig struct {
-	UserRepo     *repository.UserRepository
-	ServerRepo   *repository.ServerRepository
-	MediaRepo    *media.Repository
-	ContentRepo  *content.Repository
-	ImageService *ImageService
-	Logger       *logging.AppLogger
-	Validator    *validator.Validate
+	UserRepo    *repository.UserRepository
+	ServerRepo  *repository.ServerRepository
+	MediaRepo   *media.Repository
+	ContentRepo *content.Repository
+	config      *config.Config
+	Logger      *logging.AppLogger
+	Validator   *validator.Validate
 }

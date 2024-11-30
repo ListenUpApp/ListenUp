@@ -8,13 +8,14 @@ import (
 templ BookCover(cover models.Cover, alt string) {
 	if len(cover.Versions) > 0 {
 		<picture class="w-full h-full">
-			// Source elements for different screen sizes
+			// 2x versions for retina displays
 			<source
 				media="(min-width: 1536px)"
 				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
                     getVersionPath(cover, "large"),
                     getVersionPath(cover, "large@2x")) }
 				type="image/webp"
+				sizes="(min-width: 1536px) 1200px"
 			/>
 			<source
 				media="(min-width: 1024px)"
@@ -22,6 +23,7 @@ templ BookCover(cover models.Cover, alt string) {
                     getVersionPath(cover, "medium"),
                     getVersionPath(cover, "medium@2x")) }
 				type="image/webp"
+				sizes="(min-width: 1024px) 600px"
 			/>
 			<source
 				media="(min-width: 768px)"
@@ -29,41 +31,56 @@ templ BookCover(cover models.Cover, alt string) {
                     getVersionPath(cover, "small"),
                     getVersionPath(cover, "small@2x")) }
 				type="image/webp"
+				sizes="(min-width: 768px) 300px"
 			/>
 			<source
 				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
                     getVersionPath(cover, "thumbnail"),
                     getVersionPath(cover, "thumbnail@2x")) }
 				type="image/webp"
+				sizes="150px"
 			/>
-			// Fallback img element
+			// Fallback image with more detailed attributes
 			<img
 				src={ getVersionPath(cover, "medium") }
 				alt={ alt }
+				width="600"
+				height="900"
 				class="object-cover object-center w-full h-full"
 				loading="lazy"
+				decoding="async"
 			/>
 		</picture>
 	} else if cover.Path != "" {
+		// Fallback for original image
 		<img
 			src={ cover.Path }
 			alt={ alt }
 			class="object-cover object-center w-full h-full"
 			loading="lazy"
+			decoding="async"
 		/>
 	} else {
+		// Placeholder for missing images
 		<div class="flex items-center justify-center h-full bg-gray-200">
-			<img src="https://placehold.co/400x400" alt={ alt }/>
+			<span class="text-gray-400">No Cover</span>
 		</div>
 	}
 }
 
-// Helper function to get version path
+// Helper function to get version path with debug logging
 func getVersionPath(cover models.Cover, suffix string) string {
 	for _, version := range cover.Versions {
 		if version.Suffix == suffix {
+			if version.Path == "" {
+				// Log if we find a version but its path is empty
+				fmt.Printf("Warning: Found version %s but path is empty\n", suffix)
+				continue
+			}
 			return version.Path
 		}
 	}
+	// Log when falling back to original
+	fmt.Printf("Warning: Version %s not found, falling back to original\n", suffix)
 	return cover.Path // Fallback to original
 }
