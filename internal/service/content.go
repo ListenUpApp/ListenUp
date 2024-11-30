@@ -265,16 +265,15 @@ func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*model
 	}
 
 	// Handle series information
-	var series models.Series
-	if len(dbBook.Edges.SeriesBooks) > 0 {
-		seriesBook := dbBook.Edges.SeriesBooks[0]
+	var seriesList []models.Series
+	for _, seriesBook := range dbBook.Edges.SeriesBooks {
 		if seriesBook.Edges.Series != nil {
-			series = models.Series{
+			seriesList = append(seriesList, models.Series{
 				ID:          seriesBook.Edges.Series.ID,
 				Name:        seriesBook.Edges.Series.Name,
 				Description: seriesBook.Edges.Series.Description,
 				Sequence:    seriesBook.Sequence,
-			}
+			})
 		}
 	}
 
@@ -318,7 +317,7 @@ func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*model
 		Narrators:     narrators,
 		Chapters:      chapters,
 		Cover:         cover,
-		Series:        series,
+		Series:        seriesList,
 		CreatedAt:     dbBook.CreatedAt,
 		UpdatedAt:     dbBook.UpdatedAt,
 	}

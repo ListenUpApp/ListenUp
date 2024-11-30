@@ -81,33 +81,6 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		narrators = append(narrators, dbNarrator)
 	}
 
-	var dbSeries *ent.Series
-	if params.SeriesName != "" {
-		dbSeries, err = tx.Series.Query().
-			Where(series.NameEQ(params.SeriesName)).
-			Only(ctx)
-
-		if err != nil {
-			if !ent.IsNotFound(err) {
-				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query series", err).
-					WithOperation("CreateAudiobook").
-					WithData(map[string]interface{}{"series_name": params.SeriesName})
-			}
-
-			// Create new series if it doesn't exist
-			dbSeries, err = tx.Series.Create().
-				SetName(params.SeriesName).
-				SetNameSort(params.SeriesName). // You might want to improve the sorting logic
-				Save(ctx)
-
-			if err != nil {
-				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create series", err).
-					WithOperation("CreateAudiobook").
-					WithData(map[string]interface{}{"series_name": params.SeriesName})
-			}
-		}
-	}
-
 	// Create book
 	dbBook, err := tx.Book.Create().
 		SetID(bookID).
@@ -194,8 +167,33 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		}
 	}
 
-	if dbSeries != nil {
-		_, err := tx.SeriesBook.Create().
+	if params.SeriesName != "" {
+		dbSeries, err := tx.Series.Query().
+			Where(series.NameEQ(params.SeriesName)).
+			Only(ctx)
+
+		if err != nil {
+			if !ent.IsNotFound(err) {
+				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query series", err).
+					WithOperation("CreateAudiobook").
+					WithData(map[string]interface{}{"series_name": params.SeriesName})
+			}
+
+			// Create new series if it doesn't exist
+			dbSeries, err = tx.Series.Create().
+				SetName(params.SeriesName).
+				SetNameSort(params.SeriesName).
+				Save(ctx)
+
+			if err != nil {
+				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create series", err).
+					WithOperation("CreateAudiobook").
+					WithData(map[string]interface{}{"series_name": params.SeriesName})
+			}
+		}
+
+		// Create the series relationship
+		_, err = tx.SeriesBook.Create().
 			SetSeries(dbSeries).
 			SetBook(dbBook).
 			SetSequence(params.SeriesSequence).

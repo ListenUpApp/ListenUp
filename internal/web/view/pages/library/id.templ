@@ -1,10 +1,12 @@
 package library
 
 import (
+	"context"
 	"fmt"
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+	"io"
 	"strings"
 )
 
@@ -44,11 +46,36 @@ templ SingleBookPageContent(book models.Audiobook) {
 			<dl class="my-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-secondary-600 w-full">
 				if len(book.Authors) > 0 {
 					<dt>Author</dt>
-					<dd>{ strings.Join(mapAuthorNames(book.Authors), ", ") }</dd>
+					<dd class="flex flex-wrap gap-x-2">
+						for i, author := range book.Authors {
+							if i > 0 {
+								<span>,</span>
+							}
+							@authorLink(author)
+						}
+					</dd>
+				}
+				if len(book.Series) > 0 {
+					<dt>Series</dt>
+					<dd class="flex flex-wrap gap-x-2">
+						for i, s := range book.Series {
+							if i > 0 {
+								<span>,</span>
+							}
+							@seriesLink(s)
+						}
+					</dd>
 				}
 				if len(book.Narrators) > 0 {
 					<dt>Narrators</dt>
-					<dd>{ strings.Join(mapNarratorNames(book.Narrators), ", ") }</dd>
+					<dd class="flex flex-wrap gap-x-2">
+						for i, narrator := range book.Narrators {
+							if i > 0 {
+								<span>,</span>
+							}
+							@narratorLink(narrator)
+						}
+					</dd>
 				}
 				if len(book.Genres) > 0 {
 					<dt>Genres</dt>
@@ -140,15 +167,36 @@ templ SingleBookPageContent(book models.Audiobook) {
 								<dl class="my-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-secondary-600 w-full">
 									if len(book.Authors) > 0 {
 										<dt>Author</dt>
-										<dd>{ strings.Join(mapAuthorNames(book.Authors), ", ") }</dd>
+										<dd class="flex flex-wrap gap-x-2">
+											for i, author := range book.Authors {
+												if i > 0 {
+													<span>,</span>
+												}
+												@authorLink(author)
+											}
+										</dd>
 									}
-									if book.Series.Name != "" {
+									if len(book.Series) > 0 {
 										<dt>Series</dt>
-										<dd>{ book.Series.Name } #{ fmt.Sprint(book.Series.Sequence) }</dd>
+										<dd class="flex flex-wrap gap-x-2">
+											for i, s := range book.Series {
+												if i > 0 {
+													<span>,</span>
+												}
+												@seriesLink(s)
+											}
+										</dd>
 									}
 									if len(book.Narrators) > 0 {
 										<dt>Narrators</dt>
-										<dd>{ strings.Join(mapNarratorNames(book.Narrators), ", ") }</dd>
+										<dd class="flex flex-wrap gap-x-2">
+											for i, narrator := range book.Narrators {
+												if i > 0 {
+													<span>,</span>
+												}
+												@narratorLink(narrator)
+											}
+										</dd>
 									}
 									if len(book.Genres) > 0 {
 										<dt>Genres</dt>
@@ -267,20 +315,22 @@ func formatDuration(seconds int64) string {
 
 	return fmt.Sprintf("%dhr %dmin", hours, minutes)
 }
-func mapAuthorNames(authors []models.Author) []string {
-	names := make([]string, len(authors))
-	for i, author := range authors {
-		names[i] = author.Name
-	}
-	return names
+func authorLink(author models.Author) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return templ.Raw(fmt.Sprintf(`<a href="/authors/%s" class="text-secondary-600 hover:text-primary-700 transition-colors">%s</a>`, author.ID, author.Name)).Render(ctx, w)
+	})
 }
 
-func mapNarratorNames(narrators []models.Narrator) []string {
-	names := make([]string, len(narrators))
-	for i, narrator := range narrators {
-		names[i] = narrator.Name
-	}
-	return names
+func narratorLink(narrator models.Narrator) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return templ.Raw(fmt.Sprintf(`<a href="/narrators/%s" class="text-secondary-600 hover:text-primary-700 transition-colors">%s</a>`, narrator.ID, narrator.Name)).Render(ctx, w)
+	})
+}
+
+func seriesLink(series models.Series) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return templ.Raw(fmt.Sprintf(`<a href="/series/%s" class="text-secondary-600 hover:text-primary-700 transition-colors">%s</a>`, series.ID, series.Name)).Render(ctx, w)
+	})
 }
 
 func min(a, b int) int {

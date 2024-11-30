@@ -23,7 +23,7 @@ type Audiobook struct {
 	Narrators     []Narrator
 	Chapters      []Chapter
 	Cover         Cover
-	Series        Series
+	Series        []Series
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
