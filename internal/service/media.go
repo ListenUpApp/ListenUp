@@ -214,7 +214,7 @@ func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pag
 		// Get cover information with versions
 		var cover models.Cover
 		if bookCover, err := book.QueryCover().
-			WithVersions(). // This is the key change!
+			WithVersions().
 			Only(ctx); err == nil {
 
 			// Create the cover versions slice
@@ -235,7 +235,7 @@ func (s *MediaService) GetBooks(ctx context.Context, libraryId string, page, pag
 				Format:    bookCover.Format,
 				Size:      bookCover.Size,
 				UpdatedAt: bookCover.UpdatedAt,
-				Versions:  versions, // Add the versions to the cover
+				Versions:  versions,
 			}
 		}
 

@@ -31,6 +31,7 @@ func NewLibraryHandler(cfg Config, base *BaseHandler) *LibraryHandler {
 func (h *LibraryHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/", h.LibraryIndex)
 	router.GET("/new", h.CreateLibraryPage)
+	router.GET("/:id", h.LibrarySingle)
 	router.POST("/new", h.CreateLibrary)
 }
 
@@ -67,6 +68,20 @@ func (h *LibraryHandler) LibraryIndex(c *gin.Context) {
 		library.LibraryIndexPage(books.Books, books.Pagination),
 		library.LibraryIndexContent(books.Books, books.Pagination)); err != nil {
 		h.handleRenderError(c, err, "LibraryIndex")
+	}
+}
+
+func (h *LibraryHandler) LibrarySingle(c *gin.Context) {
+	bookID := c.Param("id")
+
+	dbBook, err := h.services.Content.GetBookById(c.Request.Context(), bookID)
+	if err != nil {
+		h.logger.ErrorContext(c.Request.Context(), "Failed to get book",
+			"book_id", bookID,
+			"error", err)
+	}
+	if err := h.RenderPage(c, dbBook.Title, library.SingleBookPage(*dbBook), library.SingleBookPageContent(*dbBook)); err != nil {
+		h.handleRenderError(c, err, "LibrarySingle")
 	}
 }
 

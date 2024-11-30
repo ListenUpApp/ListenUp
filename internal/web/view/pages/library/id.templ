@@ -1,0 +1,287 @@
+package library
+
+import (
+	"fmt"
+	"github.com/ListenUpApp/ListenUp/internal/models"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
+	"strings"
+)
+
+templ SingleBookPage(book models.Audiobook) {
+	<title>ListenUp | { book.Title }</title>
+	@layouts.App() {
+		@SingleBookPageContent(book)
+	}
+}
+
+templ SingleBookPageContent(book models.Audiobook) {
+	<title>ListenUp | { book.Title }</title>
+	<div x-data="coverShadow()">
+		<div class="flex flex-col items-center mt-6 xl:hidden">
+			<div
+				class="max-w-48 w-full aspect-w-2 aspect-h-2 rounded-xl overflow-hidden"
+				:style="{ 'box-shadow': `0 4px 24px 0 ${shadowColor}` }"
+			>
+				@components.BookCover(book.Cover, book.Title)
+			</div>
+			<h1 class="mt-6 mb-4 text-2xl text-secondary-600 text-center font-semibold">{ book.Title }</h1>
+			<h2>{ book.Subtitle }</h2>
+			<div class="flex flex-row justify-between space-x-4">
+				<div class="p-4 rounded-full bg-white text-secondary-600">
+					<i class="mr-2 fa-solid fa-star text-yellow-600"></i> <span>5.0</span>
+				</div>
+				<div class="p-4 rounded-full bg-white text-secondary-600">
+					<i class="mr-2f fa-solid fa-clock "></i> <span>{ formatDuration(book.Duration) }</span>
+				</div>
+				<div class="p-4 rounded-full bg-white  text-secondary-600">
+					<i class="mr-2 fa-solid fa-calendar-days"></i> <span>{ fmt.Sprint(book.PublishedDate.Year()) }</span>
+				</div>
+			</div>
+			<div class="w-full mt-12 mb-6">
+				<button class="btn btn-primary font-regular text-xl w-full" style="box-shadow: 0px 4px 20px 0px rgba(100, 5, 5, 0.18)"><i class="fa-solid fa-play mr-4"></i>Play Now</button>
+			</div>
+			<dl class="my-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-secondary-600 w-full">
+				if len(book.Authors) > 0 {
+					<dt>Author</dt>
+					<dd>{ strings.Join(mapAuthorNames(book.Authors), ", ") }</dd>
+				}
+				if len(book.Narrators) > 0 {
+					<dt>Narrators</dt>
+					<dd>{ strings.Join(mapNarratorNames(book.Narrators), ", ") }</dd>
+				}
+				if len(book.Genres) > 0 {
+					<dt>Genres</dt>
+					<dd>{ strings.Join(book.Genres, " & ") }</dd>
+				}
+			</dl>
+			<div
+				x-data="{ expanded: false }"
+				class="mt-4 text-secondary-600"
+			>
+				<p class="relative">
+					<span
+						x-show="!expanded"
+						class="inline "
+					>
+						{ book.Description[:min(200, len(book.Description))] }...
+					</span>
+					<span
+						x-show="expanded"
+						class="inline"
+					>
+						{ book.Description }
+					</span>
+					<button
+						@click="expanded = !expanded"
+						class="text-primary-600 hover:text-primary-700 font-medium inline"
+						x-text="expanded ? 'Show less' : 'Read more'"
+					></button>
+				</p>
+			</div>
+			if len(book.Chapters) > 0 {
+				<div class="my-8 self-start w-full" x-data="{ expanded: false }">
+					<h3 class="text-xl mb-4 text-secondary-600 font-medium">
+						Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-3 text-base">{ fmt.Sprint(len(book.Chapters)) }</span>
+					</h3>
+					<!-- First 5 chapters - always visible -->
+					for _, chapter := range book.Chapters[:min(5, len(book.Chapters))] {
+						<div class="bg-white w-full rounded-xl flex flex-row items-center justify-start my-2 p-2">
+							<div class="max-w-12 w-full rounded-xl mr-4">
+								@components.BookCover(book.Cover, book.Title)
+							</div>
+							<div>
+								<h4 class="text-lg text-secondary-700 font-medium">{ chapter.Title }</h4>
+								<p class="text-secondary-600">{ formatDuration(int64(chapter.Start)) }</p>
+							</div>
+						</div>
+					}
+					<!-- Remaining chapters - shown when expanded -->
+					<div x-show="expanded" x-collapse>
+						for _, chapter := range book.Chapters[min(5, len(book.Chapters)):] {
+							<div class="bg-white w-full rounded-xl flex flex-row items-center justify-start my-2 p-2">
+								<div class="max-w-12 w-full rounded-xl mr-4">
+									@components.BookCover(book.Cover, book.Title)
+								</div>
+								<div>
+									<h4 class="text-lg text-secondary-700 font-medium">{ chapter.Title }</h4>
+									<p class="text-secondary-600">{ formatDuration(int64(chapter.Start)) }</p>
+								</div>
+							</div>
+						}
+					</div>
+					if len(book.Chapters) > 5 {
+						<div class="flex flex-row justify-center w-full mt-4">
+							<button
+								@click="expanded = !expanded"
+								class="w-full mx-auto max-w-48 py-4 text-center rounded-full shadow-lg bg-white text-secondary-600 font-medium text-xl"
+								x-text="expanded ? 'Show Less' : 'Show More'"
+							></button>
+						</div>
+					}
+				</div>
+			}
+		</div>
+		// Desktop Layout
+		<div class="hidden xl:grid grid-cols-3 gap-4 2xl:gap-12 items-stretch">
+			<div class="col-span-2">
+				<div class="bg-white rounded-xl h-full p-6 items-center max-h-min">
+					<div class="grid grid-cols-3 gap-8">
+						<div
+							class="w-full max-w-xl aspect-w-2 aspect-h-2 rounded-xl overflow-hidden"
+							:style="{ 'box-shadow': `0 4px 24px 0 ${shadowColor}` }"
+						>
+							@components.BookCover(book.Cover, book.Title)
+						</div>
+						<div class="col-span-2">
+							<h1 class="mt-6 mb-4 text-2xl text-secondary-600 font-semibold">{ book.Title }</h1>
+							<h2>{ book.Subtitle }</h2>
+							<div>
+								<dl class="my-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-secondary-600 w-full">
+									if len(book.Authors) > 0 {
+										<dt>Author</dt>
+										<dd>{ strings.Join(mapAuthorNames(book.Authors), ", ") }</dd>
+									}
+									if len(book.Narrators) > 0 {
+										<dt>Narrators</dt>
+										<dd>{ strings.Join(mapNarratorNames(book.Narrators), ", ") }</dd>
+									}
+									if len(book.Genres) > 0 {
+										<dt>Genres</dt>
+										<dd>{ strings.Join(book.Genres, " & ") }</dd>
+									}
+								</dl>
+							</div>
+							<div class="flex flex-row space-x-4">
+								<div class="px-4 py-2 rounded-full bg-gray-100 text-secondary-600">
+									<i class="mr-2 fa-solid fa-star text-yellow-600"></i> <span>5.0</span>
+								</div>
+								<div class="px-4 py-2 rounded-full bg-gray-100 text-secondary-600">
+									<i class="mr-2f fa-solid fa-clock "></i> <span>{ formatDuration(book.Duration) }</span>
+								</div>
+								<div class="px-4 py-2 rounded-full bg-gray-100  text-secondary-600">
+									<i class="mr-2 fa-solid fa-calendar-days"></i> <span>{ fmt.Sprint(book.PublishedDate.Year()) }</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<hr class="my-8"/>
+					<div
+						class="mt-4 text-secondary-600"
+					>
+						<h2 class="text-lg text-secondary-700 mb-4">Description</h2>
+						<p class="relative">
+							{ book.Description }
+						</p>
+					</div>
+					<div class="w-full mt-12 mb-6">
+						<button class="btn btn-primary font-regular text-xl w-full" style="box-shadow: 0px 4px 20px 0px rgba(100, 5, 5, 0.18)"><i class="fa-solid fa-play mr-4"></i>Play Now</button>
+					</div>
+				</div>
+			</div>
+			<div class="relative">
+				<div class="bg-white rounded-xl p-6 absolute inset-0 flex flex-col">
+					if len(book.Chapters) > 0 {
+						<div class="flex-none">
+							<h3 class="text-xl mb-4 text-secondary-600 font-medium">
+								Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-2 text-base">{ fmt.Sprint(len(book.Chapters)) }</span>
+							</h3>
+						</div>
+						<div class="flex-1 overflow-y-auto">
+							for _, chapter := range book.Chapters {
+								<div class="bg-white w-full rounded-xl flex flex-row items-center justify-start my-2 p-2">
+									<div class="max-w-12 w-full rounded-xl mr-4">
+										@components.BookCover(book.Cover, book.Title)
+									</div>
+									<div class="text-start">
+										<h4 class="text-lg text-secondary-700 font-medium">{ chapter.Title }</h4>
+										<p class="text-secondary-600">{ formatDuration(int64(chapter.Start)) }</p>
+									</div>
+								</div>
+							}
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+	<script>
+        function coverShadow() {
+            return {
+                shadowColor: 'rgba(0,0,0,0.2)',
+                
+                init() {
+                    // Wait for image to load
+                    const img = this.$el.querySelector('img');
+                    if (img.complete) {
+                        this.analyzeCover(img);
+                    } else {
+                        img.addEventListener('load', () => this.analyzeCover(img));
+                    }
+                },
+
+                analyzeCover(img) {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Sample at a small size for performance
+                    canvas.width = 50;
+                    canvas.height = 50;
+                    
+                    ctx.drawImage(img, 0, 0, 50, 50);
+                    const imageData = ctx.getImageData(0, 0, 50, 50).data;
+                    
+                    let r = 0, g = 0, b = 0;
+                    const pixelCount = imageData.length / 4;
+                    
+                    for (let i = 0; i < imageData.length; i += 4) {
+                        r += imageData[i];
+                        g += imageData[i + 1];
+                        b += imageData[i + 2];
+                    }
+                    
+                    // Calculate average
+                    r = Math.round(r / pixelCount);
+                    g = Math.round(g / pixelCount);
+                    b = Math.round(b / pixelCount);
+
+                    // Set shadow with slight transparency
+                    this.shadowColor = `rgba(${r},${g},${b},0.3)`;
+                }
+            }
+        }
+    </script>
+}
+
+func formatDuration(seconds int64) string {
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+
+	if hours == 0 {
+		return fmt.Sprintf("%dmin", minutes)
+	}
+
+	return fmt.Sprintf("%dhr %dmin", hours, minutes)
+}
+func mapAuthorNames(authors []models.Author) []string {
+	names := make([]string, len(authors))
+	for i, author := range authors {
+		names[i] = author.Name
+	}
+	return names
+}
+
+func mapNarratorNames(narrators []models.Narrator) []string {
+	names := make([]string, len(narrators))
+	for i, narrator := range narrators {
+		names[i] = narrator.Name
+	}
+	return names
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

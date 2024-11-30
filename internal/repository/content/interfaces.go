@@ -9,6 +9,7 @@ import (
 
 type BookOperations interface {
 	Create(ctx context.Context, bookID string, params models.CreateAudiobookRequest, folder *ent.Folder, library *ent.Library) (*ent.Book, error)
+	GetById(ctx context.Context, bookID string) (*ent.Book, error)
 }
 
 type AuthorOperations interface {
