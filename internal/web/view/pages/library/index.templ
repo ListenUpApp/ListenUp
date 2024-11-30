@@ -4,6 +4,7 @@ import (
 	"fmt"
 	appcontext "github.com/ListenUpApp/ListenUp/internal/context"
 	"github.com/ListenUpApp/ListenUp/internal/models"
+	"github.com/ListenUpApp/ListenUp/internal/web/view/components"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/layouts"
 	"github.com/ListenUpApp/ListenUp/internal/web/view/partials"
 	"strconv"
@@ -20,9 +21,13 @@ templ LibraryIndexContent(books []models.ListAudiobook, pagination models.Pagina
 		if !appCtx.LibrariesExist || appCtx.ActiveLibrary == nil {
 			@partials.LibraryStatus()
 		} else {
+			if books == nil {
+				<h2>No Books Found!</h2>
+				<p>Maybe you should add some?</p>
+			}
 			<div>
 				// Book grid
-				<div id="book-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-12 gap-6">
+				<div id="book-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-12 gap-6">
 					for _, book := range books {
 						@BookCard(book)
 					}
@@ -40,15 +45,7 @@ templ BookCard(book models.ListAudiobook) {
 	<div class="group relative bg-white p-3 rounded-xl shadow-lg hover:shadow-2xl transition-shadow">
 		<div class="aspect-w-2 aspect-h-3 rounded-xl overflow-hidden bg-gray-100">
 			if book.Cover.Path != "" {
-				<img
-					src={ book.Cover.Path }
-					alt={ book.Title }
-					class="object-cover object-center"
-				/>
-			} else {
-				<div class="flex items-center justify-center h-full bg-gray-200">
-					<img src="https://placehold.co/400x400" alt="">
-				</div>
+				@components.BookCover(book.Cover, book.Title)
 			}
 		</div>
 		<div class="mt-4 flex justify-between">

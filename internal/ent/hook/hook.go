@@ -57,6 +57,18 @@ func (f ChapterFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChapterMutation", m)
 }
 
+// The CoverVersionFunc type is an adapter to allow the use of ordinary
+// function as CoverVersion mutator.
+type CoverVersionFunc func(context.Context, *ent.CoverVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CoverVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CoverVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CoverVersionMutation", m)
+}
+
 // The FolderFunc type is an adapter to allow the use of ordinary
 // function as Folder mutator.
 type FolderFunc func(context.Context, *ent.FolderMutation) (ent.Value, error)

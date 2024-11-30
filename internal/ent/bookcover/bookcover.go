@@ -24,6 +24,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeBook holds the string denoting the book edge name in mutations.
 	EdgeBook = "book"
+	// EdgeVersions holds the string denoting the versions edge name in mutations.
+	EdgeVersions = "versions"
 	// Table holds the table name of the bookcover in the database.
 	Table = "book_covers"
 	// BookTable is the table that holds the book relation/edge.
@@ -33,6 +35,13 @@ const (
 	BookInverseTable = "books"
 	// BookColumn is the table column denoting the book relation/edge.
 	BookColumn = "book_cover"
+	// VersionsTable is the table that holds the versions relation/edge.
+	VersionsTable = "cover_versions"
+	// VersionsInverseTable is the table name for the CoverVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "coverversion" package.
+	VersionsInverseTable = "cover_versions"
+	// VersionsColumn is the table column denoting the versions relation/edge.
+	VersionsColumn = "book_cover_versions"
 )
 
 // Columns holds all SQL columns for bookcover fields.
@@ -112,10 +121,31 @@ func ByBookField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newBookStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByVersionsCount orders the results by versions count.
+func ByVersionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVersionsStep(), opts...)
+	}
+}
+
+// ByVersions orders the results by versions terms.
+func ByVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newBookStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(BookInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, true, BookTable, BookColumn),
+	)
+}
+func newVersionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VersionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VersionsTable, VersionsColumn),
 	)
 }

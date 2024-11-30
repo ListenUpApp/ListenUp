@@ -117,6 +117,30 @@ var (
 			},
 		},
 	}
+	// CoverVersionsColumns holds the columns for the "cover_versions" table.
+	CoverVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "path", Type: field.TypeString},
+		{Name: "format", Type: field.TypeString},
+		{Name: "size", Type: field.TypeInt64},
+		{Name: "suffix", Type: field.TypeString},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "book_cover_versions", Type: field.TypeInt, Nullable: true},
+	}
+	// CoverVersionsTable holds the schema information for the "cover_versions" table.
+	CoverVersionsTable = &schema.Table{
+		Name:       "cover_versions",
+		Columns:    CoverVersionsColumns,
+		PrimaryKey: []*schema.Column{CoverVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "cover_versions_book_covers_versions",
+				Columns:    []*schema.Column{CoverVersionsColumns[6]},
+				RefColumns: []*schema.Column{BookCoversColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// FoldersColumns holds the columns for the "folders" table.
 	FoldersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
@@ -343,6 +367,7 @@ var (
 		BooksTable,
 		BookCoversTable,
 		ChaptersTable,
+		CoverVersionsTable,
 		FoldersTable,
 		LibrariesTable,
 		NarratorsTable,
@@ -361,6 +386,7 @@ func init() {
 	BooksTable.ForeignKeys[1].RefTable = LibrariesTable
 	BookCoversTable.ForeignKeys[0].RefTable = BooksTable
 	ChaptersTable.ForeignKeys[0].RefTable = BooksTable
+	CoverVersionsTable.ForeignKeys[0].RefTable = BookCoversTable
 	ServerConfigsTable.ForeignKeys[0].RefTable = ServersTable
 	UsersTable.ForeignKeys[0].RefTable = LibrariesTable
 	AuthorBooksTable.ForeignKeys[0].RefTable = AuthorsTable

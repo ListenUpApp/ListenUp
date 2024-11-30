@@ -9,6 +9,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
 	"github.com/ListenUpApp/ListenUp/internal/ent/chapter"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
@@ -139,6 +140,14 @@ func init() {
 			return nil
 		}
 	}()
+	coverversionFields := schema.CoverVersion{}.Fields()
+	_ = coverversionFields
+	// coverversionDescUpdatedAt is the schema descriptor for updated_at field.
+	coverversionDescUpdatedAt := coverversionFields[4].Descriptor()
+	// coverversion.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	coverversion.DefaultUpdatedAt = coverversionDescUpdatedAt.Default.(func() time.Time)
+	// coverversion.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	coverversion.UpdateDefaultUpdatedAt = coverversionDescUpdatedAt.UpdateDefault.(func() time.Time)
 	folderFields := schema.Folder{}.Fields()
 	_ = folderFields
 	// folderDescID is the schema descriptor for id field.

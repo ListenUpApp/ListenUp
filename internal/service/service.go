@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+	"github.com/ListenUpApp/ListenUp/internal/config"
 	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository"
 	"github.com/ListenUpApp/ListenUp/internal/repository/content"
@@ -20,6 +22,7 @@ type Deps struct {
 	Repos     *repository.Repositories
 	Logger    *logging.AppLogger
 	Validator *validator.Validate
+	Config    *config.Config
 }
 
 func NewServices(deps Deps) (*Services, error) {
@@ -29,32 +32,45 @@ func NewServices(deps Deps) (*Services, error) {
 		Logger:     deps.Logger,
 		Validator:  deps.Validator,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth service: %w", err)
+	}
 
 	serverService, err := NewServerService(ServiceConfig{
 		ServerRepo: deps.Repos.Server,
 		Logger:     deps.Logger,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create server service: %w", err)
+	}
 
 	userService, err := NewUserService(ServiceConfig{
 		UserRepo: deps.Repos.User,
 		Logger:   deps.Logger,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user service: %w", err)
+	}
+
 	mediaService, err := NewMediaService(ServiceConfig{
 		MediaRepo: deps.Repos.Media,
 		UserRepo:  deps.Repos.User,
 		Logger:    deps.Logger,
 		Validator: deps.Validator,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create media service: %w", err)
+	}
 
 	contentService, err := NewContentService(ServiceConfig{
 		MediaRepo:   deps.Repos.Media,
 		ContentRepo: deps.Repos.Content,
+		config:      deps.Config,
 		Logger:      deps.Logger,
 		Validator:   deps.Validator,
 	})
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create content service: %w", err)
 	}
 
 	return &Services{
@@ -72,6 +88,7 @@ type ServiceConfig struct {
 	ServerRepo  *repository.ServerRepository
 	MediaRepo   *media.Repository
 	ContentRepo *content.Repository
+	config      *config.Config
 	Logger      *logging.AppLogger
 	Validator   *validator.Validate
 }

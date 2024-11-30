@@ -20,6 +20,8 @@ type Tx struct {
 	BookCover *BookCoverClient
 	// Chapter is the client for interacting with the Chapter builders.
 	Chapter *ChapterClient
+	// CoverVersion is the client for interacting with the CoverVersion builders.
+	CoverVersion *CoverVersionClient
 	// Folder is the client for interacting with the Folder builders.
 	Folder *FolderClient
 	// Library is the client for interacting with the Library builders.
@@ -167,6 +169,7 @@ func (tx *Tx) init() {
 	tx.Book = NewBookClient(tx.config)
 	tx.BookCover = NewBookCoverClient(tx.config)
 	tx.Chapter = NewChapterClient(tx.config)
+	tx.CoverVersion = NewCoverVersionClient(tx.config)
 	tx.Folder = NewFolderClient(tx.config)
 	tx.Library = NewLibraryClient(tx.config)
 	tx.Narrator = NewNarratorClient(tx.config)

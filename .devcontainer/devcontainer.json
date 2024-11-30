@@ -17,6 +17,16 @@
                 "go.useLanguageServer": true,
                 "go.gopath": "/go"
             }
+        },
+        "jetbrains": {
+            "plugins": [
+                "org.jetbrains.plugins.go",
+                "net.ashald.envfile",
+                "com.intellij.tailwindcss",
+                "name.kropp.intellij.makefile",
+                "com.templ.templ",
+                "org.jetbrains.plugins.go-template"
+            ]
         }
     },
     "remoteUser": "vscode",

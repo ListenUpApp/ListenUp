@@ -308,6 +308,29 @@ func HasBookWith(preds ...predicate.Book) predicate.BookCover {
 	})
 }
 
+// HasVersions applies the HasEdge predicate on the "versions" edge.
+func HasVersions() predicate.BookCover {
+	return predicate.BookCover(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VersionsTable, VersionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVersionsWith applies the HasEdge predicate on the "versions" edge with a given conditions (other predicates).
+func HasVersionsWith(preds ...predicate.CoverVersion) predicate.BookCover {
+	return predicate.BookCover(func(s *sql.Selector) {
+		step := newVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.BookCover) predicate.BookCover {
 	return predicate.BookCover(sql.AndPredicates(predicates...))

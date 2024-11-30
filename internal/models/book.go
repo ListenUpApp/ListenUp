@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/ListenUpApp/ListenUp/pkg/taggart"
 	"time"
 )
 
@@ -53,5 +54,6 @@ type CreateAudiobookRequest struct {
 	Authors       []CreateAuthorRequest
 	Narrators     []CreateNarratorRequest
 	Chapter       []CreateChapterRequest
+	CoverData     *taggart.Picture
 	Cover         CreateCoverRequest
 }

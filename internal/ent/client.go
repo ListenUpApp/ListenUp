@@ -19,6 +19,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
 	"github.com/ListenUpApp/ListenUp/internal/ent/chapter"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
@@ -40,6 +41,8 @@ type Client struct {
 	BookCover *BookCoverClient
 	// Chapter is the client for interacting with the Chapter builders.
 	Chapter *ChapterClient
+	// CoverVersion is the client for interacting with the CoverVersion builders.
+	CoverVersion *CoverVersionClient
 	// Folder is the client for interacting with the Folder builders.
 	Folder *FolderClient
 	// Library is the client for interacting with the Library builders.
@@ -67,6 +70,7 @@ func (c *Client) init() {
 	c.Book = NewBookClient(c.config)
 	c.BookCover = NewBookCoverClient(c.config)
 	c.Chapter = NewChapterClient(c.config)
+	c.CoverVersion = NewCoverVersionClient(c.config)
 	c.Folder = NewFolderClient(c.config)
 	c.Library = NewLibraryClient(c.config)
 	c.Narrator = NewNarratorClient(c.config)
@@ -169,6 +173,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Book:         NewBookClient(cfg),
 		BookCover:    NewBookCoverClient(cfg),
 		Chapter:      NewChapterClient(cfg),
+		CoverVersion: NewCoverVersionClient(cfg),
 		Folder:       NewFolderClient(cfg),
 		Library:      NewLibraryClient(cfg),
 		Narrator:     NewNarratorClient(cfg),
@@ -198,6 +203,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Book:         NewBookClient(cfg),
 		BookCover:    NewBookCoverClient(cfg),
 		Chapter:      NewChapterClient(cfg),
+		CoverVersion: NewCoverVersionClient(cfg),
 		Folder:       NewFolderClient(cfg),
 		Library:      NewLibraryClient(cfg),
 		Narrator:     NewNarratorClient(cfg),
@@ -233,8 +239,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Author, c.Book, c.BookCover, c.Chapter, c.Folder, c.Library, c.Narrator,
-		c.Server, c.ServerConfig, c.User,
+		c.Author, c.Book, c.BookCover, c.Chapter, c.CoverVersion, c.Folder, c.Library,
+		c.Narrator, c.Server, c.ServerConfig, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -244,8 +250,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Author, c.Book, c.BookCover, c.Chapter, c.Folder, c.Library, c.Narrator,
-		c.Server, c.ServerConfig, c.User,
+		c.Author, c.Book, c.BookCover, c.Chapter, c.CoverVersion, c.Folder, c.Library,
+		c.Narrator, c.Server, c.ServerConfig, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -262,6 +268,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.BookCover.mutate(ctx, m)
 	case *ChapterMutation:
 		return c.Chapter.mutate(ctx, m)
+	case *CoverVersionMutation:
+		return c.CoverVersion.mutate(ctx, m)
 	case *FolderMutation:
 		return c.Folder.mutate(ctx, m)
 	case *LibraryMutation:
@@ -781,6 +789,22 @@ func (c *BookCoverClient) QueryBook(bc *BookCover) *BookQuery {
 	return query
 }
 
+// QueryVersions queries the versions edge of a BookCover.
+func (c *BookCoverClient) QueryVersions(bc *BookCover) *CoverVersionQuery {
+	query := (&CoverVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := bc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(bookcover.Table, bookcover.FieldID, id),
+			sqlgraph.To(coverversion.Table, coverversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, bookcover.VersionsTable, bookcover.VersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(bc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *BookCoverClient) Hooks() []Hook {
 	return c.hooks.BookCover
@@ -952,6 +976,155 @@ func (c *ChapterClient) mutate(ctx context.Context, m *ChapterMutation) (Value, 
 		return (&ChapterDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Chapter mutation op: %q", m.Op())
+	}
+}
+
+// CoverVersionClient is a client for the CoverVersion schema.
+type CoverVersionClient struct {
+	config
+}
+
+// NewCoverVersionClient returns a client for the CoverVersion from the given config.
+func NewCoverVersionClient(c config) *CoverVersionClient {
+	return &CoverVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `coverversion.Hooks(f(g(h())))`.
+func (c *CoverVersionClient) Use(hooks ...Hook) {
+	c.hooks.CoverVersion = append(c.hooks.CoverVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `coverversion.Intercept(f(g(h())))`.
+func (c *CoverVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CoverVersion = append(c.inters.CoverVersion, interceptors...)
+}
+
+// Create returns a builder for creating a CoverVersion entity.
+func (c *CoverVersionClient) Create() *CoverVersionCreate {
+	mutation := newCoverVersionMutation(c.config, OpCreate)
+	return &CoverVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CoverVersion entities.
+func (c *CoverVersionClient) CreateBulk(builders ...*CoverVersionCreate) *CoverVersionCreateBulk {
+	return &CoverVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CoverVersionClient) MapCreateBulk(slice any, setFunc func(*CoverVersionCreate, int)) *CoverVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CoverVersionCreateBulk{err: fmt.Errorf("calling to CoverVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CoverVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CoverVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CoverVersion.
+func (c *CoverVersionClient) Update() *CoverVersionUpdate {
+	mutation := newCoverVersionMutation(c.config, OpUpdate)
+	return &CoverVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CoverVersionClient) UpdateOne(cv *CoverVersion) *CoverVersionUpdateOne {
+	mutation := newCoverVersionMutation(c.config, OpUpdateOne, withCoverVersion(cv))
+	return &CoverVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CoverVersionClient) UpdateOneID(id int) *CoverVersionUpdateOne {
+	mutation := newCoverVersionMutation(c.config, OpUpdateOne, withCoverVersionID(id))
+	return &CoverVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CoverVersion.
+func (c *CoverVersionClient) Delete() *CoverVersionDelete {
+	mutation := newCoverVersionMutation(c.config, OpDelete)
+	return &CoverVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CoverVersionClient) DeleteOne(cv *CoverVersion) *CoverVersionDeleteOne {
+	return c.DeleteOneID(cv.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CoverVersionClient) DeleteOneID(id int) *CoverVersionDeleteOne {
+	builder := c.Delete().Where(coverversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CoverVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for CoverVersion.
+func (c *CoverVersionClient) Query() *CoverVersionQuery {
+	return &CoverVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCoverVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CoverVersion entity by its id.
+func (c *CoverVersionClient) Get(ctx context.Context, id int) (*CoverVersion, error) {
+	return c.Query().Where(coverversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CoverVersionClient) GetX(ctx context.Context, id int) *CoverVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCover queries the cover edge of a CoverVersion.
+func (c *CoverVersionClient) QueryCover(cv *CoverVersion) *BookCoverQuery {
+	query := (&BookCoverClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := cv.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(coverversion.Table, coverversion.FieldID, id),
+			sqlgraph.To(bookcover.Table, bookcover.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, coverversion.CoverTable, coverversion.CoverColumn),
+		)
+		fromV = sqlgraph.Neighbors(cv.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CoverVersionClient) Hooks() []Hook {
+	return c.hooks.CoverVersion
+}
+
+// Interceptors returns the client interceptors.
+func (c *CoverVersionClient) Interceptors() []Interceptor {
+	return c.inters.CoverVersion
+}
+
+func (c *CoverVersionClient) mutate(ctx context.Context, m *CoverVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CoverVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CoverVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CoverVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CoverVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CoverVersion mutation op: %q", m.Op())
 	}
 }
 
@@ -1932,11 +2105,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Author, Book, BookCover, Chapter, Folder, Library, Narrator, Server,
-		ServerConfig, User []ent.Hook
+		Author, Book, BookCover, Chapter, CoverVersion, Folder, Library, Narrator,
+		Server, ServerConfig, User []ent.Hook
 	}
 	inters struct {
-		Author, Book, BookCover, Chapter, Folder, Library, Narrator, Server,
-		ServerConfig, User []ent.Interceptor
+		Author, Book, BookCover, Chapter, CoverVersion, Folder, Library, Narrator,
+		Server, ServerConfig, User []ent.Interceptor
 	}
 )

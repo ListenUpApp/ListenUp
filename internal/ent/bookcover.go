@@ -37,9 +37,11 @@ type BookCover struct {
 type BookCoverEdges struct {
 	// Book holds the value of the book edge.
 	Book *Book `json:"book,omitempty"`
+	// Versions holds the value of the versions edge.
+	Versions []*CoverVersion `json:"versions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // BookOrErr returns the Book value or an error if the edge
@@ -51,6 +53,15 @@ func (e BookCoverEdges) BookOrErr() (*Book, error) {
 		return nil, &NotFoundError{label: book.Label}
 	}
 	return nil, &NotLoadedError{edge: "book"}
+}
+
+// VersionsOrErr returns the Versions value or an error if the edge
+// was not loaded in eager-loading.
+func (e BookCoverEdges) VersionsOrErr() ([]*CoverVersion, error) {
+	if e.loadedTypes[1] {
+		return e.Versions, nil
+	}
+	return nil, &NotLoadedError{edge: "versions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -134,6 +145,11 @@ func (bc *BookCover) Value(name string) (ent.Value, error) {
 // QueryBook queries the "book" edge of the BookCover entity.
 func (bc *BookCover) QueryBook() *BookQuery {
 	return NewBookCoverClient(bc.config).QueryBook(bc)
+}
+
+// QueryVersions queries the "versions" edge of the BookCover entity.
+func (bc *BookCover) QueryVersions() *CoverVersionQuery {
+	return NewBookCoverClient(bc.config).QueryVersions(bc)
 }
 
 // Update returns a builder for updating this BookCover.

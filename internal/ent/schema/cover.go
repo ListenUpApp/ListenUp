@@ -49,5 +49,32 @@ func (BookCover) Edges() []ent.Edge {
 			Ref("cover").
 			Unique().
 			Required(),
+		edge.To("versions", CoverVersion.Type),
+	}
+}
+
+// CoverVersion holds the schema definition for the CoverVersion entity.
+type CoverVersion struct {
+	ent.Schema
+}
+
+func (CoverVersion) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("path"),
+		field.String("format"),
+		field.Int64("size"),
+		field.String("suffix"),
+		field.Time("updated_at").
+			Default(time.Now).
+			UpdateDefault(time.Now).
+			Comment("Time when the user was last updated"),
+	}
+}
+
+func (CoverVersion) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.From("cover", BookCover.Type).
+			Ref("versions").
+			Unique(),
 	}
 }

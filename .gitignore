@@ -70,3 +70,4 @@ tmp/
 # System Files
 .DS_Store
 Thumbs.db
+internal/web/static/css/app.css
