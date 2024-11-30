@@ -7,7 +7,7 @@ import (
 
 templ BookCover(cover models.Cover, alt string) {
 	if len(cover.Versions) > 0 {
-		<picture class="w-full h-full">
+		<picture class="book-cover w-full h-full">
 			// 2x versions for retina displays
 			<source
 				media="(min-width: 1536px)"

@@ -133,7 +133,6 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 	}
 
 	// Create cover if provided
-	// Create cover if provided
 	if params.Cover.Path != "" {
 		// Create main cover
 		cover, err := tx.BookCover.Create().
@@ -183,6 +182,34 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 
 	if err := tx.Commit(); err != nil {
 		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err)
+	}
+
+	return dbBook, nil
+}
+
+func (r *bookRepository) GetById(ctx context.Context, bookID string) (*ent.Book, error) {
+	dbBook, err := r.client.Book.Query().
+		Where(book.IDEQ(bookID)).
+		WithAuthors().
+		WithNarrators().
+		WithChapters().
+		WithCover(func(q *ent.BookCoverQuery) {
+			q.WithVersions()
+		}).
+		Only(ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, appErr.NewRepositoryError(appErr.ErrNotFound, "book not found", err).
+				WithOperation("GetBookById").
+				WithData(map[string]interface{}{"book_id": bookID})
+		}
+		r.logger.ErrorContext(ctx, "Failed to get book by ID",
+			"book_id", bookID,
+			"error", err)
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query books", err).
+			WithOperation("GetBookByID").
+			WithData(map[string]interface{}{"book_id": bookID})
 	}
 
 	return dbBook, nil

@@ -227,3 +227,91 @@ func (s *ContentService) processBookCover(coverData []byte, bookID string) (*mod
 
 	return coverRequest, nil
 }
+
+func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*models.Audiobook, error) {
+	dbBook, err := s.contentRepo.Books.GetById(ctx, bookID)
+	if err != nil {
+		return nil, appErr.HandleRepositoryError(err, "GetBook", map[string]interface{}{
+			"book_id": bookID,
+		})
+	}
+
+	var authors []models.Author
+	for _, author := range dbBook.Edges.Authors {
+		authors = append(authors, models.Author{
+			ID:          author.ID,
+			Name:        author.Name,
+			Description: author.Description,
+		})
+	}
+
+	var narrators []models.Narrator
+	for _, narrator := range dbBook.Edges.Narrators {
+		narrators = append(narrators, models.Narrator{
+			ID:          narrator.ID,
+			Name:        narrator.Name,
+			Description: narrator.Description,
+		})
+	}
+
+	var chapters []models.Chapter
+	for _, chapter := range dbBook.Edges.Chapters {
+		chapters = append(chapters, models.Chapter{
+			Index: chapter.Index,
+			Title: chapter.Title,
+			Start: chapter.Start,
+			End:   chapter.End,
+		})
+	}
+
+	// Handle cover and cover versions
+	var cover *models.Cover
+	if dbBook.Edges.Cover != nil {
+		var versions []models.CoverVersion
+		for _, v := range dbBook.Edges.Cover.Edges.Versions {
+			versions = append(versions, models.CoverVersion{
+				Path:   v.Path,
+				Format: v.Format,
+				Size:   v.Size,
+				Suffix: v.Suffix,
+			})
+		}
+
+		cover = &models.Cover{
+			Path:      dbBook.Edges.Cover.Path,
+			Format:    dbBook.Edges.Cover.Format,
+			Size:      dbBook.Edges.Cover.Size,
+			UpdatedAt: dbBook.Edges.Cover.UpdatedAt,
+			Versions:  versions,
+		}
+	}
+
+	var coverValue models.Cover
+	if cover != nil {
+		coverValue = *cover
+	}
+
+	book := models.Audiobook{
+		ID:            dbBook.ID,
+		Title:         dbBook.Title,
+		Duration:      int64(dbBook.Duration),
+		Size:          dbBook.Size,
+		Subtitle:      dbBook.Subtitle,
+		Description:   dbBook.Description,
+		Isbn:          dbBook.Isbn,
+		Asin:          dbBook.Asin,
+		Language:      dbBook.Language,
+		Explicit:      dbBook.Explicit,
+		Publisher:     dbBook.Publisher,
+		Genres:        dbBook.Genres,
+		PublishedDate: dbBook.PublishedDate,
+		Authors:       authors,
+		Narrators:     narrators,
+		Chapters:      chapters,
+		Cover:         coverValue,
+		CreatedAt:     dbBook.CreatedAt,
+		UpdatedAt:     dbBook.UpdatedAt,
+	}
+
+	return &book, nil
+}
