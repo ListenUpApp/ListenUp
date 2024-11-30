@@ -27,7 +27,7 @@ templ LibraryIndexContent(books []models.ListAudiobook, pagination models.Pagina
 			}
 			<div>
 				// Book grid
-				<div id="book-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-12 gap-6">
+				<div id="book-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-12 gap-6">
 					for _, book := range books {
 						@BookCard(book)
 					}
