@@ -56,6 +56,8 @@ const (
 	EdgeLibrary = "library"
 	// EdgeFolder holds the string denoting the folder edge name in mutations.
 	EdgeFolder = "folder"
+	// EdgeSeriesBooks holds the string denoting the series_books edge name in mutations.
+	EdgeSeriesBooks = "series_books"
 	// Table holds the table name of the book in the database.
 	Table = "books"
 	// ChaptersTable is the table that holds the chapters relation/edge.
@@ -96,6 +98,13 @@ const (
 	FolderInverseTable = "folders"
 	// FolderColumn is the table column denoting the folder relation/edge.
 	FolderColumn = "folder_books"
+	// SeriesBooksTable is the table that holds the series_books relation/edge.
+	SeriesBooksTable = "series_books"
+	// SeriesBooksInverseTable is the table name for the SeriesBook entity.
+	// It exists in this package in order to avoid circular dependency with the "seriesbook" package.
+	SeriesBooksInverseTable = "series_books"
+	// SeriesBooksColumn is the table column denoting the series_books relation/edge.
+	SeriesBooksColumn = "book_series_books"
 )
 
 // Columns holds all SQL columns for book fields.
@@ -297,6 +306,20 @@ func ByFolderField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newFolderStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// BySeriesBooksCount orders the results by series_books count.
+func BySeriesBooksCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSeriesBooksStep(), opts...)
+	}
+}
+
+// BySeriesBooks orders the results by series_books terms.
+func BySeriesBooks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSeriesBooksStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newChaptersStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -337,5 +360,12 @@ func newFolderStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(FolderInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
+	)
+}
+func newSeriesBooksStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SeriesBooksInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SeriesBooksTable, SeriesBooksColumn),
 	)
 }

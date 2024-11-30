@@ -142,6 +142,10 @@ templ SingleBookPageContent(book models.Audiobook) {
 										<dt>Author</dt>
 										<dd>{ strings.Join(mapAuthorNames(book.Authors), ", ") }</dd>
 									}
+									if book.Series.Name != "" {
+										<dt>Series</dt>
+										<dd>{ book.Series.Name } #{ fmt.Sprint(book.Series.Sequence) }</dd>
+									}
 									if len(book.Narrators) > 0 {
 										<dt>Narrators</dt>
 										<dd>{ strings.Join(mapNarratorNames(book.Narrators), ", ") }</dd>
@@ -157,7 +161,7 @@ templ SingleBookPageContent(book models.Audiobook) {
 									<i class="mr-2 fa-solid fa-star text-yellow-600"></i> <span>5.0</span>
 								</div>
 								<div class="px-4 py-2 rounded-full bg-gray-100 text-secondary-600">
-									<i class="mr-2f fa-solid fa-clock "></i> <span>{ formatDuration(book.Duration) }</span>
+									<i class="mr-2 fa-solid fa-clock "></i> <span>{ formatDuration(book.Duration) }</span>
 								</div>
 								<div class="px-4 py-2 rounded-full bg-gray-100  text-secondary-600">
 									<i class="mr-2 fa-solid fa-calendar-days"></i> <span>{ fmt.Sprint(book.PublishedDate.Year()) }</span>

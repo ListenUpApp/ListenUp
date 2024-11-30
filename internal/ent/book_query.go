@@ -20,22 +20,24 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
+	"github.com/ListenUpApp/ListenUp/internal/ent/seriesbook"
 )
 
 // BookQuery is the builder for querying Book entities.
 type BookQuery struct {
 	config
-	ctx           *QueryContext
-	order         []book.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.Book
-	withChapters  *ChapterQuery
-	withCover     *BookCoverQuery
-	withAuthors   *AuthorQuery
-	withNarrators *NarratorQuery
-	withLibrary   *LibraryQuery
-	withFolder    *FolderQuery
-	withFKs       bool
+	ctx             *QueryContext
+	order           []book.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.Book
+	withChapters    *ChapterQuery
+	withCover       *BookCoverQuery
+	withAuthors     *AuthorQuery
+	withNarrators   *NarratorQuery
+	withLibrary     *LibraryQuery
+	withFolder      *FolderQuery
+	withSeriesBooks *SeriesBookQuery
+	withFKs         bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -197,6 +199,28 @@ func (bq *BookQuery) QueryFolder() *FolderQuery {
 			sqlgraph.From(book.Table, book.FieldID, selector),
 			sqlgraph.To(folder.Table, folder.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, book.FolderTable, book.FolderColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(bq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySeriesBooks chains the current query on the "series_books" edge.
+func (bq *BookQuery) QuerySeriesBooks() *SeriesBookQuery {
+	query := (&SeriesBookClient{config: bq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := bq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := bq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(book.Table, book.FieldID, selector),
+			sqlgraph.To(seriesbook.Table, seriesbook.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, book.SeriesBooksTable, book.SeriesBooksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(bq.driver.Dialect(), step)
 		return fromU, nil
@@ -391,17 +415,18 @@ func (bq *BookQuery) Clone() *BookQuery {
 		return nil
 	}
 	return &BookQuery{
-		config:        bq.config,
-		ctx:           bq.ctx.Clone(),
-		order:         append([]book.OrderOption{}, bq.order...),
-		inters:        append([]Interceptor{}, bq.inters...),
-		predicates:    append([]predicate.Book{}, bq.predicates...),
-		withChapters:  bq.withChapters.Clone(),
-		withCover:     bq.withCover.Clone(),
-		withAuthors:   bq.withAuthors.Clone(),
-		withNarrators: bq.withNarrators.Clone(),
-		withLibrary:   bq.withLibrary.Clone(),
-		withFolder:    bq.withFolder.Clone(),
+		config:          bq.config,
+		ctx:             bq.ctx.Clone(),
+		order:           append([]book.OrderOption{}, bq.order...),
+		inters:          append([]Interceptor{}, bq.inters...),
+		predicates:      append([]predicate.Book{}, bq.predicates...),
+		withChapters:    bq.withChapters.Clone(),
+		withCover:       bq.withCover.Clone(),
+		withAuthors:     bq.withAuthors.Clone(),
+		withNarrators:   bq.withNarrators.Clone(),
+		withLibrary:     bq.withLibrary.Clone(),
+		withFolder:      bq.withFolder.Clone(),
+		withSeriesBooks: bq.withSeriesBooks.Clone(),
 		// clone intermediate query.
 		sql:  bq.sql.Clone(),
 		path: bq.path,
@@ -471,6 +496,17 @@ func (bq *BookQuery) WithFolder(opts ...func(*FolderQuery)) *BookQuery {
 		opt(query)
 	}
 	bq.withFolder = query
+	return bq
+}
+
+// WithSeriesBooks tells the query-builder to eager-load the nodes that are connected to
+// the "series_books" edge. The optional arguments are used to configure the query builder of the edge.
+func (bq *BookQuery) WithSeriesBooks(opts ...func(*SeriesBookQuery)) *BookQuery {
+	query := (&SeriesBookClient{config: bq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	bq.withSeriesBooks = query
 	return bq
 }
 
@@ -553,13 +589,14 @@ func (bq *BookQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Book, e
 		nodes       = []*Book{}
 		withFKs     = bq.withFKs
 		_spec       = bq.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			bq.withChapters != nil,
 			bq.withCover != nil,
 			bq.withAuthors != nil,
 			bq.withNarrators != nil,
 			bq.withLibrary != nil,
 			bq.withFolder != nil,
+			bq.withSeriesBooks != nil,
 		}
 	)
 	if bq.withLibrary != nil || bq.withFolder != nil {
@@ -622,6 +659,13 @@ func (bq *BookQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Book, e
 	if query := bq.withFolder; query != nil {
 		if err := bq.loadFolder(ctx, query, nodes, nil,
 			func(n *Book, e *Folder) { n.Edges.Folder = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := bq.withSeriesBooks; query != nil {
+		if err := bq.loadSeriesBooks(ctx, query, nodes,
+			func(n *Book) { n.Edges.SeriesBooks = []*SeriesBook{} },
+			func(n *Book, e *SeriesBook) { n.Edges.SeriesBooks = append(n.Edges.SeriesBooks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -870,6 +914,37 @@ func (bq *BookQuery) loadFolder(ctx context.Context, query *FolderQuery, nodes [
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (bq *BookQuery) loadSeriesBooks(ctx context.Context, query *SeriesBookQuery, nodes []*Book, init func(*Book), assign func(*Book, *SeriesBook)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Book)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.SeriesBook(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(book.SeriesBooksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.book_series_books
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "book_series_books" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "book_series_books" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

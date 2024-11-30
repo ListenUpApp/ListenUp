@@ -17,6 +17,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
+	"github.com/ListenUpApp/ListenUp/internal/ent/seriesbook"
 )
 
 // BookCreate is the builder for creating a Book entity.
@@ -296,6 +297,21 @@ func (bc *BookCreate) SetFolder(f *Folder) *BookCreate {
 	return bc.SetFolderID(f.ID)
 }
 
+// AddSeriesBookIDs adds the "series_books" edge to the SeriesBook entity by IDs.
+func (bc *BookCreate) AddSeriesBookIDs(ids ...int) *BookCreate {
+	bc.mutation.AddSeriesBookIDs(ids...)
+	return bc
+}
+
+// AddSeriesBooks adds the "series_books" edges to the SeriesBook entity.
+func (bc *BookCreate) AddSeriesBooks(s ...*SeriesBook) *BookCreate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return bc.AddSeriesBookIDs(ids...)
+}
+
 // Mutation returns the BookMutation object of the builder.
 func (bc *BookCreate) Mutation() *BookMutation {
 	return bc.mutation
@@ -566,6 +582,22 @@ func (bc *BookCreate) createSpec() (*Book, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.folder_books = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := bc.mutation.SeriesBooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

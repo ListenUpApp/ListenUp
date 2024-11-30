@@ -30,6 +30,12 @@ type Library func(*sql.Selector)
 // Narrator is the predicate function for narrator builders.
 type Narrator func(*sql.Selector)
 
+// Series is the predicate function for series builders.
+type Series func(*sql.Selector)
+
+// SeriesBook is the predicate function for seriesbook builders.
+type SeriesBook func(*sql.Selector)
+
 // Server is the predicate function for server builders.
 type Server func(*sql.Selector)
 

@@ -23,6 +23,7 @@ type Audiobook struct {
 	Narrators     []Narrator
 	Chapters      []Chapter
 	Cover         Cover
+	Series        Series
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -40,20 +41,22 @@ type BookList struct {
 }
 
 type CreateAudiobookRequest struct {
-	Title         string
-	Duration      int64
-	Size          int64
-	Subtitle      string
-	Description   string
-	Isbn          string
-	Asin          string
-	Language      string
-	Publisher     string
-	PublishedDate time.Time
-	Genres        []string
-	Authors       []CreateAuthorRequest
-	Narrators     []CreateNarratorRequest
-	Chapter       []CreateChapterRequest
-	CoverData     *taggart.Picture
-	Cover         CreateCoverRequest
+	Title          string
+	Duration       int64
+	Size           int64
+	Subtitle       string
+	Description    string
+	Isbn           string
+	Asin           string
+	Language       string
+	Publisher      string
+	PublishedDate  time.Time
+	Genres         []string
+	Authors        []CreateAuthorRequest
+	Narrators      []CreateNarratorRequest
+	Chapter        []CreateChapterRequest
+	CoverData      *taggart.Picture
+	Cover          CreateCoverRequest
+	SeriesName     string
+	SeriesSequence float64
 }

@@ -1023,6 +1023,29 @@ func HasFolderWith(preds ...predicate.Folder) predicate.Book {
 	})
 }
 
+// HasSeriesBooks applies the HasEdge predicate on the "series_books" edge.
+func HasSeriesBooks() predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SeriesBooksTable, SeriesBooksColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSeriesBooksWith applies the HasEdge predicate on the "series_books" edge with a given conditions (other predicates).
+func HasSeriesBooksWith(preds ...predicate.SeriesBook) predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		step := newSeriesBooksStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Book) predicate.Book {
 	return predicate.Book(sql.AndPredicates(predicates...))

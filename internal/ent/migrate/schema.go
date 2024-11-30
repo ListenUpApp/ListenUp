@@ -187,6 +187,48 @@ var (
 		Columns:    NarratorsColumns,
 		PrimaryKey: []*schema.Column{NarratorsColumns[0]},
 	}
+	// SeriesColumns holds the columns for the "series" table.
+	SeriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "name_sort", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SeriesTable holds the schema information for the "series" table.
+	SeriesTable = &schema.Table{
+		Name:       "series",
+		Columns:    SeriesColumns,
+		PrimaryKey: []*schema.Column{SeriesColumns[0]},
+	}
+	// SeriesBooksColumns holds the columns for the "series_books" table.
+	SeriesBooksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "sequence", Type: field.TypeFloat64},
+		{Name: "book_series_books", Type: field.TypeString},
+		{Name: "series_series_books", Type: field.TypeString},
+	}
+	// SeriesBooksTable holds the schema information for the "series_books" table.
+	SeriesBooksTable = &schema.Table{
+		Name:       "series_books",
+		Columns:    SeriesBooksColumns,
+		PrimaryKey: []*schema.Column{SeriesBooksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "series_books_books_series_books",
+				Columns:    []*schema.Column{SeriesBooksColumns[2]},
+				RefColumns: []*schema.Column{BooksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "series_books_series_series_books",
+				Columns:    []*schema.Column{SeriesBooksColumns[3]},
+				RefColumns: []*schema.Column{SeriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// ServersColumns holds the columns for the "servers" table.
 	ServersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -371,6 +413,8 @@ var (
 		FoldersTable,
 		LibrariesTable,
 		NarratorsTable,
+		SeriesTable,
+		SeriesBooksTable,
 		ServersTable,
 		ServerConfigsTable,
 		UsersTable,
@@ -387,6 +431,8 @@ func init() {
 	BookCoversTable.ForeignKeys[0].RefTable = BooksTable
 	ChaptersTable.ForeignKeys[0].RefTable = BooksTable
 	CoverVersionsTable.ForeignKeys[0].RefTable = BookCoversTable
+	SeriesBooksTable.ForeignKeys[0].RefTable = BooksTable
+	SeriesBooksTable.ForeignKeys[1].RefTable = SeriesTable
 	ServerConfigsTable.ForeignKeys[0].RefTable = ServersTable
 	UsersTable.ForeignKeys[0].RefTable = LibrariesTable
 	AuthorBooksTable.ForeignKeys[0].RefTable = AuthorsTable

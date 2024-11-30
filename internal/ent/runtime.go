@@ -14,6 +14,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
 	"github.com/ListenUpApp/ListenUp/internal/ent/schema"
+	"github.com/ListenUpApp/ListenUp/internal/ent/series"
 	"github.com/ListenUpApp/ListenUp/internal/ent/server"
 	"github.com/ListenUpApp/ListenUp/internal/ent/serverconfig"
 	"github.com/ListenUpApp/ListenUp/internal/ent/user"
@@ -176,6 +177,22 @@ func init() {
 	narratorDescID := narratorFields[0].Descriptor()
 	// narrator.DefaultID holds the default value on creation for the id field.
 	narrator.DefaultID = narratorDescID.Default.(func() string)
+	seriesFields := schema.Series{}.Fields()
+	_ = seriesFields
+	// seriesDescCreatedAt is the schema descriptor for created_at field.
+	seriesDescCreatedAt := seriesFields[4].Descriptor()
+	// series.DefaultCreatedAt holds the default value on creation for the created_at field.
+	series.DefaultCreatedAt = seriesDescCreatedAt.Default.(func() time.Time)
+	// seriesDescUpdatedAt is the schema descriptor for updated_at field.
+	seriesDescUpdatedAt := seriesFields[5].Descriptor()
+	// series.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	series.DefaultUpdatedAt = seriesDescUpdatedAt.Default.(func() time.Time)
+	// series.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	series.UpdateDefaultUpdatedAt = seriesDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// seriesDescID is the schema descriptor for id field.
+	seriesDescID := seriesFields[0].Descriptor()
+	// series.DefaultID holds the default value on creation for the id field.
+	series.DefaultID = seriesDescID.Default.(func() string)
 	serverFields := schema.Server{}.Fields()
 	_ = serverFields
 	// serverDescSetup is the schema descriptor for setup field.

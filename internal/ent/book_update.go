@@ -20,6 +20,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
+	"github.com/ListenUpApp/ListenUp/internal/ent/seriesbook"
 )
 
 // BookUpdate is the builder for updating Book entities.
@@ -373,6 +374,21 @@ func (bu *BookUpdate) SetFolder(f *Folder) *BookUpdate {
 	return bu.SetFolderID(f.ID)
 }
 
+// AddSeriesBookIDs adds the "series_books" edge to the SeriesBook entity by IDs.
+func (bu *BookUpdate) AddSeriesBookIDs(ids ...int) *BookUpdate {
+	bu.mutation.AddSeriesBookIDs(ids...)
+	return bu
+}
+
+// AddSeriesBooks adds the "series_books" edges to the SeriesBook entity.
+func (bu *BookUpdate) AddSeriesBooks(s ...*SeriesBook) *BookUpdate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return bu.AddSeriesBookIDs(ids...)
+}
+
 // Mutation returns the BookMutation object of the builder.
 func (bu *BookUpdate) Mutation() *BookMutation {
 	return bu.mutation
@@ -457,6 +473,27 @@ func (bu *BookUpdate) ClearLibrary() *BookUpdate {
 func (bu *BookUpdate) ClearFolder() *BookUpdate {
 	bu.mutation.ClearFolder()
 	return bu
+}
+
+// ClearSeriesBooks clears all "series_books" edges to the SeriesBook entity.
+func (bu *BookUpdate) ClearSeriesBooks() *BookUpdate {
+	bu.mutation.ClearSeriesBooks()
+	return bu
+}
+
+// RemoveSeriesBookIDs removes the "series_books" edge to SeriesBook entities by IDs.
+func (bu *BookUpdate) RemoveSeriesBookIDs(ids ...int) *BookUpdate {
+	bu.mutation.RemoveSeriesBookIDs(ids...)
+	return bu
+}
+
+// RemoveSeriesBooks removes "series_books" edges to SeriesBook entities.
+func (bu *BookUpdate) RemoveSeriesBooks(s ...*SeriesBook) *BookUpdate {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return bu.RemoveSeriesBookIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -825,6 +862,51 @@ func (bu *BookUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if bu.mutation.SeriesBooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bu.mutation.RemovedSeriesBooksIDs(); len(nodes) > 0 && !bu.mutation.SeriesBooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bu.mutation.SeriesBooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, bu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{book.Label}
@@ -1183,6 +1265,21 @@ func (buo *BookUpdateOne) SetFolder(f *Folder) *BookUpdateOne {
 	return buo.SetFolderID(f.ID)
 }
 
+// AddSeriesBookIDs adds the "series_books" edge to the SeriesBook entity by IDs.
+func (buo *BookUpdateOne) AddSeriesBookIDs(ids ...int) *BookUpdateOne {
+	buo.mutation.AddSeriesBookIDs(ids...)
+	return buo
+}
+
+// AddSeriesBooks adds the "series_books" edges to the SeriesBook entity.
+func (buo *BookUpdateOne) AddSeriesBooks(s ...*SeriesBook) *BookUpdateOne {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return buo.AddSeriesBookIDs(ids...)
+}
+
 // Mutation returns the BookMutation object of the builder.
 func (buo *BookUpdateOne) Mutation() *BookMutation {
 	return buo.mutation
@@ -1267,6 +1364,27 @@ func (buo *BookUpdateOne) ClearLibrary() *BookUpdateOne {
 func (buo *BookUpdateOne) ClearFolder() *BookUpdateOne {
 	buo.mutation.ClearFolder()
 	return buo
+}
+
+// ClearSeriesBooks clears all "series_books" edges to the SeriesBook entity.
+func (buo *BookUpdateOne) ClearSeriesBooks() *BookUpdateOne {
+	buo.mutation.ClearSeriesBooks()
+	return buo
+}
+
+// RemoveSeriesBookIDs removes the "series_books" edge to SeriesBook entities by IDs.
+func (buo *BookUpdateOne) RemoveSeriesBookIDs(ids ...int) *BookUpdateOne {
+	buo.mutation.RemoveSeriesBookIDs(ids...)
+	return buo
+}
+
+// RemoveSeriesBooks removes "series_books" edges to SeriesBook entities.
+func (buo *BookUpdateOne) RemoveSeriesBooks(s ...*SeriesBook) *BookUpdateOne {
+	ids := make([]int, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return buo.RemoveSeriesBookIDs(ids...)
 }
 
 // Where appends a list predicates to the BookUpdate builder.
@@ -1658,6 +1776,51 @@ func (buo *BookUpdateOne) sqlSave(ctx context.Context) (_node *Book, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if buo.mutation.SeriesBooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := buo.mutation.RemovedSeriesBooksIDs(); len(nodes) > 0 && !buo.mutation.SeriesBooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := buo.mutation.SeriesBooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   book.SeriesBooksTable,
+			Columns: []string{book.SeriesBooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(seriesbook.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

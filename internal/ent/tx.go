@@ -28,6 +28,10 @@ type Tx struct {
 	Library *LibraryClient
 	// Narrator is the client for interacting with the Narrator builders.
 	Narrator *NarratorClient
+	// Series is the client for interacting with the Series builders.
+	Series *SeriesClient
+	// SeriesBook is the client for interacting with the SeriesBook builders.
+	SeriesBook *SeriesBookClient
 	// Server is the client for interacting with the Server builders.
 	Server *ServerClient
 	// ServerConfig is the client for interacting with the ServerConfig builders.
@@ -173,6 +177,8 @@ func (tx *Tx) init() {
 	tx.Folder = NewFolderClient(tx.config)
 	tx.Library = NewLibraryClient(tx.config)
 	tx.Narrator = NewNarratorClient(tx.config)
+	tx.Series = NewSeriesClient(tx.config)
+	tx.SeriesBook = NewSeriesBookClient(tx.config)
 	tx.Server = NewServerClient(tx.config)
 	tx.ServerConfig = NewServerConfigClient(tx.config)
 	tx.User = NewUserClient(tx.config)

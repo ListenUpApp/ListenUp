@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"github.com/ListenUpApp/ListenUp/internal/ent/series"
 	"time"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
@@ -80,6 +81,33 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		narrators = append(narrators, dbNarrator)
 	}
 
+	var dbSeries *ent.Series
+	if params.SeriesName != "" {
+		dbSeries, err = tx.Series.Query().
+			Where(series.NameEQ(params.SeriesName)).
+			Only(ctx)
+
+		if err != nil {
+			if !ent.IsNotFound(err) {
+				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to query series", err).
+					WithOperation("CreateAudiobook").
+					WithData(map[string]interface{}{"series_name": params.SeriesName})
+			}
+
+			// Create new series if it doesn't exist
+			dbSeries, err = tx.Series.Create().
+				SetName(params.SeriesName).
+				SetNameSort(params.SeriesName). // You might want to improve the sorting logic
+				Save(ctx)
+
+			if err != nil {
+				return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create series", err).
+					WithOperation("CreateAudiobook").
+					WithData(map[string]interface{}{"series_name": params.SeriesName})
+			}
+		}
+	}
+
 	// Create book
 	dbBook, err := tx.Book.Create().
 		SetID(bookID).
@@ -101,6 +129,7 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		Save(ctx)
 
 	if err != nil {
+		r.logger.Error("failed to create book", err)
 		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create book", err).
 			WithOperation("CreateAudiobook").
 			WithData(map[string]interface{}{
@@ -165,6 +194,24 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		}
 	}
 
+	if dbSeries != nil {
+		_, err := tx.SeriesBook.Create().
+			SetSeries(dbSeries).
+			SetBook(dbBook).
+			SetSequence(params.SeriesSequence).
+			Save(ctx)
+
+		if err != nil {
+			return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create series relationship", err).
+				WithOperation("CreateAudiobook").
+				WithData(map[string]interface{}{
+					"book_id":         bookID,
+					"series_id":       dbSeries.ID,
+					"series_sequence": params.SeriesSequence,
+				})
+		}
+	}
+
 	// Load all relationships
 	query := tx.Book.Query().
 		Where(book.ID(dbBook.ID)).
@@ -173,9 +220,13 @@ func (r *bookRepository) Create(ctx context.Context, bookID string, params model
 		WithChapters().
 		WithCover(func(q *ent.BookCoverQuery) {
 			q.WithVersions()
+		}).
+		WithSeriesBooks(func(q *ent.SeriesBookQuery) {
+			q.WithSeries()
 		})
 
 	dbBook, err = query.Only(ctx)
+
 	if err != nil {
 		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to load relationships", err)
 	}
@@ -195,6 +246,9 @@ func (r *bookRepository) GetById(ctx context.Context, bookID string) (*ent.Book,
 		WithChapters().
 		WithCover(func(q *ent.BookCoverQuery) {
 			q.WithVersions()
+		}).
+		WithSeriesBooks(func(q *ent.SeriesBookQuery) {
+			q.WithSeries()
 		}).
 		Only(ctx)
 

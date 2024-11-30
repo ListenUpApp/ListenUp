@@ -105,6 +105,30 @@ func (f NarratorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.NarratorMutation", m)
 }
 
+// The SeriesFunc type is an adapter to allow the use of ordinary
+// function as Series mutator.
+type SeriesFunc func(context.Context, *ent.SeriesMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SeriesFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SeriesMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SeriesMutation", m)
+}
+
+// The SeriesBookFunc type is an adapter to allow the use of ordinary
+// function as SeriesBook mutator.
+type SeriesBookFunc func(context.Context, *ent.SeriesBookMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SeriesBookFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SeriesBookMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SeriesBookMutation", m)
+}
+
 // The ServerFunc type is an adapter to allow the use of ordinary
 // function as Server mutator.
 type ServerFunc func(context.Context, *ent.ServerMutation) (ent.Value, error)

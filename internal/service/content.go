@@ -264,8 +264,22 @@ func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*model
 		})
 	}
 
+	// Handle series information
+	var series models.Series
+	if len(dbBook.Edges.SeriesBooks) > 0 {
+		seriesBook := dbBook.Edges.SeriesBooks[0]
+		if seriesBook.Edges.Series != nil {
+			series = models.Series{
+				ID:          seriesBook.Edges.Series.ID,
+				Name:        seriesBook.Edges.Series.Name,
+				Description: seriesBook.Edges.Series.Description,
+				Sequence:    seriesBook.Sequence,
+			}
+		}
+	}
+
 	// Handle cover and cover versions
-	var cover *models.Cover
+	var cover models.Cover
 	if dbBook.Edges.Cover != nil {
 		var versions []models.CoverVersion
 		for _, v := range dbBook.Edges.Cover.Edges.Versions {
@@ -277,18 +291,13 @@ func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*model
 			})
 		}
 
-		cover = &models.Cover{
+		cover = models.Cover{
 			Path:      dbBook.Edges.Cover.Path,
 			Format:    dbBook.Edges.Cover.Format,
 			Size:      dbBook.Edges.Cover.Size,
 			UpdatedAt: dbBook.Edges.Cover.UpdatedAt,
 			Versions:  versions,
 		}
-	}
-
-	var coverValue models.Cover
-	if cover != nil {
-		coverValue = *cover
 	}
 
 	book := models.Audiobook{
@@ -308,7 +317,8 @@ func (s *ContentService) GetBookById(ctx context.Context, bookID string) (*model
 		Authors:       authors,
 		Narrators:     narrators,
 		Chapters:      chapters,
-		Cover:         coverValue,
+		Cover:         cover,
+		Series:        series,
 		CreatedAt:     dbBook.CreatedAt,
 		UpdatedAt:     dbBook.UpdatedAt,
 	}

@@ -60,6 +60,6 @@ func (Book) Edges() []ent.Edge {
 			Ref("books").
 			Unique().
 			Required(),
+		edge.To("series_books", SeriesBook.Type),
 	}
 }
-

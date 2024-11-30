@@ -73,9 +73,11 @@ type BookEdges struct {
 	Library *Library `json:"library,omitempty"`
 	// Folder holds the value of the folder edge.
 	Folder *Folder `json:"folder,omitempty"`
+	// SeriesBooks holds the value of the series_books edge.
+	SeriesBooks []*SeriesBook `json:"series_books,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // ChaptersOrErr returns the Chapters value or an error if the edge
@@ -136,6 +138,15 @@ func (e BookEdges) FolderOrErr() (*Folder, error) {
 		return nil, &NotFoundError{label: folder.Label}
 	}
 	return nil, &NotLoadedError{edge: "folder"}
+}
+
+// SeriesBooksOrErr returns the SeriesBooks value or an error if the edge
+// was not loaded in eager-loading.
+func (e BookEdges) SeriesBooksOrErr() ([]*SeriesBook, error) {
+	if e.loadedTypes[6] {
+		return e.SeriesBooks, nil
+	}
+	return nil, &NotLoadedError{edge: "series_books"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -329,6 +340,11 @@ func (b *Book) QueryLibrary() *LibraryQuery {
 // QueryFolder queries the "folder" edge of the Book entity.
 func (b *Book) QueryFolder() *FolderQuery {
 	return NewBookClient(b.config).QueryFolder(b)
+}
+
+// QuerySeriesBooks queries the "series_books" edge of the Book entity.
+func (b *Book) QuerySeriesBooks() *SeriesBookQuery {
+	return NewBookClient(b.config).QuerySeriesBooks(b)
 }
 
 // Update returns a builder for updating this Book.
