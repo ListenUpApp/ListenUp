@@ -8,7 +8,7 @@ import (
 )
 
 type BookOperations interface {
-	Create(ctx context.Context, params models.CreateAudiobookRequest, folder *ent.Folder, library *ent.Library) (*ent.Book, error)
+	Create(ctx context.Context, bookID string, params models.CreateAudiobookRequest, folder *ent.Folder, library *ent.Library) (*ent.Book, error)
 }
 
 type AuthorOperations interface {

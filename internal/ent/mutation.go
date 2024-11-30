@@ -15,6 +15,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
 	"github.com/ListenUpApp/ListenUp/internal/ent/chapter"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
@@ -37,6 +38,7 @@ const (
 	TypeBook         = "Book"
 	TypeBookCover    = "BookCover"
 	TypeChapter      = "Chapter"
+	TypeCoverVersion = "CoverVersion"
 	TypeFolder       = "Folder"
 	TypeLibrary      = "Library"
 	TypeNarrator     = "Narrator"
@@ -2531,20 +2533,23 @@ func (m *BookMutation) ResetEdge(name string) error {
 // BookCoverMutation represents an operation that mutates the BookCover nodes in the graph.
 type BookCoverMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	_path         *string
-	format        *string
-	size          *int64
-	addsize       *int64
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	book          *string
-	clearedbook   bool
-	done          bool
-	oldValue      func(context.Context) (*BookCover, error)
-	predicates    []predicate.BookCover
+	op              Op
+	typ             string
+	id              *int
+	_path           *string
+	format          *string
+	size            *int64
+	addsize         *int64
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	book            *string
+	clearedbook     bool
+	versions        map[int]struct{}
+	removedversions map[int]struct{}
+	clearedversions bool
+	done            bool
+	oldValue        func(context.Context) (*BookCover, error)
+	predicates      []predicate.BookCover
 }
 
 var _ ent.Mutation = (*BookCoverMutation)(nil)
@@ -2848,6 +2853,60 @@ func (m *BookCoverMutation) ResetBook() {
 	m.clearedbook = false
 }
 
+// AddVersionIDs adds the "versions" edge to the CoverVersion entity by ids.
+func (m *BookCoverMutation) AddVersionIDs(ids ...int) {
+	if m.versions == nil {
+		m.versions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVersions clears the "versions" edge to the CoverVersion entity.
+func (m *BookCoverMutation) ClearVersions() {
+	m.clearedversions = true
+}
+
+// VersionsCleared reports if the "versions" edge to the CoverVersion entity was cleared.
+func (m *BookCoverMutation) VersionsCleared() bool {
+	return m.clearedversions
+}
+
+// RemoveVersionIDs removes the "versions" edge to the CoverVersion entity by IDs.
+func (m *BookCoverMutation) RemoveVersionIDs(ids ...int) {
+	if m.removedversions == nil {
+		m.removedversions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.versions, ids[i])
+		m.removedversions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVersions returns the removed IDs of the "versions" edge to the CoverVersion entity.
+func (m *BookCoverMutation) RemovedVersionsIDs() (ids []int) {
+	for id := range m.removedversions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VersionsIDs returns the "versions" edge IDs in the mutation.
+func (m *BookCoverMutation) VersionsIDs() (ids []int) {
+	for id := range m.versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVersions resets all changes to the "versions" edge.
+func (m *BookCoverMutation) ResetVersions() {
+	m.versions = nil
+	m.clearedversions = false
+	m.removedversions = nil
+}
+
 // Where appends a list predicates to the BookCoverMutation builder.
 func (m *BookCoverMutation) Where(ps ...predicate.BookCover) {
 	m.predicates = append(m.predicates, ps...)
@@ -3047,9 +3106,12 @@ func (m *BookCoverMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *BookCoverMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.book != nil {
 		edges = append(edges, bookcover.EdgeBook)
+	}
+	if m.versions != nil {
+		edges = append(edges, bookcover.EdgeVersions)
 	}
 	return edges
 }
@@ -3062,27 +3124,47 @@ func (m *BookCoverMutation) AddedIDs(name string) []ent.Value {
 		if id := m.book; id != nil {
 			return []ent.Value{*id}
 		}
+	case bookcover.EdgeVersions:
+		ids := make([]ent.Value, 0, len(m.versions))
+		for id := range m.versions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *BookCoverMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedversions != nil {
+		edges = append(edges, bookcover.EdgeVersions)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *BookCoverMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case bookcover.EdgeVersions:
+		ids := make([]ent.Value, 0, len(m.removedversions))
+		for id := range m.removedversions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *BookCoverMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedbook {
 		edges = append(edges, bookcover.EdgeBook)
+	}
+	if m.clearedversions {
+		edges = append(edges, bookcover.EdgeVersions)
 	}
 	return edges
 }
@@ -3093,6 +3175,8 @@ func (m *BookCoverMutation) EdgeCleared(name string) bool {
 	switch name {
 	case bookcover.EdgeBook:
 		return m.clearedbook
+	case bookcover.EdgeVersions:
+		return m.clearedversions
 	}
 	return false
 }
@@ -3114,6 +3198,9 @@ func (m *BookCoverMutation) ResetEdge(name string) error {
 	switch name {
 	case bookcover.EdgeBook:
 		m.ResetBook()
+		return nil
+	case bookcover.EdgeVersions:
+		m.ResetVersions()
 		return nil
 	}
 	return fmt.Errorf("unknown BookCover edge %s", name)
@@ -3774,6 +3861,651 @@ func (m *ChapterMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Chapter edge %s", name)
+}
+
+// CoverVersionMutation represents an operation that mutates the CoverVersion nodes in the graph.
+type CoverVersionMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	_path         *string
+	format        *string
+	size          *int64
+	addsize       *int64
+	suffix        *string
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	cover         *int
+	clearedcover  bool
+	done          bool
+	oldValue      func(context.Context) (*CoverVersion, error)
+	predicates    []predicate.CoverVersion
+}
+
+var _ ent.Mutation = (*CoverVersionMutation)(nil)
+
+// coverversionOption allows management of the mutation configuration using functional options.
+type coverversionOption func(*CoverVersionMutation)
+
+// newCoverVersionMutation creates new mutation for the CoverVersion entity.
+func newCoverVersionMutation(c config, op Op, opts ...coverversionOption) *CoverVersionMutation {
+	m := &CoverVersionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCoverVersion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCoverVersionID sets the ID field of the mutation.
+func withCoverVersionID(id int) coverversionOption {
+	return func(m *CoverVersionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CoverVersion
+		)
+		m.oldValue = func(ctx context.Context) (*CoverVersion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CoverVersion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCoverVersion sets the old CoverVersion of the mutation.
+func withCoverVersion(node *CoverVersion) coverversionOption {
+	return func(m *CoverVersionMutation) {
+		m.oldValue = func(context.Context) (*CoverVersion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CoverVersionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CoverVersionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CoverVersionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CoverVersionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CoverVersion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPath sets the "path" field.
+func (m *CoverVersionMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *CoverVersionMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the CoverVersion entity.
+// If the CoverVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CoverVersionMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *CoverVersionMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetFormat sets the "format" field.
+func (m *CoverVersionMutation) SetFormat(s string) {
+	m.format = &s
+}
+
+// Format returns the value of the "format" field in the mutation.
+func (m *CoverVersionMutation) Format() (r string, exists bool) {
+	v := m.format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFormat returns the old "format" field's value of the CoverVersion entity.
+// If the CoverVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CoverVersionMutation) OldFormat(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFormat: %w", err)
+	}
+	return oldValue.Format, nil
+}
+
+// ResetFormat resets all changes to the "format" field.
+func (m *CoverVersionMutation) ResetFormat() {
+	m.format = nil
+}
+
+// SetSize sets the "size" field.
+func (m *CoverVersionMutation) SetSize(i int64) {
+	m.size = &i
+	m.addsize = nil
+}
+
+// Size returns the value of the "size" field in the mutation.
+func (m *CoverVersionMutation) Size() (r int64, exists bool) {
+	v := m.size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSize returns the old "size" field's value of the CoverVersion entity.
+// If the CoverVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CoverVersionMutation) OldSize(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSize: %w", err)
+	}
+	return oldValue.Size, nil
+}
+
+// AddSize adds i to the "size" field.
+func (m *CoverVersionMutation) AddSize(i int64) {
+	if m.addsize != nil {
+		*m.addsize += i
+	} else {
+		m.addsize = &i
+	}
+}
+
+// AddedSize returns the value that was added to the "size" field in this mutation.
+func (m *CoverVersionMutation) AddedSize() (r int64, exists bool) {
+	v := m.addsize
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSize resets all changes to the "size" field.
+func (m *CoverVersionMutation) ResetSize() {
+	m.size = nil
+	m.addsize = nil
+}
+
+// SetSuffix sets the "suffix" field.
+func (m *CoverVersionMutation) SetSuffix(s string) {
+	m.suffix = &s
+}
+
+// Suffix returns the value of the "suffix" field in the mutation.
+func (m *CoverVersionMutation) Suffix() (r string, exists bool) {
+	v := m.suffix
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSuffix returns the old "suffix" field's value of the CoverVersion entity.
+// If the CoverVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CoverVersionMutation) OldSuffix(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSuffix is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSuffix requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSuffix: %w", err)
+	}
+	return oldValue.Suffix, nil
+}
+
+// ResetSuffix resets all changes to the "suffix" field.
+func (m *CoverVersionMutation) ResetSuffix() {
+	m.suffix = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CoverVersionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CoverVersionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CoverVersion entity.
+// If the CoverVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CoverVersionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CoverVersionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetCoverID sets the "cover" edge to the BookCover entity by id.
+func (m *CoverVersionMutation) SetCoverID(id int) {
+	m.cover = &id
+}
+
+// ClearCover clears the "cover" edge to the BookCover entity.
+func (m *CoverVersionMutation) ClearCover() {
+	m.clearedcover = true
+}
+
+// CoverCleared reports if the "cover" edge to the BookCover entity was cleared.
+func (m *CoverVersionMutation) CoverCleared() bool {
+	return m.clearedcover
+}
+
+// CoverID returns the "cover" edge ID in the mutation.
+func (m *CoverVersionMutation) CoverID() (id int, exists bool) {
+	if m.cover != nil {
+		return *m.cover, true
+	}
+	return
+}
+
+// CoverIDs returns the "cover" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CoverID instead. It exists only for internal usage by the builders.
+func (m *CoverVersionMutation) CoverIDs() (ids []int) {
+	if id := m.cover; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCover resets all changes to the "cover" edge.
+func (m *CoverVersionMutation) ResetCover() {
+	m.cover = nil
+	m.clearedcover = false
+}
+
+// Where appends a list predicates to the CoverVersionMutation builder.
+func (m *CoverVersionMutation) Where(ps ...predicate.CoverVersion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CoverVersionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CoverVersionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CoverVersion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CoverVersionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CoverVersionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CoverVersion).
+func (m *CoverVersionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CoverVersionMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m._path != nil {
+		fields = append(fields, coverversion.FieldPath)
+	}
+	if m.format != nil {
+		fields = append(fields, coverversion.FieldFormat)
+	}
+	if m.size != nil {
+		fields = append(fields, coverversion.FieldSize)
+	}
+	if m.suffix != nil {
+		fields = append(fields, coverversion.FieldSuffix)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, coverversion.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CoverVersionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case coverversion.FieldPath:
+		return m.Path()
+	case coverversion.FieldFormat:
+		return m.Format()
+	case coverversion.FieldSize:
+		return m.Size()
+	case coverversion.FieldSuffix:
+		return m.Suffix()
+	case coverversion.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CoverVersionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case coverversion.FieldPath:
+		return m.OldPath(ctx)
+	case coverversion.FieldFormat:
+		return m.OldFormat(ctx)
+	case coverversion.FieldSize:
+		return m.OldSize(ctx)
+	case coverversion.FieldSuffix:
+		return m.OldSuffix(ctx)
+	case coverversion.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CoverVersion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CoverVersionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case coverversion.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case coverversion.FieldFormat:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFormat(v)
+		return nil
+	case coverversion.FieldSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSize(v)
+		return nil
+	case coverversion.FieldSuffix:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSuffix(v)
+		return nil
+	case coverversion.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CoverVersion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CoverVersionMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize != nil {
+		fields = append(fields, coverversion.FieldSize)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CoverVersionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case coverversion.FieldSize:
+		return m.AddedSize()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CoverVersionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case coverversion.FieldSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSize(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CoverVersion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CoverVersionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CoverVersionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CoverVersionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown CoverVersion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CoverVersionMutation) ResetField(name string) error {
+	switch name {
+	case coverversion.FieldPath:
+		m.ResetPath()
+		return nil
+	case coverversion.FieldFormat:
+		m.ResetFormat()
+		return nil
+	case coverversion.FieldSize:
+		m.ResetSize()
+		return nil
+	case coverversion.FieldSuffix:
+		m.ResetSuffix()
+		return nil
+	case coverversion.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CoverVersion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CoverVersionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cover != nil {
+		edges = append(edges, coverversion.EdgeCover)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CoverVersionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case coverversion.EdgeCover:
+		if id := m.cover; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CoverVersionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CoverVersionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CoverVersionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedcover {
+		edges = append(edges, coverversion.EdgeCover)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CoverVersionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case coverversion.EdgeCover:
+		return m.clearedcover
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CoverVersionMutation) ClearEdge(name string) error {
+	switch name {
+	case coverversion.EdgeCover:
+		m.ClearCover()
+		return nil
+	}
+	return fmt.Errorf("unknown CoverVersion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CoverVersionMutation) ResetEdge(name string) error {
+	switch name {
+	case coverversion.EdgeCover:
+		m.ResetCover()
+		return nil
+	}
+	return fmt.Errorf("unknown CoverVersion edge %s", name)
 }
 
 // FolderMutation represents an operation that mutates the Folder nodes in the graph.

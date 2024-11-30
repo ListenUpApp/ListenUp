@@ -2,8 +2,7 @@ package content
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"time"
 
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/author"
@@ -19,7 +18,7 @@ type bookRepository struct {
 	logger *logging.AppLogger
 }
 
-func (r *bookRepository) Create(ctx context.Context, params models.CreateAudiobookRequest, folder *ent.Folder, library *ent.Library) (*ent.Book, error) {
+func (r *bookRepository) Create(ctx context.Context, bookID string, params models.CreateAudiobookRequest, folder *ent.Folder, library *ent.Library) (*ent.Book, error) {
 	tx, err := r.client.Tx(ctx)
 	if err != nil {
 		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to start transaction", err).
@@ -83,6 +82,7 @@ func (r *bookRepository) Create(ctx context.Context, params models.CreateAudiobo
 
 	// Create book
 	dbBook, err := tx.Book.Create().
+		SetID(bookID).
 		SetTitle(params.Title).
 		SetDuration(float64(params.Duration)).
 		SetSize(params.Size).
@@ -133,26 +133,37 @@ func (r *bookRepository) Create(ctx context.Context, params models.CreateAudiobo
 	}
 
 	// Create cover if provided
-	var coverCreated bool
-	if params.Cover.Path != "" && params.Cover.Format != "" && params.Cover.Size > 0 {
-		if _, err := os.Stat(params.Cover.Path); err != nil {
-			return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "cover file not accessible", err).
-				WithOperation("CreateAudiobook")
-		}
-
-		_, err := tx.BookCover.Create().
+	// Create cover if provided
+	if params.Cover.Path != "" {
+		// Create main cover
+		cover, err := tx.BookCover.Create().
 			SetPath(params.Cover.Path).
 			SetFormat(params.Cover.Format).
 			SetSize(params.Cover.Size).
 			SetBook(dbBook).
+			SetUpdatedAt(time.Now()).
 			Save(ctx)
 
 		if err != nil {
-			return nil, appErr.NewRepositoryError(appErr.ErrDatabase,
-				fmt.Sprintf("failed to create cover: %v", err), err).
-				WithOperation("CreateAudiobook")
+			return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to create cover", err)
 		}
-		coverCreated = true
+
+		// Create cover versions
+		for _, version := range params.Cover.Versions {
+			_, err := tx.CoverVersion.Create().
+				SetPath(version.Path).
+				SetFormat(version.Format).
+				SetSize(version.Size).
+				SetSuffix(version.Suffix).
+				SetCover(cover).
+				SetUpdatedAt(time.Now()).
+				Save(ctx)
+
+			if err != nil {
+				return nil, appErr.NewRepositoryError(appErr.ErrDatabase,
+					"failed to create cover version", err)
+			}
+		}
 	}
 
 	// Load all relationships
@@ -160,21 +171,18 @@ func (r *bookRepository) Create(ctx context.Context, params models.CreateAudiobo
 		Where(book.ID(dbBook.ID)).
 		WithAuthors().
 		WithNarrators().
-		WithChapters()
-
-	if coverCreated {
-		query = query.WithCover()
-	}
+		WithChapters().
+		WithCover(func(q *ent.BookCoverQuery) {
+			q.WithVersions()
+		})
 
 	dbBook, err = query.Only(ctx)
 	if err != nil {
-		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to load book relationships", err).
-			WithOperation("CreateAudiobook")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to load relationships", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err).
-			WithOperation("CreateAudiobook")
+		return nil, appErr.NewRepositoryError(appErr.ErrDatabase, "failed to commit transaction", err)
 	}
 
 	return dbBook, nil

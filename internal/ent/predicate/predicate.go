@@ -18,6 +18,9 @@ type BookCover func(*sql.Selector)
 // Chapter is the predicate function for chapter builders.
 type Chapter func(*sql.Selector)
 
+// CoverVersion is the predicate function for coverversion builders.
+type CoverVersion func(*sql.Selector)
+
 // Folder is the predicate function for folder builders.
 type Folder func(*sql.Selector)
 

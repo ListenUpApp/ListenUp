@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
 )
 
@@ -95,6 +96,21 @@ func (bcu *BookCoverUpdate) SetBook(b *Book) *BookCoverUpdate {
 	return bcu.SetBookID(b.ID)
 }
 
+// AddVersionIDs adds the "versions" edge to the CoverVersion entity by IDs.
+func (bcu *BookCoverUpdate) AddVersionIDs(ids ...int) *BookCoverUpdate {
+	bcu.mutation.AddVersionIDs(ids...)
+	return bcu
+}
+
+// AddVersions adds the "versions" edges to the CoverVersion entity.
+func (bcu *BookCoverUpdate) AddVersions(c ...*CoverVersion) *BookCoverUpdate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return bcu.AddVersionIDs(ids...)
+}
+
 // Mutation returns the BookCoverMutation object of the builder.
 func (bcu *BookCoverUpdate) Mutation() *BookCoverMutation {
 	return bcu.mutation
@@ -104,6 +120,27 @@ func (bcu *BookCoverUpdate) Mutation() *BookCoverMutation {
 func (bcu *BookCoverUpdate) ClearBook() *BookCoverUpdate {
 	bcu.mutation.ClearBook()
 	return bcu
+}
+
+// ClearVersions clears all "versions" edges to the CoverVersion entity.
+func (bcu *BookCoverUpdate) ClearVersions() *BookCoverUpdate {
+	bcu.mutation.ClearVersions()
+	return bcu
+}
+
+// RemoveVersionIDs removes the "versions" edge to CoverVersion entities by IDs.
+func (bcu *BookCoverUpdate) RemoveVersionIDs(ids ...int) *BookCoverUpdate {
+	bcu.mutation.RemoveVersionIDs(ids...)
+	return bcu
+}
+
+// RemoveVersions removes "versions" edges to CoverVersion entities.
+func (bcu *BookCoverUpdate) RemoveVersions(c ...*CoverVersion) *BookCoverUpdate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return bcu.RemoveVersionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -221,6 +258,51 @@ func (bcu *BookCoverUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if bcu.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bcu.mutation.RemovedVersionsIDs(); len(nodes) > 0 && !bcu.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bcu.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, bcu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{bookcover.Label}
@@ -307,6 +389,21 @@ func (bcuo *BookCoverUpdateOne) SetBook(b *Book) *BookCoverUpdateOne {
 	return bcuo.SetBookID(b.ID)
 }
 
+// AddVersionIDs adds the "versions" edge to the CoverVersion entity by IDs.
+func (bcuo *BookCoverUpdateOne) AddVersionIDs(ids ...int) *BookCoverUpdateOne {
+	bcuo.mutation.AddVersionIDs(ids...)
+	return bcuo
+}
+
+// AddVersions adds the "versions" edges to the CoverVersion entity.
+func (bcuo *BookCoverUpdateOne) AddVersions(c ...*CoverVersion) *BookCoverUpdateOne {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return bcuo.AddVersionIDs(ids...)
+}
+
 // Mutation returns the BookCoverMutation object of the builder.
 func (bcuo *BookCoverUpdateOne) Mutation() *BookCoverMutation {
 	return bcuo.mutation
@@ -316,6 +413,27 @@ func (bcuo *BookCoverUpdateOne) Mutation() *BookCoverMutation {
 func (bcuo *BookCoverUpdateOne) ClearBook() *BookCoverUpdateOne {
 	bcuo.mutation.ClearBook()
 	return bcuo
+}
+
+// ClearVersions clears all "versions" edges to the CoverVersion entity.
+func (bcuo *BookCoverUpdateOne) ClearVersions() *BookCoverUpdateOne {
+	bcuo.mutation.ClearVersions()
+	return bcuo
+}
+
+// RemoveVersionIDs removes the "versions" edge to CoverVersion entities by IDs.
+func (bcuo *BookCoverUpdateOne) RemoveVersionIDs(ids ...int) *BookCoverUpdateOne {
+	bcuo.mutation.RemoveVersionIDs(ids...)
+	return bcuo
+}
+
+// RemoveVersions removes "versions" edges to CoverVersion entities.
+func (bcuo *BookCoverUpdateOne) RemoveVersions(c ...*CoverVersion) *BookCoverUpdateOne {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return bcuo.RemoveVersionIDs(ids...)
 }
 
 // Where appends a list predicates to the BookCoverUpdate builder.
@@ -456,6 +574,51 @@ func (bcuo *BookCoverUpdateOne) sqlSave(ctx context.Context) (_node *BookCover, 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(book.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if bcuo.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bcuo.mutation.RemovedVersionsIDs(); len(nodes) > 0 && !bcuo.mutation.VersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bcuo.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

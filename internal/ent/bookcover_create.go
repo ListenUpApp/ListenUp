@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 )
 
 // BookCoverCreate is the builder for creating a BookCover entity.
@@ -62,6 +63,21 @@ func (bcc *BookCoverCreate) SetBookID(id string) *BookCoverCreate {
 // SetBook sets the "book" edge to the Book entity.
 func (bcc *BookCoverCreate) SetBook(b *Book) *BookCoverCreate {
 	return bcc.SetBookID(b.ID)
+}
+
+// AddVersionIDs adds the "versions" edge to the CoverVersion entity by IDs.
+func (bcc *BookCoverCreate) AddVersionIDs(ids ...int) *BookCoverCreate {
+	bcc.mutation.AddVersionIDs(ids...)
+	return bcc
+}
+
+// AddVersions adds the "versions" edges to the CoverVersion entity.
+func (bcc *BookCoverCreate) AddVersions(c ...*CoverVersion) *BookCoverCreate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return bcc.AddVersionIDs(ids...)
 }
 
 // Mutation returns the BookCoverMutation object of the builder.
@@ -194,6 +210,22 @@ func (bcc *BookCoverCreate) createSpec() (*BookCover, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.book_cover = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := bcc.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   bookcover.VersionsTable,
+			Columns: []string{bookcover.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(coverversion.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

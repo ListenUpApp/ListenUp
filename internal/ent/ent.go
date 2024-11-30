@@ -16,6 +16,7 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
 	"github.com/ListenUpApp/ListenUp/internal/ent/chapter"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/folder"
 	"github.com/ListenUpApp/ListenUp/internal/ent/library"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
@@ -86,6 +87,7 @@ func checkColumn(table, column string) error {
 			book.Table:         book.ValidColumn,
 			bookcover.Table:    bookcover.ValidColumn,
 			chapter.Table:      chapter.ValidColumn,
+			coverversion.Table: coverversion.ValidColumn,
 			folder.Table:       folder.ValidColumn,
 			library.Table:      library.ValidColumn,
 			narrator.Table:     narrator.ValidColumn,

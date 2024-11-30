@@ -1,0 +1,69 @@
+package components
+
+import (
+	"fmt"
+	"github.com/ListenUpApp/ListenUp/internal/models"
+)
+
+templ BookCover(cover models.Cover, alt string) {
+	if len(cover.Versions) > 0 {
+		<picture class="w-full h-full">
+			// Source elements for different screen sizes
+			<source
+				media="(min-width: 1536px)"
+				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
+                    getVersionPath(cover, "large"),
+                    getVersionPath(cover, "large@2x")) }
+				type="image/webp"
+			/>
+			<source
+				media="(min-width: 1024px)"
+				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
+                    getVersionPath(cover, "medium"),
+                    getVersionPath(cover, "medium@2x")) }
+				type="image/webp"
+			/>
+			<source
+				media="(min-width: 768px)"
+				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
+                    getVersionPath(cover, "small"),
+                    getVersionPath(cover, "small@2x")) }
+				type="image/webp"
+			/>
+			<source
+				srcset={ fmt.Sprintf("%s 1x, %s 2x", 
+                    getVersionPath(cover, "thumbnail"),
+                    getVersionPath(cover, "thumbnail@2x")) }
+				type="image/webp"
+			/>
+			// Fallback img element
+			<img
+				src={ getVersionPath(cover, "medium") }
+				alt={ alt }
+				class="object-cover object-center w-full h-full"
+				loading="lazy"
+			/>
+		</picture>
+	} else if cover.Path != "" {
+		<img
+			src={ cover.Path }
+			alt={ alt }
+			class="object-cover object-center w-full h-full"
+			loading="lazy"
+		/>
+	} else {
+		<div class="flex items-center justify-center h-full bg-gray-200">
+			<img src="https://placehold.co/400x400" alt={ alt }/>
+		</div>
+	}
+}
+
+// Helper function to get version path
+func getVersionPath(cover models.Cover, suffix string) string {
+	for _, version := range cover.Versions {
+		if version.Suffix == suffix {
+			return version.Path
+		}
+	}
+	return cover.Path // Fallback to original
+}

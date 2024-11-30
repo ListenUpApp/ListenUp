@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -13,18 +14,20 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/ListenUpApp/ListenUp/internal/ent/book"
 	"github.com/ListenUpApp/ListenUp/internal/ent/bookcover"
+	"github.com/ListenUpApp/ListenUp/internal/ent/coverversion"
 	"github.com/ListenUpApp/ListenUp/internal/ent/predicate"
 )
 
 // BookCoverQuery is the builder for querying BookCover entities.
 type BookCoverQuery struct {
 	config
-	ctx        *QueryContext
-	order      []bookcover.OrderOption
-	inters     []Interceptor
-	predicates []predicate.BookCover
-	withBook   *BookQuery
-	withFKs    bool
+	ctx          *QueryContext
+	order        []bookcover.OrderOption
+	inters       []Interceptor
+	predicates   []predicate.BookCover
+	withBook     *BookQuery
+	withVersions *CoverVersionQuery
+	withFKs      bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,28 @@ func (bcq *BookCoverQuery) QueryBook() *BookQuery {
 			sqlgraph.From(bookcover.Table, bookcover.FieldID, selector),
 			sqlgraph.To(book.Table, book.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, true, bookcover.BookTable, bookcover.BookColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(bcq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVersions chains the current query on the "versions" edge.
+func (bcq *BookCoverQuery) QueryVersions() *CoverVersionQuery {
+	query := (&CoverVersionClient{config: bcq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := bcq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := bcq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(bookcover.Table, bookcover.FieldID, selector),
+			sqlgraph.To(coverversion.Table, coverversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, bookcover.VersionsTable, bookcover.VersionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(bcq.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +295,13 @@ func (bcq *BookCoverQuery) Clone() *BookCoverQuery {
 		return nil
 	}
 	return &BookCoverQuery{
-		config:     bcq.config,
-		ctx:        bcq.ctx.Clone(),
-		order:      append([]bookcover.OrderOption{}, bcq.order...),
-		inters:     append([]Interceptor{}, bcq.inters...),
-		predicates: append([]predicate.BookCover{}, bcq.predicates...),
-		withBook:   bcq.withBook.Clone(),
+		config:       bcq.config,
+		ctx:          bcq.ctx.Clone(),
+		order:        append([]bookcover.OrderOption{}, bcq.order...),
+		inters:       append([]Interceptor{}, bcq.inters...),
+		predicates:   append([]predicate.BookCover{}, bcq.predicates...),
+		withBook:     bcq.withBook.Clone(),
+		withVersions: bcq.withVersions.Clone(),
 		// clone intermediate query.
 		sql:  bcq.sql.Clone(),
 		path: bcq.path,
@@ -290,6 +316,17 @@ func (bcq *BookCoverQuery) WithBook(opts ...func(*BookQuery)) *BookCoverQuery {
 		opt(query)
 	}
 	bcq.withBook = query
+	return bcq
+}
+
+// WithVersions tells the query-builder to eager-load the nodes that are connected to
+// the "versions" edge. The optional arguments are used to configure the query builder of the edge.
+func (bcq *BookCoverQuery) WithVersions(opts ...func(*CoverVersionQuery)) *BookCoverQuery {
+	query := (&CoverVersionClient{config: bcq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	bcq.withVersions = query
 	return bcq
 }
 
@@ -372,8 +409,9 @@ func (bcq *BookCoverQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*B
 		nodes       = []*BookCover{}
 		withFKs     = bcq.withFKs
 		_spec       = bcq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			bcq.withBook != nil,
+			bcq.withVersions != nil,
 		}
 	)
 	if bcq.withBook != nil {
@@ -403,6 +441,13 @@ func (bcq *BookCoverQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*B
 	if query := bcq.withBook; query != nil {
 		if err := bcq.loadBook(ctx, query, nodes, nil,
 			func(n *BookCover, e *Book) { n.Edges.Book = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := bcq.withVersions; query != nil {
+		if err := bcq.loadVersions(ctx, query, nodes,
+			func(n *BookCover) { n.Edges.Versions = []*CoverVersion{} },
+			func(n *BookCover, e *CoverVersion) { n.Edges.Versions = append(n.Edges.Versions, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -438,6 +483,37 @@ func (bcq *BookCoverQuery) loadBook(ctx context.Context, query *BookQuery, nodes
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (bcq *BookCoverQuery) loadVersions(ctx context.Context, query *CoverVersionQuery, nodes []*BookCover, init func(*BookCover), assign func(*BookCover, *CoverVersion)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*BookCover)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.CoverVersion(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(bookcover.VersionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.book_cover_versions
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "book_cover_versions" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "book_cover_versions" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

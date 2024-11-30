@@ -1,8 +1,10 @@
 package scanner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,6 +144,143 @@ func (s *Scanner) ScanFolder(ctx context.Context, folder *models.Folder) error {
 	})
 }
 
+// JPEG markers
+var (
+	jpegSOIMarker = []byte{0xFF, 0xD8} // Start of Image
+	jpegEOIMarker = []byte{0xFF, 0xD9} // End of Image
+)
+
+// findJPEGData attempts to locate actual JPEG data within potentially wrapped image data
+func findJPEGData(data []byte) []byte {
+	// Look for JPEG SOI marker
+	start := bytes.Index(data, jpegSOIMarker)
+	if start == -1 {
+		return data // No JPEG header found, return original data
+	}
+
+	// Look for JPEG EOI marker
+	end := bytes.LastIndex(data, jpegEOIMarker)
+	if end == -1 {
+		return data[start:] // No end marker, return from start to end
+	}
+
+	// Return the data between (and including) the markers
+	return data[start : end+2]
+}
+
+// processCoverImage handles the extraction and validation of cover art from audio metadata
+func (s *Scanner) processCoverImage(picture *taggart.Picture) (*models.CreateCoverRequest, error) {
+	if picture == nil {
+		return nil, nil
+	}
+
+	// Log incoming picture details
+	s.logger.Debug("Processing cover image",
+		"mime_type", picture.MIMEType,
+		"extension", picture.Ext,
+		"type", picture.Type,
+		"data_size", len(picture.Data))
+
+	// Make a copy of the image data that we can modify
+	imageData := picture.Data
+
+	// If it claims to be JPEG, try to find the actual JPEG data
+	if picture.MIMEType == "image/jpeg" || picture.MIMEType == "image/jpg" {
+		imageData = findJPEGData(imageData)
+		s.logger.Debug("Processed JPEG data",
+			"original_size", len(picture.Data),
+			"processed_size", len(imageData))
+	}
+
+	// Verify we can decode the image data
+	reader := bytes.NewReader(imageData)
+	_, format, err := image.DecodeConfig(reader)
+	if err != nil {
+		// Log the first few bytes to help with debugging
+		var headerBytes []byte
+		if len(imageData) > 16 {
+			headerBytes = imageData[:16]
+		} else {
+			headerBytes = imageData
+		}
+		s.logger.Error("Failed to decode image data",
+			"error", err,
+			"mime_type", picture.MIMEType,
+			"format", format,
+			"data_header", fmt.Sprintf("%X", headerBytes))
+
+		// If we can't decode it but have a valid MIME type, we'll still try to save it
+		if picture.MIMEType == "" {
+			return nil, fmt.Errorf("unable to determine image format: %w", err)
+		}
+	}
+
+	// Create temporary directory if it doesn't exist
+	tempDir := filepath.Join(os.TempDir(), "listenup_covers")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Determine file extension
+	ext := picture.Ext
+	if ext == "" {
+		switch picture.MIMEType {
+		case "image/jpeg", "image/jpg":
+			ext = "jpg"
+		case "image/png":
+			ext = "png"
+		case "image/gif":
+			ext = "gif"
+		default:
+			if format != "" {
+				ext = format // Use the detected format if available
+			} else {
+				return nil, fmt.Errorf("unsupported image format: %s", picture.MIMEType)
+			}
+		}
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("cover_%s.%s", time.Now().Format("20060102150405"), ext)
+	coverPath := filepath.Join(tempDir, filename)
+
+	// Write the processed image data to disk
+	if err := os.WriteFile(coverPath, imageData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write cover file: %w", err)
+	}
+
+	// Double-check the written file is readable as an image
+	if _, err := os.Stat(coverPath); err != nil {
+		os.Remove(coverPath) // Clean up
+		return nil, fmt.Errorf("failed to verify written file: %w", err)
+	}
+
+	// If MIME type is still empty, use a default based on extension
+	mimeType := picture.MIMEType
+	if mimeType == "" {
+		switch ext {
+		case "jpg", "jpeg":
+			mimeType = "image/jpeg"
+		case "png":
+			mimeType = "image/png"
+		case "gif":
+			mimeType = "image/gif"
+		}
+	}
+
+	fileInfo, err := os.Stat(coverPath)
+	if err != nil {
+		os.Remove(coverPath) // Clean up
+		return nil, fmt.Errorf("failed to get cover file info: %w", err)
+	}
+
+	return &models.CreateCoverRequest{
+		Path:   coverPath,
+		Format: mimeType,
+		Size:   fileInfo.Size(),
+	}, nil
+}
+
 func (s *Scanner) processFile(path string) {
 	s.mutex.Lock()
 	delete(s.debounceTimer, path)
@@ -222,30 +361,21 @@ func (s *Scanner) processFile(path string) {
 		})
 	}
 
-	var coverRequest models.CreateCoverRequest
+	var coverData *taggart.Picture
 	if picture := audioMeta.Picture(); picture != nil {
-		tempDir := filepath.Join(os.TempDir(), "listenup_covers")
-		if err := os.MkdirAll(tempDir, 0755); err != nil {
-			return
+		coverData = &taggart.Picture{
+			Data:        picture.Data,
+			MIMEType:    picture.MIMEType,
+			Ext:         picture.Ext,
+			Type:        picture.Type,
+			Description: picture.Description,
 		}
 
-		coverPath := filepath.Join(tempDir,
-			fmt.Sprintf("%s_%s.%s",
-				strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
-				time.Now().Format("20060102150405"),
-				picture.Ext))
-
-		if err := os.WriteFile(coverPath, picture.Data, 0644); err != nil {
-			return
-		}
-
-		if info, err := os.Stat(coverPath); err == nil {
-			coverRequest = models.CreateCoverRequest{
-				Path:   coverPath,
-				Format: picture.MIMEType,
-				Size:   info.Size(),
-			}
-		}
+		// Log cover data for debugging
+		s.logger.Debug("Extracted cover data",
+			"mime_type", picture.MIMEType,
+			"type", picture.Type,
+			"data_size", len(picture.Data))
 	}
 
 	createBookData := models.CreateAudiobookRequest{
@@ -263,7 +393,7 @@ func (s *Scanner) processFile(path string) {
 		Authors:       authors,
 		Narrators:     narrators,
 		Chapter:       chapters,
-		Cover:         coverRequest,
+		CoverData:     coverData, // Pass raw cover data to service
 	}
 
 	if _, err := s.contentService.CreateBook(s.ctx, folder.ID, createBookData); err != nil {

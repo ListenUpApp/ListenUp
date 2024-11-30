@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 
@@ -67,7 +70,7 @@ func New(cfg Config) (*Server, error) {
 	scanner, err := scanner.New(scanner.Config{
 		Logger:         cfg.Logger,
 		ContentService: cfg.Services.Content,
-		MediaService: cfg.Services.Media,
+		MediaService:   cfg.Services.Media,
 	})
 	if err != nil {
 		return nil, appErr.NewHandlerError(appErr.ErrInternal, "failed to create scanner", err).
@@ -113,6 +116,54 @@ func (s *Server) Init(ctx context.Context) error {
 func (s *Server) setupRoutes() {
 	// Static files
 	s.router.Static("/static", "./internal/web/static")
+
+	s.router.GET("/media/*filepath", func(c *gin.Context) {
+		// Get the filepath parameter
+		filePath := c.Param("filepath")
+
+		s.logger.Info("Metadata", s.config.Metadata)
+
+		s.logger.Debug("Media request received",
+			"raw_path", filePath,
+			"base_path", s.config.Metadata.BasePath)
+
+		// Basic security checks
+		if strings.Contains(filePath, "..") || strings.Contains(filePath, "//") {
+			s.logger.Warn("Security check failed", "path", filePath)
+			c.String(http.StatusBadRequest, "Invalid path")
+			return
+		}
+
+		// Clean the path to prevent directory traversal
+		cleanPath := path.Clean(filePath)
+
+		// Use the actual BasePath that should already be expanded
+		fullPath := path.Join(s.config.Metadata.BasePath, cleanPath)
+
+		s.logger.Info("Attempting to serve file",
+			"clean_path", cleanPath,
+			"full_path", fullPath)
+
+		// Verify the constructed path is still within the base path
+		if !strings.HasPrefix(fullPath, s.config.Metadata.BasePath) {
+			s.logger.Warn("Path traversal attempt", "path", fullPath)
+			c.String(http.StatusBadRequest, "Invalid path")
+			return
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			s.logger.Warn("File not found",
+				"path", fullPath,
+				"base_path", s.config.Metadata.BasePath,
+				"clean_path", cleanPath)
+			c.String(http.StatusNotFound, "File not found")
+			return
+		}
+
+		s.logger.Debug("Serving file", "path", fullPath)
+		c.File(fullPath)
+	})
 
 	// API routes
 	apiHandler := api.NewHandler(api.Config{

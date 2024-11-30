@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
@@ -28,6 +30,30 @@ func initDB() (*ent.Client, error) {
 	}
 
 	return client, nil
+}
+
+func LoadConfig() (*config.Config, error) {
+	cfg := &config.Config{}
+
+	// If no media path configured, use default in home directory
+	if cfg.Metadata.BasePath == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get home directory: %w", err)
+		}
+		cfg.Metadata.BasePath = filepath.Join(homeDir, "ListenUp", "media")
+	}
+
+	// Ensure path is absolute
+	if !filepath.IsAbs(cfg.Metadata.BasePath) {
+		absPath, err := filepath.Abs(cfg.Metadata.BasePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute media path: %w", err)
+		}
+		cfg.Metadata.BasePath = absPath
+	}
+
+	return cfg, nil
 }
 
 func main() {
@@ -71,6 +97,7 @@ func main() {
 		Repos:     repos,
 		Logger:    appLogger,
 		Validator: validate,
+		Config:    cfg,
 	})
 	if err != nil {
 		appLogger.Error("Failed to initialize services", "error", err)
