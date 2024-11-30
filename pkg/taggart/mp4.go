@@ -177,7 +177,6 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 			return err
 		}
 
-		// Explicitly check for chpl atom
 		if name == "chpl" {
 			contentType = "chapter"
 		} else if name == "tref" || name == "chap" {
@@ -186,6 +185,9 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 			if len(b) < 8 {
 				contentType = "implicit"
 			} else {
+				dataWithHeader := make([]byte, len(b))
+				copy(dataWithHeader, b)
+
 				b = b[8:]
 				if len(b) < 4 {
 					contentType = "implicit"
@@ -196,6 +198,10 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 					if !ok {
 						contentType = "implicit"
 					}
+
+					if contentType == "text" {
+						b = dataWithHeader
+					}
 				}
 			}
 		}
@@ -203,28 +209,47 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 
 	var data interface{}
 	switch contentType {
-	case "implicit":
-		data = b
-
 	case "text":
 		data = string(b)
-		if name == "\xa9nam" && len(m.chapters) == 0 {
-			// Remove 8-byte header
-			text := string(b[8:])
+		if len(b) > 8 {
+			data = string(b[8:])
+		} else {
+			data = string(b)
+		}
 
-			// More comprehensive pattern matching
-			if strings.Contains(text, "Chapter") ||
-				strings.Contains(text, "Opening Credits") ||
-				strings.Contains(text, "End Credits") ||
-				strings.Contains(text, "Part") ||
-				strings.Contains(text, "Section") {
+		if name == "\xa9nam" {
+			textContent := data.(string)
+			textChapters, foundChapters := parseChapterFromText(textContent)
 
-				chapter := Chapter{
-					Title: text,
-					// Timestamps will be calculated later when we know the total duration
-					// in the existing code that handles chapter timestamp distribution
+			if foundChapters {
+				// Keep track of unique chapter titles to avoid duplicates
+				titleExists := false
+				for _, existing := range m.chapters {
+					if existing.Title == textChapters[0].Title {
+						titleExists = true
+						break
+					}
 				}
-				m.chapters = append(m.chapters, chapter)
+
+				if !titleExists {
+					m.chapters = append(m.chapters, textChapters...)
+
+					// Recalculate timestamps for all chapters
+					if m.duration > 0 && len(m.chapters) > 0 {
+						chapterCount := len(m.chapters)
+						for i := 0; i < chapterCount; i++ {
+							startTimePercentage := float64(i) / float64(chapterCount)
+							endTimePercentage := float64(i+1) / float64(chapterCount)
+
+							m.chapters[i].Start = int64(float64(m.duration) * startTimePercentage)
+							if i == chapterCount-1 {
+								m.chapters[i].End = int64(m.duration)
+							} else {
+								m.chapters[i].End = int64(float64(m.duration) * endTimePercentage)
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -236,7 +261,7 @@ func (m *metadataMP4) readAtomData(r io.ReadSeeker, name string, size uint32, pr
 		}
 		fmt.Printf("Found %d chapters in chpl atom\n", len(chapters))
 		if len(chapters) > 0 {
-			m.chapters = chapters // Use chapters from chpl atom if present
+			m.chapters = chapters
 		}
 
 	case "uint8":
@@ -703,4 +728,66 @@ func parseChapters(data []byte, totalDuration int64) ([]Chapter, error) {
 	}
 
 	return chapters, nil
+}
+
+func parseChapterFromText(text string) ([]Chapter, bool) {
+	var chapters []Chapter
+
+	// Common chapter indicators
+	chapterIndicators := []string{
+		"chapter",
+		"track",
+		"part",
+		"section",
+		"disc",
+	}
+
+	// Don't split on newlines since each title comes in one at a time
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return chapters, false
+	}
+
+	// Convert to lowercase for comparison
+	lowerText := strings.ToLower(text)
+
+	isChapter := false
+
+	// Check for common chapter indicators
+	for _, indicator := range chapterIndicators {
+		if strings.Contains(lowerText, indicator) {
+			isChapter = true
+			break
+		}
+	}
+
+	// Check for special sections that might be chapters but don't use common indicators
+	if !isChapter {
+		specialSections := []string{
+			"intro",
+			"introduction",
+			"preface",
+			"prologue",
+			"epilogue",
+			"afterword",
+			"credits",
+			"opening",
+			"closing",
+		}
+
+		for _, section := range specialSections {
+			if strings.Contains(lowerText, section) {
+				isChapter = true
+				break
+			}
+		}
+	}
+
+	if isChapter {
+		chapters = append(chapters, Chapter{
+			Title: text, // Use original text, not lowercase
+		})
+	}
+
+	return chapters, len(chapters) > 0
 }
