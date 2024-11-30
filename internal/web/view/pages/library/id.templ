@@ -80,9 +80,12 @@ templ SingleBookPageContent(book models.Audiobook) {
 				</p>
 			</div>
 			if len(book.Chapters) > 0 {
-				<div class="mt-6 self-start">
-					<h3 class="text-xl mb-4 text-secondary-600 font-medium">Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-2 text-base">{ fmt.Sprint(len(book.Chapters)) }</span> </h3>
-					for _, chapter := range book.Chapters {
+				<div class="my-6 self-start w-full" x-data="{ expanded: false }">
+					<h3 class="text-xl mb-4 text-secondary-600 font-medium">
+						Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-2 text-base">{ fmt.Sprint(len(book.Chapters)) }</span>
+					</h3>
+					<!-- First 5 chapters - always visible -->
+					for _, chapter := range book.Chapters[:min(5, len(book.Chapters))] {
 						<div class="bg-white w-full rounded-xl flex flex-row items-center justify-start my-2 p-2">
 							<div class="max-w-12 w-full rounded-xl mr-4">
 								@components.BookCover(book.Cover, book.Title)
@@ -91,6 +94,29 @@ templ SingleBookPageContent(book models.Audiobook) {
 								<h4 class="text-lg text-secondary-700 font-medium">{ chapter.Title }</h4>
 								<p class="text-secondary-600">{ formatDuration(int64(chapter.Start)) }</p>
 							</div>
+						</div>
+					}
+					<!-- Remaining chapters - shown when expanded -->
+					<div x-show="expanded" x-collapse>
+						for _, chapter := range book.Chapters[min(5, len(book.Chapters)):] {
+							<div class="bg-white w-full rounded-xl flex flex-row items-center justify-start my-2 p-2">
+								<div class="max-w-12 w-full rounded-xl mr-4">
+									@components.BookCover(book.Cover, book.Title)
+								</div>
+								<div>
+									<h4 class="text-lg text-secondary-700 font-medium">{ chapter.Title }</h4>
+									<p class="text-secondary-600">{ formatDuration(int64(chapter.Start)) }</p>
+								</div>
+							</div>
+						}
+					</div>
+					if len(book.Chapters) > 5 {
+						<div class="flex flex-row justify-center w-full mt-4">
+							<button
+								@click="expanded = !expanded"
+								class="w-full mx-auto max-w-48 py-4 text-center rounded-full shadow-lg bg-white text-secondary-600 font-medium text-xl"
+								x-text="expanded ? 'Show Less' : 'Show More'"
+							></button>
 						</div>
 					}
 				</div>
