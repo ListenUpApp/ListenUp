@@ -20,7 +20,7 @@ templ SingleBookPageContent(book models.Audiobook) {
 	<div x-data="coverShadow()">
 		<div class="flex flex-col items-center mt-6 xl:hidden">
 			<div
-				class="max-w-40 w-full aspect-w-2 aspect-h-2 rounded-xl overflow-hidden"
+				class="max-w-48 w-full aspect-w-2 aspect-h-2 rounded-xl overflow-hidden"
 				:style="{ 'box-shadow': `0 4px 24px 0 ${shadowColor}` }"
 			>
 				@components.BookCover(book.Cover, book.Title)
@@ -80,9 +80,9 @@ templ SingleBookPageContent(book models.Audiobook) {
 				</p>
 			</div>
 			if len(book.Chapters) > 0 {
-				<div class="my-6 self-start w-full" x-data="{ expanded: false }">
+				<div class="my-8 self-start w-full" x-data="{ expanded: false }">
 					<h3 class="text-xl mb-4 text-secondary-600 font-medium">
-						Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-2 text-base">{ fmt.Sprint(len(book.Chapters)) }</span>
+						Chapters <span class="bg-secondary-600 text-white rounded-full py-1 px-3 text-base">{ fmt.Sprint(len(book.Chapters)) }</span>
 					</h3>
 					<!-- First 5 chapters - always visible -->
 					for _, chapter := range book.Chapters[:min(5, len(book.Chapters))] {
