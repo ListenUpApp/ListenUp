@@ -5,12 +5,16 @@
 package taggart
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var atomTypes = map[int]string{
@@ -655,79 +659,96 @@ type Chapter struct {
 
 func parseChapters(data []byte, totalDuration int64) ([]Chapter, error) {
 	var chapters []Chapter
+	separator := []byte{0, 0, 0}
+	sections := bytes.Split(data[16:], separator) // Skip the 16-byte header before splitting
 
-	if len(data) < 16 {
-		return nil, fmt.Errorf("data too short for header")
-	}
-
-	numEntries := data[8]
-	data = data[16:]
-
-	timeScale := uint64(1000) // From mvhd atom
-	pos := 0
-
-	for i := uint8(0); i < numEntries && pos < len(data); i++ {
-		// Skip any leading zero
-		for pos < len(data) && data[pos] == 0 {
-			pos++
+	for index, section := range sections {
+		if len(section) < 6 {
+			continue
 		}
 
-		if pos >= len(data) {
-			break
-		}
-
-		// Read length and title
-		titleLen := int(data[pos])
-		pos++
-
-		if pos+titleLen > len(data) {
-			break
-		}
-
-		title := string(data[pos : pos+titleLen])
-		pos += titleLen
-
-		var startTime int64
-
-		// For all but the last chapter, read timestamp
-		if i < numEntries-1 {
-			// Align to 4-byte boundary
-			for pos < len(data) && data[pos] == 0 {
-				pos++
-			}
-
-			if pos+4 > len(data) {
-				break
-			}
-
-			timestamp := binary.BigEndian.Uint32(data[pos : pos+4])
-			startTime = int64(float64(timestamp) / float64(timeScale))
-			pos += 4
+		var startTimeFloat float64
+		var rawTitle string
+		if index == 0 {
+			startTimeFloat = 0
+			rawTitle = string(section) // For first chapter, use full section
 		} else {
-			// For last chapter, use timestamp from previous chapter + estimated duration
-			if len(chapters) > 0 {
-				startTime = chapters[len(chapters)-1].End
-			}
+			startTime := binary.BigEndian.Uint32(section[0:4])
+			startTimeFloat = float64(startTime) * 256 / 10000000
+			rawTitle = string(section[6:])
 		}
+		startTimeSeconds := int64(math.Round(startTimeFloat))
 
 		chapter := Chapter{
-			Title: title,
-			Start: startTime,
+			id:    uint8(len(chapters)),
+			Title: rawTitle,
+			Start: startTimeSeconds,
 		}
 
 		if len(chapters) > 0 {
-			chapters[len(chapters)-1].End = startTime
+			chapters[len(chapters)-1].End = startTimeSeconds
 		}
 
 		chapters = append(chapters, chapter)
 	}
 
-	// Set end time for last chapter using the passed-in total duration
 	if len(chapters) > 0 {
 		chapters[len(chapters)-1].End = totalDuration
 	}
 
 	return chapters, nil
+}
+
+func cleanChapterTitle(raw string) string {
+	// Remove binary artifacts and control characters
+	cleaned := strings.Map(func(r rune) rune {
+		if r < 32 || r > 126 {
+			return ' '
+		}
+		return r
+	}, raw)
+
+	// Replace multiple spaces with single space
+	cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
+
+	// Remove trailing or leading spaces and common artifacts
+	cleaned = strings.TrimSpace(cleaned)
+	cleaned = strings.TrimRight(cleaned, "0123456789.,;:$@#%^&* ")
+
+	// Check if the title is too corrupt
+	if len(cleaned) <= 1 || isObviouslyCorrupted(cleaned) {
+		return ""
+	}
+
+	return cleaned
+}
+
+func isObviouslyCorrupted(title string) bool {
+	// Check for single characters or numbers
+	if len(title) <= 2 {
+		return true
+	}
+
+	// Check for titles that are just fragments
+	fragments := []string{"ter", "apt"}
+	for _, fragment := range fragments {
+		if strings.ToLower(title) == fragment {
+			return true
+		}
+	}
+
+	// Check if mostly symbols
+	symbols := 0
+	for _, r := range title {
+		if !unicode.IsLetter(r) && !unicode.IsSpace(r) && !unicode.IsNumber(r) {
+			symbols++
+		}
+	}
+	if float64(symbols)/float64(len(title)) > 0.5 {
+		return true
+	}
+
+	return false
 }
 
 func parseChapterFromText(text string) ([]Chapter, bool) {

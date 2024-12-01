@@ -19,7 +19,7 @@ import (
 )
 
 func initDB() (*ent.Client, error) {
-	client, err := ent.Open("sqlite3", "file:listenup.db?cache=shared&_fk=1")
+	client, err := ent.Open("sqlite3", "file:listenup.db?cache=shared&_fk=1&_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL")
 	if err != nil {
 		return nil, err
 	}
