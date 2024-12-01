@@ -19,9 +19,9 @@ func NewRepository(client *ent.Client, logger *logging.AppLogger) *Repository {
 		logger: logger,
 	}
 
-	r.Books = &bookRepository{client: client, logger: logger}
-	r.Authors = &authorRepository{client: client, logger: logger}
-	r.Narrators = &narratorRepository{client: client, logger: logger}
+	r.Books = newBookRepository(client, logger)
+	r.Authors = newAuthorRepository(client, logger)
+	r.Narrators = newNarratorRepository(client, logger)
 
 	return r
 }

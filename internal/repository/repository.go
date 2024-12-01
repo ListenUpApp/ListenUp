@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	logging "github.com/ListenUpApp/ListenUp/internal/logger"
 	"github.com/ListenUpApp/ListenUp/internal/repository/content"

@@ -2,7 +2,7 @@ package content
 
 import (
 	"context"
-
+	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/author"
 	appErr "github.com/ListenUpApp/ListenUp/internal/error"
@@ -10,8 +10,17 @@ import (
 )
 
 type authorRepository struct {
+	*db.BaseRepository
 	client *ent.Client
 	logger *logging.AppLogger
+}
+
+func newAuthorRepository(client *ent.Client, logger *logging.AppLogger) *authorRepository {
+	return &authorRepository{
+		BaseRepository: db.NewBaseRepository(client, logger),
+		client:         client,
+		logger:         logger,
+	}
 }
 
 func (r *authorRepository) GetByName(ctx context.Context, name string) (*ent.Author, error) {
