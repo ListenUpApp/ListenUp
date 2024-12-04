@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ListenUpApp/ListenUp/internal/config"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
@@ -14,19 +16,30 @@ import (
 	"github.com/ListenUpApp/ListenUp/internal/service"
 	"github.com/ListenUpApp/ListenUp/internal/util"
 	"github.com/go-playground/validator/v10"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/xiaoqidun/entps"
 	"golang.org/x/net/context"
 )
 
 func initDB() (*ent.Client, error) {
-	client, err := ent.Open("sqlite3", "file:listenup.db?cache=shared&_fk=1&_busy_timeout=5000&_journal_mode=WAL&_synchronous=NORMAL")
+	dsn := "file:listenup.db?" + url.Values{
+		"_journal_mode": {"MEMORY"}, // Keep journal in memory
+		"_sync":         {"OFF"},    // Most aggressive durability setting
+		"_busy_timeout": {"300000"}, // 5 minute timeout
+		"_foreign_keys": {"1"},
+		"_locking_mode": {"NORMAL"}, // Back to normal locking
+	}.Encode()
+	client, err := ent.Open("sqlite3", dsn)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// Run the auto migration tool
-	if err := client.Schema.Create(context.Background()); err != nil {
-		return nil, err
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := client.Schema.Create(ctx); err != nil {
+		return nil, fmt.Errorf("failed to run schema migration: %w", err)
 	}
 
 	return client, nil

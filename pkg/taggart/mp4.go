@@ -659,32 +659,71 @@ type Chapter struct {
 
 func parseChapters(data []byte, totalDuration int64) ([]Chapter, error) {
 	var chapters []Chapter
-	separator := []byte{0, 0, 0}
-	sections := bytes.Split(data[16:], separator) // Skip the 16-byte header before splitting
 
-	for index, section := range sections {
-		if len(section) < 6 {
-			continue
+	// Skip the 16-byte header
+	if len(data) < 16 {
+		return nil, fmt.Errorf("invalid chapter data: too short")
+	}
+	data = data[16:]
+
+	// Process bytes until we can't find any more valid chapters
+	pos := 0
+	for pos < len(data) {
+		// Need at least 4 bytes for timestamp and 2 bytes for minimal title
+		if pos+6 > len(data) {
+			break
 		}
 
 		var startTimeFloat float64
-		var rawTitle string
-		if index == 0 {
+		var title string
+
+		if len(chapters) == 0 {
 			startTimeFloat = 0
-			rawTitle = string(section) // For first chapter, use full section
+			// Find the first valid chapter title
+			title = extractNextChapterTitle(data[pos:])
+			if title == "" {
+				break
+			}
+			pos += len(title)
 		} else {
-			startTime := binary.BigEndian.Uint32(section[0:4])
+			// Read timestamp (4 bytes)
+			startTime := binary.BigEndian.Uint32(data[pos : pos+4])
 			startTimeFloat = float64(startTime) * 256 / 10000000
-			rawTitle = string(section[6:])
+			pos += 4
+
+			// Skip any padding bytes (usually 2)
+			for pos < len(data) && data[pos] == 0 {
+				pos++
+			}
+
+			// Extract chapter title
+			title = extractNextChapterTitle(data[pos:])
+			if title == "" {
+				break
+			}
+			pos += len(title)
 		}
+
+		// Clean and validate the title
+		title = cleanChapterTitle(title)
+		if title == "" {
+			continue
+		}
+
+		// Skip any remaining separator bytes
+		for pos < len(data) && (data[pos] == 0 || data[pos] < 32) {
+			pos++
+		}
+
 		startTimeSeconds := int64(math.Round(startTimeFloat))
 
 		chapter := Chapter{
 			id:    uint8(len(chapters)),
-			Title: rawTitle,
+			Title: title,
 			Start: startTimeSeconds,
 		}
 
+		// Set end time of previous chapter
 		if len(chapters) > 0 {
 			chapters[len(chapters)-1].End = startTimeSeconds
 		}
@@ -692,11 +731,71 @@ func parseChapters(data []byte, totalDuration int64) ([]Chapter, error) {
 		chapters = append(chapters, chapter)
 	}
 
+	// Set end time of last chapter
 	if len(chapters) > 0 {
 		chapters[len(chapters)-1].End = totalDuration
 	}
 
 	return chapters, nil
+}
+
+// extractNextChapterTitle finds the next valid chapter title in the byte sequence
+func extractNextChapterTitle(data []byte) string {
+	// Common chapter start patterns
+	patterns := []string{
+		"Chapter ",
+		"CHAPTER ",
+		"Part ",
+		"PART ",
+		"Prologue",
+		"PROLOGUE",
+		"Epilogue",
+		"EPILOGUE",
+		"Introduction",
+		"INTRODUCTION",
+		"Interlude",
+		"INTERLUDE",
+		"End Credits",
+		"END CREDITS",
+	}
+
+	// Look for the start of a chapter title
+	var startIdx int = -1
+	var matchedPattern string
+	for _, pattern := range patterns {
+		if idx := bytes.Index(data, []byte(pattern)); idx != -1 {
+			if startIdx == -1 || idx < startIdx {
+				startIdx = idx
+				matchedPattern = pattern
+			}
+		}
+	}
+
+	if startIdx == -1 {
+		return ""
+	}
+
+	// Find the end of the title by looking for the next non-printable character
+	// or the start of another chapter pattern
+	endIdx := startIdx + len(matchedPattern)
+	for endIdx < len(data) {
+		// Check if we've hit the start of another chapter
+		for _, pattern := range patterns {
+			if endIdx+len(pattern) <= len(data) && bytes.Equal(data[endIdx:endIdx+len(pattern)], []byte(pattern)) {
+				return string(data[startIdx:endIdx])
+			}
+		}
+
+		// Check for non-printable characters that might indicate the end of the title
+		if data[endIdx] < 32 || data[endIdx] > 126 {
+			return string(data[startIdx:endIdx])
+		}
+
+		endIdx++
+	}
+
+	// If we reached the end of data, return what we have
+	return string(data[startIdx:endIdx])
 }
 
 func cleanChapterTitle(raw string) string {
@@ -711,9 +810,14 @@ func cleanChapterTitle(raw string) string {
 	// Replace multiple spaces with single space
 	cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
 
-	// Remove trailing or leading spaces and common artifacts
+	// Remove trailing or leading spaces
 	cleaned = strings.TrimSpace(cleaned)
-	cleaned = strings.TrimRight(cleaned, "0123456789.,;:$@#%^&* ")
+
+	// Remove trailing numbers and punctuation that might be artifacts
+	cleaned = regexp.MustCompile(`[\d.,;:$@#%^&*\s]+$`).ReplaceAllString(cleaned, "")
+
+	// Remove any binary artifacts that might appear as Unicode replacement characters
+	cleaned = strings.ReplaceAll(cleaned, "�", "")
 
 	// Check if the title is too corrupt
 	if len(cleaned) <= 1 || isObviouslyCorrupted(cleaned) {
@@ -730,7 +834,7 @@ func isObviouslyCorrupted(title string) bool {
 	}
 
 	// Check for titles that are just fragments
-	fragments := []string{"ter", "apt"}
+	fragments := []string{"ter", "apt", "art", "end", "the", "and", "for"}
 	for _, fragment := range fragments {
 		if strings.ToLower(title) == fragment {
 			return true
@@ -744,7 +848,7 @@ func isObviouslyCorrupted(title string) bool {
 			symbols++
 		}
 	}
-	if float64(symbols)/float64(len(title)) > 0.5 {
+	if float64(symbols)/float64(len(title)) > 0.3 { // Reduced threshold to 30%
 		return true
 	}
 

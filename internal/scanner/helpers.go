@@ -145,25 +145,40 @@ func (s *Scanner) processAuthors(dirMeta BookMetadata, audioMeta taggart.Metadat
 // processNarrators combines narrator information from both sources
 func (s *Scanner) processNarrators(dirMeta BookMetadata, audioMeta taggart.Metadata) []models.CreateNarratorRequest {
 	var narrators []models.CreateNarratorRequest
+	seenNarrators := make(map[string]bool)
 
-	// Try directory metadata first
-	if dirMeta.Narrator != "" {
-		for _, name := range splitNarrators(dirMeta.Narrator) {
-			narrators = append(narrators, models.CreateNarratorRequest{
-				Name:        cleanString(name),
-				Description: "",
-			})
+	// Helper to add unique narrators
+	addNarrator := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" || seenNarrators[name] {
+			return
 		}
-		return narrators
-	}
 
-	// Fall back to audio metadata
-	for _, name := range audioMeta.Narrators() {
 		narrators = append(narrators, models.CreateNarratorRequest{
-			Name:        cleanString(name),
+			Name:        name,
 			Description: "",
 		})
+		seenNarrators[name] = true
 	}
+
+	// Process directory metadata first
+	if dirMeta.Narrator != "" {
+		for _, name := range splitNarrators(dirMeta.Narrator) {
+			addNarrator(name)
+		}
+	}
+
+	// Then process audio metadata
+	for _, name := range audioMeta.Narrators() {
+		for _, splitName := range splitNarrators(name) {
+			addNarrator(splitName)
+		}
+	}
+
+	// Sort narrators for consistent ordering
+	sort.Slice(narrators, func(i, j int) bool {
+		return narrators[i].Name < narrators[j].Name
+	})
 
 	return narrators
 }
@@ -279,37 +294,209 @@ func (s *Scanner) isAudioFile(path string) bool {
 
 // cleanString removes control characters and trims spaces
 func cleanString(s string) string {
-	s = strings.Map(func(r rune) rune {
-		if r < 32 || r == 127 {
+	// First pass: remove all non-printable characters except spaces
+	cleaned := strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) || unicode.IsSpace(r) {
+			return r
+		}
+		return -1
+	}, s)
+
+	// Replace multiple spaces with single space
+	cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
+
+	// Remove any remaining control characters by explicit code point
+	cleaned = strings.Map(func(r rune) rune {
+		if r < 32 || r == 127 || (r >= 128 && r <= 159) {
 			return -1
 		}
 		return r
-	}, s)
-	return strings.TrimSpace(s)
+	}, cleaned)
+
+	// Handle any UTF-8 replacement characters
+	cleaned = strings.ReplaceAll(cleaned, "�", "")
+
+	// Trim spaces
+	cleaned = strings.TrimSpace(cleaned)
+
+	return cleaned
 }
 
 // splitAuthors splits an author string on multiple possible delimiters
 func splitAuthors(authorStr string) []string {
-	delimiters := []string{";", "&", "and", ","}
-	authors := []string{authorStr}
+	// First clean the input string
+	authorStr = strings.TrimSpace(authorStr)
+	if authorStr == "" {
+		return nil
+	}
 
-	for _, delimiter := range delimiters {
-		var newAuthors []string
-		for _, author := range authors {
-			split := strings.Split(author, delimiter)
-			for _, s := range split {
-				if trimmed := strings.TrimSpace(s); trimmed != "" {
-					newAuthors = append(newAuthors, trimmed)
-				}
+	// Common cleanup replacements
+	replacements := map[string]string{
+		" and ": ", ",
+		" & ":   ", ",
+		"; ":    ", ",
+	}
+
+	// Apply replacements
+	for old, new := range replacements {
+		authorStr = strings.ReplaceAll(authorStr, old, new)
+	}
+
+	// Split on comma
+	var authors []string
+	for _, author := range strings.Split(authorStr, ",") {
+		if cleaned := strings.TrimSpace(author); cleaned != "" {
+			// Additional validation to catch obviously wrong splits
+			if len(cleaned) > 2 && !strings.Contains(cleaned, ".") { // Avoid initials or abbreviated parts
+				authors = append(authors, cleaned)
 			}
 		}
-		authors = newAuthors
+	}
+
+	// If we ended up with no valid authors, return the original as a single author
+	if len(authors) == 0 && authorStr != "" {
+		return []string{authorStr}
 	}
 
 	return authors
 }
 
-// splitNarrators splits narrator strings (uses same logic as authors)
+// splitNarrators handles various narrator name formats
 func splitNarrators(narratorStr string) []string {
-	return splitAuthors(narratorStr)
+	// First clean the input string
+	narratorStr = strings.TrimSpace(narratorStr)
+	if narratorStr == "" {
+		return nil
+	}
+
+	// Map to track unique narrators while preserving case
+	uniqueNarrators := make(map[string]string)
+
+	// First split on explicit separators
+	parts := strings.FieldsFunc(narratorStr, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+
+	for _, part := range parts {
+		// Further split on other separators
+		subParts := strings.FieldsFunc(part, func(r rune) bool {
+			return r == '/' || r == '&'
+		})
+
+		for _, subPart := range subParts {
+			// Clean up each part
+			name := normalizeNarratorName(subPart)
+			if name == "" {
+				continue
+			}
+
+			// Store with lowercase key for deduplication but preserve original case
+			lowerName := strings.ToLower(name)
+			if existingName, exists := uniqueNarrators[lowerName]; exists {
+				// If we already have this name, keep the one with better capitalization
+				if shouldReplaceExistingName(existingName, name) {
+					uniqueNarrators[lowerName] = name
+				}
+			} else {
+				uniqueNarrators[lowerName] = name
+			}
+		}
+	}
+
+	// Convert map to sorted slice
+	var result []string
+	for _, name := range uniqueNarrators {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+
+	return result
+}
+
+func normalizeNarratorName(name string) string {
+	// Remove common connecting words
+	name = strings.TrimSpace(name)
+	name = strings.NewReplacer(
+		" and ", " ",
+		" AND ", " ",
+		" & ", " ",
+		" - ", " ",
+	).Replace(name)
+
+	// Clean up whitespace
+	name = strings.Join(strings.Fields(name), " ")
+
+	// Skip if too short or just connecting words
+	if len(name) <= 2 || isConnectingWord(name) {
+		return ""
+	}
+
+	// Handle special case of initials
+	if len(name) <= 3 && strings.HasSuffix(name, ".") {
+		return name
+	}
+
+	// Preserve certain capitalization patterns
+	words := strings.Fields(name)
+	for i, word := range words {
+		// Keep certain words lowercase
+		if i > 0 && isCommonWord(word) {
+			words[i] = strings.ToLower(word)
+		} else {
+			// Capitalize first letter of other words
+			if len(word) > 0 {
+				words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
+			}
+		}
+	}
+
+	return strings.Join(words, " ")
+}
+
+func isConnectingWord(word string) bool {
+	connecting := map[string]bool{
+		"and": true,
+		"the": true,
+		"by":  true,
+		"of":  true,
+	}
+	return connecting[strings.ToLower(strings.TrimSpace(word))]
+}
+
+func isCommonWord(word string) bool {
+	common := map[string]bool{
+		"of":  true,
+		"the": true,
+		"in":  true,
+		"on":  true,
+		"at":  true,
+		"to":  true,
+	}
+	return common[strings.ToLower(word)]
+}
+
+func shouldReplaceExistingName(existing, new string) bool {
+	// Prefer names with better capitalization
+	existingWords := strings.Fields(existing)
+	newWords := strings.Fields(new)
+
+	if len(existingWords) != len(newWords) {
+		// Keep the longer version
+		return len(newWords) > len(existingWords)
+	}
+
+	// Prefer names where more words start with capitals
+	existingCaps := countCapitalizedWords(existing)
+	newCaps := countCapitalizedWords(new)
+	return newCaps > existingCaps
+}
+
+func countCapitalizedWords(s string) int {
+	count := 0
+	for _, word := range strings.Fields(s) {
+		if len(word) > 0 && unicode.IsUpper(rune(word[0])) {
+			count++
+		}
+	}
+	return count
 }
