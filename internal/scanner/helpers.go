@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/ListenUpApp/ListenUp/internal/models"
 	"github.com/ListenUpApp/ListenUp/pkg/taggart"

@@ -1,12 +1,12 @@
 package schema
 
 import (
+	"github.com/ListenUpApp/ListenUp/internal/util"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
-	"github.com/ListenUpApp/ListenUp/internal/util"
 )
 
 // Author holds the schema definition for the Author entity.

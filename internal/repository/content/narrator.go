@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"github.com/ListenUpApp/ListenUp/internal/db"
 	"github.com/ListenUpApp/ListenUp/internal/ent"
 	"github.com/ListenUpApp/ListenUp/internal/ent/narrator"
 	appErr "github.com/ListenUpApp/ListenUp/internal/error"
@@ -10,16 +9,14 @@ import (
 )
 
 type narratorRepository struct {
-	*db.BaseRepository
 	client *ent.Client
 	logger *logging.AppLogger
 }
 
 func newNarratorRepository(client *ent.Client, logger *logging.AppLogger) *narratorRepository {
 	return &narratorRepository{
-		BaseRepository: db.NewBaseRepository(client, logger),
-		client:         client,
-		logger:         logger,
+		client: client,
+		logger: logger,
 	}
 }
 
