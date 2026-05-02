@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.SessionSummary
+import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
@@ -27,6 +29,29 @@ class AuthDtoContractTest : FunSpec({
         UserRole.entries.forEach { roundTrip(it) shouldBe it }
         UserStatus.entries.forEach { roundTrip(it) shouldBe it }
         WeakPasswordReason.entries.forEach { roundTrip(it) shouldBe it }
+    }
+
+    test("User survives JSON round-trip") {
+        val user = User(
+            id = UserId("u-1"),
+            email = "alice@example.com",
+            displayName = "Alice",
+            role = UserRole.MEMBER,
+            status = UserStatus.ACTIVE,
+            createdAt = 1714694400000L,
+        )
+        roundTrip(user) shouldBe user
+    }
+
+    test("SessionSummary survives JSON round-trip") {
+        val s = SessionSummary(
+            id = SessionId("s-1"),
+            label = "My iPhone",
+            createdAt = 1L,
+            lastUsedAt = 2L,
+            current = true,
+        )
+        roundTrip(s) shouldBe s
     }
 })
 
