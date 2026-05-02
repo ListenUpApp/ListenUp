@@ -6,9 +6,9 @@ CREATE TABLE users (
     email               TEXT NOT NULL,
     email_normalized    TEXT NOT NULL UNIQUE,
     password_hash       TEXT NOT NULL,
-    role                TEXT NOT NULL CHECK (role IN ('root', 'admin', 'member')),
+    role                TEXT NOT NULL CHECK (role IN ('ROOT', 'ADMIN', 'MEMBER')),
     display_name        TEXT NOT NULL,
-    status              TEXT NOT NULL CHECK (status IN ('active', 'pending_approval', 'denied')),
+    status              TEXT NOT NULL CHECK (status IN ('ACTIVE', 'PENDING_APPROVAL', 'DENIED')),
     created_at          INTEGER NOT NULL,
     updated_at          INTEGER NOT NULL,
     last_login_at       INTEGER
@@ -28,6 +28,7 @@ CREATE TABLE sessions (
     revoked_at          INTEGER
 );
 
-CREATE INDEX idx_sessions_user_active   ON sessions(user_id, revoked_at);
-CREATE INDEX idx_sessions_family        ON sessions(family_id);
-CREATE INDEX idx_sessions_expires       ON sessions(expires_at);
+CREATE UNIQUE INDEX idx_sessions_token_hash ON sessions(refresh_token_hash);
+CREATE INDEX        idx_sessions_user_active ON sessions(user_id, revoked_at);
+CREATE INDEX        idx_sessions_family      ON sessions(family_id);
+CREATE INDEX        idx_sessions_expires     ON sessions(expires_at);
