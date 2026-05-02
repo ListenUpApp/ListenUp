@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -145,6 +146,30 @@ class AuthDtoContractTest : FunSpec({
     test("AppError.InternalError survives polymorphic round-trip") {
         val e: AppError = InternalError(correlationId = "c-1")
         Json.decodeFromString<AppError>(Json.encodeToString<AppError>(e)) shouldBe e
+    }
+
+    test("every AuthError variant survives polymorphic round-trip") {
+        val variants: List<AuthError> = listOf(
+            AuthError.InvalidCredentials("c1"),
+            AuthError.EmailAlreadyExists("c2"),
+            AuthError.RegistrationDisabled("c3"),
+            AuthError.SetupRequired("c4"),
+            AuthError.SetupAlreadyComplete("c5"),
+            AuthError.PendingApproval("c6"),
+            AuthError.AccountDenied("c7"),
+            AuthError.SessionExpired("c8"),
+            AuthError.SessionNotFound("c9"),
+            AuthError.InvalidRefreshToken(familyRevoked = true, correlationId = "c10"),
+            AuthError.InvalidRefreshToken(familyRevoked = false, correlationId = "c11"),
+            AuthError.RateLimited(retryAfterSeconds = 30, correlationId = "c12"),
+            AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT, correlationId = "c13"),
+            AuthError.PermissionDenied("c14"),
+        )
+        variants.forEach { original ->
+            val asAppError: AppError = original
+            val json = Json.encodeToString<AppError>(asAppError)
+            Json.decodeFromString<AppError>(json) shouldBe original
+        }
     }
 })
 
