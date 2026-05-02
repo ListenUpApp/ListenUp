@@ -22,7 +22,7 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
 
-    // Ktor plugins exercised in Phase 0
+    // Ktor plugins (core)
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.server.resources)
@@ -31,14 +31,14 @@ dependencies {
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.sse)
 
-    // Phase 1 plugins
+    // Ktor plugins (auth, rate limit, OpenAPI)
     implementation(libs.ktor.server.auth.jwt)
     implementation(libs.ktor.server.call.id)
     implementation(libs.ktor.server.rate.limit)
     implementation(libs.ktor.server.openapi)
     implementation(libs.ktor.server.swagger)
 
-    // Persistence (Phase 1)
+    // Persistence
     implementation(libs.exposed.core)
     implementation(libs.exposed.dao)
     implementation(libs.exposed.jdbc)
@@ -47,7 +47,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.hikari)
 
-    // Password hashing (Phase 1)
+    // Password hashing
     implementation(libs.password4j)
 
     // Koin
