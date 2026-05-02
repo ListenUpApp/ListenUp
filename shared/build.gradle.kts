@@ -107,6 +107,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.auth)
+            implementation(libs.ktor.resources) // @Resource annotation for REST surface mirror
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.rpc.core)
