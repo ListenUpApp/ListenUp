@@ -1,11 +1,15 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationToken
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
@@ -16,6 +20,7 @@ import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -96,6 +101,44 @@ class AuthDtoContractTest : FunSpec({
         roundTrip(login) shouldBe login
         roundTrip(reg) shouldBe reg
         roundTrip(refresh) shouldBe refresh
+    }
+
+    test("AuthSession round-trips") {
+        val s = AuthSession(
+            accessToken = AccessToken("at"),
+            accessTokenExpiresAt = 100,
+            refreshToken = RefreshToken("rt"),
+            refreshTokenExpiresAt = 200,
+            sessionId = SessionId("sid"),
+            user = User(UserId("u"), "a@b", "A", UserRole.MEMBER, UserStatus.ACTIVE, 1),
+        )
+        roundTrip(s) shouldBe s
+    }
+
+    test("RegisterResult variants round-trip polymorphically") {
+        val authed: RegisterResult = RegisterResult.Authenticated(
+            AuthSession(
+                AccessToken("at"), 1, RefreshToken("rt"), 2, SessionId("sid"),
+                User(UserId("u"), "a@b", "A", UserRole.MEMBER, UserStatus.ACTIVE, 1),
+            ),
+        )
+        val pending: RegisterResult = RegisterResult.PendingApproval
+
+        Json.decodeFromString<RegisterResult>(Json.encodeToString(authed)) shouldBe authed
+        Json.decodeFromString<RegisterResult>(Json.encodeToString(pending)) shouldBe pending
+    }
+
+    test("PendingRegistrationOutcome variants round-trip") {
+        val approved: PendingRegistrationOutcome =
+            PendingRegistrationOutcome.Approved(PendingRegistrationToken("pt"))
+        val denied: PendingRegistrationOutcome = PendingRegistrationOutcome.Denied
+        Json.decodeFromString<PendingRegistrationOutcome>(Json.encodeToString(approved)) shouldBe approved
+        Json.decodeFromString<PendingRegistrationOutcome>(Json.encodeToString(denied)) shouldBe denied
+    }
+
+    test("PendingRegistrationDecision round-trips") {
+        val d = PendingRegistrationDecision(userId = UserId("u"), approved = true)
+        roundTrip(d) shouldBe d
     }
 })
 
