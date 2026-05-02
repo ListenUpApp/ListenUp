@@ -31,7 +31,7 @@ interface AuthService {
      */
     suspend fun register(request: RegisterRequest): RegisterResult
 
-    /** Bootstrap the root user on a fresh instance. Errors if any user exists. */
+    /** Bootstrap the root user on a fresh instance. Errors `SetupAlreadyComplete` if any user exists. */
     suspend fun setupRoot(request: RegisterRequest): AuthSession
 
     /**

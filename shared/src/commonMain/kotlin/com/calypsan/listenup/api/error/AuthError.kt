@@ -10,11 +10,13 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface AuthError : AppError {
+    /** Email or password did not match. Deliberately non-specific to prevent account enumeration. */
     @Serializable
     data class InvalidCredentials(
         override val correlationId: String? = null,
     ) : AuthError
 
+    /** The email address is already registered. Returned by register() and setupRoot(). */
     @Serializable
     data class EmailAlreadyExists(
         override val correlationId: String? = null,
@@ -78,12 +80,17 @@ sealed interface AuthError : AppError {
         override val correlationId: String? = null,
     ) : AuthError
 
+    /**
+     * Rate limit hit on this endpoint. `retryAfterSeconds` maps directly from
+     * the server's `Retry-After` header; clients should surface it to the user.
+     */
     @Serializable
     data class RateLimited(
         val retryAfterSeconds: Int,
         override val correlationId: String? = null,
     ) : AuthError
 
+    /** Password failed policy. `reason` names the specific violation; see WeakPasswordReason. */
     @Serializable
     data class WeakPassword(
         val reason: WeakPasswordReason,
