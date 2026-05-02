@@ -1,6 +1,5 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.AuthService
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
