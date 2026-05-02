@@ -46,5 +46,5 @@ data class RegisterRequest(
 @Serializable
 data class RefreshRequest(val refreshToken: RefreshToken)
 
-internal const val PASSWORD_MIN = 8
-internal const val PASSWORD_MAX = 1024
+const val PASSWORD_MIN = 8
+const val PASSWORD_MAX = 1024
