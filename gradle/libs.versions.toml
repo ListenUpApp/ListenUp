@@ -58,6 +58,8 @@ spotless = "8.4.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.8"
 atomicfu = "0.32.1"
+
+# Server (Phase 1)
 exposed = "0.61.0"
 sqlite-jdbc = "3.50.1.0"
 flyway = "11.7.0"
