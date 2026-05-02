@@ -17,6 +17,8 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.InternalError
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -138,6 +140,11 @@ class AuthDtoContractTest : FunSpec({
     test("PendingRegistrationDecision round-trips") {
         val d = PendingRegistrationDecision(userId = UserId("u"), approved = true)
         roundTrip(d) shouldBe d
+    }
+
+    test("AppError.InternalError survives polymorphic round-trip") {
+        val e: AppError = InternalError(correlationId = "c-1")
+        Json.decodeFromString<AppError>(Json.encodeToString<AppError>(e)) shouldBe e
     }
 })
 
