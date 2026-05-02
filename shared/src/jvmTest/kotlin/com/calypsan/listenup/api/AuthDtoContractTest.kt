@@ -1,8 +1,11 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationToken
+import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
@@ -10,6 +13,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
@@ -52,6 +56,46 @@ class AuthDtoContractTest : FunSpec({
             current = true,
         )
         roundTrip(s) shouldBe s
+    }
+
+    test("LoginRequest enforces password length 8..1024") {
+        LoginRequest(email = "a@b", password = "x".repeat(8))
+        LoginRequest(email = "a@b", password = "x".repeat(1024))
+        shouldThrow<IllegalArgumentException> {
+            LoginRequest(email = "a@b", password = "x".repeat(7))
+        }
+        shouldThrow<IllegalArgumentException> {
+            LoginRequest(email = "a@b", password = "x".repeat(1025))
+        }
+    }
+
+    test("RegisterRequest enforces password length and non-blank displayName") {
+        RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "Alice")
+        shouldThrow<IllegalArgumentException> {
+            RegisterRequest(email = "a@b", password = "x".repeat(8), displayName = "")
+        }
+        shouldThrow<IllegalArgumentException> {
+            RegisterRequest(email = "a@b", password = "x".repeat(7), displayName = "Alice")
+        }
+    }
+
+    test("auth requests round-trip through JSON") {
+        val login = LoginRequest(
+            email = "a@b",
+            password = "x".repeat(8),
+            pendingRegistrationToken = PendingRegistrationToken("pt"),
+            sessionLabel = "phone",
+        )
+        val reg = RegisterRequest(
+            email = "a@b",
+            password = "x".repeat(8),
+            displayName = "Alice",
+            sessionLabel = null,
+        )
+        val refresh = RefreshRequest(refreshToken = RefreshToken("rt"))
+        roundTrip(login) shouldBe login
+        roundTrip(reg) shouldBe reg
+        roundTrip(refresh) shouldBe refresh
     }
 })
 
