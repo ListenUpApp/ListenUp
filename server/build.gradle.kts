@@ -31,6 +31,25 @@ dependencies {
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.sse)
 
+    // Phase 1 plugins
+    implementation(libs.ktor.server.auth.jwt)
+    implementation(libs.ktor.server.call.id)
+    implementation(libs.ktor.server.rate.limit)
+    implementation(libs.ktor.server.openapi)
+    implementation(libs.ktor.server.swagger)
+
+    // Persistence (Phase 1)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.dao)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.kotlin.datetime)
+    implementation(libs.sqlite.jdbc)
+    implementation(libs.flyway.core)
+    implementation(libs.hikari)
+
+    // Password hashing (Phase 1)
+    implementation(libs.password4j)
+
     // Koin
     implementation(libs.koin.core)
     implementation(libs.koin.ktor)
@@ -45,6 +64,7 @@ dependencies {
     implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
+    implementation(libs.kotlinx.coroutines.slf4j)
     runtimeOnly(libs.janino) // enables logback.xml <if>/<condition> elements
 
     // Test deps
