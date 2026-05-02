@@ -44,7 +44,9 @@ data class RegisterRequest(
 
 /** Used to trade a refresh token for a new access/refresh pair. */
 @Serializable
-data class RefreshRequest(val refreshToken: RefreshToken)
+data class RefreshRequest(
+    val refreshToken: RefreshToken,
+)
 
 const val PASSWORD_MIN = 8
 const val PASSWORD_MAX = 1024

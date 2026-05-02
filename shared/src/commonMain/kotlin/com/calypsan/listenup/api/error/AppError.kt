@@ -19,4 +19,6 @@ sealed interface AppError {
  * the client only sees the correlation id.
  */
 @Serializable
-data class InternalError(override val correlationId: String? = null) : AppError
+data class InternalError(
+    override val correlationId: String? = null,
+) : AppError

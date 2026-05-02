@@ -10,7 +10,9 @@ import kotlinx.serialization.Serializable
 sealed interface RegisterResult {
     /** Registered AND logged in (open registration). */
     @Serializable
-    data class Authenticated(val session: AuthSession) : RegisterResult
+    data class Authenticated(
+        val session: AuthSession,
+    ) : RegisterResult
 
     /** Account created in PENDING_APPROVAL; admin must approve before login. */
     @Serializable

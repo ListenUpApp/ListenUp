@@ -17,7 +17,9 @@ sealed interface PendingRegistrationOutcome {
      * for this user without an additional flow.
      */
     @Serializable
-    data class Approved(val token: PendingRegistrationToken) : PendingRegistrationOutcome
+    data class Approved(
+        val token: PendingRegistrationToken,
+    ) : PendingRegistrationOutcome
 
     /** Account denied. UserStatus moves to DENIED; subsequent login attempts error. */
     @Serializable

@@ -10,40 +10,57 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface AuthError : AppError {
+    @Serializable
+    data class InvalidCredentials(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     @Serializable
-    data class InvalidCredentials(override val correlationId: String? = null) : AuthError
-
-    @Serializable
-    data class EmailAlreadyExists(override val correlationId: String? = null) : AuthError
+    data class EmailAlreadyExists(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** Instance has registration closed and no approval queue. */
     @Serializable
-    data class RegistrationDisabled(override val correlationId: String? = null) : AuthError
+    data class RegistrationDisabled(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** Instance has zero users; caller must use setupRoot, not register. */
     @Serializable
-    data class SetupRequired(override val correlationId: String? = null) : AuthError
+    data class SetupRequired(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** setupRoot called against an instance that already has users. */
     @Serializable
-    data class SetupAlreadyComplete(override val correlationId: String? = null) : AuthError
+    data class SetupAlreadyComplete(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** Login attempted against a PENDING_APPROVAL account without a redemption token. */
     @Serializable
-    data class PendingApproval(override val correlationId: String? = null) : AuthError
+    data class PendingApproval(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** Account is in DENIED status. */
     @Serializable
-    data class AccountDenied(override val correlationId: String? = null) : AuthError
+    data class AccountDenied(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** Access JWT is past expiry or its session row is revoked. */
     @Serializable
-    data class SessionExpired(override val correlationId: String? = null) : AuthError
+    data class SessionExpired(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /** JWT decoded fine but no matching session row exists. */
     @Serializable
-    data class SessionNotFound(override val correlationId: String? = null) : AuthError
+    data class SessionNotFound(
+        override val correlationId: String? = null,
+    ) : AuthError
 
     /**
      * Refresh token did not match the session's current hash.
@@ -75,5 +92,7 @@ sealed interface AuthError : AppError {
 
     /** Authenticated caller lacks permission for an admin-only operation. */
     @Serializable
-    data class PermissionDenied(override val correlationId: String? = null) : AuthError
+    data class PermissionDenied(
+        override val correlationId: String? = null,
+    ) : AuthError
 }
