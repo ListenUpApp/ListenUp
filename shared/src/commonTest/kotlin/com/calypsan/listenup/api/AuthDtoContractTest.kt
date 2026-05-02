@@ -24,7 +24,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 class AuthDtoContractTest :
     FunSpec({
@@ -137,16 +136,16 @@ class AuthDtoContractTest :
                 )
             val pending: RegisterResult = RegisterResult.PendingApproval
 
-            Json.decodeFromString<RegisterResult>(Json.encodeToString(authed)) shouldBe authed
-            Json.decodeFromString<RegisterResult>(Json.encodeToString(pending)) shouldBe pending
+            contractJson.decodeFromString<RegisterResult>(contractJson.encodeToString(authed)) shouldBe authed
+            contractJson.decodeFromString<RegisterResult>(contractJson.encodeToString(pending)) shouldBe pending
         }
 
         test("PendingRegistrationOutcome variants round-trip") {
             val approved: PendingRegistrationOutcome =
                 PendingRegistrationOutcome.Approved(PendingRegistrationToken("pt"))
             val denied: PendingRegistrationOutcome = PendingRegistrationOutcome.Denied
-            Json.decodeFromString<PendingRegistrationOutcome>(Json.encodeToString(approved)) shouldBe approved
-            Json.decodeFromString<PendingRegistrationOutcome>(Json.encodeToString(denied)) shouldBe denied
+            contractJson.decodeFromString<PendingRegistrationOutcome>(contractJson.encodeToString(approved)) shouldBe approved
+            contractJson.decodeFromString<PendingRegistrationOutcome>(contractJson.encodeToString(denied)) shouldBe denied
         }
 
         test("PendingRegistrationDecision round-trips") {
@@ -162,7 +161,7 @@ class AuthDtoContractTest :
 
         test("AppError.InternalError survives polymorphic round-trip") {
             val e: AppError = InternalError(correlationId = "c-1")
-            Json.decodeFromString<AppError>(Json.encodeToString<AppError>(e)) shouldBe e
+            contractJson.decodeFromString<AppError>(contractJson.encodeToString<AppError>(e)) shouldBe e
         }
 
         test("every AuthError variant survives polymorphic round-trip") {
@@ -185,10 +184,10 @@ class AuthDtoContractTest :
                 )
             variants.forEach { original ->
                 val asAppError: AppError = original
-                val json = Json.encodeToString<AppError>(asAppError)
-                Json.decodeFromString<AppError>(json) shouldBe original
+                val json = contractJson.encodeToString<AppError>(asAppError)
+                contractJson.decodeFromString<AppError>(json) shouldBe original
             }
         }
     })
 
-private inline fun <reified T : Any> roundTrip(value: T): T = Json.decodeFromString<T>(Json.encodeToString(value))
+private inline fun <reified T : Any> roundTrip(value: T): T = contractJson.decodeFromString<T>(contractJson.encodeToString(value))

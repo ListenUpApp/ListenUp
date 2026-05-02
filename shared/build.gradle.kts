@@ -148,8 +148,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.slf4j.simple) // Simple backend for tests only
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
-            implementation(libs.kotest.runner.junit5)
-            implementation(libs.kotest.assertions.core)
+            implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
         }
 
         commonTest.dependencies {
@@ -159,6 +158,8 @@ kotlin {
             implementation(libs.koin.test)
             implementation(libs.turbine)
             implementation(libs.ktor.client.mock)
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions.core)
         }
     }
 }
