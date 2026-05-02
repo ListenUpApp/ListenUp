@@ -147,6 +147,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.slf4j.simple) // Simple backend for tests only
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
+            implementation(libs.kotest.runner.junit5)
+            implementation(libs.kotest.assertions.core)
         }
 
         commonTest.dependencies {
@@ -158,6 +160,11 @@ kotlin {
             implementation(libs.ktor.client.mock)
         }
     }
+}
+
+// Kotest uses JUnit 5 as its runner on JVM
+tasks.named<Test>("jvmTest") {
+    useJUnitPlatform()
 }
 
 // Define Room Schema location (optional but good practice)
