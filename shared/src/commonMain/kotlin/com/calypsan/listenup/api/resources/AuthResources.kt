@@ -50,7 +50,7 @@ class AuthResources {
     )
 
     @Resource("pending-registrations/{userId}/decision")
-    class DecidePending(
+    class DecidePendingRegistration(
         val userId: String,
         val parent: AuthResources = AuthResources(),
     )
