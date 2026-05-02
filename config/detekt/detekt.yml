@@ -579,6 +579,10 @@ style:
   UseDataClass:
     active: true
     allowVars: false
+    # ktor-resources @Resource classes use parent-chaining (`val parent = AuthResources()`)
+    # which requires reference identity — incompatible with data class equals/hashCode.
+    ignoreAnnotated:
+      - 'Resource'
   UseEmptyCounterpart:
     active: true
   UseIfEmptyOrIfBlank:

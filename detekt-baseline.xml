@@ -66,15 +66,6 @@
     <ID>UnusedImports:WideBookDetail.kt$import com.calypsan.listenup.client.design.components.GenreChipRow</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val HEX_RADIX = 16</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val MAX_RGB_LENGTH = 6</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$CurrentUser</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$DecidePendingRegistration</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Login</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Logout</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$LogoutAll</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Refresh</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Register</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Sessions</ID>
-    <ID>UseDataClass:AuthResources.kt$AuthResources$Setup</ID>
     <ID>UseIfInsteadOfWhen:DockedNowPlayingBar.kt$when { hours &gt; 0 -&gt; "${hours}h ${minutes}m left" else -&gt; "${minutes}m left" }</ID>
     <ID>UseLet:AdminRepositoryImpl.kt$AdminRepositoryImpl$if (canShare != null) { UpdatePermissionsRequest( canShare = canShare, ) } else { null }</ID>
     <ID>UseLet:BookCoverImage.kt$if (coverPath != null) { ImageRequest .Builder(context) .data(coverPath) .memoryCacheKey("$bookId:cover") .diskCacheKey("$bookId:cover") .build() } else { null }</ID>
