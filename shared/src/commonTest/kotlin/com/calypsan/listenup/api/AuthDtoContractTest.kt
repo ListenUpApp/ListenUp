@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationToken
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -33,7 +32,6 @@ class AuthDtoContractTest :
             roundTrip(SessionId("s-1")) shouldBe SessionId("s-1")
             roundTrip(AccessToken("at-1")) shouldBe AccessToken("at-1")
             roundTrip(RefreshToken("rt-1")) shouldBe RefreshToken("rt-1")
-            roundTrip(PendingRegistrationToken("pt-1")) shouldBe PendingRegistrationToken("pt-1")
         }
 
         test("user enums round-trip through JSON") {
@@ -93,7 +91,6 @@ class AuthDtoContractTest :
                 LoginRequest(
                     email = "a@b",
                     password = "x".repeat(8),
-                    pendingRegistrationToken = PendingRegistrationToken("pt"),
                     sessionLabel = "phone",
                 )
             val reg =
@@ -141,8 +138,7 @@ class AuthDtoContractTest :
         }
 
         test("PendingRegistrationOutcome variants round-trip") {
-            val approved: PendingRegistrationOutcome =
-                PendingRegistrationOutcome.Approved(PendingRegistrationToken("pt"))
+            val approved: PendingRegistrationOutcome = PendingRegistrationOutcome.Approved
             val denied: PendingRegistrationOutcome = PendingRegistrationOutcome.Denied
             contractJson.decodeFromString<PendingRegistrationOutcome>(contractJson.encodeToString(approved)) shouldBe approved
             contractJson.decodeFromString<PendingRegistrationOutcome>(contractJson.encodeToString(denied)) shouldBe denied

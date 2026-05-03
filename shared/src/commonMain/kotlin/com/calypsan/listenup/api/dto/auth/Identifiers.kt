@@ -26,9 +26,3 @@ value class AccessToken(
 value class RefreshToken(
     val value: String,
 )
-
-/** One-time token issued when an admin approves a pending registration. */
-@Serializable @JvmInline
-value class PendingRegistrationToken(
-    val value: String,
-)

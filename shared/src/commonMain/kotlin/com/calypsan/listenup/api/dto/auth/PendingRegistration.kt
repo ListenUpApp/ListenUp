@@ -9,17 +9,19 @@ data class PendingRegistrationDecision(
     val approved: Boolean,
 )
 
-/** Result of decidePendingRegistration. Approved branch carries a redemption token. */
+/**
+ * Result of decidePendingRegistration. Approval is a state change on the user
+ * row, not a token transaction — the applicant simply retries `login()` and it
+ * succeeds once status flips ACTIVE. No redemption token, no out-of-band ceremony.
+ *
+ * Notification of the applicant (email, push, polling) is a separate concern
+ * outside the auth contract.
+ */
 @Serializable
 sealed interface PendingRegistrationOutcome {
-    /**
-     * Account activated. The token is one-time and unlocks the next login()
-     * for this user without an additional flow.
-     */
+    /** Account activated. UserStatus moves to ACTIVE; the applicant's next login() succeeds. */
     @Serializable
-    data class Approved(
-        val token: PendingRegistrationToken,
-    ) : PendingRegistrationOutcome
+    data object Approved : PendingRegistrationOutcome
 
     /** Account denied. UserStatus moves to DENIED; subsequent login attempts error. */
     @Serializable

@@ -55,8 +55,9 @@ interface AuthService {
 
     /**
      * Approve or deny a pending registration. Admin/root only.
-     * Approved branch returns a one-time PendingRegistrationToken the
-     * applicant redeems on their next login() call.
+     * Approval flips the user's status to ACTIVE; the applicant's next login()
+     * succeeds without any extra step. No redemption token is issued — applicant
+     * notification (email, push, polling) is a separate concern.
      */
     suspend fun decidePendingRegistration(request: PendingRegistrationDecision): PendingRegistrationOutcome
 }

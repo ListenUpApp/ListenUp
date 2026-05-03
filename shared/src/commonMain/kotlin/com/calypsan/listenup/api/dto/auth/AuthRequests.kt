@@ -5,16 +5,12 @@ import kotlinx.serialization.Serializable
 /**
  * Login credentials plus optional flow modifiers.
  *
- * `pendingRegistrationToken` is set when the user is redeeming an admin-approved
- * registration — server validates and activates the account in the same call.
- *
  * `sessionLabel` is an optional user-set label for the session ("My iPhone").
  */
 @Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
-    val pendingRegistrationToken: PendingRegistrationToken? = null,
     val sessionLabel: String? = null,
 ) {
     init {
