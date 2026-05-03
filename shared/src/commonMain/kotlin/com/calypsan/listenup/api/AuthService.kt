@@ -12,15 +12,15 @@ import com.calypsan.listenup.api.dto.auth.User
 import kotlinx.rpc.annotations.Rpc
 
 /**
- * The auth contract. Source of truth — implemented by `:server`,
- * consumed by the client via the kotlinx.rpc-generated proxy.
+ * Public auth contract — anonymous callers welcome. Mounted at `/api/rpc/public`
+ * (RPC) and under `/api/v1/auth/{login,register,setup,refresh}` (REST).
  *
- * Every method may throw a typed `AuthError` (or `InternalError` for
- * unmapped failures); the RPC exception interceptor on the server side
- * converts internal exceptions into typed values before they cross the wire.
+ * Every method may throw a typed `AuthError` (or `InternalError` for unmapped
+ * failures); the RPC exception interceptor and REST `StatusPages` handler
+ * unwrap server-side `AuthException` values into the typed wire error.
  */
 @Rpc
-interface AuthService {
+interface AuthServicePublic {
     /** Issue an auth session for valid credentials. Rate-limited per IP. */
     suspend fun login(request: LoginRequest): AuthSession
 
@@ -40,17 +40,29 @@ interface AuthService {
      * in the same family triggers a family-wide revoke.
      */
     suspend fun refreshSession(request: RefreshRequest): AuthSession
+}
 
-    /** Revoke the caller's current session. Authenticated, idempotent. */
+/**
+ * Authenticated auth contract — requires a valid bearer JWT. Mounted at
+ * `/api/rpc/authed` (RPC) and under `/api/v1/auth/{logout,logout/all,
+ * current-user,sessions,pending-registrations/decision}` (REST).
+ *
+ * The trust boundary is reflected in the type — the public/authed split
+ * makes "this method needs a session" a compile-time fact, not a runtime
+ * check buried in route configuration.
+ */
+@Rpc
+interface AuthServiceAuthed {
+    /** Revoke the caller's current session. Idempotent. */
     suspend fun logout()
 
-    /** Revoke every session for the caller's user. Authenticated. */
+    /** Revoke every session for the caller's user. */
     suspend fun logoutAll()
 
-    /** Return the caller's user. Authenticated. */
+    /** Return the caller's user. */
     suspend fun currentUser(): User
 
-    /** List the caller's active sessions. Authenticated. */
+    /** List the caller's active sessions. */
     suspend fun listSessions(): List<SessionSummary>
 
     /**

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.auth
 
-import com.calypsan.listenup.api.AuthService
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -46,7 +47,8 @@ class AuthServiceImpl(
     internal val clock: Clock = Clock.systemUTC(),
     internal val registrationPolicy: RegistrationPolicy = RegistrationPolicy.OPEN,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
-) : AuthService {
+) : AuthServicePublic,
+    AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AuthSession {
         if (!Email.isLikelyEmail(request.email)) throw AuthException(AuthError.InvalidCredentials())
 

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -149,10 +151,10 @@ class AuthDtoContractTest :
             roundTrip(d) shouldBe d
         }
 
-        test("AuthService interface is reachable from commonTest") {
-            // Compile-time check — referencing the type proves the @Rpc plugin emitted it.
-            val klass: Any = AuthService::class
-            klass.toString().contains("AuthService") shouldBe true
+        test("split AuthService interfaces are reachable from commonTest") {
+            // Compile-time check — referencing the types proves the @Rpc plugin emitted them.
+            AuthServicePublic::class.toString().contains("AuthServicePublic") shouldBe true
+            AuthServiceAuthed::class.toString().contains("AuthServiceAuthed") shouldBe true
         }
 
         test("AppError.InternalError survives polymorphic round-trip") {
