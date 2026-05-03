@@ -5,8 +5,8 @@ import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -24,7 +24,6 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 
-/** Wire-layer integration tests for `POST /api/v1/auth/refresh`. */
 class AuthRoutesRefreshTest :
     FunSpec({
 
@@ -37,8 +36,12 @@ class AuthRoutesRefreshTest :
                 post("/api/v1/auth/register") {
                     contentType(ContentType.Application.Json)
                     setBody(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                }.body<RegisterResult>()
-            return result.shouldBeInstanceOf<RegisterResult.Authenticated>().session
+                }.body<AppResult<RegisterResult>>()
+            return result
+                .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                .data
+                .shouldBeInstanceOf<RegisterResult.Authenticated>()
+                .session
         }
 
         test("POST /refresh rotates the refresh token, returns new pair tied to same session") {
@@ -55,7 +58,11 @@ class AuthRoutesRefreshTest :
                     }
 
                 r.status shouldBe HttpStatusCode.OK
-                val rotated = r.body<AuthSession>()
+                val rotated =
+                    r
+                        .body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                        .data
                 rotated.sessionId shouldBe initial.sessionId
                 rotated.refreshToken.value shouldNotBe initial.refreshToken.value
             }
@@ -75,7 +82,12 @@ class AuthRoutesRefreshTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Unauthorized
-                val err = r.body<AppError>().shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                val err =
+                    r
+                        .body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
                 err.familyRevoked shouldBe false
             }
         }
@@ -99,7 +111,12 @@ class AuthRoutesRefreshTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Unauthorized
-                val err = r.body<AppError>().shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                val err =
+                    r
+                        .body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
                 err.familyRevoked shouldBe true
             }
         }

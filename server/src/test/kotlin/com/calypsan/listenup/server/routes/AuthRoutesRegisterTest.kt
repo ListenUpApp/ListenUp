@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -20,11 +20,6 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 
-/**
- * Wire-layer integration tests for `POST /api/v1/auth/register` across all
- * three registration policies — exercises the policy plumbing from config →
- * Koin → service → route → wire.
- */
 class AuthRoutesRegisterTest :
     FunSpec({
 
@@ -48,7 +43,11 @@ class AuthRoutesRegisterTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Conflict
-                r.body<AppError>().shouldBeInstanceOf<AuthError.SetupRequired>()
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.SetupRequired>()
             }
         }
 
@@ -66,7 +65,11 @@ class AuthRoutesRegisterTest :
                     }
 
                 r.status shouldBe HttpStatusCode.OK
-                r.body<RegisterResult>().shouldBeInstanceOf<RegisterResult.Authenticated>()
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                    .data
+                    .shouldBeInstanceOf<RegisterResult.Authenticated>()
             }
         }
 
@@ -84,7 +87,10 @@ class AuthRoutesRegisterTest :
                     }
 
                 r.status shouldBe HttpStatusCode.OK
-                r.body<RegisterResult>() shouldBe RegisterResult.PendingApproval
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                    .data shouldBe RegisterResult.PendingApproval
             }
         }
 
@@ -102,7 +108,11 @@ class AuthRoutesRegisterTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Forbidden
-                r.body<AppError>().shouldBeInstanceOf<AuthError.RegistrationDisabled>()
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RegistrationDisabled>()
             }
         }
 
@@ -124,7 +134,11 @@ class AuthRoutesRegisterTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Conflict
-                r.body<AppError>().shouldBeInstanceOf<AuthError.EmailAlreadyExists>()
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.EmailAlreadyExists>()
             }
         }
     })

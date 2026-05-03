@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -41,15 +42,21 @@ class AuthRoutesAuthenticatedTest :
                 post("/api/v1/auth/register") {
                     contentType(ContentType.Application.Json)
                     setBody(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                }.body<RegisterResult>()
-            return first.shouldBeInstanceOf<RegisterResult.Authenticated>().session
+                }.body<AppResult<RegisterResult>>()
+            return first
+                .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                .data
+                .shouldBeInstanceOf<RegisterResult.Authenticated>()
+                .session
         }
 
         suspend fun HttpClient.loginAlice(): AuthSession =
             post("/api/v1/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(LoginRequest("alice@x", "x".repeat(8)))
-            }.body<AuthSession>()
+            }.body<AppResult<AuthSession>>()
+                .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                .data
 
         test("GET /current-user with valid bearer returns the User") {
             testApplication {
@@ -61,7 +68,12 @@ class AuthRoutesAuthenticatedTest :
                 val r = client.get("/api/v1/auth/current-user") { bearerAuth(s.accessToken.value) }
 
                 r.status shouldBe HttpStatusCode.OK
-                r.body<User>().email shouldBe "alice@x"
+                val user =
+                    r
+                        .body<AppResult<User>>()
+                        .shouldBeInstanceOf<AppResult.Success<User>>()
+                        .data
+                user.email shouldBe "alice@x"
             }
         }
 
@@ -88,7 +100,7 @@ class AuthRoutesAuthenticatedTest :
 
                 client
                     .post("/api/v1/auth/logout") { bearerAuth(a.accessToken.value) }
-                    .status shouldBe HttpStatusCode.NoContent
+                    .status shouldBe HttpStatusCode.OK
 
                 client
                     .get("/api/v1/auth/current-user") { bearerAuth(a.accessToken.value) }
@@ -109,7 +121,7 @@ class AuthRoutesAuthenticatedTest :
 
                 client
                     .post("/api/v1/auth/logout/all") { bearerAuth(a.accessToken.value) }
-                    .status shouldBe HttpStatusCode.NoContent
+                    .status shouldBe HttpStatusCode.OK
 
                 client
                     .get("/api/v1/auth/current-user") { bearerAuth(a.accessToken.value) }
@@ -131,7 +143,11 @@ class AuthRoutesAuthenticatedTest :
                 val r = client.get("/api/v1/auth/sessions") { bearerAuth(a.accessToken.value) }
 
                 r.status shouldBe HttpStatusCode.OK
-                val list = r.body<List<SessionSummary>>()
+                val list =
+                    r
+                        .body<AppResult<List<SessionSummary>>>()
+                        .shouldBeInstanceOf<AppResult.Success<List<SessionSummary>>>()
+                        .data
                 list.size shouldBe 2
                 list.count { it.current } shouldBe 1
                 list.first { it.current }.id shouldBe a.sessionId

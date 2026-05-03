@@ -3,8 +3,8 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -20,11 +20,10 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 
-/** Wire-layer integration tests for `POST /api/v1/auth/setup`. */
 class AuthRoutesSetupTest :
     FunSpec({
 
-        test("POST /setup on empty instance creates ROOT user and returns AuthSession") {
+        test("POST /setup on empty instance creates ROOT user and returns AppResult.Success<AuthSession>") {
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
@@ -37,9 +36,13 @@ class AuthRoutesSetupTest :
                     }
 
                 r.status shouldBe HttpStatusCode.OK
-                val body = r.body<AuthSession>()
-                body.user.role shouldBe UserRole.ROOT
-                body.user.email shouldBe "root@x"
+                val session =
+                    r
+                        .body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                        .data
+                session.user.role shouldBe UserRole.ROOT
+                session.user.email shouldBe "root@x"
             }
         }
 
@@ -60,7 +63,11 @@ class AuthRoutesSetupTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Conflict
-                r.body<AppError>().shouldBeInstanceOf<AuthError.SetupAlreadyComplete>()
+                r
+                    .body<AppResult<AuthSession>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.SetupAlreadyComplete>()
             }
         }
     })

@@ -3,8 +3,8 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -24,8 +24,11 @@ import io.ktor.server.testing.testApplication
 
 /**
  * Wire-layer integration tests for `POST /api/v1/auth/login` — exercise the
- * real `Application.module()` so route + plugin + StatusPages + Koin wiring
- * is all in scope. Pre-seeding happens through the REST surface itself.
+ * real `Application.module()` so route + plugin + Koin wiring is all in scope.
+ * Pre-seeding happens through the REST surface itself.
+ *
+ * Response body is always [AppResult]; success is HTTP 200 with `Success`,
+ * failure is the error's mapped HTTP status with `Failure(AuthError.X)`.
  */
 class AuthRoutesLoginTest :
     FunSpec({
@@ -41,7 +44,7 @@ class AuthRoutesLoginTest :
             }
         }
 
-        test("POST /api/v1/auth/login returns AuthSession for valid credentials") {
+        test("POST /api/v1/auth/login returns AppResult.Success<AuthSession> for valid credentials") {
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
@@ -55,13 +58,14 @@ class AuthRoutesLoginTest :
                     }
 
                 response.status shouldBe HttpStatusCode.OK
-                val body = response.body<AuthSession>()
-                body.user.email shouldBe "alice@x"
-                body.accessToken.value.shouldNotBeBlank()
+                val body = response.body<AppResult<AuthSession>>()
+                val session = body.shouldBeInstanceOf<AppResult.Success<AuthSession>>().data
+                session.user.email shouldBe "alice@x"
+                session.accessToken.value.shouldNotBeBlank()
             }
         }
 
-        test("POST /api/v1/auth/login returns 401 + AuthError.InvalidCredentials on wrong password") {
+        test("POST /api/v1/auth/login returns 401 + AppResult.Failure<InvalidCredentials> on wrong password") {
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
@@ -75,7 +79,12 @@ class AuthRoutesLoginTest :
                     }
 
                 response.status shouldBe HttpStatusCode.Unauthorized
-                val err = response.body<AppError>().shouldBeInstanceOf<AuthError.InvalidCredentials>()
+                val err =
+                    response
+                        .body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidCredentials>()
                 err.correlationId.shouldNotBeBlank()
             }
         }
@@ -94,7 +103,11 @@ class AuthRoutesLoginTest :
                     }
 
                 response.status shouldBe HttpStatusCode.Unauthorized
-                response.body<AppError>().shouldBeInstanceOf<AuthError.InvalidCredentials>()
+                response
+                    .body<AppResult<AuthSession>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.InvalidCredentials>()
             }
         }
     })

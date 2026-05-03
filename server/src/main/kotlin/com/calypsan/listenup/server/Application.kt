@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
@@ -28,7 +29,7 @@ import org.koin.ktor.plugin.Koin
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
-    install(ContentNegotiation) { json() }
+    install(ContentNegotiation) { json(contractJson) }
     install(Resources)
     install(SSE)
     install(Krpc)

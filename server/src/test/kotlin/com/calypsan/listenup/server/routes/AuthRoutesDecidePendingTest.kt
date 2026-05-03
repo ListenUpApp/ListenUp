@@ -7,8 +7,8 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.module
@@ -47,14 +47,18 @@ class AuthRoutesDecidePendingTest :
             return post("/api/v1/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(LoginRequest("root@x", "x".repeat(8)))
-            }.body<AuthSession>()
+            }.body<AppResult<AuthSession>>()
+                .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                .data
         }
 
         suspend fun HttpClient.registerPendingApplicant() {
             post("/api/v1/auth/register") {
                 contentType(ContentType.Application.Json)
                 setBody(RegisterRequest("pending@x", "x".repeat(8), "Pending"))
-            }.body<RegisterResult>() shouldBe RegisterResult.PendingApproval
+            }.body<AppResult<RegisterResult>>()
+                .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                .data shouldBe RegisterResult.PendingApproval
         }
 
         fun Database.findUserIdByEmail(email: String): UserId =
@@ -89,7 +93,10 @@ class AuthRoutesDecidePendingTest :
                     }
 
                 decision.status shouldBe HttpStatusCode.OK
-                decision.body<PendingRegistrationOutcome>() shouldBe PendingRegistrationOutcome.Approved
+                decision
+                    .body<AppResult<PendingRegistrationOutcome>>()
+                    .shouldBeInstanceOf<AppResult.Success<PendingRegistrationOutcome>>()
+                    .data shouldBe PendingRegistrationOutcome.Approved
 
                 val loginAfter =
                     client.post("/api/v1/auth/login") {
@@ -122,7 +129,10 @@ class AuthRoutesDecidePendingTest :
                     }
 
                 decision.status shouldBe HttpStatusCode.OK
-                decision.body<PendingRegistrationOutcome>() shouldBe PendingRegistrationOutcome.Denied
+                decision
+                    .body<AppResult<PendingRegistrationOutcome>>()
+                    .shouldBeInstanceOf<AppResult.Success<PendingRegistrationOutcome>>()
+                    .data shouldBe PendingRegistrationOutcome.Denied
 
                 val loginAfter =
                     client.post("/api/v1/auth/login") {
@@ -130,7 +140,11 @@ class AuthRoutesDecidePendingTest :
                         setBody(LoginRequest("pending@x", "x".repeat(8)))
                     }
                 loginAfter.status shouldBe HttpStatusCode.Forbidden
-                loginAfter.body<AppError>().shouldBeInstanceOf<AuthError.AccountDenied>()
+                loginAfter
+                    .body<AppResult<AuthSession>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.AccountDenied>()
             }
         }
 
@@ -163,7 +177,9 @@ class AuthRoutesDecidePendingTest :
                         .post("/api/v1/auth/login") {
                             contentType(ContentType.Application.Json)
                             setBody(LoginRequest("member@x", "x".repeat(8)))
-                        }.body<AuthSession>()
+                        }.body<AppResult<AuthSession>>()
+                        .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                        .data
 
                 client.registerPendingApplicant()
                 val pendingId = db.findUserIdByEmail("pending@x")
@@ -176,7 +192,11 @@ class AuthRoutesDecidePendingTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Forbidden
-                r.body<AppError>().shouldBeInstanceOf<AuthError.PermissionDenied>()
+                r
+                    .body<AppResult<PendingRegistrationOutcome>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
 
@@ -206,7 +226,11 @@ class AuthRoutesDecidePendingTest :
                     }
 
                 r.status shouldBe HttpStatusCode.Forbidden
-                r.body<AppError>().shouldBeInstanceOf<AuthError.PermissionDenied>()
+                r
+                    .body<AppResult<PendingRegistrationOutcome>>()
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
 

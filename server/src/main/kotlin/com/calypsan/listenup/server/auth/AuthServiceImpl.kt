@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
@@ -36,8 +37,10 @@ enum class RegistrationPolicy { OPEN, APPROVAL_QUEUE, CLOSED }
  * absent. Caller identity is fetched through [PrincipalProvider] so the service
  * stays unit-testable without a live request scope.
  *
- * Failures cross the suspend-call boundary as [AuthException] wrapping a typed
- * [AuthError]. The Phase D RPC exception interceptor unwraps these for the wire.
+ * Failures are values: every method returns [AppResult] with a typed
+ * [com.calypsan.listenup.api.error.AuthError] in the failure variant. No
+ * server-side exception wrapper, no RPC interceptor — failures travel as data
+ * over both REST and RPC transports.
  */
 class AuthServiceImpl(
     internal val db: Database,
@@ -49,41 +52,41 @@ class AuthServiceImpl(
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
 ) : AuthServicePublic,
     AuthServiceAuthed {
-    override suspend fun login(request: LoginRequest): AuthSession {
-        if (!Email.isLikelyEmail(request.email)) throw AuthException(AuthError.InvalidCredentials())
+    override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
+        if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val normalized = Email.normalize(request.email)
         val user =
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.find { UserTable.emailNormalized eq normalized }.firstOrNull()
-            } ?: throw AuthException(AuthError.InvalidCredentials())
+            } ?: return AppResult.Failure(AuthError.InvalidCredentials())
 
         if (!hasher.verify(request.password, user.passwordHash)) {
-            throw AuthException(AuthError.InvalidCredentials())
+            return AppResult.Failure(AuthError.InvalidCredentials())
         }
 
         when (user.status) {
-            UserStatusColumn.DENIED -> throw AuthException(AuthError.AccountDenied())
-            UserStatusColumn.PENDING_APPROVAL -> throw AuthException(AuthError.PendingApproval())
+            UserStatusColumn.DENIED -> return AppResult.Failure(AuthError.AccountDenied())
+            UserStatusColumn.PENDING_APPROVAL -> return AppResult.Failure(AuthError.PendingApproval())
             UserStatusColumn.ACTIVE -> Unit
         }
 
         markLastLogin(user.id.value)
-        return issueSession(user, label = request.sessionLabel)
+        return AppResult.Success(issueSession(user, label = request.sessionLabel))
     }
 
-    override suspend fun register(request: RegisterRequest): RegisterResult {
-        if (!Email.isLikelyEmail(request.email)) throw AuthException(AuthError.InvalidCredentials())
+    override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> {
+        if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val normalized = Email.normalize(request.email)
         val empty =
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.all().limit(1).empty()
             }
-        if (empty) throw AuthException(AuthError.SetupRequired())
+        if (empty) return AppResult.Failure(AuthError.SetupRequired())
 
         when (registrationPolicy) {
-            RegistrationPolicy.CLOSED -> throw AuthException(AuthError.RegistrationDisabled())
+            RegistrationPolicy.CLOSED -> return AppResult.Failure(AuthError.RegistrationDisabled())
             RegistrationPolicy.OPEN, RegistrationPolicy.APPROVAL_QUEUE -> Unit
         }
 
@@ -91,7 +94,7 @@ class AuthServiceImpl(
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.find { UserTable.emailNormalized eq normalized }.any()
             }
-        if (existing) throw AuthException(AuthError.EmailAlreadyExists())
+        if (existing) return AppResult.Failure(AuthError.EmailAlreadyExists())
 
         // Argon2 is CPU-bound and slow on purpose — run it before opening the
         // transaction so we don't hold a DB connection during the hash.
@@ -116,21 +119,23 @@ class AuthServiceImpl(
                 }
             }
 
-        return if (user.status == UserStatusColumn.PENDING_APPROVAL) {
-            RegisterResult.PendingApproval
-        } else {
-            RegisterResult.Authenticated(issueSession(user, label = request.sessionLabel))
-        }
+        val outcome =
+            if (user.status == UserStatusColumn.PENDING_APPROVAL) {
+                RegisterResult.PendingApproval
+            } else {
+                RegisterResult.Authenticated(issueSession(user, label = request.sessionLabel))
+            }
+        return AppResult.Success(outcome)
     }
 
-    override suspend fun setupRoot(request: RegisterRequest): AuthSession {
-        if (!Email.isLikelyEmail(request.email)) throw AuthException(AuthError.InvalidCredentials())
+    override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> {
+        if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val empty =
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.all().limit(1).empty()
             }
-        if (!empty) throw AuthException(AuthError.SetupAlreadyComplete())
+        if (!empty) return AppResult.Failure(AuthError.SetupAlreadyComplete())
 
         val passwordHashed = hasher.hash(request.password)
         val now = clock.millis()
@@ -147,13 +152,13 @@ class AuthServiceImpl(
                     updatedAt = now
                 }
             }
-        return issueSession(user, label = request.sessionLabel)
+        return AppResult.Success(issueSession(user, label = request.sessionLabel))
     }
 
-    override suspend fun refreshSession(request: RefreshRequest): AuthSession {
+    override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
         val rotated =
             sessions.rotate(request.refreshToken)
-                ?: throw AuthException(
+                ?: return AppResult.Failure(
                     AuthError.InvalidRefreshToken(familyRevoked = sessions.wasReplay(request.refreshToken)),
                 )
 
@@ -164,24 +169,28 @@ class AuthServiceImpl(
         val role = user.role.toContract()
         val accessJwt = jwt.issue(userId = rotated.userId, sessionId = rotated.sessionId, role = role)
         val accessExp = clock.instant().plus(jwt.accessTokenTtl).toEpochMilli()
-        return AuthSession(
-            accessToken = AccessToken(accessJwt),
-            accessTokenExpiresAt = accessExp,
-            refreshToken = rotated.refreshToken,
-            refreshTokenExpiresAt = rotated.expiresAt,
-            sessionId = rotated.sessionId,
-            user = user.toContract(),
+        return AppResult.Success(
+            AuthSession(
+                accessToken = AccessToken(accessJwt),
+                accessTokenExpiresAt = accessExp,
+                refreshToken = rotated.refreshToken,
+                refreshTokenExpiresAt = rotated.expiresAt,
+                sessionId = rotated.sessionId,
+                user = user.toContract(),
+            ),
         )
     }
 
-    override suspend fun logout() {
-        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+    override suspend fun logout(): AppResult<Unit> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
+        return AppResult.Success(Unit)
     }
 
-    override suspend fun logoutAll() {
-        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+    override suspend fun logoutAll(): AppResult<Unit> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revokeAll(p.userId)
+        return AppResult.Success(Unit)
     }
 
     /**
@@ -201,32 +210,36 @@ class AuthServiceImpl(
             principalProvider = provider,
         )
 
-    override suspend fun currentUser(): User {
-        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+    override suspend fun currentUser(): AppResult<User> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         val user =
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.findById(p.userId.value)
-            } ?: throw AuthException(AuthError.SessionNotFound())
-        return user.toContract()
+            } ?: return AppResult.Failure(AuthError.SessionNotFound())
+        return AppResult.Success(user.toContract())
     }
 
-    override suspend fun listSessions(): List<SessionSummary> {
-        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
-        return sessions.listActiveFor(p.userId).map { s ->
-            SessionSummary(
-                id = SessionId(s.id.value),
-                label = s.label,
-                createdAt = s.createdAt,
-                lastUsedAt = s.lastUsedAt,
-                current = s.id.value == p.sessionId.value,
-            )
-        }
+    override suspend fun listSessions(): AppResult<List<SessionSummary>> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        val list =
+            sessions.listActiveFor(p.userId).map { s ->
+                SessionSummary(
+                    id = SessionId(s.id.value),
+                    label = s.label,
+                    createdAt = s.createdAt,
+                    lastUsedAt = s.lastUsedAt,
+                    current = s.id.value == p.sessionId.value,
+                )
+            }
+        return AppResult.Success(list)
     }
 
-    override suspend fun decidePendingRegistration(request: PendingRegistrationDecision): PendingRegistrationOutcome {
-        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+    override suspend fun decidePendingRegistration(
+        request: PendingRegistrationDecision,
+    ): AppResult<PendingRegistrationOutcome> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         if (p.role != UserRole.ROOT && p.role != UserRole.ADMIN) {
-            throw AuthException(AuthError.PermissionDenied())
+            return AppResult.Failure(AuthError.PermissionDenied())
         }
 
         // Don't leak existence-or-state of the target — admin actions only succeed
@@ -234,9 +247,9 @@ class AuthServiceImpl(
         val target =
             newSuspendedTransaction(Dispatchers.IO, db) {
                 UserEntity.findById(request.userId.value)
-            } ?: throw AuthException(AuthError.PermissionDenied())
+            } ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (target.status != UserStatusColumn.PENDING_APPROVAL) {
-            throw AuthException(AuthError.PermissionDenied())
+            return AppResult.Failure(AuthError.PermissionDenied())
         }
 
         val now = clock.millis()
@@ -245,7 +258,9 @@ class AuthServiceImpl(
             target.status = newStatus
             target.updatedAt = now
         }
-        return if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
+        val outcome =
+            if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
+        return AppResult.Success(outcome)
     }
 
     private suspend fun issueSession(

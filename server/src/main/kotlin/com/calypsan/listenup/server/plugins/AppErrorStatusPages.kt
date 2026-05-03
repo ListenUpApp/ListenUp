@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.plugins
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.server.auth.AuthException
+import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -17,29 +17,16 @@ import org.slf4j.LoggerFactory
 private val logger = LoggerFactory.getLogger("AppErrorStatusPages")
 
 /**
- * Catches typed [AuthException] and unwraps the inner [AuthError] into the wire
- * shape; everything else becomes [InternalError]. Stack traces stay on the server.
- *
- * REST-side only. The kotlinx.rpc transport has its own exception channel; that
- * gets wired in `RpcRoutes`.
+ * Surfaces unexpected throwables — genuine bugs, framework errors, OOM —
+ * as a wire-shaped [InternalError] body with HTTP 500. Domain failures don't
+ * get here: services return [AppResult.Failure] in-band, route handlers fold
+ * them through [respondAppResult].
  *
  * Also handles 404s with a small JSON body so unknown paths don't return a
  * Ktor default page.
  */
 fun Application.installAppErrorStatusPages() {
     install(StatusPages) {
-        exception<AuthException> { call, ex ->
-            val correlationId = call.callId
-            val typed = ex.error.withCorrelationId(correlationId)
-            val (status, body) = typed.toHttpStatus() to typed
-            logger.warn(
-                "AuthException {} on {} correlationId={}",
-                ex.error::class.simpleName,
-                call.request.uri,
-                correlationId,
-            )
-            call.respond(status, body)
-        }
         exception<Throwable> { call, ex ->
             // Cancellation must always re-raise — never swallow it.
             if (ex is CancellationException) throw ex
@@ -54,7 +41,7 @@ fun Application.installAppErrorStatusPages() {
     }
 }
 
-/** Status mapping for typed [AppError]. Surface this to RPC handlers too. */
+/** Status mapping for typed [AppError]. Used by both REST handlers and tests. */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError.InvalidCredentials -> HttpStatusCode.Unauthorized
@@ -73,7 +60,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is InternalError -> HttpStatusCode.InternalServerError
     }
 
-/** Stamp the request's correlation id onto the typed wire value. */
+/** Stamp the request's correlation id onto a typed wire error. */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError.InvalidCredentials -> copy(correlationId = id)
