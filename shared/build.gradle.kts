@@ -149,6 +149,9 @@ kotlin {
             implementation(libs.slf4j.simple) // Simple backend for tests only
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
             implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
+            // G1: Konsist — architectural assertions on the contract boundary.
+            // Rules scan the entire repo from a single test source set on JVM.
+            implementation(libs.konsist)
         }
 
         commonTest.dependencies {

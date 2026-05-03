@@ -60,6 +60,7 @@ TDD is not optional. It is a commitment to excellence.
 - Seam-level tests use fakes with in-memory state, not mocks (see Testing section of the rubric)
 - Flow assertions use Turbine (`flow.test { awaitItem() }`)
 - Every Koin leaf module is covered by `module.verify()` in `commonTest`
+- **Kotest FunSpec is canonical for new tests.** `kotlin-test` is legacy — pre-existing tests on it migrate to Kotest as their files are touched for any reason; don't burn down the backlog in one sweep. The auth surface is already fully on Kotest as of Phase 1.
 
 ### Read the Codebase
 
@@ -160,7 +161,7 @@ This codebase targets the latest stable versions. Kotlin 2.3, Compose Multiplatf
 | Playback | Media3 / ExoPlayer (Android), platform-specific (Desktop, iOS) |
 | Serialization | kotlinx.serialization |
 | Image Loading | Coil 3 |
-| Testing | kotlin-test, Mokkery, kotlinx-coroutines-test, Turbine |
+| Testing | **Kotest** (canonical), Mokkery, kotlinx-coroutines-test, Turbine |
 
 ### Kotlin
 
