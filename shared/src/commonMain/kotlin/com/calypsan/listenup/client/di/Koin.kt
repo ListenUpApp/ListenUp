@@ -80,6 +80,7 @@ import com.calypsan.listenup.client.data.repository.ServerMigrationHelper
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerUrlChangeListener
 import com.calypsan.listenup.client.data.repository.SessionRepositoryImpl
+import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
@@ -268,18 +269,30 @@ val dataModule =
         // Observed by navigation layer to execute shortcut actions
         single { ShortcutActionManager() }
 
-        // Settings repository - single source of truth for app configuration
-        // Note: SettingsRepository has no sync dependencies - it emits preference change events
-        // that are observed by PreferencesSyncObserver (in syncModule) to avoid circular deps.
-        single {
-            SettingsRepositoryImpl(
+        // AuthSessionStore owns the auth slice (tokens, AuthState flow, server-status checks).
+        // It depends on ServerConfig to read the current URL during state derivation; the
+        // settings impl below depends back on AuthSession for set-URL/disconnect to update
+        // auth state. The cycle is real (server-URL changes drive auth-state transitions and
+        // vice versa) and resolved by Koin's lazy single resolution.
+        single<AuthSession> {
+            AuthSessionStore(
                 secureStorage = get(),
+                serverConfig = get(),
                 instanceRepository = get(),
             )
         }
 
-        // Bind segregated interfaces to the same SettingsRepositoryImpl instance (ISP compliance)
-        single<AuthSession> { get<SettingsRepositoryImpl>() }
+        // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
+        // library + playback preferences, device-local UI preferences. Emits preference change
+        // events for PreferencesSyncObserver (in syncModule) to consume without circular deps.
+        single {
+            SettingsRepositoryImpl(
+                secureStorage = get(),
+                authSession = get(),
+            )
+        }
+
+        // Bind the remaining segregated interfaces to the same SettingsRepositoryImpl instance.
         single<ServerConfig> { get<SettingsRepositoryImpl>() }
         single<LibrarySync> { get<SettingsRepositoryImpl>() }
         single<LibraryPreferences> { get<SettingsRepositoryImpl>() }
