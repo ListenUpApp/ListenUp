@@ -144,8 +144,6 @@ kotlin {
         }
 
         jvmTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
             implementation(libs.slf4j.simple) // Simple backend for tests only
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
             implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
