@@ -42,6 +42,10 @@ class SessionEntityTest :
                 s.user.id.value shouldBe "u-1"
                 s.refreshTokenHash shouldBe "rth"
                 s.familyId shouldBe "f-1"
+                s.label shouldBe "iPhone"
+                s.createdAt shouldBe 1L
+                s.expiresAt shouldBe 100L
+                s.lastUsedAt shouldBe 1L
                 s.revokedAt shouldBe null
                 s.previousHash shouldBe null
                 s.userAgent shouldBe null

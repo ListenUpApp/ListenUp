@@ -36,11 +36,13 @@ object DatabaseFactory {
                     maximumPoolSize = config.maxPoolSize
                     isAutoCommit = false
                     transactionIsolation = "TRANSACTION_SERIALIZABLE"
-                    // SQLite has FK enforcement off per-connection by default. Setting it via
-                    // a DataSource property routes through SQLiteConfig before Hikari calls
-                    // setAutoCommit(false), so the pragma takes effect (PRAGMA foreign_keys
-                    // is ignored inside an active transaction, which is what `isAutoCommit
-                    // = false` + connectionInitSql produces).
+                    // SQLite has FK enforcement off per-connection by default. The property
+                    // key must be the pragma name (`foreign_keys`), not the SQLiteConfig
+                    // setter name (`enforceForeignKeys`) — sqlite-jdbc's `SQLiteConfig` reads
+                    // pragma-keyed properties at connection init, which runs before Hikari
+                    // calls `setAutoCommit(false)`. `connectionInitSql` is the wrong tool here
+                    // because SQLite ignores `PRAGMA foreign_keys` inside an active transaction,
+                    // and `isAutoCommit = false` opens one before that SQL would run.
                     addDataSourceProperty("foreign_keys", "true")
                     validate()
                 },
