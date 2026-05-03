@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminCollectionApi
 import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.AuthApi
@@ -331,6 +332,16 @@ val networkModule =
             )
         }
 
+        // AuthRpcFactory - kotlinx.rpc proxies for the AuthService split contracts.
+        // Caches the per-mount proxies; must be invalidated alongside ApiClientFactory
+        // whenever the underlying HttpClient is recycled (server URL changes).
+        single {
+            AuthRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // ListenUpApi - main API for server communication
         // Uses default base URL initially; can be recreated when server URL changes
         single {
@@ -424,11 +435,15 @@ val repositoryModule =
                     ),
                 urlChangeListener =
                     ServerUrlChangeListener { newUrl ->
-                        // Update settings with new URL and invalidate API client
+                        // Update settings with new URL and invalidate every remote cache that
+                        // captured the old HttpClient. When you add another such cache, drop
+                        // an `invalidate()` call here too — there's no automatic propagation.
                         val serverConfig: ServerConfig = get()
                         val apiClientFactory: ApiClientFactory = get()
+                        val authRpcFactory: AuthRpcFactory = get()
                         serverConfig.setServerUrl(newUrl)
                         apiClientFactory.invalidate()
+                        authRpcFactory.invalidate()
                     },
             )
         }

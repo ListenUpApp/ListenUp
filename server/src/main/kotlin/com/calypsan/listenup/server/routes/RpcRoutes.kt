@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
@@ -37,14 +38,14 @@ private class PingServiceImpl : PingService {
  */
 fun Route.rpcRoutes(authService: AuthServiceImpl) {
     rpc("/api/rpc/public") {
-        rpcConfig { serialization { json() } }
+        rpcConfig { serialization { json(contractJson) } }
         registerService<PingService> { PingServiceImpl() }
         registerService<AuthServicePublic> { authService }
     }
 
     authenticate(JWT_PROVIDER) {
         rpc("/api/rpc/authed") {
-            rpcConfig { serialization { json() } }
+            rpcConfig { serialization { json(contractJson) } }
             registerService<AuthServiceAuthed> {
                 val p =
                     call.userPrincipalOrNull()
