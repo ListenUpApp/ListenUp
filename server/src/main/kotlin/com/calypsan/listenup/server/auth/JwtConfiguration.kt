@@ -96,11 +96,13 @@ data class JwtConfiguration(
             userId = UserId(decoded.subject.orRejectAs("missing sub")),
             sessionId = SessionId(decoded.id.orRejectAs("missing jti")),
             role = role,
-            expiresAt = decoded.expiresAt.time,
+            expiresAt = decoded.expiresAt.epochMillisOrRejectAs("missing exp claim"),
         )
     }
 
     private fun String?.orRejectAs(reason: String): String = this ?: throw JwtVerificationException(reason)
+
+    private fun Date?.epochMillisOrRejectAs(reason: String): Long = this?.time ?: throw JwtVerificationException(reason)
 
     companion object {
         private const val MIN_SECRET_BYTES = 32
