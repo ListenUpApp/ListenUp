@@ -75,6 +75,7 @@ import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.getInitials
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
@@ -230,7 +231,7 @@ private fun EditProfileContent(
     val hasTaglineChanged = editedTagline != user.tagline.orEmpty()
     val hasNameChanged =
         editedFirstName != user.firstName.orEmpty() || editedLastName != user.lastName.orEmpty()
-    val isPasswordValid = newPassword.length >= EditProfileViewModel.MIN_PASSWORD_LENGTH
+    val isPasswordValid = newPassword.length >= PASSWORD_MIN
     val passwordsMatch = newPassword == confirmPassword
     val canSavePassword = newPassword.isNotEmpty() && passwordsMatch && isPasswordValid
 
@@ -561,7 +562,7 @@ private fun PasswordSection(
         supportingText = {
             if (newPassword.isNotEmpty() && !isPasswordValid) {
                 Text(
-                    text = "Must be at least ${EditProfileViewModel.MIN_PASSWORD_LENGTH} characters",
+                    text = "Must be at least ${PASSWORD_MIN} characters",
                     color = MaterialTheme.colorScheme.error,
                 )
             }

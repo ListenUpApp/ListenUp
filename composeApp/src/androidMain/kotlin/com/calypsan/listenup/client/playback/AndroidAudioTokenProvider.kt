@@ -22,6 +22,15 @@ class AndroidAudioTokenProvider(
      * request and triggers refresh + one retry on 401.
      */
     fun createInterceptor(): Interceptor = AuthInterceptor(core)
+
+    /**
+     * Forwarded to [CachedAudioTokenProvider.onUnauthorized] — exposed on the
+     * Android wrapper so callers like [PlaybackErrorHandler] can trigger the
+     * cache invalidation without depending on the shared concrete type.
+     * `by core` only forwards the [AudioTokenProvider] interface; this method
+     * sits outside it.
+     */
+    fun onUnauthorized() = core.onUnauthorized()
 }
 
 /**
