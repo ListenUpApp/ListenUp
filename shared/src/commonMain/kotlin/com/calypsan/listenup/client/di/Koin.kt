@@ -16,10 +16,9 @@ import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminCollectionApi
 import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.AuthApi
-import com.calypsan.listenup.client.data.remote.AuthApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreApi
@@ -54,7 +53,6 @@ import com.calypsan.listenup.client.data.remote.api.ListenUpApi
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
-import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
@@ -74,7 +72,6 @@ import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
-import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerMigrationHelper
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
@@ -151,7 +148,6 @@ import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthRepository
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -168,7 +164,6 @@ import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
-import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -196,9 +191,6 @@ import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseC
 import com.calypsan.listenup.client.domain.usecase.admin.StageCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UnstageCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
-import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
-import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
-import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
@@ -268,18 +260,21 @@ val dataModule =
         // Observed by navigation layer to execute shortcut actions
         single { ShortcutActionManager() }
 
-        // Settings repository - single source of truth for app configuration
-        // Note: SettingsRepository has no sync dependencies - it emits preference change events
-        // that are observed by PreferencesSyncObserver (in syncModule) to avoid circular deps.
+        // AuthSession (tokens + AuthState flow) is provided by clientAuthModule.
+        // SettingsRepositoryImpl below depends on AuthSession; the cycle is resolved
+        // by Koin's lazy single mechanism.
+
+        // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
+        // library + playback preferences, device-local UI preferences. Emits preference change
+        // events for PreferencesSyncObserver (in syncModule) to consume without circular deps.
         single {
             SettingsRepositoryImpl(
                 secureStorage = get(),
-                instanceRepository = get(),
+                authSession = get(),
             )
         }
 
-        // Bind segregated interfaces to the same SettingsRepositoryImpl instance (ISP compliance)
-        single<AuthSession> { get<SettingsRepositoryImpl>() }
+        // Bind the remaining segregated interfaces to the same SettingsRepositoryImpl instance.
         single<ServerConfig> { get<SettingsRepositoryImpl>() }
         single<LibrarySync> { get<SettingsRepositoryImpl>() }
         single<LibraryPreferences> { get<SettingsRepositoryImpl>() }
@@ -297,26 +292,38 @@ val dataModule =
  */
 val networkModule =
     module {
-        // AuthApi - handles login, logout, and token refresh
-        // Gets server URL dynamically from ServerConfig
-        // Bind to both concrete type and interface
-        single {
-            val serverConfig: ServerConfig = get()
-            AuthApi(getServerUrl = { serverConfig.getServerUrl() })
-        } bind AuthApiContract::class
-
         // InviteApi - handles public invite operations (no auth required)
         // Server URL comes from deep link, not stored settings
         single { InviteApi() } bind InviteApiContract::class
 
-        // ApiClientFactory - creates authenticated HTTP clients with auto-refresh
+        // InviteRepository - REST-backed; persists tokens and user on successful claim
+        single<com.calypsan.listenup.client.domain.repository.InviteRepository> {
+            com.calypsan.listenup.client.data.repository.InviteRepositoryImpl(
+                inviteApi = get(),
+                authSession = get(),
+                userRepository = get(),
+            )
+        }
+
+        // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
+        //
+        // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at
+        // refresh time, breaking the construction-time cycle:
+        //   AuthRepositoryImpl(rpc=AuthRpcFactory(apiClientFactory=ApiClientFactory(...)))
+        // If we passed `authRepository = get()` here Koin would recurse during graph
+        // construction. The lambda body executes on 401, by which time all three singletons
+        // are constructed.
         single {
             ApiClientFactory(
                 serverConfig = get(),
                 authSession = get(),
-                authApi = get(),
+                refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
             )
         }
+
+        // AuthRpcFactory is provided by clientAuthModule. It still needs to be
+        // invalidated alongside ApiClientFactory whenever the underlying HttpClient
+        // is recycled — see the ServerRepository binding's URL-change listener.
 
         // ListenUpApi - main API for server communication
         // Uses default base URL initially; can be recreated when server URL changes
@@ -411,11 +418,15 @@ val repositoryModule =
                     ),
                 urlChangeListener =
                     ServerUrlChangeListener { newUrl ->
-                        // Update settings with new URL and invalidate API client
+                        // Update settings with new URL and invalidate every remote cache that
+                        // captured the old HttpClient. When you add another such cache, drop
+                        // an `invalidate()` call here too — there's no automatic propagation.
                         val serverConfig: ServerConfig = get()
                         val apiClientFactory: ApiClientFactory = get()
+                        val authRpcFactory: AuthRpcFactory = get()
                         serverConfig.setServerUrl(newUrl)
                         apiClientFactory.invalidate()
+                        authRpcFactory.invalidate()
                     },
             )
         }
@@ -437,28 +448,7 @@ val useCaseModule =
     module {
         factoryOf(::GetInstanceUseCase)
 
-        // Auth use cases (using domain layer interfaces only)
-        factory {
-            LoginUseCase(
-                authRepository = get(),
-                authSession = get(),
-                userRepository = get(),
-            )
-        }
-        factory {
-            RegisterUseCase(
-                authRepository = get(),
-                authSession = get(),
-            )
-        }
-        factory {
-            LogoutUseCase(
-                authRepository = get(),
-                authSession = get(),
-                userRepository = get(),
-                playbackStateProvider = get<PlaybackManager>(),
-            )
-        }
+        // Auth use cases are provided by clientAuthModule.
 
         // Library use cases (using domain layer interfaces only)
         factory {
@@ -1472,18 +1462,7 @@ val syncModule =
             UserProfileRepositoryImpl(userProfileDao = get())
         }
 
-        // AuthRepository for authentication operations (SOLID: interface in domain, impl in data)
-        single<AuthRepository> {
-            AuthRepositoryImpl(authApi = get())
-        }
-
-        // RegistrationStatusStream for SSE streaming during registration approval
-        single<RegistrationStatusStream> {
-            RegistrationStatusStreamImpl(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        }
+        // AuthRepository and RegistrationStatusStream are provided by clientAuthModule.
 
         // SyncRepository for library sync operations (SOLID: interface in domain, impl in data)
         single<SyncRepository> {
@@ -1636,6 +1615,7 @@ val sharedModules =
         repositoryModule,
         useCaseModule,
         syncModule,
+        clientAuthModule,
         voiceModule,
     ) + allPresentationModules
 

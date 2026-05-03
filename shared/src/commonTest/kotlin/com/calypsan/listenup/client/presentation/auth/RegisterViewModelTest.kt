@@ -1,413 +1,168 @@
 package com.calypsan.listenup.client.presentation.auth
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.domain.repository.RegistrationResult
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import com.calypsan.listenup.client.core.validationError
 
 /**
- * Tests for RegisterViewModel.
- *
- * Tests cover:
- * - Delegation to RegisterUseCase
- * - State transitions (Idle -> Loading -> Success/Error)
- * - Error mapping from use case failures
- * - clearError behavior
- *
- * Uses Mokkery for mocking RegisterUseCase.
+ * Tests for [RegisterViewModel] — folds typed [AppResult] over the contract's
+ * [AuthError] hierarchy into [RegisterUiState] transitions.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class RegisterViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class RegisterViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixtures ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val registerUseCase: RegisterUseCase = mock()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun build(): RegisterViewModel =
-            RegisterViewModel(
-                registerUseCase = registerUseCase,
-            )
-    }
+        test("initial state is Idle") {
+            val useCase = mock<RegisterUseCase>()
+            val vm = RegisterViewModel(useCase)
 
-    private fun createFixture(): TestFixture = TestFixture()
-
-    // ========== Test Data ==========
-
-    private fun createRegistrationResult(
-        userId: String = "user-123",
-        message: String = "Registration pending approval",
-    ): RegistrationResult =
-        RegistrationResult(
-            userId = userId,
-            message = message,
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Initial State Tests ==========
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // Then
-            assertEquals(RegisterUiState.Idle, viewModel.state.value)
+            vm.state.value.shouldBeInstanceOf<RegisterUiState.Idle>()
         }
 
-    // ========== Email Validation Tests ==========
+        test("PendingApproval result transitions Idle to Loading to Success") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Success(RegisterResult.PendingApproval(UserId("user-1")))
+                val vm = RegisterViewModel(useCase)
 
-    @Test
-    fun `registration rejects blank email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Please enter a valid email address")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Please enter a valid email address", error.message)
-        }
-
-    @Test
-    fun `registration rejects whitespace-only email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Please enter a valid email address")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "   ",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Please enter a valid email address", error.message)
-        }
-
-    // ========== Password Validation Tests ==========
-
-    @Test
-    fun `registration rejects password shorter than 8 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Password must be at least 8 characters")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "short",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Password must be at least 8 characters", error.message)
-        }
-
-    @Test
-    fun `registration rejects password of exactly 7 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Password must be at least 8 characters")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "1234567",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Password must be at least 8 characters", error.message)
-        }
-
-    @Test
-    fun `registration accepts password of exactly 8 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns Success(createRegistrationResult())
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "12345678",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            checkIs<RegisterUiState.Success>(viewModel.state.value)
-        }
-
-    // ========== First Name Validation Tests ==========
-
-    @Test
-    fun `registration rejects blank first name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("First name is required")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "password123",
-                firstName = "",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("First name is required", error.message)
-        }
-
-    @Test
-    fun `registration rejects whitespace-only first name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("First name is required")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "password123",
-                firstName = "   ",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("First name is required", error.message)
-        }
-
-    // ========== Last Name Validation Tests ==========
-
-    @Test
-    fun `registration rejects blank last name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Last name is required")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "password123",
-                firstName = "John",
-                lastName = "",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Last name is required", error.message)
-        }
-
-    @Test
-    fun `registration rejects whitespace-only last name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Last name is required")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "test@example.com",
-                password = "password123",
-                firstName = "John",
-                lastName = "   ",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Last name is required", error.message)
-        }
-
-    // ========== Successful Registration Tests ==========
-
-    @Test
-    fun `registration calls use case with correct parameters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns Success(createRegistrationResult())
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onRegisterSubmit(
-                email = "user@example.com",
-                password = "secretpassword",
-                firstName = "Jane",
-                lastName = "Smith",
-            )
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend {
-                fixture.registerUseCase("user@example.com", "secretpassword", "Jane", "Smith")
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<RegisterUiState.Idle>()
+                    vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                    awaitItem().shouldBeInstanceOf<RegisterUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<RegisterUiState.Success>()
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 
-    @Test
-    fun `registration transitions to Success on completion`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns Success(createRegistrationResult())
-            val viewModel = fixture.build()
+        test("EmailAlreadyExists surfaces a friendly message") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.EmailAlreadyExists())
+                val vm = RegisterViewModel(useCase)
 
-            // When
-            viewModel.onRegisterSubmit(
-                email = "user@example.com",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
+                vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            checkIs<RegisterUiState.Success>(viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "That email is already registered."
+            }
         }
 
-    // ========== Error Handling Tests ==========
+        test("RegistrationDisabled surfaces a friendly message") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.RegistrationDisabled())
+                val vm = RegisterViewModel(useCase)
 
-    @Test
-    fun `registration shows error on API failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                Failure(RuntimeException("Email already exists"))
-            val viewModel = fixture.build()
+                vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // When
-            viewModel.onRegisterSubmit(
-                email = "user@example.com",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<RegisterUiState.Error>(viewModel.state.value)
-            assertEquals("Email already exists", error.message)
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "Registration is closed on this server."
+            }
         }
 
-    // ========== clearError Tests ==========
+        test("WeakPassword surfaces the policy reason") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT))
+                val vm = RegisterViewModel(useCase)
 
-    @Test
-    fun `clearError resets Error state to Idle`() =
-        runTest {
-            // Given - put viewModel in error state
-            val fixture = createFixture()
-            everySuspend { fixture.registerUseCase(any(), any(), any(), any()) } returns
-                validationError("Invalid email")
-            val viewModel = fixture.build()
-            viewModel.onRegisterSubmit(
-                email = "",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-            advanceUntilIdle()
-            checkIs<RegisterUiState.Error>(viewModel.state.value)
+                vm.onRegisterSubmit("alice@example.com", "weak", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // When
-            viewModel.clearError()
-
-            // Then
-            assertEquals(RegisterUiState.Idle, viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "That password doesn't meet the policy (too_short)."
+            }
         }
 
-    @Test
-    fun `clearError can be called from any state`() =
-        runTest {
-            // Given - viewModel in Idle state
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            assertEquals(RegisterUiState.Idle, viewModel.state.value)
+        test("RateLimited carries retry-after seconds") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.RateLimited(retryAfterSeconds = 60))
+                val vm = RegisterViewModel(useCase)
 
-            // When
-            viewModel.clearError()
+                vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then - still Idle (no crash)
-            assertEquals(RegisterUiState.Idle, viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "Too many attempts; try again in 60s."
+            }
         }
-}
+
+        test("ValidationError surfaces the use case's message verbatim") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(ValidationError("First name is required"))
+                val vm = RegisterViewModel(useCase)
+
+                vm.onRegisterSubmit("alice@example.com", "password123", "", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "First name is required"
+            }
+        }
+
+        test("InternalError maps to a generic try-again message") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(InternalError(correlationId = "corr-1"))
+                val vm = RegisterViewModel(useCase)
+
+                vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                val error = vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+                error.message shouldBe "Something went wrong. Please try again."
+            }
+        }
+
+        test("clearError resets state to Idle") {
+            runTest(testDispatcher) {
+                val useCase = mock<RegisterUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.EmailAlreadyExists())
+                val vm = RegisterViewModel(useCase)
+
+                vm.onRegisterSubmit("alice@example.com", "password123", "Alice", "Anderson")
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.shouldBeInstanceOf<RegisterUiState.Error>()
+
+                vm.clearError()
+                vm.state.value.shouldBeInstanceOf<RegisterUiState.Idle>()
+            }
+        }
+    })

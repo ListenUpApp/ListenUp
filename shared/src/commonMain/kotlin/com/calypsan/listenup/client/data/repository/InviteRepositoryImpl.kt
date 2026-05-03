@@ -2,57 +2,54 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
-import com.calypsan.listenup.client.core.UserId
-import com.calypsan.listenup.client.data.remote.AuthUser
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.remote.InviteApiContract
+import com.calypsan.listenup.client.data.remote.InviteClaimedUser
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
-import com.calypsan.listenup.client.domain.repository.LoginResult
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import com.calypsan.listenup.client.data.remote.InviteDetails as ApiInviteDetails
 
 /**
- * Implementation of InviteRepository that wraps InviteApiContract.
- *
- * Maps data layer responses to domain types.
- *
- * @property inviteApi Data layer API for invite operations
+ * REST-backed [InviteRepository]. On `claimInvite` success we persist the
+ * issued tokens and the new user locally so the call site doesn't need to
+ * thread session machinery — invite acceptance is a registration + login
+ * combined, and the side-effect lives with the operation.
  */
 class InviteRepositoryImpl(
     private val inviteApi: InviteApiContract,
+    private val authSession: AuthSession,
+    private val userRepository: UserRepository,
 ) : InviteRepository {
     override suspend fun getInviteDetails(
         serverUrl: String,
         code: String,
-    ): InviteDetails {
-        val response = inviteApi.getInviteDetails(serverUrl, code)
-        return response.toDomain()
-    }
+    ): InviteDetails = inviteApi.getInviteDetails(serverUrl, code).toDomain()
 
     override suspend fun claimInvite(
         serverUrl: String,
         code: String,
         password: String,
-    ): LoginResult {
+    ): User {
         val response = inviteApi.claimInvite(serverUrl, code, password)
-
-        return LoginResult(
-            accessToken = AccessToken(response.accessToken),
-            refreshToken = RefreshToken(response.refreshToken),
+        authSession.saveAuthTokens(
+            access = AccessToken(response.accessToken),
+            refresh = RefreshToken(response.refreshToken),
             sessionId = response.sessionId,
             userId = response.userId,
-            user = response.user.toDomain(),
         )
+        val user = response.user.toDomain()
+        userRepository.saveUser(user)
+        return user
     }
 }
 
-/**
- * Convert API InviteDetails to domain InviteDetails.
- */
 private fun ApiInviteDetails.toDomain(): InviteDetails =
     InviteDetails(
         name = name,
@@ -62,11 +59,8 @@ private fun ApiInviteDetails.toDomain(): InviteDetails =
         valid = valid,
     )
 
-/**
- * Convert AuthUser API response to User domain model.
- */
 @OptIn(ExperimentalTime::class)
-private fun AuthUser.toDomain(): User =
+private fun InviteClaimedUser.toDomain(): User =
     User(
         id = UserId(id),
         email = email,

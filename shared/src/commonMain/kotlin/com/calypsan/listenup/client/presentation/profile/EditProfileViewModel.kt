@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -124,9 +125,9 @@ class EditProfileViewModel(
     }
 
     fun changePassword(newPassword: String) {
-        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+        if (newPassword.length < PASSWORD_MIN) {
             eventChannel.trySend(
-                EditProfileEvent.SaveFailed("Password must be at least $MIN_PASSWORD_LENGTH characters"),
+                EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters"),
             )
             return
         }
@@ -170,9 +171,6 @@ class EditProfileViewModel(
     companion object {
         /** Maximum characters allowed in the tagline field. */
         const val MAX_TAGLINE_LENGTH = 60
-
-        /** Minimum password length enforced before calling the repository. */
-        const val MIN_PASSWORD_LENGTH = 8
 
         private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
     }

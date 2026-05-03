@@ -1,218 +1,260 @@
 package com.calypsan.listenup.client.presentation.invite
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
-import com.calypsan.listenup.client.domain.repository.LoginResult
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertIs
 
+private const val SERVER_URL = "https://server.example.com"
+private const val INVITE_CODE = "abc123"
+
+private fun fakeInviteDetails(valid: Boolean = true): InviteDetails =
+    InviteDetails(
+        name = "Alice Anderson",
+        email = "alice@example.com",
+        serverName = "Test Server",
+        invitedBy = "Bob",
+        valid = valid,
+    )
+
+private fun fakeUser(): User =
+    User(
+        id = UserId("user-1"),
+        email = "alice@example.com",
+        displayName = "Alice Anderson",
+        firstName = "Alice",
+        lastName = "Anderson",
+        isAdmin = false,
+        createdAtMs = 0L,
+        updatedAtMs = 0L,
+    )
+
+/**
+ * Tests for [InviteRegistrationViewModel] — drives the two-phase load + submit
+ * flow over [InviteRepository]. The repository is exception-shaped (the invite
+ * surface is REST-only); the VM swallows non-cancellation throwables, emits
+ * to ErrorBus, and maps the message to a typed [InviteErrorType].
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
-class InviteRegistrationViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class InviteRegistrationViewModelTest :
+    FunSpec({
 
-    private val serverUrl = "http://localhost:8080"
-    private val inviteCode = "abc123"
+        val testDispatcher = StandardTestDispatcher()
 
-    private fun createInviteDetails(valid: Boolean = true) =
-        InviteDetails(
-            name = "Invited User",
-            email = "invited@example.com",
-            serverName = "Test Server",
-            invitedBy = "Admin User",
-            valid = valid,
-        )
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-    private fun createLoginResult() =
-        LoginResult(
-            accessToken = AccessToken("access-token"),
-            refreshToken = RefreshToken("refresh-token"),
-            sessionId = "session-id",
-            userId = "user-id",
-            user =
-                User(
-                    id =
-                        com.calypsan.listenup.client.core
-                            .UserId("user-id"),
-                    email = "invited@example.com",
-                    displayName = "Invited User",
-                    firstName = "Invited",
-                    lastName = "User",
-                    isAdmin = false,
-                    createdAtMs = 0L,
-                    updatedAtMs = 0L,
-                ),
-        )
+        fun newVm(
+            inviteRepository: InviteRepository = mock(),
+            serverConfig: ServerConfig = mock(),
+        ): InviteRegistrationViewModel =
+            InviteRegistrationViewModel(
+                inviteRepository = inviteRepository,
+                serverConfig = serverConfig,
+                serverUrl = SERVER_URL,
+                inviteCode = INVITE_CODE,
+            )
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
+        // ========== Load phase ==========
 
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+        test("init loads invite details and lands on Ready when valid") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails(valid = true)
+                val vm = newVm(inviteRepository = invites)
 
-    @Test
-    fun `initial state is Loading`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } returns createInviteDetails()
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-
-            checkIs<InviteRegistrationUiState.Loading>(viewModel.state.value)
+                val ready = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.Ready>()
+                ready.details.email shouldBe "alice@example.com"
+            }
         }
 
-    @Test
-    fun `loadInviteDetails shows Ready state on success`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(serverUrl, inviteCode) } returns createInviteDetails()
+        test("invalid invite lands on Invalid with friendly message") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails(valid = false)
+                val vm = newVm(inviteRepository = invites)
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            checkIs<InviteRegistrationUiState.Ready>(viewModel.state.value)
+                vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.Invalid>()
+            }
         }
 
-    @Test
-    fun `loadInviteDetails shows Invalid for invalid invite`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(serverUrl, inviteCode) } returns createInviteDetails(valid = false)
+        test("repository throwing during load lands on LoadError") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } throws RuntimeException("Boom")
+                val vm = newVm(inviteRepository = invites)
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            checkIs<InviteRegistrationUiState.Invalid>(viewModel.state.value)
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.LoadError>()
+                err.message shouldBe "Boom"
+            }
         }
 
-    @Test
-    fun `loadInviteDetails shows LoadError on network failure`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } throws RuntimeException("Network error")
+        // ========== Submit phase ==========
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+        test("password shorter than minimum surfaces ValidationError(PASSWORD)") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                val vm = newVm(inviteRepository = invites)
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.Ready>()
 
-            checkIs<InviteRegistrationUiState.LoadError>(viewModel.state.value)
+                vm.submitRegistration(password = "short", confirmPassword = "short")
+
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+                val validation = err.errorType.shouldBeInstanceOf<InviteErrorType.ValidationError>()
+                validation.field shouldBe InviteField.PASSWORD
+            }
         }
 
-    @Test
-    fun `submitRegistration validates password length`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } returns createInviteDetails()
+        test("mismatched passwords surface PasswordMismatch") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                val vm = newVm(inviteRepository = invites)
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+                vm.submitRegistration(password = "password123", confirmPassword = "different1")
 
-            viewModel.submitRegistration("short", "short")
-            advanceUntilIdle()
-
-            val state = assertIs<InviteRegistrationUiState.SubmitError>(viewModel.state.value)
-            checkIs<InviteErrorType.ValidationError>(state.errorType)
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+                err.errorType shouldBe InviteErrorType.PasswordMismatch
+            }
         }
 
-    @Test
-    fun `submitRegistration validates password match`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } returns createInviteDetails()
+        test("successful submission transitions Ready to Submitting to Submitted") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(SERVER_URL, INVITE_CODE, "password123") } returns fakeUser()
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
-
-            viewModel.submitRegistration("password123", "different123")
-            advanceUntilIdle()
-
-            val state = assertIs<InviteRegistrationUiState.SubmitError>(viewModel.state.value)
-            checkIs<InviteErrorType.PasswordMismatch>(state.errorType)
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<InviteRegistrationUiState.Ready>()
+                    vm.submitRegistration("password123", "password123")
+                    awaitItem().shouldBeInstanceOf<InviteRegistrationUiState.Submitting>()
+                    awaitItem().shouldBeInstanceOf<InviteRegistrationUiState.Submitted>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
         }
 
-    @Test
-    fun `submitRegistration stores tokens on success`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } returns createInviteDetails()
-            everySuspend { inviteRepository.claimInvite(serverUrl, inviteCode, "password123") } returns createLoginResult()
-            everySuspend { serverConfig.setServerUrl(any()) } returns Unit
-            everySuspend { authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
-            everySuspend { userRepository.saveUser(any()) } returns Unit
+        test("claimInvite failure with 'already claimed' surfaces InviteInvalid") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(any(), any(), any()) } throws RuntimeException("invite already claimed")
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+                vm.submitRegistration("password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            viewModel.submitRegistration("password123", "password123")
-            advanceUntilIdle()
-
-            checkIs<InviteRegistrationUiState.Submitted>(viewModel.state.value)
-            verifySuspend { authSession.saveAuthTokens(any(), any(), any(), any()) }
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+                err.errorType shouldBe InviteErrorType.InviteInvalid
+            }
         }
 
-    @Test
-    fun `clearError returns to Ready`() =
-        runTest {
-            val inviteRepository: InviteRepository = mock()
-            val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val userRepository: UserRepository = mock()
-            everySuspend { inviteRepository.getInviteDetails(any(), any()) } returns createInviteDetails()
+        test("claimInvite failure with timeout maps to NetworkError") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(any(), any(), any()) } throws RuntimeException("connection timed out")
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            val viewModel = InviteRegistrationViewModel(inviteRepository, serverConfig, authSession, userRepository, serverUrl, inviteCode)
-            advanceUntilIdle()
+                vm.submitRegistration("password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            viewModel.submitRegistration("short", "short")
-            advanceUntilIdle()
-            checkIs<InviteRegistrationUiState.SubmitError>(viewModel.state.value)
-
-            viewModel.clearError()
-
-            checkIs<InviteRegistrationUiState.Ready>(viewModel.state.value)
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+                err.errorType.shouldBeInstanceOf<InviteErrorType.NetworkError>()
+            }
         }
-}
+
+        test("claimInvite 500 maps to ServerError with stable message") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(any(), any(), any()) } throws RuntimeException("HTTP 500 internal")
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                vm.submitRegistration("password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                val err = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+                val server = err.errorType.shouldBeInstanceOf<InviteErrorType.ServerError>()
+                server.detail shouldBe "Server error. Please try again later."
+            }
+        }
+
+        test("clearError on SubmitError returns to Ready with the same details") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(any(), any(), any()) } throws RuntimeException("Boom")
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.submitRegistration("password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.SubmitError>()
+
+                vm.clearError()
+
+                val ready = vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.Ready>()
+                ready.details.email shouldBe "alice@example.com"
+            }
+        }
+
+        test("submission persists serverUrl via ServerConfig before claim") {
+            runTest(testDispatcher) {
+                val invites = mock<InviteRepository>()
+                val serverConfig = mock<ServerConfig>()
+                everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns fakeInviteDetails()
+                everySuspend { serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { invites.claimInvite(any(), any(), any()) } returns fakeUser()
+                val vm = newVm(inviteRepository = invites, serverConfig = serverConfig)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                vm.submitRegistration("password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                vm.state.value.shouldBeInstanceOf<InviteRegistrationUiState.Submitted>()
+                verifySuspend { serverConfig.setServerUrl(ServerUrl(SERVER_URL)) }
+            }
+        }
+    })

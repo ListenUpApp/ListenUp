@@ -1,96 +1,77 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.AuthRepository
-import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.AuthSession as AuthSessionStore
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.core.validationError
 
 /**
- * Use case for user login.
+ * Authenticate the user against the server.
  *
- * Encapsulates all business logic for authentication:
- * - Email validation (format, length)
- * - Password validation (non-empty)
- * - API call orchestration
- * - Token storage
- * - User data persistence
+ * Pre-flight validates the inputs, calls [AuthRepository.login], then on
+ * success persists the session via [AuthSessionStore] (which flips
+ * `AuthState` to `Authenticated`) and saves the returned user locally.
  *
- * The ViewModel becomes a thin coordinator that:
- * - Manages UI state (Loading, Success, Error)
- * - Delegates to this use case for business logic
- *
- * Follows the operator invoke pattern for clean call-site syntax:
- * ```kotlin
- * when (val result = loginUseCase(email, password)) {
- *     is Success -> navigateToHome()
- *     is Failure -> showError(result.message)
- * }
- * ```
+ * Returns the contract-layer [AppResult] — call sites get typed
+ * [com.calypsan.listenup.api.error.AuthError] variants on failure and the
+ * fully-resolved [User] on success.
  */
 open class LoginUseCase(
     private val authRepository: AuthRepository,
-    private val authSession: AuthSession,
+    private val authSession: AuthSessionStore,
     private val userRepository: UserRepository,
 ) {
-    /**
-     * Execute login with the provided credentials.
-     *
-     * @param email User's email address (will be trimmed)
-     * @param password User's password
-     * @return Result containing the logged-in User on success, or an error on failure
-     */
     open suspend operator fun invoke(
         email: String,
         password: String,
     ): AppResult<User> {
         val trimmedEmail = email.trim()
+        validate(trimmedEmail, password)?.let { return it }
 
-        // Validate email format
-        if (!isValidEmail(trimmedEmail)) {
-            return validationError("Please enter a valid email address")
-        }
-
-        // Validate password is not empty
-        if (password.isEmpty()) {
-            return validationError("Password is required")
-        }
-
-        // Perform login
-        return suspendRunCatching {
-            val result =
-                authRepository.login(
-                    email = trimmedEmail,
-                    password = password,
-                )
-
-            // Store tokens - this triggers AuthState.Authenticated
-            authSession.saveAuthTokens(
-                access = result.accessToken,
-                refresh = result.refreshToken,
-                sessionId = result.sessionId,
-                userId = result.userId,
-            )
-
-            // Save user data to local database
-            userRepository.saveUser(result.user)
-
-            // Return domain user
-            result.user
-        }
+        return authRepository
+            .login(LoginRequest(email = trimmedEmail, password = password))
+            .flatMap { session -> persistSession(session) }
     }
 
-    /**
-     * Email validation using a practical regex pattern.
-     *
-     * Validates:
-     * - Has local part before @
-     * - Has domain part after @
-     * - Domain has at least one dot with TLD
-     * - Reasonable length limit (RFC 5321)
-     */
+    private suspend fun persistSession(session: AuthSession): AppResult<User> {
+        authSession.saveAuthTokens(
+            access = session.accessToken,
+            refresh = session.refreshToken,
+            sessionId = session.sessionId.value,
+            userId = session.user.id.value,
+        )
+        val user = session.user.toDomain()
+        userRepository.saveUser(user)
+        return AppResult.Success(user)
+    }
+
+    private fun validate(
+        email: String,
+        password: String,
+    ): AppResult.Failure? =
+        when {
+            !isValidEmail(email) -> {
+                AppResult.Failure(ValidationError("Please enter a valid email address"))
+            }
+
+            password.length < PASSWORD_MIN -> {
+                AppResult.Failure(
+                    ValidationError("Password must be at least $PASSWORD_MIN characters"),
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
+
     private fun isValidEmail(email: String): Boolean {
         if (email.length > MAX_EMAIL_LENGTH) return false
         return EMAIL_REGEX.matches(email)

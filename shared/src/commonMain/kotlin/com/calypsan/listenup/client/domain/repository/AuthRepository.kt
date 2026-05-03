@@ -1,133 +1,63 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
-import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
- * Domain-level result from a successful login.
+ * Domain port for the auth contract. Speaks the contract-layer types
+ * directly — `LoginRequest` / `RegisterRequest` in, `AppResult<AuthSession>`
+ * / `AppResult<RegisterResult>` out — so callers exhaustively `when` over
+ * `AuthError` instead of catching exceptions.
  *
- * Contains all data needed to establish a session:
- * - Auth tokens for API calls
- * - Session ID for logout
- * - User ID for identification
- * - User data for local storage
- */
-data class LoginResult(
-    val accessToken: AccessToken,
-    val refreshToken: RefreshToken,
-    val sessionId: String,
-    val userId: String,
-    val user: User,
-)
-
-/**
- * Domain-level result from registration.
+ * Implementations route through `AuthRpcFactory`. Token persistence is a
+ * caller concern: this port does not mutate `AuthSession` state.
  *
- * Registration creates a pending user that requires admin approval.
- */
-data class RegistrationResult(
-    val userId: String,
-    val message: String,
-)
-
-/**
- * Repository contract for authentication operations.
- *
- * Abstracts the authentication API behind a domain interface, allowing
- * use cases to remain pure and independent of network implementation.
- *
- * Implementations handle:
- * - Network calls to auth endpoints
- * - Mapping API responses to domain types
- * - Error transformation
- *
- * Part of the domain layer - implementations live in the data layer.
+ * Note: `checkRegistrationStatus(userId)` is intentionally absent. It was
+ * the REST-era polling fallback for "is my registration approved yet?" —
+ * after the F4 product change, the canonical signal is "user retries
+ * `login()` and it now succeeds when admin approval flips status to
+ * ACTIVE." Real-time approval notifications come from the SSE
+ * `RegistrationStatusStream`; there is no polling fallback in the auth
+ * contract.
  */
 interface AuthRepository {
-    /**
-     * Authenticate with email and password.
-     *
-     * On success, returns tokens and user data for session establishment.
-     * The use case is responsible for storing tokens via AuthSession.
-     *
-     * @param email User's email address
-     * @param password User's password
-     * @return LoginResult containing tokens and user data
-     * @throws Exception on network errors or invalid credentials
-     */
-    suspend fun login(
-        email: String,
-        password: String,
-    ): LoginResult
+    /** Authenticate with credentials. Returns a session on success. */
+    suspend fun login(request: LoginRequest): AppResult<AuthSession>
 
     /**
-     * Register a new user account.
-     *
-     * Creates a pending user that requires admin approval.
-     * The user cannot log in until approved.
-     *
-     * @param email User's email address
-     * @param password User's password (min 8 characters)
-     * @param firstName User's first name
-     * @param lastName User's last name
-     * @return RegistrationResult with user ID and message
-     * @throws Exception on network errors, validation failures, or if registration is disabled
+     * Register a new account. Returns either an immediate session
+     * (open registration) or `PendingApproval` (closed-with-queue instance).
      */
-    suspend fun register(
-        email: String,
-        password: String,
-        firstName: String,
-        lastName: String,
-    ): RegistrationResult
+    suspend fun register(request: RegisterRequest): AppResult<RegisterResult>
 
     /**
-     * Logout and invalidate server session.
-     *
-     * Best-effort operation - callers should handle failures gracefully
-     * and proceed with local cleanup regardless.
-     *
-     * @param sessionId The session to invalidate
-     * @throws Exception on network errors (should be caught by caller)
+     * Bootstrap the root user on a fresh instance. Errors with
+     * `AuthError.SetupAlreadyComplete` if any user already exists.
      */
-    suspend fun logout(sessionId: String)
+    suspend fun setup(request: RegisterRequest): AppResult<AuthSession>
 
     /**
-     * Create the root/admin user during initial server setup.
-     *
-     * This is only available when the server has no users configured.
-     * Once a root user exists, this will return an error.
-     *
-     * @param email User's email address
-     * @param password User's password (min 8 characters)
-     * @param firstName User's first name
-     * @param lastName User's last name
-     * @return LoginResult with tokens and user info on success
-     * @throws Exception on network errors or if setup is already complete
+     * Revoke the caller's current session on the server. The session is
+     * read from the bearer JWT — no client-side identifier needed.
      */
-    suspend fun setup(
-        email: String,
-        password: String,
-        firstName: String,
-        lastName: String,
-    ): LoginResult
+    suspend fun logout(): AppResult<Unit>
 
     /**
-     * Check the approval status of a pending registration.
+     * Trade the locally-stored refresh token for a new access/refresh pair.
      *
-     * Used to poll for approval after registering.
+     * Reads the refresh token from `AuthSession`. If none is present, fails
+     * with `AuthError.SessionExpired` — the caller is effectively logged
+     * out and there is nothing to refresh.
      *
-     * @param userId User ID from registration response
-     * @return RegistrationStatus with current status
+     * Routes through the public RPC mount because the refresh token is the
+     * credential; no bearer is required (and attaching one would trigger
+     * a refresh loop).
+     *
+     * Per this port's contract, this method does NOT mutate `AuthSession`
+     * state on success — the bearer-plugin glue persists the new tokens.
      */
-    suspend fun checkRegistrationStatus(userId: String): RegistrationStatus
+    suspend fun refreshAccessToken(): AppResult<AuthSession>
 }
-
-/**
- * Status of a pending registration.
- */
-data class RegistrationStatus(
-    val userId: String,
-    val status: String,
-    val approved: Boolean,
-)

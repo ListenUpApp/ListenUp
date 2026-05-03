@@ -107,9 +107,12 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.auth)
+            implementation(libs.ktor.resources) // @Resource annotation for REST surface mirror
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.rpc.core)
+            implementation(libs.kotlinx.rpc.krpc.client)
+            implementation(libs.kotlinx.rpc.krpc.ktor.client)
             implementation(libs.kotlinx.rpc.krpc.serialization.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
@@ -143,10 +146,12 @@ kotlin {
         }
 
         jvmTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
             implementation(libs.slf4j.simple) // Simple backend for tests only
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
+            implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
+            // G1: Konsist — architectural assertions on the contract boundary.
+            // Rules scan the entire repo from a single test source set on JVM.
+            implementation(libs.konsist)
         }
 
         commonTest.dependencies {
@@ -156,8 +161,15 @@ kotlin {
             implementation(libs.koin.test)
             implementation(libs.turbine)
             implementation(libs.ktor.client.mock)
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions.core)
         }
     }
+}
+
+// Kotest uses JUnit 5 as its runner on JVM
+tasks.named<Test>("jvmTest") {
+    useJUnitPlatform()
 }
 
 // Define Room Schema location (optional but good practice)

@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
+import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.AndroidPlaybackController
@@ -43,7 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.calypsan.listenup.client.domain.repository.AuthState
+import com.calypsan.listenup.client.domain.model.AuthState
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.component.KoinComponent
@@ -93,18 +94,19 @@ val playbackModule =
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
         }
 
-        // Audio token provider for authenticated streaming
-        // Bind to interface for shared code, but use concrete Android implementation
-        single<AudioTokenProvider> {
-            AndroidAudioTokenProvider(
+        // Audio token provider — shared core wrapped by the Android-specific
+        // OkHttp-interceptor adapter. Both must be singletons so the
+        // PlaybackService and the AudioTokenProvider consumers share the same
+        // cached token.
+        single {
+            CachedAudioTokenProvider(
                 authSession = get(),
-                authApi = get(),
+                authRepository = get(),
                 scope = get(),
             )
         }
-
-        // Also expose the concrete type for Android-specific features (interceptor)
-        single { get<AudioTokenProvider>() as AndroidAudioTokenProvider }
+        single { AndroidAudioTokenProvider(core = get()) }
+        single<AudioTokenProvider> { get<AndroidAudioTokenProvider>() }
 
         // Progress tracker for position persistence and event recording
         single {

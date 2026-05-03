@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.home
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
@@ -103,8 +104,7 @@ class HomeViewModelTest {
     ): User =
         User(
             id =
-                com.calypsan.listenup.client.core
-                    .UserId(id),
+                UserId(id),
             email = email,
             displayName = displayName,
             isAdmin = isAdmin,

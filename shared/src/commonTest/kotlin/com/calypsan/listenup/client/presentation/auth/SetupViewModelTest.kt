@@ -1,713 +1,193 @@
 package com.calypsan.listenup.client.presentation.auth
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.LoginResult
-import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import com.calypsan.listenup.client.core.Success
+
+private fun fakeRootUser(): User =
+    User(
+        id = UserId("user-root"),
+        email = "root@example.com",
+        displayName = "Root Admin",
+        firstName = "Root",
+        lastName = "Admin",
+        isAdmin = true,
+        createdAtMs = 0L,
+        updatedAtMs = 0L,
+    )
 
 /**
- * Tests for SetupViewModel.
- *
- * Tests cover:
- * - First name validation (non-blank)
- * - Last name validation (non-blank)
- * - Email validation (@ and . requirements)
- * - Password validation (min 8 chars)
- * - Password confirmation (must match)
- * - Successful setup flow with token/user persistence
- * - Error classification from exceptions
- * - State transitions (Idle -> Loading -> Success/Error)
- * - clearError behavior
- *
- * Uses Mokkery for mocking AuthApiContract, SettingsRepository, and UserDao.
+ * Tests for [SetupViewModel] — folds typed [AppResult] over the contract's
+ * [AuthError] hierarchy into [SetupUiState] transitions, plus client-side
+ * password-confirm validation that runs before the use case is invoked.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class SetupViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class SetupViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixtures ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val authRepository: AuthRepository = mock()
-        val authSession: AuthSession = mock()
-        val userRepository: UserRepository = mock()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun build(): SetupViewModel =
-            SetupViewModel(
-                authRepository = authRepository,
-                authSession = authSession,
-                userRepository = userRepository,
-            )
-    }
+        fun newVm(
+            useCase: SetupUseCase = mock(),
+            authSession: AuthSession = mock(),
+        ): SetupViewModel = SetupViewModel(useCase, authSession)
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-
-        // Default stubs for successful operations
-        everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
-        everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
-
-        return fixture
-    }
-
-    // ========== Test Data Factories ==========
-
-    private fun createLoginResult(
-        accessToken: String = "access-token-123",
-        refreshToken: String = "refresh-token-456",
-        sessionId: String = "session-789",
-        userId: String = "user-1",
-        email: String = "admin@example.com",
-    ): LoginResult =
-        LoginResult(
-            accessToken = AccessToken(accessToken),
-            refreshToken = RefreshToken(refreshToken),
-            sessionId = sessionId,
-            userId = userId,
-            user =
-                User(
-                    id =
-                        com.calypsan.listenup.client.core
-                            .UserId(userId),
-                    email = email,
-                    displayName = "Admin User",
-                    firstName = "Admin",
-                    lastName = "User",
-                    isAdmin = true,
-                    createdAtMs = 0L,
-                    updatedAtMs = 0L,
-                ),
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Initial State Tests ==========
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // Then
-            assertEquals(SetupUiState.Idle, viewModel.state.value)
+        test("initial state is Idle") {
+            newVm().state.value.shouldBeInstanceOf<SetupUiState.Idle>()
         }
 
-    // ========== First Name Validation Tests ==========
+        test("password confirm mismatch fails synchronously without invoking use case") {
+            val useCase = mock<SetupUseCase>()
+            val vm = newVm(useCase = useCase)
 
-    @Test
-    fun `setup rejects empty first name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "",
-                lastName = "User",
-                email = "admin@example.com",
+            vm.onSetupSubmit(
+                firstName = "Root",
+                lastName = "Admin",
+                email = "root@example.com",
                 password = "password123",
-                passwordConfirm = "password123",
+                passwordConfirm = "different",
             )
-            advanceUntilIdle()
 
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.FIRST_NAME, validation.field)
+            val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+            val validation = error.type.shouldBeInstanceOf<SetupErrorType.ValidationError>()
+            validation.field shouldBe SetupField.PASSWORD_CONFIRM
         }
 
-    @Test
-    fun `setup rejects blank first name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
+        test("successful setup transitions Idle to Loading to Success") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns AppResult.Success(fakeRootUser())
+                val vm = newVm(useCase = useCase)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "   ",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.FIRST_NAME, validation.field)
-        }
-
-    // ========== Last Name Validation Tests ==========
-
-    @Test
-    fun `setup rejects empty last name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.LAST_NAME, validation.field)
-        }
-
-    @Test
-    fun `setup rejects blank last name`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "   ",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.LAST_NAME, validation.field)
-        }
-
-    // ========== Email Validation Tests ==========
-
-    @Test
-    fun `setup rejects email without at symbol`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "invalid.email",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.EMAIL, validation.field)
-        }
-
-    @Test
-    fun `setup rejects email without dot`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "invalid@email",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.EMAIL, validation.field)
-        }
-
-    @Test
-    fun `setup rejects empty email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.EMAIL, validation.field)
-        }
-
-    // ========== Password Validation Tests ==========
-
-    @Test
-    fun `setup rejects password shorter than 8 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "1234567",
-                passwordConfirm = "1234567",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.PASSWORD, validation.field)
-        }
-
-    @Test
-    fun `setup accepts password with exactly 8 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "12345678",
-                passwordConfirm = "12345678",
-            )
-            advanceUntilIdle()
-
-            // Then - should proceed to API call, not validation error
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-        }
-
-    @Test
-    fun `setup rejects empty password`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "",
-                passwordConfirm = "",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.PASSWORD, validation.field)
-        }
-
-    // ========== Password Confirmation Tests ==========
-
-    @Test
-    fun `setup rejects mismatched password confirmation`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "differentpassword",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            val validation = assertIs<SetupErrorType.ValidationError>(error.type)
-            assertEquals(SetupField.PASSWORD_CONFIRM, validation.field)
-        }
-
-    @Test
-    fun `setup accepts matching password confirmation`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-        }
-
-    // ========== Successful Setup Flow Tests ==========
-
-    @Test
-    fun `setup saves auth tokens on success`() =
-        runTest {
-            // Given
-            val response =
-                createLoginResult(
-                    accessToken = "my-access-token",
-                    refreshToken = "my-refresh-token",
-                    sessionId = "my-session",
-                    userId = "admin-42",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns response
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            verifySuspend {
-                fixture.authSession.saveAuthTokens(
-                    access = AccessToken("my-access-token"),
-                    refresh = RefreshToken("my-refresh-token"),
-                    sessionId = "my-session",
-                    userId = "admin-42",
-                )
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<SetupUiState.Idle>()
+                    vm.onSetupSubmit("Root", "Admin", "root@example.com", "password123", "password123")
+                    awaitItem().shouldBeInstanceOf<SetupUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<SetupUiState.Success>()
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
 
-    @Test
-    fun `setup persists user data on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
+        test("SetupAlreadyComplete maps to AlreadyConfigured and refreshes server status") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                val authSession = mock<AuthSession>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.SetupAlreadyComplete())
+                everySuspend { authSession.checkServerStatus() } returns AuthState.NeedsLogin(openRegistration = false)
+                val vm = newVm(useCase = useCase, authSession = authSession)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
+                vm.onSetupSubmit("Root", "Admin", "root@example.com", "password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.userRepository.saveUser(any<User>()) }
-        }
-
-    @Test
-    fun `setup transitions to Success on completion`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-        }
-
-    @Test
-    fun `setup trims whitespace from names and email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
-
-            // When - names and email have leading/trailing spaces
-            viewModel.onSetupSubmit(
-                firstName = "  Admin  ",
-                lastName = "  User  ",
-                email = "  admin@example.com  ",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then - should succeed with trimmed values
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-            verifySuspend {
-                fixture.authRepository.setup(
-                    email = "admin@example.com",
-                    password = "password123",
-                    firstName = "Admin",
-                    lastName = "User",
-                )
+                val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+                error.type shouldBe SetupErrorType.AlreadyConfigured
+                verifySuspend { authSession.checkServerStatus() }
             }
         }
 
-    // ========== Error Classification Tests ==========
+        test("WeakPassword maps to ValidationError on PASSWORD field") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT))
+                val vm = newVm(useCase = useCase)
 
-    @Test
-    fun `setup classifies already configured error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } throws Exception("Server already configured")
-            everySuspend { fixture.authSession.checkServerStatus() } returns
-                com.calypsan.listenup.client.domain.repository.AuthState
-                    .NeedsLogin()
-            val viewModel = fixture.build()
+                vm.onSetupSubmit("Root", "Admin", "root@example.com", "weakpass", "weakpass")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            checkIs<SetupErrorType.AlreadyConfigured>(error.type)
+                val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+                val validation = error.type.shouldBeInstanceOf<SetupErrorType.ValidationError>()
+                validation.field shouldBe SetupField.PASSWORD
+            }
         }
 
-    @Test
-    fun `setup triggers auth state refresh on already configured error`() =
-        runTest {
-            // Given - server returns "already configured" error (409 scenario)
-            // This happens when user's setup request timed out but server completed it,
-            // leaving user stranded on setup screen unable to proceed.
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } throws Exception("Server already configured")
-            everySuspend { fixture.authSession.checkServerStatus() } returns
-                com.calypsan.listenup.client.domain.repository.AuthState
-                    .NeedsLogin()
-            val viewModel = fixture.build()
+        test("ValidationError on first name maps to ValidationError(FIRST_NAME)") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(ValidationError("First name is required"))
+                val vm = newVm(useCase = useCase)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
+                vm.onSetupSubmit("", "Admin", "root@example.com", "password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then - checkServerStatus should be called to refresh auth state
-            // This allows navigation to automatically transition to login screen
-            // following the "never stranded" principle
-            verifySuspend { fixture.authSession.checkServerStatus() }
+                val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+                val validation = error.type.shouldBeInstanceOf<SetupErrorType.ValidationError>()
+                validation.field shouldBe SetupField.FIRST_NAME
+            }
         }
 
-    @Test
-    fun `setup classifies network error from connection message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } throws Exception("Connection refused")
-            val viewModel = fixture.build()
+        test("ValidationError on email maps to ValidationError(EMAIL)") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(ValidationError("Please enter a valid email address"))
+                val vm = newVm(useCase = useCase)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
+                vm.onSetupSubmit("Root", "Admin", "invalid", "password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            checkIs<SetupErrorType.NetworkError>(error.type)
+                val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+                val validation = error.type.shouldBeInstanceOf<SetupErrorType.ValidationError>()
+                validation.field shouldBe SetupField.EMAIL
+            }
         }
 
-    @Test
-    fun `setup classifies network error from network message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } throws Exception("Network unavailable")
-            val viewModel = fixture.build()
+        test("InternalError maps to ServerError") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(InternalError(correlationId = "corr-1"))
+                val vm = newVm(useCase = useCase)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
+                vm.onSetupSubmit("Root", "Admin", "root@example.com", "password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            checkIs<SetupErrorType.NetworkError>(error.type)
+                val error = vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
+                error.type shouldBe SetupErrorType.ServerError
+            }
         }
 
-    @Test
-    fun `setup classifies unknown error as server error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } throws Exception("Something unexpected")
-            val viewModel = fixture.build()
+        test("clearError resets Error state to Idle") {
+            runTest(testDispatcher) {
+                val useCase = mock<SetupUseCase>()
+                everySuspend { useCase(any(), any(), any(), any()) } returns
+                    AppResult.Failure(InternalError())
+                val vm = newVm(useCase = useCase)
 
-            // When
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
+                vm.onSetupSubmit("Root", "Admin", "root@example.com", "password123", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.shouldBeInstanceOf<SetupUiState.Error>()
 
-            // Then
-            val error = assertIs<SetupUiState.Error>(viewModel.state.value)
-            checkIs<SetupErrorType.ServerError>(error.type)
+                vm.clearError()
+                vm.state.value.shouldBeInstanceOf<SetupUiState.Idle>()
+            }
         }
-
-    // ========== clearError Tests ==========
-
-    @Test
-    fun `clearError resets Error state to Idle`() =
-        runTest {
-            // Given - put viewModel in error state
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            viewModel.onSetupSubmit(
-                firstName = "",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-            checkIs<SetupUiState.Error>(viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then
-            assertEquals(SetupUiState.Idle, viewModel.state.value)
-        }
-
-    @Test
-    fun `clearError does nothing when not in Error state`() =
-        runTest {
-            // Given - viewModel in Idle state
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            assertEquals(SetupUiState.Idle, viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then - still Idle
-            assertEquals(SetupUiState.Idle, viewModel.state.value)
-        }
-
-    @Test
-    fun `clearError does nothing when in Success state`() =
-        runTest {
-            // Given - viewModel in Success state
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.setup(any(), any(), any(), any()) } returns createLoginResult()
-            val viewModel = fixture.build()
-            viewModel.onSetupSubmit(
-                firstName = "Admin",
-                lastName = "User",
-                email = "admin@example.com",
-                password = "password123",
-                passwordConfirm = "password123",
-            )
-            advanceUntilIdle()
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then - still Success
-            checkIs<SetupUiState.Success>(viewModel.state.value)
-        }
-}
+    })

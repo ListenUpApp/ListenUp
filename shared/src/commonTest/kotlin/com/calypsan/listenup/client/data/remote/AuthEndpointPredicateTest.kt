@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.remote
 
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.url
-import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 /**
  * Pins [isAuthEndpoint] semantics: `encodedPath.startsWith(AUTH_PATH_PREFIX)` rather than
@@ -12,38 +11,33 @@ import kotlin.test.assertTrue
  * any URL containing `/auth/` anywhere, including legitimate API paths like
  * `/api/v1/books/by-author/123`. See Finding 04 D2.
  */
-class AuthEndpointPredicateTest {
-    private fun request(url: String) = HttpRequestBuilder().apply { url(url) }
+class AuthEndpointPredicateTest :
+    FunSpec({
+        fun request(url: String) = HttpRequestBuilder().apply { url(url) }
 
-    @Test
-    fun returnsTrueForLoginEndpoint() {
-        assertTrue(isAuthEndpoint(request("https://server.example.com/api/v1/auth/login")))
-    }
+        test("returns true for login endpoint") {
+            isAuthEndpoint(request("https://server.example.com/api/v1/auth/login")) shouldBe true
+        }
 
-    @Test
-    fun returnsTrueForRefreshEndpoint() {
-        assertTrue(isAuthEndpoint(request("https://server.example.com/api/v1/auth/refresh")))
-    }
+        test("returns true for refresh endpoint") {
+            isAuthEndpoint(request("https://server.example.com/api/v1/auth/refresh")) shouldBe true
+        }
 
-    @Test
-    fun returnsTrueForLogoutEndpoint() {
-        assertTrue(isAuthEndpoint(request("https://server.example.com/api/v1/auth/logout")))
-    }
+        test("returns true for logout endpoint") {
+            isAuthEndpoint(request("https://server.example.com/api/v1/auth/logout")) shouldBe true
+        }
 
-    @Test
-    fun returnsFalseForBooksEndpoint() {
-        assertFalse(isAuthEndpoint(request("https://server.example.com/api/v1/books")))
-    }
+        test("returns false for books endpoint") {
+            isAuthEndpoint(request("https://server.example.com/api/v1/books")) shouldBe false
+        }
 
-    @Test
-    fun returnsFalseForUnrelatedPathContainingAuthSubstring() {
-        // Pre-W2b.4 `urlString.contains("/auth/")` would match this path (`.../by-author/...`
-        // contains `author`) — `encodedPath.startsWith` cannot false-positive.
-        assertFalse(isAuthEndpoint(request("https://server.example.com/api/v1/books/by-author/tolkien")))
-    }
+        test("returns false for unrelated path containing auth substring") {
+            // Pre-W2b.4 `urlString.contains("/auth/")` would match this path (`.../by-author/...`
+            // contains `author`) — `encodedPath.startsWith` cannot false-positive.
+            isAuthEndpoint(request("https://server.example.com/api/v1/books/by-author/tolkien")) shouldBe false
+        }
 
-    @Test
-    fun returnsFalseForAuthSubstringOutsidePrefix() {
-        assertFalse(isAuthEndpoint(request("https://server.example.com/something/api/v1/auth/login")))
-    }
-}
+        test("returns false for auth substring outside prefix") {
+            isAuthEndpoint(request("https://server.example.com/something/api/v1/auth/login")) shouldBe false
+        }
+    })

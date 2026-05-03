@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.library
 
-import com.calypsan.listenup.client.core.AccessToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp

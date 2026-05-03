@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.library
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -103,8 +104,7 @@ class LibraryActionsViewModelTest {
     ): User =
         User(
             id =
-                com.calypsan.listenup.client.core
-                    .UserId(id),
+                UserId(id),
             email = email,
             displayName = displayName,
             isAdmin = isAdmin,

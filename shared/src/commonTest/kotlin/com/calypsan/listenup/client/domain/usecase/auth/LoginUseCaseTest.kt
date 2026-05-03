@@ -1,303 +1,193 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.RefreshToken
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.User as ContractUser
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.LoginResult
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
+
+private class LoginFixture {
+    val authRepository: AuthRepository = mock()
+    val authSession: AuthSession = mock()
+    val userRepository: UserRepository = mock()
+
+    fun build(): LoginUseCase =
+        LoginUseCase(
+            authRepository = authRepository,
+            authSession = authSession,
+            userRepository = userRepository,
+        )
+}
+
+private fun createFixture(): LoginFixture {
+    val fixture = LoginFixture()
+    everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
+    everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
+    return fixture
+}
+
+private fun createAuthSession(
+    accessToken: String = "access-token-123",
+    refreshToken: String = "refresh-token-456",
+    sessionId: String = "session-789",
+    userId: String = "user-1",
+    email: String = "test@example.com",
+): ContractAuthSession =
+    ContractAuthSession(
+        accessToken = AccessToken(accessToken),
+        accessTokenExpiresAt = 1_000_000L,
+        refreshToken = RefreshToken(refreshToken),
+        refreshTokenExpiresAt = 2_000_000L,
+        sessionId = SessionId(sessionId),
+        user =
+            ContractUser(
+                id = UserId(userId),
+                email = email,
+                displayName = "Test User",
+                role = UserRole.MEMBER,
+                status = UserStatus.ACTIVE,
+                createdAt = 1704067200000L,
+            ),
+    )
 
 /**
- * Tests for LoginUseCase.
- *
- * Tests cover:
- * - Email validation (format, length)
- * - Password validation (non-empty)
- * - Successful login flow with token and user persistence
- * - Error propagation from repository
+ * Tests for LoginUseCase against the contract-typed [AppResult] surface.
  */
-class LoginUseCaseTest {
-    // ========== Test Fixtures ==========
+class LoginUseCaseTest :
+    FunSpec({
 
-    private class TestFixture {
-        val authRepository: AuthRepository = mock()
-        val authSession: AuthSession = mock()
-        val userRepository: UserRepository = mock()
+        // ========== Validation ==========
 
-        fun build(): LoginUseCase =
-            LoginUseCase(
-                authRepository = authRepository,
-                authSession = authSession,
-                userRepository = userRepository,
-            )
-    }
+        test("login rejects email without at symbol") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
+                val result = useCase(email = "invalid.email", password = "password123")
 
-        // Default stubs for successful operations
-        everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
-        everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
-
-        return fixture
-    }
-
-    // ========== Test Data Factories ==========
-
-    private fun createLoginResult(
-        accessToken: String = "access-token-123",
-        refreshToken: String = "refresh-token-456",
-        sessionId: String = "session-789",
-        userId: String = "user-1",
-        email: String = "test@example.com",
-    ): LoginResult =
-        LoginResult(
-            accessToken = AccessToken(accessToken),
-            refreshToken = RefreshToken(refreshToken),
-            sessionId = sessionId,
-            userId = userId,
-            user =
-                User(
-                    id =
-                        com.calypsan.listenup.client.core
-                            .UserId(userId),
-                    email = email,
-                    displayName = "Test User",
-                    firstName = "Test",
-                    lastName = "User",
-                    isAdmin = false,
-                    createdAtMs = 1704067200000L,
-                    updatedAtMs = 1704067200000L,
-                ),
-        )
-
-    // ========== Email Validation Tests ==========
-
-    @Test
-    fun `login rejects email without at symbol`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "invalid.email", password = "password123")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("email", ignoreCase = true))
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
-        }
-
-    @Test
-    fun `login rejects email without dot`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "invalid@email", password = "password123")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("email", ignoreCase = true))
-        }
-
-    @Test
-    fun `login rejects empty email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "", password = "password123")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("email", ignoreCase = true))
-        }
-
-    @Test
-    fun `login accepts valid email with at and dot`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns createLoginResult()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "user@example.com", password = "password123")
-
-            // Then
-            checkIs<Success<*>>(result)
-        }
-
-    @Test
-    fun `login trims whitespace from email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns createLoginResult()
-            val useCase = fixture.build()
-
-            // When - email has leading/trailing spaces
-            val result = useCase(email = "  user@example.com  ", password = "password123")
-
-            // Then - should succeed (trimmed email is valid)
-            checkIs<Success<*>>(result)
-            verifySuspend { fixture.authRepository.login("user@example.com", "password123") }
-        }
-
-    // ========== Password Validation Tests ==========
-
-    @Test
-    fun `login rejects empty password`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "user@example.com", password = "")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("password", ignoreCase = true))
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
-        }
-
-    @Test
-    fun `login accepts non-empty password`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns createLoginResult()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(email = "user@example.com", password = "x")
-
-            // Then - should proceed (single char password is valid)
-            checkIs<Success<*>>(result)
-        }
-
-    // ========== Successful Login Flow Tests ==========
-
-    @Test
-    fun `login saves auth tokens on success`() =
-        runTest {
-            // Given
-            val loginResult =
-                createLoginResult(
-                    accessToken = "my-access-token",
-                    refreshToken = "my-refresh-token",
-                    sessionId = "my-session",
-                    userId = "user-42",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns loginResult
-            val useCase = fixture.build()
-
-            // When
-            useCase(email = "user@example.com", password = "password123")
-
-            // Then
-            verifySuspend {
-                fixture.authSession.saveAuthTokens(
-                    access = AccessToken("my-access-token"),
-                    refresh = RefreshToken("my-refresh-token"),
-                    sessionId = "my-session",
-                    userId = "user-42",
-                )
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<ValidationError>()
             }
         }
 
-    @Test
-    fun `login persists user data on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns createLoginResult()
-            val useCase = fixture.build()
+        test("login rejects empty email") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            useCase(email = "user@example.com", password = "password123")
+                val result = useCase(email = "", password = "password123")
 
-            // Then
-            verifySuspend { fixture.userRepository.saveUser(any()) }
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Please enter a valid email address"
+            }
         }
 
-    @Test
-    fun `login returns user domain model on success`() =
-        runTest {
-            // Given
-            val loginResult =
-                createLoginResult(
-                    userId = "user-1",
-                    email = "test@example.com",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } returns loginResult
-            val useCase = fixture.build()
+        test("login rejects short password before hitting the network") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase(email = "user@example.com", password = "password123")
+                val result = useCase(email = "user@example.com", password = "short")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val user = success.data as User
-            assertEquals("user-1", user.id.value)
-            assertEquals("test@example.com", user.email)
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Password must be at least 8 characters"
+            }
         }
 
-    // ========== Error Handling Tests ==========
+        test("login trims whitespace from email") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(createAuthSession())
+                val useCase = fixture.build()
 
-    @Test
-    fun `login returns failure when repository throws exception`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } throws Exception("Network error")
-            val useCase = fixture.build()
+                val result = useCase(email = "  user@example.com  ", password = "password123")
 
-            // When
-            val result = useCase(email = "user@example.com", password = "password123")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertEquals("Network error", failure.message)
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                verifySuspend {
+                    fixture.authRepository.login(LoginRequest(email = "user@example.com", password = "password123"))
+                }
+            }
         }
 
-    @Test
-    fun `login does not save tokens when repository fails`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any(), any()) } throws Exception("API error")
-            val useCase = fixture.build()
+        // ========== Successful login flow ==========
 
-            // When
-            useCase(email = "user@example.com", password = "password123")
+        test("login persists tokens and user, returns the User on success") {
+            runTest {
+                val session =
+                    createAuthSession(
+                        accessToken = "my-access-token",
+                        refreshToken = "my-refresh-token",
+                        sessionId = "my-session",
+                        userId = "user-42",
+                        email = "test@example.com",
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(session)
+                val useCase = fixture.build()
 
-            // Then - saveAuthTokens should not be called (verify no interactions)
-            // Since the exception is thrown before saveAuthTokens, this is implicitly verified
-            // by the fact that the test reaches this point without the mock being invoked
+                val result = useCase(email = "user@example.com", password = "password123")
+
+                val success = result.shouldBeInstanceOf<AppResult.Success<User>>()
+                session.user.id.value shouldBe "user-42"
+                success.data.email shouldBe "test@example.com"
+
+                verifySuspend {
+                    fixture.authSession.saveAuthTokens(
+                        access = AccessToken("my-access-token"),
+                        refresh = RefreshToken("my-refresh-token"),
+                        sessionId = "my-session",
+                        userId = "user-42",
+                    )
+                }
+                verifySuspend { fixture.userRepository.saveUser(any()) }
+            }
         }
-}
+
+        // ========== Failure pass-through ==========
+
+        test("login passes through typed AuthError from the repository") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns
+                    AppResult.Failure(AuthError.InvalidCredentials())
+                val useCase = fixture.build()
+
+                val result = useCase(email = "user@example.com", password = "password123")
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.InvalidCredentials>()
+            }
+        }
+    })

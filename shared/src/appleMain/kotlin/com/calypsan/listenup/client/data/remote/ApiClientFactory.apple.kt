@@ -24,7 +24,7 @@ import io.ktor.serialization.kotlinx.json.json
 internal actual suspend fun createStreamingHttpClient(
     serverUrl: ServerUrl,
     authSession: AuthSession,
-    authApi: AuthApiContract,
+    refreshAccessToken: RefreshAccessToken,
 ): HttpClient =
     HttpClient(Darwin) {
         installListenUpErrorHandling()
@@ -66,7 +66,7 @@ internal actual suspend fun createStreamingHttpClient(
                 }
 
                 refreshTokens {
-                    refreshAuthTokens(authSession, authApi)
+                    refreshAuthTokens(authSession, refreshAccessToken)
                 }
 
                 sendWithoutRequest { request -> !isAuthEndpoint(request) }

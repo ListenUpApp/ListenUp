@@ -2,13 +2,12 @@ package com.calypsan.listenup.client.presentation.invite
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,8 +26,6 @@ import kotlinx.coroutines.launch
 class InviteRegistrationViewModel(
     private val inviteRepository: InviteRepository,
     private val serverConfig: ServerConfig,
-    private val authSession: AuthSession,
-    private val userRepository: UserRepository,
     private val serverUrl: String,
     private val inviteCode: String,
 ) : ViewModel() {
@@ -76,7 +73,7 @@ class InviteRegistrationViewModel(
     ) {
         val details = currentDetails() ?: return
 
-        if (password.length < MIN_PASSWORD_LENGTH) {
+        if (password.length < PASSWORD_MIN) {
             _state.value =
                 InviteRegistrationUiState.SubmitError(
                     details = details,
@@ -98,19 +95,8 @@ class InviteRegistrationViewModel(
             _state.value = InviteRegistrationUiState.Submitting(details)
 
             try {
-                val result = inviteRepository.claimInvite(serverUrl, inviteCode, password)
-
                 serverConfig.setServerUrl(ServerUrl(serverUrl))
-
-                authSession.saveAuthTokens(
-                    access = result.accessToken,
-                    refresh = result.refreshToken,
-                    sessionId = result.sessionId,
-                    userId = result.userId,
-                )
-
-                userRepository.saveUser(result.user)
-
+                inviteRepository.claimInvite(serverUrl, inviteCode, password)
                 _state.value = InviteRegistrationUiState.Submitted
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
@@ -127,10 +113,6 @@ class InviteRegistrationViewModel(
         if (current is InviteRegistrationUiState.SubmitError) {
             _state.value = InviteRegistrationUiState.Ready(current.details)
         }
-    }
-
-    companion object {
-        private const val MIN_PASSWORD_LENGTH = 8
     }
 
     private fun currentDetails(): InviteDetails? =

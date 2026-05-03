@@ -1,396 +1,189 @@
 package com.calypsan.listenup.client.presentation.auth
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import com.calypsan.listenup.client.core.validationError
+
+private fun fakeUser(): User =
+    User(
+        id = UserId("user-1"),
+        email = "alice@example.com",
+        displayName = "Alice Anderson",
+        firstName = "Alice",
+        lastName = "Anderson",
+        isAdmin = false,
+        createdAtMs = 0L,
+        updatedAtMs = 0L,
+    )
 
 /**
- * Tests for LoginViewModel.
- *
- * Tests cover:
- * - Delegation to LoginUseCase
- * - State transitions (Idle -> Loading -> Success/Error)
- * - Error mapping from use case failures
- * - clearError behavior
- *
- * Uses Mokkery for mocking LoginUseCase.
+ * Tests for [LoginViewModel] — folds typed [AppResult] over the contract's
+ * [AuthError] hierarchy into [LoginUiState] transitions.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class LoginViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class LoginViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixtures ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val loginUseCase: LoginUseCase = mock()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun build(): LoginViewModel =
-            LoginViewModel(
-                loginUseCase = loginUseCase,
-            )
-    }
+        test("initial state is Idle") {
+            val useCase = mock<LoginUseCase>()
+            val vm = LoginViewModel(useCase)
 
-    private fun createFixture(): TestFixture = TestFixture()
-
-    // ========== Test Data Factories ==========
-
-    private fun createUser(
-        id: String = "user-1",
-        email: String = "test@example.com",
-    ): User =
-        User(
-            id =
-                com.calypsan.listenup.client.core
-                    .UserId(id),
-            email = email,
-            displayName = "Test User",
-            firstName = "Test",
-            lastName = "User",
-            isAdmin = false,
-            avatarType = "auto",
-            avatarValue = null,
-            avatarColor = "#6B7280",
-            tagline = null,
-            createdAtMs = 1704067200000L,
-            updatedAtMs = 1704067200000L,
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Initial State Tests ==========
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            // Then
-            assertEquals(LoginUiState.Idle, viewModel.state.value)
+            vm.state.value.shouldBeInstanceOf<LoginUiState.Idle>()
         }
 
-    // ========== Email Validation Tests ==========
+        test("successful login transitions Idle to Loading to Success") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns AppResult.Success(fakeUser())
+                val vm = LoginViewModel(useCase)
 
-    @Test
-    fun `login rejects email without at symbol`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                validationError("Invalid email format")
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onLoginSubmit(email = "invalid.email", password = "password123")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val validation = assertIs<LoginErrorType.ValidationError>(error.type)
-            assertEquals(LoginField.EMAIL, validation.field)
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<LoginUiState.Idle>()
+                    vm.onLoginSubmit("alice@example.com", "password123")
+                    awaitItem().shouldBeInstanceOf<LoginUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<LoginUiState.Success>()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
         }
 
-    @Test
-    fun `login rejects empty email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                validationError("Invalid email format")
-            val viewModel = fixture.build()
+        test("InvalidCredentials maps to LoginErrorType.InvalidCredentials") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(AuthError.InvalidCredentials())
+                val vm = LoginViewModel(useCase)
 
-            // When
-            viewModel.onLoginSubmit(email = "", password = "password123")
-            advanceUntilIdle()
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val validation = assertIs<LoginErrorType.ValidationError>(error.type)
-            assertEquals(LoginField.EMAIL, validation.field)
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                error.type.shouldBeInstanceOf<LoginErrorType.InvalidCredentials>()
+            }
         }
 
-    @Test
-    fun `login accepts valid email with at and dot`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns Success(createUser())
-            val viewModel = fixture.build()
+        test("AccountDenied also maps to InvalidCredentials (no info leak)") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(AuthError.AccountDenied())
+                val vm = LoginViewModel(useCase)
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password123")
-            advanceUntilIdle()
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then - should proceed to API call, not validation error
-            checkIs<LoginUiState.Success>(viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                error.type.shouldBeInstanceOf<LoginErrorType.InvalidCredentials>()
+            }
         }
 
-    @Test
-    fun `login passes credentials to use case`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns Success(createUser())
-            val viewModel = fixture.build()
+        test("RateLimited carries retry-after seconds in detail message") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(AuthError.RateLimited(retryAfterSeconds = 30))
+                val vm = LoginViewModel(useCase)
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password123")
-            advanceUntilIdle()
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.loginUseCase("user@example.com", "password123") }
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                val server = error.type.shouldBeInstanceOf<LoginErrorType.ServerError>()
+                server.detail shouldBe "Too many attempts; try again in 30s."
+            }
         }
 
-    // ========== Password Validation Tests ==========
+        test("ValidationError on email maps to ValidationError(EMAIL)") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(ValidationError("Please enter a valid email address"))
+                val vm = LoginViewModel(useCase)
 
-    @Test
-    fun `login rejects empty password`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                validationError("Password is required")
-            val viewModel = fixture.build()
+                vm.onLoginSubmit("invalid", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val validation = assertIs<LoginErrorType.ValidationError>(error.type)
-            assertEquals(LoginField.PASSWORD, validation.field)
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                val validation = error.type.shouldBeInstanceOf<LoginErrorType.ValidationError>()
+                validation.field shouldBe LoginField.EMAIL
+            }
         }
 
-    @Test
-    fun `login accepts non-empty password`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns Success(createUser())
-            val viewModel = fixture.build()
+        test("ValidationError on password maps to ValidationError(PASSWORD)") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(ValidationError("Password must be at least 8 characters"))
+                val vm = LoginViewModel(useCase)
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "x")
-            advanceUntilIdle()
+                vm.onLoginSubmit("alice@example.com", "short")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // Then - should proceed (single char password is valid)
-            checkIs<LoginUiState.Success>(viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                val validation = error.type.shouldBeInstanceOf<LoginErrorType.ValidationError>()
+                validation.field shouldBe LoginField.PASSWORD
+            }
         }
 
-    // ========== Successful Login Flow Tests ==========
+        test("InternalError maps to NetworkError") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(InternalError(correlationId = "corr-1"))
+                val vm = LoginViewModel(useCase)
 
-    @Test
-    fun `login transitions to Success on completion`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns Success(createUser())
-            val viewModel = fixture.build()
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password123")
-            advanceUntilIdle()
-
-            // Then
-            checkIs<LoginUiState.Success>(viewModel.state.value)
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                error.type.shouldBeInstanceOf<LoginErrorType.NetworkError>()
+            }
         }
 
-    // ========== Error Classification Tests ==========
+        test("clearError resets Error state to Idle") {
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns
+                    AppResult.Failure(AuthError.InvalidCredentials())
+                val vm = LoginViewModel(useCase)
 
-    @Test
-    fun `login classifies invalid credentials error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("invalid credentials"))
-            val viewModel = fixture.build()
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "wrong")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            checkIs<LoginErrorType.InvalidCredentials>(error.type)
+                vm.clearError()
+                vm.state.value.shouldBeInstanceOf<LoginUiState.Idle>()
+            }
         }
 
-    @Test
-    fun `login classifies connection refused as network error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("Connection refused"))
-            val viewModel = fixture.build()
+        test("clearError on Idle state is a no-op") {
+            val useCase = mock<LoginUseCase>()
+            val vm = LoginViewModel(useCase)
 
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val networkError = assertIs<LoginErrorType.NetworkError>(error.type)
-            assertEquals("Connection refused. Is the server running?", networkError.detail)
+            vm.clearError()
+            vm.state.value.shouldBeInstanceOf<LoginUiState.Idle>()
         }
-
-    @Test
-    fun `login classifies timeout as network error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("Connection timed out"))
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val networkError = assertIs<LoginErrorType.NetworkError>(error.type)
-            assertEquals("Connection timed out. Check server address.", networkError.detail)
-        }
-
-    @Test
-    fun `login classifies unknown host as network error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("Unable to resolve host"))
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val networkError = assertIs<LoginErrorType.NetworkError>(error.type)
-            assertEquals("Server not found. Check the address.", networkError.detail)
-        }
-
-    @Test
-    fun `login classifies 500 as server error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("HTTP 500 Internal Server Error"))
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val serverError = assertIs<LoginErrorType.ServerError>(error.type)
-            assertEquals("Server error (500)", serverError.detail)
-        }
-
-    @Test
-    fun `login classifies unknown error as server error with message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("Something unexpected happened"))
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-
-            // Then
-            val error = assertIs<LoginUiState.Error>(viewModel.state.value)
-            val serverError = assertIs<LoginErrorType.ServerError>(error.type)
-            assertEquals("Something unexpected happened", serverError.detail)
-        }
-
-    // ========== clearError Tests ==========
-
-    @Test
-    fun `clearError resets Error state to Idle`() =
-        runTest {
-            // Given - put viewModel in error state
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns
-                Failure(Exception("error"))
-            val viewModel = fixture.build()
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-            checkIs<LoginUiState.Error>(viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then
-            assertEquals(LoginUiState.Idle, viewModel.state.value)
-        }
-
-    @Test
-    fun `clearError does nothing when not in Error state`() =
-        runTest {
-            // Given - viewModel in Idle state
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            assertEquals(LoginUiState.Idle, viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then - still Idle
-            assertEquals(LoginUiState.Idle, viewModel.state.value)
-        }
-
-    @Test
-    fun `clearError does nothing when in Success state`() =
-        runTest {
-            // Given - viewModel in Success state
-            val fixture = createFixture()
-            everySuspend { fixture.loginUseCase(any(), any()) } returns Success(createUser())
-            val viewModel = fixture.build()
-            viewModel.onLoginSubmit(email = "user@example.com", password = "password")
-            advanceUntilIdle()
-            checkIs<LoginUiState.Success>(viewModel.state.value)
-
-            // When
-            viewModel.clearError()
-
-            // Then - still Success
-            checkIs<LoginUiState.Success>(viewModel.state.value)
-        }
-}
+    })

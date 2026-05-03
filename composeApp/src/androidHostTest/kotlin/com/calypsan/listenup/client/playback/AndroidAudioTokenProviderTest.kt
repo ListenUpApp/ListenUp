@@ -1,13 +1,20 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
-import com.calypsan.listenup.client.data.remote.AuthApiContract
-import com.calypsan.listenup.client.data.remote.AuthResponse
-import com.calypsan.listenup.client.data.remote.RegisterResponse
-import com.calypsan.listenup.client.data.remote.RegistrationStatusResponse
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.User as ContractUser
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -20,108 +27,122 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * Verifies the Android wrapper preserves the [CachedAudioTokenProvider] fast-path:
+ * when init's refresh succeeds and the rotated token is good for >2 minutes,
+ * `prepareForPlayback` returns without triggering another refresh.
+ */
 class AndroidAudioTokenProviderTest {
     @Test
-    fun `prepareForPlayback returns without calling refreshToken when cached token is valid`() {
-        val accessTokenCalls = AtomicInteger(0)
+    fun `prepareForPlayback skips refresh when cached token is still valid`() {
+        val refreshCalls = AtomicInteger(0)
 
-        val session =
-            object : AuthSession {
-                override val authState: StateFlow<AuthState> =
-                    MutableStateFlow(AuthState.Authenticated(userId = "u1", sessionId = "s1"))
-
-                override suspend fun getAccessToken(): AccessToken? {
-                    accessTokenCalls.incrementAndGet()
-                    return AccessToken("valid-test-token")
-                }
-
-                override suspend fun getRefreshToken(): RefreshToken? = null
-
-                override suspend fun getSessionId(): String? = "s1"
-
-                override suspend fun getUserId(): String? = "u1"
-
-                override suspend fun saveAuthTokens(
-                    access: AccessToken,
-                    refresh: RefreshToken,
-                    sessionId: String,
-                    userId: String,
-                ) {}
-
-                override suspend fun updateAccessToken(token: AccessToken) {}
-
-                override suspend fun clearAuthTokens() {}
-
-                override suspend fun isAuthenticated(): Boolean = true
-
-                override suspend fun initializeAuthState() {}
-
-                override suspend fun checkServerStatus(): AuthState = AuthState.Authenticated("u1", "s1")
-
-                override suspend fun refreshOpenRegistration() {}
-
-                override suspend fun savePendingRegistration(
-                    userId: String,
-                    email: String,
-                    password: String,
-                ) {}
-
-                override suspend fun getPendingRegistration(): Triple<String, String, String>? = null
-
-                override suspend fun clearPendingRegistration() {}
-            }
-
-        val authApi =
-            object : AuthApiContract {
-                override suspend fun setup(
-                    email: String,
-                    password: String,
-                    firstName: String,
-                    lastName: String,
-                ): AuthResponse = TODO()
-
-                override suspend fun login(
-                    email: String,
-                    password: String,
-                ): AuthResponse = TODO()
-
-                override suspend fun register(
-                    email: String,
-                    password: String,
-                    firstName: String,
-                    lastName: String,
-                ): RegisterResponse = TODO()
-
-                override suspend fun refresh(refreshToken: RefreshToken): AuthResponse = TODO()
-
-                override suspend fun logout(sessionId: String) = TODO()
-
-                override suspend fun checkRegistrationStatus(userId: String): RegistrationStatusResponse = TODO()
-            }
+        val session = FakeAuthSession()
+        val repo = FakeAuthRepository(refreshCalls)
 
         val scope = CoroutineScope(Job())
-
         try {
-            val provider = AndroidAudioTokenProvider(session, authApi, scope)
+            val core = CachedAudioTokenProvider(session, repo, scope)
+            val provider = AndroidAudioTokenProvider(core)
 
             // Let init's refreshToken() complete
             runBlocking { delay(200) }
 
-            val callsAfterInit = accessTokenCalls.get()
-            assertTrue(callsAfterInit >= 1, "Init should have called getAccessToken at least once")
+            val callsAfterInit = refreshCalls.get()
+            assertTrue(callsAfterInit >= 1, "Init should have called refreshAccessToken at least once")
 
-            // Act - prepareForPlayback should NOT call refreshToken again
-            // because the cached token is valid (set to expire in ~50 minutes)
+            // prepareForPlayback should NOT call refresh again — the rotated
+            // session was issued with an expiry hours in the future.
             runBlocking { provider.prepareForPlayback() }
 
-            // Assert - getAccessToken should not have been called again
             assertEquals(
                 callsAfterInit,
-                accessTokenCalls.get(),
-                "prepareForPlayback should skip refreshToken when cached token is still valid",
+                refreshCalls.get(),
+                "prepareForPlayback should skip refresh when cached token is still valid",
             )
         } finally {
             scope.cancel()
         }
     }
+}
+
+private class FakeAuthRepository(
+    private val refreshCalls: AtomicInteger,
+) : AuthRepository {
+    override suspend fun login(request: LoginRequest): AppResult<ContractAuthSession> = TODO()
+
+    override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> = TODO()
+
+    override suspend fun setup(request: RegisterRequest): AppResult<ContractAuthSession> = TODO()
+
+    override suspend fun logout(): AppResult<Unit> = TODO()
+
+    override suspend fun refreshAccessToken(): AppResult<ContractAuthSession> {
+        refreshCalls.incrementAndGet()
+        return AppResult.Success(
+            ContractAuthSession(
+                accessToken = AccessToken("rotated"),
+                accessTokenExpiresAt = System.currentTimeMillis() + ONE_HOUR_MS,
+                refreshToken = RefreshToken("rotated-refresh"),
+                refreshTokenExpiresAt = System.currentTimeMillis() + ONE_HOUR_MS,
+                sessionId = SessionId("s1"),
+                user =
+                    ContractUser(
+                        id = UserId("u1"),
+                        email = "alice@example.com",
+                        displayName = "Alice",
+                        role = UserRole.MEMBER,
+                        status = UserStatus.ACTIVE,
+                        createdAt = 0L,
+                    ),
+            ),
+        )
+    }
+
+    companion object {
+        private const val ONE_HOUR_MS = 60L * 60L * 1000L
+    }
+}
+
+private class FakeAuthSession : AuthSession {
+    override val authState: StateFlow<AuthState> =
+        MutableStateFlow(
+            AuthState.Authenticated(userId = UserId("u1"), sessionId = SessionId("s1")),
+        )
+
+    override suspend fun getAccessToken(): AccessToken? = AccessToken("stored")
+
+    override suspend fun getRefreshToken(): RefreshToken? = RefreshToken("stored-refresh")
+
+    override suspend fun getSessionId(): String? = "s1"
+
+    override suspend fun getUserId(): String? = "u1"
+
+    override suspend fun saveAuthTokens(
+        access: AccessToken,
+        refresh: RefreshToken,
+        sessionId: String,
+        userId: String,
+    ) = Unit
+
+    override suspend fun updateAccessToken(token: AccessToken) = Unit
+
+    override suspend fun clearAuthTokens() = Unit
+
+    override suspend fun isAuthenticated(): Boolean = true
+
+    override suspend fun initializeAuthState() = Unit
+
+    override suspend fun checkServerStatus(): AuthState = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
+
+    override suspend fun refreshOpenRegistration() = Unit
+
+    override suspend fun savePendingRegistration(
+        userId: String,
+        email: String,
+    ) = Unit
+
+    override suspend fun getPendingRegistration(): Pair<String, String>? = null
+
+    override suspend fun clearPendingRegistration() = Unit
 }

@@ -1,8 +1,9 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,41 +20,6 @@ sealed interface PreferenceChangeEvent {
     data class PlaybackSpeedChanged(
         val speed: Float,
     ) : PreferenceChangeEvent
-}
-
-/**
- * Authentication state for the application.
- */
-sealed interface AuthState {
-    /** Still determining auth state on startup. */
-    data object Initializing : AuthState
-
-    /** No server URL has been configured yet. */
-    data object NeedsServerUrl : AuthState
-
-    /** Checking server status to determine if setup is required. */
-    data object CheckingServer : AuthState
-
-    /** Server requires initial setup (create root user). */
-    data object NeedsSetup : AuthState
-
-    /** Server is ready, user needs to log in. */
-    data class NeedsLogin(
-        val openRegistration: Boolean = false,
-    ) : AuthState
-
-    /** User has registered but is waiting for admin approval. */
-    data class PendingApproval(
-        val userId: String,
-        val email: String,
-        val encryptedPassword: String,
-    ) : AuthState
-
-    /** User is authenticated with valid session. */
-    data class Authenticated(
-        val userId: String,
-        val sessionId: String,
-    ) : AuthState
 }
 
 // region Segregated Interfaces (ISP)
@@ -107,29 +73,26 @@ interface AuthSession {
     suspend fun refreshOpenRegistration()
 
     /**
-     * Save pending registration state after submitting registration.
-     * This persists the user's credentials so we can auto-login after approval,
-     * even if the app restarts.
+     * Persist that this device has a registration awaiting admin approval.
      *
-     * @param userId The pending user's ID from registration response
-     * @param email The user's email address
-     * @param password The user's password (will be encrypted in storage)
+     * `userId` keys the server-side approval-status stream (SSE/polling);
+     * `email` is shown on the pending-approval screen. No credentials are
+     * stored — once approved, the user logs in normally.
      */
     suspend fun savePendingRegistration(
         userId: String,
         email: String,
-        password: String,
     )
 
     /**
-     * Get pending registration credentials for auto-login.
-     * @return Triple of (userId, email, encryptedPassword) if pending, null otherwise
+     * Get the (userId, email) of any pending registration on this device,
+     * or null when no registration is in flight.
      */
-    suspend fun getPendingRegistration(): Triple<String, String, String>?
+    suspend fun getPendingRegistration(): Pair<String, String>?
 
     /**
      * Clear pending registration state.
-     * Called after successful login or denial.
+     * Called after the user logs in, cancels, or is denied.
      */
     suspend fun clearPendingRegistration()
 }

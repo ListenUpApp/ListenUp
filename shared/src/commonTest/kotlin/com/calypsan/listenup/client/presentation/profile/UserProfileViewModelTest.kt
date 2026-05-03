@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.presentation.profile
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.error.UnknownError
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary

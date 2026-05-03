@@ -39,7 +39,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
@@ -155,9 +155,8 @@ fun ListenUpNavigation(
 
         is AuthState.PendingApproval -> {
             PendingApprovalNavigation(
-                userId = currentAuthState.userId,
+                userId = currentAuthState.userId.value,
                 email = currentAuthState.email,
-                password = currentAuthState.encryptedPassword,
             )
         }
 
@@ -180,19 +179,17 @@ fun ListenUpNavigation(
 private fun PendingApprovalNavigation(
     userId: String,
     email: String,
-    password: String,
 ) {
     val viewModel: PendingApprovalViewModel =
         koinViewModel {
             org.koin.core.parameter
-                .parametersOf(userId, email, password)
+                .parametersOf(userId, email)
         }
 
     com.calypsan.listenup.client.features.auth.PendingApprovalScreen(
         viewModel = viewModel,
         onNavigateToLogin = {
-            // Auth state will automatically update from clearPendingRegistration
-            // No explicit navigation needed
+            // Auth state automatically updates after clearPendingRegistration.
         },
     )
 }

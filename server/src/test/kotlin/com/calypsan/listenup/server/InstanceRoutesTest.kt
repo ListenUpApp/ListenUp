@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
@@ -14,6 +15,7 @@ class InstanceRoutesTest :
     FunSpec({
         test("GET /api/v1/instance returns ServerInfo deserializable in commonMain") {
             testApplication {
+                useIsolatedTestConfig()
                 application { module() }
 
                 val httpClient =

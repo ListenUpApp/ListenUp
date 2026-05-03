@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.startup
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.remote.LibraryStatusResponse
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.domain.model.User
@@ -60,8 +61,7 @@ class AppStartupViewModelTest {
     ): User =
         User(
             id =
-                com.calypsan.listenup.client.core
-                    .UserId(id),
+                UserId(id),
             email = "test@example.com",
             displayName = "Test User",
             firstName = null,

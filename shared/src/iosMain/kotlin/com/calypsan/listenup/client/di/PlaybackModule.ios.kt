@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.ApplePlaybackController
 import com.calypsan.listenup.client.playback.AudioTokenProvider
-import com.calypsan.listenup.client.playback.AppleAudioTokenProvider
+import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
@@ -54,17 +54,14 @@ val iosPlaybackModule: Module =
         // File manager for downloads
         single { DownloadFileManager() }
 
-        // Audio token provider
+        // Audio token provider — shared core; no iOS-specific surface needed
         single<AudioTokenProvider> {
-            AppleAudioTokenProvider(
+            CachedAudioTokenProvider(
                 authSession = get(),
-                authApi = get(),
+                authRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
             )
         }
-
-        // Also expose concrete type for iOS-specific features
-        single { get<AudioTokenProvider>() as AppleAudioTokenProvider }
 
         // DownloadEnqueuer seam — iOS no-op (NSURLSession path is W10 carveout)
         single<DownloadEnqueuer> { AppleDownloadEnqueuer() }

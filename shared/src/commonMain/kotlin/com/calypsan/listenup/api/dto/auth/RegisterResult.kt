@@ -1,0 +1,28 @@
+package com.calypsan.listenup.api.dto.auth
+
+import kotlinx.serialization.Serializable
+
+/**
+ * Outcome of register(). Polymorphic because closed-with-approval-queue
+ * instances do not return a session immediately.
+ */
+@Serializable
+sealed interface RegisterResult {
+    /** Registered AND logged in (open registration). */
+    @Serializable
+    data class Authenticated(
+        val session: AuthSession,
+    ) : RegisterResult
+
+    /**
+     * Account created in PENDING_APPROVAL; admin must approve before login.
+     *
+     * Carries the server-issued `userId` so the client can subscribe to the
+     * SSE registration-status stream (keyed by user id) and prompt re-login
+     * when the account is approved.
+     */
+    @Serializable
+    data class PendingApproval(
+        val userId: UserId,
+    ) : RegisterResult
+}

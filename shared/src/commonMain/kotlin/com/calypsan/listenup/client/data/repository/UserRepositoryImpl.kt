@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.CurrentUserResponse

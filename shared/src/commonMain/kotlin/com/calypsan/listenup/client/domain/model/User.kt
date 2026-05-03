@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 
 /**
  * Domain model representing a user in the system.

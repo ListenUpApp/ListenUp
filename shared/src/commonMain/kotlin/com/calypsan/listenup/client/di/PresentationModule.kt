@@ -29,9 +29,8 @@ val authPresentationModule =
         factory { ServerConnectViewModel(serverConfig = get(), instanceRepository = get()) }
         factory {
             com.calypsan.listenup.client.presentation.auth.SetupViewModel(
-                authRepository = get(),
+                setupUseCase = get(),
                 authSession = get(),
-                userRepository = get(),
             )
         }
         factory {
@@ -44,15 +43,13 @@ val authPresentationModule =
                 registerUseCase = get(),
             )
         }
-        // PendingApprovalViewModel - takes userId, email, password as parameters
+        // PendingApprovalViewModel - takes (userId, email) parameters
         factory { params ->
             PendingApprovalViewModel(
-                authRepository = get(),
                 authSession = get(),
                 registrationStatusStream = get(),
                 userId = params.get<String>(0),
                 email = params.get<String>(1),
-                password = params.get<String>(2),
             )
         }
         // InviteRegistrationViewModel - takes serverUrl and inviteCode as parameters
@@ -60,8 +57,6 @@ val authPresentationModule =
             InviteRegistrationViewModel(
                 inviteRepository = get(),
                 serverConfig = get(),
-                authSession = get(),
-                userRepository = get(),
                 serverUrl = params.get<String>(0),
                 inviteCode = params.get<String>(1),
             )

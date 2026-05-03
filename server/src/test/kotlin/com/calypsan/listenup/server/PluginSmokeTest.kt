@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -22,6 +23,7 @@ class PluginSmokeTest :
     FunSpec({
         test("StatusPages returns a structured JSON 404 for unknown paths") {
             testApplication {
+                useIsolatedTestConfig()
                 application { module() }
 
                 val response = client.get("/this-path-does-not-exist")
@@ -36,6 +38,7 @@ class PluginSmokeTest :
 
         test("SSE plugin emits events on CIO and client receives them") {
             testApplication {
+                useIsolatedTestConfig()
                 application { module() }
 
                 val response = client.get("/sse/ping")
@@ -55,6 +58,7 @@ class PluginSmokeTest :
 
         test("kotlinx.rpc round-trip works on CIO") {
             testApplication {
+                useIsolatedTestConfig()
                 application { module() }
 
                 val rpcClient =
@@ -65,7 +69,7 @@ class PluginSmokeTest :
 
                 val service =
                     rpcClient
-                        .rpc("ws://localhost/api/rpc") {
+                        .rpc("ws://localhost/api/rpc/public") {
                             rpcConfig { serialization { json() } }
                         }.withService<PingService>()
 

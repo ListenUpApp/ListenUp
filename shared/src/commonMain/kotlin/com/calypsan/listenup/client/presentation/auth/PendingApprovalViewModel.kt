@@ -2,59 +2,50 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-private const val POLL_INTERVAL_MS = 5000L
-
 /**
- * ViewModel for the pending approval screen.
+ * ViewModel for the pending-approval screen.
  *
- * Handles real-time monitoring of registration approval status.
- * Uses SSE for instant updates with polling fallback.
+ * Subscribes to the SSE registration-status stream keyed by user id; the
+ * screen flips to `Approved` (prompting re-login) or `Denied` based on
+ * server-side state changes. If SSE drops, we stay in `Waiting` — the
+ * user can always retry login from the manual flow.
+ *
+ * No client-side polling fallback: with the F4 product change, the user
+ * retries `login()` to validate approval; instant SSE notification is a
+ * nice-to-have, not load-bearing.
  */
 class PendingApprovalViewModel(
-    private val authRepository: AuthRepository,
     private val authSession: AuthSession,
     private val registrationStatusStream: RegistrationStatusStream,
     val userId: String,
     val email: String,
-    private val password: String,
 ) : ViewModel() {
     private val _state = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
     val state: StateFlow<PendingApprovalUiState> = _state.asStateFlow()
 
     private var sseJob: Job? = null
-    private var pollingJob: Job? = null
 
     init {
-        // Start SSE connection immediately
         connectToSSE()
     }
 
     override fun onCleared() {
         super.onCleared()
         sseJob?.cancel()
-        pollingJob?.cancel()
     }
 
-    /**
-     * Connects to the registration status SSE stream.
-     * Falls back to polling if SSE fails.
-     */
     private fun connectToSSE() {
         sseJob?.cancel()
         sseJob =
@@ -66,10 +57,10 @@ class PendingApprovalViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    ErrorBus.emit(e)
-                    logger.warn(e) { "SSE connection failed, falling back to polling" }
-                    // Fall back to polling
-                    startPolling()
+                    logger.warn(e) {
+                        "SSE registration-status stream failed; staying in Waiting — " +
+                            "user can retry login from the manual flow"
+                    }
                 }
             }
     }
@@ -77,8 +68,8 @@ class PendingApprovalViewModel(
     private suspend fun handleStatusUpdate(status: StreamedRegistrationStatus) {
         when (status) {
             is StreamedRegistrationStatus.Approved -> {
-                logger.info { "Registration approved via SSE!" }
-                attemptAutoLogin()
+                logger.info { "Registration approved via SSE" }
+                _state.value = PendingApprovalUiState.Approved
             }
 
             is StreamedRegistrationStatus.Denied -> {
@@ -87,82 +78,8 @@ class PendingApprovalViewModel(
             }
 
             is StreamedRegistrationStatus.Pending -> {
-                // Still pending, update UI
                 _state.value = PendingApprovalUiState.Waiting
             }
-        }
-    }
-
-    /**
-     * Falls back to polling when SSE isn't available.
-     */
-    private fun startPolling() {
-        pollingJob?.cancel()
-        pollingJob =
-            viewModelScope.launch {
-                while (isActive) {
-                    delay(POLL_INTERVAL_MS)
-                    try {
-                        val status = authRepository.checkRegistrationStatus(userId)
-                        logger.debug { "Poll result: status=${status.status}, approved=${status.approved}" }
-
-                        when {
-                            status.approved -> {
-                                logger.info { "Registration approved via polling!" }
-                                attemptAutoLogin()
-                                break
-                            }
-
-                            status.status == "denied" -> {
-                                logger.info { "Registration denied via polling" }
-                                handleDenied()
-                                break
-                            }
-                        }
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        ErrorBus.emit(e)
-                        logger.warn(e) { "Failed to check registration status" }
-                        // Continue polling
-                    }
-                }
-            }
-    }
-
-    /**
-     * Attempts to log in automatically after approval.
-     */
-    private suspend fun attemptAutoLogin() {
-        _state.value = PendingApprovalUiState.LoggingIn
-
-        try {
-            val loginResult = authRepository.login(email, password)
-
-            // Save tokens
-            authSession.saveAuthTokens(
-                access = loginResult.accessToken,
-                refresh = loginResult.refreshToken,
-                sessionId = loginResult.sessionId,
-                userId = loginResult.userId,
-            )
-
-            // Clear pending registration
-            authSession.clearPendingRegistration()
-
-            logger.info { "Auto-login successful!" }
-            _state.value = PendingApprovalUiState.LoginSuccess
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            ErrorBus.emit(e)
-            logger.error(e) { "Auto-login failed" }
-            // Clear pending and let user log in manually
-            authSession.clearPendingRegistration()
-            _state.value =
-                PendingApprovalUiState.ApprovedManualLogin(
-                    "Your account has been approved! Please log in with your credentials.",
-                )
         }
     }
 
@@ -174,10 +91,15 @@ class PendingApprovalViewModel(
             )
     }
 
-    /**
-     * Cancel registration and return to login.
-     */
+    /** Cancel the pending registration and return to login. */
     fun cancelRegistration() {
+        viewModelScope.launch {
+            authSession.clearPendingRegistration()
+        }
+    }
+
+    /** Confirm the user has seen the approval and is moving on to log in. */
+    fun acknowledgeApproval() {
         viewModelScope.launch {
             authSession.clearPendingRegistration()
         }

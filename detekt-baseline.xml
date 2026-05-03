@@ -4,28 +4,17 @@
   <CurrentIssues>
     <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>CognitiveComplexMethod:BookCoverImage.kt$@Composable fun BookCoverImage( bookId: String, coverPath: String?, contentDescription: String?, modifier: Modifier = Modifier, blurHash: String? = null, contentScale: ContentScale = ContentScale.Crop, onState: ((AsyncImagePainter.State) -&gt; Unit)? = null, )</ID>
-    <ID>CognitiveComplexMethod:BookDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BookDetailScreen( bookId: String, onBackClick: () -&gt; Unit, onEditClick: (bookId: String) -&gt; Unit, onMetadataSearchClick: (bookId: String) -&gt; Unit, onSeriesClick: (seriesId: String) -&gt; Unit, onContributorClick: (contributorId: String) -&gt; Unit, onTagClick: (tagId: String) -&gt; Unit, onUserProfileClick: (userId: String) -&gt; Unit, viewModel: BookDetailViewModel = koinViewModel(), )</ID>
     <ID>CognitiveComplexMethod:ContributorPuller.kt$ContributorPuller$override suspend fun pull( updatedAfter: String?, onProgress: (SyncStatus) -&gt; Unit, )</ID>
-    <ID>CognitiveComplexMethod:DockedNowPlayingBar.kt$@Composable fun DockedNowPlayingBar( state: NowPlayingState, onTap: () -&gt; Unit, onPlayPause: () -&gt; Unit, onSkipBack: () -&gt; Unit, onSkipForward: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>CognitiveComplexMethod:ListenUpNavigation.kt$@Suppress("LongMethod") @Composable private fun AuthenticatedNavigation( authSession: AuthSession, libraryResetHelper: LibraryResetHelperContract = koinInject(), setupApi: SetupApiContract = koinInject(), syncRepository: SyncRepository = koinInject(), userRepository: UserRepository = koinInject(), shortcutActionManager: ShortcutActionManager = koinInject(), homeRepository: HomeRepository = koinInject(), )</ID>
-    <ID>CognitiveComplexMethod:NowPlayingBar.kt$@Composable fun NowPlayingBar( state: NowPlayingState, onTap: () -&gt; Unit, onPlayPause: () -&gt; Unit, onSkipBack: () -&gt; Unit, onSkipForward: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>CognitiveComplexMethod:PrimaryActionsSection.kt$@Composable fun PrimaryActionsSection( downloadStatus: BookDownloadStatus, onPlayClick: () -&gt; Unit, onDownloadClick: () -&gt; Unit, onCancelClick: () -&gt; Unit, onDeleteClick: () -&gt; Unit, modifier: Modifier = Modifier, isWaitingForWifi: Boolean = false, playEnabled: Boolean = true, requestFocus: Boolean = false, onPlayDisabledClick: () -&gt; Unit = {}, )</ID>
-    <ID>CognitiveComplexMethod:WideBookDetail.kt$@OptIn(ExperimentalMaterial3Api::class) @Suppress("LongParameterList") @Composable fun WideBookDetail( bookId: String, state: BookDetailUiState, downloadStatus: BookDownloadStatus, isComplete: Boolean, hasProgress: Boolean, isAdmin: Boolean, isWaitingForWifi: Boolean, showPlaybackActions: Boolean = true, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onFindMetadataClick: () -&gt; Unit, onMarkCompleteClick: () -&gt; Unit, onDiscardProgressClick: () -&gt; Unit, onAddToShelfClick: () -&gt; Unit, onAddToCollectionClick: () -&gt; Unit, onShareClick: () -&gt; Unit = {}, onDeleteBookClick: () -&gt; Unit, onPlayClick: () -&gt; Unit, onDownloadClick: () -&gt; Unit, onCancelClick: () -&gt; Unit, onDeleteClick: () -&gt; Unit, playEnabled: Boolean = true, onPlayDisabledClick: () -&gt; Unit = {}, onSeriesClick: (seriesId: String) -&gt; Unit, onContributorClick: (contributorId: String) -&gt; Unit, onTagClick: (tagId: String) -&gt; Unit, onUserProfileClick: (userId: String) -&gt; Unit, )</ID>
     <ID>ComplexCondition:BookPuller.kt$BookPuller$colors != null &amp;&amp; book.dominantColor == null &amp;&amp; book.darkMutedColor == null &amp;&amp; book.vibrantColor == null</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
-    <ID>CyclomaticComplexMethod:BookDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BookDetailScreen( bookId: String, onBackClick: () -&gt; Unit, onEditClick: (bookId: String) -&gt; Unit, onMetadataSearchClick: (bookId: String) -&gt; Unit, onSeriesClick: (seriesId: String) -&gt; Unit, onContributorClick: (contributorId: String) -&gt; Unit, onTagClick: (tagId: String) -&gt; Unit, onUserProfileClick: (userId: String) -&gt; Unit, viewModel: BookDetailViewModel = koinViewModel(), )</ID>
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:DockedNowPlayingBar.kt$@Composable fun DockedNowPlayingBar( state: NowPlayingState, onTap: () -&gt; Unit, onPlayPause: () -&gt; Unit, onSkipBack: () -&gt; Unit, onSkipForward: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:NowPlayingBar.kt$@Composable fun NowPlayingBar( state: NowPlayingState, onTap: () -&gt; Unit, onPlayPause: () -&gt; Unit, onSkipBack: () -&gt; Unit, onSkipForward: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, birthDate: String?, deathDate: String?, website: String?, description: String?, isDescriptionExpanded: Boolean, onToggleDescription: () -&gt; Unit, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
-    <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, surfaceColor: Color, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
     <ID>MagicNumber:AuroraBackground.kt$0.95f</ID>
     <ID>MagicNumber:AuroraBackground.kt$120f</ID>
     <ID>MagicNumber:AuroraBackground.kt$180f</ID>
     <ID>MagicNumber:AuroraBackground.kt$240f</ID>
     <ID>MagicNumber:AuroraBackground.kt$300f</ID>
     <ID>MagicNumber:AuroraBackground.kt$360f</ID>
-    <ID>MagicNumber:BookReadersViewModel.kt$BookReadersViewModel$2000</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt$12</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt$200</ID>
     <ID>MagicNumber:LoginScreen.kt$0.4f</ID>
@@ -62,8 +51,6 @@
     <ID>UnusedImports:ContributorDetailScreen.kt$import androidx.compose.foundation.layout.heightIn</ID>
     <ID>UnusedImports:CreateInviteScreen.kt$import listenup.composeapp.generated.resources.admin_invite_created_link_copied_to</ID>
     <ID>UnusedImports:CreateInviteScreen.kt$import listenup.composeapp.generated.resources.admin_link_copied</ID>
-    <ID>UnusedImports:CurrentlyListeningSection.kt$import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession</ID>
-    <ID>UnusedImports:DiscoverBooksSection.kt$import com.calypsan.listenup.client.presentation.discover.DiscoverUiBook</ID>
     <ID>UnusedImports:InstanceRepositoryImpl.kt$import io.ktor.client.plugins.timeout</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
@@ -71,16 +58,12 @@
     <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.foundation.background</ID>
     <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.foundation.layout.offset</ID>
     <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.ui.graphics.Brush</ID>
-    <ID>UnusedImports:RecentlyAddedSection.kt$import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiBook</ID>
-    <ID>UnusedImports:ServerSelectViewModel.kt$import kotlinx.coroutines.flow.distinctUntilChanged</ID>
-    <ID>UnusedImports:UserDetailScreen.kt$import androidx.compose.material.icons.outlined.CloudDownload</ID>
     <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.WindowInsets</ID>
     <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.statusBars</ID>
     <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.windowInsetsPadding</ID>
     <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.shape.CircleShape</ID>
     <ID>UnusedImports:WideBookDetail.kt$import com.calypsan.listenup.client.design.components.CoverColors</ID>
     <ID>UnusedImports:WideBookDetail.kt$import com.calypsan.listenup.client.design.components.GenreChipRow</ID>
-    <ID>UnusedPrivateProperty:BookDetailScreen.kt$val baseUrl = (instance.remoteUrl ?: instance.localUrl)?.trimEnd('/') ?: return@launch</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val HEX_RADIX = 16</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val MAX_RGB_LENGTH = 6</ID>
     <ID>UseIfInsteadOfWhen:DockedNowPlayingBar.kt$when { hours &gt; 0 -&gt; "${hours}h ${minutes}m left" else -&gt; "${minutes}m left" }</ID>

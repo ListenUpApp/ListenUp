@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.SessionApiContract
@@ -56,8 +57,7 @@ class UserRepositoryImplTest {
     ): UserEntity =
         UserEntity(
             id =
-                com.calypsan.listenup.client.core
-                    .UserId(id),
+                UserId(id),
             email = email,
             displayName = displayName,
             firstName = firstName,
@@ -598,8 +598,7 @@ class UserRepositoryImplTest {
             val entity =
                 UserEntity(
                     id =
-                        com.calypsan.listenup.client.core
-                            .UserId("admin-user-42"),
+                        UserId("admin-user-42"),
                     email = "admin@listenup.app",
                     displayName = "Admin Alice",
                     firstName = "Alice",

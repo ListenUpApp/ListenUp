@@ -1,0 +1,69 @@
+package com.calypsan.listenup.architecture
+
+import com.lemonappdev.konsist.api.Konsist
+import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutValueModifier
+import com.lemonappdev.konsist.api.verify.assertFalse
+import com.lemonappdev.konsist.api.verify.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import kotlinx.serialization.Serializable
+
+/**
+ * Architectural assertions for the contract boundary. These are the
+ * structural invariants Phase 1 set out to make true and Phase G1 pins in CI.
+ *
+ * Rules:
+ *  1. `@Serializable` DTOs in `com.calypsan.listenup.api..` are in commonMain
+ *     (so both server and clients consume the same source).
+ *  2. Domain code (`com.calypsan.listenup.client.domain..`) imports no
+ *     transport types — Ktor or kotlinx.rpc — keeping the boundary clean.
+ *  3. No `:server` symbols (`com.calypsan.listenup.server..`) are imported
+ *     outside the `:server` module.
+ *
+ * Each rule fails the build with a list of offenders. The plan also called
+ * out two more rules — "every @Rpc has a matching @Resource" and "every
+ * Koin leaf module has a `module.verify()` test" — both are deferred:
+ * `PingService` is a smoke-test service that deliberately has no REST mirror,
+ * and `module.verify()` coverage is already enforced ad-hoc by
+ * `AuthModuleVerifyTest` + `AuthModuleVerifyTest` server-side. Those rules
+ * become useful once we have multiple feature modules to compare; today
+ * they would mostly false-positive.
+ */
+class ArchitectureTest :
+    FunSpec({
+
+        test("@Serializable DTOs in the api package live in commonMain") {
+            Konsist
+                .scopeFromProject()
+                .classes()
+                .filter { it.resideInPackage("com.calypsan.listenup.api..") }
+                .withoutValueModifier()
+                .filter { it.hasAnnotationOf(Serializable::class) }
+                .assertTrue { koClass ->
+                    val path = koClass.containingFile.path
+                    "/shared/src/commonMain/" in path
+                }
+        }
+
+        test("client domain code has no transport-layer imports") {
+            Konsist
+                .scopeFromProject()
+                .files
+                .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.client.domain") == true }
+                .assertFalse { file ->
+                    file.imports.any { import ->
+                        val name = import.name
+                        name.startsWith("io.ktor.") || name.startsWith("kotlinx.rpc.")
+                    }
+                }
+        }
+
+        test("no :server symbols are imported outside the :server module") {
+            Konsist
+                .scopeFromProject()
+                .files
+                .filter { "/server/src/main/" !in it.path && "/server/src/test/" !in it.path }
+                .assertFalse { file ->
+                    file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
+                }
+        }
+    })

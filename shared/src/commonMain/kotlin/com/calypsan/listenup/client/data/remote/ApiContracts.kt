@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.RefreshToken
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.model.AllProgressResponse
 import com.calypsan.listenup.client.data.remote.model.ContinueListeningItemResponse
@@ -285,73 +284,6 @@ interface SyncApiContract {
      * @return Result containing updated PlaybackProgressResponse or error
      */
     suspend fun restartBook(bookId: String): AppResult<PlaybackProgressResponse>
-}
-
-/**
- * Contract interface for authentication API operations.
- *
- * Extracted to enable mocking in tests. Production implementation
- * is [AuthApi], test implementation can be a mock or fake.
- */
-interface AuthApiContract {
-    /**
-     * Create the root/admin user during initial server setup.
-     */
-    suspend fun setup(
-        email: String,
-        password: String,
-        firstName: String,
-        lastName: String,
-    ): AuthResponse
-
-    /**
-     * Login with email and password.
-     */
-    suspend fun login(
-        email: String,
-        password: String,
-    ): AuthResponse
-
-    /**
-     * Register a new user account (when open registration is enabled).
-     *
-     * Creates a user with pending status that requires admin approval.
-     * Only available when open_registration is enabled on the server.
-     *
-     * @param email User's email address
-     * @param password User's password (min 8 characters)
-     * @param firstName User's first name
-     * @param lastName User's last name
-     * @return RegisterResponse with success message
-     * @throws Exception on network errors or if registration is disabled
-     */
-    suspend fun register(
-        email: String,
-        password: String,
-        firstName: String,
-        lastName: String,
-    ): RegisterResponse
-
-    /**
-     * Refresh access token using refresh token.
-     */
-    suspend fun refresh(refreshToken: RefreshToken): AuthResponse
-
-    /**
-     * Logout and invalidate current session.
-     */
-    suspend fun logout(sessionId: String)
-
-    /**
-     * Check the approval status of a pending registration.
-     *
-     * Used to poll for approval after registering. Once approved,
-     * the client can proceed with login.
-     *
-     * @param userId User ID from registration response
-     * @return RegistrationStatusResponse with current status
-     */
-    suspend fun checkRegistrationStatus(userId: String): RegistrationStatusResponse
 }
 
 /**

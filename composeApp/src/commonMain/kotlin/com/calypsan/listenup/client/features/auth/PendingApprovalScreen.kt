@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -33,20 +34,16 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_approved
 import listenup.composeapp.generated.resources.auth_cancel_registration
-import listenup.composeapp.generated.resources.auth_signing_you_in
+import listenup.composeapp.generated.resources.auth_sign_in
 import listenup.composeapp.generated.resources.auth_waiting_for_approval
-import listenup.composeapp.generated.resources.auth_youll_be_automatically_signed_in
 import listenup.composeapp.generated.resources.auth_your_registration_request_has_been
 
 /**
  * Screen shown while waiting for admin approval after registration.
  *
- * Features:
- * - Shows user's email and pending status
- * - Automatic SSE connection for real-time approval notification
- * - Fallback to polling if SSE fails
- * - Auto-login when approved
- * - Cancel option to return to login
+ * The screen subscribes to the server-side approval-status stream (SSE with
+ * polling fallback). Once approved, the user logs in normally — there is no
+ * client-side auto-login.
  */
 @Composable
 fun PendingApprovalScreen(
@@ -57,19 +54,12 @@ fun PendingApprovalScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle status changes
+    // Surface denial via snackbar then route the user back to login.
     LaunchedEffect(state) {
         val current = state
-        when {
-            current is PendingApprovalUiState.ApprovedManualLogin -> {
-                snackbarHostState.showSnackbar(current.message)
-                onNavigateToLogin()
-            }
-
-            current is PendingApprovalUiState.Denied -> {
-                snackbarHostState.showSnackbar(current.message)
-                onNavigateToLogin()
-            }
+        if (current is PendingApprovalUiState.Denied) {
+            snackbarHostState.showSnackbar(current.message)
+            onNavigateToLogin()
         }
     }
 
@@ -110,8 +100,7 @@ fun PendingApprovalScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    val current = state
-                    when (current) {
+                    when (val current = state) {
                         PendingApprovalUiState.Waiting -> {
                             ListenUpLoadingIndicator()
 
@@ -133,44 +122,32 @@ fun PendingApprovalScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.primary,
                             )
-
-                            Text(
-                                text = stringResource(Res.string.auth_youll_be_automatically_signed_in),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
                         }
 
-                        PendingApprovalUiState.LoggingIn -> {
-                            ListenUpLoadingIndicator()
-
+                        PendingApprovalUiState.Approved -> {
                             Text(
                                 text = stringResource(Res.string.auth_approved),
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
 
-                            Text(
-                                text = stringResource(Res.string.auth_signing_you_in),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Button(
+                                onClick = {
+                                    viewModel.acknowledgeApproval()
+                                    onNavigateToLogin()
+                                },
+                            ) {
+                                Text(stringResource(Res.string.auth_sign_in))
+                            }
                         }
 
-                        PendingApprovalUiState.LoginSuccess -> {
-                            // Will navigate automatically via AuthState
-                            ListenUpLoadingIndicator()
-                        }
-
-                        is PendingApprovalUiState.ApprovedManualLogin,
-                        is PendingApprovalUiState.Denied,
-                        -> {
-                            // Handled via snackbar and navigation
+                        is PendingApprovalUiState.Denied -> {
+                            // Handled via snackbar + navigation in LaunchedEffect above.
+                            @Suppress("UnusedExpression")
+                            current
                         }
                     }
 
-                    // Cancel button (only show when waiting)
                     if (state == PendingApprovalUiState.Waiting) {
                         Spacer(modifier = Modifier.height(8.dp))
 
