@@ -41,7 +41,7 @@ class PasswordHasher(
         private const val SALT_BYTES = 16
         private const val ARGON_VERSION = 19
 
-        val DEFAULT: Argon2Function =
+        private val DEFAULT: Argon2Function =
             Argon2Function.getInstance(
                 MEMORY_KIB,
                 ITERATIONS,
