@@ -38,42 +38,50 @@ import org.koin.dsl.module
  *    to call `AuthSession.saveAuthTokens` on a successful claim. Tracked for
  *    its own migration phase.
  */
-val clientAuthModule: Module =
-    module {
-        // Token storage + AuthState derivation. AuthSessionStore depends on
-        // ServerConfig (to read the URL during state derivation); the settings
-        // impl in `dataModule` depends back on AuthSession (set-URL/disconnect
-        // updates auth state). The cycle is real and resolved by Koin's lazy
-        // single mechanism — see the comments at the SettingsRepositoryImpl
-        // binding in Koin.kt.
-        singleOf(::AuthSessionStore) bind AuthSession::class
+val clientAuthModule: Module
+    // Defined as a getter (not a backing field) so each access produces a fresh
+    // [Module] with its own instance cache. Koin 4 caches singletons on the
+    // `InstanceFactory` instances inside the [Module], not on the [Koin]
+    // container — so reusing a single [Module] value across multiple
+    // `koinApplication { }` scopes (as F12's per-test fixtures need to) would
+    // share singletons across scopes. Production wires Koin once at startup,
+    // so the getter cost is paid once there too.
+    get() =
+        module {
+            // Token storage + AuthState derivation. AuthSessionStore depends on
+            // ServerConfig (to read the URL during state derivation); the settings
+            // impl in `dataModule` depends back on AuthSession (set-URL/disconnect
+            // updates auth state). The cycle is real and resolved by Koin's lazy
+            // single mechanism — see the comments at the SettingsRepositoryImpl
+            // binding in Koin.kt.
+            singleOf(::AuthSessionStore) bind AuthSession::class
 
-        // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.
-        // Cached per mount; invalidated alongside ApiClientFactory whenever
-        // the underlying HttpClient is recycled (server URL change). The
-        // invalidation handshake lives at the ServerRepository binding in
-        // Koin.kt — when you add another remote cache, drop an
-        // `invalidate()` call there too.
-        singleOf(::AuthRpcFactory)
+            // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.
+            // Cached per mount; invalidated alongside ApiClientFactory whenever
+            // the underlying HttpClient is recycled (server URL change). The
+            // invalidation handshake lives at the ServerRepository binding in
+            // Koin.kt — when you add another remote cache, drop an
+            // `invalidate()` call there too.
+            singleOf(::AuthRpcFactory)
 
-        // Thin RPC adapter — translates contract calls into typed AppResult.
-        singleOf(::AuthRepositoryImpl) bind AuthRepository::class
+            // Thin RPC adapter — translates contract calls into typed AppResult.
+            singleOf(::AuthRepositoryImpl) bind AuthRepository::class
 
-        // SSE stream for the pending-approval flow.
-        singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class
+            // SSE stream for the pending-approval flow.
+            singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class
 
-        // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here
-        // by the concrete PlaybackManager that implements it — we keep the
-        // long-form factory so the type narrowing is explicit.
-        factoryOf(::LoginUseCase)
-        factoryOf(::RegisterUseCase)
-        factoryOf(::SetupUseCase)
-        factory {
-            LogoutUseCase(
-                authRepository = get(),
-                authSession = get(),
-                userRepository = get(),
-                playbackStateProvider = get<PlaybackManager>(),
-            )
+            // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here
+            // by the concrete PlaybackManager that implements it — we keep the
+            // long-form factory so the type narrowing is explicit.
+            factoryOf(::LoginUseCase)
+            factoryOf(::RegisterUseCase)
+            factoryOf(::SetupUseCase)
+            factory {
+                LogoutUseCase(
+                    authRepository = get(),
+                    authSession = get(),
+                    userRepository = get(),
+                    playbackStateProvider = get<PlaybackManager>(),
+                )
+            }
         }
-    }

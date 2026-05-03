@@ -76,6 +76,12 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(libs.kotlinx.rpc.krpc.client)
     testImplementation(libs.kotlinx.rpc.krpc.ktor.client)
+
+    // F12 end-to-end auth fixture: real CIO HttpClient + bearer-auth plugin
+    // for the DI-wired client graph that exercises the contract end-to-end.
+    testImplementation(libs.ktor.client.cio)
+    testImplementation(libs.ktor.client.auth)
+    testImplementation(libs.mokkery.runtime)
 }
 
 kotlin {

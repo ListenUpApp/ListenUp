@@ -31,7 +31,7 @@ import kotlinx.rpc.withService
  * the REST surface and contract round-trip tests use. One wire format,
  * two transports.
  */
-class AuthRpcFactory(
+open class AuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) {
@@ -69,7 +69,14 @@ class AuthRpcFactory(
         return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<AuthServiceAuthed>()
     }
 
-    private suspend fun rpcClient(): HttpClient =
+    /**
+     * Open hook for [AuthEndToEndFixture]: F12 needs to substitute a clean
+     * WebSocket-capable [HttpClient] because [ApiClientFactory]'s `HttpSend`
+     * interceptor mangles the kotlinx.rpc upgrade handshake (URL gets rewritten
+     * before the WebSocket upgrade headers are negotiated). Production fix
+     * tracked separately; the override seam stays narrow on purpose.
+     */
+    protected open suspend fun rpcClient(): HttpClient =
         cachedRpcClient ?: apiClientFactory
             .getClient()
             .config {
@@ -78,7 +85,15 @@ class AuthRpcFactory(
                 }
             }.also { cachedRpcClient = it }
 
-    private suspend fun requireBaseUrl(): String =
+    /**
+     * Open hook for [AuthEndToEndFixture]: the base URL used to build the
+     * `rpc(url)` call. Production composes `serverConfig.getActiveUrl()`
+     * (an `http://` URL) with `/api/rpc/public|authed`. F12 needs `ws://`
+     * because kotlinx.rpc 0.10.x does not auto-upgrade scheme — see the
+     * working pattern in `PluginSmokeTest`. Production fix tracked
+     * separately.
+     */
+    protected open suspend fun requireBaseUrl(): String =
         serverConfig.getActiveUrl()?.value
             ?: error("Server URL not configured — cannot open RPC connection")
 }
