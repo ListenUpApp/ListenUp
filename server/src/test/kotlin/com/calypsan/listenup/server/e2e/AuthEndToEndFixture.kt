@@ -1,21 +1,13 @@
 package com.calypsan.listenup.server.e2e
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.di.clientAuthModule
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.server.module
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO as ClientCIO
-import io.ktor.client.plugins.auth.Auth
-import io.ktor.client.plugins.auth.providers.BearerTokens
-import io.ktor.client.plugins.auth.providers.bearer
-import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.server.cio.CIO
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.engine.EmbeddedServer
@@ -23,8 +15,6 @@ import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.runBlocking
-import kotlinx.rpc.krpc.ktor.client.installKrpc
-import kotlinx.rpc.krpc.serialization.json.json
 import org.koin.core.KoinApplication
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -32,28 +22,29 @@ import java.nio.file.Files
 
 /**
  * Fixture that boots a real `Application.module()` on a CIO engine listening on
- * an OS-chosen port, then wires a client-side Koin scope around `clientAuthModule`
- * with test-side substitutes for every transitive dependency:
+ * an OS-chosen port, then resolves the real client `AuthRepository` from a
+ * Koin scope wired with the production [clientAuthModule] plus a small test
+ * infra module supplying the platform leaves the auth flow needs:
  *
  * | Dependency             | Strategy                                                 |
  * |------------------------|----------------------------------------------------------|
  * | `Application.module()` | Real, against a fresh tmp SQLite file                    |
  * | `AuthSession`          | Real `AuthSessionStore` from `clientAuthModule`          |
  * | `AuthRepository`       | Real `AuthRepositoryImpl` from `clientAuthModule`        |
- * | `AuthRpcFactory`       | [TestAuthRpcFactory] subclass — overrides `rpcClient()`  |
- * |                        | + `requireBaseUrl()` to sidestep two production bugs F12 |
- * |                        | uncovered (see binding comment + `TestAuthRpcFactory`).  |
- * | `ApiClientFactory`     | Real (constructed by Koin) — present for the auth        |
- * |                        | refresh seam wiring, not exercised by tests.             |
+ * | `AuthRpcFactory`       | Real, talking over the bearer-equipped `ApiClientFactory`|
+ * |                        | client + `installKrpc` — the production graph            |
+ * | `ApiClientFactory`     | Real, bearer + retry + HttpSend wired against the test   |
+ * |                        | server URL                                               |
  * | `SecureStorage`        | [InMemorySecureStorage]                                  |
  * | `ServerConfig`         | [TestServerConfig] returning the embedded URL            |
  * | `InstanceRepository`   | [StubInstanceRepository] — auth flow doesn't read it     |
- * | `UserRepository` /     | Not bound — `LoginUseCase`/`LogoutUseCase` aren't        |
- * | `PlaybackManager`      | resolved by F12; the tests call `AuthRepository` direct  |
+ * | `UserRepository` /     | Not bound — `LoginUseCase` / `LogoutUseCase` aren't      |
+ * | `PlaybackManager`      | resolved by F12; tests call `AuthRepository` direct      |
  *
  * The test exercises the full client→server round-trip, including kotlinx.rpc
  * serialization, JWT signing, refresh-token rotation, and Exposed/SQLite
- * persistence — the full contract boundary.
+ * persistence — the full contract boundary, with NO test-only overrides on
+ * the contract path. Anything that breaks here breaks production identically.
  */
 internal class AuthEndToEndFixture private constructor(
     private val server: EmbeddedServer<*, *>,
@@ -124,7 +115,6 @@ internal class AuthEndToEndFixture private constructor(
 
         private fun testInfraModule(baseUrl: String) =
             module {
-                // Bindings the auth flow actually exercises.
                 single<SecureStorage> { InMemorySecureStorage() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
                 single<InstanceRepository> { StubInstanceRepository() }
@@ -133,46 +123,6 @@ internal class AuthEndToEndFixture private constructor(
                         serverConfig = get(),
                         authSession = get(),
                         refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
-                    )
-                }
-                // Override `clientAuthModule`'s `AuthRpcFactory` binding with a
-                // test subclass that uses a clean CIO `HttpClient` with `installKrpc`.
-                // Production's `ApiClientFactory.HttpSend` interceptor rewrites the
-                // request URL before kotlinx.rpc's WebSocket upgrade can negotiate,
-                // breaking the rpc layer end-to-end. Tracked as an F12-discovered
-                // production bug; until fixed, the test pins the contract via this
-                // narrow override.
-                single<AuthRpcFactory> {
-                    val authSession: AuthSession = get()
-                    val rpcHttpClient =
-                        HttpClient(ClientCIO) {
-                            install(WebSockets)
-                            // Authed RPC mount expects a Bearer token on the WebSocket
-                            // upgrade request. `loadTokens` reads from `AuthSession` —
-                            // populated by the test's `bootstrap()` helper.
-                            install(Auth) {
-                                bearer {
-                                    loadTokens {
-                                        val access = authSession.getAccessToken()?.value
-                                        val refresh = authSession.getRefreshToken()?.value
-                                        if (access != null && refresh != null) {
-                                            BearerTokens(accessToken = access, refreshToken = refresh)
-                                        } else {
-                                            null
-                                        }
-                                    }
-                                    // No refreshTokens — the test exercises refresh
-                                    // explicitly via `AuthRepository.refreshAccessToken()`.
-                                    sendWithoutRequest { true }
-                                }
-                            }
-                            installKrpc { serialization { json(contractJson) } }
-                        }
-                    TestAuthRpcFactory(
-                        apiClientFactory = get(),
-                        serverConfig = get(),
-                        rpcHttpClient = rpcHttpClient,
-                        wsBaseUrl = baseUrl.replaceFirst("http://", "ws://"),
                     )
                 }
                 // `UserRepository` and `PlaybackManager` are only needed by
@@ -185,27 +135,4 @@ internal class AuthEndToEndFixture private constructor(
         private const val JWT_SECRET_LENGTH = 32
         private const val REFRESH_PEPPER_LENGTH = 32
     }
-}
-
-/**
- * Test subclass of [AuthRpcFactory] — overrides:
- *  - `rpcClient()` to return a hand-built CIO client with [installKrpc] +
- *    explicit `WebSockets` plugin, sidestepping `ApiClientFactory`'s
- *    `HttpSend` interceptor.
- *  - `requireBaseUrl()` to return a `ws://` URL — kotlinx.rpc 0.10.x does
- *    not auto-upgrade `http://` to the WebSocket scheme. See `PluginSmokeTest`
- *    for the working pattern.
- *
- * Both overrides surface production bugs in the AuthRpcFactory ↔ ApiClientFactory
- * seam that F12 is the first test to exercise. Tracked for a follow-up fix.
- */
-private class TestAuthRpcFactory(
-    apiClientFactory: ApiClientFactory,
-    serverConfig: ServerConfig,
-    private val rpcHttpClient: HttpClient,
-    private val wsBaseUrl: String,
-) : AuthRpcFactory(apiClientFactory, serverConfig) {
-    override suspend fun rpcClient(): HttpClient = rpcHttpClient
-
-    override suspend fun requireBaseUrl(): String = wsBaseUrl
 }

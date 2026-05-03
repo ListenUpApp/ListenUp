@@ -31,7 +31,7 @@ import kotlinx.rpc.withService
  * the REST surface and contract round-trip tests use. One wire format,
  * two transports.
  */
-open class AuthRpcFactory(
+class AuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) {
@@ -60,23 +60,16 @@ open class AuthRpcFactory(
     }
 
     private suspend fun connectPublic(): AuthServicePublic {
-        val baseUrl = requireBaseUrl()
+        val baseUrl = rpcBaseUrl()
         return rpcClient().rpc("$baseUrl/api/rpc/public").withService<AuthServicePublic>()
     }
 
     private suspend fun connectAuthed(): AuthServiceAuthed {
-        val baseUrl = requireBaseUrl()
+        val baseUrl = rpcBaseUrl()
         return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<AuthServiceAuthed>()
     }
 
-    /**
-     * Open hook for [AuthEndToEndFixture]: F12 needs to substitute a clean
-     * WebSocket-capable [HttpClient] because [ApiClientFactory]'s `HttpSend`
-     * interceptor mangles the kotlinx.rpc upgrade handshake (URL gets rewritten
-     * before the WebSocket upgrade headers are negotiated). Production fix
-     * tracked separately; the override seam stays narrow on purpose.
-     */
-    protected open suspend fun rpcClient(): HttpClient =
+    private suspend fun rpcClient(): HttpClient =
         cachedRpcClient ?: apiClientFactory
             .getClient()
             .config {
@@ -85,15 +78,29 @@ open class AuthRpcFactory(
                 }
             }.also { cachedRpcClient = it }
 
-    /**
-     * Open hook for [AuthEndToEndFixture]: the base URL used to build the
-     * `rpc(url)` call. Production composes `serverConfig.getActiveUrl()`
-     * (an `http://` URL) with `/api/rpc/public|authed`. F12 needs `ws://`
-     * because kotlinx.rpc 0.10.x does not auto-upgrade scheme — see the
-     * working pattern in `PluginSmokeTest`. Production fix tracked
-     * separately.
-     */
-    protected open suspend fun requireBaseUrl(): String =
-        serverConfig.getActiveUrl()?.value
-            ?: error("Server URL not configured — cannot open RPC connection")
+    private suspend fun rpcBaseUrl(): String {
+        val httpUrl =
+            serverConfig.getActiveUrl()?.value
+                ?: error("Server URL not configured — cannot open RPC connection")
+        return toWebSocketScheme(httpUrl)
+    }
 }
+
+/**
+ * Translate an HTTP-scheme URL into its WebSocket equivalent. kotlinx.rpc
+ * 0.10.x's `client.rpc(url)` opens a WebSocket session and does NOT
+ * auto-upgrade `http://` → `ws://`; passing the raw HTTP URL produces a
+ * plain GET that the server rejects with 400. The translation lives in the
+ * RPC layer (not on `ServerConfig`) because the WS scheme is an RPC-transport
+ * concern — REST callers want the unmodified URL.
+ *
+ * Visibility is `internal` so unit tests can pin every branch (this is the
+ * regression net for the F12-discovered production bug).
+ */
+internal fun toWebSocketScheme(httpUrl: String): String =
+    when {
+        httpUrl.startsWith("https://") -> "wss://" + httpUrl.removePrefix("https://")
+        httpUrl.startsWith("http://") -> "ws://" + httpUrl.removePrefix("http://")
+        httpUrl.startsWith("ws://") || httpUrl.startsWith("wss://") -> httpUrl
+        else -> error("Server URL has unsupported scheme: $httpUrl")
+    }
