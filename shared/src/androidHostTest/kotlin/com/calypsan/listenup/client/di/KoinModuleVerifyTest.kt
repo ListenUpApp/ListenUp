@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.local.db.UserStatsDao
 import com.calypsan.listenup.client.data.local.images.CoverColorExtractor
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.AuthApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreApiContract
@@ -153,7 +152,6 @@ class KoinModuleVerifyTest {
                     LocalPreferences::class,
                     // Repositories and APIs from other modules
                     InstanceRepository::class,
-                    AuthApiContract::class,
                     ApiClientFactory::class,
                     InstanceApiContract::class,
                     BookApiContract::class,

@@ -19,8 +19,6 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.AuthApi
-import com.calypsan.listenup.client.data.remote.AuthApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreApi
@@ -312,14 +310,6 @@ val dataModule =
  */
 val networkModule =
     module {
-        // AuthApi - handles login, logout, and token refresh
-        // Gets server URL dynamically from ServerConfig
-        // Bind to both concrete type and interface
-        single {
-            val serverConfig: ServerConfig = get()
-            AuthApi(getServerUrl = { serverConfig.getServerUrl() })
-        } bind AuthApiContract::class
-
         // InviteApi - handles public invite operations (no auth required)
         // Server URL comes from deep link, not stored settings
         single { InviteApi() } bind InviteApiContract::class
@@ -1524,9 +1514,8 @@ val syncModule =
             UserProfileRepositoryImpl(userProfileDao = get())
         }
 
-        // AuthRepository — thin RPC adapter over AuthRpcFactory; replaces the
-        // REST-shaped AuthApi indirection (deleted in F9). UseCases consume the
-        // typed AppResult<*> contract directly.
+        // AuthRepository — thin RPC adapter over AuthRpcFactory.
+        // UseCases consume the typed AppResult<*> contract directly.
         single<AuthRepository> {
             AuthRepositoryImpl(rpc = get(), authSession = get())
         }

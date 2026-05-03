@@ -5,8 +5,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.data.remote.AuthUser
 import com.calypsan.listenup.client.data.remote.InviteApiContract
+import com.calypsan.listenup.client.data.remote.InviteClaimedUser
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -60,7 +60,7 @@ private fun ApiInviteDetails.toDomain(): InviteDetails =
     )
 
 @OptIn(ExperimentalTime::class)
-private fun AuthUser.toDomain(): User =
+private fun InviteClaimedUser.toDomain(): User =
     User(
         id = UserId(id),
         email = email,
