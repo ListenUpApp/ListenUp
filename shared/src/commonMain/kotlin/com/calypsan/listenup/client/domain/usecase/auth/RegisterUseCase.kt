@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -57,8 +58,8 @@ open class RegisterUseCase(
         }
 
         // Validate password length
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            return validationError("Password must be at least $MIN_PASSWORD_LENGTH characters")
+        if (password.length < PASSWORD_MIN) {
+            return validationError("Password must be at least $PASSWORD_MIN characters")
         }
 
         // Validate first name
@@ -111,7 +112,6 @@ open class RegisterUseCase(
 
     private companion object {
         const val MAX_EMAIL_LENGTH = 254
-        const val MIN_PASSWORD_LENGTH = 8
         val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
     }
 }

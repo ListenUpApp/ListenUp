@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.invite
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
@@ -76,7 +77,7 @@ class InviteRegistrationViewModel(
     ) {
         val details = currentDetails() ?: return
 
-        if (password.length < MIN_PASSWORD_LENGTH) {
+        if (password.length < PASSWORD_MIN) {
             _state.value =
                 InviteRegistrationUiState.SubmitError(
                     details = details,
@@ -127,10 +128,6 @@ class InviteRegistrationViewModel(
         if (current is InviteRegistrationUiState.SubmitError) {
             _state.value = InviteRegistrationUiState.Ready(current.details)
         }
-    }
-
-    companion object {
-        private const val MIN_PASSWORD_LENGTH = 8
     }
 
     private fun currentDetails(): InviteDetails? =

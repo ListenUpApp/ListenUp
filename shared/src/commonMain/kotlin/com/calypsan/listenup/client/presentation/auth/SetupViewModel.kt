@@ -1,9 +1,8 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -61,7 +60,7 @@ class SetupViewModel(
             return
         }
 
-        if (password.length < 8) {
+        if (password.length < PASSWORD_MIN) {
             _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.PASSWORD))
             return
         }
