@@ -133,7 +133,7 @@ class AuthDtoContractTest :
                         User(UserId("u"), "a@b", "A", UserRole.MEMBER, UserStatus.ACTIVE, 1),
                     ),
                 )
-            val pending: RegisterResult = RegisterResult.PendingApproval
+            val pending: RegisterResult = RegisterResult.PendingApproval(userId = UserId("u"))
 
             contractJson.decodeFromString<RegisterResult>(contractJson.encodeToString(authed)) shouldBe authed
             contractJson.decodeFromString<RegisterResult>(contractJson.encodeToString(pending)) shouldBe pending

@@ -14,7 +14,15 @@ sealed interface RegisterResult {
         val session: AuthSession,
     ) : RegisterResult
 
-    /** Account created in PENDING_APPROVAL; admin must approve before login. */
+    /**
+     * Account created in PENDING_APPROVAL; admin must approve before login.
+     *
+     * Carries the server-issued `userId` so the client can subscribe to the
+     * SSE registration-status stream (keyed by user id) and prompt re-login
+     * when the account is approved.
+     */
     @Serializable
-    data object PendingApproval : RegisterResult
+    data class PendingApproval(
+        val userId: UserId,
+    ) : RegisterResult
 }

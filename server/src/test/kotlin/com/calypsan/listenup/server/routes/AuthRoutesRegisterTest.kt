@@ -90,7 +90,8 @@ class AuthRoutesRegisterTest :
                 r
                     .body<AppResult<RegisterResult>>()
                     .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
-                    .data shouldBe RegisterResult.PendingApproval
+                    .data
+                    .shouldBeInstanceOf<RegisterResult.PendingApproval>()
             }
         }
 

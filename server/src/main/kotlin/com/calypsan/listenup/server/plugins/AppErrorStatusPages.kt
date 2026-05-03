@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.plugins
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -57,6 +58,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is AuthError.RateLimited -> HttpStatusCode.TooManyRequests
         is AuthError.WeakPassword -> HttpStatusCode.BadRequest
         is AuthError.PermissionDenied -> HttpStatusCode.Forbidden
+        is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
     }
 
@@ -76,5 +78,6 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is AuthError.RateLimited -> copy(correlationId = id)
         is AuthError.WeakPassword -> copy(correlationId = id)
         is AuthError.PermissionDenied -> copy(correlationId = id)
+        is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
     }

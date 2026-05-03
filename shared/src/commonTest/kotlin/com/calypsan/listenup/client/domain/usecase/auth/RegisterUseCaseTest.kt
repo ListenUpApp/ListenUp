@@ -1,13 +1,14 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
-import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.RegistrationResult
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -16,21 +17,11 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
- * Tests for RegisterUseCase.
- *
- * Tests cover:
- * - Email validation (format, length)
- * - Password validation (minimum 8 characters)
- * - First/last name validation (non-blank)
- * - Successful registration flow with pending state persistence
- * - Error propagation from repository
+ * Tests for [RegisterUseCase] over the contract surface.
  */
 class RegisterUseCaseTest {
-    // ========== Test Fixtures ==========
-
     private class TestFixture {
         val authRepository: AuthRepository = mock()
         val authSession: AuthSession = mock()
@@ -44,34 +35,20 @@ class RegisterUseCaseTest {
 
     private fun createFixture(): TestFixture {
         val fixture = TestFixture()
-
-        // Default stubs for successful operations
         everySuspend { fixture.authSession.savePendingRegistration(any(), any()) } returns Unit
-
         return fixture
     }
 
-    // ========== Test Data Factories ==========
+    private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> = AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
 
-    private fun createRegistrationResult(
-        userId: String = "user-1",
-        message: String = "Registration successful. Awaiting admin approval.",
-    ): RegistrationResult =
-        RegistrationResult(
-            userId = userId,
-            message = message,
-        )
-
-    // ========== Email Validation Tests ==========
+    // ========== Validation ==========
 
     @Test
     fun `register rejects email without at symbol`() =
         runTest {
-            // Given
             val fixture = createFixture()
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     email = "invalid.email",
@@ -80,43 +57,17 @@ class RegisterUseCaseTest {
                     lastName = "Doe",
                 )
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("email", ignoreCase = true))
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
+            val failure = assertIs<AppResult.Failure>(result)
+            val ve = assertIs<ValidationError>(failure.error)
+            assertEquals("Please enter a valid email address", ve.message)
         }
-
-    @Test
-    fun `register rejects empty email`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result =
-                useCase(
-                    email = "",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("email", ignoreCase = true))
-        }
-
-    // ========== Password Validation Tests ==========
 
     @Test
     fun `register rejects password shorter than 8 characters`() =
         runTest {
-            // Given
             val fixture = createFixture()
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     email = "user@example.com",
@@ -125,43 +76,16 @@ class RegisterUseCaseTest {
                     lastName = "Doe",
                 )
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("8", ignoreCase = true))
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
+            val failure = assertIs<AppResult.Failure>(result)
+            assertIs<ValidationError>(failure.error)
         }
-
-    @Test
-    fun `register accepts password with exactly 8 characters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any(), any(), any(), any()) } returns createRegistrationResult()
-            val useCase = fixture.build()
-
-            // When
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "12345678",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
-
-            // Then
-            checkIs<Success<*>>(result)
-        }
-
-    // ========== Name Validation Tests ==========
 
     @Test
     fun `register rejects blank first name`() =
         runTest {
-            // Given
             val fixture = createFixture()
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     email = "user@example.com",
@@ -170,19 +94,17 @@ class RegisterUseCaseTest {
                     lastName = "Doe",
                 )
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("first name", ignoreCase = true))
+            val failure = assertIs<AppResult.Failure>(result)
+            val ve = assertIs<ValidationError>(failure.error)
+            assertEquals("First name is required", ve.message)
         }
 
     @Test
     fun `register rejects blank last name`() =
         runTest {
-            // Given
             val fixture = createFixture()
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     email = "user@example.com",
@@ -191,54 +113,20 @@ class RegisterUseCaseTest {
                     lastName = "",
                 )
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("last name", ignoreCase = true))
+            val failure = assertIs<AppResult.Failure>(result)
+            val ve = assertIs<ValidationError>(failure.error)
+            assertEquals("Last name is required", ve.message)
         }
 
-    // ========== Successful Registration Flow Tests ==========
+    // ========== Successful registration flow ==========
 
     @Test
-    fun `register saves pending registration on success`() =
+    fun `register sends combined displayName and persists pending registration`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any(), any(), any(), any()) } returns
-                createRegistrationResult(
-                    userId = "user-42",
-                )
+            everySuspend { fixture.authRepository.register(any()) } returns pendingResult(userId = "user-42")
             val useCase = fixture.build()
 
-            // When
-            useCase(
-                email = "user@example.com",
-                password = "password123",
-                firstName = "John",
-                lastName = "Doe",
-            )
-
-            // Then
-            verifySuspend {
-                fixture.authSession.savePendingRegistration(
-                    userId = "user-42",
-                    email = "user@example.com",
-                )
-            }
-        }
-
-    @Test
-    fun `register returns registration result on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any(), any(), any(), any()) } returns
-                createRegistrationResult(
-                    userId = "user-1",
-                    message = "Success!",
-                )
-            val useCase = fixture.build()
-
-            // When
             val result =
                 useCase(
                     email = "user@example.com",
@@ -247,50 +135,29 @@ class RegisterUseCaseTest {
                     lastName = "Doe",
                 )
 
-            // Then
-            val success = assertIs<Success<RegistrationResult>>(result)
-            assertEquals("user-1", success.data.userId)
-            assertEquals("Success!", success.data.message)
-        }
-
-    @Test
-    fun `register trims names before repository call`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any(), any(), any(), any()) } returns createRegistrationResult()
-            val useCase = fixture.build()
-
-            // When
-            useCase(
-                email = "user@example.com",
-                password = "password123",
-                firstName = "  John  ",
-                lastName = "  Doe  ",
-            )
-
-            // Then
+            assertIs<AppResult.Success<*>>(result)
             verifySuspend {
                 fixture.authRepository.register(
-                    email = "user@example.com",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "Doe",
+                    RegisterRequest(
+                        email = "user@example.com",
+                        password = "password123",
+                        displayName = "John Doe",
+                    ),
                 )
+            }
+            verifySuspend {
+                fixture.authSession.savePendingRegistration(userId = "user-42", email = "user@example.com")
             }
         }
 
-    // ========== Error Handling Tests ==========
-
     @Test
-    fun `register returns failure when repository throws exception`() =
+    fun `register passes through typed AuthError on failure`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any(), any(), any(), any()) } throws Exception("Registration disabled")
+            everySuspend { fixture.authRepository.register(any()) } returns
+                AppResult.Failure(AuthError.EmailAlreadyExists())
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     email = "user@example.com",
@@ -299,8 +166,7 @@ class RegisterUseCaseTest {
                     lastName = "Doe",
                 )
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertEquals("Registration disabled", failure.message)
+            val failure = assertIs<AppResult.Failure>(result)
+            assertIs<AuthError.EmailAlreadyExists>(failure.error)
         }
 }

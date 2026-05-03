@@ -100,12 +100,15 @@ class AuthServiceImplTest :
             }
         }
 
-        test("register on an APPROVAL_QUEUE instance returns PendingApproval") {
+        test("register on an APPROVAL_QUEUE instance returns PendingApproval with the new user id") {
             val svc = newSvc(policy = RegistrationPolicy.APPROVAL_QUEUE)
             runTest {
                 svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
                 val out = svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
-                out shouldBe RegisterResult.PendingApproval
+                val pending = out.shouldBeInstanceOf<RegisterResult.PendingApproval>()
+                pending.userId.value
+                    .isNotEmpty()
+                    .shouldBe(true)
             }
         }
 

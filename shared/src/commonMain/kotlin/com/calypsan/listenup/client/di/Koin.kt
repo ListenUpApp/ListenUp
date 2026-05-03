@@ -201,6 +201,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUse
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
+import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
@@ -322,6 +323,15 @@ val networkModule =
         // InviteApi - handles public invite operations (no auth required)
         // Server URL comes from deep link, not stored settings
         single { InviteApi() } bind InviteApiContract::class
+
+        // InviteRepository - REST-backed; persists tokens and user on successful claim
+        single<com.calypsan.listenup.client.domain.repository.InviteRepository> {
+            com.calypsan.listenup.client.data.repository.InviteRepositoryImpl(
+                inviteApi = get(),
+                authSession = get(),
+                userRepository = get(),
+            )
+        }
 
         // ApiClientFactory - creates authenticated HTTP clients with auto-refresh
         single {
@@ -485,6 +495,13 @@ val useCaseModule =
                 authSession = get(),
                 userRepository = get(),
                 playbackStateProvider = get<PlaybackManager>(),
+            )
+        }
+        factory {
+            SetupUseCase(
+                authRepository = get(),
+                authSession = get(),
+                userRepository = get(),
             )
         }
 
@@ -1500,9 +1517,11 @@ val syncModule =
             UserProfileRepositoryImpl(userProfileDao = get())
         }
 
-        // AuthRepository for authentication operations (SOLID: interface in domain, impl in data)
+        // AuthRepository — thin RPC adapter over AuthRpcFactory; replaces the
+        // REST-shaped AuthApi indirection (deleted in F9). UseCases consume the
+        // typed AppResult<*> contract directly.
         single<AuthRepository> {
-            AuthRepositoryImpl(authApi = get())
+            AuthRepositoryImpl(rpc = get())
         }
 
         // RegistrationStatusStream for SSE streaming during registration approval

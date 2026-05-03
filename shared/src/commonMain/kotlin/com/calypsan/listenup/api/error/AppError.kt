@@ -22,3 +22,19 @@ sealed interface AppError {
 data class InternalError(
     override val correlationId: String? = null,
 ) : AppError
+
+/**
+ * Input failed validation — surfaces both client-side pre-flight checks
+ * (e.g. "email format invalid", "password too short") and server-side
+ * `init`-block violations on `@Serializable` requests. `message` is
+ * user-facing and field-agnostic; UI consumers display it directly.
+ *
+ * Distinct from typed domain errors like `AuthError.InvalidCredentials`:
+ * `ValidationError` means "your input is malformed," not "the server
+ * rejected your credentials."
+ */
+@Serializable
+data class ValidationError(
+    val message: String,
+    override val correlationId: String? = null,
+) : AppError

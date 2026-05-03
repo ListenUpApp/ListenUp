@@ -2,11 +2,13 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
-import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,24 +17,19 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for the root user setup screen.
  *
- * Handles validation and submission of the initial admin account creation.
- * On success, stores auth tokens which triggers AuthState.Authenticated,
- * causing automatic navigation to the Library screen.
+ * Validation runs client-side before submit so we can map field-specific
+ * `ValidationError` failures from [SetupUseCase] back to the right
+ * [SetupField]. On success the use case persists tokens (flipping
+ * `AuthState` to `Authenticated`) and the screen finishes via the
+ * resulting nav transition.
  */
 class SetupViewModel(
-    private val authRepository: AuthRepository,
+    private val setupUseCase: SetupUseCase,
     private val authSession: AuthSession,
-    private val userRepository: UserRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow<SetupUiState>(SetupUiState.Idle)
     val state: StateFlow<SetupUiState> = _state.asStateFlow()
 
-    /**
-     * Submit the setup form to create the root user.
-     *
-     * Performs client-side validation before making the network request.
-     * On success, stores tokens and navigation happens automatically via AuthState.
-     */
     fun onSetupSubmit(
         firstName: String,
         lastName: String,
@@ -40,107 +37,58 @@ class SetupViewModel(
         password: String,
         passwordConfirm: String,
     ) {
-        // Client-side validation
-        val trimmedFirstName = firstName.trim()
-        val trimmedLastName = lastName.trim()
-        val trimmedEmail = email.trim()
-
-        if (trimmedFirstName.isBlank()) {
-            _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.FIRST_NAME))
-            return
-        }
-
-        if (trimmedLastName.isBlank()) {
-            _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.LAST_NAME))
-            return
-        }
-
-        if (!isValidEmail(trimmedEmail)) {
-            _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.EMAIL))
-            return
-        }
-
-        if (password.length < PASSWORD_MIN) {
-            _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.PASSWORD))
-            return
-        }
-
         if (password != passwordConfirm) {
             _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.PASSWORD_CONFIRM))
             return
         }
 
-        // Submit to server
         viewModelScope.launch {
             _state.value = SetupUiState.Loading
-
-            try {
-                val result =
-                    authRepository.setup(
-                        email = trimmedEmail,
-                        password = password,
-                        firstName = trimmedFirstName,
-                        lastName = trimmedLastName,
-                    )
-
-                // Store tokens - this triggers AuthState.Authenticated
-                authSession.saveAuthTokens(
-                    access = result.accessToken,
-                    refresh = result.refreshToken,
-                    sessionId = result.sessionId,
-                    userId = result.userId,
-                )
-
-                // Save user data to local database for avatar display
-                userRepository.saveUser(result.user)
-
-                _state.value = SetupUiState.Success
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ErrorBus.emit(e)
-                val errorType = e.toSetupErrorType()
-
-                // If server is already configured, refresh auth state to navigate to login.
-                // This handles the case where setup request timed out but server completed it.
-                // Implements the "never stranded" principle - user can proceed to login.
-                if (errorType == SetupErrorType.AlreadyConfigured) {
-                    authSession.checkServerStatus()
+            val result = setupUseCase(email, password, firstName, lastName)
+            _state.value =
+                when (result) {
+                    is AppResult.Success -> SetupUiState.Success
+                    is AppResult.Failure -> handleFailure(result.error)
                 }
-
-                _state.value = SetupUiState.Error(errorType)
-            }
         }
     }
 
-    /** Clear the error state to allow retry. */
+    private suspend fun handleFailure(error: AppError): SetupUiState.Error {
+        val type =
+            when (error) {
+                is AuthError.SetupAlreadyComplete -> SetupErrorType.AlreadyConfigured
+                is AuthError.WeakPassword -> SetupErrorType.ValidationError(SetupField.PASSWORD)
+                is ValidationError -> SetupErrorType.ValidationError(error.field())
+                is InternalError -> SetupErrorType.ServerError
+                else -> SetupErrorType.ServerError
+            }
+        if (type == SetupErrorType.AlreadyConfigured) {
+            // Server already configured — refresh auth state so navigation routes the user
+            // to login instead of stranding them on the setup screen.
+            authSession.checkServerStatus()
+        }
+        return SetupUiState.Error(type)
+    }
+
     fun clearError() {
         if (_state.value is SetupUiState.Error) {
             _state.value = SetupUiState.Idle
         }
     }
-
-    /**
-     * Basic email validation.
-     */
-    private fun isValidEmail(email: String): Boolean = email.contains("@") && email.contains(".")
 }
 
 /**
- * Convert exception to semantic error type.
+ * Best-effort heuristic to map a generic [ValidationError] message back to
+ * the form field it referred to. The use case emits readable messages
+ * ("First name is required", "Please enter a valid email address", …) so
+ * this is enough for highlighting the right input. If the contract grows a
+ * structured field-validation type later, swap this for a direct lookup.
  */
-private fun Exception.toSetupErrorType(): SetupErrorType =
+private fun ValidationError.field(): SetupField =
     when {
-        message?.contains("already configured", ignoreCase = true) == true -> {
-            SetupErrorType.AlreadyConfigured
-        }
-
-        message?.contains("network", ignoreCase = true) == true ||
-            message?.contains("connection", ignoreCase = true) == true -> {
-            SetupErrorType.NetworkError
-        }
-
-        else -> {
-            SetupErrorType.ServerError
-        }
+        message.contains("first", ignoreCase = true) -> SetupField.FIRST_NAME
+        message.contains("last", ignoreCase = true) -> SetupField.LAST_NAME
+        message.contains("email", ignoreCase = true) -> SetupField.EMAIL
+        message.contains("password", ignoreCase = true) -> SetupField.PASSWORD
+        else -> SetupField.EMAIL
     }

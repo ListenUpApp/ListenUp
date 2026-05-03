@@ -58,7 +58,8 @@ class AuthRoutesDecidePendingTest :
                 setBody(RegisterRequest("pending@x", "x".repeat(8), "Pending"))
             }.body<AppResult<RegisterResult>>()
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
-                .data shouldBe RegisterResult.PendingApproval
+                .data
+                .shouldBeInstanceOf<RegisterResult.PendingApproval>()
         }
 
         fun Database.findUserIdByEmail(email: String): UserId =

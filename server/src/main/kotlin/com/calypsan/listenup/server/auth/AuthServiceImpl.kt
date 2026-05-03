@@ -121,7 +121,7 @@ class AuthServiceImpl(
 
         val outcome =
             if (user.status == UserStatusColumn.PENDING_APPROVAL) {
-                RegisterResult.PendingApproval
+                RegisterResult.PendingApproval(userId = UserId(user.id.value))
             } else {
                 RegisterResult.Authenticated(issueSession(user, label = request.sessionLabel))
             }

@@ -2,8 +2,11 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,15 +16,10 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for the login screen.
  *
- * Thin coordinator that:
- * - Manages UI state as a sealed [LoginUiState] hierarchy
- * - Delegates business logic to [LoginUseCase]
- * - Maps use case results to UI states
- *
- * On success, auth tokens are stored by the use case which triggers
- * AuthState.Authenticated, causing automatic navigation to Library.
- *
- * Note: Initial sync is handled by LibraryViewModel's intelligent auto-sync.
+ * Thin coordinator that delegates to [LoginUseCase] and folds the typed
+ * [AppResult] over the contract's [AppError] hierarchy. Failures map
+ * exhaustively — no `classifyByMessage` string-matching from the REST era,
+ * just a `when` over real types.
  */
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
@@ -29,95 +27,51 @@ class LoginViewModel(
     private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
-    /**
-     * Submit the login form with user credentials.
-     *
-     * Delegates validation and API calls to LoginUseCase.
-     * Maps results to appropriate UI states.
-     */
     fun onLoginSubmit(
         email: String,
         password: String,
     ) {
         viewModelScope.launch {
             _state.value = LoginUiState.Loading
-
-            when (val result = loginUseCase(email, password)) {
-                is Success -> _state.value = LoginUiState.Success
-                is Failure -> _state.value = LoginUiState.Error(mapFailureToErrorType(result))
-            }
+            _state.value =
+                when (val result = loginUseCase(email, password)) {
+                    is AppResult.Success -> LoginUiState.Success
+                    is AppResult.Failure -> LoginUiState.Error(result.error.toLoginErrorType())
+                }
         }
     }
 
-    /** Clear the error state to allow retry. */
     fun clearError() {
         if (_state.value is LoginUiState.Error) {
             _state.value = LoginUiState.Idle
         }
     }
-
-    /**
-     * Map use case failure to UI error type.
-     *
-     * Handles both validation errors (from use case) and network/server errors.
-     */
-    private fun mapFailureToErrorType(failure: Failure): LoginErrorType {
-        val message = failure.message
-
-        if (failure.error is com.calypsan.listenup.client.core.error.DataError) {
-            return when {
-                message.contains("email", ignoreCase = true) -> {
-                    LoginErrorType.ValidationError(LoginField.EMAIL)
-                }
-
-                message.contains("password", ignoreCase = true) -> {
-                    LoginErrorType.ValidationError(LoginField.PASSWORD)
-                }
-
-                else -> {
-                    LoginErrorType.ServerError(message)
-                }
-            }
-        }
-
-        return when (failure.error) {
-            is com.calypsan.listenup.client.core.error.NetworkError -> LoginErrorType.NetworkError(message)
-            is com.calypsan.listenup.client.core.error.AuthError -> LoginErrorType.InvalidCredentials
-            is com.calypsan.listenup.client.core.error.UnknownError -> classifyByMessage(message)
-            else -> LoginErrorType.ServerError(message)
-        }
-    }
-
-    private fun classifyByMessage(message: String): LoginErrorType {
-        val lower = message.lowercase()
-        return when {
-            "invalid credentials" in lower -> {
-                LoginErrorType.InvalidCredentials
-            }
-
-            "connection refused" in lower -> {
-                LoginErrorType.NetworkError("Connection refused. Is the server running?")
-            }
-
-            "timed out" in lower -> {
-                LoginErrorType.NetworkError("Connection timed out. Check server address.")
-            }
-
-            "unable to resolve host" in lower || "unknown host" in lower -> {
-                LoginErrorType.NetworkError("Server not found. Check the address.")
-            }
-
-            "500" in lower -> {
-                LoginErrorType.ServerError("Server error (500)")
-            }
-
-            "server error" in lower -> {
-                LoginErrorType.ServerError(message)
-            }
-
-            else -> {
-                LoginErrorType.ServerError(message)
-            }
-        }
-    }
 }
+
+private fun AppError.toLoginErrorType(): LoginErrorType =
+    when (this) {
+        is AuthError.InvalidCredentials,
+        is AuthError.AccountDenied,
+        is AuthError.PendingApproval,
+        -> LoginErrorType.InvalidCredentials
+
+        is AuthError.RateLimited -> LoginErrorType.ServerError("Too many attempts; try again in ${retryAfterSeconds}s.")
+
+        is AuthError.SessionExpired,
+        is AuthError.SessionNotFound,
+        is AuthError.InvalidRefreshToken,
+        -> LoginErrorType.ServerError(null)
+
+        is ValidationError -> LoginErrorType.ValidationError(field())
+
+        is InternalError -> LoginErrorType.NetworkError(null)
+
+        else -> LoginErrorType.ServerError(null)
+    }
+
+private fun ValidationError.field(): LoginField =
+    when {
+        message.contains("email", ignoreCase = true) -> LoginField.EMAIL
+        message.contains("password", ignoreCase = true) -> LoginField.PASSWORD
+        else -> LoginField.EMAIL
+    }

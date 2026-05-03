@@ -2,33 +2,31 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-private const val POLL_INTERVAL_MS = 5000L
-
 /**
  * ViewModel for the pending-approval screen.
  *
- * Watches the server-side approval-status stream (SSE with polling fallback)
- * and surfaces the result. There is no client-side auto-login; once the
- * registration is approved, the screen prompts the user to log in normally.
+ * Subscribes to the SSE registration-status stream keyed by user id; the
+ * screen flips to `Approved` (prompting re-login) or `Denied` based on
+ * server-side state changes. If SSE drops, we stay in `Waiting` — the
+ * user can always retry login from the manual flow.
+ *
+ * No client-side polling fallback: with the F4 product change, the user
+ * retries `login()` to validate approval; instant SSE notification is a
+ * nice-to-have, not load-bearing.
  */
 class PendingApprovalViewModel(
-    private val authRepository: AuthRepository,
     private val authSession: AuthSession,
     private val registrationStatusStream: RegistrationStatusStream,
     val userId: String,
@@ -38,7 +36,6 @@ class PendingApprovalViewModel(
     val state: StateFlow<PendingApprovalUiState> = _state.asStateFlow()
 
     private var sseJob: Job? = null
-    private var pollingJob: Job? = null
 
     init {
         connectToSSE()
@@ -47,7 +44,6 @@ class PendingApprovalViewModel(
     override fun onCleared() {
         super.onCleared()
         sseJob?.cancel()
-        pollingJob?.cancel()
     }
 
     private fun connectToSSE() {
@@ -61,9 +57,10 @@ class PendingApprovalViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    ErrorBus.emit(e)
-                    logger.warn(e) { "SSE connection failed, falling back to polling" }
-                    startPolling()
+                    logger.warn(e) {
+                        "SSE registration-status stream failed; staying in Waiting — " +
+                            "user can retry login from the manual flow"
+                    }
                 }
             }
     }
@@ -84,39 +81,6 @@ class PendingApprovalViewModel(
                 _state.value = PendingApprovalUiState.Waiting
             }
         }
-    }
-
-    private fun startPolling() {
-        pollingJob?.cancel()
-        pollingJob =
-            viewModelScope.launch {
-                while (isActive) {
-                    delay(POLL_INTERVAL_MS)
-                    try {
-                        val status = authRepository.checkRegistrationStatus(userId)
-                        logger.debug { "Poll result: status=${status.status}, approved=${status.approved}" }
-
-                        when {
-                            status.approved -> {
-                                logger.info { "Registration approved via polling" }
-                                _state.value = PendingApprovalUiState.Approved
-                                break
-                            }
-
-                            status.status == "denied" -> {
-                                logger.info { "Registration denied via polling" }
-                                handleDenied()
-                                break
-                            }
-                        }
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        ErrorBus.emit(e)
-                        logger.warn(e) { "Failed to check registration status" }
-                    }
-                }
-            }
     }
 
     private suspend fun handleDenied(message: String? = null) {

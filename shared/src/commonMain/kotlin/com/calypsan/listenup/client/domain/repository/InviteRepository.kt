@@ -1,22 +1,21 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.domain.model.InviteDetails
+import com.calypsan.listenup.client.domain.model.User
 
 /**
- * Repository contract for invite operations.
+ * Public invite operations. The server's invite surface is REST-only —
+ * the kotlinx.rpc auth contract does not yet expose invites — so this
+ * port stays exception-shaped pending a contract addition.
  *
- * Handles public invite endpoints (no authentication required).
- * Used for fetching invite details and claiming invites.
- *
- * Part of the domain layer - implementations live in the data layer.
+ * Implementations persist auth tokens internally on a successful claim
+ * (same shape as the auth use cases): callers receive the resulting
+ * [User] and the AuthState transitions automatically.
  */
 interface InviteRepository {
     /**
-     * Get invite details for the registration screen.
+     * Fetch invite details for the registration screen.
      *
-     * @param serverUrl The server URL (e.g., "https://audiobooks.example.com")
-     * @param code The invite code
-     * @return Invite details including name, email, server name, and validity
      * @throws Exception on network errors or invalid code
      */
     suspend fun getInviteDetails(
@@ -25,19 +24,17 @@ interface InviteRepository {
     ): InviteDetails
 
     /**
-     * Claim an invite by creating a new user account.
+     * Claim an invite by creating the new account.
      *
-     * On success, returns tokens and user data for session establishment.
+     * On success, auth tokens are persisted via the injected `AuthSession`
+     * (flipping `AuthState` to `Authenticated`) and the new user is saved
+     * locally. The returned [User] is the same value just persisted.
      *
-     * @param serverUrl The server URL
-     * @param code The invite code
-     * @param password The password for the new account
-     * @return LoginResult with tokens and user info
      * @throws Exception on network errors or invalid/expired invite
      */
     suspend fun claimInvite(
         serverUrl: String,
         code: String,
         password: String,
-    ): LoginResult
+    ): User
 }
