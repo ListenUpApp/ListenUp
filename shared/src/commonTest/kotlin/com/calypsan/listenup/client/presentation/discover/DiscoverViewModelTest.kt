@@ -3,8 +3,10 @@ package com.calypsan.listenup.client.presentation.discover
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -77,7 +79,7 @@ class DiscoverViewModelTest {
     }
 
     private fun createFixture(
-        authState: AuthState = AuthState.Authenticated(userId = USER_ID, sessionId = SESSION_ID),
+        authState: AuthState = AuthState.Authenticated(userId = UserId(USER_ID), sessionId = SessionId(SESSION_ID)),
         existingDiscoverShelfCount: Int = 1,
         randomBooks: List<DiscoveryBook> = emptyList(),
     ): TestFixture {

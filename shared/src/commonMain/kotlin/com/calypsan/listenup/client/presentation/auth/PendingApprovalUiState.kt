@@ -3,23 +3,16 @@ package com.calypsan.listenup.client.presentation.auth
 /**
  * UI state for the pending approval screen.
  *
- * Sealed hierarchy — the screen is always in exactly one of these states.
- * Shown while waiting for admin approval after registration.
+ * The screen waits for the server-side approval-status stream (SSE/polling)
+ * to flip the registration to approved or denied. There is no client-side
+ * auto-login; once approved, the user logs in normally from the login screen.
  */
 sealed interface PendingApprovalUiState {
-    /** Waiting for admin approval. */
+    /** Awaiting admin approval. */
     data object Waiting : PendingApprovalUiState
 
-    /** Approved, logging in automatically. */
-    data object LoggingIn : PendingApprovalUiState
-
-    /** Login successful, will navigate to home. */
-    data object LoginSuccess : PendingApprovalUiState
-
-    /** Approved but auto-login failed. User should log in manually. */
-    data class ApprovedManualLogin(
-        val message: String,
-    ) : PendingApprovalUiState
+    /** Registration was approved. The screen prompts the user to log in. */
+    data object Approved : PendingApprovalUiState
 
     /** Registration was denied. */
     data class Denied(

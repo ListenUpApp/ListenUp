@@ -82,14 +82,12 @@ open class RegisterUseCase(
                     lastName = trimmedLastName,
                 )
 
-            // Save pending registration state - this will:
-            // 1. Persist credentials securely for auto-login after approval
-            // 2. Update AuthState to PendingApproval
-            // 3. Trigger navigation to PendingApprovalScreen
+            // Persist (userId, email) so AuthState transitions to PendingApproval
+            // and the pending-approval screen can subscribe to the approval stream.
+            // No credentials are stored — the user logs in normally once approved.
             authSession.savePendingRegistration(
                 userId = result.userId,
                 email = trimmedEmail,
-                password = password,
             )
 
             result

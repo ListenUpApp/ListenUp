@@ -46,7 +46,7 @@ class RegisterUseCaseTest {
         val fixture = TestFixture()
 
         // Default stubs for successful operations
-        everySuspend { fixture.authSession.savePendingRegistration(any(), any(), any()) } returns Unit
+        everySuspend { fixture.authSession.savePendingRegistration(any(), any()) } returns Unit
 
         return fixture
     }
@@ -222,7 +222,6 @@ class RegisterUseCaseTest {
                 fixture.authSession.savePendingRegistration(
                     userId = "user-42",
                     email = "user@example.com",
-                    password = "password123",
                 )
             }
         }

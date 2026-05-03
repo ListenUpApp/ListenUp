@@ -16,7 +16,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.auth.LoginScreen
 import com.calypsan.listenup.client.features.auth.PendingApprovalScreen
 import com.calypsan.listenup.client.features.auth.RegisterScreen
@@ -90,9 +90,8 @@ fun AuthNavigation(
 
         is AuthState.PendingApproval -> {
             PendingApprovalNavigation(
-                userId = currentAuthState.userId,
+                userId = currentAuthState.userId.value,
                 email = currentAuthState.email,
-                password = currentAuthState.encryptedPassword,
             )
         }
 
@@ -112,18 +111,17 @@ fun AuthNavigation(
 private fun PendingApprovalNavigation(
     userId: String,
     email: String,
-    password: String,
 ) {
     val viewModel: PendingApprovalViewModel =
         koinInject {
             org.koin.core.parameter
-                .parametersOf(userId, email, password)
+                .parametersOf(userId, email)
         }
 
     PendingApprovalScreen(
         viewModel = viewModel,
         onNavigateToLogin = {
-            // Auth state will automatically update from clearPendingRegistration
+            // Auth state automatically updates after clearPendingRegistration.
         },
     )
 }

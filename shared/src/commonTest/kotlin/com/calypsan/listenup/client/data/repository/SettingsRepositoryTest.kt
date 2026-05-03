@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.core.SecureStorage
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.model.InstanceId
-import com.calypsan.listenup.client.domain.repository.AuthState
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent
 import dev.mokkery.answering.returns
@@ -163,8 +163,8 @@ class SettingsRepositoryTest {
             verifySuspend { storage.save("user_id", "user001") }
 
             val state = assertIs<AuthState.Authenticated>(repository.authState.value)
-            assertEquals("user001", state.userId)
-            assertEquals("session789", state.sessionId)
+            assertEquals("user001", state.userId.value)
+            assertEquals("session789", state.sessionId.value)
         }
 
     @Test
@@ -435,8 +435,8 @@ class SettingsRepositoryTest {
 
             // Then
             val state = assertIs<AuthState.Authenticated>(repository.authState.value)
-            assertEquals("user001", state.userId)
-            assertEquals("session789", state.sessionId)
+            assertEquals("user001", state.userId.value)
+            assertEquals("session789", state.sessionId.value)
         }
 
     @Test

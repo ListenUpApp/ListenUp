@@ -2,12 +2,14 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.remote.AuthApiContract
 import com.calypsan.listenup.client.data.remote.AuthResponse
 import com.calypsan.listenup.client.data.remote.RegisterResponse
 import com.calypsan.listenup.client.data.remote.RegistrationStatusResponse
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -28,7 +30,9 @@ class AndroidAudioTokenProviderTest {
         val session =
             object : AuthSession {
                 override val authState: StateFlow<AuthState> =
-                    MutableStateFlow(AuthState.Authenticated(userId = "u1", sessionId = "s1"))
+                    MutableStateFlow(
+                        AuthState.Authenticated(userId = UserId("u1"), sessionId = SessionId("s1")),
+                    )
 
                 override suspend fun getAccessToken(): AccessToken? {
                     accessTokenCalls.incrementAndGet()
@@ -56,17 +60,16 @@ class AndroidAudioTokenProviderTest {
 
                 override suspend fun initializeAuthState() {}
 
-                override suspend fun checkServerStatus(): AuthState = AuthState.Authenticated("u1", "s1")
+                override suspend fun checkServerStatus(): AuthState = AuthState.Authenticated(UserId("u1"), SessionId("s1"))
 
                 override suspend fun refreshOpenRegistration() {}
 
                 override suspend fun savePendingRegistration(
                     userId: String,
                     email: String,
-                    password: String,
                 ) {}
 
-                override suspend fun getPendingRegistration(): Triple<String, String, String>? = null
+                override suspend fun getPendingRegistration(): Pair<String, String>? = null
 
                 override suspend fun clearPendingRegistration() {}
             }

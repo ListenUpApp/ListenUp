@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.SecureStorage
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.ThemeMode
@@ -20,7 +22,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences as DomainPlaybackPreferences
 import kotlin.time.TimeSource
-import com.calypsan.listenup.client.domain.repository.AuthState as DomainAuthState
+import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 import com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent as DomainPreferenceChangeEvent
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Failure
@@ -92,7 +94,6 @@ class SettingsRepositoryImpl(
         // Pending registration (waiting for admin approval)
         private const val KEY_PENDING_USER_ID = "pending_user_id"
         private const val KEY_PENDING_EMAIL = "pending_email"
-        private const val KEY_PENDING_PASSWORD = "pending_password" // Encrypted
 
         // Library sort preferences (per-tab)
         private const val KEY_SORT_BOOKS = "sort_books"
@@ -222,7 +223,7 @@ class SettingsRepositoryImpl(
         secureStorage.save(KEY_SESSION_ID, sessionId)
         secureStorage.save(KEY_USER_ID, userId)
 
-        _authState.value = DomainAuthState.Authenticated(userId, sessionId)
+        _authState.value = DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
     }
 
     /**
@@ -352,7 +353,7 @@ class SettingsRepositoryImpl(
         val sessionId = getSessionId()
 
         if (hasToken && userId != null && sessionId != null) {
-            return DomainAuthState.Authenticated(userId, sessionId)
+            return DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
         }
 
         // URL + Token but missing userId/sessionId → inconsistent state
@@ -367,11 +368,10 @@ class SettingsRepositoryImpl(
         // Check for pending registration (user registered but waiting for approval)
         val pendingRegistration = getPendingRegistration()
         if (pendingRegistration != null) {
-            val (pendingUserId, pendingEmail, pendingPassword) = pendingRegistration
+            val (pendingUserId, pendingEmail) = pendingRegistration
             return DomainAuthState.PendingApproval(
-                userId = pendingUserId,
+                userId = UserId(pendingUserId),
                 email = pendingEmail,
-                encryptedPassword = pendingPassword,
             )
         }
 
@@ -732,46 +732,28 @@ class SettingsRepositoryImpl(
 
     // Pending registration methods
 
-    /**
-     * Save pending registration state after submitting registration.
-     * Stores credentials securely for auto-login after admin approval.
-     */
     override suspend fun savePendingRegistration(
         userId: String,
         email: String,
-        password: String,
     ) {
         secureStorage.save(KEY_PENDING_USER_ID, userId)
         secureStorage.save(KEY_PENDING_EMAIL, email)
-        secureStorage.save(KEY_PENDING_PASSWORD, password)
 
-        // Update auth state to PendingApproval
         _authState.value =
             DomainAuthState.PendingApproval(
-                userId = userId,
+                userId = UserId(userId),
                 email = email,
-                encryptedPassword = password,
             )
     }
 
-    /**
-     * Get pending registration credentials for auto-login.
-     * @return Triple of (userId, email, password) if pending, null otherwise
-     */
-    override suspend fun getPendingRegistration(): Triple<String, String, String>? {
+    override suspend fun getPendingRegistration(): Pair<String, String>? {
         val userId = secureStorage.read(KEY_PENDING_USER_ID) ?: return null
         val email = secureStorage.read(KEY_PENDING_EMAIL) ?: return null
-        val password = secureStorage.read(KEY_PENDING_PASSWORD) ?: return null
-        return Triple(userId, email, password)
+        return userId to email
     }
 
-    /**
-     * Clear pending registration state.
-     * Called after successful login or when registration is denied.
-     */
     override suspend fun clearPendingRegistration() {
         secureStorage.delete(KEY_PENDING_USER_ID)
         secureStorage.delete(KEY_PENDING_EMAIL)
-        secureStorage.delete(KEY_PENDING_PASSWORD)
     }
 }

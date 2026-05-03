@@ -44,7 +44,7 @@ val authPresentationModule =
                 registerUseCase = get(),
             )
         }
-        // PendingApprovalViewModel - takes userId, email, password as parameters
+        // PendingApprovalViewModel - takes (userId, email) parameters
         factory { params ->
             PendingApprovalViewModel(
                 authRepository = get(),
@@ -52,7 +52,6 @@ val authPresentationModule =
                 registrationStatusStream = get(),
                 userId = params.get<String>(0),
                 email = params.get<String>(1),
-                password = params.get<String>(2),
             )
         }
         // InviteRegistrationViewModel - takes serverUrl and inviteCode as parameters

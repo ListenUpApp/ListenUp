@@ -1,0 +1,48 @@
+package com.calypsan.listenup.client.domain.model
+
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+
+/**
+ * Authentication state for the application.
+ *
+ * Drives top-level navigation: each variant maps to a distinct screen flow
+ * (server URL entry, setup, login, pending-approval, or the authenticated app).
+ */
+sealed interface AuthState {
+    /** Still determining auth state on startup. */
+    data object Initializing : AuthState
+
+    /** No server URL has been configured yet. */
+    data object NeedsServerUrl : AuthState
+
+    /** Checking server status to determine if setup is required. */
+    data object CheckingServer : AuthState
+
+    /** Server requires initial setup (create root user). */
+    data object NeedsSetup : AuthState
+
+    /** Server is ready, user needs to log in. */
+    data class NeedsLogin(
+        val openRegistration: Boolean = false,
+    ) : AuthState
+
+    /**
+     * User registered but is waiting for admin approval.
+     *
+     * `userId` is needed to subscribe to the server-side registration-status
+     * stream (SSE/polling); `email` is shown on the pending-approval screen.
+     * No credentials are kept client-side — once approved the user retries
+     * `login()` from the login screen.
+     */
+    data class PendingApproval(
+        val userId: UserId,
+        val email: String,
+    ) : AuthState
+
+    /** User is authenticated with a valid session. */
+    data class Authenticated(
+        val userId: UserId,
+        val sessionId: SessionId,
+    ) : AuthState
+}

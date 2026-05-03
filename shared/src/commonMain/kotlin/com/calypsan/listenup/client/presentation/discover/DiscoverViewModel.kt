@@ -6,8 +6,8 @@ import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.AuthState
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -64,7 +64,7 @@ class DiscoverViewModel(
     private val currentlyListeningFlow =
         authSession.authState.flatMapLatest { authState ->
             if (authState is AuthState.Authenticated) {
-                activeSessionRepository.observeActiveSessions(authState.userId)
+                activeSessionRepository.observeActiveSessions(authState.userId.value)
             } else {
                 flowOf(emptyList())
             }
@@ -189,7 +189,7 @@ class DiscoverViewModel(
     private val discoverShelvesFlow =
         authSession.authState.flatMapLatest { authState ->
             if (authState is AuthState.Authenticated) {
-                shelfRepository.observeDiscoverShelves(authState.userId)
+                shelfRepository.observeDiscoverShelves(authState.userId.value)
             } else {
                 flowOf(emptyList())
             }
@@ -249,7 +249,7 @@ class DiscoverViewModel(
                 return@launch
             }
 
-            val existingCount = shelfRepository.countDiscoverShelves(authState.userId)
+            val existingCount = shelfRepository.countDiscoverShelves(authState.userId.value)
             if (existingCount > 0) {
                 logger.debug { "Room has $existingCount discover shelves, skipping initial fetch" }
                 return@launch
