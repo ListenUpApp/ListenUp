@@ -34,6 +34,8 @@
     <ID>MagicNumber:SetupScreen.kt$0.4f</ID>
     <ID>MagicNumber:SetupScreen.kt$0.6f</ID>
     <ID>MagicNumber:ShelfCard.kt$6</ID>
+    <ID>NotImplementedDeclaration:AuthServiceImpl.kt$AuthServiceImpl$TODO("C5")</ID>
+    <ID>NotImplementedDeclaration:AuthServiceImpl.kt$AuthServiceImpl$TODO("C6")</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
     <ID>StringLiteralDuplication:InstanceRepositoryImpl.kt$InstanceRepositoryImpl$"/api/v1/instance"</ID>
