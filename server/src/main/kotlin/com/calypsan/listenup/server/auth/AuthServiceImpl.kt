@@ -184,8 +184,13 @@ class AuthServiceImpl(
         sessions.revokeAll(p.userId)
     }
 
-    /** Test affordance: produce a copy with a different [PrincipalProvider]. */
-    internal fun copyWith(provider: PrincipalProvider): AuthServiceImpl =
+    /**
+     * Produce a copy bound to a specific [PrincipalProvider]. Route handlers
+     * call this with `PrincipalProvider { p }` so the per-call principal
+     * flows into authenticated methods without [AuthServiceImpl] coupling
+     * to Ktor types.
+     */
+    fun copyWith(provider: PrincipalProvider): AuthServiceImpl =
         AuthServiceImpl(
             db = db,
             sessions = sessions,

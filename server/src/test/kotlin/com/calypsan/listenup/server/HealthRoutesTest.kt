@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
@@ -11,6 +12,7 @@ class HealthRoutesTest :
     FunSpec({
         test("GET /healthz returns 200 with status ok") {
             testApplication {
+                useIsolatedTestConfig()
                 application { module() }
 
                 val response = client.get("/healthz")

@@ -22,6 +22,9 @@ private val logger = LoggerFactory.getLogger("AppErrorStatusPages")
  *
  * REST-side only. The kotlinx.rpc transport has its own exception channel; that
  * gets wired in `RpcRoutes`.
+ *
+ * Also handles 404s with a small JSON body so unknown paths don't return a
+ * Ktor default page.
  */
 fun Application.installAppErrorStatusPages() {
     install(StatusPages) {
@@ -44,6 +47,9 @@ fun Application.installAppErrorStatusPages() {
             logger.error("unhandled exception on {} correlationId={}", call.request.uri, correlationId, ex)
             val body: AppError = InternalError(correlationId)
             call.respond(HttpStatusCode.InternalServerError, body)
+        }
+        status(HttpStatusCode.NotFound) { call, status ->
+            call.respond(status, mapOf("error" to "not_found", "path" to call.request.uri))
         }
     }
 }
