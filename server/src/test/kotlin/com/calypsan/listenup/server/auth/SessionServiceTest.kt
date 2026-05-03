@@ -172,6 +172,20 @@ class SessionServiceTest :
             svc.rotate(s.refreshToken) shouldBe null
         }
 
+        test("wasReplay distinguishes 'unknown token' from 'replayed-and-revoked'") {
+            val db = freshDb()
+            seedUser(db, "u-1")
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // The originally-issued token is now in `previous_hash` — it's a replay.
+            svc.wasReplay(issued.refreshToken) shouldBe true
+            // A token the server has never seen is not a replay, just unknown.
+            svc.wasReplay(RefreshToken("never-issued")) shouldBe false
+        }
+
         test("rotate finds the right session even with many active sessions") {
             val db = freshDb()
             seedUser(db, "u-1")

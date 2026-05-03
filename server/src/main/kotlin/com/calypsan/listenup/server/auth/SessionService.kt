@@ -146,6 +146,25 @@ class SessionService(
         }
     }
 
+    /**
+     * True iff [token] matches a session's `previous_hash` — i.e. an attempt
+     * to reuse a token that has already been rotated. [rotate] returns null
+     * for both "unknown" and "replayed-and-family-revoked"; this lets the
+     * caller distinguish so the wire-level `InvalidRefreshToken.familyRevoked`
+     * carries truthful information.
+     *
+     * Cheap (one indexed read against `idx_sessions_previous_hash`) and only
+     * runs on the error path.
+     */
+    suspend fun wasReplay(token: RefreshToken): Boolean {
+        val hash = tokenHasher.hash(token.value)
+        return newSuspendedTransaction(Dispatchers.IO, db) {
+            SessionEntity
+                .find { SessionTable.previousHash eq hash }
+                .any()
+        }
+    }
+
     suspend fun isLive(sessionId: SessionId): Boolean =
         newSuspendedTransaction(Dispatchers.IO, db) {
             val s = SessionEntity.findById(sessionId.value) ?: return@newSuspendedTransaction false

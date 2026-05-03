@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -10,6 +13,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -160,4 +164,124 @@ class AuthServiceImplTest :
                 }.error.shouldBeInstanceOf<AuthError.PendingApproval>()
             }
         }
+
+        test("refreshSession rotates and returns a new token tied to the same session") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                val first =
+                    svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        as RegisterResult.Authenticated
+
+                val second = svc.refreshSession(RefreshRequest(first.session.refreshToken))
+
+                second.refreshToken.value shouldNotBe first.session.refreshToken.value
+                second.sessionId shouldBe first.session.sessionId
+                second.user.id shouldBe first.session.user.id
+                second.accessToken.value.shouldNotBeBlank()
+            }
+        }
+
+        test("refreshSession on an unknown token errors InvalidRefreshToken (familyRevoked=false)") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                val ex =
+                    shouldThrow<AuthException> {
+                        svc.refreshSession(
+                            RefreshRequest(
+                                com.calypsan.listenup.api.dto.auth
+                                    .RefreshToken("never-issued"),
+                            ),
+                        )
+                    }
+                val err = ex.error.shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                err.familyRevoked shouldBe false
+            }
+        }
+
+        test("refreshSession on a replayed token errors InvalidRefreshToken (familyRevoked=true)") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                val first =
+                    svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        as RegisterResult.Authenticated
+                val original = first.session.refreshToken
+
+                svc.refreshSession(RefreshRequest(original))
+
+                val ex =
+                    shouldThrow<AuthException> {
+                        svc.refreshSession(RefreshRequest(original))
+                    }
+                val err = ex.error.shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                err.familyRevoked shouldBe true
+            }
+        }
+
+        test("logout revokes only the caller's session") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                val authed =
+                    svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        as RegisterResult.Authenticated
+                val a = authed.session
+                val b = svc.login(LoginRequest("alice@x", "x".repeat(8)))
+
+                svc.copyWith(callerOf(a.user.id, a.sessionId)).logout()
+
+                // a is dead — refresh fails with familyRevoked=false (revoked, not replayed).
+                val ex =
+                    shouldThrow<AuthException> {
+                        svc.refreshSession(RefreshRequest(a.refreshToken))
+                    }
+                ex.error
+                    .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                    .familyRevoked shouldBe false
+
+                // b is still alive — rotation succeeds.
+                val refreshed = svc.refreshSession(RefreshRequest(b.refreshToken))
+                refreshed.sessionId shouldBe b.sessionId
+            }
+        }
+
+        test("logout without a principal errors SessionExpired") {
+            val svc = newSvc()
+            runTest {
+                shouldThrow<AuthException> {
+                    svc.logout()
+                }.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+            }
+        }
+
+        test("logoutAll revokes every session for the caller") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                val authed =
+                    svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        as RegisterResult.Authenticated
+                val a = authed.session
+                val b = svc.login(LoginRequest("alice@x", "x".repeat(8)))
+
+                svc.copyWith(callerOf(a.user.id, a.sessionId)).logoutAll()
+
+                shouldThrow<AuthException> { svc.refreshSession(RefreshRequest(a.refreshToken)) }
+                    .error
+                    .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+                shouldThrow<AuthException> { svc.refreshSession(RefreshRequest(b.refreshToken)) }
+                    .error
+                    .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
+            }
+        }
     })
+
+private fun callerOf(
+    userId: UserId,
+    sessionId: SessionId,
+): PrincipalProvider =
+    PrincipalProvider {
+        UserPrincipal(userId = userId, sessionId = sessionId, role = UserRole.MEMBER)
+    }

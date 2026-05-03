@@ -147,13 +147,53 @@ class AuthServiceImpl(
         return issueSession(user, label = request.sessionLabel)
     }
 
-    // Stubbed for compilation; implemented in C5/C6.
-    override suspend fun refreshSession(request: RefreshRequest): AuthSession = TODO("C5")
+    override suspend fun refreshSession(request: RefreshRequest): AuthSession {
+        val rotated =
+            sessions.rotate(request.refreshToken)
+                ?: throw AuthException(
+                    AuthError.InvalidRefreshToken(familyRevoked = sessions.wasReplay(request.refreshToken)),
+                )
 
-    override suspend fun logout() = TODO("C5")
+        val user =
+            newSuspendedTransaction(Dispatchers.IO, db) {
+                UserEntity[rotated.userId.value]
+            }
+        val role = user.role.toContract()
+        val accessJwt = jwt.issue(userId = rotated.userId, sessionId = rotated.sessionId, role = role)
+        val accessExp = clock.instant().plus(jwt.accessTokenTtl).toEpochMilli()
+        return AuthSession(
+            accessToken = AccessToken(accessJwt),
+            accessTokenExpiresAt = accessExp,
+            refreshToken = rotated.refreshToken,
+            refreshTokenExpiresAt = rotated.expiresAt,
+            sessionId = rotated.sessionId,
+            user = user.toContract(),
+        )
+    }
 
-    override suspend fun logoutAll() = TODO("C5")
+    override suspend fun logout() {
+        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+        sessions.revoke(p.sessionId, p.userId)
+    }
 
+    override suspend fun logoutAll() {
+        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+        sessions.revokeAll(p.userId)
+    }
+
+    /** Test affordance: produce a copy with a different [PrincipalProvider]. */
+    internal fun copyWith(provider: PrincipalProvider): AuthServiceImpl =
+        AuthServiceImpl(
+            db = db,
+            sessions = sessions,
+            hasher = hasher,
+            jwt = jwt,
+            clock = clock,
+            registrationPolicy = registrationPolicy,
+            principalProvider = provider,
+        )
+
+    // Stubbed for compilation; implemented in C6.
     override suspend fun currentUser(): User = TODO("C6")
 
     override suspend fun listSessions(): List<SessionSummary> = TODO("C6")
