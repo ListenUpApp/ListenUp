@@ -36,9 +36,12 @@ object DatabaseFactory {
                     maximumPoolSize = config.maxPoolSize
                     isAutoCommit = false
                     transactionIsolation = "TRANSACTION_SERIALIZABLE"
-                    // SQLite has FK enforcement off per-connection by default; this pragma
-                    // runs on every pool connection so ON DELETE CASCADE actually fires.
-                    connectionInitSql = "PRAGMA foreign_keys = ON"
+                    // SQLite has FK enforcement off per-connection by default. Setting it via
+                    // a DataSource property routes through SQLiteConfig before Hikari calls
+                    // setAutoCommit(false), so the pragma takes effect (PRAGMA foreign_keys
+                    // is ignored inside an active transaction, which is what `isAutoCommit
+                    // = false` + connectionInitSql produces).
+                    addDataSourceProperty("foreign_keys", "true")
                     validate()
                 },
             )
