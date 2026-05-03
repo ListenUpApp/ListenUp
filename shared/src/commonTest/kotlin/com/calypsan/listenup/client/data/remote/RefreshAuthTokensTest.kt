@@ -1,121 +1,168 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.User
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
-import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
-import io.ktor.client.plugins.ResponseException
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.HttpStatusCode
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
-import kotlinx.io.IOException
-import kotlin.test.Test
-import kotlin.test.assertNull
+
+private fun fakeContractSession(
+    access: String = "fresh-access",
+    refresh: String = "fresh-refresh",
+    sessionId: String = "session-1",
+    userId: String = "user-1",
+): ContractAuthSession =
+    ContractAuthSession(
+        accessToken = AccessToken(access),
+        accessTokenExpiresAt = 0L,
+        refreshToken = RefreshToken(refresh),
+        refreshTokenExpiresAt = 0L,
+        sessionId = SessionId(sessionId),
+        user =
+            User(
+                id = UserId(userId),
+                email = "alice@example.com",
+                displayName = "Alice",
+                role = UserRole.MEMBER,
+                status = UserStatus.ACTIVE,
+                createdAt = 0L,
+            ),
+    )
 
 /**
- * Tests for [refreshAuthTokens] token refresh error handling.
+ * Tests for [refreshAuthTokens] — the bridge between the Ktor bearer plugin's
+ * `refreshTokens { }` block and `AuthRepository.refreshAccessToken()`.
  *
- * Verifies that auth tokens are only cleared on definitive auth rejections
- * (401/403), NOT on transient errors like network failures or server errors.
+ * Coverage matrix:
+ *  - Success → tokens persisted to [AuthSession], BearerTokens returned for the retry.
+ *  - Failure(InvalidRefreshToken) and Failure(SessionExpired) → auth state cleared.
+ *  - Failure(NetworkUnavailable) and other transient errors → auth state preserved.
+ *  - CancellationException → re-thrown per coroutines convention.
+ *  - Transport blowup → preserved + null returned.
  */
-class RefreshAuthTokensTest {
-    // ========== Test Fixtures ==========
+class RefreshAuthTokensTest :
+    FunSpec({
 
-    private class TestFixture {
-        val authSession: AuthSession = mock()
-        val authApi: AuthApiContract = mock()
-        val refreshToken = RefreshToken("test-refresh-token")
-    }
+        test("Success persists rotated tokens and returns BearerTokens") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                val session = fakeContractSession()
+                everySuspend { authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-        everySuspend { fixture.authSession.getRefreshToken() } returns fixture.refreshToken
-        return fixture
-    }
+                val tokens = refreshAuthTokens(authSession) { AppResult.Success(session) }
 
-    /**
-     * Creates a [ResponseException] with a mock response carrying the given HTTP status code.
-     * Uses [ResponseException] (the parent of [io.ktor.client.plugins.ClientRequestException]
-     * and [io.ktor.client.plugins.ServerResponseException]) because Ktor's concrete exception
-     * constructors access `response.call.request.url` which requires mocking final classes.
-     */
-    private fun httpException(statusCode: Int): ResponseException {
-        val mockResponse: HttpResponse = mock()
-        every { mockResponse.status } returns HttpStatusCode.fromValue(statusCode)
-        return ResponseException(mockResponse, "HTTP $statusCode")
-    }
-
-    // ========== Tokens NOT Cleared Tests ==========
-
-    @Test
-    fun `does not clear tokens on network error`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authApi.refresh(any()) } throws IOException("Connection refused")
-            // clearAuthTokens throws AssertionError if called - Error is not caught by catch(Exception)
-            everySuspend { fixture.authSession.clearAuthTokens() } throws
-                AssertionError("clearAuthTokens() must not be called for network errors")
-
-            // When
-            val result = refreshAuthTokens(fixture.authSession, fixture.authApi)
-
-            // Then
-            assertNull(result)
+                tokens.shouldNotBeNull()
+                tokens.accessToken shouldBe "fresh-access"
+                tokens.refreshToken shouldBe "fresh-refresh"
+                verifySuspend {
+                    authSession.saveAuthTokens(
+                        access = AccessToken("fresh-access"),
+                        refresh = RefreshToken("fresh-refresh"),
+                        sessionId = "session-1",
+                        userId = "user-1",
+                    )
+                }
+            }
         }
 
-    @Test
-    fun `does not clear tokens on 503 Service Unavailable`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authApi.refresh(any()) } throws httpException(503)
-            everySuspend { fixture.authSession.clearAuthTokens() } throws
-                AssertionError("clearAuthTokens() must not be called for 503 errors")
+        test("Failure(InvalidRefreshToken) clears auth state and returns null") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                everySuspend { authSession.clearAuthTokens() } returns Unit
 
-            // When
-            val result = refreshAuthTokens(fixture.authSession, fixture.authApi)
+                val tokens =
+                    refreshAuthTokens(authSession) {
+                        AppResult.Failure(AuthError.InvalidRefreshToken(familyRevoked = false))
+                    }
 
-            // Then
-            assertNull(result)
+                tokens.shouldBeNull()
+                verifySuspend { authSession.clearAuthTokens() }
+            }
         }
 
-    // ========== Tokens ARE Cleared Tests ==========
+        test("Failure(SessionExpired) — no stored refresh token — clears auth state") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                everySuspend { authSession.clearAuthTokens() } returns Unit
 
-    @Test
-    fun `clears tokens on 401 Unauthorized`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authApi.refresh(any()) } throws httpException(401)
-            everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
+                val tokens =
+                    refreshAuthTokens(authSession) {
+                        AppResult.Failure(AuthError.SessionExpired())
+                    }
 
-            // When
-            val result = refreshAuthTokens(fixture.authSession, fixture.authApi)
-
-            // Then
-            assertNull(result)
-            verifySuspend { fixture.authSession.clearAuthTokens() }
+                tokens.shouldBeNull()
+                verifySuspend { authSession.clearAuthTokens() }
+            }
         }
 
-    @Test
-    fun `clears tokens on 403 Forbidden`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.authApi.refresh(any()) } throws httpException(403)
-            everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
+        test("Failure(InternalError) preserves auth state") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                // saveAuthTokens / clearAuthTokens not stubbed — Mokkery throws if called
 
-            // When
-            val result = refreshAuthTokens(fixture.authSession, fixture.authApi)
+                val tokens =
+                    refreshAuthTokens(authSession) {
+                        AppResult.Failure(InternalError())
+                    }
 
-            // Then
-            assertNull(result)
-            verifySuspend { fixture.authSession.clearAuthTokens() }
+                tokens.shouldBeNull()
+            }
         }
-}
+
+        test("Failure(ValidationError) preserves auth state") {
+            runTest {
+                val authSession = mock<AuthSession>()
+
+                val tokens =
+                    refreshAuthTokens(authSession) {
+                        AppResult.Failure(ValidationError("bad request"))
+                    }
+
+                tokens.shouldBeNull()
+            }
+        }
+
+        test("CancellationException is re-thrown") {
+            runTest {
+                val authSession = mock<AuthSession>()
+                var caught: CancellationException? = null
+                try {
+                    refreshAuthTokens(authSession) { throw CancellationException("test cancel") }
+                } catch (e: CancellationException) {
+                    caught = e
+                }
+                caught.shouldNotBeNull()
+                caught.message shouldBe "test cancel"
+            }
+        }
+
+        test("Generic transport exception preserves auth state and returns null") {
+            runTest {
+                val authSession = mock<AuthSession>()
+
+                val tokens =
+                    refreshAuthTokens(authSession) { error("boom") }
+
+                tokens.shouldBeNull()
+            }
+        }
+    })

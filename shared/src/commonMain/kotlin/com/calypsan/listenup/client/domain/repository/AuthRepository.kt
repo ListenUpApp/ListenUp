@@ -44,4 +44,20 @@ interface AuthRepository {
      * read from the bearer JWT — no client-side identifier needed.
      */
     suspend fun logout(): AppResult<Unit>
+
+    /**
+     * Trade the locally-stored refresh token for a new access/refresh pair.
+     *
+     * Reads the refresh token from `AuthSession`. If none is present, fails
+     * with `AuthError.SessionExpired` — the caller is effectively logged
+     * out and there is nothing to refresh.
+     *
+     * Routes through the public RPC mount because the refresh token is the
+     * credential; no bearer is required (and attaching one would trigger
+     * a refresh loop).
+     *
+     * Per this port's contract, this method does NOT mutate `AuthSession`
+     * state on success — the bearer-plugin glue persists the new tokens.
+     */
+    suspend fun refreshAccessToken(): AppResult<AuthSession>
 }

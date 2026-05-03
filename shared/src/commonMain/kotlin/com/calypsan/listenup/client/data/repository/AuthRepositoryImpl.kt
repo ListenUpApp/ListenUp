@@ -2,12 +2,15 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 
@@ -23,6 +26,7 @@ private val logger = KotlinLogging.logger {}
  */
 class AuthRepositoryImpl(
     private val rpc: AuthRpcFactory,
+    private val authSession: ClientAuthSession,
 ) : AuthRepository {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> =
         catching("login") { rpc.publicService().login(request) }
@@ -34,6 +38,11 @@ class AuthRepositoryImpl(
         catching("setup") { rpc.publicService().setupRoot(request) }
 
     override suspend fun logout(): AppResult<Unit> = catching("logout") { rpc.authedService().logout() }
+
+    override suspend fun refreshAccessToken(): AppResult<AuthSession> {
+        val token = authSession.getRefreshToken() ?: return AppResult.Failure(AuthError.SessionExpired())
+        return catching("refresh") { rpc.publicService().refreshSession(RefreshRequest(token)) }
+    }
 
     private suspend inline fun <T> catching(
         op: String,

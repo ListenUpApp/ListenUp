@@ -333,12 +333,19 @@ val networkModule =
             )
         }
 
-        // ApiClientFactory - creates authenticated HTTP clients with auto-refresh
+        // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
+        //
+        // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at
+        // refresh time, breaking the construction-time cycle:
+        //   AuthRepositoryImpl(rpc=AuthRpcFactory(apiClientFactory=ApiClientFactory(...)))
+        // If we passed `authRepository = get()` here Koin would recurse during graph
+        // construction. The lambda body executes on 401, by which time all three singletons
+        // are constructed.
         single {
             ApiClientFactory(
                 serverConfig = get(),
                 authSession = get(),
-                authApi = get(),
+                refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
             )
         }
 
@@ -1521,7 +1528,7 @@ val syncModule =
         // REST-shaped AuthApi indirection (deleted in F9). UseCases consume the
         // typed AppResult<*> contract directly.
         single<AuthRepository> {
-            AuthRepositoryImpl(rpc = get())
+            AuthRepositoryImpl(rpc = get(), authSession = get())
         }
 
         // RegistrationStatusStream for SSE streaming during registration approval

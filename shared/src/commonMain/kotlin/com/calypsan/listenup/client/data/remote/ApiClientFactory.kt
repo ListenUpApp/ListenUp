@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.api.dto.auth.AccessToken
-import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -23,15 +23,22 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.HttpSend
 import kotlinx.io.IOException
 import io.ktor.client.plugins.plugin
+import kotlin.coroutines.cancellation.CancellationException
 
 private const val SERVER_URL_NOT_CONFIGURED_MESSAGE = "Server URL not configured"
-private const val HTTP_UNAUTHORIZED = 401
-private const val HTTP_FORBIDDEN = 403
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Functional seam between the bearer plugin and the auth contract. Implementations
+ * call `AuthRepository.refreshAccessToken()`. Wired this way (rather than a direct
+ * `AuthRepository` dependency) so `ApiClientFactory` does not import the auth
+ * domain — and so Koin can resolve the construction-time cycle by capturing the
+ * scope and calling `get<AuthRepository>()` lazily inside the lambda.
+ */
+typealias RefreshAccessToken = suspend () -> AppResult<com.calypsan.listenup.api.dto.auth.AuthSession>
 
 /**
  * HTTP methods considered idempotent per RFC 9110 §9.2.2 — safe to retry because the server
@@ -49,12 +56,19 @@ private val IDEMPOTENT_METHODS =
     )
 
 /**
- * Path prefix for endpoints that authenticate themselves (login, refresh, logout) and must
- * NOT carry a bearer token — the bearer plugin would otherwise try to attach an expired or
- * missing token and trigger a refresh loop. Shared with the platform-specific streaming
- * client factories so all clients agree on the prefix. See Finding 04 D2.
+ * Path prefixes for endpoints that authenticate themselves (login, register, refresh,
+ * setupRoot) and must NOT carry a bearer token — the bearer plugin would otherwise try
+ * to attach an expired or missing token and trigger a refresh loop. Shared with the
+ * platform-specific streaming client factories so all clients agree on the prefixes.
+ *
+ *  - `/api/v1/auth/` — the REST surface (third-party clients, smoke tests).
+ *  - `/api/rpc/public/` — the kotlinx.rpc public mount that the F+G AuthRepository
+ *    talks to (login/register/refresh/setupRoot). The authed mount at `/api/rpc/authed`
+ *    is intentionally NOT exempt.
+ *
+ * See Finding 04 D2 for the original REST exemption rationale.
  */
-internal const val AUTH_PATH_PREFIX = "/api/v1/auth/"
+internal val AUTH_EXEMPT_PATH_PREFIXES = listOf("/api/v1/auth/", "/api/rpc/public")
 
 /**
  * Returns true if [request] targets an authentication endpoint that should be exempt from
@@ -62,11 +76,10 @@ internal const val AUTH_PATH_PREFIX = "/api/v1/auth/"
  * rather than a substring match on the full URL so paths like `/api/v1/books/author/foo`
  * cannot accidentally match.
  */
-internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder): Boolean =
-    request.url
-        .build()
-        .encodedPath
-        .startsWith(AUTH_PATH_PREFIX)
+internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder): Boolean {
+    val path = request.url.build().encodedPath
+    return AUTH_EXEMPT_PATH_PREFIXES.any { path.startsWith(it) }
+}
 
 /**
  * Factory for creating authenticated HTTP clients with automatic token refresh.
@@ -83,7 +96,7 @@ internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder):
 class ApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
-    private val authApi: AuthApiContract,
+    private val refreshAccessToken: RefreshAccessToken,
 ) {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
@@ -129,7 +142,7 @@ class ApiClientFactory(
                 createStreamingHttpClient(
                     serverUrl = serverUrl,
                     authSession = authSession,
-                    authApi = authApi,
+                    refreshAccessToken = refreshAccessToken,
                 ).also { cachedStreamingClient = it }
             }
         }
@@ -209,7 +222,7 @@ class ApiClientFactory(
 
                         // Refresh tokens when receiving 401 Unauthorized
                         refreshTokens {
-                            refreshAuthTokens(authSession, authApi)
+                            refreshAuthTokens(authSession, refreshAccessToken)
                         }
 
                         // Send bearer for every request EXCEPT auth endpoints (login, refresh,
@@ -315,13 +328,13 @@ class ApiClientFactory(
  *
  * @param serverUrl Base server URL
  * @param authSession For loading auth tokens
- * @param authApi For refreshing tokens
+ * @param refreshAccessToken Functional seam over `AuthRepository.refreshAccessToken()`
  * @return HttpClient with streaming configuration and infinite timeouts
  */
 internal expect suspend fun createStreamingHttpClient(
     serverUrl: ServerUrl,
     authSession: AuthSession,
-    authApi: AuthApiContract,
+    refreshAccessToken: RefreshAccessToken,
 ): HttpClient
 
 /**
@@ -337,49 +350,58 @@ internal expect suspend fun createStreamingHttpClient(
 internal expect fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUrl): HttpClient
 
 /**
- * Refreshes auth tokens using the provided refresh token.
+ * Bridges the bearer plugin's `refreshTokens { }` block to
+ * `AuthRepository.refreshAccessToken()`.
  *
- * On success, saves the new tokens and returns them as [BearerTokens].
- * On failure, returns null. Only clears the auth session for definitive
- * auth rejections (HTTP 401/403).
+ *  - Success → persist the rotated pair into [AuthSession] (so the next `loadTokens`
+ *    sees the fresh values) and return them as [BearerTokens] for the immediate retry.
+ *  - `Failure(InvalidRefreshToken)` → the refresh token is dead; clear the auth state
+ *    so the user lands on login.
+ *  - Any other `Failure` (transport, server unreachable, validation, internal) →
+ *    preserve the auth state; returning null lets the original 401 propagate so the
+ *    caller can decide how to surface the failure.
+ *
+ * `CancellationException` is re-raised per coroutines convention.
  */
 internal suspend fun refreshAuthTokens(
     authSession: AuthSession,
-    authApi: AuthApiContract,
-): BearerTokens? {
-    // No refresh token → the user is effectively logged out. Return null so Ktor's Auth
-    // plugin clears its cached bearer and the 401 reaches call sites as a signal to
-    // re-authenticate. Throwing here (as the pre-W2b.4 code did via `error(...)`) instead
-    // crashed the refresh pipeline and left the client in a wedged state — Finding 04 D2.
-    val currentRefreshToken = authSession.getRefreshToken() ?: return null
+    refreshAccessToken: RefreshAccessToken,
+): BearerTokens? =
+    try {
+        when (val result = refreshAccessToken()) {
+            is AppResult.Success -> {
+                val session = result.data
+                authSession.saveAuthTokens(
+                    access = session.accessToken,
+                    refresh = session.refreshToken,
+                    sessionId = session.sessionId.value,
+                    userId = session.user.id.value,
+                )
+                BearerTokens(
+                    accessToken = session.accessToken.value,
+                    refreshToken = session.refreshToken.value,
+                )
+            }
 
-    return try {
-        val response = authApi.refresh(currentRefreshToken)
+            is AppResult.Failure -> {
+                when (result.error) {
+                    is AuthError.SessionExpired,
+                    is AuthError.InvalidRefreshToken,
+                    -> {
+                        logger.warn { "Token refresh rejected (${result.error}), clearing auth state" }
+                        authSession.clearAuthTokens()
+                    }
 
-        authSession.saveAuthTokens(
-            access = AccessToken(response.accessToken),
-            refresh = RefreshToken(response.refreshToken),
-            sessionId = response.sessionId,
-            userId = response.userId,
-        )
-
-        BearerTokens(
-            accessToken = response.accessToken,
-            refreshToken = response.refreshToken,
-        )
-    } catch (e: ResponseException) {
-        val status = e.response.status.value
-        if (status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN) {
-            logger.warn(e) { "Token refresh rejected ($status), clearing auth state" }
-            authSession.clearAuthTokens()
-        } else {
-            logger.warn(e) { "Token refresh failed with HTTP $status, preserving auth state" }
+                    else -> {
+                        logger.warn { "Token refresh failed (${result.error}), preserving auth state" }
+                    }
+                }
+                null
+            }
         }
-        null
-    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+    } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        logger.warn(e) { "Token refresh failed due to network error, preserving auth state" }
+        logger.warn(e) { "Token refresh failed at the transport boundary, preserving auth state" }
         null
     }
-}
