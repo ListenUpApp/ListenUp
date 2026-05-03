@@ -9,90 +9,92 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertIs
+
+private class LogoutFixture {
+    val authRepository: AuthRepository = mock()
+    val authSession: AuthSession = mock()
+    val userRepository: UserRepository = mock()
+
+    fun build(): LogoutUseCase =
+        LogoutUseCase(
+            authRepository = authRepository,
+            authSession = authSession,
+            userRepository = userRepository,
+        )
+}
+
+private fun createFixture(): LogoutFixture {
+    val fixture = LogoutFixture()
+    everySuspend { fixture.authSession.isAuthenticated() } returns true
+    everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
+    everySuspend { fixture.userRepository.clearUsers() } returns Unit
+    everySuspend { fixture.authRepository.logout() } returns AppResult.Success(Unit)
+    return fixture
+}
 
 /**
  * Tests for [LogoutUseCase] — best-effort server revoke + always-clean
  * local logout.
  */
-class LogoutUseCaseTest {
-    private class TestFixture {
-        val authRepository: AuthRepository = mock()
-        val authSession: AuthSession = mock()
-        val userRepository: UserRepository = mock()
+class LogoutUseCaseTest :
+    FunSpec({
 
-        fun build(): LogoutUseCase =
-            LogoutUseCase(
-                authRepository = authRepository,
-                authSession = authSession,
-                userRepository = userRepository,
-            )
-    }
+        test("logout calls server then clears local state") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-        everySuspend { fixture.authSession.isAuthenticated() } returns true
-        everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
-        everySuspend { fixture.userRepository.clearUsers() } returns Unit
-        everySuspend { fixture.authRepository.logout() } returns AppResult.Success(Unit)
-        return fixture
-    }
+                val result = useCase()
 
-    @Test
-    fun `logout calls server then clears local state`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result = useCase()
-
-            assertIs<AppResult.Success<Unit>>(result)
-            verifySuspend { fixture.authRepository.logout() }
-            verifySuspend { fixture.authSession.clearAuthTokens() }
-            verifySuspend { fixture.userRepository.clearUsers() }
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { fixture.authRepository.logout() }
+                verifySuspend { fixture.authSession.clearAuthTokens() }
+                verifySuspend { fixture.userRepository.clearUsers() }
+            }
         }
 
-    @Test
-    fun `logout still clears local state when server returns failure`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.logout() } returns
-                AppResult.Failure(AuthError.SessionNotFound())
-            val useCase = fixture.build()
+        test("logout still clears local state when server returns failure") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.logout() } returns
+                    AppResult.Failure(AuthError.SessionNotFound())
+                val useCase = fixture.build()
 
-            val result = useCase()
+                val result = useCase()
 
-            assertIs<AppResult.Success<Unit>>(result)
-            verifySuspend { fixture.authSession.clearAuthTokens() }
-            verifySuspend { fixture.userRepository.clearUsers() }
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { fixture.authSession.clearAuthTokens() }
+                verifySuspend { fixture.userRepository.clearUsers() }
+            }
         }
 
-    @Test
-    fun `logout skips server call when not authenticated`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authSession.isAuthenticated() } returns false
-            val useCase = fixture.build()
+        test("logout skips server call when not authenticated") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authSession.isAuthenticated() } returns false
+                val useCase = fixture.build()
 
-            val result = useCase()
+                val result = useCase()
 
-            assertIs<AppResult.Success<Unit>>(result)
-            verifySuspend { fixture.authSession.clearAuthTokens() }
-            verifySuspend { fixture.userRepository.clearUsers() }
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { fixture.authSession.clearAuthTokens() }
+                verifySuspend { fixture.userRepository.clearUsers() }
+            }
         }
 
-    @Test
-    fun `logoutLocally clears tokens without server call`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("logoutLocally clears tokens without server call") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val result = useCase.logoutLocally()
+                val result = useCase.logoutLocally()
 
-            assertIs<AppResult.Success<Unit>>(result)
-            verifySuspend { fixture.authSession.clearAuthTokens() }
-            verifySuspend { fixture.userRepository.clearUsers() }
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { fixture.authSession.clearAuthTokens() }
+                verifySuspend { fixture.userRepository.clearUsers() }
+            }
         }
-}
+    })

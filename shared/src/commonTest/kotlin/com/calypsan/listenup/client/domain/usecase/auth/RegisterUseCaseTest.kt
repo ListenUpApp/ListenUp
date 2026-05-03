@@ -13,160 +13,175 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
+
+private class RegisterFixture {
+    val authRepository: AuthRepository = mock()
+    val authSession: AuthSession = mock()
+
+    fun build(): RegisterUseCase =
+        RegisterUseCase(
+            authRepository = authRepository,
+            authSession = authSession,
+        )
+}
+
+private fun createFixture(): RegisterFixture {
+    val fixture = RegisterFixture()
+    everySuspend { fixture.authSession.savePendingRegistration(any(), any()) } returns Unit
+    return fixture
+}
+
+private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> = AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
 
 /**
  * Tests for [RegisterUseCase] over the contract surface.
  */
-class RegisterUseCaseTest {
-    private class TestFixture {
-        val authRepository: AuthRepository = mock()
-        val authSession: AuthSession = mock()
+class RegisterUseCaseTest :
+    FunSpec({
 
-        fun build(): RegisterUseCase =
-            RegisterUseCase(
-                authRepository = authRepository,
-                authSession = authSession,
-            )
-    }
+        // ========== Validation ==========
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-        everySuspend { fixture.authSession.savePendingRegistration(any(), any()) } returns Unit
-        return fixture
-    }
+        test("register rejects email without at symbol") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    private fun pendingResult(userId: String = "user-42"): AppResult<RegisterResult> = AppResult.Success(RegisterResult.PendingApproval(UserId(userId)))
+                val result =
+                    useCase(
+                        email = "invalid.email",
+                        password = "password123",
+                        firstName = "John",
+                        lastName = "Doe",
+                    )
 
-    // ========== Validation ==========
-
-    @Test
-    fun `register rejects email without at symbol`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result =
-                useCase(
-                    email = "invalid.email",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
-
-            val failure = assertIs<AppResult.Failure>(result)
-            val ve = assertIs<ValidationError>(failure.error)
-            assertEquals("Please enter a valid email address", ve.message)
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Please enter a valid email address"
+            }
         }
 
-    @Test
-    fun `register rejects password shorter than 8 characters`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("register rejects password shorter than 8 characters") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "1234567",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "1234567",
+                        firstName = "John",
+                        lastName = "Doe",
+                    )
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<ValidationError>()
+            }
         }
 
-    @Test
-    fun `register rejects blank first name`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("register rejects blank first name") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "password123",
-                    firstName = "   ",
-                    lastName = "Doe",
-                )
-
-            val failure = assertIs<AppResult.Failure>(result)
-            val ve = assertIs<ValidationError>(failure.error)
-            assertEquals("First name is required", ve.message)
-        }
-
-    @Test
-    fun `register rejects blank last name`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "",
-                )
-
-            val failure = assertIs<AppResult.Failure>(result)
-            val ve = assertIs<ValidationError>(failure.error)
-            assertEquals("Last name is required", ve.message)
-        }
-
-    // ========== Successful registration flow ==========
-
-    @Test
-    fun `register sends combined displayName and persists pending registration`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any()) } returns pendingResult(userId = "user-42")
-            val useCase = fixture.build()
-
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
-
-            assertIs<AppResult.Success<*>>(result)
-            verifySuspend {
-                fixture.authRepository.register(
-                    RegisterRequest(
+                val result =
+                    useCase(
                         email = "user@example.com",
                         password = "password123",
-                        displayName = "John Doe",
-                    ),
-                )
-            }
-            verifySuspend {
-                fixture.authSession.savePendingRegistration(userId = "user-42", email = "user@example.com")
+                        firstName = "   ",
+                        lastName = "Doe",
+                    )
+
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "First name is required"
             }
         }
 
-    @Test
-    fun `register passes through typed AuthError on failure`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.register(any()) } returns
-                AppResult.Failure(AuthError.EmailAlreadyExists())
-            val useCase = fixture.build()
+        test("register rejects blank last name") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val result =
-                useCase(
-                    email = "user@example.com",
-                    password = "password123",
-                    firstName = "John",
-                    lastName = "Doe",
-                )
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "password123",
+                        firstName = "John",
+                        lastName = "",
+                    )
 
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<AuthError.EmailAlreadyExists>(failure.error)
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Last name is required"
+            }
         }
-}
+
+        // ========== Successful registration flow ==========
+
+        test("register sends combined displayName and persists pending registration") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.register(any()) } returns pendingResult(userId = "user-42")
+                val useCase = fixture.build()
+
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "password123",
+                        firstName = "John",
+                        lastName = "Doe",
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                verifySuspend {
+                    fixture.authRepository.register(
+                        RegisterRequest(
+                            email = "user@example.com",
+                            password = "password123",
+                            displayName = "John Doe",
+                        ),
+                    )
+                }
+                verifySuspend {
+                    fixture.authSession.savePendingRegistration(userId = "user-42", email = "user@example.com")
+                }
+            }
+        }
+
+        test("register passes through typed AuthError on failure") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.register(any()) } returns
+                    AppResult.Failure(AuthError.EmailAlreadyExists())
+                val useCase = fixture.build()
+
+                val result =
+                    useCase(
+                        email = "user@example.com",
+                        password = "password123",
+                        firstName = "John",
+                        lastName = "Doe",
+                    )
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.EmailAlreadyExists>()
+            }
+        }
+    })

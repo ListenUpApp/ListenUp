@@ -21,161 +21,173 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
+
+private class LoginFixture {
+    val authRepository: AuthRepository = mock()
+    val authSession: AuthSession = mock()
+    val userRepository: UserRepository = mock()
+
+    fun build(): LoginUseCase =
+        LoginUseCase(
+            authRepository = authRepository,
+            authSession = authSession,
+            userRepository = userRepository,
+        )
+}
+
+private fun createFixture(): LoginFixture {
+    val fixture = LoginFixture()
+    everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
+    everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
+    return fixture
+}
+
+private fun createAuthSession(
+    accessToken: String = "access-token-123",
+    refreshToken: String = "refresh-token-456",
+    sessionId: String = "session-789",
+    userId: String = "user-1",
+    email: String = "test@example.com",
+): ContractAuthSession =
+    ContractAuthSession(
+        accessToken = AccessToken(accessToken),
+        accessTokenExpiresAt = 1_000_000L,
+        refreshToken = RefreshToken(refreshToken),
+        refreshTokenExpiresAt = 2_000_000L,
+        sessionId = SessionId(sessionId),
+        user =
+            ContractUser(
+                id = UserId(userId),
+                email = email,
+                displayName = "Test User",
+                role = UserRole.MEMBER,
+                status = UserStatus.ACTIVE,
+                createdAt = 1704067200000L,
+            ),
+    )
 
 /**
  * Tests for LoginUseCase against the contract-typed [AppResult] surface.
  */
-class LoginUseCaseTest {
-    private class TestFixture {
-        val authRepository: AuthRepository = mock()
-        val authSession: AuthSession = mock()
-        val userRepository: UserRepository = mock()
+class LoginUseCaseTest :
+    FunSpec({
 
-        fun build(): LoginUseCase =
-            LoginUseCase(
-                authRepository = authRepository,
-                authSession = authSession,
-                userRepository = userRepository,
-            )
-    }
+        // ========== Validation ==========
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-        everySuspend { fixture.authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
-        everySuspend { fixture.userRepository.saveUser(any()) } returns Unit
-        return fixture
-    }
+        test("login rejects email without at symbol") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    private fun createAuthSession(
-        accessToken: String = "access-token-123",
-        refreshToken: String = "refresh-token-456",
-        sessionId: String = "session-789",
-        userId: String = "user-1",
-        email: String = "test@example.com",
-    ): ContractAuthSession =
-        ContractAuthSession(
-            accessToken = AccessToken(accessToken),
-            accessTokenExpiresAt = 1_000_000L,
-            refreshToken = RefreshToken(refreshToken),
-            refreshTokenExpiresAt = 2_000_000L,
-            sessionId = SessionId(sessionId),
-            user =
-                ContractUser(
-                    id = UserId(userId),
-                    email = email,
-                    displayName = "Test User",
-                    role = UserRole.MEMBER,
-                    status = UserStatus.ACTIVE,
-                    createdAt = 1704067200000L,
-                ),
-        )
+                val result = useCase(email = "invalid.email", password = "password123")
 
-    // ========== Validation ==========
-
-    @Test
-    fun `login rejects email without at symbol`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result = useCase(email = "invalid.email", password = "password123")
-
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<ValidationError>(failure.error)
-        }
-
-    @Test
-    fun `login rejects empty email`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result = useCase(email = "", password = "password123")
-
-            val failure = assertIs<AppResult.Failure>(result)
-            val ve = assertIs<ValidationError>(failure.error)
-            assertEquals("Please enter a valid email address", ve.message)
-        }
-
-    @Test
-    fun `login rejects short password before hitting the network`() =
-        runTest {
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            val result = useCase(email = "user@example.com", password = "short")
-
-            val failure = assertIs<AppResult.Failure>(result)
-            val ve = assertIs<ValidationError>(failure.error)
-            assertEquals("Password must be at least 8 characters", ve.message)
-        }
-
-    @Test
-    fun `login trims whitespace from email`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(createAuthSession())
-            val useCase = fixture.build()
-
-            val result = useCase(email = "  user@example.com  ", password = "password123")
-
-            assertIs<AppResult.Success<*>>(result)
-            verifySuspend {
-                fixture.authRepository.login(LoginRequest(email = "user@example.com", password = "password123"))
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<ValidationError>()
             }
         }
 
-    // ========== Successful login flow ==========
+        test("login rejects empty email") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    @Test
-    fun `login persists tokens and user, returns the User on success`() =
-        runTest {
-            val session =
-                createAuthSession(
-                    accessToken = "my-access-token",
-                    refreshToken = "my-refresh-token",
-                    sessionId = "my-session",
-                    userId = "user-42",
-                    email = "test@example.com",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(session)
-            val useCase = fixture.build()
+                val result = useCase(email = "", password = "password123")
 
-            val result = useCase(email = "user@example.com", password = "password123")
-
-            val success = assertIs<AppResult.Success<User>>(result)
-            assertEquals("user-42", session.user.id.value)
-            assertEquals("test@example.com", success.data.email)
-
-            verifySuspend {
-                fixture.authSession.saveAuthTokens(
-                    access = AccessToken("my-access-token"),
-                    refresh = RefreshToken("my-refresh-token"),
-                    sessionId = "my-session",
-                    userId = "user-42",
-                )
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Please enter a valid email address"
             }
-            verifySuspend { fixture.userRepository.saveUser(any()) }
         }
 
-    // ========== Failure pass-through ==========
+        test("login rejects short password before hitting the network") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    @Test
-    fun `login passes through typed AuthError from the repository`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.authRepository.login(any()) } returns
-                AppResult.Failure(AuthError.InvalidCredentials())
-            val useCase = fixture.build()
+                val result = useCase(email = "user@example.com", password = "short")
 
-            val result = useCase(email = "user@example.com", password = "password123")
-
-            val failure = assertIs<AppResult.Failure>(result)
-            assertIs<AuthError.InvalidCredentials>(failure.error)
+                val ve =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ValidationError>()
+                ve.message shouldBe "Password must be at least 8 characters"
+            }
         }
-}
+
+        test("login trims whitespace from email") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(createAuthSession())
+                val useCase = fixture.build()
+
+                val result = useCase(email = "  user@example.com  ", password = "password123")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                verifySuspend {
+                    fixture.authRepository.login(LoginRequest(email = "user@example.com", password = "password123"))
+                }
+            }
+        }
+
+        // ========== Successful login flow ==========
+
+        test("login persists tokens and user, returns the User on success") {
+            runTest {
+                val session =
+                    createAuthSession(
+                        accessToken = "my-access-token",
+                        refreshToken = "my-refresh-token",
+                        sessionId = "my-session",
+                        userId = "user-42",
+                        email = "test@example.com",
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(session)
+                val useCase = fixture.build()
+
+                val result = useCase(email = "user@example.com", password = "password123")
+
+                val success = result.shouldBeInstanceOf<AppResult.Success<User>>()
+                session.user.id.value shouldBe "user-42"
+                success.data.email shouldBe "test@example.com"
+
+                verifySuspend {
+                    fixture.authSession.saveAuthTokens(
+                        access = AccessToken("my-access-token"),
+                        refresh = RefreshToken("my-refresh-token"),
+                        sessionId = "my-session",
+                        userId = "user-42",
+                    )
+                }
+                verifySuspend { fixture.userRepository.saveUser(any()) }
+            }
+        }
+
+        // ========== Failure pass-through ==========
+
+        test("login passes through typed AuthError from the repository") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.authRepository.login(any()) } returns
+                    AppResult.Failure(AuthError.InvalidCredentials())
+                val useCase = fixture.build()
+
+                val result = useCase(email = "user@example.com", password = "password123")
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.InvalidCredentials>()
+            }
+        }
+    })
