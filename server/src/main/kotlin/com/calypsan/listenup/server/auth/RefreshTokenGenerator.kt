@@ -5,8 +5,8 @@ import java.util.Base64
 
 /**
  * Produces opaque 32-byte refresh tokens encoded as base64url (no padding).
- * Each token is 43 chars. The server stores Argon2id of these; the client
- * holds the raw value and never decodes it.
+ * Each token is 43 chars. The server stores HMAC-SHA-256 of these (keyed with
+ * a server-side pepper); the client holds the raw value and never decodes it.
  */
 class RefreshTokenGenerator(
     private val random: SecureRandom = SecureRandom(),
