@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.error.UnknownError
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageRepository

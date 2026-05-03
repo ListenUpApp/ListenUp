@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.EntityType
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase

@@ -5,7 +5,7 @@ import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.ContributorId
 import com.calypsan.listenup.client.core.SeriesId
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.appJson
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer

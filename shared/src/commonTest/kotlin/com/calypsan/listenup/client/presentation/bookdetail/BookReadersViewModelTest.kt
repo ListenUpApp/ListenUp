@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import app.cash.turbine.turbineScope
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.BookEvent
 import com.calypsan.listenup.client.domain.model.BookReadersResult
 import com.calypsan.listenup.client.domain.model.ReaderInfo

@@ -1,9 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -74,8 +75,7 @@ class LoginUseCaseTest {
             user =
                 User(
                     id =
-                        com.calypsan.listenup.client.core
-                            .UserId(userId),
+                        UserId(userId),
                     email = email,
                     displayName = "Test User",
                     firstName = "Test",

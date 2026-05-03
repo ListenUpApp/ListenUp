@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.core.SecureStorage
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.ThemeMode

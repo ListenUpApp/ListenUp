@@ -1,8 +1,9 @@
 package com.calypsan.listenup.client.presentation.invite
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -53,8 +54,7 @@ class InviteRegistrationViewModelTest {
             user =
                 User(
                     id =
-                        com.calypsan.listenup.client.core
-                            .UserId("user-id"),
+                        UserId("user-id"),
                     email = "invited@example.com",
                     displayName = "Invited User",
                     firstName = "Invited",

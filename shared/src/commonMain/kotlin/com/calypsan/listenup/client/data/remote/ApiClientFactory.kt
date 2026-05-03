@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession

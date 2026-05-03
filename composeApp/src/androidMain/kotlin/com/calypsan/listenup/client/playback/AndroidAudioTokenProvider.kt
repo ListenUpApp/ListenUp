@@ -3,8 +3,8 @@
 
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.data.remote.AuthApiContract
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging

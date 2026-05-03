@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.core.ChapterId
 import com.calypsan.listenup.client.core.ContributorId
 import com.calypsan.listenup.client.core.SeriesId
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.UserId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
 
 /**

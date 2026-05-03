@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.PlatformUtils
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.appJson

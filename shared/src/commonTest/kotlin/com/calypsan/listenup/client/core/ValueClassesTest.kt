@@ -1,159 +1,63 @@
 package com.calypsan.listenup.client.core
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 /**
- * Tests for type-safe value classes.
- *
- * Tests cover:
- * - AccessToken validation
- * - RefreshToken validation
- * - ServerUrl validation and normalization
+ * Tests for the client-only value classes — `ServerUrl` validation +
+ * normalization. Token validation lives on the contract types in
+ * `:shared/commonMain/api/dto/auth/Identifiers.kt`; the client no longer
+ * defines its own `AccessToken`/`RefreshToken`.
  */
-class ValueClassesTest {
-    // ========== AccessToken Tests ==========
+class ValueClassesTest :
+    FunSpec({
 
-    @Test
-    fun `AccessToken accepts valid token`() {
-        val token = AccessToken("v4.public.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0")
-        assertEquals("v4.public.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0", token.value)
-    }
+        test("ServerUrl accepts https URL") {
+            ServerUrl("https://api.example.com").value shouldBe "https://api.example.com"
+        }
 
-    @Test
-    fun `AccessToken rejects blank token`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                AccessToken("")
-            }
-        assertEquals("Access token cannot be blank", exception.message)
-    }
+        test("ServerUrl accepts http URL") {
+            ServerUrl("http://localhost:8080").value shouldBe "http://localhost:8080"
+        }
 
-    @Test
-    fun `AccessToken rejects whitespace-only token`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                AccessToken("   ")
-            }
-        assertEquals("Access token cannot be blank", exception.message)
-    }
+        test("ServerUrl removes trailing slash") {
+            ServerUrl("https://api.example.com/").value shouldBe "https://api.example.com"
+        }
 
-    // ========== RefreshToken Tests ==========
+        test("ServerUrl removes multiple trailing slashes") {
+            ServerUrl("https://api.example.com///").value shouldBe "https://api.example.com"
+        }
 
-    @Test
-    fun `RefreshToken accepts valid token`() {
-        val token = RefreshToken("refresh_abc123xyz")
-        assertEquals("refresh_abc123xyz", token.value)
-    }
+        test("ServerUrl preserves path without trailing slash") {
+            ServerUrl("https://api.example.com/v1/api").value shouldBe "https://api.example.com/v1/api"
+        }
 
-    @Test
-    fun `RefreshToken rejects blank token`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                RefreshToken("")
-            }
-        assertEquals("Refresh token cannot be blank", exception.message)
-    }
+        test("ServerUrl removes trailing slash from path") {
+            ServerUrl("https://api.example.com/v1/api/").value shouldBe "https://api.example.com/v1/api"
+        }
 
-    @Test
-    fun `RefreshToken rejects whitespace-only token`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                RefreshToken("   ")
-            }
-        assertEquals("Refresh token cannot be blank", exception.message)
-    }
+        test("ServerUrl rejects blank URL") {
+            shouldThrow<IllegalArgumentException> { ServerUrl("") }
+        }
 
-    // ========== ServerUrl Tests ==========
+        test("ServerUrl rejects URL without protocol") {
+            shouldThrow<IllegalArgumentException> { ServerUrl("api.example.com") }
+        }
 
-    @Test
-    fun `ServerUrl accepts https URL`() {
-        val url = ServerUrl("https://api.example.com")
-        assertEquals("https://api.example.com", url.value)
-    }
+        test("ServerUrl rejects URL with ftp protocol") {
+            shouldThrow<IllegalArgumentException> { ServerUrl("ftp://files.example.com") }
+        }
 
-    @Test
-    fun `ServerUrl accepts http URL`() {
-        val url = ServerUrl("http://localhost:8080")
-        assertEquals("http://localhost:8080", url.value)
-    }
+        test("ServerUrl toString returns normalized value") {
+            ServerUrl("https://api.example.com/").toString() shouldBe "https://api.example.com"
+        }
 
-    @Test
-    fun `ServerUrl removes trailing slash`() {
-        val url = ServerUrl("https://api.example.com/")
-        assertEquals("https://api.example.com", url.value)
-    }
+        test("ServerUrl with port number is preserved") {
+            ServerUrl("http://localhost:3000").value shouldBe "http://localhost:3000"
+        }
 
-    @Test
-    fun `ServerUrl removes multiple trailing slashes`() {
-        val url = ServerUrl("https://api.example.com///")
-        assertEquals("https://api.example.com", url.value)
-    }
-
-    @Test
-    fun `ServerUrl preserves path without trailing slash`() {
-        val url = ServerUrl("https://api.example.com/v1/api")
-        assertEquals("https://api.example.com/v1/api", url.value)
-    }
-
-    @Test
-    fun `ServerUrl removes trailing slash from path`() {
-        val url = ServerUrl("https://api.example.com/v1/api/")
-        assertEquals("https://api.example.com/v1/api", url.value)
-    }
-
-    @Test
-    fun `ServerUrl rejects blank URL`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                ServerUrl("")
-            }
-        assertEquals("Server URL cannot be blank", exception.message)
-    }
-
-    @Test
-    fun `ServerUrl rejects whitespace-only URL`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                ServerUrl("   ")
-            }
-        assertEquals("Server URL cannot be blank", exception.message)
-    }
-
-    @Test
-    fun `ServerUrl rejects URL without protocol`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                ServerUrl("api.example.com")
-            }
-        assertEquals("Server URL must start with http:// or https://, got: api.example.com", exception.message)
-    }
-
-    @Test
-    fun `ServerUrl rejects URL with ftp protocol`() {
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                ServerUrl("ftp://files.example.com")
-            }
-        assertEquals("Server URL must start with http:// or https://, got: ftp://files.example.com", exception.message)
-    }
-
-    @Test
-    fun `ServerUrl toString returns normalized value`() {
-        val url = ServerUrl("https://api.example.com/")
-        assertEquals("https://api.example.com", url.toString())
-    }
-
-    @Test
-    fun `ServerUrl with port number is preserved`() {
-        val url = ServerUrl("http://localhost:3000")
-        assertEquals("http://localhost:3000", url.value)
-    }
-
-    @Test
-    fun `ServerUrl with query string is preserved`() {
-        val url = ServerUrl("https://api.example.com?key=value")
-        assertEquals("https://api.example.com?key=value", url.value)
-    }
-}
+        test("ServerUrl with query string is preserved") {
+            ServerUrl("https://api.example.com?key=value").value shouldBe "https://api.example.com?key=value"
+        }
+    })

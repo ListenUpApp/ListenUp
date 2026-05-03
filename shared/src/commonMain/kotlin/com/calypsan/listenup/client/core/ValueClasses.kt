@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.core
 
+import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -9,59 +10,26 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * Type-safe wrapper for PASETO access tokens.
- * Prevents accidental logging or misuse of sensitive credentials.
- */
-data class AccessToken(
-    val value: String,
-) {
-    init {
-        require(value.isNotBlank()) { "Access token cannot be blank" }
-    }
-}
-
-/**
- * Type-safe wrapper for refresh tokens.
- * Prevents accidental logging or misuse of sensitive credentials.
- */
-data class RefreshToken(
-    val value: String,
-) {
-    init {
-        require(value.isNotBlank()) { "Refresh token cannot be blank" }
-    }
-}
-
-/**
  * Type-safe wrapper for server URLs with built-in validation and normalization.
  *
- * Features:
- * - Validates URL format (must start with http:// or https://)
- * - Normalizes by removing trailing slashes
- *
- * Examples:
- * ```kotlin
- * ServerUrl("https://api.example.com")     // Valid
- * ServerUrl("https://api.example.com/")    // Valid, trailing slash removed
- * ServerUrl("api.example.com")             // Invalid, throws exception
- * ServerUrl("")                            // Invalid, throws exception
- * ```
+ * Validates URL format (must start with http:// or https://) and normalizes
+ * by removing the trailing slash. Client-only — the server doesn't need to
+ * know which server URL the client is pointed at.
  */
-data class ServerUrl(
-    private val _value: String,
+@Serializable
+@JvmInline
+value class ServerUrl(
+    val raw: String,
 ) {
-    /**
-     * The normalized URL value with trailing slash removed.
-     */
-    val value: String
-        get() = _value.trimEnd('/')
-
     init {
-        require(_value.isNotBlank()) { "Server URL cannot be blank" }
-        require(_value.startsWith("http://") || _value.startsWith("https://")) {
-            "Server URL must start with http:// or https://, got: $_value"
+        require(raw.isNotBlank()) { "Server URL cannot be blank" }
+        require(raw.startsWith("http://") || raw.startsWith("https://")) {
+            "Server URL must start with http:// or https://, got: $raw"
         }
     }
+
+    /** Normalized form — trailing slash removed. */
+    val value: String get() = raw.trimEnd('/')
 
     override fun toString(): String = value
 }
@@ -133,20 +101,6 @@ value class ContributorId(
 ) {
     init {
         require(value.isNotBlank()) { "Contributor ID cannot be blank" }
-    }
-
-    override fun toString(): String = value
-}
-
-/**
- * Type-safe wrapper for User IDs.
- */
-@JvmInline
-value class UserId(
-    val value: String,
-) {
-    init {
-        require(value.isNotBlank()) { "User ID cannot be blank" }
     }
 
     override fun toString(): String = value

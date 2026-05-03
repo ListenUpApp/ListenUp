@@ -1,8 +1,9 @@
 package com.calypsan.listenup.client.presentation.auth
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AccessToken
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -90,8 +91,7 @@ class SetupViewModelTest {
             user =
                 User(
                     id =
-                        com.calypsan.listenup.client.core
-                            .UserId(userId),
+                        UserId(userId),
                     email = email,
                     displayName = "Admin User",
                     firstName = "Admin",

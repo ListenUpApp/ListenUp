@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.RefreshToken
+import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
