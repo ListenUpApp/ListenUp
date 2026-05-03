@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -193,13 +194,52 @@ class AuthServiceImpl(
             principalProvider = provider,
         )
 
-    // Stubbed for compilation; implemented in C6.
-    override suspend fun currentUser(): User = TODO("C6")
+    override suspend fun currentUser(): User {
+        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+        val user =
+            newSuspendedTransaction(Dispatchers.IO, db) {
+                UserEntity.findById(p.userId.value)
+            } ?: throw AuthException(AuthError.SessionNotFound())
+        return user.toContract()
+    }
 
-    override suspend fun listSessions(): List<SessionSummary> = TODO("C6")
+    override suspend fun listSessions(): List<SessionSummary> {
+        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+        return sessions.listActiveFor(p.userId).map { s ->
+            SessionSummary(
+                id = SessionId(s.id.value),
+                label = s.label,
+                createdAt = s.createdAt,
+                lastUsedAt = s.lastUsedAt,
+                current = s.id.value == p.sessionId.value,
+            )
+        }
+    }
 
-    override suspend fun decidePendingRegistration(request: PendingRegistrationDecision): PendingRegistrationOutcome =
-        TODO("C6")
+    override suspend fun decidePendingRegistration(request: PendingRegistrationDecision): PendingRegistrationOutcome {
+        val p = principalProvider.current() ?: throw AuthException(AuthError.SessionExpired())
+        if (p.role != UserRole.ROOT && p.role != UserRole.ADMIN) {
+            throw AuthException(AuthError.PermissionDenied())
+        }
+
+        // Don't leak existence-or-state of the target — admin actions only succeed
+        // against a genuinely pending row; everything else is PermissionDenied.
+        val target =
+            newSuspendedTransaction(Dispatchers.IO, db) {
+                UserEntity.findById(request.userId.value)
+            } ?: throw AuthException(AuthError.PermissionDenied())
+        if (target.status != UserStatusColumn.PENDING_APPROVAL) {
+            throw AuthException(AuthError.PermissionDenied())
+        }
+
+        val now = clock.millis()
+        val newStatus = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
+        newSuspendedTransaction(Dispatchers.IO, db) {
+            target.status = newStatus
+            target.updatedAt = now
+        }
+        return if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
+    }
 
     private suspend fun issueSession(
         userEntity: UserEntity,
