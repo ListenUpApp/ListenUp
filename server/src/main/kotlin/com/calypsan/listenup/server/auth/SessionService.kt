@@ -91,7 +91,8 @@ class SessionService(
                 SessionEntity
                     .find {
                         (SessionTable.refreshTokenHash eq incomingHash) and
-                            (SessionTable.revokedAt eq null)
+                            (SessionTable.revokedAt eq null) and
+                            (SessionTable.expiresAt greater clock.millis())
                     }.firstOrNull()
             if (live != null) {
                 live.previousHash = live.refreshTokenHash
@@ -155,7 +156,9 @@ class SessionService(
         newSuspendedTransaction(Dispatchers.IO, db) {
             SessionEntity
                 .find {
-                    (SessionTable.userId eq userId.value) and (SessionTable.revokedAt eq null)
+                    (SessionTable.userId eq userId.value) and
+                        (SessionTable.revokedAt eq null) and
+                        (SessionTable.expiresAt greater clock.millis())
                 }.sortedByDescending { it.lastUsedAt }
                 .toList()
         }

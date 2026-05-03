@@ -17,6 +17,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.nio.file.Files
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -141,6 +142,34 @@ class SessionServiceTest :
                         .toList()
                 list.forEach { it.revokedAt shouldNotBe null }
             }
+        }
+
+        test("rotate returns null for an explicitly-revoked session") {
+            val db = freshDb()
+            seedUser(db, "u-1")
+            val svc = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+
+            val s = svc.createSession(UserId("u-1"))
+            svc.revoke(s.sessionId, UserId("u-1"))
+
+            svc.rotate(s.refreshToken) shouldBe null
+        }
+
+        test("rotate returns null for an expired session") {
+            val db = freshDb()
+            seedUser(db, "u-1")
+            // Use a tiny TTL so the session is born already-expired by the test clock.
+            val svc =
+                SessionService(
+                    db,
+                    RefreshTokenHasher(pepper),
+                    RefreshTokenGenerator(),
+                    refreshTtl = Duration.ofMillis(-1),
+                    clock = clock,
+                )
+
+            val s = svc.createSession(UserId("u-1"))
+            svc.rotate(s.refreshToken) shouldBe null
         }
 
         test("rotate finds the right session even with many active sessions") {

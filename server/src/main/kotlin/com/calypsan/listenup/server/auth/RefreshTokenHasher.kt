@@ -21,13 +21,13 @@ import javax.crypto.spec.SecretKeySpec
 class RefreshTokenHasher(
     pepper: ByteArray,
 ) {
-    private val key: SecretKeySpec = SecretKeySpec(pepper.copyOf(), HMAC_ALGORITHM)
-
     init {
         require(pepper.size >= MIN_PEPPER_BYTES) {
             "pepper must be at least $MIN_PEPPER_BYTES bytes"
         }
     }
+
+    private val key: SecretKeySpec = SecretKeySpec(pepper.copyOf(), HMAC_ALGORITHM)
 
     /** Returns lowercase hex of the HMAC-SHA-256 digest (64 chars). */
     fun hash(token: String): String {

@@ -29,6 +29,7 @@ CREATE TABLE sessions (
 );
 
 CREATE UNIQUE INDEX idx_sessions_token_hash ON sessions(refresh_token_hash);
+CREATE INDEX        idx_sessions_previous_hash ON sessions(previous_hash);
 CREATE INDEX        idx_sessions_user_active ON sessions(user_id, revoked_at);
 CREATE INDEX        idx_sessions_family      ON sessions(family_id);
 CREATE INDEX        idx_sessions_expires     ON sessions(expires_at);
