@@ -11,8 +11,11 @@ import java.nio.file.Files
  * `testApplication { environment { config = ... } }` defaults to an empty
  * `MapApplicationConfig` — calling `module()` without this would crash on the
  * first `config.property("...").getString()` lookup.
+ *
+ * @param registrationPolicy override the registration policy bucket (`OPEN`,
+ *   `APPROVAL_QUEUE`, `CLOSED`). Tests covering policy branching pass it here.
  */
-fun ApplicationTestBuilder.useIsolatedTestConfig() {
+fun ApplicationTestBuilder.useIsolatedTestConfig(registrationPolicy: String = "OPEN") {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
         config =
@@ -22,7 +25,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig() {
                 "jwt.secret" to "x".repeat(32),
                 "jwt.issuer" to "listenup",
                 "jwt.audience" to "listenup-client",
-                "registration.policy" to "OPEN",
+                "registration.policy" to registrationPolicy,
             )
     }
 }
