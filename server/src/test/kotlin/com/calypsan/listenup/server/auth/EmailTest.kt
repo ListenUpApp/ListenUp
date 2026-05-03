@@ -8,6 +8,10 @@ class EmailTest :
         test("normalize lowercases, trims, and applies NFC") {
             Email.normalize("  Foo@Example.COM  ") shouldBe "foo@example.com"
             Email.normalize("Bar@Test.io") shouldBe "bar@test.io"
+            // NFD input ('e' + combining acute) must compose to NFC ('é', single code point).
+            val nfdInput = "usér@example.com"
+            val nfcExpected = "usér@example.com"
+            Email.normalize(nfdInput) shouldBe nfcExpected
         }
 
         test("isLikelyEmail accepts user@host with at least one char on each side") {
