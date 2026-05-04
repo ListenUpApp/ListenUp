@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -36,11 +37,17 @@ private class PingServiceImpl : PingService {
  * the client; RPC-side typed-error recovery awaits either a kotlinx.rpc
  * interceptor API or a migration to `AppResult<T>` return shapes.
  */
-fun Route.rpcRoutes(authService: AuthServiceImpl) {
+fun Route.rpcRoutes(
+    authService: AuthServiceImpl,
+    scannerService: ScannerService? = null,
+) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
         registerService<PingService> { PingServiceImpl() }
         registerService<AuthServicePublic> { authService }
+        if (scannerService != null) {
+            registerService<ScannerService> { scannerService }
+        }
     }
 
     authenticate(JWT_PROVIDER) {

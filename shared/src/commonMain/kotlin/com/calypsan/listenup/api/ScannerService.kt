@@ -1,0 +1,33 @@
+package com.calypsan.listenup.api
+
+import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.api.result.AppResult
+import kotlinx.coroutines.flow.Flow
+import kotlinx.rpc.annotations.Rpc
+
+/**
+ * Public scanner contract. Mounted at `/api/rpc/public` (no auth wall in
+ * Phase 2; admin-gating lands when the auth surface gets a role check in
+ * Phase 4).
+ *
+ * `observeProgress()` is a server-pushed [Flow] of [ScanEvent] —
+ * kotlinx.rpc opens a dedicated WebSocket frame stream for it. Multiple
+ * clients can subscribe simultaneously and they all see the same events
+ * (the scanner's event bus is a broadcast `SharedFlow`).
+ *
+ *  - `scanFull()` returns immediately with `Failure(AlreadyRunning)` if a
+ *    scan is in flight.
+ *  - `lastScanResult()` returns the most-recent completed scan's full
+ *    result — including the books list — for read-after-scan flows that
+ *    don't want to subscribe.
+ */
+@Rpc
+interface ScannerService {
+    suspend fun scanFull(): AppResult<ScanResultSummary>
+
+    suspend fun lastScanResult(): AppResult<ScanResult>
+
+    fun observeProgress(): Flow<ScanEvent>
+}

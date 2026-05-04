@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.slf4j)
     runtimeOnly(libs.janino) // enables logback.xml <if>/<condition> elements
 
+    // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
+    implementation(libs.kfswatch)
+
     // Test deps
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
@@ -82,6 +85,9 @@ dependencies {
     testImplementation(libs.ktor.client.cio)
     testImplementation(libs.ktor.client.auth)
     testImplementation(libs.mokkery.runtime)
+
+    // Turbine — Flow assertions for the watcher tests.
+    testImplementation(libs.turbine)
 }
 
 kotlin {
