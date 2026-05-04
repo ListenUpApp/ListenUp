@@ -85,6 +85,9 @@ dependencies {
     testImplementation(libs.ktor.client.cio)
     testImplementation(libs.ktor.client.auth)
     testImplementation(libs.mokkery.runtime)
+
+    // Turbine — Flow assertions for the watcher tests.
+    testImplementation(libs.turbine)
 }
 
 kotlin {
