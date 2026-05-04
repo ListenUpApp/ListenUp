@@ -71,8 +71,12 @@ class ScannerDtoContractTest :
         test("TrackEntry round-trips with all source variants") {
             val file =
                 FileEntry(
-                    relPath = "track.mp3", name = "track.mp3", ext = "mp3",
-                    size = 0L, mtimeMs = 0L, fileType = FileType.AUDIO,
+                    relPath = "track.mp3",
+                    name = "track.mp3",
+                    ext = "mp3",
+                    size = 0L,
+                    mtimeMs = 0L,
+                    fileType = FileType.AUDIO,
                 )
             TrackNumberSource.entries.forEach { source ->
                 val entry = TrackEntry(file = file, trackNumber = 1, discNumber = 1, trackSource = source, discSource = source)
@@ -92,10 +96,11 @@ class ScannerDtoContractTest :
                 CandidateBook(
                     rootRelPath = "Author/Book",
                     isFile = false,
-                    files = listOf(
-                        FileEntry("Author/Book/CD1/01.mp3", "01.mp3", "mp3", 0, 0, fileType = FileType.AUDIO),
-                        FileEntry("Author/Book/CD2/01.mp3", "01.mp3", "mp3", 0, 0, fileType = FileType.AUDIO),
-                    ),
+                    files =
+                        listOf(
+                            FileEntry("Author/Book/CD1/01.mp3", "01.mp3", "mp3", 0, 0, fileType = FileType.AUDIO),
+                            FileEntry("Author/Book/CD2/01.mp3", "01.mp3", "mp3", 0, 0, fileType = FileType.AUDIO),
+                        ),
                     discFolders = listOf("Author/Book/CD1", "Author/Book/CD2"),
                 )
             roundTrip(candidate) shouldBe candidate
@@ -152,8 +157,14 @@ class ScannerDtoContractTest :
             val summary =
                 ScanResultSummary(
                     correlationId = "corr-1",
-                    totalBooks = 42, added = 10, modified = 5, removed = 1, moved = 0,
-                    errors = 0, durationMs = 1234, filesWalked = 200,
+                    totalBooks = 42,
+                    added = 10,
+                    modified = 5,
+                    removed = 1,
+                    moved = 0,
+                    errors = 0,
+                    durationMs = 1234,
+                    filesWalked = 200,
                 )
             roundTrip(summary) shouldBe summary
 
@@ -164,7 +175,9 @@ class ScannerDtoContractTest :
                     books = emptyList(),
                     changes = emptyList(),
                     errors = emptyList(),
-                    durationMs = 1234, filesWalked = 200, filesSkipped = 5,
+                    durationMs = 1234,
+                    filesWalked = 200,
+                    filesSkipped = 5,
                 )
             roundTrip(result) shouldBe result
         }

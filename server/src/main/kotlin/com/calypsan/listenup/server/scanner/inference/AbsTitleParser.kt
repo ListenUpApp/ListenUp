@@ -115,9 +115,10 @@ object AbsTitleParser {
             // Empty sequence (regex allows `\d{0,3}`) — bail on this part too.
             if (sequence.isEmpty()) continue
             // Normalize: "06" → "6", "1.5" stays "1.5", "0.5" stays "0.5".
-            val normalized = sequence.toDoubleOrNull()?.let { d ->
-                if (d == d.toLong().toDouble()) d.toLong().toString() else sequence
-            } ?: sequence
+            val normalized =
+                sequence.toDoubleOrNull()?.let { d ->
+                    if (d == d.toLong().toDouble()) d.toLong().toString() else sequence
+                } ?: sequence
 
             parts[i] = suffix.orEmpty()
             if (parts[i].isEmpty()) parts.removeAt(i)

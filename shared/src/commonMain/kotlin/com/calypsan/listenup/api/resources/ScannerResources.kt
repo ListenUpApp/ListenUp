@@ -13,7 +13,10 @@ import io.ktor.resources.Resource
  *    route below for documentation.)
  */
 @Resource("/api/v1/scan")
-class Scan {
+class ScannerResources {
+    /** REST endpoint for ScannerService.lastScanResult — GET /api/v1/scan/last. */
     @Resource("last")
-    class Last(val parent: Scan = Scan())
+    class Last(
+        val parent: ScannerResources = ScannerResources(),
+    )
 }

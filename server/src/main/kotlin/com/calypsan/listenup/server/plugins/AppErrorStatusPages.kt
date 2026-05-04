@@ -46,6 +46,23 @@ fun Application.installAppErrorStatusPages() {
 /** Status mapping for typed [AppError]. Used by both REST handlers and tests. */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
+        is AuthError -> toHttpStatus()
+        is ScanError -> toHttpStatus()
+        is ValidationError -> HttpStatusCode.BadRequest
+        is InternalError -> HttpStatusCode.InternalServerError
+    }
+
+/** Stamp the request's correlation id onto a typed wire error. */
+internal fun AppError.withCorrelationId(id: String?): AppError =
+    when (this) {
+        is AuthError -> withCorrelationId(id)
+        is ScanError -> withCorrelationId(id)
+        is ValidationError -> copy(correlationId = id)
+        is InternalError -> copy(correlationId = id)
+    }
+
+private fun AuthError.toHttpStatus(): HttpStatusCode =
+    when (this) {
         is AuthError.InvalidCredentials -> HttpStatusCode.Unauthorized
         is AuthError.EmailAlreadyExists -> HttpStatusCode.Conflict
         is AuthError.RegistrationDisabled -> HttpStatusCode.Forbidden
@@ -59,8 +76,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is AuthError.RateLimited -> HttpStatusCode.TooManyRequests
         is AuthError.WeakPassword -> HttpStatusCode.BadRequest
         is AuthError.PermissionDenied -> HttpStatusCode.Forbidden
-        is ValidationError -> HttpStatusCode.BadRequest
-        is InternalError -> HttpStatusCode.InternalServerError
+    }
+
+private fun ScanError.toHttpStatus(): HttpStatusCode =
+    when (this) {
         is ScanError.AlreadyRunning -> HttpStatusCode.Conflict
         is ScanError.LibraryPathNotConfigured -> HttpStatusCode.ServiceUnavailable
         is ScanError.LibraryPathNotFound -> HttpStatusCode.ServiceUnavailable
@@ -69,8 +88,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is ScanError.TitleInferenceError -> HttpStatusCode.InternalServerError
     }
 
-/** Stamp the request's correlation id onto a typed wire error. */
-internal fun AppError.withCorrelationId(id: String?): AppError =
+private fun AuthError.withCorrelationId(id: String?): AuthError =
     when (this) {
         is AuthError.InvalidCredentials -> copy(correlationId = id)
         is AuthError.EmailAlreadyExists -> copy(correlationId = id)
@@ -85,8 +103,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is AuthError.RateLimited -> copy(correlationId = id)
         is AuthError.WeakPassword -> copy(correlationId = id)
         is AuthError.PermissionDenied -> copy(correlationId = id)
-        is ValidationError -> copy(correlationId = id)
-        is InternalError -> copy(correlationId = id)
+    }
+
+private fun ScanError.withCorrelationId(id: String?): ScanError =
+    when (this) {
         is ScanError.AlreadyRunning -> copy(correlationId = id)
         is ScanError.LibraryPathNotConfigured -> copy(correlationId = id)
         is ScanError.LibraryPathNotFound -> copy(correlationId = id)

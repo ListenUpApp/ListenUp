@@ -33,6 +33,7 @@ data class TrackInfo(
 object TrackInference {
     private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,2})\b""", RegexOption.IGNORE_CASE)
     private val discInFolder = Regex("""^(cd|dis[ck])\s*(\d{1,3})$""", RegexOption.IGNORE_CASE)
+
     // No `\b` boundaries: filenames like `track01` don't have a word boundary
     // between `k` and `0`, since both classes are "word" characters. Greedy
     // `\d{1,4}` matches the longest 1-4 digit run and bounds 5+ digit numbers
@@ -65,7 +66,7 @@ object TrackInference {
 
         val trackMatch = trackPattern.find(trackHaystack)
         val trackNumber = trackMatch?.groupValues?.get(1)?.toIntOrNull()
-        val trackSource = if (trackNumber != null) TrackNumberSource.FILENAME else null
+        val trackSource = trackNumber?.let { TrackNumberSource.FILENAME }
 
         return TrackInfo(
             trackNumber = trackNumber,

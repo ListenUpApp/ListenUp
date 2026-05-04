@@ -15,8 +15,14 @@ import java.nio.file.Path
 object SkipRules {
     private val tempExtensions =
         setOf(
-            ".part", ".tmp", ".crdownload", ".download",
-            ".bak", ".old", ".temp", ".tempfile",
+            ".part",
+            ".tmp",
+            ".crdownload",
+            ".download",
+            ".bak",
+            ".old",
+            ".temp",
+            ".tempfile",
         )
 
     fun shouldSkip(path: Path): Boolean {

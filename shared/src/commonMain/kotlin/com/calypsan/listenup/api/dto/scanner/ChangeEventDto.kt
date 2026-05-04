@@ -12,7 +12,9 @@ import kotlinx.serialization.Serializable
 sealed interface ChangeEventDto {
     @Serializable
     @SerialName("added")
-    data class Added(val book: AnalyzedBook) : ChangeEventDto
+    data class Added(
+        val book: AnalyzedBook,
+    ) : ChangeEventDto
 
     @Serializable
     @SerialName("modified")
@@ -23,7 +25,9 @@ sealed interface ChangeEventDto {
 
     @Serializable
     @SerialName("removed")
-    data class Removed(val rootRelPath: String) : ChangeEventDto
+    data class Removed(
+        val rootRelPath: String,
+    ) : ChangeEventDto
 
     @Serializable
     @SerialName("moved")
