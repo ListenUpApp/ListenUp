@@ -32,7 +32,6 @@ data class TrackInfo(
  */
 object TrackInference {
     private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,2})\b""", RegexOption.IGNORE_CASE)
-    private val discInFolder = Regex("""^(cd|dis[ck])\s*(\d{1,3})$""", RegexOption.IGNORE_CASE)
 
     // No `\b` boundaries: filenames like `track01` don't have a word boundary
     // between `k` and `0`, since both classes are "word" characters. Greedy
@@ -57,9 +56,9 @@ object TrackInference {
             discSource = TrackNumberSource.FILENAME
             trackHaystack = nameWithoutExt.removeRange(discFilenameMatch.range)
         } else if (parentFolderName != null) {
-            val discFolderMatch = discInFolder.matchEntire(parentFolderName)
-            if (discFolderMatch != null) {
-                discNumber = discFolderMatch.groupValues[2].toIntOrNull()
+            val folderDisc = MultiDiscPattern.discNumber(parentFolderName)
+            if (folderDisc != null) {
+                discNumber = folderDisc
                 discSource = TrackNumberSource.FOLDER
             }
         }
