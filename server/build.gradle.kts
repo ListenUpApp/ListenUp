@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.slf4j)
     runtimeOnly(libs.janino) // enables logback.xml <if>/<condition> elements
 
+    // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
+    implementation(libs.kfswatch)
+
     // Test deps
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
