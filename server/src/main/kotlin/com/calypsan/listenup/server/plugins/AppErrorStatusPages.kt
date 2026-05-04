@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.plugins
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.HttpStatusCode
@@ -60,6 +61,12 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is AuthError.PermissionDenied -> HttpStatusCode.Forbidden
         is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
+        is ScanError.AlreadyRunning -> HttpStatusCode.Conflict
+        is ScanError.LibraryPathNotConfigured -> HttpStatusCode.ServiceUnavailable
+        is ScanError.LibraryPathNotFound -> HttpStatusCode.ServiceUnavailable
+        is ScanError.FileUnreadable -> HttpStatusCode.InternalServerError
+        is ScanError.MetadataParseError -> HttpStatusCode.InternalServerError
+        is ScanError.TitleInferenceError -> HttpStatusCode.InternalServerError
     }
 
 /** Stamp the request's correlation id onto a typed wire error. */
@@ -80,4 +87,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is AuthError.PermissionDenied -> copy(correlationId = id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is ScanError.AlreadyRunning -> copy(correlationId = id)
+        is ScanError.LibraryPathNotConfigured -> copy(correlationId = id)
+        is ScanError.LibraryPathNotFound -> copy(correlationId = id)
+        is ScanError.FileUnreadable -> copy(correlationId = id)
+        is ScanError.MetadataParseError -> copy(correlationId = id)
+        is ScanError.TitleInferenceError -> copy(correlationId = id)
     }
