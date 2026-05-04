@@ -66,4 +66,29 @@ class ArchitectureTest :
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }
         }
+
+        test("ScanEvent variants live in commonMain") {
+            Konsist
+                .scopeFromProject()
+                .classes()
+                .filter { it.resideInPackage("com.calypsan.listenup.api.event..") }
+                .withoutValueModifier()
+                .assertTrue { koClass ->
+                    "/shared/src/commonMain/" in koClass.containingFile.path
+                }
+        }
+
+        test("scanner package files in :server have no io.ktor imports") {
+            // The scanner core stays transport-agnostic. Ktor only enters via
+            // `routes/ScannerRoutes.kt` (REST + SSE) and `di/ScannerModule.kt`
+            // (Koin's ApplicationConfig binding) — both outside `scanner/`.
+            Konsist
+                .scopeFromProject()
+                .files
+                .filter { "/server/src/main/" in it.path }
+                .filter { it.packagee?.name?.startsWith("com.calypsan.listenup.server.scanner") == true }
+                .assertFalse { file ->
+                    file.imports.any { it.name.startsWith("io.ktor.") }
+                }
+        }
     })
