@@ -41,7 +41,14 @@ sealed interface TransportError : AppError {
         override val isRetryable: Boolean = true
     }
 
-    /** Server returned a 4xx response that doesn't map to a typed domain error. */
+    /**
+     * Server returned a 4xx response that doesn't map to a typed domain error.
+     *
+     * Typed cases (401/403 auth, 429 rate-limit) should already be unwrapped by
+     * the RPC interceptor into `AuthError` subtypes before reaching this catch-all.
+     * Consumers (Tasks 11-13) may still pattern-match on [statusCode] for any
+     * special-case 4xx handling not covered by the typed `AuthError` hierarchy.
+     */
     @Serializable
     @SerialName("TransportError.Server4xx")
     data class Server4xx(
@@ -67,7 +74,14 @@ sealed interface TransportError : AppError {
         override val isRetryable: Boolean = true
     }
 
-    /** Response body could not be deserialized (JSON parse error, schema mismatch). */
+    /**
+     * Response body could not be deserialized (JSON parse error, schema mismatch).
+     *
+     * [detail] is a concise diagnostic always intended for surfacing alongside
+     * the user-facing [message] (e.g., `"JSON parse failed at offset 42"`),
+     * separate from [debugInfo] which carries debug-only stacktraces or
+     * internal context not safe for production UI.
+     */
     @Serializable
     @SerialName("TransportError.DataMalformed")
     data class DataMalformed(
