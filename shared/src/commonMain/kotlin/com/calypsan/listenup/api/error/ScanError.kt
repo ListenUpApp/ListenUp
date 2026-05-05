@@ -54,8 +54,8 @@ sealed interface ScanError : AppError {
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
         val path: String,
-        override val message: String = "A file in the library could not be read.",
     ) : ScanError {
+        override val message: String = "A file in the library could not be read."
         override val code: String = "SCAN_FILE_UNREADABLE"
         override val isRetryable: Boolean = false
     }
@@ -67,8 +67,8 @@ sealed interface ScanError : AppError {
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
         val path: String,
-        override val message: String = "Could not read metadata for this file.",
     ) : ScanError {
+        override val message: String = "Could not read metadata for this file."
         override val code: String = "SCAN_METADATA_PARSE_ERROR"
         override val isRetryable: Boolean = false
     }

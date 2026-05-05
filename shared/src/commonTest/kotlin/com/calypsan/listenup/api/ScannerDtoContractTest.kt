@@ -188,8 +188,8 @@ class ScannerDtoContractTest :
                     ScanError.AlreadyRunning(correlationId = "c"),
                     ScanError.LibraryPathNotConfigured(correlationId = "c"),
                     ScanError.LibraryPathNotFound(correlationId = "c", path = "/missing"),
-                    ScanError.FileUnreadable(correlationId = "c", path = "/path", message = "perm denied"),
-                    ScanError.MetadataParseError(correlationId = "c", path = "/path", message = "bad json"),
+                    ScanError.FileUnreadable(correlationId = "c", debugInfo = "perm denied", path = "/path"),
+                    ScanError.MetadataParseError(correlationId = "c", debugInfo = "bad json", path = "/path"),
                     ScanError.TitleInferenceError(correlationId = "c", path = "/path"),
                 )
             variants.forEach { original ->

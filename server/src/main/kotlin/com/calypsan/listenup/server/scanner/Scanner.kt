@@ -205,7 +205,7 @@ class Scanner(
     private fun toScanError(t: Throwable): ScanError =
         ScanError.FileUnreadable(
             path = rootPath.toString(),
-            message = t.message ?: t::class.simpleName ?: "unknown error",
+            debugInfo = t.message ?: t::class.simpleName ?: "unknown error",
         )
 }
 
