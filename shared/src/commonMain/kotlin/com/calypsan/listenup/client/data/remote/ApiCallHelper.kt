@@ -16,8 +16,14 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
  * ```
  * boilerplate at the data-layer boundary.
  *
- * @throws AppException when the envelope indicates failure — carrying the already-typed
- *   [com.calypsan.listenup.client.core.error.AppError] so callers can react to it.
+ * The envelope's typed error is a unified [com.calypsan.listenup.api.error.AppError];
+ * the legacy [AppException] (still in use until Task 16) requires the legacy hierarchy,
+ * so we bridge via `toLegacy()` at the throw site. Tasks 13 and 16 finish the migration:
+ * Task 13 reshapes [AppException] / `ErrorMapper` to consume unified errors directly;
+ * Task 16 deletes the legacy hierarchy and removes the bridge.
+ *
+ * @throws AppException when the envelope indicates failure — carrying the typed error
+ *   (currently bridged into the legacy hierarchy) so callers can react to it.
  * @throws ApiException when the success envelope arrived with null data.
  */
 fun <T> ApiResponse<T>.dataOrThrow(errorMessage: String): T =
