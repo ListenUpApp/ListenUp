@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
@@ -49,6 +50,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
         is ScanError -> toHttpStatus()
+        is SyncError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
         // TransportError is client-local — it should never originate on the server.
@@ -61,6 +63,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
         is ScanError -> withCorrelationId(id)
+        is SyncError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -127,4 +130,18 @@ private fun TransportError.withCorrelationId(id: String?): TransportError =
         is TransportError.Server4xx -> copy(correlationId = id)
         is TransportError.Server5xx -> copy(correlationId = id)
         is TransportError.DataMalformed -> copy(correlationId = id)
+    }
+
+private fun SyncError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SyncError.SyncFailed -> HttpStatusCode.ServiceUnavailable
+        is SyncError.RealtimeDisconnected -> HttpStatusCode.ServiceUnavailable
+        is SyncError.PushFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun SyncError.withCorrelationId(id: String?): SyncError =
+    when (this) {
+        is SyncError.SyncFailed -> copy(correlationId = id)
+        is SyncError.RealtimeDisconnected -> copy(correlationId = id)
+        is SyncError.PushFailed -> copy(correlationId = id)
     }

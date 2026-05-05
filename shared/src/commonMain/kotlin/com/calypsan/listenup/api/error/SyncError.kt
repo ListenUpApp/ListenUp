@@ -1,0 +1,54 @@
+package com.calypsan.listenup.api.error
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * Domain errors for library sync operations.
+ *
+ * Re-rooted from `client.core.error.SyncError` in Phase 3 (Task 7). Consumers
+ * migrate in Tasks 11–13; the legacy file is deleted in Task 16.
+ *
+ * Many sync sub-operations (FTS rebuild, individual cover downloads, SSE
+ * event processing) fail silently by design — they retry on next sync. Only
+ * top-level sync failures and persistent connection issues surface here.
+ */
+@Serializable
+sealed interface SyncError : AppError {
+
+    /** Top-level pull-sync failed. User's library may be stale. */
+    @Serializable
+    @SerialName("SyncError.SyncFailed")
+    data class SyncFailed(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SyncError {
+        override val message: String = "Library sync failed. Please try again."
+        override val code: String = "SYNC_FAILED"
+        override val isRetryable: Boolean = true
+    }
+
+    /** Real-time connection lost; reconnection failed. Live updates paused. */
+    @Serializable
+    @SerialName("SyncError.RealtimeDisconnected")
+    data class RealtimeDisconnected(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SyncError {
+        override val message: String = "Lost connection to server. Changes may be delayed."
+        override val code: String = "SYNC_REALTIME_DISCONNECTED"
+        override val isRetryable: Boolean = true
+    }
+
+    /** Push sync failed — local edits not yet persisted server-side. */
+    @Serializable
+    @SerialName("SyncError.PushFailed")
+    data class PushFailed(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SyncError {
+        override val message: String = "Local changes could not be saved. They will retry shortly."
+        override val code: String = "SYNC_PUSH_FAILED"
+        override val isRetryable: Boolean = true
+    }
+}
