@@ -95,7 +95,7 @@ sealed interface AuthError : AppError {
     ) : AuthError {
         override val message: String = "Your session expired. Please sign in again."
         override val code: String = "AUTH_SESSION_EXPIRED"
-        override val isRetryable: Boolean = true
+        override val isRetryable: Boolean = false
     }
 
     /** JWT decoded fine but no matching session row exists. */
@@ -104,7 +104,7 @@ sealed interface AuthError : AppError {
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
     ) : AuthError {
-        override val message: String = "Session not found."
+        override val message: String = "You're signed out. Please sign in again."
         override val code: String = "AUTH_SESSION_NOT_FOUND"
         override val isRetryable: Boolean = false
     }
@@ -125,7 +125,7 @@ sealed interface AuthError : AppError {
         override val debugInfo: String? = null,
         val familyRevoked: Boolean,
     ) : AuthError {
-        override val message: String = "Refresh token is invalid."
+        override val message: String = "Your session is no longer valid. Please sign in again."
         override val code: String = "AUTH_INVALID_REFRESH_TOKEN"
         override val isRetryable: Boolean = false
     }
