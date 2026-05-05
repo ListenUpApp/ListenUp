@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -28,7 +29,7 @@ class ProfileRepositoryImpl(
         suspendRunCatching {
             when (val result = profileApi.getUserProfile(userId)) {
                 is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
+                is Failure -> throw AppException(result.error.toLegacy())
             }
         }
 }

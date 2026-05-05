@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.toLegacy
+import com.calypsan.listenup.client.core.toUnified
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.AppException
@@ -98,7 +100,7 @@ class PlaybackApi(
 
             when (val result = response.toResult()) {
                 is com.calypsan.listenup.client.core.Success -> result.data.toDomain()
-                is com.calypsan.listenup.client.core.Failure -> throw AppException(result.error)
+                is com.calypsan.listenup.client.core.Failure -> throw AppException(result.error.toLegacy())
             }
         }
 
@@ -114,7 +116,7 @@ class PlaybackApi(
             if (serverError?.statusCode == HTTP_NOT_FOUND) {
                 AppResult.Success(Unit)
             } else {
-                AppResult.Failure(e.error)
+                AppResult.Failure(e.error.toUnified())
             }
         } catch (e: Exception) {
             Failure(e)

@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import com.calypsan.listenup.client.core.error.AppException
+import com.calypsan.listenup.client.core.toLegacy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -93,7 +94,7 @@ class SeriesPuller(
                         }
 
                         is Failure -> {
-                            throw AppException(result.error)
+                            throw AppException(result.error.toLegacy())
                         }
                     }
                 }

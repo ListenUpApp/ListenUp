@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
@@ -85,7 +86,7 @@ class InviteApi : InviteApiContract {
 
             return when (val result = response.toResult()) {
                 is Success -> result.data
-                is Failure -> throw AppException(result.error)
+                is Failure -> throw AppException(result.error.toLegacy())
             }
         } finally {
             client.close()
@@ -120,7 +121,7 @@ class InviteApi : InviteApiContract {
 
             return when (val result = response.toResult()) {
                 is Success -> result.data
-                is Failure -> throw AppException(result.error)
+                is Failure -> throw AppException(result.error.toLegacy())
             }
         } finally {
             client.close()

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.model.Tag
@@ -118,7 +119,7 @@ class TagApi(
             is Success -> { /* Tag removed successfully */ }
 
             is Failure -> {
-                throw AppException(result.error)
+                throw AppException(result.error.toLegacy())
             }
         }
     }

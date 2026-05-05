@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.pull
 
 import com.calypsan.listenup.client.core.ContributorId
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.data.local.db.ContributorAliasCrossRef
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -138,7 +139,7 @@ class ContributorPuller(
                         }
 
                         is Failure -> {
-                            throw AppException(result.error)
+                            throw AppException(result.error.toLegacy())
                         }
                     }
                 }

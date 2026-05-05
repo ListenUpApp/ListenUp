@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.pull
 
 import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -95,7 +96,7 @@ class BookPuller(
                 }
 
                 is Failure -> {
-                    throw AppException(result.error)
+                    throw AppException(result.error.toLegacy())
                 }
             }
         }

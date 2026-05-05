@@ -85,7 +85,7 @@ class CollectionUseCasesTest {
 
             // Then
             val failure = assertIs<Failure>(result)
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
+            assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
             assertEquals("Collection name is required", failure.message)
         }
 
@@ -101,7 +101,7 @@ class CollectionUseCasesTest {
 
             // Then
             val failure = assertIs<Failure>(result)
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
+            assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
         }
 
     @Test

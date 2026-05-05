@@ -152,7 +152,7 @@ open class FakeDownloadRepository(
         val entity =
             state.value[audioFileId]
                 ?: return AppResult.Failure(
-                    com.calypsan.listenup.client.core.error.DownloadError.DownloadFailed(
+                    com.calypsan.listenup.api.error.DownloadError.DownloadFailed(
                         debugInfo = "No download row for $audioFileId",
                     ),
                 )

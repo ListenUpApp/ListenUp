@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.error.NetworkError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookReadersSummaryDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -182,7 +182,7 @@ class SessionRepositoryImplTest {
             // API returns a typed Failure instead of throwing — exercises the `is Failure ->` branch
             // at lines 163-165 of SessionRepositoryImpl (logs, returns without writing to DB).
             everySuspend { sessionApi.getBookReaders(bookId) } returns
-                Failure(NetworkError(message = "simulated failure"))
+                Failure(TransportError.NetworkUnavailable(debugInfo = "simulated failure"))
 
             turbineScope {
                 val turbine = repo.observeBookReaders(bookId).testIn(backgroundScope)

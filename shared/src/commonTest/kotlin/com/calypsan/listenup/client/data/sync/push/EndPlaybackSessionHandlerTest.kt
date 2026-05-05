@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync.push
 
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.NetworkError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.local.db.OperationStatus
 import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PendingOperationEntity
@@ -52,13 +52,13 @@ class EndPlaybackSessionHandlerTest {
         runTest {
             val api: SyncApiContract = mock()
             everySuspend { api.endPlaybackSession("book-1", 60_000L) } returns
-                Failure(NetworkError())
+                Failure(TransportError.NetworkUnavailable())
             val handler = EndPlaybackSessionHandler(api)
 
             val result = handler.execute(pendingOp(), EndPlaybackSessionPayload(bookId = "book-1", durationMs = 60_000L))
 
             val failure = assertIs<Failure>(result)
-            assertIs<NetworkError>(failure.error)
+            assertIs<TransportError.NetworkUnavailable>(failure.error)
         }
 
     @Test

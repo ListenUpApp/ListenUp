@@ -186,7 +186,7 @@ class DownloadRepositoryImpl(
         val entity =
             downloadDao.getByAudioFileId(audioFileId)
                 ?: return AppResult.Failure(
-                    DownloadError.DownloadFailed(
+                    com.calypsan.listenup.api.error.DownloadError.DownloadFailed(
                         debugInfo = "No download row for $audioFileId",
                     ),
                 )

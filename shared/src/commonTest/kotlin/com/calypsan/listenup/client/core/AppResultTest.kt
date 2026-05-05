@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.core
 
-import com.calypsan.listenup.client.core.error.AppError
-import com.calypsan.listenup.client.core.error.AuthError
-import com.calypsan.listenup.client.core.error.DataError
-import com.calypsan.listenup.client.core.error.NetworkError
-import com.calypsan.listenup.client.core.error.ServerError
-import com.calypsan.listenup.client.core.error.UnknownError
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.ValidationError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -30,7 +29,7 @@ class AppResultTest {
 
     @Test
     fun failureHoldsAppError() {
-        val err: AppError = NetworkError(debugInfo = "timeout")
+        val err: AppError = TransportError.NetworkUnavailable(debugInfo = "timeout")
         val result: AppResult<String> = AppResult.Failure(err)
         assertIs<AppResult.Failure>(result)
         assertSame(err, result.error)
@@ -45,7 +44,7 @@ class AppResultTest {
 
     @Test
     fun mapPreservesFailure() {
-        val err: AppError = NetworkError()
+        val err: AppError = TransportError.NetworkUnavailable()
         val result: AppResult<Int> = AppResult.Failure(err)
         val mapped = result.map { it * 2 }
         assertIs<AppResult.Failure>(mapped)
@@ -61,7 +60,7 @@ class AppResultTest {
 
     @Test
     fun flatMapShortCircuitsOnFailure() {
-        val err: AppError = DataError(message = "bad")
+        val err: AppError = ValidationError(message = "bad")
         val result: AppResult<Int> = AppResult.Failure(err)
         val chained: AppResult<String> = result.flatMap { error("should not be called") }
         assertIs<AppResult.Failure>(chained)
@@ -70,7 +69,7 @@ class AppResultTest {
 
     @Test
     fun flatMapSurfacesInnerFailure() {
-        val inner: AppError = AuthError()
+        val inner: AppError = AuthError.SessionExpired()
         val result: AppResult<Int> = AppResult.Success(5)
         val chained = result.flatMap<Int, String> { AppResult.Failure(inner) }
         assertIs<AppResult.Failure>(chained)
@@ -86,9 +85,9 @@ class AppResultTest {
 
     @Test
     fun foldDispatchesFailure() {
-        val result: AppResult<Int> = AppResult.Failure(AuthError())
+        val result: AppResult<Int> = AppResult.Failure(AuthError.SessionExpired())
         val folded = result.fold(onSuccess = { "got $it" }, onFailure = { "err ${it.code}" })
-        assertEquals("err AUTH_ERROR", folded)
+        assertEquals("err AUTH_SESSION_EXPIRED", folded)
     }
 
     @Test
@@ -99,13 +98,13 @@ class AppResultTest {
 
     @Test
     fun getOrNullReturnsNullOnFailure() {
-        val result: AppResult<Int> = AppResult.Failure(NetworkError())
+        val result: AppResult<Int> = AppResult.Failure(TransportError.NetworkUnavailable())
         assertNull(result.getOrNull())
     }
 
     @Test
     fun errorOrNullReturnsErrorOnFailure() {
-        val err: AppError = NetworkError()
+        val err: AppError = TransportError.NetworkUnavailable()
         val result: AppResult<Int> = AppResult.Failure(err)
         assertSame(err, result.errorOrNull())
     }
@@ -127,7 +126,7 @@ class AppResultTest {
     @Test
     fun onFailureRunsOnlyOnFailure() {
         var captured: AppError? = null
-        val err: AppError = AuthError()
+        val err: AppError = AuthError.SessionExpired()
         AppResult.Failure(err).onFailure { captured = it }
         assertSame(err, captured)
     }
@@ -136,35 +135,46 @@ class AppResultTest {
     fun failureFromThrowableMapsViaErrorMapper() {
         val ex = IllegalStateException("boom")
         val failure = Failure(ex)
-        assertIs<UnknownError>(failure.error)
+        // ErrorMapper still emits legacy `UnknownError` for unmapped throwables; the
+        // Failure() helper translates that into a unified [ValidationError] so the
+        // arbitrary user-facing message (e.g., "boom") survives the bridge — unified
+        // [InternalError] has a fixed message. When the legacy hierarchy is deleted in
+        // Task 16, ErrorMapper will emit [InternalError] directly and this assertion
+        // moves back to InternalError.
+        assertIs<ValidationError>(failure.error)
+        assertEquals("boom", failure.message)
     }
 
     @Test
     fun failureFromAppExceptionPreservesTypedError() {
-        val originalError: AppError = AuthError()
+        // The legacy [AppException] still carries a legacy `client.core.error.AppError`;
+        // the [Failure] helper translates that to the unified equivalent. Identity isn't
+        // preserved across the bridge, but the typed shape (AuthError → SessionExpired)
+        // is. Once Task 16 deletes the legacy hierarchy, this test asserts assertSame.
+        val originalError = com.calypsan.listenup.client.core.error.AuthError()
         val ex =
             com.calypsan.listenup.client.core.error
                 .AppException(originalError)
         val failure = Failure(ex)
-        assertSame(originalError, failure.error)
+        assertIs<AuthError.SessionExpired>(failure.error)
     }
 
     @Test
-    fun validationErrorBuildsDataErrorFailure() {
+    fun validationErrorBuildsValidationErrorFailure() {
         val failure = validationError("bad input")
-        assertIs<DataError>(failure.error)
+        assertIs<ValidationError>(failure.error)
         assertEquals("bad input", failure.message)
     }
 
     @Test
-    fun networkErrorHelperBuildsNetworkErrorFailure() {
+    fun networkErrorHelperBuildsNetworkUnavailableFailure() {
         val failure = networkError("offline")
-        assertIs<NetworkError>(failure.error)
+        assertIs<TransportError.NetworkUnavailable>(failure.error)
     }
 
     @Test
-    fun unauthorizedHelperBuildsAuthErrorFailure() {
+    fun unauthorizedHelperBuildsSessionExpiredFailure() {
         val failure = unauthorizedError()
-        assertIs<AuthError>(failure.error)
+        assertIs<AuthError.SessionExpired>(failure.error)
     }
 }

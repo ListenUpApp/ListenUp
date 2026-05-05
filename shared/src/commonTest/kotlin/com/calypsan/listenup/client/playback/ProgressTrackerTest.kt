@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.DataError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.local.db.EntityType
 import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
@@ -469,7 +469,7 @@ class ProgressTrackerTest {
             val serverProgress = createServerProgress(positionMs = 3_600_000L)
 
             everySuspend { fixture.positionRepository.getEntity(bookId) } returns
-                AppResult.Failure(DataError("read-back failure"))
+                AppResult.Failure(TransportError.DataMalformed(detail = "read-back failure"))
             everySuspend { fixture.syncApi.getProgress(bookId.value) } returns Success(serverProgress)
             everySuspend { fixture.positionRepository.savePlaybackState(any(), any()) } returns AppResult.Success(Unit)
 
@@ -588,7 +588,7 @@ class ProgressTrackerTest {
             val fixture = createFixture()
             val bookId = BookId("book-1")
             everySuspend { fixture.positionRepository.delete(bookId) } returns
-                AppResult.Failure(DataError("delete failure"))
+                AppResult.Failure(TransportError.DataMalformed(detail = "delete failure"))
 
             // Should not throw — best-effort logging absorbs the failure.
             fixture.build().clearProgress(bookId)
@@ -864,7 +864,7 @@ class ProgressTrackerTest {
             val fixture = createFixture()
             everySuspend {
                 fixture.positionRepository.markComplete(any(), any(), any())
-            } returns AppResult.Failure(DataError("write failure"))
+            } returns AppResult.Failure(TransportError.DataMalformed(detail = "write failure"))
             val tracker = fixture.build()
 
             tracker.onPlaybackStarted(BookId("book-1"), positionMs = 0L, speed = 1.0f)

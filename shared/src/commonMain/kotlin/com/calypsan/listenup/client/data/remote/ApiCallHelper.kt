@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.data.remote.model.ApiException
@@ -22,7 +23,7 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
 fun <T> ApiResponse<T>.dataOrThrow(errorMessage: String): T =
     when (val result = toResult()) {
         is Success -> result.data ?: throw ApiException(message = errorMessage)
-        is Failure -> throw AppException(result.error)
+        is Failure -> throw AppException(result.error.toLegacy())
     }
 
 /**
@@ -44,7 +45,7 @@ fun <T> ApiResponse<T>.validateOrThrow() {
         is Success -> { /* no-op */ }
 
         is Failure -> {
-            throw AppException(result.error)
+            throw AppException(result.error.toLegacy())
         }
     }
 }

@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync.push
 
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.NetworkError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.local.db.OperationStatus
 import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PendingOperationEntity
@@ -65,13 +65,13 @@ class RestartBookHandlerTest {
     fun `execute returns Failure when syncApi returns Failure`() =
         runTest {
             val api: SyncApiContract = mock()
-            everySuspend { api.restartBook("book-1") } returns Failure(NetworkError())
+            everySuspend { api.restartBook("book-1") } returns Failure(TransportError.NetworkUnavailable())
             val handler = RestartBookHandler(api)
 
             val result = handler.execute(pendingOp(), RestartBookPayload(bookId = "book-1"))
 
             val failure = assertIs<Failure>(result)
-            assertIs<NetworkError>(failure.error)
+            assertIs<TransportError.NetworkUnavailable>(failure.error)
         }
 
     @Test

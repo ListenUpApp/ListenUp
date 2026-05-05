@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
@@ -56,7 +57,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -67,7 +68,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -78,7 +79,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -91,7 +92,7 @@ class BackupApi(
             is Success -> { /* Backup deleted successfully */ }
 
             is Failure -> {
-                throw AppException(result.error)
+                throw AppException(result.error.toLegacy())
             }
         }
     }
@@ -106,7 +107,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -125,7 +126,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -136,7 +137,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -154,7 +155,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -189,7 +190,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -208,7 +209,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -223,7 +224,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -234,7 +235,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 
@@ -253,7 +254,7 @@ class BackupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error)
+            is Failure -> throw AppException(result.error.toLegacy())
         }
     }
 }
