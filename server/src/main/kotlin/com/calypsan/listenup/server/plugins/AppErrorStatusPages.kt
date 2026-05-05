@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.HttpStatusCode
@@ -50,6 +51,9 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is ScanError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
+        // TransportError is client-local — it should never originate on the server.
+        // If one escapes here it's a server bug; surface it as 500.
+        is TransportError -> HttpStatusCode.InternalServerError
     }
 
 /** Stamp the request's correlation id onto a typed wire error. */
@@ -59,6 +63,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is ScanError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is TransportError -> withCorrelationId(id)
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -113,4 +118,13 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)
+    }
+
+private fun TransportError.withCorrelationId(id: String?): TransportError =
+    when (this) {
+        is TransportError.NetworkUnavailable -> copy(correlationId = id)
+        is TransportError.Timeout -> copy(correlationId = id)
+        is TransportError.Server4xx -> copy(correlationId = id)
+        is TransportError.Server5xx -> copy(correlationId = id)
+        is TransportError.DataMalformed -> copy(correlationId = id)
     }
