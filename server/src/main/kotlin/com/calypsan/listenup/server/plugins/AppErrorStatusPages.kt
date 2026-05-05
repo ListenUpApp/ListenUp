@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.plugins
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SyncError
@@ -51,6 +52,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
         is DownloadError -> toHttpStatus()
+        is ImportError -> toHttpStatus()
         is ScanError -> toHttpStatus()
         is SyncError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
@@ -65,6 +67,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
         is DownloadError -> withCorrelationId(id)
+        is ImportError -> withCorrelationId(id)
         is ScanError -> withCorrelationId(id)
         is SyncError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
@@ -161,4 +164,18 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
         is DownloadError.DownloadFailed -> copy(correlationId = id)
         is DownloadError.InsufficientStorage -> copy(correlationId = id)
         is DownloadError.TranscodeTimeout -> copy(correlationId = id)
+    }
+
+private fun ImportError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ImportError.UploadFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.AnalysisFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun ImportError.withCorrelationId(id: String?): ImportError =
+    when (this) {
+        is ImportError.UploadFailed -> copy(correlationId = id)
+        is ImportError.AnalysisFailed -> copy(correlationId = id)
+        is ImportError.ApplyFailed -> copy(correlationId = id)
     }
