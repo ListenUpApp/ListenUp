@@ -7,6 +7,10 @@ package com.calypsan.listenup.client.core.error
  * (network, storage, server). These need to surface because the user
  * is waiting for content to be available offline.
  */
+@Deprecated(
+    message = "Migrate to `com.calypsan.listenup.api.error.DownloadError`. Deleted in Task 16 of Phase 3.",
+    level = DeprecationLevel.WARNING,
+)
 sealed interface DownloadError : AppError {
     /**
      * Download of an audiobook failed.

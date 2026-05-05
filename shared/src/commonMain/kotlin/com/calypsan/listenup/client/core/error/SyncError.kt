@@ -10,6 +10,10 @@ package com.calypsan.listenup.client.core.error
  * SSE event processing) fail silently by design — they retry on next sync.
  * Only top-level sync failures and persistent connection issues use these.
  */
+@Deprecated(
+    message = "Migrate to `com.calypsan.listenup.api.error.SyncError`. Deleted in Task 16 of Phase 3.",
+    level = DeprecationLevel.WARNING,
+)
 sealed interface SyncError : AppError {
     /**
      * Top-level sync operation failed.

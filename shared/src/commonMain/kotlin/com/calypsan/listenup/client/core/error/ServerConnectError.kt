@@ -12,6 +12,10 @@ package com.calypsan.listenup.client.core.error
  * information while maintaining the framework's benefits (error codes,
  * retry capability, debug info).
  */
+@Deprecated(
+    message = "Migrate to `com.calypsan.listenup.api.error.ServerConnectError`. Deleted in Task 16 of Phase 3.",
+    level = DeprecationLevel.WARNING,
+)
 sealed interface ServerConnectError : AppError {
     /**
      * User entered an invalid URL format.

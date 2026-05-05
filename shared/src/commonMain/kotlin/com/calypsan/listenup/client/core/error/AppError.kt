@@ -24,6 +24,11 @@ package com.calypsan.listenup.client.core.error
  * }
  * ```
  */
+@Deprecated(
+    message = "Legacy error hierarchy. Migrate to `com.calypsan.listenup.api.error.AppError`. " +
+        "This entire package is deleted in Task 16 of Phase 3.",
+    level = DeprecationLevel.WARNING,
+)
 sealed interface AppError {
     /**
      * User-facing error message.

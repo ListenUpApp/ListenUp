@@ -22,6 +22,10 @@ import kotlinx.coroutines.flow.SharedFlow
  * }
  * ```
  */
+@Deprecated(
+    message = "Legacy ErrorBus consumes the legacy AppError hierarchy. Task 14 migrates this to the unified hierarchy.",
+    level = DeprecationLevel.WARNING,
+)
 object ErrorBus {
     private val _errors = MutableSharedFlow<AppError>(extraBufferCapacity = 16)
 

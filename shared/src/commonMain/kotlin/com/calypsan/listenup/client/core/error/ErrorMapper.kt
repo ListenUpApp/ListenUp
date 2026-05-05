@@ -26,6 +26,10 @@ import kotlinx.serialization.SerializationException
  * }
  * ```
  */
+@Deprecated(
+    message = "Legacy ErrorMapper produces legacy AppError. Task 13 rewrites it to produce the unified hierarchy.",
+    level = DeprecationLevel.WARNING,
+)
 object ErrorMapper {
     /**
      * Map any exception to an AppError.

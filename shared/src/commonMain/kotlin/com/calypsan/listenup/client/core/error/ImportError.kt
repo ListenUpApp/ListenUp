@@ -7,6 +7,10 @@ package com.calypsan.listenup.client.core.error
  * Each step can fail independently and the user needs to know which
  * step failed so they can take appropriate action.
  */
+@Deprecated(
+    message = "Migrate to `com.calypsan.listenup.api.error.ImportError`. Deleted in Task 16 of Phase 3.",
+    level = DeprecationLevel.WARNING,
+)
 sealed interface ImportError : AppError {
     /**
      * Backup file upload failed.

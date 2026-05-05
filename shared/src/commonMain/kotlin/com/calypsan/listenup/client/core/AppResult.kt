@@ -75,6 +75,11 @@ fun Failure(throwable: Throwable): AppResult.Failure =
  * Transitional: `internal` only so consumer call sites can convert at the boundary while
  * the legacy hierarchy is still in use. Removed in Task 16.
  */
+@Deprecated(
+    message = "Transitional bridge — caller still depends on the legacy AppError hierarchy. " +
+        "Migrate to consume `api.error.AppError` directly. Deleted in Task 16.",
+    level = DeprecationLevel.WARNING,
+)
 internal fun com.calypsan.listenup.client.core.error.AppError.toUnified(): AppError =
     when (this) {
         is com.calypsan.listenup.client.core.error.NetworkError ->
@@ -116,6 +121,12 @@ internal fun com.calypsan.listenup.client.core.error.AppError.toUnified(): AppEr
  * Transitional: `internal` only so consumer call sites can convert at the boundary while
  * the legacy hierarchy is still in use. Removed in Task 16.
  */
+@Deprecated(
+    message = "Transitional bridge — caller still depends on the legacy AppError hierarchy or " +
+        "AppException. Migrate the call site to consume `api.error.AppError` directly. " +
+        "Deleted in Task 16.",
+    level = DeprecationLevel.WARNING,
+)
 internal fun AppError.toLegacy(): com.calypsan.listenup.client.core.error.AppError =
     when (this) {
         is TransportError.NetworkUnavailable ->
