@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
@@ -54,6 +55,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is DownloadError -> toHttpStatus()
         is ImportError -> toHttpStatus()
         is ScanError -> toHttpStatus()
+        is ServerConnectError -> toHttpStatus()
         is SyncError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
@@ -69,6 +71,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is DownloadError -> withCorrelationId(id)
         is ImportError -> withCorrelationId(id)
         is ScanError -> withCorrelationId(id)
+        is ServerConnectError -> withCorrelationId(id)
         is SyncError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
@@ -178,4 +181,20 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
         is ImportError.UploadFailed -> copy(correlationId = id)
         is ImportError.AnalysisFailed -> copy(correlationId = id)
         is ImportError.ApplyFailed -> copy(correlationId = id)
+    }
+
+private fun ServerConnectError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ServerConnectError.InvalidUrl -> HttpStatusCode.BadRequest
+        is ServerConnectError.NotListenUpServer -> HttpStatusCode.BadGateway
+        is ServerConnectError.ServerNotReachable -> HttpStatusCode.ServiceUnavailable
+        is ServerConnectError.VerificationFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =
+    when (this) {
+        is ServerConnectError.InvalidUrl -> copy(correlationId = id)
+        is ServerConnectError.NotListenUpServer -> copy(correlationId = id)
+        is ServerConnectError.ServerNotReachable -> copy(correlationId = id)
+        is ServerConnectError.VerificationFailed -> copy(correlationId = id)
     }
