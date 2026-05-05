@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SyncError
@@ -49,6 +50,7 @@ fun Application.installAppErrorStatusPages() {
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
+        is DownloadError -> toHttpStatus()
         is ScanError -> toHttpStatus()
         is SyncError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
@@ -62,6 +64,7 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
+        is DownloadError -> withCorrelationId(id)
         is ScanError -> withCorrelationId(id)
         is SyncError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
@@ -144,4 +147,18 @@ private fun SyncError.withCorrelationId(id: String?): SyncError =
         is SyncError.SyncFailed -> copy(correlationId = id)
         is SyncError.RealtimeDisconnected -> copy(correlationId = id)
         is SyncError.PushFailed -> copy(correlationId = id)
+    }
+
+private fun DownloadError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is DownloadError.DownloadFailed -> HttpStatusCode.ServiceUnavailable
+        is DownloadError.InsufficientStorage -> HttpStatusCode.InsufficientStorage
+        is DownloadError.TranscodeTimeout -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun DownloadError.withCorrelationId(id: String?): DownloadError =
+    when (this) {
+        is DownloadError.DownloadFailed -> copy(correlationId = id)
+        is DownloadError.InsufficientStorage -> copy(correlationId = id)
+        is DownloadError.TranscodeTimeout -> copy(correlationId = id)
     }
