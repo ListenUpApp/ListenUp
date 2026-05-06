@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.error
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -41,6 +42,7 @@ sealed interface AppError {
  * sees the correlation id.
  */
 @Serializable
+@SerialName("AppError.InternalError")
 data class InternalError(
     override val correlationId: String? = null,
     override val debugInfo: String? = null,
@@ -59,6 +61,7 @@ data class InternalError(
  * rejected your credentials."
  */
 @Serializable
+@SerialName("AppError.ValidationError")
 data class ValidationError(
     override val message: String,
     override val correlationId: String? = null,

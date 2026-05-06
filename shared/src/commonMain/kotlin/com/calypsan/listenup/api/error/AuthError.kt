@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api.error
 
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,6 +13,7 @@ import kotlinx.serialization.Serializable
 sealed interface AuthError : AppError {
     /** Email or password did not match. Deliberately non-specific to prevent account enumeration. */
     @Serializable
+    @SerialName("AuthError.InvalidCredentials")
     data class InvalidCredentials(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -23,6 +25,7 @@ sealed interface AuthError : AppError {
 
     /** The email address is already registered. Returned by register() and setupRoot(). */
     @Serializable
+    @SerialName("AuthError.EmailAlreadyExists")
     data class EmailAlreadyExists(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -34,6 +37,7 @@ sealed interface AuthError : AppError {
 
     /** Instance has registration closed and no approval queue. */
     @Serializable
+    @SerialName("AuthError.RegistrationDisabled")
     data class RegistrationDisabled(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -45,6 +49,7 @@ sealed interface AuthError : AppError {
 
     /** Instance has zero users; caller must use setupRoot, not register. */
     @Serializable
+    @SerialName("AuthError.SetupRequired")
     data class SetupRequired(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -56,6 +61,7 @@ sealed interface AuthError : AppError {
 
     /** setupRoot called against an instance that already has users. */
     @Serializable
+    @SerialName("AuthError.SetupAlreadyComplete")
     data class SetupAlreadyComplete(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -67,6 +73,7 @@ sealed interface AuthError : AppError {
 
     /** Login attempted against a PENDING_APPROVAL account without a redemption token. */
     @Serializable
+    @SerialName("AuthError.PendingApproval")
     data class PendingApproval(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -78,6 +85,7 @@ sealed interface AuthError : AppError {
 
     /** Account is in DENIED status. */
     @Serializable
+    @SerialName("AuthError.AccountDenied")
     data class AccountDenied(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -89,6 +97,7 @@ sealed interface AuthError : AppError {
 
     /** Access JWT is past expiry or its session row is revoked. */
     @Serializable
+    @SerialName("AuthError.SessionExpired")
     data class SessionExpired(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -100,6 +109,7 @@ sealed interface AuthError : AppError {
 
     /** JWT decoded fine but no matching session row exists. */
     @Serializable
+    @SerialName("AuthError.SessionNotFound")
     data class SessionNotFound(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -120,6 +130,7 @@ sealed interface AuthError : AppError {
      * or revoked previously) — the user only needs to re-auth on this device.
      */
     @Serializable
+    @SerialName("AuthError.InvalidRefreshToken")
     data class InvalidRefreshToken(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -135,6 +146,7 @@ sealed interface AuthError : AppError {
      * the server's `Retry-After` header; clients should surface it to the user.
      */
     @Serializable
+    @SerialName("AuthError.RateLimited")
     data class RateLimited(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -147,6 +159,7 @@ sealed interface AuthError : AppError {
 
     /** Password failed policy. `reason` names the specific violation; see WeakPasswordReason. */
     @Serializable
+    @SerialName("AuthError.WeakPassword")
     data class WeakPassword(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
@@ -159,6 +172,7 @@ sealed interface AuthError : AppError {
 
     /** Authenticated caller lacks permission for an admin-only operation. */
     @Serializable
+    @SerialName("AuthError.PermissionDenied")
     data class PermissionDenied(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,

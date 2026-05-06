@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,6 +11,7 @@ import kotlinx.serialization.Serializable
 sealed interface RegisterResult {
     /** Registered AND logged in (open registration). */
     @Serializable
+    @SerialName("RegisterResult.Authenticated")
     data class Authenticated(
         val session: AuthSession,
     ) : RegisterResult
@@ -22,6 +24,7 @@ sealed interface RegisterResult {
      * when the account is approved.
      */
     @Serializable
+    @SerialName("RegisterResult.PendingApproval")
     data class PendingApproval(
         val userId: UserId,
     ) : RegisterResult

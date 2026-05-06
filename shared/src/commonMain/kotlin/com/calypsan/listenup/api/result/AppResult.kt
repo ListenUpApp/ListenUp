@@ -3,6 +3,7 @@
 package com.calypsan.listenup.api.result
 
 import com.calypsan.listenup.api.error.AppError
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.MustUseReturnValues
 import kotlin.contracts.ExperimentalContracts
@@ -35,12 +36,14 @@ import kotlin.contracts.contract
 sealed interface AppResult<out T> {
     /** Carries the value [data] produced by a successful operation. */
     @Serializable
+    @SerialName("Success")
     data class Success<T>(
         val data: T,
     ) : AppResult<T>
 
     /** Carries the typed [error] from a failed operation; consumers fold the [AppError] hierarchy. */
     @Serializable
+    @SerialName("Failure")
     data class Failure(
         val error: AppError,
     ) : AppResult<Nothing>
