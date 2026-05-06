@@ -47,6 +47,7 @@ data class ContributorUpdatePayload(
  */
 @Serializable
 data class SeriesUpdatePayload(
+    @SerialName("name")
     val name: String? = null,
     val description: String? = null,
 )
@@ -57,6 +58,7 @@ data class SeriesUpdatePayload(
  */
 @Serializable
 data class SetBookContributorsPayload(
+    @SerialName("contributors")
     val contributors: List<ContributorInput>,
 )
 
@@ -66,6 +68,7 @@ data class SetBookContributorsPayload(
  */
 @Serializable
 data class ContributorInput(
+    @SerialName("name")
     val name: String,
     val roles: List<String>,
 )
@@ -76,6 +79,7 @@ data class ContributorInput(
  */
 @Serializable
 data class SetBookSeriesPayload(
+    @SerialName("series")
     val series: List<SeriesInput>,
 )
 
@@ -85,6 +89,7 @@ data class SetBookSeriesPayload(
  */
 @Serializable
 data class SeriesInput(
+    @SerialName("name")
     val name: String,
     val sequence: String?,
 )

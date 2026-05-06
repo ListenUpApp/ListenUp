@@ -508,6 +508,7 @@ class ListenUpApi(
  */
 @Serializable
 private data class ContributorSearchResponse(
+    @SerialName("contributors")
     val contributors: List<ContributorSearchResultResponse>,
 )
 
@@ -575,11 +576,13 @@ private fun BookUpdateRequest.toApiRequest(): BookUpdateApiRequest =
  */
 @Serializable
 private data class SetContributorsApiRequest(
+    @SerialName("contributors")
     val contributors: List<ContributorApiInput>,
 )
 
 @Serializable
 private data class ContributorApiInput(
+    @SerialName("name")
     val name: String,
     val roles: List<String>,
 )
@@ -590,6 +593,7 @@ private data class ContributorApiInput(
  */
 @Serializable
 private data class SeriesSearchResponse(
+    @SerialName("series")
     val series: List<SeriesSearchResultResponse>,
 )
 
@@ -616,11 +620,13 @@ private data class SeriesSearchResultResponse(
  */
 @Serializable
 private data class SetSeriesApiRequest(
+    @SerialName("series")
     val series: List<SeriesApiInput>,
 )
 
 @Serializable
 private data class SeriesApiInput(
+    @SerialName("name")
     val name: String,
     val sequence: String?,
 )
@@ -809,6 +815,7 @@ private data class UpdateContributorApiResponse(
  */
 @Serializable
 private data class SeriesUpdateApiRequest(
+    @SerialName("name")
     val name: String? = null,
     val description: String? = null,
 )

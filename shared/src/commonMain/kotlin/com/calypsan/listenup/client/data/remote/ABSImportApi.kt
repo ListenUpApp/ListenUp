@@ -332,6 +332,7 @@ data class ABSImportSession(
  */
 @Serializable
 data class ABSSessionsResponse(
+    @SerialName("sessions")
     val sessions: List<ABSImportSession>,
     val summary: SessionsSummary,
 ) {
@@ -346,6 +347,7 @@ data class ABSSessionsResponse(
 /** Per-status session counts that back the convenience accessors on [ABSSessionsResponse]. */
 @Serializable
 data class SessionsSummary(
+    @SerialName("total")
     val total: Int = 0,
     val pending: Int = 0,
     val ready: Int = 0,
@@ -398,6 +400,7 @@ private data class MapBookRequest(
 
 @Serializable
 private data class SkipSessionRequest(
+    @SerialName("reason")
     val reason: String? = null,
 )
 
@@ -405,21 +408,25 @@ private data class SkipSessionRequest(
 
 @Serializable
 private data class ImportListResponse(
+    @SerialName("imports")
     val imports: List<ABSImportSummary>,
 )
 
 @Serializable
 private data class UsersListResponse(
+    @SerialName("users")
     val users: List<ABSImportUser>,
 )
 
 @Serializable
 private data class BooksListResponse(
+    @SerialName("books")
     val books: List<ABSImportBook>,
 )
 
 @Serializable
 private data class UserSearchResponse(
+    @SerialName("users")
     val users: List<UserSearchResult>,
 )
 

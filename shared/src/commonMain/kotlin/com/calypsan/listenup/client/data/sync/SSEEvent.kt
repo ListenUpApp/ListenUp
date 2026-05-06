@@ -396,6 +396,7 @@ sealed interface SSEEvent {
 /** Wire payload for [SSEEvent.BookCreated] / [SSEEvent.BookUpdated]. */
 @Serializable
 data class BookPayload(
+    @SerialName("book")
     val book: BookResponse,
 )
 
@@ -470,6 +471,7 @@ data class TranscodeFailedPayload(
 /** Wire payload for [SSEEvent.UserPending] / [SSEEvent.UserApproved]. */
 @Serializable
 data class UserPayload(
+    @SerialName("user")
     val user: SSEUserData,
 )
 
@@ -491,6 +493,7 @@ data class CollectionPayload(
 /** Wire payload for [SSEEvent.CollectionDeleted]. */
 @Serializable
 data class CollectionDeletedPayload(
+    @SerialName("id")
     val id: String,
     val name: String,
 )
@@ -572,6 +575,7 @@ data class BookTagInnerPayload(
  */
 @Serializable
 data class InboxBookAddedPayload(
+    @SerialName("book")
     val book: InboxBookData,
 )
 

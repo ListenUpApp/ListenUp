@@ -23,6 +23,7 @@ data class AdminCollectionResponse(
  */
 @Serializable
 data class CreateCollectionRequest(
+    @SerialName("name")
     val name: String,
 )
 
@@ -31,6 +32,7 @@ data class CreateCollectionRequest(
  */
 @Serializable
 data class UpdateCollectionRequest(
+    @SerialName("name")
     val name: String,
 )
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.external.abs
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AbsChapter(
+    @SerialName("id")
     val id: Int? = null,
     val start: Double,
     val end: Double,

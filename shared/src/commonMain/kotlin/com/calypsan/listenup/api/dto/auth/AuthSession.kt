@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,6 +12,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AuthSession(
+    @SerialName("accessToken")
     val accessToken: AccessToken,
     val accessTokenExpiresAt: Long,
     val refreshToken: RefreshToken,

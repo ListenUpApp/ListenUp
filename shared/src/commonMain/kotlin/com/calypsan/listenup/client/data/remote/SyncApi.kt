@@ -553,6 +553,7 @@ data class MarkCompleteRequest(
  */
 @Serializable
 data class ListeningEventsRequest(
+    @SerialName("events")
     val events: List<ListeningEventRequest>,
 )
 
@@ -561,6 +562,7 @@ data class ListeningEventsRequest(
  */
 @Serializable
 data class ListeningEventRequest(
+    @SerialName("id")
     val id: String,
     val book_id: String,
     val start_position_ms: Long,
@@ -576,6 +578,7 @@ data class ListeningEventRequest(
  */
 @Serializable
 data class ListeningEventsResponse(
+    @SerialName("acknowledged")
     val acknowledged: List<String> = emptyList(),
     val failed: List<String> = emptyList(),
 )

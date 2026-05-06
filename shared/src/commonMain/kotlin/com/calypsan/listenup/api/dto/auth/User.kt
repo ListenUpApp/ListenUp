@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class User(
+    @SerialName("id")
     val id: UserId,
     val email: String,
     val displayName: String,

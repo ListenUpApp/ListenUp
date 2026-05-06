@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class LoginRequest(
+    @SerialName("email")
     val email: String,
     val password: String,
     val sessionLabel: String? = null,
@@ -23,6 +25,7 @@ data class LoginRequest(
 /** New-account registration. Display name defaults are set server-side. */
 @Serializable
 data class RegisterRequest(
+    @SerialName("email")
     val email: String,
     val password: String,
     val displayName: String,
@@ -41,6 +44,7 @@ data class RegisterRequest(
 /** Used to trade a refresh token for a new access/refresh pair. */
 @Serializable
 data class RefreshRequest(
+    @SerialName("refreshToken")
     val refreshToken: RefreshToken,
 )
 

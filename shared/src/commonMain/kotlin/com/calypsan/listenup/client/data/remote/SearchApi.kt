@@ -124,6 +124,7 @@ data class SearchHitResponse(
 /** Facet aggregations returned alongside [SearchResponse.hits] when `facets=true` is requested. */
 @Serializable
 data class SearchFacetsResponse(
+    @SerialName("types")
     val types: List<FacetCountResponse>? = null,
     val genres: List<FacetCountResponse>? = null,
     val authors: List<FacetCountResponse>? = null,
@@ -133,6 +134,7 @@ data class SearchFacetsResponse(
 /** A single facet bucket: [value] is the facet term, [count] is the number of hits in it. */
 @Serializable
 data class FacetCountResponse(
+    @SerialName("value")
     val value: String,
     val count: Int,
 )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,6 +15,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class FileEntry(
+    @SerialName("relPath")
     val relPath: String,
     val name: String,
     val ext: String,
