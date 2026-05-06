@@ -31,6 +31,7 @@ private val logger = KotlinLogging.logger {}
 sealed interface AdminBackupUiState {
     data object Loading : AdminBackupUiState
 
+    /** Backups have loaded; carries the list, action overlays, dialog state, and a transient `error`. */
     data class Ready(
         val backups: List<BackupInfo> = emptyList(),
         val isCreating: Boolean = false,
@@ -41,6 +42,7 @@ sealed interface AdminBackupUiState {
         val validatingBackupId: String? = null,
     ) : AdminBackupUiState
 
+    /** Terminal state when the initial backup-list load fails. */
     data class Error(
         val message: String,
     ) : AdminBackupUiState

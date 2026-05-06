@@ -431,6 +431,10 @@ class AdminCollectionDetailViewModel(
 sealed interface AdminCollectionDetailUiState {
     data object Loading : AdminCollectionDetailUiState
 
+    /**
+     * Collection has loaded; carries the canonical [collection], the [editedName] edit
+     * buffer, books and shares lists, action overlays, and a transient `error`.
+     */
     data class Ready(
         val collection: Collection,
         val editedName: String,
@@ -455,6 +459,7 @@ sealed interface AdminCollectionDetailUiState {
             get() = editedName.trim() != collection.name && editedName.isNotBlank()
     }
 
+    /** Terminal state when the initial collection load fails. */
     data class Error(
         val message: String,
     ) : AdminCollectionDetailUiState

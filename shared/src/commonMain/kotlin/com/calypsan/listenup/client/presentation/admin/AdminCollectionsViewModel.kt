@@ -173,6 +173,7 @@ class AdminCollectionsViewModel(
 sealed interface AdminCollectionsUiState {
     data object Loading : AdminCollectionsUiState
 
+    /** Collections have loaded; carries the list, action overlays, success flag, and a transient `error`. */
     data class Ready(
         val collections: List<Collection> = emptyList(),
         val isCreating: Boolean = false,
@@ -181,6 +182,7 @@ sealed interface AdminCollectionsUiState {
         val error: String? = null,
     ) : AdminCollectionsUiState
 
+    /** Terminal state when the observe pipeline fails. */
     data class Error(
         val message: String,
     ) : AdminCollectionsUiState

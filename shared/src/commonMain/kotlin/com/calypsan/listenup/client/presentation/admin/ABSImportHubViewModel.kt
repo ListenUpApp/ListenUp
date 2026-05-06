@@ -62,12 +62,18 @@ enum class ImportHubTab {
 sealed interface ABSImportListUiState {
     data object Loading : ABSImportListUiState
 
+    /**
+     * List has loaded; [isCreating] overlays a create-in-flight state and [error] surfaces transient
+     * mutation failures (snackbar). Refresh failures while in [Ready] also flow through [error] —
+     * we don't fall back to [Error] once the list has rendered.
+     */
     data class Ready(
         val imports: List<ABSImportSummary> = emptyList(),
         val isCreating: Boolean = false,
         val error: String? = null,
     ) : ABSImportListUiState
 
+    /** Initial load failed before the list rendered; terminal state. */
     data class Error(
         val message: String,
     ) : ABSImportListUiState
@@ -92,6 +98,11 @@ sealed interface ABSImportListUiState {
 sealed interface ABSImportHubUiState {
     data object Loading : ABSImportHubUiState
 
+    /**
+     * Import has loaded; carries every tab's data plus action overlays and intent fields.
+     * Transient mutation failures surface via [error] (snackbar); per-tab loading flags
+     * (`isLoading*`, `isSearching*`, `mappingInFlight*`) overlay the data without replacing it.
+     */
     @Suppress("LongParameterList")
     data class Ready(
         val importId: String,
@@ -126,6 +137,7 @@ sealed interface ABSImportHubUiState {
         val error: String? = null,
     ) : ABSImportHubUiState
 
+    /** `openImport` failed before the detail rendered; terminal state. */
     data class Error(
         val message: String,
     ) : ABSImportHubUiState

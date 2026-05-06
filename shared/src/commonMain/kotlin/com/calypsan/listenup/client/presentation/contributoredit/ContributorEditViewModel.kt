@@ -65,44 +65,57 @@ data class ContributorEditUiState(
  */
 sealed interface ContributorEditUiEvent {
     // Field changes
+
+    /** User edited the contributor's name. */
     data class NameChanged(
         val name: String,
     ) : ContributorEditUiEvent
 
+    /** User edited the biography/description. */
     data class DescriptionChanged(
         val description: String,
     ) : ContributorEditUiEvent
 
+    /** User edited the website URL. */
     data class WebsiteChanged(
         val website: String,
     ) : ContributorEditUiEvent
 
+    /** User changed the birth date (ISO 8601 `YYYY-MM-DD`, empty string clears). */
     data class BirthDateChanged(
         val date: String,
     ) : ContributorEditUiEvent
 
+    /** User changed the death date (ISO 8601 `YYYY-MM-DD`, empty string clears). */
     data class DeathDateChanged(
         val date: String,
     ) : ContributorEditUiEvent
 
     // Alias management
+
+    /** User typed in the alias-search box. */
     data class AliasSearchQueryChanged(
         val query: String,
     ) : ContributorEditUiEvent
 
+    /** User picked an existing contributor to merge in as an alias of the one being edited. */
     data class AliasSelected(
         val result: ContributorSearchResult,
     ) : ContributorEditUiEvent
 
+    /** User typed a free-form alias name (no existing contributor to merge — pen name). */
     data class AliasEntered(
         val name: String,
-    ) : ContributorEditUiEvent // Manual text entry
+    ) : ContributorEditUiEvent
 
+    /** User detached an alias. If it was an original alias, this triggers an unmerge; if newly added, it just drops from the list. */
     data class RemoveAlias(
         val alias: String,
     ) : ContributorEditUiEvent
 
     // Image upload
+
+    /** User chose an image for the contributor; uploaded immediately and saved locally. */
     data class UploadImage(
         val imageData: ByteArray,
         val filename: String,
@@ -187,6 +200,7 @@ class ContributorEditViewModel(
 
         data object Loading : AliasSearchFlowResult
 
+        /** Search succeeded; [results] is filtered to exclude the current contributor and existing aliases. */
         data class Success(
             val results: List<ContributorSearchResult>,
         ) : AliasSearchFlowResult

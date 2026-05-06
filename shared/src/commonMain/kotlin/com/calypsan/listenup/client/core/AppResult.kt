@@ -31,10 +31,12 @@ import kotlinx.coroutines.CancellationException
  */
 @MustUseReturnValues
 sealed interface AppResult<out T> {
+    /** Carries the value [data] produced by a successful operation. */
     data class Success<T>(
         val data: T,
     ) : AppResult<T>
 
+    /** Carries the typed [error] from a failed operation; [message] forwards [AppError.message] for terse catch sites. */
     data class Failure(
         val error: AppError,
     ) : AppResult<Nothing> {

@@ -262,6 +262,10 @@ data class ContributorMetadataConflictError(
     val details: ContributorMetadataConflictDetails? = null,
 )
 
+/**
+ * Body of a [ContributorMetadataConflictError]: the [candidates] the server matched
+ * for [searchedName] so the user can disambiguate.
+ */
 @Serializable
 data class ContributorMetadataConflictDetails(
     @SerialName("candidates")

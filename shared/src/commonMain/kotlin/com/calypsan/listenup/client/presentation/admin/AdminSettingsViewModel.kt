@@ -263,6 +263,10 @@ class AdminSettingsViewModel(
 sealed interface AdminSettingsUiState {
     data object Loading : AdminSettingsUiState
 
+    /**
+     * Settings have loaded; carries edit-buffer fields, the server-owned `inboxCount`,
+     * `isDirty`, action overlays, and a transient `error`.
+     */
     data class Ready(
         val serverName: String = "",
         val remoteUrl: String = "",
@@ -276,6 +280,7 @@ sealed interface AdminSettingsUiState {
         val hasPendingBooks: Boolean get() = inboxCount > 0
     }
 
+    /** Terminal state when the initial settings load fails. */
     data class Error(
         val message: String,
     ) : AdminSettingsUiState

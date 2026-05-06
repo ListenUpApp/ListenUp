@@ -141,6 +141,11 @@ data class SelectedBookDisplay(
 sealed interface ABSImportUiState {
     data object Loading : ABSImportUiState
 
+    /**
+     * Wizard is interactive. [step] discriminates the current phase; the remaining fields
+     * carry pipeline inputs/outputs, action overlays, and a transient `error` for snackbar
+     * surfacing. See the parent KDoc for the W5 minimal-flatten note.
+     */
     @Suppress("LongParameterList")
     data class Ready(
         val step: ABSImportStep = ABSImportStep.SOURCE_SELECTION,
@@ -215,6 +220,7 @@ sealed interface ABSImportUiState {
         val error: String? = null,
     ) : ABSImportUiState
 
+    /** Terminal failure state declared for parity with other W5 migrations; not currently reached. */
     data class Error(
         val message: String,
     ) : ABSImportUiState

@@ -69,6 +69,10 @@ enum class RestoreStep {
 sealed interface RestoreBackupUiState {
     data object Loading : RestoreBackupUiState
 
+    /**
+     * Wizard is interactive; carries the current [step], chosen mode/strategy,
+     * action overlays, dry-run/restore results, and a transient `error`.
+     */
     data class Ready(
         val backupId: String,
         val step: RestoreStep = RestoreStep.MODE_SELECTION,
@@ -82,6 +86,7 @@ sealed interface RestoreBackupUiState {
         val error: String? = null,
     ) : RestoreBackupUiState
 
+    /** Terminal state when the initial `validateBackup()` call throws. */
     data class Error(
         val message: String,
     ) : RestoreBackupUiState

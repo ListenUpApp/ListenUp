@@ -132,31 +132,37 @@ sealed interface CreateInviteStatus {
 
     data object Submitting : CreateInviteStatus
 
+    /** Invite was created; carries the server-issued [invite] details for display. */
     data class Success(
         val invite: InviteInfo,
     ) : CreateInviteStatus
 
+    /** Invite creation failed; [type] determines which UI message and field highlight to show. */
     data class Error(
         val type: CreateInviteErrorType,
     ) : CreateInviteStatus
 }
 
 sealed interface CreateInviteErrorType {
+    /** Client-side validation failed for [field]; the form highlights that input. */
     data class ValidationError(
         val field: CreateInviteField,
     ) : CreateInviteErrorType
 
     data object EmailInUse : CreateInviteErrorType
 
+    /** Network transport failure (offline / timeout); [detail] is the underlying message if any. */
     data class NetworkError(
         val detail: String?,
     ) : CreateInviteErrorType
 
+    /** Server-side failure not covered by [ValidationError] or [EmailInUse]; [detail] is the server message if any. */
     data class ServerError(
         val detail: String?,
     ) : CreateInviteErrorType
 }
 
+/** Form field highlighted by [CreateInviteErrorType.ValidationError]. */
 enum class CreateInviteField {
     NAME,
     EMAIL,

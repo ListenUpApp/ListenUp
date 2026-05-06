@@ -62,6 +62,7 @@ class GenreTagEditDelegate(
 
         data object Loading : TagSearchFlowResult
 
+        /** Search succeeded; [results] is filtered to exclude tags already attached to the book. */
         data class Success(
             val results: List<EditableTag>,
         ) : TagSearchFlowResult

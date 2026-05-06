@@ -42,6 +42,13 @@ private typealias DomainHomeStats = com.calypsan.listenup.client.domain.reposito
 private typealias DomainDailyListening = com.calypsan.listenup.client.domain.repository.DailyListening
 private typealias DomainGenreListening = com.calypsan.listenup.client.domain.repository.GenreListening
 
+/**
+ * [com.calypsan.listenup.client.domain.repository.StatsRepository] implementation that derives
+ * weekly home-screen stats (daily totals, current/longest streaks, genre breakdown) entirely
+ * from local [ListeningEventEntity] records joined against `book_genres`. Reactive: republishes
+ * whenever new events land, so the home screen updates without manual refresh and continues to
+ * work fully offline.
+ */
 class StatsRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
     private val genreDao: GenreDao,

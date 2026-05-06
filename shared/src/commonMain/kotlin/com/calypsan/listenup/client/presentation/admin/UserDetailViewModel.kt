@@ -142,6 +142,10 @@ class UserDetailViewModel(
 sealed interface UserDetailUiState {
     data object Loading : UserDetailUiState
 
+    /**
+     * User has loaded; carries the canonical user, edit buffer (`canShare`),
+     * the `isProtected` guard, save overlay, and a transient `error`.
+     */
     data class Ready(
         val user: AdminUserInfo,
         val canShare: Boolean,
@@ -150,6 +154,7 @@ sealed interface UserDetailUiState {
         val error: String? = null,
     ) : UserDetailUiState
 
+    /** Terminal state when the initial user load fails. */
     data class Error(
         val message: String,
     ) : UserDetailUiState

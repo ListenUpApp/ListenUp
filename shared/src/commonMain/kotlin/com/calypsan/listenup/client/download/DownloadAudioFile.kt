@@ -34,10 +34,15 @@ private val logger = KotlinLogging.logger {}
  * re-enqueue the worker via [DownloadRepository.resumeForAudioFile].
  */
 internal sealed interface ResolveResult {
+    /** Server is ready to stream the audio at [url]; caller proceeds with the download. */
     data class Ready(
         val url: String,
     ) : ResolveResult
 
+    /**
+     * Server is still transcoding under [transcodeJobId]; caller writes WAITING_FOR_SERVER
+     * and exits. SSE `transcode.complete` will re-enqueue the worker when the variant is ready.
+     */
     data class WaitForServer(
         val transcodeJobId: String,
     ) : ResolveResult

@@ -529,6 +529,10 @@ sealed interface BookDetailUiState {
     ) : BookDetailUiState
 }
 
+/**
+ * Per-chapter row data for the book detail screen's chapter list. Pre-formatted
+ * for direct display so the Composable layer does no formatting work.
+ */
 data class ChapterUiModel(
     val id: String,
     val title: String,

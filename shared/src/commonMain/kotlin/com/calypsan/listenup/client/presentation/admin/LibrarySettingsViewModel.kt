@@ -360,6 +360,10 @@ class LibrarySettingsViewModel(
 sealed interface LibrarySettingsUiState {
     data object Loading : LibrarySettingsUiState
 
+    /**
+     * Library has loaded; carries the canonical library, edit-buffer fields,
+     * action overlays, the folder-browser overlay state, and a transient `error`.
+     */
     data class Ready(
         val library: Library,
         val accessMode: AccessMode,
@@ -376,6 +380,7 @@ sealed interface LibrarySettingsUiState {
         val browserIsRoot: Boolean = true,
     ) : LibrarySettingsUiState
 
+    /** Terminal state when the initial library load fails. */
     data class Error(
         val message: String,
     ) : LibrarySettingsUiState

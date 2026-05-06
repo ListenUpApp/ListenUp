@@ -21,6 +21,13 @@ import kotlinx.serialization.json.JsonClassDiscriminator
  *
  * For consumer-side dispatch (wire events PLUS synthetic channel messages like
  * reconnect notifications) see [SSEChannelMessage].
+ *
+ * Transport note: this is the multi-domain sync firehose served at
+ * `GET /api/v1/sync/events` over HTTP/1.1 EventStream. Per-service streaming
+ * (e.g. scan progress) is delivered separately via kotlinx.rpc `Flow<T>`
+ * over WebSocket — see `com.calypsan.listenup.api.ScannerService.observeProgress()`
+ * for that pattern. SSE and RPC streaming are not redundant; each carries
+ * a distinct slice of server-pushed data.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -30,6 +37,7 @@ sealed interface SSEEvent {
 
     // ===== Book events =====
 
+    /** A new book was added to the library. */
     @Serializable
     @SerialName("book.created")
     data class BookCreated(
@@ -37,6 +45,7 @@ sealed interface SSEEvent {
         val data: BookPayload,
     ) : SSEEvent
 
+    /** Metadata or fields on an existing book changed. */
     @Serializable
     @SerialName("book.updated")
     data class BookUpdated(
@@ -44,6 +53,7 @@ sealed interface SSEEvent {
         val data: BookPayload,
     ) : SSEEvent
 
+    /** A book was removed from the library. */
     @Serializable
     @SerialName("book.deleted")
     data class BookDeleted(
@@ -53,6 +63,7 @@ sealed interface SSEEvent {
 
     // ===== Library scan events =====
 
+    /** A library scan has begun. */
     @Serializable
     @SerialName("library.scan_started")
     data class ScanStarted(
@@ -60,6 +71,7 @@ sealed interface SSEEvent {
         val data: ScanStartedPayload,
     ) : SSEEvent
 
+    /** A library scan has finished; payload carries the aggregate counts. */
     @Serializable
     @SerialName("library.scan_completed")
     data class ScanCompleted(
@@ -67,6 +79,7 @@ sealed interface SSEEvent {
         val data: ScanCompletedPayload,
     ) : SSEEvent
 
+    /** Periodic progress tick during an in-flight library scan. */
     @Serializable
     @SerialName("library.scan_progress")
     data class ScanProgress(
@@ -74,6 +87,7 @@ sealed interface SSEEvent {
         val data: ScanProgressPayload,
     ) : SSEEvent
 
+    /** A library's access mode (private/public) changed. */
     @Serializable
     @SerialName("library.access_mode_changed")
     data class LibraryAccessModeChanged(
@@ -83,6 +97,7 @@ sealed interface SSEEvent {
 
     // ===== Transcode events =====
 
+    /** A transcode job finished successfully and the output is available. */
     @Serializable
     @SerialName("transcode.complete")
     data class TranscodeComplete(
@@ -90,6 +105,7 @@ sealed interface SSEEvent {
         val data: TranscodeCompletePayload,
     ) : SSEEvent
 
+    /** Progress update for an in-flight transcode job (0-100). */
     @Serializable
     @SerialName("transcode.progress")
     data class TranscodeProgress(
@@ -97,6 +113,7 @@ sealed interface SSEEvent {
         val data: TranscodeProgressPayload,
     ) : SSEEvent
 
+    /** A transcode job failed; payload carries the error reason. */
     @Serializable
     @SerialName("transcode.failed")
     data class TranscodeFailed(
@@ -106,6 +123,7 @@ sealed interface SSEEvent {
 
     // ===== Heartbeat (no payload) =====
 
+    /** Server-side keep-alive emitted on an interval; clients use it to detect a stalled stream. */
     @Serializable
     @SerialName("heartbeat")
     data class Heartbeat(
@@ -114,6 +132,7 @@ sealed interface SSEEvent {
 
     // ===== User events =====
 
+    /** A new user signed up and is awaiting admin approval. */
     @Serializable
     @SerialName("user.pending")
     data class UserPending(
@@ -121,6 +140,7 @@ sealed interface SSEEvent {
         val data: UserPayload,
     ) : SSEEvent
 
+    /** A pending user was approved by an admin. */
     @Serializable
     @SerialName("user.approved")
     data class UserApproved(
@@ -128,6 +148,7 @@ sealed interface SSEEvent {
         val data: UserPayload,
     ) : SSEEvent
 
+    /** A user account was deleted; payload carries the user id and an optional reason. */
     @Serializable
     @SerialName("user.deleted")
     data class UserDeleted(
@@ -137,6 +158,7 @@ sealed interface SSEEvent {
 
     // ===== Collection events =====
 
+    /** A new collection was created. */
     @Serializable
     @SerialName("collection.created")
     data class CollectionCreated(
@@ -144,6 +166,7 @@ sealed interface SSEEvent {
         val data: CollectionPayload,
     ) : SSEEvent
 
+    /** A collection's name or membership count changed. */
     @Serializable
     @SerialName("collection.updated")
     data class CollectionUpdated(
@@ -151,6 +174,7 @@ sealed interface SSEEvent {
         val data: CollectionPayload,
     ) : SSEEvent
 
+    /** A collection was deleted. */
     @Serializable
     @SerialName("collection.deleted")
     data class CollectionDeleted(
@@ -158,6 +182,7 @@ sealed interface SSEEvent {
         val data: CollectionDeletedPayload,
     ) : SSEEvent
 
+    /** A book was added to a collection. */
     @Serializable
     @SerialName("collection.book_added")
     data class CollectionBookAdded(
@@ -165,6 +190,7 @@ sealed interface SSEEvent {
         val data: CollectionBookPayload,
     ) : SSEEvent
 
+    /** A book was removed from a collection. */
     @Serializable
     @SerialName("collection.book_removed")
     data class CollectionBookRemoved(
@@ -174,6 +200,7 @@ sealed interface SSEEvent {
 
     // ===== Shelf events =====
 
+    /** A user created a new shelf. */
     @Serializable
     @SerialName("shelf.created")
     data class ShelfCreated(
@@ -181,6 +208,7 @@ sealed interface SSEEvent {
         val data: ShelfPayload,
     ) : SSEEvent
 
+    /** A shelf's name, description, or membership count changed. */
     @Serializable
     @SerialName("shelf.updated")
     data class ShelfUpdated(
@@ -188,6 +216,7 @@ sealed interface SSEEvent {
         val data: ShelfPayload,
     ) : SSEEvent
 
+    /** A shelf was deleted. */
     @Serializable
     @SerialName("shelf.deleted")
     data class ShelfDeleted(
@@ -195,6 +224,7 @@ sealed interface SSEEvent {
         val data: ShelfDeletedPayload,
     ) : SSEEvent
 
+    /** A book was added to a shelf. */
     @Serializable
     @SerialName("shelf.book_added")
     data class ShelfBookAdded(
@@ -202,6 +232,7 @@ sealed interface SSEEvent {
         val data: ShelfBookPayload,
     ) : SSEEvent
 
+    /** A book was removed from a shelf. */
     @Serializable
     @SerialName("shelf.book_removed")
     data class ShelfBookRemoved(
@@ -211,6 +242,7 @@ sealed interface SSEEvent {
 
     // ===== Tag events =====
 
+    /** A new tag was created. */
     @Serializable
     @SerialName("tag.created")
     data class TagCreated(
@@ -218,6 +250,7 @@ sealed interface SSEEvent {
         val data: TagPayload,
     ) : SSEEvent
 
+    /** A tag was attached to a book. */
     @Serializable
     @SerialName("book.tag_added")
     data class BookTagAdded(
@@ -225,6 +258,7 @@ sealed interface SSEEvent {
         val data: BookTagPayload,
     ) : SSEEvent
 
+    /** A tag was removed from a book. */
     @Serializable
     @SerialName("book.tag_removed")
     data class BookTagRemoved(
@@ -234,6 +268,7 @@ sealed interface SSEEvent {
 
     // ===== Inbox events =====
 
+    /** A book entered the user's inbox (e.g. via ABS import or shared listen). */
     @Serializable
     @SerialName("inbox.book_added")
     data class InboxBookAdded(
@@ -241,6 +276,7 @@ sealed interface SSEEvent {
         val data: InboxBookAddedPayload,
     ) : SSEEvent
 
+    /** A book was released (acknowledged/consumed) from the inbox. */
     @Serializable
     @SerialName("inbox.book_released")
     data class InboxBookReleased(
@@ -254,6 +290,7 @@ sealed interface SSEEvent {
     // — verified against SSEManager.kt :598-623. The plan's "progress_updated" /
     // "progress_deleted" shorthand was a plan-writer oversight; corrected here.
 
+    /** A user's listening progress on a book was updated (position, percent, finished flag). */
     @Serializable
     @SerialName("listening.progress_updated")
     data class ProgressUpdated(
@@ -261,6 +298,7 @@ sealed interface SSEEvent {
         val data: ProgressPayload,
     ) : SSEEvent
 
+    /** A user's listening progress for a book was reset/deleted. */
     @Serializable
     @SerialName("listening.progress_deleted")
     data class ProgressDeleted(
@@ -270,6 +308,7 @@ sealed interface SSEEvent {
 
     // ===== Session events =====
 
+    /** A new playback session started for a user/book. */
     @Serializable
     @SerialName("session.started")
     data class SessionStarted(
@@ -277,6 +316,7 @@ sealed interface SSEEvent {
         val data: SessionStartedPayload,
     ) : SSEEvent
 
+    /** An open playback session ended. */
     @Serializable
     @SerialName("session.ended")
     data class SessionEnded(
@@ -284,6 +324,7 @@ sealed interface SSEEvent {
         val data: SessionEndedPayload,
     ) : SSEEvent
 
+    /** Aggregated reading-session totals were updated for a user/book. */
     @Serializable
     @SerialName("reading_session.updated")
     data class ReadingSessionUpdated(
@@ -296,6 +337,7 @@ sealed interface SSEEvent {
     // NOTE: Wire type string is `listening.event_created` — verified against
     // SSEManager.kt :640. Plan's "listening_event.created" was a plan-writer oversight.
 
+    /** A new fine-grained listening event (a single play span) was recorded. */
     @Serializable
     @SerialName("listening.event_created")
     data class ListeningEventCreated(
@@ -305,6 +347,7 @@ sealed interface SSEEvent {
 
     // ===== Stats / profile =====
 
+    /** A user's aggregate stats (total time, books listened, streak) changed. */
     @Serializable
     @SerialName("user_stats.updated")
     data class UserStatsUpdated(
@@ -312,6 +355,7 @@ sealed interface SSEEvent {
         val data: UserStatsPayload,
     ) : SSEEvent
 
+    /** A user's profile (name, avatar, tagline) changed. */
     @Serializable
     @SerialName("profile.updated")
     data class ProfileUpdated(
@@ -321,6 +365,7 @@ sealed interface SSEEvent {
 
     // ===== Activity =====
 
+    /** A new entry was added to the social activity feed (finished book, milestone, etc.). */
     @Serializable
     @SerialName("activity.created")
     data class ActivityCreated(
@@ -348,23 +393,27 @@ sealed interface SSEEvent {
 
 // ===== Payload sub-types =====
 
+/** Wire payload for [SSEEvent.BookCreated] / [SSEEvent.BookUpdated]. */
 @Serializable
 data class BookPayload(
     val book: BookResponse,
 )
 
+/** Wire payload for [SSEEvent.BookDeleted]. */
 @Serializable
 data class BookDeletedPayload(
     @SerialName("book_id") val bookId: String,
     @SerialName("deleted_at") val deletedAt: String,
 )
 
+/** Wire payload for [SSEEvent.ScanStarted]. */
 @Serializable
 data class ScanStartedPayload(
     @SerialName("library_id") val libraryId: String,
     @SerialName("started_at") val startedAt: String,
 )
 
+/** Wire payload for [SSEEvent.ScanCompleted]. Carries the aggregate add/update/remove counts. */
 @Serializable
 data class ScanCompletedPayload(
     @SerialName("library_id") val libraryId: String,
@@ -373,6 +422,7 @@ data class ScanCompletedPayload(
     @SerialName("books_removed") val booksRemoved: Int,
 )
 
+/** Wire payload for [SSEEvent.ScanProgress]. `phase` is the scanner's current pipeline stage. */
 @Serializable
 data class ScanProgressPayload(
     @SerialName("library_id") val libraryId: String,
@@ -384,12 +434,14 @@ data class ScanProgressPayload(
     val removed: Int,
 )
 
+/** Wire payload for [SSEEvent.LibraryAccessModeChanged]. `accessMode` is `"private"` or `"public"`. */
 @Serializable
 data class LibraryAccessModeChangedPayload(
     @SerialName("library_id") val libraryId: String,
     @SerialName("access_mode") val accessMode: String,
 )
 
+/** Wire payload for [SSEEvent.TranscodeComplete]. */
 @Serializable
 data class TranscodeCompletePayload(
     @SerialName("job_id") val jobId: String,
@@ -397,6 +449,7 @@ data class TranscodeCompletePayload(
     @SerialName("audio_file_id") val audioFileId: String,
 )
 
+/** Wire payload for [SSEEvent.TranscodeProgress]. `progress` is a percentage 0-100. */
 @Serializable
 data class TranscodeProgressPayload(
     @SerialName("job_id") val jobId: String,
@@ -405,6 +458,7 @@ data class TranscodeProgressPayload(
     val progress: Int,
 )
 
+/** Wire payload for [SSEEvent.TranscodeFailed]. `error` is a server-supplied human-readable reason. */
 @Serializable
 data class TranscodeFailedPayload(
     @SerialName("job_id") val jobId: String,
@@ -413,17 +467,20 @@ data class TranscodeFailedPayload(
     val error: String,
 )
 
+/** Wire payload for [SSEEvent.UserPending] / [SSEEvent.UserApproved]. */
 @Serializable
 data class UserPayload(
     val user: SSEUserData,
 )
 
+/** Wire payload for [SSEEvent.UserDeleted]. `reason` is server-supplied (e.g. admin action vs self-delete). */
 @Serializable
 data class UserDeletedPayload(
     @SerialName("user_id") val userId: String,
     val reason: String? = null,
 )
 
+/** Wire payload for [SSEEvent.CollectionCreated] / [SSEEvent.CollectionUpdated]. */
 @Serializable
 data class CollectionPayload(
     val id: String,
@@ -431,12 +488,14 @@ data class CollectionPayload(
     @SerialName("book_count") val bookCount: Int,
 )
 
+/** Wire payload for [SSEEvent.CollectionDeleted]. */
 @Serializable
 data class CollectionDeletedPayload(
     val id: String,
     val name: String,
 )
 
+/** Wire payload for [SSEEvent.CollectionBookAdded] / [SSEEvent.CollectionBookRemoved]. */
 @Serializable
 data class CollectionBookPayload(
     @SerialName("collection_id") val collectionId: String,
@@ -444,6 +503,7 @@ data class CollectionBookPayload(
     @SerialName("book_id") val bookId: String,
 )
 
+/** Wire payload for [SSEEvent.ShelfCreated] / [SSEEvent.ShelfUpdated]. Carries denormalised owner display fields. */
 @Serializable
 data class ShelfPayload(
     val id: String,
@@ -457,12 +517,14 @@ data class ShelfPayload(
     @SerialName("updated_at") val updatedAt: String,
 )
 
+/** Wire payload for [SSEEvent.ShelfDeleted]. */
 @Serializable
 data class ShelfDeletedPayload(
     val id: String,
     @SerialName("owner_id") val ownerId: String,
 )
 
+/** Wire payload for [SSEEvent.ShelfBookAdded] / [SSEEvent.ShelfBookRemoved]. */
 @Serializable
 data class ShelfBookPayload(
     @SerialName("shelf_id") val shelfId: String,
@@ -471,6 +533,7 @@ data class ShelfBookPayload(
     @SerialName("book_count") val bookCount: Int,
 )
 
+/** Wire payload for [SSEEvent.TagCreated]. */
 @Serializable
 data class TagPayload(
     val id: String,
@@ -491,6 +554,7 @@ data class BookTagPayload(
     val tag: BookTagInnerPayload,
 )
 
+/** Inner `tag` object nested inside [BookTagPayload]. */
 @Serializable
 data class BookTagInnerPayload(
     val id: String,
@@ -511,6 +575,7 @@ data class InboxBookAddedPayload(
     val book: InboxBookData,
 )
 
+/** Inner `book` object nested inside [InboxBookAddedPayload]. */
 @Serializable
 data class InboxBookData(
     val id: String,
@@ -520,11 +585,13 @@ data class InboxBookData(
     val duration: Long = 0,
 )
 
+/** Wire payload for [SSEEvent.InboxBookReleased]. */
 @Serializable
 data class InboxBookReleasedPayload(
     @SerialName("book_id") val bookId: String,
 )
 
+/** Wire payload for [SSEEvent.ProgressUpdated]. `progress` is a 0.0-1.0 fraction. */
 @Serializable
 data class ProgressPayload(
     @SerialName("book_id") val bookId: String,
@@ -537,11 +604,13 @@ data class ProgressPayload(
     @SerialName("finished_at") val finishedAt: String? = null,
 )
 
+/** Wire payload for [SSEEvent.ProgressDeleted]. */
 @Serializable
 data class ProgressDeletedPayload(
     @SerialName("book_id") val bookId: String,
 )
 
+/** Wire payload for [SSEEvent.SessionStarted]. */
 @Serializable
 data class SessionStartedPayload(
     @SerialName("session_id") val sessionId: String,
@@ -550,11 +619,13 @@ data class SessionStartedPayload(
     @SerialName("started_at") val startedAt: String,
 )
 
+/** Wire payload for [SSEEvent.SessionEnded]. */
 @Serializable
 data class SessionEndedPayload(
     @SerialName("session_id") val sessionId: String,
 )
 
+/** Wire payload for [SSEEvent.ReadingSessionUpdated]. */
 @Serializable
 data class ReadingSessionUpdatedPayload(
     @SerialName("session_id") val sessionId: String,
@@ -564,6 +635,7 @@ data class ReadingSessionUpdatedPayload(
     @SerialName("finished_at") val finishedAt: String? = null,
 )
 
+/** Wire payload for [SSEEvent.ListeningEventCreated] — a single bounded play span. */
 @Serializable
 data class ListeningEventPayload(
     val id: String,
@@ -577,6 +649,7 @@ data class ListeningEventPayload(
     @SerialName("created_at") val createdAt: String,
 )
 
+/** Wire payload for [SSEEvent.UserStatsUpdated]. */
 @Serializable
 data class UserStatsPayload(
     @SerialName("user_id") val userId: String,
@@ -589,6 +662,7 @@ data class UserStatsPayload(
     @SerialName("current_streak") val currentStreak: Int,
 )
 
+/** Wire payload for [SSEEvent.ProfileUpdated]. [displayName] is a derived convenience field. */
 @Serializable
 data class ProfilePayload(
     @SerialName("user_id") val userId: String,
@@ -602,6 +676,7 @@ data class ProfilePayload(
     val displayName: String get() = "$firstName $lastName".trim()
 }
 
+/** Wire payload for [SSEEvent.ActivityCreated]. Most fields are nullable since activity types vary (book finished, milestone reached, shelf shared, etc.). */
 @Serializable
 data class ActivityPayload(
     val id: String,

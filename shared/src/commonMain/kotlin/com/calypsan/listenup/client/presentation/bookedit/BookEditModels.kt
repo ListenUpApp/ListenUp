@@ -158,70 +158,90 @@ data class BookEditUiState(
  */
 sealed interface BookEditUiEvent {
     // Metadata changes
+
+    /** User edited the title field. */
     data class TitleChanged(
         val title: String,
     ) : BookEditUiEvent
 
+    /** User edited the sort-title field (used for alphabetical sorting that ignores leading articles). */
     data class SortTitleChanged(
         val sortTitle: String,
     ) : BookEditUiEvent
 
+    /** User edited the subtitle field. */
     data class SubtitleChanged(
         val subtitle: String,
     ) : BookEditUiEvent
 
+    /** User edited the description field. */
     data class DescriptionChanged(
         val description: String,
     ) : BookEditUiEvent
 
+    /** User edited the publish-year field. */
     data class PublishYearChanged(
         val year: String,
     ) : BookEditUiEvent
 
+    /** User edited the publisher field. */
     data class PublisherChanged(
         val publisher: String,
     ) : BookEditUiEvent
 
+    /** User picked a language (ISO 639-1 code) or cleared the selection (`null`). */
     data class LanguageChanged(
         val code: String?,
     ) : BookEditUiEvent
 
     // Additional metadata
+
+    /** User edited the ISBN field. */
     data class IsbnChanged(
         val isbn: String,
     ) : BookEditUiEvent
 
+    /** User edited the ASIN field. */
     data class AsinChanged(
         val asin: String,
     ) : BookEditUiEvent
 
+    /** User toggled the abridged flag. */
     data class AbridgedChanged(
         val abridged: Boolean,
     ) : BookEditUiEvent
 
     // Library metadata
+
+    /** User changed the "added to library" timestamp; `null` clears it back to "use detected value". */
     data class AddedAtChanged(
         val epochMillis: Long?,
     ) : BookEditUiEvent
 
     // Series management
+
+    /** User typed in the series search box. */
     data class SeriesSearchQueryChanged(
         val query: String,
     ) : BookEditUiEvent
 
+    /** User picked an existing series from search results. */
     data class SeriesSelected(
         val result: SeriesSearchResult,
     ) : BookEditUiEvent
 
+    /** User submitted a new series name (no existing match). */
     data class SeriesEntered(
         val name: String,
     ) : BookEditUiEvent
 
+    /** User updated this book's sequence number within a series. */
     data class SeriesSequenceChanged(
         val series: EditableSeries,
         val sequence: String,
     ) : BookEditUiEvent
 
+    /** User detached the book from a series. */
     data class RemoveSeries(
         val series: EditableSeries,
     ) : BookEditUiEvent
@@ -229,69 +249,88 @@ sealed interface BookEditUiEvent {
     data object ClearSeriesSearch : BookEditUiEvent
 
     // Per-role contributor management
+
+    /** User typed in the search box for a specific contributor role. */
     data class RoleSearchQueryChanged(
         val role: ContributorRole,
         val query: String,
     ) : BookEditUiEvent
 
+    /** User picked an existing contributor from the role's search results. */
     data class RoleContributorSelected(
         val role: ContributorRole,
         val result: ContributorSearchResult,
     ) : BookEditUiEvent
 
+    /** User submitted a new contributor name for a role (no existing match). */
     data class RoleContributorEntered(
         val role: ContributorRole,
         val name: String,
     ) : BookEditUiEvent
 
+    /** User cleared the search query for a specific role. */
     data class ClearRoleSearch(
         val role: ContributorRole,
     ) : BookEditUiEvent
 
+    /** User opted to show a previously-hidden role section so they can add contributors to it. */
     data class AddRoleSection(
         val role: ContributorRole,
     ) : BookEditUiEvent
 
+    /** User detached one contributor from one role (other roles for the same contributor stay attached). */
     data class RemoveContributor(
         val contributor: EditableContributor,
         val role: ContributorRole,
     ) : BookEditUiEvent
 
+    /** User hid an entire role section, removing all of that role's contributors at once. */
     data class RemoveRoleSection(
         val role: ContributorRole,
     ) : BookEditUiEvent
 
     // Genre management (select from existing only)
+
+    /** User typed in the genre search box. */
     data class GenreSearchQueryChanged(
         val query: String,
     ) : BookEditUiEvent
 
+    /** User picked an existing genre to attach to the book. */
     data class GenreSelected(
         val genre: EditableGenre,
     ) : BookEditUiEvent
 
+    /** User detached a genre from the book. */
     data class RemoveGenre(
         val genre: EditableGenre,
     ) : BookEditUiEvent
 
     // Tag management (select existing or create new)
+
+    /** User typed in the tag search box. */
     data class TagSearchQueryChanged(
         val query: String,
     ) : BookEditUiEvent
 
+    /** User picked an existing tag to attach. */
     data class TagSelected(
         val tag: EditableTag,
     ) : BookEditUiEvent
 
+    /** User submitted a new tag name; ViewModel creates the tag inline before attaching. */
     data class TagEntered(
         val name: String,
-    ) : BookEditUiEvent // Create new tag inline
+    ) : BookEditUiEvent
 
+    /** User detached a tag from the book. */
     data class RemoveTag(
         val tag: EditableTag,
     ) : BookEditUiEvent
 
     // Cover upload
+
+    /** User chose an image to use as the book's cover; bytes are held pending Save. */
     data class UploadCover(
         val imageData: ByteArray,
         val filename: String,
@@ -311,6 +350,7 @@ sealed interface BookEditUiEvent {
 sealed interface BookEditNavAction {
     data object NavigateBack : BookEditNavAction
 
+    /** Display a transient success snackbar (typically after Save). */
     data class ShowSaveSuccess(
         val message: String,
     ) : BookEditNavAction

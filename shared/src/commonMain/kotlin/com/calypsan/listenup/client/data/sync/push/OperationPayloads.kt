@@ -60,6 +60,10 @@ data class SetBookContributorsPayload(
     val contributors: List<ContributorInput>,
 )
 
+/**
+ * One contributor entry in a [SetBookContributorsPayload]: the [name] resolved or created
+ * server-side, and the [roles] (e.g. AUTHOR, NARRATOR) the contributor holds for this book.
+ */
 @Serializable
 data class ContributorInput(
     val name: String,
@@ -75,6 +79,10 @@ data class SetBookSeriesPayload(
     val series: List<SeriesInput>,
 )
 
+/**
+ * One series entry in a [SetBookSeriesPayload]: the series [name] (resolved or created
+ * server-side) and the optional [sequence] number for this book within the series.
+ */
 @Serializable
 data class SeriesInput(
     val name: String,

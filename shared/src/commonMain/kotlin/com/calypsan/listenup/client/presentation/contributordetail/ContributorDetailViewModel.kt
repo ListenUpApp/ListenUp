@@ -58,6 +58,7 @@ class ContributorDetailViewModel(
 
         data object Deleting : DeleteOverlay
 
+        /** Last delete attempt failed; [message] surfaces in the UI until dismissed. */
         data class Failed(
             val message: String,
         ) : DeleteOverlay

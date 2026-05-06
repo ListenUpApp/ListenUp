@@ -68,18 +68,22 @@ sealed interface SearchUiState {
  * Navigation actions emitted when a search hit is clicked.
  */
 sealed interface SearchNavAction {
+    /** User picked a book hit; navigate to the book detail screen. */
     data class NavigateToBook(
         val bookId: String,
     ) : SearchNavAction
 
+    /** User picked a contributor hit; navigate to the contributor detail screen. */
     data class NavigateToContributor(
         val contributorId: String,
     ) : SearchNavAction
 
+    /** User picked a series hit; navigate to the series detail screen. */
     data class NavigateToSeries(
         val seriesId: String,
     ) : SearchNavAction
 
+    /** User picked a tag hit; navigate to the tag detail screen. */
     data class NavigateToTag(
         val tagId: String,
     ) : SearchNavAction
@@ -192,10 +196,12 @@ class SearchViewModel(
 
         data object Searching : Phase
 
+        /** Search call completed successfully; carries the raw result for the public state. */
         data class Results(
             val data: SearchResult,
         ) : Phase
 
+        /** Search call failed; carries the user-facing message for the public state. */
         data class Error(
             val message: String,
         ) : Phase

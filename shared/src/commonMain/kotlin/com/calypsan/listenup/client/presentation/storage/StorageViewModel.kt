@@ -35,6 +35,7 @@ data class StorageUiState(
  * State for delete confirmation dialogs.
  */
 sealed interface DeleteConfirmation {
+    /** Confirm deletion of a single downloaded [book]. */
     data class SingleBook(
         val book: DownloadedBookSummary,
     ) : DeleteConfirmation

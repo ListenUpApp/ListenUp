@@ -215,12 +215,14 @@ interface ABSImportApiContract {
 
 // === Filter Enums ===
 
+/** Filter for [ABSImportApiContract.listImportUsers] / `listImportBooks` by mapping status. */
 enum class MappingFilter {
     ALL,
     MAPPED,
     UNMAPPED,
 }
 
+/** Filter for [ABSImportApiContract.listSessions] by session lifecycle status. */
 enum class SessionStatusFilter {
     ALL,
     PENDING,
@@ -341,6 +343,7 @@ data class ABSSessionsResponse(
     val skippedCount: Int get() = summary.skipped
 }
 
+/** Per-status session counts that back the convenience accessors on [ABSSessionsResponse]. */
 @Serializable
 data class SessionsSummary(
     val total: Int = 0,

@@ -90,10 +90,12 @@ data class BookContext(
 sealed interface MetadataUiState {
     val region: AudibleRegion
 
+    /** No book loaded yet; pre-[MetadataViewModel.initForBook] placeholder. */
     data class Idle(
         override val region: AudibleRegion = AudibleRegion.US,
     ) : MetadataUiState
 
+    /** Book loaded; user is editing the search query and browsing results. */
     data class Search(
         override val region: AudibleRegion,
         val context: BookContext,
@@ -101,6 +103,10 @@ sealed interface MetadataUiState {
         val loadState: SearchLoadState,
     ) : MetadataUiState
 
+    /**
+     * User picked a [match]; preview is loading or ready. [searchResults] is retained so
+     * [MetadataViewModel.clearSelection] can return to [Search] without re-issuing the search.
+     */
     data class Preview(
         override val region: AudibleRegion,
         val context: BookContext,
@@ -117,10 +123,12 @@ sealed interface SearchLoadState {
 
     data object InFlight : SearchLoadState
 
+    /** Audible search returned [results]. */
     data class Loaded(
         val results: List<MetadataSearchResult>,
     ) : SearchLoadState
 
+    /** Audible search failed; [message] is shown in-line. */
     data class Failed(
         val message: String,
     ) : SearchLoadState
@@ -146,6 +154,7 @@ sealed interface PreviewLoadState {
         val previewNotFound: Boolean,
     ) : PreviewLoadState
 
+    /** Preview fetch failed; [message] is shown in-line. */
     data class Failed(
         val message: String,
     ) : PreviewLoadState

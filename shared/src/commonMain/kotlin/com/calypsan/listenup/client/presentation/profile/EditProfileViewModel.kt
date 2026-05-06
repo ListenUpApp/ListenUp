@@ -51,6 +51,7 @@ sealed interface EditProfileEvent {
 
     data object PasswordChanged : EditProfileEvent
 
+    /** A save operation failed; [message] is surfaced in a snackbar. */
     data class SaveFailed(
         val message: String,
     ) : EditProfileEvent

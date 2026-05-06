@@ -287,6 +287,7 @@ data class GenreTreeNode(
 sealed interface AdminCategoriesUiState {
     data object Loading : AdminCategoriesUiState
 
+    /** Genres have loaded; carries the tree, expand/collapse state, save overlay, and a transient `error`. */
     data class Ready(
         val isSaving: Boolean = false,
         val genres: List<Genre> = emptyList(),
@@ -296,6 +297,7 @@ sealed interface AdminCategoriesUiState {
         val error: String? = null,
     ) : AdminCategoriesUiState
 
+    /** Terminal state when the observe pipeline fails. */
     data class Error(
         val message: String,
     ) : AdminCategoriesUiState

@@ -51,10 +51,12 @@ class ServerSelectViewModel(
     private sealed interface Overlay {
         data object None : Overlay
 
+        /** Connection attempt to the server identified by [serverId] is in flight. */
         data class Connecting(
             val serverId: String,
         ) : Overlay
 
+        /** Last connection attempt to [serverId] failed; [message] surfaces in the UI until dismissed. */
         data class Failed(
             val serverId: String,
             val message: String,

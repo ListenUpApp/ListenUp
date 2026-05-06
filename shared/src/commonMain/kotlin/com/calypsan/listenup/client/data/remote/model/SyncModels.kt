@@ -145,6 +145,7 @@ data class BookTagResponse(
     val bookCount: Int = 0,
 )
 
+/** Contributor link on a synced book — the contributor's id, name, role list, and optional pen-name credit. */
 @Serializable
 data class BookContributorResponse(
     @SerialName("contributor_id")
@@ -172,6 +173,7 @@ data class BookSeriesInfoResponse(
     val sequence: String? = null,
 )
 
+/** One chapter span within a book's audio. Times are millisecond offsets from the start of the audio. */
 @Serializable
 data class ChapterResponse(
     @SerialName("title")
@@ -182,6 +184,7 @@ data class ChapterResponse(
     val endTime: Long,
 )
 
+/** One audio file backing a book. A book may have multiple files (multi-disc / multi-part audiobooks). */
 @Serializable
 data class AudioFileResponse(
     @SerialName("id")
@@ -226,6 +229,7 @@ data class ImageFileInfoResponse(
     val blurHash: String? = null,
 )
 
+/** Paginated response from `GET /api/v1/sync/series`. Carries one page plus tombstones for deleted series. */
 @Serializable
 data class SyncSeriesResponse(
     @SerialName("next_cursor")
@@ -238,6 +242,7 @@ data class SyncSeriesResponse(
     val hasMore: Boolean,
 )
 
+/** One series record from sync. */
 @Serializable
 data class SeriesResponse(
     @SerialName("id")
@@ -256,6 +261,7 @@ data class SeriesResponse(
     val asin: String? = null,
 )
 
+/** Paginated response from `GET /api/v1/sync/contributors`. Carries one page plus tombstones for deleted contributors. */
 @Serializable
 data class SyncContributorsResponse(
     @SerialName("next_cursor")
@@ -268,6 +274,7 @@ data class SyncContributorsResponse(
     val hasMore: Boolean,
 )
 
+/** One contributor record from sync (author/narrator/etc.). */
 @Serializable
 data class ContributorResponse(
     @SerialName("id")

@@ -54,14 +54,17 @@ data class SeriesEditUiState(
  * Events from the series edit UI.
  */
 sealed interface SeriesEditUiEvent {
+    /** User edited the series name field. */
     data class NameChanged(
         val name: String,
     ) : SeriesEditUiEvent
 
+    /** User edited the series description field. */
     data class DescriptionChanged(
         val description: String,
     ) : SeriesEditUiEvent
 
+    /** User chose an image to use as the series cover; bytes are staged until Save. */
     data class CoverSelected(
         val imageData: ByteArray,
         val filename: String,

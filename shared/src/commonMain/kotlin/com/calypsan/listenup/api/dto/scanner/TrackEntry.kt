@@ -16,6 +16,11 @@ data class TrackEntry(
     val discSource: TrackNumberSource? = null,
 )
 
+/**
+ * Where a [TrackEntry]'s track or disc number was derived from. Recorded so the UI can
+ * indicate certainty (embedded metadata is stronger than a filename guess) and so the
+ * scanner can skip re-deriving values it already has on incremental rescans.
+ */
 @Serializable
 enum class TrackNumberSource {
     FILENAME,

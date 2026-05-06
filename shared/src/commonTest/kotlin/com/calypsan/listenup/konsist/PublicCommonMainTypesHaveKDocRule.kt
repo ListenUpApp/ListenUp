@@ -15,19 +15,15 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * is what carries the contract across platforms.
  */
 class PublicCommonMainTypesHaveKDocRule : FunSpec({
-    // FIXME(phase-3): re-enable once Task 22 closes the 213 outstanding KDoc gaps
-    // surfaced by the initial scan. The rule body is correct; only `enabled = false`
-    // is keeping CI green while the backfill lands.
-    test("every public commonMain class/interface has a KDoc block")
-        .config(enabled = false) {
-            val offenders = Konsist
-                .scopeFromProduction()
-                .classes()
-                .filter { it.path.contains("/commonMain/") }
-                .withPublicOrDefaultModifier()
-                .filter { !it.hasKDoc }
-                .map { "${it.fullyQualifiedName} @ ${it.path}" }
+    test("every public commonMain class/interface has a KDoc block") {
+        val offenders = Konsist
+            .scopeFromProduction()
+            .classes()
+            .filter { it.path.contains("/commonMain/") }
+            .withPublicOrDefaultModifier()
+            .filter { !it.hasKDoc }
+            .map { "${it.fullyQualifiedName} @ ${it.path}" }
 
-            offenders.shouldBeEmpty()
-        }
+        offenders.shouldBeEmpty()
+    }
 })
