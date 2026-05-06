@@ -4,7 +4,6 @@ package com.calypsan.listenup.client.core
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.core.error.AppException
@@ -68,96 +67,6 @@ fun Failure(throwable: Throwable): AppResult.Failure =
         AppResult.Failure(ErrorMapper.map(throwable))
     }
 
-/**
- * Translate a legacy [com.calypsan.listenup.client.core.error.AppError] subtype into its
- * unified [AppError] equivalent. Bridge code while consumers (Tasks 12-14) finish migrating
- * away from the legacy hierarchy; deleted alongside the legacy hierarchy in Task 16.
- *
- * Transitional: `internal` only so consumer call sites can convert at the boundary while
- * the legacy hierarchy is still in use. Removed in Task 16.
- */
-@Deprecated(
-    message = "Transitional bridge — caller still depends on the legacy AppError hierarchy. " +
-        "Migrate to consume `api.error.AppError` directly. Deleted in Task 16.",
-    level = DeprecationLevel.WARNING,
-)
-internal fun com.calypsan.listenup.client.core.error.AppError.toUnified(): AppError =
-    when (this) {
-        is com.calypsan.listenup.client.core.error.NetworkError ->
-            TransportError.NetworkUnavailable(debugInfo = debugInfo ?: message)
-        is com.calypsan.listenup.client.core.error.ServerError ->
-            if (statusCode in 500..599) {
-                TransportError.Server5xx(debugInfo = debugInfo ?: message, statusCode = statusCode)
-            } else {
-                TransportError.Server4xx(debugInfo = debugInfo ?: message, statusCode = statusCode)
-            }
-        is com.calypsan.listenup.client.core.error.DataError ->
-            // Route through ValidationError so the arbitrary user-facing message survives the
-            // round-trip (legacy DataError historically carried the original error text). Unified
-            // [TransportError.DataMalformed.message] is fixed, which would silently drop the text.
-            // Bridge is deleted in Task 16; consumers needing strict "malformed bytes" semantics
-            // construct [DataMalformed] directly post-migration.
-            ValidationError(message = message, debugInfo = debugInfo)
-        is com.calypsan.listenup.client.core.error.AuthError ->
-            AuthError.SessionExpired(debugInfo = debugInfo ?: message)
-        is com.calypsan.listenup.client.core.error.UnknownError ->
-            // Route through ValidationError so the arbitrary user-facing message survives the
-            // bridge — unified InternalError has a fixed message and only carries [debugInfo].
-            // Semantically imperfect (this isn't validation), but legacy UnknownError was the
-            // catch-all for server-message-carrying failures, and consumers historically read
-            // [message]. Bridge is deleted in Task 16.
-            ValidationError(message = message, debugInfo = debugInfo)
-        // Legacy domain errors (DownloadError, ImportError, SyncError, ServerConnectError)
-        // funnel through ValidationError for the same reason — preserve the original message
-        // until their owning subsystems migrate to the unified hierarchy.
-        else -> ValidationError(message = message, debugInfo = debugInfo)
-    }
-
-/**
- * Reverse-bridge from unified [AppError] to legacy `client.core.error.AppError`. Lets
- * [getOrThrow] keep throwing [AppException] (which still carries legacy errors) without
- * forcing every catch site to migrate before Tasks 12-14 land. Deleted alongside the
- * legacy hierarchy in Task 16.
- *
- * Transitional: `internal` only so consumer call sites can convert at the boundary while
- * the legacy hierarchy is still in use. Removed in Task 16.
- */
-@Deprecated(
-    message = "Transitional bridge — caller still depends on the legacy AppError hierarchy or " +
-        "AppException. Migrate the call site to consume `api.error.AppError` directly. " +
-        "Deleted in Task 16.",
-    level = DeprecationLevel.WARNING,
-)
-internal fun AppError.toLegacy(): com.calypsan.listenup.client.core.error.AppError =
-    when (this) {
-        is TransportError.NetworkUnavailable ->
-            com.calypsan.listenup.client.core.error.NetworkError(message = message, debugInfo = debugInfo)
-        is TransportError.Timeout ->
-            com.calypsan.listenup.client.core.error.NetworkError(message = message, debugInfo = debugInfo)
-        is TransportError.Server4xx ->
-            com.calypsan.listenup.client.core.error.ServerError(
-                statusCode = statusCode,
-                message = message,
-                debugInfo = debugInfo,
-            )
-        is TransportError.Server5xx ->
-            com.calypsan.listenup.client.core.error.ServerError(
-                statusCode = statusCode,
-                message = message,
-                debugInfo = debugInfo,
-            )
-        is TransportError.DataMalformed ->
-            com.calypsan.listenup.client.core.error.DataError(message = message, debugInfo = debugInfo ?: detail)
-        is AuthError ->
-            com.calypsan.listenup.client.core.error.AuthError(message = message, debugInfo = debugInfo)
-        is ValidationError ->
-            com.calypsan.listenup.client.core.error.DataError(message = message, debugInfo = debugInfo)
-        is InternalError ->
-            com.calypsan.listenup.client.core.error.UnknownError(message = message, debugInfo = debugInfo)
-        else ->
-            com.calypsan.listenup.client.core.error.UnknownError(message = message, debugInfo = debugInfo)
-    }
-
 // ---- Smart-cast helpers ------------------------------------------------------------------
 
 @OptIn(ExperimentalContracts::class)
@@ -188,12 +97,6 @@ inline fun <T> AppResult<T>.getOrDefault(defaultValue: () -> T): T =
     when (this) {
         is AppResult.Success -> data
         is AppResult.Failure -> defaultValue()
-    }
-
-fun <T> AppResult<T>.getOrThrow(): T =
-    when (this) {
-        is AppResult.Success -> data
-        is AppResult.Failure -> throw AppException(error)
     }
 
 fun <T> AppResult<T>.errorOrNull(): AppError? =
