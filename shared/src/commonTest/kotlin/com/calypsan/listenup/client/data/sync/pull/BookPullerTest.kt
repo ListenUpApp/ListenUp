@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.data.remote.model.BookSeriesInfoResponse
 import com.calypsan.listenup.client.data.remote.model.ChapterResponse
 import com.calypsan.listenup.client.data.remote.model.SyncBooksResponse
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
+import com.calypsan.listenup.client.data.sync.conflict.BookConflict
 import com.calypsan.listenup.client.data.sync.conflict.ConflictDetectorContract
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
@@ -341,7 +342,7 @@ class BookPullerTest {
                     ),
                 )
             everySuspend { fixture.conflictDetector.detectBookConflicts(any()) } returns
-                listOf(BookId("book-1") to serverTimestamp)
+                listOf(BookConflict(BookId("book-1"), serverTimestamp))
             val puller = fixture.build()
 
             // When

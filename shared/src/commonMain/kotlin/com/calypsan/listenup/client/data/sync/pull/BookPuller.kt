@@ -122,8 +122,8 @@ class BookPuller(
         logger.info { "processServerBooks: received ${serverBooks.size} books from server" }
 
         val conflicts = conflictDetector.detectBookConflicts(serverBooks)
-        conflicts.forEach { (bookId, _) ->
-            logger.warn { "Conflict detected for book $bookId - server version is newer" }
+        conflicts.forEach { conflict ->
+            logger.warn { "Conflict detected for book ${conflict.bookId} - server version is newer" }
         }
 
         val booksToUpsert = serverBooks.filterNot { conflictDetector.shouldPreserveLocalChanges(it) }
@@ -156,8 +156,8 @@ class BookPuller(
         val bundles = collectBundles(pairedBooks, genreNameToId)
 
         transactionRunner.atomically {
-            conflicts.forEach { (bookId, serverVersion) ->
-                bookDao.markConflict(bookId, serverVersion)
+            conflicts.forEach { conflict ->
+                bookDao.markConflict(conflict.bookId, conflict.serverTimestamp)
             }
 
             bookDao.upsertAll(booksWithColors)

@@ -117,8 +117,8 @@ class ConflictDetectorTest {
 
             // Then - conflict detected: server (3000) > local (2000)
             assertEquals(1, conflicts.size)
-            assertEquals(BookId("book-1"), conflicts[0].first)
-            assertEquals(Timestamp(3000L), conflicts[0].second)
+            assertEquals(BookId("book-1"), conflicts[0].bookId)
+            assertEquals(Timestamp(3000L), conflicts[0].serverTimestamp)
         }
 
     @Test
@@ -196,7 +196,7 @@ class ConflictDetectorTest {
 
             // Then - only book-1 has conflict
             assertEquals(1, conflicts.size)
-            assertEquals(BookId("book-1"), conflicts[0].first)
+            assertEquals(BookId("book-1"), conflicts[0].bookId)
         }
 
     // ========== shouldPreserveLocalChanges Tests ==========
