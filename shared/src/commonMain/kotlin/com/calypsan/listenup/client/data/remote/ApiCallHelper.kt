@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.data.remote.model.ApiException
@@ -16,20 +15,19 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
  * ```
  * boilerplate at the data-layer boundary.
  *
- * The envelope's typed error is a unified [com.calypsan.listenup.api.error.AppError];
- * the legacy [AppException] (still in use until Task 16) requires the legacy hierarchy,
- * so we bridge via `toLegacy()` at the throw site. Tasks 13 and 16 finish the migration:
- * Task 13 reshapes [AppException] / `ErrorMapper` to consume unified errors directly;
- * Task 16 deletes the legacy hierarchy and removes the bridge.
+ * Throwing convention is being unified on [com.calypsan.listenup.client.core.AppResult]
+ * by Task 27d. Until that lands, this helper bridges envelope failures into the throwable
+ * channel via [AppException] (which now carries the unified
+ * [com.calypsan.listenup.api.error.AppError] directly — no hierarchy bridge needed).
  *
  * @throws AppException when the envelope indicates failure — carrying the typed error
- *   (currently bridged into the legacy hierarchy) so callers can react to it.
+ *   so callers can react to it.
  * @throws ApiException when the success envelope arrived with null data.
  */
 fun <T> ApiResponse<T>.dataOrThrow(errorMessage: String): T =
     when (val result = toResult()) {
         is Success -> result.data ?: throw ApiException(message = errorMessage)
-        is Failure -> throw AppException(result.error.toLegacy())
+        is Failure -> throw AppException(result.error)
     }
 
 /**
@@ -51,7 +49,7 @@ fun <T> ApiResponse<T>.validateOrThrow() {
         is Success -> { /* no-op */ }
 
         is Failure -> {
-            throw AppException(result.error.toLegacy())
+            throw AppException(result.error)
         }
     }
 }

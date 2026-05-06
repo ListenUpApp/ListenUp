@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.core.error.AppException
@@ -54,7 +53,7 @@ class SetupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error.toLegacy())
+            is Failure -> throw AppException(result.error)
         }
     }
 
@@ -70,7 +69,7 @@ class SetupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error.toLegacy())
+            is Failure -> throw AppException(result.error)
         }
     }
 
@@ -84,7 +83,7 @@ class SetupApi(
 
         return when (val result = response.toResult()) {
             is Success -> result.data
-            is Failure -> throw AppException(result.error.toLegacy())
+            is Failure -> throw AppException(result.error)
         }
     }
 }

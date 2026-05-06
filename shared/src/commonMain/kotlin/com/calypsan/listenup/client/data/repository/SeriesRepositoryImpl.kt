@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -185,7 +184,7 @@ class SeriesRepositoryImpl(
                 measureTimedValue {
                     when (val result = api.searchSeries(query, limit)) {
                         is Success -> result.data.map { it.toDomain() }
-                        is Failure -> throw AppException(result.error.toLegacy())
+                        is Failure -> throw AppException(result.error)
                     }
                 }
 

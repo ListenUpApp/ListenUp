@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
@@ -461,7 +460,7 @@ class ABSImportApi(
 
             val uploadPath = when (val result = uploadResponse.toResult()) {
                 is Success -> result.data.path
-                is Failure -> return Failure(AppException(result.error.toLegacy()))
+                is Failure -> return Failure(AppException(result.error))
             }
 
             // Then create the import from the uploaded path
@@ -489,7 +488,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
@@ -505,7 +504,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data.imports)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -520,7 +519,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -535,7 +534,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(Unit)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -559,7 +558,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data.users)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
@@ -581,7 +580,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
@@ -600,7 +599,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -623,7 +622,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data.users)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -647,7 +646,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data.books)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
@@ -669,7 +668,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
@@ -688,7 +687,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             Failure(e)
@@ -712,7 +711,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
@@ -733,7 +732,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(result.data)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
@@ -755,7 +754,7 @@ class ABSImportApi(
 
             when (val result = response.toResult()) {
                 is Success -> Success(Unit)
-                is Failure -> Failure(AppException(result.error.toLegacy()))
+                is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
             ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))

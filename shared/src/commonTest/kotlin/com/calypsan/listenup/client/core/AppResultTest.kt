@@ -142,16 +142,14 @@ class AppResultTest {
 
     @Test
     fun failureFromAppExceptionPreservesTypedError() {
-        // The legacy [AppException] still carries a legacy `client.core.error.AppError`;
-        // the [Failure] helper translates that to the unified equivalent. Identity isn't
-        // preserved across the bridge, but the typed shape (AuthError → SessionExpired)
-        // is. Once Task 16 deletes the legacy hierarchy, this test asserts assertSame.
-        val originalError = com.calypsan.listenup.client.core.error.AuthError()
+        // [AppException] carries the unified [AppError] directly — [Failure] preserves
+        // identity, no bridge translation. (Task 27d will delete AppException entirely.)
+        val originalError = AuthError.SessionExpired()
         val ex =
             com.calypsan.listenup.client.core.error
                 .AppException(originalError)
         val failure = Failure(ex)
-        assertIs<AuthError.SessionExpired>(failure.error)
+        assertSame(originalError, failure.error)
     }
 
     @Test

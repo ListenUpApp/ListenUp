@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.sync.push
 
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.sync.SyncMutex
@@ -134,7 +133,7 @@ class PushSyncOrchestrator(
                                 handleFailure(
                                     operation,
                                     (result as? com.calypsan.listenup.client.core.Failure)?.let {
-                                        AppException(it.error.toLegacy())
+                                        AppException(it.error)
                                     },
                                 )
                             }

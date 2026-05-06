@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.AppException
@@ -99,7 +98,7 @@ class PlaybackApi(
 
             when (val result = response.toResult()) {
                 is com.calypsan.listenup.client.core.Success -> result.data.toDomain()
-                is com.calypsan.listenup.client.core.Failure -> throw AppException(result.error.toLegacy())
+                is com.calypsan.listenup.client.core.Failure -> throw AppException(result.error)
             }
         }
 

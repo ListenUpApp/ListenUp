@@ -54,15 +54,16 @@ typealias Failure = AppResult.Failure
 
 /**
  * Wraps an arbitrary [Throwable] as an [AppResult.Failure]. Preserves the typed [AppError]
- * when [throwable] is already an [AppException]; otherwise routes through [ErrorMapper].
+ * when [throwable] is already an [AppException] (which carries it directly); otherwise
+ * routes through [ErrorMapper].
  *
- * [ErrorMapper] and [AppException] still operate on the legacy
- * `client.core.error.AppError` hierarchy; both are migrated in Tasks 13 and 16. Until
- * then, the legacy payload is translated here into its unified [AppError] equivalent.
+ * The [AppException] special case becomes redundant once Task 27d migrates the throwing
+ * data-layer surface to return [AppResult] directly — at which point both [AppException]
+ * and this branch are deleted.
  */
 fun Failure(throwable: Throwable): AppResult.Failure =
     if (throwable is AppException) {
-        AppResult.Failure(throwable.error.toUnified())
+        AppResult.Failure(throwable.error)
     } else {
         AppResult.Failure(ErrorMapper.map(throwable))
     }
@@ -192,7 +193,7 @@ inline fun <T> AppResult<T>.getOrDefault(defaultValue: () -> T): T =
 fun <T> AppResult<T>.getOrThrow(): T =
     when (this) {
         is AppResult.Success -> data
-        is AppResult.Failure -> throw AppException(error.toLegacy())
+        is AppResult.Failure -> throw AppException(error)
     }
 
 fun <T> AppResult<T>.errorOrNull(): AppError? =

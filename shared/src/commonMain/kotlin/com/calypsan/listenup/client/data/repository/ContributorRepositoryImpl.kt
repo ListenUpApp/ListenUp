@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -172,7 +171,7 @@ class ContributorRepositoryImpl(
                 measureTimedValue {
                     when (val result = api.searchContributors(query, limit)) {
                         is Success -> result.data.map { it.toDomain() }
-                        is Failure -> throw AppException(result.error.toLegacy())
+                        is Failure -> throw AppException(result.error)
                     }
                 }
 

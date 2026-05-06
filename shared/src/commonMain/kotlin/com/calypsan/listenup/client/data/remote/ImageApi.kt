@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -141,7 +140,7 @@ class ImageApi(
                 }
 
                 is Failure -> {
-                    throw AppException(result.error.toLegacy())
+                    throw AppException(result.error)
                 }
             }
         }
@@ -195,7 +194,7 @@ class ImageApi(
                 }
 
                 is Failure -> {
-                    throw AppException(result.error.toLegacy())
+                    throw AppException(result.error)
                 }
             }
         }
@@ -268,7 +267,7 @@ class ImageApi(
                 }
 
                 is Failure -> {
-                    throw AppException(result.error.toLegacy())
+                    throw AppException(result.error)
                 }
             }
         }
@@ -294,7 +293,7 @@ class ImageApi(
                 is Success -> { /* Cover deleted successfully */ }
 
                 is Failure -> {
-                    throw AppException(result.error.toLegacy())
+                    throw AppException(result.error)
                 }
             }
         }

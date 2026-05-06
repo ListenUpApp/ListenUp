@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.toLegacy
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.Success
@@ -97,7 +96,7 @@ class InstanceRepositoryImpl(
 
                 when (val result = response.toResult()) {
                     is Success -> result.data
-                    is Failure -> throw AppException(result.error.toLegacy())
+                    is Failure -> throw AppException(result.error)
                 }
             } finally {
                 client.close()
@@ -123,7 +122,7 @@ class InstanceRepositoryImpl(
                 }
 
                 is Failure -> {
-                    Failure(AppException(result.error.toLegacy()))
+                    Failure(AppException(result.error))
                 }
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
@@ -152,10 +151,10 @@ class InstanceRepositoryImpl(
                             errorMessage.contains("handshake")
                     if (isSslError && index < urlsToTry.size - 1) {
                         logger.debug { "SSL error at $currentUrl, trying HTTP fallback" }
-                        lastException = AppException(result.error.toLegacy())
+                        lastException = AppException(result.error)
                         continue
                     }
-                    lastException = AppException(result.error.toLegacy())
+                    lastException = AppException(result.error)
                     break
                 }
             }
