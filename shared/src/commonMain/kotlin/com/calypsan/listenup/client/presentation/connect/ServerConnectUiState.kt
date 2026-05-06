@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.connect
 
-import com.calypsan.listenup.client.core.error.ServerConnectError
+import com.calypsan.listenup.api.error.ServerConnectError
 
 /**
  * UI state for the server connection screen.

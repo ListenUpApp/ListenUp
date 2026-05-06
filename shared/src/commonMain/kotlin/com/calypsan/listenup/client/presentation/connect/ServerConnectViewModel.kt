@@ -6,8 +6,7 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.PlatformUtils
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.ServerConnectError
-import com.calypsan.listenup.client.core.error.UnknownError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -88,7 +87,7 @@ class ServerConnectViewModel(
      */
     private fun validateUrl(url: String): ServerConnectError? {
         if (url.isBlank()) {
-            return ServerConnectError.InvalidUrl("blank")
+            return ServerConnectError.InvalidUrl(reason = "blank")
         }
 
         val urlWithProtocol =
@@ -102,12 +101,12 @@ class ServerConnectViewModel(
             Url(urlWithProtocol)
         } catch (e: URLParserException) {
             logger.debug(e) { "URL validation failed for: $url" }
-            return ServerConnectError.InvalidUrl("malformed")
+            return ServerConnectError.InvalidUrl(reason = "malformed")
         }
 
         val isLocalhost = url.contains("localhost") || url.contains("127.0.0.1") || url.contains("0.0.0.0")
         if (isLocalhost && !PlatformUtils.isEmulator()) {
-            return ServerConnectError.InvalidUrl("localhost_physical")
+            return ServerConnectError.InvalidUrl(reason = "localhost_physical")
         }
 
         return null
@@ -130,9 +129,7 @@ class ServerConnectViewModel(
             }
 
             else -> {
-                ServerConnectError.VerificationFailed(
-                    UnknownError(message = result.message, debugInfo = null),
-                )
+                ServerConnectError.VerificationFailed(debugInfo = result.message)
             }
         }
     }

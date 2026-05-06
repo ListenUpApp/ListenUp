@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.connect
 
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.error.ServerConnectError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
@@ -76,7 +76,7 @@ class ServerConnectViewModelTest {
             val error = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
             val invalid = assertIs<ServerConnectError.InvalidUrl>(error.error)
             assertEquals("blank", invalid.reason)
-            assertEquals("Please enter a server URL", invalid.message)
+            assertEquals("Please enter a server URL.", invalid.message)
         }
 
     @Test
