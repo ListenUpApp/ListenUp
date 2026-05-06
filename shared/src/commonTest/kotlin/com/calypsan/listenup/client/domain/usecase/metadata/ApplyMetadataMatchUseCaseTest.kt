@@ -382,8 +382,10 @@ class ApplyMetadataMatchUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
             everySuspend { fixture.metadataRepository.applyMatch(any(), any()) } throws
-                RuntimeException("Network error")
+                IllegalArgumentException("Network error")
             val useCase = fixture.build()
 
             // When

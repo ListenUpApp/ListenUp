@@ -154,8 +154,10 @@ class AdminSettingsViewModelTest {
     fun `load failure transitions to Error`() =
         runTest {
             val fixture = TestFixture()
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.loadServerSettingsUseCase() } returns
-                Failure(RuntimeException("Network down"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Network down"))
 
             val viewModel = fixture.build()
             advanceUntilIdle()
@@ -246,8 +248,11 @@ class AdminSettingsViewModelTest {
     fun `saveAll failure surfaces as transient error on Ready`() =
         runTest {
             val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
+            // Body-level message convention: pass a typed AppError so the
+            // "Forbidden" text reaches the ViewModel's IllegalStateException
+            // re-throw, which then surfaces in the Ready.error string.
             everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                Failure(RuntimeException("Forbidden"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Forbidden"))
             val viewModel = fixture.build()
             advanceUntilIdle()
 

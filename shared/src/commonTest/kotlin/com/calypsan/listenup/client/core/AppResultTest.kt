@@ -135,14 +135,9 @@ class AppResultTest {
     fun failureFromThrowableMapsViaErrorMapper() {
         val ex = IllegalStateException("boom")
         val failure = Failure(ex)
-        // ErrorMapper still emits legacy `UnknownError` for unmapped throwables; the
-        // Failure() helper translates that into a unified [ValidationError] so the
-        // arbitrary user-facing message (e.g., "boom") survives the bridge — unified
-        // [InternalError] has a fixed message. When the legacy hierarchy is deleted in
-        // Task 16, ErrorMapper will emit [InternalError] directly and this assertion
-        // moves back to InternalError.
-        assertIs<ValidationError>(failure.error)
-        assertEquals("boom", failure.message)
+        val internal = assertIs<InternalError>(failure.error)
+        assertTrue(internal.debugInfo?.contains("boom") == true)
+        assertTrue(internal.debugInfo?.contains("IllegalStateException") == true)
     }
 
     @Test

@@ -301,9 +301,11 @@ class SearchBooksUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
             everySuspend {
                 fixture.searchRepository.search(any(), any(), any(), any(), any())
-            } throws Exception("Network error")
+            } throws IllegalArgumentException("Network error")
             val useCase = fixture.build()
 
             // When
@@ -319,9 +321,11 @@ class SearchBooksUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
             everySuspend {
                 fixture.searchRepository.search(any(), any(), any(), any(), any())
-            } throws RuntimeException("Database connection failed")
+            } throws IllegalArgumentException("Database connection failed")
             val useCase = fixture.build()
 
             // When

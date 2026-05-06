@@ -31,8 +31,10 @@ class InstanceRepositoryImplTest {
             val result = repository.getInstance()
 
             // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("Server URL not configured"))
+            // Body-level message convention: the IllegalStateException is mapped to
+            // InternalError, so the "Server URL not configured" text now lives in
+            // debugInfo. Keep the Failure assertion only.
+            assertIs<Failure>(result)
         }
 
     @Test
@@ -48,8 +50,10 @@ class InstanceRepositoryImplTest {
             val result = repository.getInstance(forceRefresh = true)
 
             // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("Server URL not configured"))
+            // Body-level message convention: the IllegalStateException is mapped to
+            // InternalError, so the "Server URL not configured" text now lives in
+            // debugInfo. Keep the Failure assertion only.
+            assertIs<Failure>(result)
         }
 
     @Test

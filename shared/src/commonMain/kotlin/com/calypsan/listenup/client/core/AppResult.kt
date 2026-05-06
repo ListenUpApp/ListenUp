@@ -64,30 +64,7 @@ fun Failure(throwable: Throwable): AppResult.Failure =
     if (throwable is AppException) {
         AppResult.Failure(throwable.error.toUnified())
     } else {
-        // Transitional bridge — see Task 15a in the plan. Typed exceptions (IOException,
-        // SerializationException, IllegalArgumentException, Ktor timeouts, etc.) flow through
-        // ErrorMapper.map's typed branches and produce the right `TransportError.*` /
-        // `ValidationError` subtype with the body-level message convention intact. Only the
-        // catch-all branch (RuntimeException, IllegalStateException, custom domain exceptions)
-        // would otherwise produce `InternalError` with a fixed `message` constant — surfacing
-        // "Something went wrong on the server." regardless of throwable text. To keep ~54 ViewModel
-        // tests passing that construct fixtures via `Failure(RuntimeException("..."))` and assert
-        // on `error.message.contains(...)`, the catch-all is bridged through `ValidationError`,
-        // mirroring the legacy `UnknownError → ValidationError` path used by `toUnified()` before
-        // Task 13. `debugInfo` carries the full stack trace so diagnostic context isn't lost.
-        // Task 15a migrates those test assertions to the body-level convention; Task 16 then
-        // deletes this companion outright along with the rest of the legacy bridge.
-        val mapped = ErrorMapper.map(throwable)
-        if (mapped is InternalError) {
-            AppResult.Failure(
-                ValidationError(
-                    message = throwable.message ?: "Unknown error",
-                    debugInfo = throwable.stackTraceToString(),
-                ),
-            )
-        } else {
-            AppResult.Failure(mapped)
-        }
+        AppResult.Failure(ErrorMapper.map(throwable))
     }
 
 /**

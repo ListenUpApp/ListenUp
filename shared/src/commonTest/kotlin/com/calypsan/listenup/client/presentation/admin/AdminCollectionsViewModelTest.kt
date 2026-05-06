@@ -200,8 +200,10 @@ class AdminCollectionsViewModelTest {
             // Given
             val fixture = createFixture()
             fixture.collectionsFlow.value = listOf(createCollection(id = "a"))
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.createCollectionUseCase(any()) } returns
-                Failure(RuntimeException("duplicate name"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "duplicate name"))
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -244,8 +246,10 @@ class AdminCollectionsViewModelTest {
             // Given
             val fixture = createFixture()
             fixture.collectionsFlow.value = listOf(createCollection(id = "a"))
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.deleteCollectionUseCase("a") } returns
-                Failure(RuntimeException("not permitted"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "not permitted"))
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -267,8 +271,10 @@ class AdminCollectionsViewModelTest {
             // Given — a Ready state with an error
             val fixture = createFixture()
             fixture.collectionsFlow.value = listOf(createCollection(id = "a"))
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.deleteCollectionUseCase("a") } returns
-                Failure(RuntimeException("boom"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "boom"))
             val viewModel = fixture.build()
             advanceUntilIdle()
             viewModel.deleteCollection("a")

@@ -180,7 +180,11 @@ class PushSyncOrchestratorTest {
             // Given
             val fixture = TestFixture()
             val operation = createOperation("op-1", attemptCount = 2) // Already 2 attempts
-            val error = RuntimeException("Still failing")
+            // Body-level message convention: the orchestrator forwards
+            // `failure.error.message` into the markFailed text, so the typed
+            // error must carry the literal "Still failing" on its message.
+            val errorPayload =
+                com.calypsan.listenup.api.error.ValidationError(message = "Still failing")
 
             everySuspend { fixture.repository.getNextBatch(any()) } sequentially {
                 returns(listOf(operation))
@@ -190,7 +194,7 @@ class PushSyncOrchestratorTest {
             everySuspend { fixture.repository.markFailed(any(), any()) } returns Unit
             everySuspend { fixture.executor.execute(any()) } returns
                 mapOf(
-                    "op-1" to Failure(error),
+                    "op-1" to Failure(errorPayload),
                 )
 
             val orchestrator = fixture.build()

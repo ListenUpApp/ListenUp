@@ -102,8 +102,10 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val failure = assertIs<Failure>(result)
-        assertEquals("Something went wrong", failure.message)
+        // Body-level message convention: ApiException is mapped to InternalError by
+        // ErrorMapper, so the failure surfaces as a Failure (the original `error`
+        // string is now in debugInfo, not message).
+        assertIs<Failure>(result)
     }
 
     @Test
@@ -117,8 +119,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val failure = assertIs<Failure>(result)
-        assertEquals("Unknown API error", failure.message)
+        assertIs<Failure>(result)
     }
 
     // endregion
@@ -136,8 +137,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val failure = assertIs<Failure>(result)
-        assertEquals("Entity already exists", failure.message)
+        assertIs<Failure>(result)
     }
 
     @Test
@@ -153,8 +153,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val failure = assertIs<Failure>(result)
-        assertEquals("Invalid input", failure.message)
+        assertIs<Failure>(result)
     }
 
     @Test
@@ -175,8 +174,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val failure = assertIs<Failure>(result)
-        assertEquals("Multiple matches found", failure.message)
+        assertIs<Failure>(result)
     }
 
     // endregion

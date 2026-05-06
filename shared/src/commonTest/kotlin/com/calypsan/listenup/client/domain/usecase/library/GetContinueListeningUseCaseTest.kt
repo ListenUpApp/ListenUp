@@ -215,8 +215,16 @@ class GetContinueListeningUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: the use case's mapErrorMessage
+            // string-matches on `failure.message`, so use a typed AppError
+            // whose body-level message text triggers the "database" branch.
+            // The use case then throws ContinueListeningException carrying the
+            // user-friendly text; suspendRunCatching maps that back to
+            // InternalError where the user-friendly text lives in `debugInfo`.
             everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(Exception("database connection lost"))
+                Failure(
+                    com.calypsan.listenup.api.error.ValidationError(message = "database connection lost"),
+                )
             val useCase = fixture.build()
 
             // When
@@ -224,9 +232,10 @@ class GetContinueListeningUseCaseTest {
 
             // Then
             val failure = assertIs<Failure>(result)
+            val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                failure.message.contains("listening history", ignoreCase = true) ||
-                    failure.message.contains("load", ignoreCase = true),
+                debugInfo.contains("listening history", ignoreCase = true) ||
+                    debugInfo.contains("load", ignoreCase = true),
             )
         }
 

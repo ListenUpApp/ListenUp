@@ -109,7 +109,9 @@ class CollectionUseCasesTest {
         runTest {
             // Given
             val repository: CollectionRepository = mock()
-            everySuspend { repository.create(any()) } throws Exception("Server error")
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
+            everySuspend { repository.create(any()) } throws IllegalArgumentException("Server error")
             val useCase = CreateCollectionUseCase(repository)
 
             // When
@@ -157,7 +159,9 @@ class CollectionUseCasesTest {
         runTest {
             // Given
             val repository: CollectionRepository = mock()
-            everySuspend { repository.delete(any()) } throws Exception("Not found")
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
+            everySuspend { repository.delete(any()) } throws IllegalArgumentException("Not found")
             val useCase = DeleteCollectionUseCase(repository)
 
             // When

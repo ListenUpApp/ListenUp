@@ -144,7 +144,10 @@ class ShelfUseCasesTest {
         runTest {
             // Given
             val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.createShelf(any(), any()) } throws Exception("Network error")
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
+            everySuspend { shelfRepository.createShelf(any(), any()) } throws
+                IllegalArgumentException("Network error")
             val useCase = CreateShelfUseCase(shelfRepository)
 
             // When
@@ -240,7 +243,10 @@ class ShelfUseCasesTest {
         runTest {
             // Given
             val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.updateShelf(any(), any(), any()) } throws Exception("Server error")
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
+            everySuspend { shelfRepository.updateShelf(any(), any(), any()) } throws
+                IllegalArgumentException("Server error")
             val useCase = UpdateShelfUseCase(shelfRepository)
 
             // When
@@ -288,7 +294,10 @@ class ShelfUseCasesTest {
         runTest {
             // Given
             val shelfRepository: ShelfRepository = mock()
-            everySuspend { shelfRepository.deleteShelf(any()) } throws Exception("Not found")
+            // Body-level message convention: throw an exception that ErrorMapper
+            // routes to ValidationError so the original message survives.
+            everySuspend { shelfRepository.deleteShelf(any()) } throws
+                IllegalArgumentException("Not found")
             val useCase = DeleteShelfUseCase(shelfRepository)
 
             // When

@@ -63,8 +63,11 @@ class CreateInviteViewModelTest {
     fun `createInvite validates empty name`() =
         runTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
+            // Body-level message convention: ViewModel routes by string-matching
+            // failure.message, so pass a typed AppError whose body-level message
+            // matches the relevant branch ("Name is required").
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(RuntimeException("Name is required"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Name is required"))
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "", email = "test@example.com", role = "user", expiresInDays = 7)
@@ -80,8 +83,9 @@ class CreateInviteViewModelTest {
     fun `createInvite validates invalid email`() =
         runTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
+            // Body-level message convention: see empty-name test for explanation.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(RuntimeException("Invalid email"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Invalid email"))
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test User", email = "invalid-email", role = "user", expiresInDays = 7)
@@ -113,8 +117,11 @@ class CreateInviteViewModelTest {
     fun `createInvite handles email already exists error`() =
         runTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
+            // Body-level message convention: ViewModel matches on "already exists"
+            // or "conflict"; pass a typed ValidationError whose body-level message
+            // contains the literal text.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(RuntimeException("Email already exists"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Email already exists"))
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test", email = "test@example.com", role = "user", expiresInDays = 7)
@@ -129,8 +136,12 @@ class CreateInviteViewModelTest {
     fun `createInvite handles network error`() =
         runTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
+            // Body-level message convention: TransportError.NetworkUnavailable's
+            // body-level message ("No internet connection. Check your network.")
+            // contains both "network" and "connection", which the VM's branch
+            // looks for.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(RuntimeException("Network connection failed"))
+                Failure(com.calypsan.listenup.api.error.TransportError.NetworkUnavailable())
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test", email = "test@example.com", role = "user", expiresInDays = 7)

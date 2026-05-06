@@ -109,8 +109,12 @@ class RefreshLibraryUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: the use case throws a RefreshException
+            // wrapping the user-friendly text, then suspendRunCatching routes it
+            // through ErrorMapper to InternalError. The user-friendly text now
+            // surfaces via `debugInfo`, not `message`.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("network connection failed"))
+                Failure(com.calypsan.listenup.api.error.TransportError.NetworkUnavailable())
             val useCase = fixture.build()
 
             // When
@@ -118,9 +122,10 @@ class RefreshLibraryUseCaseTest {
 
             // Then
             val failure = assertIs<Failure>(result)
+            val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                failure.message.contains("network", ignoreCase = true) ||
-                    failure.message.contains("connect", ignoreCase = true),
+                debugInfo.contains("network", ignoreCase = true) ||
+                    debugInfo.contains("connect", ignoreCase = true),
             )
         }
 
@@ -129,8 +134,9 @@ class RefreshLibraryUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: see network test for explanation.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("Request timeout"))
+                Failure(com.calypsan.listenup.api.error.TransportError.Timeout())
             val useCase = fixture.build()
 
             // When
@@ -138,9 +144,11 @@ class RefreshLibraryUseCaseTest {
 
             // Then
             val failure = assertIs<Failure>(result)
+            val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                failure.message.contains("timeout", ignoreCase = true) ||
-                    failure.message.contains("responding", ignoreCase = true),
+                debugInfo.contains("timeout", ignoreCase = true) ||
+                    debugInfo.contains("responding", ignoreCase = true) ||
+                    debugInfo.contains("timed out", ignoreCase = true),
             )
         }
 
@@ -149,8 +157,9 @@ class RefreshLibraryUseCaseTest {
         runTest {
             // Given
             val fixture = createFixture()
+            // Body-level message convention: see network test for explanation.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("401 Unauthorized"))
+                Failure(com.calypsan.listenup.api.error.AuthError.SessionExpired())
             val useCase = fixture.build()
 
             // When
@@ -158,9 +167,11 @@ class RefreshLibraryUseCaseTest {
 
             // Then
             val failure = assertIs<Failure>(result)
+            val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                failure.message.contains("session", ignoreCase = true) ||
-                    failure.message.contains("log in", ignoreCase = true),
+                debugInfo.contains("session", ignoreCase = true) ||
+                    debugInfo.contains("log in", ignoreCase = true) ||
+                    debugInfo.contains("sign in", ignoreCase = true),
             )
         }
 
