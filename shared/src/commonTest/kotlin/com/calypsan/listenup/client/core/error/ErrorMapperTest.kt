@@ -142,6 +142,14 @@ class ErrorMapperTest {
     }
 
     @Test
+    fun `map unknown exception with null message produces ClassName-null debug info`() {
+        val error = ErrorMapper.map(RuntimeException())
+
+        val internalError = assertIs<InternalError>(error)
+        assertEquals("RuntimeException: null", internalError.debugInfo)
+    }
+
+    @Test
     fun `map custom exception returns InternalError`() {
         class CustomException(message: String) : Exception(message)
         val exception = CustomException("Custom domain error")

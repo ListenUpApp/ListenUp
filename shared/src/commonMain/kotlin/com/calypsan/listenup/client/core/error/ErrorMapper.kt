@@ -48,6 +48,6 @@ object ErrorMapper {
                 debugInfo = exception.message,
             )
 
-            else -> InternalError(debugInfo = exception::class.simpleName + ": " + exception.message)
+            else -> InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
         }
 }
