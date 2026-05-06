@@ -5,7 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import com.calypsan.listenup.client.core.error.AppError
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 

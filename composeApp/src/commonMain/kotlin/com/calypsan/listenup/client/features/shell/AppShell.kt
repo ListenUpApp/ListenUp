@@ -56,7 +56,7 @@ import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import com.calypsan.listenup.client.core.error.SyncError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.data.sync.SSEManagerContract
 import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackbar
 import io.github.oshai.kotlinlogging.KotlinLogging
