@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.SharedFlow
  * `lastScanResult` already have to handle the configuration failure mode;
  * lumping "not yet" in is acceptable.
  */
-class ScannerServiceImpl(
+internal class ScannerServiceImpl(
     private val scanner: Scanner,
     private val coordinator: ScanCoordinator,
     private val eventBus: SharedFlow<ScanEvent>,

@@ -12,7 +12,7 @@ import com.calypsan.listenup.api.dto.scanner.FileType
  * unrecognised extension are [FileType.UNKNOWN] — not skipped, just
  * unclassified, so the Analyzer can see them if it cares.
  */
-object FileTypeRules {
+internal object FileTypeRules {
     private val audioExt =
         setOf(
             "m4b",

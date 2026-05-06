@@ -47,7 +47,7 @@ private val logger = KotlinLogging.logger {}
  * **`@Volatile lastResult`.** Read by `lastResult()` from arbitrary
  * threads; written only from inside the coordinator's mutex.
  */
-class Scanner(
+internal class Scanner(
     private val rootPath: Path,
     private val metadataReader: AbsMetadataReader,
     private val eventBus: MutableSharedFlow<ScanEvent>,

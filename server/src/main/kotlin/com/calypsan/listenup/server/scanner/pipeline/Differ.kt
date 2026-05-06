@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.flow
  * The "first scan" case (no prior state) is handled by passing
  * `previous = emptyList()`; every current book is then [ChangeEventDto.Added].
  */
-class Differ {
+internal class Differ {
     fun diff(
         current: Flow<AnalyzedBook>,
         previous: List<AnalyzedBook>,

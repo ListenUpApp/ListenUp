@@ -38,7 +38,7 @@ import java.nio.file.Path
  * or abort the scan. `CancellationException` is always re-raised so
  * structured concurrency stays intact.
  */
-class Analyzer(
+internal class Analyzer(
     private val rootPath: Path,
     private val metadataReader: AbsMetadataReader,
     private val parseSubtitle: Boolean = false,

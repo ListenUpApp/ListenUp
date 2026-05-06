@@ -16,7 +16,7 @@ package com.calypsan.listenup.server.scanner.inference
  * Keeping one regex avoids the two stages drifting apart on what counts
  * as "a disc folder."
  */
-object MultiDiscPattern {
+internal object MultiDiscPattern {
     private val pattern = Regex("""^(cd|dis[ck])\s*(\d{1,3})$""", RegexOption.IGNORE_CASE)
 
     fun matches(folderName: String): Boolean = pattern.matches(folderName)
