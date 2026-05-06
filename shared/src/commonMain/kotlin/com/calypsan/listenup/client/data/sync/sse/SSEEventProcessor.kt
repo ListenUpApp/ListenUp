@@ -49,7 +49,7 @@ private val logger = KotlinLogging.logger {}
  */
 private fun parseTimestamp(isoString: String): Timestamp =
     try {
-        Timestamp.fromEpochMillis(Instant.parse(isoString).toEpochMilliseconds())
+        Timestamp(Instant.parse(isoString).toEpochMilliseconds())
     } catch (_: Exception) {
         Timestamp.now()
     }
@@ -67,7 +67,7 @@ private fun parseTimestamp(isoString: String): Timestamp =
  */
 private fun parseLastPlayedOrNull(isoString: String): Timestamp? =
     try {
-        Timestamp.fromEpochMillis(Instant.parse(isoString).toEpochMilliseconds())
+        Timestamp(Instant.parse(isoString).toEpochMilliseconds())
     } catch (_: Exception) {
         null
     }

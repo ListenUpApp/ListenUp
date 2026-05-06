@@ -107,12 +107,6 @@ class ValueClassesTest {
     }
 
     @Test
-    fun `Timestamp fromEpochMillis creates timestamp`() {
-        val ts = Timestamp.fromEpochMillis(1_000_000L)
-        assertEquals(1_000_000L, ts.epochMillis)
-    }
-
-    @Test
     fun `Timestamp now returns current time`() {
         val before = Clock.System.now().toEpochMilliseconds()
         val ts = Timestamp.now()
