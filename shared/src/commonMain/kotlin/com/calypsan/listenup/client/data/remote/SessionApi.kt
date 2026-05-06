@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.getOrThrow
+import com.calypsan.listenup.client.core.flatten
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.BookReadersApiResponse
@@ -42,8 +43,8 @@ class SessionApi(
                         parameter("limit", limit)
                     }.body()
             logger.debug { "Fetched readers for book $bookId" }
-            response.toResult().getOrThrow().toDomain()
-        }
+            response.toResult()
+        }.flatten().map { it.toDomain() }
 
     /**
      * Get the current user's reading history.
@@ -60,8 +61,8 @@ class SessionApi(
                         parameter("limit", limit)
                     }.body()
             logger.debug { "Fetched ${response.data?.sessions?.size ?: 0} sessions" }
-            response.toResult().getOrThrow().toDomain()
-        }
+            response.toResult()
+        }.flatten().map { it.toDomain() }
 
     /**
      * Get the current authenticated user's profile.
@@ -77,6 +78,6 @@ class SessionApi(
             val response: ApiResponse<CurrentUserApiResponse> =
                 client.get("/api/v1/users/me").body()
             logger.debug { "Fetched user: ${response.data?.email}" }
-            response.toResult().getOrThrow().toDomain()
-        }
+            response.toResult()
+        }.flatten().map { it.toDomain() }
 }

@@ -4,7 +4,6 @@ import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.getOrThrow
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
@@ -68,31 +67,31 @@ open class UpdateBookUseCase(
             "Saving book changes: ${changes.summary()}"
         }
 
+        if (changes.metadataChanged) {
+            when (val result = updateMetadata(current)) {
+                is Success -> {}
+                is Failure -> return result
+            }
+        }
+
+        if (changes.contributorsChanged) {
+            when (val result = updateContributors(current)) {
+                is Success -> {}
+                is Failure -> return result
+            }
+        }
+
+        if (changes.seriesChanged) {
+            when (val result = updateSeries(current)) {
+                is Success -> {}
+                is Failure -> return result
+            }
+        }
+
         return suspendRunCatching {
-            if (changes.metadataChanged) {
-                updateMetadata(current).getOrThrow()
-            }
-
-            if (changes.contributorsChanged) {
-                updateContributors(current).getOrThrow()
-            }
-
-            if (changes.seriesChanged) {
-                updateSeries(current).getOrThrow()
-            }
-
-            if (changes.genresChanged) {
-                updateGenres(current)
-            }
-
-            if (changes.tagsChanged) {
-                updateTags(current, original)
-            }
-
-            if (changes.coverChanged) {
-                commitAndUploadCover(current)
-            }
-
+            if (changes.genresChanged) updateGenres(current)
+            if (changes.tagsChanged) updateTags(current, original)
+            if (changes.coverChanged) commitAndUploadCover(current)
             logger.info { "Book ${current.bookId} saved successfully" }
         }
     }

@@ -221,6 +221,9 @@ inline fun <T, R> AppResult<T>.flatMap(transform: (T) -> AppResult<R>): AppResul
         is AppResult.Failure -> this
     }
 
+/** Collapse a nested [AppResult] into a single layer. */
+fun <T> AppResult<AppResult<T>>.flatten(): AppResult<T> = flatMap { it }
+
 inline fun <T, R> AppResult<T>.fold(
     onSuccess: (T) -> R,
     onFailure: (AppError) -> R,
