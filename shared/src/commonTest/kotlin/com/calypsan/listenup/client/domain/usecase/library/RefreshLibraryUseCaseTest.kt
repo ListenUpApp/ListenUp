@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -104,74 +106,64 @@ class RefreshLibraryUseCaseTest {
             assertTrue(failure.message.isNotEmpty())
         }
 
+    // mapErrorMessage tests assert on the *exact* user-friendly text the named branch produces.
+    // Loose substring matches would silently pass via the `else` fallback when the named branch
+    // is broken (the prior shape of these tests had this exact bug — see code-review feedback
+    // on Task 15a). The user-friendly text travels via the use case's `RefreshException` →
+    // `suspendRunCatching` → `Failure(throwable)` → `ErrorMapper.map` → `InternalError(debugInfo
+    // = "RefreshException: <user-friendly text>")`, so we read it from `debugInfo`.
+
     @Test
-    fun `network error maps to user-friendly message`() =
+    fun `NetworkUnavailable maps to network user-friendly message`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            // Body-level message convention: the use case throws a RefreshException
-            // wrapping the user-friendly text, then suspendRunCatching routes it
-            // through ErrorMapper to InternalError. The user-friendly text now
-            // surfaces via `debugInfo`, not `message`.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(com.calypsan.listenup.api.error.TransportError.NetworkUnavailable())
+                Failure(TransportError.NetworkUnavailable())
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
             val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                debugInfo.contains("network", ignoreCase = true) ||
-                    debugInfo.contains("connect", ignoreCase = true),
+                debugInfo.contains("Unable to connect to server. Check your network connection."),
+                "Expected mapErrorMessage's NetworkUnavailable branch; got debugInfo=\"$debugInfo\"",
             )
         }
 
     @Test
-    fun `timeout error maps to user-friendly message`() =
+    fun `Timeout maps to not-responding user-friendly message`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            // Body-level message convention: see network test for explanation.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(com.calypsan.listenup.api.error.TransportError.Timeout())
+                Failure(TransportError.Timeout())
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
             val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                debugInfo.contains("timeout", ignoreCase = true) ||
-                    debugInfo.contains("responding", ignoreCase = true) ||
-                    debugInfo.contains("timed out", ignoreCase = true),
+                debugInfo.contains("Server is not responding. Please try again later."),
+                "Expected mapErrorMessage's Timeout branch; got debugInfo=\"$debugInfo\"",
             )
         }
 
     @Test
-    fun `unauthorized error maps to session expired message`() =
+    fun `AuthError maps to session-expired user-friendly message`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            // Body-level message convention: see network test for explanation.
             everySuspend { fixture.syncRepository.sync() } returns
-                Failure(com.calypsan.listenup.api.error.AuthError.SessionExpired())
+                Failure(AuthError.SessionExpired())
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
             val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                debugInfo.contains("session", ignoreCase = true) ||
-                    debugInfo.contains("log in", ignoreCase = true) ||
-                    debugInfo.contains("sign in", ignoreCase = true),
+                debugInfo.contains("Session expired. Please log in again."),
+                "Expected mapErrorMessage's AuthError branch; got debugInfo=\"$debugInfo\"",
             )
         }
 

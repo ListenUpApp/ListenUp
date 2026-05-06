@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -115,16 +116,19 @@ open class GetContinueListeningUseCase(
         }
 
     /**
-     * Map technical errors to user-friendly messages.
+     * Map technical errors to user-friendly messages by type, not by message-text matching.
+     *
+     * Body-level message convention: every [com.calypsan.listenup.api.error.AppError] subtype
+     * has a constant `message`, so substring matching against `failure.message` is brittle. The
+     * pre-Phase-3 implementation had a "database" branch that never fired — there's no AppError
+     * subtype carrying that signal. If/when a local-storage error type is added, route it here.
      */
-    private fun mapErrorMessage(failure: Failure): String {
-        val message = failure.message
-        return when {
-            message.contains("database", ignoreCase = true) -> "Unable to load your listening history."
-            message.contains("network", ignoreCase = true) -> "Unable to connect to server. Showing local data."
-            else -> message
+    private fun mapErrorMessage(failure: Failure): String =
+        when (failure.error) {
+            is TransportError.NetworkUnavailable, is TransportError.Timeout ->
+                "Unable to connect to server. Showing local data."
+            else -> failure.error.message
         }
-    }
 
     companion object {
         /** Default number of books to return. */

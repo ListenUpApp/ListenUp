@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -119,28 +121,22 @@ open class RefreshLibraryUseCase(
     }
 
     /**
-     * Map technical errors to user-friendly messages.
+     * Map technical errors to user-friendly messages by type, not by message-text matching.
+     *
+     * Body-level message convention: every [com.calypsan.listenup.api.error.AppError] subtype
+     * has a constant `message`, so substring-matching against `failure.message` is brittle (the
+     * pre-Phase-3 implementation here did exactly that and silently fell through to `else` for
+     * timeout/unauthorized/mismatch — those branches never fired). The library-mismatch
+     * detection is dropped here because there's no `AppError` subtype carrying that signal;
+     * if/when one exists, route it by type.
      */
-    private fun mapErrorMessage(failure: Failure): String {
-        val message = failure.message
-        return when {
-            message.contains(
-                "network",
-                ignoreCase = true,
-            ) -> "Unable to connect to server. Check your network connection."
-
-            message.contains("unauthorized", ignoreCase = true) -> "Session expired. Please log in again."
-
-            message.contains("timeout", ignoreCase = true) -> "Server is not responding. Please try again later."
-
-            message.contains(
-                "mismatch",
-                ignoreCase = true,
-            ) -> "Server library has changed. Local data needs to be reset."
-
-            else -> message
+    private fun mapErrorMessage(failure: Failure): String =
+        when (failure.error) {
+            is TransportError.NetworkUnavailable -> "Unable to connect to server. Check your network connection."
+            is TransportError.Timeout -> "Server is not responding. Please try again later."
+            is AuthError -> "Session expired. Please log in again."
+            else -> failure.error.message
         }
-    }
 }
 
 /**

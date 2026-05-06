@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -211,31 +212,26 @@ class GetContinueListeningUseCaseTest {
         }
 
     @Test
-    fun `database error maps to user-friendly message`() =
+    fun `NetworkUnavailable maps to local-data user-friendly message`() =
         runTest {
-            // Given
+            // Asserts on the *exact* text from mapErrorMessage's NetworkUnavailable branch.
+            // The user-friendly text travels via the use case's `ContinueListeningException` →
+            // `suspendRunCatching` → `Failure(throwable)` → `ErrorMapper.map` →
+            // `InternalError(debugInfo = "ContinueListeningException: <user-friendly text>")`.
+            // (The pre-Phase-3 mapErrorMessage had a "database" branch that never fired —
+            // no AppError subtype carries that signal. Dropped in the type-pattern rewrite.)
             val fixture = createFixture()
-            // Body-level message convention: the use case's mapErrorMessage
-            // string-matches on `failure.message`, so use a typed AppError
-            // whose body-level message text triggers the "database" branch.
-            // The use case then throws ContinueListeningException carrying the
-            // user-friendly text; suspendRunCatching maps that back to
-            // InternalError where the user-friendly text lives in `debugInfo`.
             everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(
-                    com.calypsan.listenup.api.error.ValidationError(message = "database connection lost"),
-                )
+                Failure(TransportError.NetworkUnavailable())
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
             val debugInfo = failure.error.debugInfo ?: ""
             assertTrue(
-                debugInfo.contains("listening history", ignoreCase = true) ||
-                    debugInfo.contains("load", ignoreCase = true),
+                debugInfo.contains("Unable to connect to server. Showing local data."),
+                "Expected mapErrorMessage's NetworkUnavailable branch; got debugInfo=\"$debugInfo\"",
             )
         }
 

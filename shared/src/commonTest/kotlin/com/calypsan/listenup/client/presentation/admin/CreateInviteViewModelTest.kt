@@ -117,11 +117,10 @@ class CreateInviteViewModelTest {
     fun `createInvite handles email already exists error`() =
         runTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
-            // Body-level message convention: ViewModel matches on "already exists"
-            // or "conflict"; pass a typed ValidationError whose body-level message
-            // contains the literal text.
+            // Server returns 409 Conflict for duplicate email — ViewModel routes
+            // TransportError.Server4xx(409) → EmailInUse via type-pattern matching.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Email already exists"))
+                Failure(com.calypsan.listenup.api.error.TransportError.Server4xx(statusCode = 409))
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test", email = "test@example.com", role = "user", expiresInDays = 7)

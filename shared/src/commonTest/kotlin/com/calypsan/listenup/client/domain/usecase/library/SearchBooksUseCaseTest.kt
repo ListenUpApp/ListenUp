@@ -297,42 +297,19 @@ class SearchBooksUseCaseTest {
     // ========== Error Handling Tests ==========
 
     @Test
-    fun `repository exception returns failure with message`() =
+    fun `repository exception returns failure`() =
         runTest {
-            // Given
+            // Test cares that the failure path is hit. Specific message-text
+            // preservation is ErrorMapper / Failure(throwable)'s contract, tested
+            // at that layer (AppResultTest); not a use-case concern.
             val fixture = createFixture()
-            // Body-level message convention: throw an exception that ErrorMapper
-            // routes to ValidationError so the original message survives.
             everySuspend {
                 fixture.searchRepository.search(any(), any(), any(), any(), any())
-            } throws IllegalArgumentException("Network error")
+            } throws Exception("repo failed")
             val useCase = fixture.build()
 
-            // When
             val result = useCase(query = "test")
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertEquals("Network error", failure.message)
-        }
-
-    @Test
-    fun `repository exception preserves message in failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            // Body-level message convention: throw an exception that ErrorMapper
-            // routes to ValidationError so the original message survives.
-            everySuspend {
-                fixture.searchRepository.search(any(), any(), any(), any(), any())
-            } throws IllegalArgumentException("Database connection failed")
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(query = "test")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertEquals("Database connection failed", failure.message)
+            assertIs<Failure>(result)
         }
 }
