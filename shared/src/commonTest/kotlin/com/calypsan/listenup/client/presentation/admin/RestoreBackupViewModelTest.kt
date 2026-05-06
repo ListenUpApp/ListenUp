@@ -30,6 +30,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for RestoreBackupViewModel.
@@ -111,7 +112,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup("backup-1") } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
 
             assertIs<RestoreBackupUiState.Loading>(viewModel.state.value)
         }
@@ -126,7 +127,7 @@ class RestoreBackupViewModelTest {
                     serverName = "My Server",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -145,7 +146,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup("backup-1") } throws RuntimeException("Network error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val error = assertIs<RestoreBackupUiState.Error>(viewModel.state.value)
@@ -160,7 +161,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -178,7 +179,7 @@ class RestoreBackupViewModelTest {
             // Use dry run failure to produce a transient error on Ready.
             everySuspend { api.restore(any()) } throws RuntimeException("Error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMergeStrategy(MergeStrategy.KEEP_LOCAL)
@@ -198,7 +199,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMergeStrategy(MergeStrategy.KEEP_LOCAL)
@@ -228,7 +229,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -246,7 +247,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -264,7 +265,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -285,7 +286,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -305,7 +306,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -333,7 +334,7 @@ class RestoreBackupViewModelTest {
                     duration = "5.2s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -359,7 +360,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.previousStep()
@@ -375,7 +376,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -398,7 +399,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -417,7 +418,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -438,7 +439,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -460,7 +461,7 @@ class RestoreBackupViewModelTest {
             // Make restore hang by not completing
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -483,7 +484,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -513,7 +514,7 @@ class RestoreBackupViewModelTest {
                     duration = "0.5s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -548,7 +549,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } throws RuntimeException("Server error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -572,7 +573,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -601,7 +602,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -642,7 +643,7 @@ class RestoreBackupViewModelTest {
                     duration = "3.0s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -665,7 +666,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } throws RuntimeException("Restore failed: database locked")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -692,7 +693,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -723,7 +724,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -757,7 +758,7 @@ class RestoreBackupViewModelTest {
             // Use dry run failure to produce a transient error on Ready.
             everySuspend { api.restore(any()) } throws RuntimeException("Error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMergeStrategy(MergeStrategy.KEEP_LOCAL)
@@ -783,7 +784,7 @@ class RestoreBackupViewModelTest {
                     errors = emptyList(),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -808,7 +809,7 @@ class RestoreBackupViewModelTest {
                     errors = listOf("Corrupted archive", "Missing manifest"),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -823,7 +824,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -855,7 +856,7 @@ class RestoreBackupViewModelTest {
                     duration = "15.3s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Step 1: Mode selection
@@ -907,7 +908,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // MODE_SELECTION -> VALIDATION (skips MERGE_STRATEGY for FRESH)
@@ -946,7 +947,7 @@ class RestoreBackupViewModelTest {
             everySuspend { syncRepo.forceFullResync() } returns Success(Unit)
             everySuspend { syncRepo.refreshListeningHistory() } returns Success(Unit)
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo)
+            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Navigate to restore
@@ -970,7 +971,7 @@ class RestoreBackupViewModelTest {
             everySuspend { syncRepo.forceFullResync() } returns Success(Unit)
             everySuspend { syncRepo.refreshListeningHistory() } returns Success(Unit)
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo)
+            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Navigate to restore with MERGE mode
@@ -996,7 +997,7 @@ class RestoreBackupViewModelTest {
             // Use dry run failure to produce a transient error on Ready.
             everySuspend { api.restore(any()) } throws RuntimeException("Error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMergeStrategy(MergeStrategy.KEEP_BACKUP)
@@ -1018,7 +1019,7 @@ class RestoreBackupViewModelTest {
                     warnings = listOf("Some entities may have outdated references", "Media files not verified"),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -1045,7 +1046,7 @@ class RestoreBackupViewModelTest {
                     duration = "1.2s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -1075,7 +1076,7 @@ class RestoreBackupViewModelTest {
                     warnings = emptyList(),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -1097,7 +1098,7 @@ class RestoreBackupViewModelTest {
                     warnings = emptyList(),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -1113,7 +1114,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -1141,7 +1142,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Select MERGE and set strategy
@@ -1174,7 +1175,7 @@ class RestoreBackupViewModelTest {
                     duration = "1.0s",
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -1224,7 +1225,7 @@ class RestoreBackupViewModelTest {
             everySuspend { syncRepo.forceFullResync() } returns
                 Failure(RuntimeException("Network unavailable"))
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo)
+            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -1253,7 +1254,7 @@ class RestoreBackupViewModelTest {
             everySuspend { syncRepo.refreshListeningHistory() } returns
                 Failure(RuntimeException("SSE disconnected"))
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo)
+            val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -1295,7 +1296,7 @@ class RestoreBackupViewModelTest {
             // First dry run fails
             everySuspend { api.restore(any()) } throws RuntimeException("Network error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -1325,7 +1326,7 @@ class RestoreBackupViewModelTest {
                     expectedCounts = emptyMap(),
                 )
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
@@ -1339,7 +1340,7 @@ class RestoreBackupViewModelTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // After validation completes, isValidating should be false
@@ -1355,7 +1356,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.MERGE)
@@ -1376,7 +1377,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -1398,7 +1399,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } throws RuntimeException("Server error")
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             viewModel.selectMode(RestoreMode.FRESH)
@@ -1421,7 +1422,7 @@ class RestoreBackupViewModelTest {
             everySuspend { api.validateBackup(any()) } returns createValidationResponse()
             everySuspend { api.restore(any()) } returns createRestoreResponse()
 
-            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository())
+            val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Don't select mode - leave it null

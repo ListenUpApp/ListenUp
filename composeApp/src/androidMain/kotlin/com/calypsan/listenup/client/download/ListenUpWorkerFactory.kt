@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -32,6 +33,7 @@ class ListenUpWorkerFactory(
     private val capabilityDetector: AudioCapabilityDetector,
     private val backupApi: BackupApiContract,
     private val absImportApi: ABSImportApiContract,
+    private val errorBus: ErrorBus,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
@@ -53,6 +55,7 @@ class ListenUpWorkerFactory(
                     playbackPreferences,
                     playbackApi,
                     capabilityDetector,
+                    errorBus,
                 )
             }
 

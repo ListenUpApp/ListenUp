@@ -39,6 +39,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for BookDetailViewModel.
@@ -77,6 +78,7 @@ class BookDetailViewModelTest {
                 shelfRepository = shelfRepository,
                 addBooksToShelfUseCase = addBooksToShelfUseCase,
                 createShelfUseCase = createShelfUseCase,
+                errorBus = ErrorBus(),
             )
     }
 

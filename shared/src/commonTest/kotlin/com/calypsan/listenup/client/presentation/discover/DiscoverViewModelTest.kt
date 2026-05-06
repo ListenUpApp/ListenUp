@@ -35,6 +35,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for [DiscoverViewModel].
@@ -75,6 +76,7 @@ class DiscoverViewModelTest {
                 activeSessionRepository = activeSessionRepository,
                 authSession = authSession,
                 shelfRepository = shelfRepository,
+                errorBus = ErrorBus(),
             )
     }
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionBookSummary
@@ -44,6 +45,7 @@ class AdminCollectionDetailViewModel(
     private val shareCollectionUseCase: ShareCollectionUseCase,
     private val removeCollectionShareUseCase: RemoveCollectionShareUseCase,
     private val getUsersForSharingUseCase: GetUsersForSharingUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCollectionDetailUiState>
         field = MutableStateFlow<AdminCollectionDetailUiState>(AdminCollectionDetailUiState.Loading)
@@ -88,7 +90,7 @@ class AdminCollectionDetailViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load collection: $collectionId" }
                 val message = e.message ?: "Failed to load collection"
                 state.update { current ->

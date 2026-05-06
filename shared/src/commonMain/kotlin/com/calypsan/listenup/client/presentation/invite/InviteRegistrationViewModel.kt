@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -28,6 +29,7 @@ class InviteRegistrationViewModel(
     private val serverConfig: ServerConfig,
     private val serverUrl: String,
     private val inviteCode: String,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<InviteRegistrationUiState>(InviteRegistrationUiState.Loading)
     val state: StateFlow<InviteRegistrationUiState> = _state.asStateFlow()
@@ -55,7 +57,7 @@ class InviteRegistrationViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 _state.value = InviteRegistrationUiState.LoadError(e.message ?: "Failed to load invite")
             }
         }
@@ -101,7 +103,7 @@ class InviteRegistrationViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 _state.value = InviteRegistrationUiState.SubmitError(details, e.toInviteErrorType())
             }
         }

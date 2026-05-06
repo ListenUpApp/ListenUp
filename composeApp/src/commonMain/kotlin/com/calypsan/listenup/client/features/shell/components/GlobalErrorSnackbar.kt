@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.koin.compose.koinInject
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,9 +27,10 @@ private val logger = KotlinLogging.logger {}
 fun GlobalErrorSnackbar(
     snackbarHostState: SnackbarHostState,
     onRetry: ((AppError) -> Unit)? = null,
+    errorBus: ErrorBus = koinInject(),
 ) {
-    LaunchedEffect(Unit) {
-        ErrorBus.errors.collect { error ->
+    LaunchedEffect(errorBus) {
+        errorBus.errors.collect { error ->
             logger.warn { "[${error.code}] ${error.message}" }
             if (error.debugInfo != null) {
                 logger.debug { "Debug: ${error.debugInfo}" }

@@ -33,6 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for HomeViewModel.
@@ -74,6 +75,7 @@ class HomeViewModelTest {
                 shelfRepository = shelfRepository,
                 syncRepository = syncRepository,
                 currentHour = { currentHour },
+                errorBus = ErrorBus(),
             )
         }
     }
@@ -544,6 +546,7 @@ class HomeViewModelTest {
                     shelfRepository = fixture.shelfRepository,
                     syncRepository = fixture.syncRepository,
                     currentHour = { throw RuntimeException("upstream boom") },
+                    errorBus = ErrorBus(),
                 )
             // Emit a non-null user so the combine pipeline's transform actually runs.
             fixture.userFlow.value = createUser()

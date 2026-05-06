@@ -5,26 +5,25 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
- * Global error bus for surfacing errors from any layer to the UI.
+ * App-wide error bus for surfacing errors from any layer to the UI.
  *
- * Any component (repository, sync engine, background task) emits [AppError]s here and
- * the UI subscribes once in `AppShell` to display them via Snackbar.
+ * Components emit [AppError]s here; the UI subscribes once in `AppShell` to display them
+ * via Snackbar. Bound as a `single<ErrorBus>` in the client DI module — every consumer
+ * gets the same instance via constructor injection.
  *
- * **Migration status:** this is still a singleton `object` for backward compatibility —
- * ~73 call sites across ~30 files need to be migrated. The rubric target (Finding 01 D9
- * + resolved checkpoint) is a DI-provided `single<ErrorBus>` injected into consumers
- * instead of a global. Scheduled as Phase 3 PR 1 Task 27a (`ErrorBus modernization`).
- *
- * *Phase 3 (2026-05): re-typed on api.error.AppError; ~73 call sites unaffected because re-rooted subtypes are still source-compatible.*
- *
- * Usage (current shape, will evolve to injected `errorBus.emit(...)`):
+ * Usage:
  * ```kotlin
- * } catch (e: AppException) {
- *     ErrorBus.emit(e.error)
+ * class SomeViewModel(private val errorBus: ErrorBus, ...) {
+ *     fun load() = scope.launch {
+ *         when (val r = repo.fetch()) {
+ *             is AppResult.Failure -> errorBus.emit(r.error)
+ *             is AppResult.Success -> ...
+ *         }
+ *     }
  * }
  * ```
  */
-object ErrorBus {
+class ErrorBus {
     private val _errors = MutableSharedFlow<AppError>(extraBufferCapacity = 16)
 
     /** Stream of errors emitted from anywhere in the app. */
@@ -38,25 +37,5 @@ object ErrorBus {
      */
     fun emit(error: AppError) {
         _errors.tryEmit(error)
-    }
-
-    /**
-     * Convenience: map a raw [Throwable] to [AppError] and emit it.
-     *
-     * **Deprecated.** Per Finding 01 D9 / the "One error-mapping site per HTTP client"
-     * rubric rule: [ErrorMapper] must run at the Ktor boundary, not at every UI catch
-     * site, so consumers should already hold a typed [AppError] (via `AppException.error`)
-     * by the time they reach the bus. Deletion scheduled as Phase 3 PR 1 Task 27a
-     * (`ErrorBus modernization`) once remaining callers are migrated to use
-     * `ErrorBus.emit(appException.error)` or the `AppResult.Failure` flow directly.
-     */
-    @Deprecated(
-        message =
-            "Pass an already-mapped AppError; ErrorMapper runs at the HTTP boundary. " +
-                "Callers that catch AppException should emit(appException.error).",
-        replaceWith = ReplaceWith("emit(ErrorMapper.map(exception))"),
-    )
-    fun emit(exception: Throwable) {
-        _errors.tryEmit(ErrorMapper.map(exception))
     }
 }

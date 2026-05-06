@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
@@ -25,6 +26,7 @@ private val logger = KotlinLogging.logger {}
 class LibrarySettingsViewModel(
     private val libraryId: String,
     private val adminRepository: AdminRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<LibrarySettingsUiState>
         field = MutableStateFlow<LibrarySettingsUiState>(LibrarySettingsUiState.Loading)
@@ -64,7 +66,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load library: $libraryId" }
                 val message = e.message ?: "Failed to load library"
                 state.update { current ->
@@ -111,7 +113,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to update access mode for library: $libraryId" }
                 // Revert to previous value
                 updateReady {
@@ -157,7 +159,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to update skip inbox for library: $libraryId" }
                 // Revert to previous value
                 updateReady {
@@ -191,7 +193,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to remove scan path from library: $libraryId" }
                 updateReady {
                     it.copy(
@@ -223,7 +225,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to add scan path to library: $libraryId" }
                 updateReady {
                     it.copy(
@@ -250,7 +252,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to trigger scan for library: $libraryId" }
                 updateReady {
                     it.copy(
@@ -302,7 +304,7 @@ class LibrarySettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to browse directory: $path" }
                 updateReady {
                     it.copy(

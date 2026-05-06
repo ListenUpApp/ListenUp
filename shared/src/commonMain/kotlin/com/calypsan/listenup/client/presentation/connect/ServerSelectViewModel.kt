@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DiscoveredServer
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -43,6 +44,7 @@ class ServerSelectViewModel(
     private val serverRepository: ServerRepository,
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val isDiscovering = MutableStateFlow(true)
     private val overlay = MutableStateFlow<Overlay>(Overlay.None)
@@ -172,7 +174,7 @@ class ServerSelectViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to activate server" }
                 overlay.value = Overlay.Failed(server.id, "Failed to connect: ${e.message}")
             }
@@ -212,7 +214,7 @@ class ServerSelectViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to activate discovered server" }
                 overlay.value = Overlay.Failed(discovered.id, "Failed to connect: ${e.message}")
             }

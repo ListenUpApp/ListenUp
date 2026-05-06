@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
 import com.calypsan.listenup.client.domain.repository.ContributorMetadataProfile
@@ -81,6 +82,7 @@ class ContributorMetadataViewModel(
     private val contributorRepository: ContributorRepository,
     private val metadataRepository: MetadataRepository,
     private val applyContributorMetadataUseCase: ApplyContributorMetadataUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ContributorMetadataUiState>
         field = MutableStateFlow(ContributorMetadataUiState())
@@ -164,7 +166,7 @@ class ContributorMetadataViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Contributor metadata search failed" }
                 state.update {
                     it.copy(
@@ -209,7 +211,7 @@ class ContributorMetadataViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load contributor profile" }
                 state.update {
                     it.copy(
@@ -266,7 +268,7 @@ class ContributorMetadataViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load contributor profile by ASIN" }
                 state.update {
                     it.copy(

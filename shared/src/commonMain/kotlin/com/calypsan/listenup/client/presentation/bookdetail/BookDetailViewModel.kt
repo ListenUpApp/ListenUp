@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -52,6 +53,7 @@ class BookDetailViewModel(
     private val shelfRepository: ShelfRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -278,7 +280,7 @@ class BookDetailViewModel(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to add tag '$slug' to book $bookId" }
             }
         }
@@ -302,7 +304,7 @@ class BookDetailViewModel(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to remove tag '$slug' from book $bookId" }
             }
         }
@@ -328,7 +330,7 @@ class BookDetailViewModel(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to add tag '$rawInput' to book $bookId" }
             }
         }

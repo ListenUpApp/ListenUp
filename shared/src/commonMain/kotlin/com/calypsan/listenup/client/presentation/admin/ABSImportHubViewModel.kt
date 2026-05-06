@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportBook
 import com.calypsan.listenup.client.data.remote.ABSImportResponse
@@ -157,6 +158,7 @@ class ABSImportHubViewModel(
     private val absImportApi: ABSImportApiContract,
     private val searchApi: SearchApiContract,
     private val syncRepository: SyncRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val listState: StateFlow<ABSImportListUiState>
         field = MutableStateFlow<ABSImportListUiState>(ABSImportListUiState.Loading)
@@ -582,7 +584,7 @@ class ABSImportHubViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    ErrorBus.emit(e)
+                    errorBus.emit(ErrorMapper.map(e))
                     logger.error(e) { "Book search failed" }
                     updateHubReady {
                         it.copy(bookSearchResults = emptyList(), isSearchingBooks = false)

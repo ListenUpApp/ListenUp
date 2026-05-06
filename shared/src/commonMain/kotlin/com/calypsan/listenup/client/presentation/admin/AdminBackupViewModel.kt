@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.domain.model.BackupValidation
@@ -53,6 +54,7 @@ sealed interface AdminBackupUiState {
  */
 class AdminBackupViewModel(
     private val backupApi: BackupApiContract,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminBackupUiState>
         field = MutableStateFlow<AdminBackupUiState>(AdminBackupUiState.Loading)
@@ -81,7 +83,7 @@ class AdminBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load backups" }
                 state.update { current ->
                     if (current is AdminBackupUiState.Ready) {
@@ -115,7 +117,7 @@ class AdminBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to create backup" }
                 updateReady {
                     it.copy(
@@ -150,7 +152,7 @@ class AdminBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to delete backup" }
                 updateReady {
                     it.copy(
@@ -185,7 +187,7 @@ class AdminBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to validate backup" }
                 updateReady {
                     it.copy(
@@ -226,7 +228,7 @@ class AdminBackupViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    ErrorBus.emit(e)
+                    errorBus.emit(ErrorMapper.map(e))
                     Instant.DISTANT_PAST
                 },
             checksum = checksum,

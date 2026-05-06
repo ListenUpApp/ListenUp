@@ -34,6 +34,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for AdminCollectionDetailViewModel.
@@ -81,6 +82,7 @@ class AdminCollectionDetailViewModelTest {
                 shareCollectionUseCase = shareCollectionUseCase,
                 removeCollectionShareUseCase = removeCollectionShareUseCase,
                 getUsersForSharingUseCase = getUsersForSharingUseCase,
+                errorBus = ErrorBus(),
             )
     }
 

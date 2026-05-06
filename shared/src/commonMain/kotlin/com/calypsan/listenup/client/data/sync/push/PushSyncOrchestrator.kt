@@ -40,6 +40,7 @@ class PushSyncOrchestrator(
     private val executor: OperationExecutorContract,
     private val networkMonitor: NetworkMonitor,
     private val syncMutex: SyncMutex,
+    private val errorBus: ErrorBus,
     private val scope: CoroutineScope,
 ) : PushSyncOrchestratorContract {
     // Override properties can't use explicit backing fields - must use traditional pattern
@@ -159,7 +160,7 @@ class PushSyncOrchestrator(
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            ErrorBus.emit(SyncError.PushFailed(debugInfo = e.message))
+            errorBus.emit(SyncError.PushFailed(debugInfo = e.message))
             logger.error(e) { "Push sync flush failed" }
         } finally {
             _isFlushing.value = false

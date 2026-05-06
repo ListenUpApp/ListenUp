@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.setup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.data.remote.SetupLibraryRequest
@@ -25,6 +26,7 @@ private val logger = KotlinLogging.logger {}
  */
 class LibrarySetupViewModel(
     private val setupApi: SetupApiContract,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
@@ -59,7 +61,7 @@ class LibrarySetupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to check library status" }
                 state.update {
                     it.copy(
@@ -95,7 +97,7 @@ class LibrarySetupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load directory: $path" }
                 state.update {
                     it.copy(
@@ -206,7 +208,7 @@ class LibrarySetupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to create library" }
                 state.update {
                     it.copy(

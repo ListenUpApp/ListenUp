@@ -437,6 +437,7 @@ private data class UserSearchResponse(
  */
 class ABSImportApi(
     private val clientFactory: ApiClientFactory,
+    private val errorBus: ErrorBus,
 ) : ABSImportApiContract {
 
     // === Import Management ===
@@ -476,7 +477,7 @@ class ABSImportApi(
             // Then create the import from the uploaded path
             createImportFromPath(uploadPath, name)
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -501,7 +502,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -571,7 +572,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -593,7 +594,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -659,7 +660,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -681,7 +682,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -724,7 +725,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -745,7 +746,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -767,7 +768,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }

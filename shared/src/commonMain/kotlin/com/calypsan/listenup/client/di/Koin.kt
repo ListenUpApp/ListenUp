@@ -252,6 +252,10 @@ expect val platformDeviceModule: Module
  */
 val dataModule =
     module {
+        // Error bus — single instance shared by every emitter (data layer, ViewModels)
+        // and the single subscriber (GlobalErrorSnackbar in AppShell).
+        single { com.calypsan.listenup.client.core.error.ErrorBus() }
+
         // Deep link manager - singleton for handling invite deep links
         // Must be initialized before MainActivity handles intents
         single { DeepLinkManager() }
@@ -749,6 +753,7 @@ val syncModule =
                                 .named("appScope"),
                     ),
                 downloadRepository = get(),
+                errorBus = get(),
             )
         } bind SSEManagerContract::class
 
@@ -800,7 +805,7 @@ val syncModule =
 
         // ABSImportApi for persistent ABS import operations
         single {
-            ABSImportApi(clientFactory = get())
+            ABSImportApi(clientFactory = get(), errorBus = get())
         } bind ABSImportApiContract::class
 
         // MetadataApi for Audible metadata search and matching
@@ -1287,6 +1292,7 @@ val syncModule =
                 executor = get(),
                 networkMonitor = get(),
                 syncMutex = get(),
+                errorBus = get(),
                 scope =
                     get(
                         qualifier =
@@ -1335,6 +1341,7 @@ val syncModule =
                 coverDownloadWorker = get(),
                 ftsPopulator = get(),
                 syncMutex = get(),
+                errorBus = get(),
                 scope =
                     get(
                         qualifier =

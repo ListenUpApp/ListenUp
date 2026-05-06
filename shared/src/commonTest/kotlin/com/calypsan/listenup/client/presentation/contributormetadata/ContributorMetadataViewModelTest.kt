@@ -31,6 +31,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for ContributorMetadataViewModel.
@@ -58,6 +59,7 @@ class ContributorMetadataViewModelTest {
                 contributorRepository = contributorRepository,
                 metadataRepository = metadataRepository,
                 applyContributorMetadataUseCase = applyContributorMetadataUseCase,
+                errorBus = ErrorBus(),
             )
     }
 

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.RestoreError
 import com.calypsan.listenup.client.data.remote.model.RestoreRequest
@@ -119,6 +120,7 @@ class RestoreBackupViewModel(
     private val backupId: String,
     private val backupApi: BackupApiContract,
     private val syncRepository: SyncRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<RestoreBackupUiState>
         field = MutableStateFlow<RestoreBackupUiState>(RestoreBackupUiState.Loading)
@@ -155,7 +157,7 @@ class RestoreBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to validate backup" }
                 state.update { current ->
                     if (current is RestoreBackupUiState.Ready) {
@@ -285,7 +287,7 @@ class RestoreBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to perform dry run" }
                 updateReady {
                     it.copy(
@@ -342,7 +344,7 @@ class RestoreBackupViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to restore backup" }
                 updateReady {
                     it.copy(

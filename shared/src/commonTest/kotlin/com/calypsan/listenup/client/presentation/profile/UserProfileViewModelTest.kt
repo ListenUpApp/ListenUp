@@ -32,6 +32,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserProfileViewModelTest {
@@ -64,6 +65,7 @@ class UserProfileViewModelTest {
                 loadUserProfileUseCase = loadUserProfileUseCase,
                 userRepository = userRepository,
                 imageRepository = imageRepository,
+                errorBus = ErrorBus(),
             )
     }
 

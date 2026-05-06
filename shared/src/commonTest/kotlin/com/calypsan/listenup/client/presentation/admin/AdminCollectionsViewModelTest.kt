@@ -28,6 +28,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for AdminCollectionsViewModel.
@@ -59,6 +60,7 @@ class AdminCollectionsViewModelTest {
                 collectionRepository = collectionRepository,
                 createCollectionUseCase = createCollectionUseCase,
                 deleteCollectionUseCase = deleteCollectionUseCase,
+                errorBus = ErrorBus(),
             )
     }
 
@@ -113,6 +115,7 @@ class AdminCollectionsViewModelTest {
                     collectionRepository = repository,
                     createCollectionUseCase = mock(),
                     deleteCollectionUseCase = mock(),
+                    errorBus = ErrorBus(),
                 )
 
             // Then
@@ -162,6 +165,7 @@ class AdminCollectionsViewModelTest {
                     collectionRepository = repository,
                     createCollectionUseCase = mock(),
                     deleteCollectionUseCase = mock(),
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 

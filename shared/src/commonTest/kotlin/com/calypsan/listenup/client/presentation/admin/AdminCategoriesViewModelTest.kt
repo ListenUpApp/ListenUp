@@ -25,6 +25,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for AdminCategoriesViewModel.
@@ -48,7 +49,7 @@ class AdminCategoriesViewModelTest {
         val genreRepository: GenreRepository = mock()
         val genresFlow = MutableStateFlow<List<Genre>>(emptyList())
 
-        fun build(): AdminCategoriesViewModel = AdminCategoriesViewModel(genreRepository)
+        fun build(): AdminCategoriesViewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
     }
 
     private fun createFixture(): TestFixture {
@@ -106,7 +107,7 @@ class AdminCategoriesViewModelTest {
                 }
 
             // When
-            val viewModel = AdminCategoriesViewModel(genreRepository)
+            val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
 
             // Then
             assertIs<AdminCategoriesUiState.Loading>(viewModel.state.value)
@@ -159,7 +160,7 @@ class AdminCategoriesViewModelTest {
                 }
 
             // When
-            val viewModel = AdminCategoriesViewModel(genreRepository)
+            val viewModel = AdminCategoriesViewModel(genreRepository, errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Then

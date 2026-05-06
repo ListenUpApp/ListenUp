@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.CoverOption
 import com.calypsan.listenup.client.domain.repository.MetadataBook
 import com.calypsan.listenup.client.domain.repository.MetadataContributor
@@ -177,6 +178,7 @@ sealed interface MetadataEvent {
 class MetadataViewModel(
     private val metadataRepository: MetadataRepository,
     private val applyMetadataMatchUseCase: ApplyMetadataMatchUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
     val state: StateFlow<MetadataUiState> = _state.asStateFlow()
@@ -266,7 +268,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Metadata search failed" }
                 _state.update { latest ->
                     if (latest is MetadataUiState.Search && latest.query.trim() == query) {
@@ -429,7 +431,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load metadata preview" }
                 if (match.title.isNotBlank()) {
                     logger.info { "Using search result data as preview fallback" }
@@ -458,7 +460,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.warn(e) { "Cover search failed, using Audible cover only" }
                 updateReady { it.copy(isLoadingCovers = false) }
             }

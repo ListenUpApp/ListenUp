@@ -29,6 +29,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MetadataViewModelTest {
@@ -42,6 +43,7 @@ class MetadataViewModelTest {
             MetadataViewModel(
                 metadataRepository = metadataRepository,
                 applyMetadataMatchUseCase = applyMetadataMatchUseCase,
+                errorBus = ErrorBus(),
             )
     }
 

@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
@@ -269,6 +270,7 @@ class ABSImportViewModel(
     private val searchApi: SearchApiContract,
     private val absImportApi: ABSImportApiContract,
     private val syncRepository: SyncRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ABSImportUiState>
         field = MutableStateFlow<ABSImportUiState>(ABSImportUiState.Ready())
@@ -346,7 +348,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to upload ABS backup" }
                 updateReady {
                     it.copy(
@@ -382,7 +384,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to browse filesystem" }
                 updateReady {
                     it.copy(
@@ -535,7 +537,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to analyze ABS backup" }
                 updateReady {
                     it.copy(
@@ -688,7 +690,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "User search failed: ${e.message}" }
                 updateReady {
                     it.copy(
@@ -834,7 +836,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Book search failed: ${e.message}" }
                 updateReady {
                     it.copy(
@@ -1070,7 +1072,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to import ABS backup" }
                 updateReady {
                     it.copy(

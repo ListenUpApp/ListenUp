@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.currentHourOfDay
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -89,6 +90,7 @@ class HomeViewModel(
     private val shelfRepository: ShelfRepository,
     private val syncRepository: SyncRepository,
     private val currentHour: () -> Int = { currentHourOfDay() },
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val snackbarChannel = Channel<String>(Channel.BUFFERED)
     val snackbarMessages: Flow<String> = snackbarChannel.receiveAsFlow()
@@ -160,7 +162,7 @@ class HomeViewModel(
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
-            ErrorBus.emit(e)
+            errorBus.emit(ErrorMapper.map(e))
             logger.warn(e) { "Failed to fetch shelves from network" }
         }
     }

@@ -38,6 +38,7 @@ class DownloadWorker(
     private val playbackPreferences: PlaybackPreferences,
     private val playbackApi: PlaybackApiContract,
     private val capabilityDetector: AudioCapabilityDetector,
+    private val errorBus: ErrorBus,
 ) : CoroutineWorker(context, params) {
     companion object {
         const val KEY_AUDIO_FILE_ID = "audio_file_id"
@@ -101,13 +102,13 @@ class DownloadWorker(
                 debugInfo.contains("storage")
 
         if (isStorageError) {
-            ErrorBus.emit(DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
+            errorBus.emit(DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
             logger.error { "Download failed due to insufficient storage: $audioFileId" }
             downloadRepository.markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
             return Result.failure()
         }
 
-        ErrorBus.emit(DownloadError.DownloadFailed(debugInfo = error.debugInfo))
+        errorBus.emit(DownloadError.DownloadFailed(debugInfo = error.debugInfo))
         logger.error { "Download failed: $audioFileId — ${error.message}" }
         // markFailed sets state=FAILED + writes errorMessage + increments retryCount in one call,
         // collapsing the previous redundant updateError + updateState(FAILED) writes (the prior

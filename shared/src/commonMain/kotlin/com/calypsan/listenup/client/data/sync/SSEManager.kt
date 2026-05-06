@@ -56,6 +56,7 @@ class SSEManager(
     private val serverConfig: ServerConfig,
     private val scope: CoroutineScope,
     private val downloadRepository: DownloadRepository,
+    private val errorBus: ErrorBus,
 ) : SSEManagerContract {
     private val _eventFlow =
         MutableSharedFlow<SSEChannelMessage>(
@@ -153,14 +154,14 @@ class SSEManager(
                 logger.warn { "SSE connection failed with auth error ($statusCode), not retrying" }
                 return false
             }
-            ErrorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
+            errorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
             logger.warn(e) { "Connection error" }
             true
         } catch (e: Exception) {
             _isConnected.value = false
             disconnectedAt = Timestamp.now().toIsoString()
             logger.debug { "SSE disconnected at $disconnectedAt" }
-            ErrorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
+            errorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
             logger.warn(e) { "Connection error" }
             true
         }

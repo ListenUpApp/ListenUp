@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.discover
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -49,6 +50,7 @@ class DiscoverViewModel(
     private val activeSessionRepository: ActiveSessionRepository,
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     init {
         // Fetch initial discover shelves if Room is empty
@@ -262,7 +264,7 @@ class DiscoverViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to fetch discover shelves" }
                 // Not fatal - Room Flow will show empty state, SSE will populate over time
             }
@@ -280,7 +282,7 @@ class DiscoverViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to refresh discover shelves" }
             }
         }

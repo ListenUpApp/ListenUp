@@ -31,6 +31,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for AdminSettingsViewModel.
@@ -64,6 +65,7 @@ class AdminSettingsViewModelTest {
                 updateServerSettingsUseCase = updateServerSettingsUseCase,
                 instanceRepository = instanceRepository,
                 adminRepository = adminRepository,
+                errorBus = ErrorBus(),
             )
     }
 

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -22,6 +23,7 @@ private val logger = KotlinLogging.logger {}
 class UserDetailViewModel(
     private val userId: String,
     private val adminRepository: AdminRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<UserDetailUiState>
         field = MutableStateFlow<UserDetailUiState>(UserDetailUiState.Loading)
@@ -51,7 +53,7 @@ class UserDetailViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load user: $userId" }
                 state.update {
                     UserDetailUiState.Error(
@@ -96,7 +98,7 @@ class UserDetailViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to update canShare for user: $userId" }
                 // Revert optimistic change and surface transient error in Ready.
                 updateReady {

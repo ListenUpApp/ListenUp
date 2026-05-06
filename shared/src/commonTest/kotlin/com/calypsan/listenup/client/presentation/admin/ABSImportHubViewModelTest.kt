@@ -27,6 +27,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ABSImportHubViewModelTest {
@@ -98,7 +99,7 @@ class ABSImportHubViewModelTest {
             val mappedBook = createBook(isMapped = true)
             everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns Success(mappedBook)
 
-            val vm = ABSImportHubViewModel(api, mock(), mock())
+            val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             // Open import to set importId
@@ -128,7 +129,7 @@ class ABSImportHubViewModelTest {
             everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns
                 Failure(Exception("Server error"))
 
-            val vm = ABSImportHubViewModel(api, mock(), mock())
+            val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             vm.openImport("import-1")
@@ -154,7 +155,7 @@ class ABSImportHubViewModelTest {
             val mappedUser = createUser(isMapped = true)
             everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns Success(mappedUser)
 
-            val vm = ABSImportHubViewModel(api, mock(), mock())
+            val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             vm.openImport("import-1")
@@ -177,7 +178,7 @@ class ABSImportHubViewModelTest {
             everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns
                 Failure(Exception("Server error"))
 
-            val vm = ABSImportHubViewModel(api, mock(), mock())
+            val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
 
             vm.openImport("import-1")
@@ -206,7 +207,7 @@ class ABSImportHubViewModelTest {
             // openImport will get "analyzing" → triggers startAnalysisPolling
             everySuspend { api.getImport("import-1") } returns Success(analyzingImport)
 
-            val vm = ABSImportHubViewModel(api, mock(), mock())
+            val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle() // drain init (loadImports)
 
             vm.openImport("import-1")

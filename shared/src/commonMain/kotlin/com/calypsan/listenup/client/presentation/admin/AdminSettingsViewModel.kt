@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
@@ -32,6 +33,7 @@ class AdminSettingsViewModel(
     private val updateServerSettingsUseCase: UpdateServerSettingsUseCase,
     private val instanceRepository: InstanceRepository,
     private val adminRepository: AdminRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminSettingsUiState>
         field = MutableStateFlow<AdminSettingsUiState>(AdminSettingsUiState.Loading)
@@ -205,7 +207,7 @@ class AdminSettingsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to save settings" }
                 updateReady {
                     it

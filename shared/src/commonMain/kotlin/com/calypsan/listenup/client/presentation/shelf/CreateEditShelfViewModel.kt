@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
@@ -37,6 +38,7 @@ class CreateEditShelfViewModel(
     private val updateShelfUseCase: UpdateShelfUseCase,
     private val deleteShelfUseCase: DeleteShelfUseCase,
     private val shelfRepository: ShelfRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<CreateEditShelfUiState>(CreateEditShelfUiState.Idle)
     val state: StateFlow<CreateEditShelfUiState> = _state.asStateFlow()
@@ -72,7 +74,7 @@ class CreateEditShelfViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    ErrorBus.emit(e)
+                    errorBus.emit(ErrorMapper.map(e))
                     logger.error(e) { "Failed to load shelf for edit: $shelfId" }
                     CreateEditShelfUiState.Error("Failed to load shelf: ${e.message}")
                 }

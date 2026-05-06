@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.User
@@ -80,6 +81,7 @@ class UserProfileViewModel(
     private val loadUserProfileUseCase: LoadUserProfileUseCase,
     private val userRepository: UserRepository,
     private val imageRepository: ImageRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val requestFlow = MutableStateFlow<LoadRequest?>(null)
 
@@ -243,7 +245,7 @@ class UserProfileViewModel(
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
             @Suppress("DEPRECATION")
-            ErrorBus.emit(e)
+            errorBus.emit(ErrorMapper.map(e))
             logger.warn(e) { "Failed to download avatar for user $userId" }
             null
         }

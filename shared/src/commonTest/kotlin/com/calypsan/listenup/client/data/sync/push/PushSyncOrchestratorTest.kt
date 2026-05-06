@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for PushSyncOrchestrator.
@@ -90,6 +91,7 @@ class PushSyncOrchestratorTest {
                 networkMonitor = networkMonitor,
                 syncMutex = syncMutex,
                 scope = testScope,
+                errorBus = ErrorBus(),
             )
     }
 

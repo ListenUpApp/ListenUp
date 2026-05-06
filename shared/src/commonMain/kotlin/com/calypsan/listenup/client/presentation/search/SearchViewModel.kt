@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -99,6 +100,7 @@ sealed interface SearchNavAction {
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchRepository: SearchRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val queryFlow = MutableStateFlow("")
     private val typesFlow = MutableStateFlow<Set<SearchHitType>>(emptySet())
@@ -160,7 +162,7 @@ class SearchViewModel(
         ) {
             logger.error { "Search failed for '$query'" }
             @Suppress("DEPRECATION")
-            ErrorBus.emit(e)
+            errorBus.emit(ErrorMapper.map(e))
             emit(Phase.Error("Search unavailable. Please try again."))
         }
     }
