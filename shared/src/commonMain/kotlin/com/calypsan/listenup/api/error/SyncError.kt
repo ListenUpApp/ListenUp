@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 /**
  * Domain errors for library sync operations.
  *
- * Re-rooted from `client.core.error.SyncError` in Phase 3 (Task 7). Consumers
- * migrate in Tasks 11–13; the legacy file is deleted in Task 16.
- *
  * Many sync sub-operations (FTS rebuild, individual cover downloads, SSE
  * event processing) fail silently by design — they retry on next sync. Only
  * top-level sync failures and persistent connection issues surface here.

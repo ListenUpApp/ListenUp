@@ -6,10 +6,6 @@ import kotlinx.serialization.Serializable
 /**
  * Transport-layer failures: connectivity, HTTP status, malformed responses.
  *
- * Replaces the legacy `client.core.error.NetworkError`, `ServerError`, and
- * `DataError` types. Tasks 11-13 in this PR migrate consumers to use this
- * subtree; Task 16 deletes the legacy hierarchy.
- *
  * The wire never carries a [TransportError] (it's a client-local mapping of
  * transport-layer exceptions), so every subtype has `correlationId = null`
  * by construction in the common case.
@@ -46,8 +42,8 @@ sealed interface TransportError : AppError {
      *
      * Typed cases (401/403 auth, 429 rate-limit) should already be unwrapped by
      * the RPC interceptor into `AuthError` subtypes before reaching this catch-all.
-     * Consumers (Tasks 11-13) may still pattern-match on [statusCode] for any
-     * special-case 4xx handling not covered by the typed `AuthError` hierarchy.
+     * Consumers may still pattern-match on [statusCode] for any special-case 4xx
+     * handling not covered by the typed `AuthError` hierarchy.
      */
     @Serializable
     @SerialName("TransportError.Server4xx")

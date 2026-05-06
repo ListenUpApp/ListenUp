@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 /**
  * Domain errors for the initial server-connect flow (URL entry -> verify -> save).
  *
- * Re-rooted from `client.core.error.ServerConnectError` in Phase 3 (Task 10).
- * Consumers migrate in Tasks 11-13; the legacy file is deleted in Task 16.
- *
  * These errors guide users through server setup, distinguishing user-fixable
  * input problems (bad URL) from environmental ones (server down, wrong host).
  * They are inherently client-local — the wire never carries a

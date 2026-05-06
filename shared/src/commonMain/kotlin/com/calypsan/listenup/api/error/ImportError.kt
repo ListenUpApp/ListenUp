@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 /**
  * Domain errors for ABS (Audiobookshelf) import operations.
  *
- * Re-rooted from `client.core.error.ImportError` in Phase 3 (Task 9).
- * Consumers migrate in Tasks 11–13; the legacy file is deleted in Task 16.
- *
  * Import is a multi-step process: upload -> analyze -> preview -> apply.
  * Each step can fail independently and the user needs to know which step
  * failed so they can take appropriate action.

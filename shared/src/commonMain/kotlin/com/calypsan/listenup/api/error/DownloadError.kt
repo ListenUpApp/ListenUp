@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 /**
  * Domain errors for audiobook download operations.
  *
- * Re-rooted from `client.core.error.DownloadError` in Phase 3 (Task 8).
- * Consumers migrate in Tasks 11–13; the legacy file is deleted in Task 16.
- *
  * Downloads are user-initiated, so failures need to surface — the user is
  * waiting for content to be available offline.
  */
