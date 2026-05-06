@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.core.error
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.ValidationError
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -8,97 +12,42 @@ import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
 
 /**
- * Maps exceptions to AppError types.
+ * Map exceptions to unified [AppError] subtypes.
  *
- * Uses pure Kotlin/Ktor types for full cross-platform compatibility.
- * Works on Android, iOS, Desktop, and Web.
- *
- * This mapper handles all common network and serialization exceptions,
- * providing consistent error handling across the application.
- *
- * Usage:
- * ```kotlin
- * try {
- *     api.fetchData()
- * } catch (e: Exception) {
- *     val error = ErrorMapper.map(e)
- *     _state.update { it.copy(error = error) }
- * }
- * ```
+ * Pure function over the exception hierarchy; produces wire-shaped errors
+ * with `correlationId = null` (these are client-local mappings — server-issued
+ * correlation ids arrive in deserialized [AppError] payloads from the RPC
+ * exception interceptor, not via this mapper).
  */
-@Deprecated(
-    message = "Legacy ErrorMapper produces legacy AppError. Task 13 rewrites it to produce the unified hierarchy.",
-    level = DeprecationLevel.WARNING,
-)
 object ErrorMapper {
-    /**
-     * Map any exception to an AppError.
-     *
-     * Handles all common network/serialization exceptions with appropriate
-     * user-facing messages and retry capability indication.
-     *
-     * @param exception The exception to map
-     * @return Corresponding AppError with user-friendly message
-     */
     fun map(exception: Throwable): AppError =
         when (exception) {
-            // Ktor network connectivity issues (KMP)
             is ConnectTimeoutException,
             is SocketTimeoutException,
-            -> {
-                NetworkError(
-                    message = "Connection timed out. Check your network.",
-                    debugInfo = exception.message,
-                )
-            }
+            is HttpRequestTimeoutException,
+            -> TransportError.Timeout(debugInfo = exception.message)
 
-            // Ktor HTTP timeout (KMP)
-            is HttpRequestTimeoutException -> {
-                NetworkError(
-                    message = "Request timed out. Please try again.",
-                    debugInfo = exception.message,
-                )
-            }
-
-            // Ktor HTTP errors (KMP)
             is ResponseException -> {
-                ServerError(
-                    statusCode = exception.response.status.value,
-                    message =
-                        when (exception.response.status.value) {
-                            404 -> "Resource not found."
-                            403 -> "Access denied."
-                            401 -> "Authentication required."
-                            in 500..599 -> "Server error. Please try again later."
-                            else -> "Request failed."
-                        },
-                    debugInfo = exception.message,
-                )
+                val status = exception.response.status.value
+                if (status in 500..599) {
+                    TransportError.Server5xx(statusCode = status, debugInfo = exception.message)
+                } else {
+                    TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
+                }
             }
 
-            // Generic IO errors (KMP)
-            is IOException -> {
-                NetworkError(
-                    message = "Network error. Check your connection.",
-                    debugInfo = exception.message,
-                )
-            }
+            is SerializationException -> TransportError.DataMalformed(
+                detail = exception.message ?: "deserialization failed",
+                debugInfo = exception.message,
+            )
 
-            // Kotlinx serialization (KMP)
-            is SerializationException -> {
-                DataError(
-                    message = "Invalid data format.",
-                    debugInfo = exception.message,
-                )
-            }
+            is IOException -> TransportError.NetworkUnavailable(debugInfo = exception.message)
 
-            // Fallback for unknown exceptions — use the exception's message verbatim so
-            // callers surface the same text they would have seen pre-migration.
-            else -> {
-                UnknownError(
-                    message = exception.message ?: "An unexpected error occurred",
-                    debugInfo = exception.stackTraceToString(),
-                )
-            }
+            is IllegalArgumentException -> ValidationError(
+                message = exception.message ?: "Invalid input.",
+                debugInfo = exception.message,
+            )
+
+            else -> InternalError(debugInfo = exception::class.simpleName + ": " + exception.message)
         }
 }

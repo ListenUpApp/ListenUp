@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.core.error
 
+import com.calypsan.listenup.client.core.toLegacy
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -58,6 +59,6 @@ object ErrorBus {
         replaceWith = ReplaceWith("emit(ErrorMapper.map(exception))"),
     )
     fun emit(exception: Throwable) {
-        _errors.tryEmit(ErrorMapper.map(exception))
+        _errors.tryEmit(ErrorMapper.map(exception).toLegacy())
     }
 }

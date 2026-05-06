@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.toLegacy
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpResponseValidator
 
@@ -26,7 +27,7 @@ fun HttpClientConfig<*>.installListenUpErrorHandling() {
     HttpResponseValidator {
         handleResponseExceptionWithRequest { cause, _ ->
             if (cause is AppException) throw cause
-            throw AppException(error = ErrorMapper.map(cause), cause = cause)
+            throw AppException(error = ErrorMapper.map(cause).toLegacy(), cause = cause)
         }
     }
 }

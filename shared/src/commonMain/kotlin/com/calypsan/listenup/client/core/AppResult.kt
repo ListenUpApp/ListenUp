@@ -64,7 +64,16 @@ fun Failure(throwable: Throwable): AppResult.Failure =
     if (throwable is AppException) {
         AppResult.Failure(throwable.error.toUnified())
     } else {
-        AppResult.Failure(ErrorMapper.map(throwable).toUnified())
+        // Transitional bridge — preserves the throwable's message in `AppError.message`
+        // by routing through ValidationError, mirroring the legacy `UnknownError → ValidationError`
+        // path that `toUnified()` used before Task 13. The "real" mapping (ErrorMapper.map(throwable))
+        // routes arbitrary Throwables to InternalError per the body-level message convention,
+        // which moves the throwable text into `debugInfo` and surfaces a constant `message` —
+        // a deliberate convention shift that breaks 54 ViewModel tests asserting on `error.message`.
+        // Migrating those assertions to read `debugInfo` (or to assert only on Error-state-existence)
+        // is scheduled as a dedicated task before Task 16 deletes this companion. Until then this
+        // path keeps the legacy behavior alive so Task 13 can land without dragging the test sweep along.
+        AppResult.Failure(ValidationError(message = throwable.message ?: "Unknown error", debugInfo = throwable.message))
     }
 
 /**
