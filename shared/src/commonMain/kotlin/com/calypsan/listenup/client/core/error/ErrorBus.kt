@@ -11,10 +11,9 @@ import kotlinx.coroutines.flow.SharedFlow
  * the UI subscribes once in `AppShell` to display them via Snackbar.
  *
  * **Migration status:** this is still a singleton `object` for backward compatibility —
- * 73 call sites across 30 files need to be migrated. The rubric target (Finding 01 D9 +
- * resolved checkpoint) is a DI-provided `single<ErrorBus>` injected into consumers
- * instead of a global. That conversion lands as part of W2b alongside the
- * `Result → AppResult` migration (same files touched).
+ * ~73 call sites across ~30 files need to be migrated. The rubric target (Finding 01 D9
+ * + resolved checkpoint) is a DI-provided `single<ErrorBus>` injected into consumers
+ * instead of a global. Scheduled as Phase 3 PR 1 Task 27a (`ErrorBus modernization`).
  *
  * *Phase 3 (2026-05): re-typed on api.error.AppError; ~73 call sites unaffected because re-rooted subtypes are still source-compatible.*
  *
@@ -47,8 +46,9 @@ object ErrorBus {
      * **Deprecated.** Per Finding 01 D9 / the "One error-mapping site per HTTP client"
      * rubric rule: [ErrorMapper] must run at the Ktor boundary, not at every UI catch
      * site, so consumers should already hold a typed [AppError] (via `AppException.error`)
-     * by the time they reach the bus. Keep only until every call site has been migrated
-     * in W2b; then delete this overload.
+     * by the time they reach the bus. Deletion scheduled as Phase 3 PR 1 Task 27a
+     * (`ErrorBus modernization`) once remaining callers are migrated to use
+     * `ErrorBus.emit(appException.error)` or the `AppResult.Failure` flow directly.
      */
     @Deprecated(
         message =
