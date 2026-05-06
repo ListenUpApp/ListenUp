@@ -5,7 +5,7 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.error.DownloadError
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao

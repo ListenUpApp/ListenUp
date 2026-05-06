@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -50,6 +51,12 @@ private const val PROGRESS_BYTES_INTERVAL = 256 * 1024L // 256KB — emit progre
  * Core download logic for a single audio file, extracted from [DownloadWorker] so it can be
  * driven from commonTest/jvmTest without WorkManager or an Android Context.
  *
+ * Returns [AppResult.Success] when the file is fully downloaded (or when the server is still
+ * transcoding and the worker should write WAITING_FOR_SERVER and exit). Returns
+ * [AppResult.Failure] with a typed [com.calypsan.listenup.api.error.AppError] on any failure;
+ * [kotlinx.coroutines.CancellationException] still propagates so callers can distinguish
+ * cancellation from failure.
+ *
  * Features:
  * - Codec negotiation (downloads transcoded variant if needed)
  * - Resume support (Range headers)
@@ -72,7 +79,8 @@ internal suspend fun downloadAudioFile(
     capabilityDetector: AudioCapabilityDetector,
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
-) = withContext(Dispatchers.IO) {
+): AppResult<Unit> = suspendRunCatching {
+    withContext(Dispatchers.IO) {
     // Resolve the download URL (relative — Ktor's defaultRequest provides the base).
     // Phase D: if transcoding is in progress, write WAITING_FOR_SERVER and exit cleanly.
     // SSE transcode.complete handler will re-enqueue via repository.resumeForAudioFile.
@@ -189,6 +197,7 @@ internal suspend fun downloadAudioFile(
                 completedAt = currentEpochMilliseconds(),
             )
         }
+    }
 }
 
 /**

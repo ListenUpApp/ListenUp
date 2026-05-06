@@ -4,10 +4,11 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.calypsan.listenup.client.core.error.AppException
-import com.calypsan.listenup.client.core.error.DownloadError
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ServerError
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -15,7 +16,6 @@ import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
-import kotlinx.io.IOException
 
 private val logger = KotlinLogging.logger {}
 
@@ -60,60 +60,59 @@ class DownloadWorker(
         downloadRepository.markDownloading(audioFileId, System.currentTimeMillis())
 
         return try {
-            downloadFile(audioFileId, bookId, filename, expectedSize)
-            logger.info { "Download complete: $audioFileId" }
-            Result.success()
+            when (val result = downloadFile(audioFileId, bookId, filename, expectedSize)) {
+                is AppResult.Success -> {
+                    logger.info { "Download complete: $audioFileId" }
+                    Result.success()
+                }
+
+                is AppResult.Failure -> handleFailure(audioFileId, result.error)
+            }
         } catch (e: CancellationException) {
             logger.info { "Download cancelled: $audioFileId" }
             downloadRepository.markPaused(audioFileId)
             Result.failure()
-        } catch (e: AppException) {
-            // installListenUpErrorHandling() rewraps every ResponseException as AppException,
-            // so the old `catch (e: ResponseException)` block was dead code. Detect the 401
-            // case via the already-mapped AppError (ErrorMapper maps 401 → ServerError(401)).
-            // Restoration: pre-Phase-C the worker called markPaused on auth failure; preserve
-            // that semantic to avoid burning the 3-attempt retry budget on unrecoverable auth.
-            val serverError = e.error as? ServerError
-            if (serverError?.statusCode == HTTP_UNAUTHORIZED) {
-                logger.warn(e) { "Download paused due to auth failure: $audioFileId" }
-                downloadRepository.markPaused(audioFileId)
-                Result.failure()
-            } else {
-                handleRetryableError(audioFileId, e)
-            }
-        } catch (e: IOException) {
-            // Check if this is a storage-related error (no retry for these)
-            val message = e.message?.lowercase() ?: ""
-            val isStorageError =
-                message.contains("no space") ||
-                    message.contains("enospc") ||
-                    message.contains("disk full") ||
-                    message.contains("storage")
-
-            if (isStorageError) {
-                ErrorBus.emit(DownloadError.InsufficientStorage(debugInfo = e.message))
-                logger.error { "Download failed due to insufficient storage: $audioFileId" }
-                downloadRepository.markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = e.message))
-                Result.failure()
-            } else {
-                // Regular IO error - may be transient, allow retry
-                handleRetryableError(audioFileId, e)
-            }
-        } catch (e: Exception) {
-            handleRetryableError(audioFileId, e)
         }
     }
 
-    private suspend fun handleRetryableError(
+    private suspend fun handleFailure(
         audioFileId: String,
-        e: Exception,
+        error: AppError,
     ): Result {
-        ErrorBus.emit(DownloadError.DownloadFailed(debugInfo = e.message))
-        logger.error(e) { "Download failed: $audioFileId" }
+        // 401 → markPaused (don't burn the 3-attempt retry budget on unrecoverable auth).
+        // installListenUpErrorHandling() routes Ktor ResponseException through ErrorMapper, which
+        // maps 401 → TransportError.Server4xx(statusCode=401). Auth-specific upgrade to AuthError
+        // happens at the repository layer; the worker only sees the boundary classification.
+        if (error is TransportError.Server4xx && error.statusCode == HTTP_UNAUTHORIZED) {
+            logger.warn { "Download paused due to auth failure: $audioFileId" }
+            downloadRepository.markPaused(audioFileId)
+            return Result.failure()
+        }
+
+        // Storage-related IO errors get classified as TransportError.NetworkUnavailable per
+        // ErrorMapper's IOException branch; the user-actionable distinction lives in [debugInfo],
+        // which carries the original exception message. Detect via keyword-match — imperfect but
+        // matches the prior IOException string-match behavior.
+        val debugInfo = error.debugInfo?.lowercase() ?: ""
+        val isStorageError =
+            debugInfo.contains("no space") ||
+                debugInfo.contains("enospc") ||
+                debugInfo.contains("disk full") ||
+                debugInfo.contains("storage")
+
+        if (isStorageError) {
+            ErrorBus.emit(DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
+            logger.error { "Download failed due to insufficient storage: $audioFileId" }
+            downloadRepository.markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
+            return Result.failure()
+        }
+
+        ErrorBus.emit(DownloadError.DownloadFailed(debugInfo = error.debugInfo))
+        logger.error { "Download failed: $audioFileId — ${error.message}" }
         // markFailed sets state=FAILED + writes errorMessage + increments retryCount in one call,
         // collapsing the previous redundant updateError + updateState(FAILED) writes (the prior
         // updateError already set state=FAILED via its underlying query — no behavior change).
-        downloadRepository.markFailed(audioFileId, DownloadError.DownloadFailed(debugInfo = e.message))
+        downloadRepository.markFailed(audioFileId, DownloadError.DownloadFailed(debugInfo = error.debugInfo))
 
         return if (runAttemptCount < MAX_RETRIES) {
             logger.info { "Will retry download: $audioFileId (attempt ${runAttemptCount + 1})" }

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.core.error.DownloadError
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
@@ -186,7 +186,7 @@ class DownloadRepositoryImpl(
         val entity =
             downloadDao.getByAudioFileId(audioFileId)
                 ?: return AppResult.Failure(
-                    com.calypsan.listenup.api.error.DownloadError.DownloadFailed(
+                    DownloadError.DownloadFailed(
                         debugInfo = "No download row for $audioFileId",
                     ),
                 )
