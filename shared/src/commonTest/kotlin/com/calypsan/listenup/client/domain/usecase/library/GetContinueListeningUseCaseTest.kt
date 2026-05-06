@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -193,46 +192,19 @@ class GetContinueListeningUseCaseTest {
     // ========== Error Handling Tests ==========
 
     @Test
-    fun `repository failure returns failure`() =
+    fun `repository failure propagates AppError unmodified`() =
         runTest {
-            // Given
+            // The use case is a pure pass-through on failure — translation to user-facing
+            // copy lives in the presentation layer, not here.
             val fixture = createFixture()
-            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(Exception("Database error"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            // Use case wraps repo failures as ContinueListeningException before rethrowing;
-            // Failure(Throwable) preserves the user-facing message through the AppError.
-            assertTrue(failure.message.isNotEmpty())
-        }
-
-    @Test
-    fun `NetworkUnavailable maps to local-data user-friendly message`() =
-        runTest {
-            // Asserts on the *exact* text from mapErrorMessage's NetworkUnavailable branch.
-            // The user-friendly text travels via the use case's `ContinueListeningException` →
-            // `suspendRunCatching` → `Failure(throwable)` → `ErrorMapper.map` →
-            // `InternalError(debugInfo = "ContinueListeningException: <user-friendly text>")`.
-            // (The pre-Phase-3 mapErrorMessage had a "database" branch that never fired —
-            // no AppError subtype carries that signal. Dropped in the type-pattern rewrite.)
-            val fixture = createFixture()
-            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(TransportError.NetworkUnavailable())
+            val repoFailure = Failure(Exception("Database error"))
+            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns repoFailure
             val useCase = fixture.build()
 
             val result = useCase()
 
             val failure = assertIs<Failure>(result)
-            val debugInfo = failure.error.debugInfo ?: ""
-            assertTrue(
-                debugInfo.contains("Unable to connect to server. Showing local data."),
-                "Expected mapErrorMessage's NetworkUnavailable branch; got debugInfo=\"$debugInfo\"",
-            )
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== Flow Observation Tests ==========

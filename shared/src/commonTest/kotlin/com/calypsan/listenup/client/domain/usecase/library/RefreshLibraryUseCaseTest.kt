@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
@@ -20,16 +17,16 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Tests for RefreshLibraryUseCase.
  *
  * Tests cover:
  * - Successful sync flow
- * - Sync error handling and user-friendly messages
- * - Library mismatch handling
+ * - Failure propagation (the use case returns the repository's [AppError] unmodified;
+ *   user-message translation lives in the presentation layer)
  * - Reset for new library flow
+ * - SyncState exposure
  */
 class RefreshLibraryUseCaseTest {
     // ========== Test Fixtures ==========
@@ -90,81 +87,19 @@ class RefreshLibraryUseCaseTest {
     // ========== Error Handling Tests ==========
 
     @Test
-    fun `sync failure returns failure with user-friendly message`() =
+    fun `sync failure propagates repository AppError unmodified`() =
         runTest {
-            // Given
+            // The use case is a pure pass-through on failure — translation to
+            // user-facing copy happens in the presentation layer, not here.
             val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("Connection refused"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.isNotEmpty())
-        }
-
-    // mapErrorMessage tests assert on the *exact* user-friendly text the named branch produces.
-    // Loose substring matches would silently pass via the `else` fallback when the named branch
-    // is broken (the prior shape of these tests had this exact bug — see code-review feedback
-    // on Task 15a). The user-friendly text travels via the use case's `RefreshException` →
-    // `suspendRunCatching` → `Failure(throwable)` → `ErrorMapper.map` → `InternalError(debugInfo
-    // = "RefreshException: <user-friendly text>")`, so we read it from `debugInfo`.
-
-    @Test
-    fun `NetworkUnavailable maps to network user-friendly message`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(TransportError.NetworkUnavailable())
+            val repoFailure = Failure(Exception("Connection refused"))
+            everySuspend { fixture.syncRepository.sync() } returns repoFailure
             val useCase = fixture.build()
 
             val result = useCase()
 
             val failure = assertIs<Failure>(result)
-            val debugInfo = failure.error.debugInfo ?: ""
-            assertTrue(
-                debugInfo.contains("Unable to connect to server. Check your network connection."),
-                "Expected mapErrorMessage's NetworkUnavailable branch; got debugInfo=\"$debugInfo\"",
-            )
-        }
-
-    @Test
-    fun `Timeout maps to not-responding user-friendly message`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(TransportError.Timeout())
-            val useCase = fixture.build()
-
-            val result = useCase()
-
-            val failure = assertIs<Failure>(result)
-            val debugInfo = failure.error.debugInfo ?: ""
-            assertTrue(
-                debugInfo.contains("Server is not responding. Please try again later."),
-                "Expected mapErrorMessage's Timeout branch; got debugInfo=\"$debugInfo\"",
-            )
-        }
-
-    @Test
-    fun `AuthError maps to session-expired user-friendly message`() =
-        runTest {
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(AuthError.SessionExpired())
-            val useCase = fixture.build()
-
-            val result = useCase()
-
-            val failure = assertIs<Failure>(result)
-            val debugInfo = failure.error.debugInfo ?: ""
-            assertTrue(
-                debugInfo.contains("Session expired. Please log in again."),
-                "Expected mapErrorMessage's AuthError branch; got debugInfo=\"$debugInfo\"",
-            )
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== Reset for New Library Tests ==========
@@ -203,20 +138,17 @@ class RefreshLibraryUseCaseTest {
         }
 
     @Test
-    fun `resetForNewLibrary failure returns failure`() =
+    fun `resetForNewLibrary failure propagates repository AppError unmodified`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns
-                Failure(Exception("Reset failed"))
+            val repoFailure = Failure(Exception("Reset failed"))
+            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns repoFailure
             val useCase = fixture.build()
 
-            // When
             val result = useCase.resetForNewLibrary("new-library-id")
 
-            // Then
             val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.isNotEmpty())
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== SyncState Access Tests ==========
