@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.core.error
 
-import com.calypsan.listenup.client.core.toLegacy
+import com.calypsan.listenup.api.error.AppError
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.SharedFlow
  * instead of a global. That conversion lands as part of W2b alongside the
  * `Result → AppResult` migration (same files touched).
  *
+ * *Phase 3 (2026-05): re-typed on api.error.AppError; ~73 call sites unaffected because re-rooted subtypes are still source-compatible.*
+ *
  * Usage (current shape, will evolve to injected `errorBus.emit(...)`):
  * ```kotlin
  * } catch (e: AppException) {
@@ -23,10 +25,6 @@ import kotlinx.coroutines.flow.SharedFlow
  * }
  * ```
  */
-@Deprecated(
-    message = "Legacy ErrorBus consumes the legacy AppError hierarchy. Task 14 migrates this to the unified hierarchy.",
-    level = DeprecationLevel.WARNING,
-)
 object ErrorBus {
     private val _errors = MutableSharedFlow<AppError>(extraBufferCapacity = 16)
 
@@ -59,6 +57,6 @@ object ErrorBus {
         replaceWith = ReplaceWith("emit(ErrorMapper.map(exception))"),
     )
     fun emit(exception: Throwable) {
-        _errors.tryEmit(ErrorMapper.map(exception).toLegacy())
+        _errors.tryEmit(ErrorMapper.map(exception))
     }
 }

@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.core.toLegacy
-import com.calypsan.listenup.client.core.error.ImportError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.AppResult
