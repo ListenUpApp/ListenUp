@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.core.SecureStorage
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,10 +110,9 @@ class AuthSessionStore(
 
         val pendingRegistration = getPendingRegistration()
         if (pendingRegistration != null) {
-            val (pendingUserId, pendingEmail) = pendingRegistration
             return DomainAuthState.PendingApproval(
-                userId = UserId(pendingUserId),
-                email = pendingEmail,
+                userId = UserId(pendingRegistration.userId),
+                email = pendingRegistration.email,
             )
         }
 
@@ -188,10 +188,10 @@ class AuthSessionStore(
             )
     }
 
-    override suspend fun getPendingRegistration(): Pair<String, String>? {
+    override suspend fun getPendingRegistration(): PendingRegistration? {
         val userId = secureStorage.read(KEY_PENDING_USER_ID) ?: return null
         val email = secureStorage.read(KEY_PENDING_EMAIL) ?: return null
-        return userId to email
+        return PendingRegistration(userId, email)
     }
 
     override suspend fun clearPendingRegistration() {
