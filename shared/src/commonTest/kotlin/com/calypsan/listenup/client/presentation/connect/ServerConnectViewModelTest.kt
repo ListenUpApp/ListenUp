@@ -1,9 +1,14 @@
 package com.calypsan.listenup.client.presentation.connect
 
-import com.calypsan.listenup.client.checkIs
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.checkIs
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -120,5 +125,103 @@ class ServerConnectViewModelTest {
             viewModel.clearError()
 
             assertEquals(ServerConnectUiState.Idle, viewModel.state.value)
+        }
+
+    // ========== Failure Classification (mapFailure) ==========
+    //
+    // mapFailure pattern-matches on the unified TransportError subtypes to surface
+    // domain-specific user-facing messages rather than the generic VerificationFailed.
+    // These tests pin the classification — substring matching against message text was
+    // historically used here and silently broke under the body-level message convention
+    // (constants don't contain throwable text); the type-pattern shape replaces it.
+
+    @Test
+    fun `verifyServer NetworkUnavailable maps to ServerNotReachable`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "connection refused"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.ServerNotReachable>(errorState.error)
+        }
+
+    @Test
+    fun `verifyServer Timeout maps to ServerNotReachable`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.ServerNotReachable>(errorState.error)
+        }
+
+    @Test
+    fun `verifyServer DataMalformed maps to NotListenUpServer`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(TransportError.DataMalformed(detail = "Unexpected token", debugInfo = "Unexpected token"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.NotListenUpServer>(errorState.error)
+        }
+
+    @Test
+    fun `verifyServer Server4xx 404 maps to NotListenUpServer`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 404, debugInfo = "Not Found"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.NotListenUpServer>(errorState.error)
+        }
+
+    @Test
+    fun `verifyServer Server4xx non-404 maps to VerificationFailed`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 401, debugInfo = "Unauthorized"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.VerificationFailed>(errorState.error)
+        }
+
+    @Test
+    fun `verifyServer non-classifiable failure maps to VerificationFailed`() =
+        runTest {
+            val fixture = createFixture()
+            everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                AppResult.Failure(InternalError(debugInfo = "unexpected internal error"))
+
+            val viewModel = fixture.build()
+            viewModel.submitUrl("https://example.com")
+            advanceUntilIdle()
+
+            val errorState = assertIs<ServerConnectUiState.Error>(viewModel.state.value)
+            assertIs<ServerConnectError.VerificationFailed>(errorState.error)
         }
 }

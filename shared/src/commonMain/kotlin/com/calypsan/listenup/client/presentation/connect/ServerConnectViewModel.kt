@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.core.PlatformUtils
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -115,22 +116,26 @@ class ServerConnectViewModel(
     private fun mapFailure(
         result: Failure,
         url: String,
-    ): ServerConnectError {
-        val message = result.message.lowercase()
-        return when {
-            message.contains("connection refused") || message.contains("failed to connect") -> {
+    ): ServerConnectError =
+        when (val error = result.error) {
+            is TransportError.NetworkUnavailable, is TransportError.Timeout ->
                 ServerConnectError.ServerNotReachable(debugInfo = "Server not reachable at $url")
-            }
 
-            message.contains("serialization") || message.contains("parse") -> {
-                ServerConnectError.NotListenUpServer(
-                    debugInfo = "Failed to parse server response: ${result.message}",
-                )
-            }
+            is TransportError.DataMalformed ->
+                ServerConnectError.NotListenUpServer(debugInfo = "Failed to parse server response: ${error.detail}")
 
-            else -> {
-                ServerConnectError.VerificationFailed(debugInfo = result.message)
-            }
+            is TransportError.Server4xx ->
+                if (error.statusCode == HTTP_NOT_FOUND) {
+                    ServerConnectError.NotListenUpServer(debugInfo = "Server returned 404 — endpoint absent")
+                } else {
+                    ServerConnectError.VerificationFailed(debugInfo = error.debugInfo ?: error.message)
+                }
+
+            else ->
+                ServerConnectError.VerificationFailed(debugInfo = error.debugInfo ?: error.message)
         }
+
+    companion object {
+        private const val HTTP_NOT_FOUND = 404
     }
 }
