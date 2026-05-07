@@ -114,7 +114,7 @@ internal object Id3v2Reader {
         if (data.isEmpty()) return
         val encoding = data[0]
         val textBytes = data.copyOfRange(1, data.size)
-        val text = decodeText(textBytes, encoding).trimNullsAndWhitespace()
+        val text = decodeText(textBytes, encoding).trimNulls()
         if (text.isEmpty()) return
         when (frameId) {
             "TIT2" -> builder.title = text
@@ -199,7 +199,7 @@ internal object Id3v2Reader {
         if (frameData.isEmpty()) return null
         val encoding = frameData[0]
         val textBytes = frameData.copyOfRange(1, frameData.size)
-        val text = decodeText(textBytes, encoding).trimNullsAndWhitespace()
+        val text = decodeText(textBytes, encoding).trimNulls()
         return text.takeIf { it.isNotEmpty() }
     }
 
@@ -345,9 +345,14 @@ internal object Id3v2Reader {
         offset: Int,
     ): Int = decodeBigEndian32(data[offset], data[offset + 1], data[offset + 2], data[offset + 3])
 
-    /** Strip trailing null bytes (encoder-emitted terminators) and surrounding whitespace. */
-    private fun String.trimNullsAndWhitespace(): String =
-        this.trim { it == ' ' || it.isWhitespace() }
+    /**
+     * Strip leading/trailing null characters (encoder-emitted terminators).
+     *
+     * Does not strip whitespace -- \r/\n/\t may legitimately appear inside an authored
+     * title/description field and must round-trip.
+     */
+    private fun String.trimNulls(): String =
+        this.trim { it == '\u0000' }
 
     private const val ID3V2_HEADER_SIZE = 10
     private const val ID3V2_FRAME_HEADER_SIZE = 10
