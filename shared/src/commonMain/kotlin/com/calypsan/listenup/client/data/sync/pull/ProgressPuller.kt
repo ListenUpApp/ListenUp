@@ -35,18 +35,6 @@ class ProgressPuller(
     /**
      * Pull progress from server and upsert locally.
      *
-     * Merges server progress with local records, preserving local-only fields
-     * (playbackSpeed, hasCustomSpeed) while syncing server fields (position,
-     * isFinished, lastPlayedAt).
-     *
-     * @param updatedAfter ISO-8601 timestamp; when non-null, only rows updated server-side
-     *                     after this point are returned (SP2 delta sync). When null, all
-     *                     progress is fetched (used for full sync and `refreshListeningHistory`).
-     * @param onProgress Callback for progress updates.
-     */
-    /**
-     * Pull progress from server and upsert locally.
-     *
      * Non-critical — failures are logged and [AppResult.Success] is still returned
      * so the surrounding sync cycle is not aborted.
      *

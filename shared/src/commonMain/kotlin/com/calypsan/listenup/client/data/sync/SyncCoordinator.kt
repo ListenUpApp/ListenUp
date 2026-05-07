@@ -57,26 +57,21 @@ class SyncCoordinator {
                 retryDelay = (retryDelay * RETRY_BACKOFF_MULTIPLIER).coerceAtMost(MAX_RETRY_DELAY)
             }
 
-            // Re-throw coroutine cancellation — never retry, never swallow.
-            try {
-                when (val result = block()) {
-                    is AppResult.Success -> {
+            // Block returns AppResult; cancellation propagates naturally without an
+            // explicit catch (no broader catch-all clause exists to swallow it).
+            when (val result = block()) {
+                is AppResult.Success -> {
+                    return result
+                }
+
+                is AppResult.Failure -> {
+                    lastFailure = result
+                    if (!result.error.isRetryable || attempt == maxRetries - 1) {
+                        logger.warn { "Non-retryable or final attempt failure: ${result.error.code}" }
                         return result
                     }
-
-                    is AppResult.Failure -> {
-                        lastFailure = result
-                        if (!result.error.isRetryable || attempt == maxRetries - 1) {
-                            logger.warn { "Non-retryable or final attempt failure: ${result.error.code}" }
-                            return result
-                        }
-                        logger.warn { "Attempt ${attempt + 1} failed (retryable): ${result.error.code}" }
-                    }
+                    logger.warn { "Attempt ${attempt + 1} failed (retryable): ${result.error.code}" }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
             }
         }
 

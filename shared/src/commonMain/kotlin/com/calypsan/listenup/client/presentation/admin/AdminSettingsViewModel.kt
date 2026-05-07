@@ -19,6 +19,8 @@ import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
+private const val SAVE_SETTINGS_FAILURE_PREFIX = "Failed to save settings: "
+
 /**
  * ViewModel for admin server settings screen.
  *
@@ -186,7 +188,7 @@ class AdminSettingsViewModel(
                             it
                                 .copy(
                                     isSaving = false,
-                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
                                 ).withDirty()
                         }
                         return@launch
@@ -209,7 +211,7 @@ class AdminSettingsViewModel(
                             it
                                 .copy(
                                     isSaving = false,
-                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
                                 ).withDirty()
                         }
                         return@launch
@@ -234,7 +236,7 @@ class AdminSettingsViewModel(
                             it
                                 .copy(
                                     isSaving = false,
-                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
                                 ).withDirty()
                         }
                         return@launch

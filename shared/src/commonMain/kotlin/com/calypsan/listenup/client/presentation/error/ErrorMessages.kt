@@ -4,6 +4,10 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 
+private const val HTTP_FORBIDDEN = 403
+private const val HTTP_NOT_FOUND = 404
+private const val HTTP_CONFLICT = 409
+
 /**
  * Translates a typed [AppError] into a user-facing display string.
  *
@@ -35,9 +39,9 @@ fun userMessageFor(error: AppError): String =
 
         is TransportError.Server4xx -> {
             when (error.statusCode) {
-                409 -> "That resource is in use or already exists."
-                403 -> "You don't have permission to do that."
-                404 -> "Not found."
+                HTTP_CONFLICT -> "That resource is in use or already exists."
+                HTTP_FORBIDDEN -> "You don't have permission to do that."
+                HTTP_NOT_FOUND -> "Not found."
                 else -> error.message
             }
         }

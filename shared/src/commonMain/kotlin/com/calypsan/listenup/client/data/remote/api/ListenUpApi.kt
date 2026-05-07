@@ -54,6 +54,8 @@ import kotlinx.serialization.Serializable
 
 private val logger = KotlinLogging.logger {}
 
+private const val MAX_SEARCH_LIMIT = 50
+
 /**
  * HTTP client for the ListenUp audiobook server API.
  *
@@ -163,7 +165,7 @@ class ListenUpApi(
             client
                 .get("/api/v1/contributors/search") {
                     parameter("q", query)
-                    parameter("limit", limit.coerceIn(1, 50))
+                    parameter("limit", limit.coerceIn(1, MAX_SEARCH_LIMIT))
                 }.body<ApiResponse<ContributorSearchResponse>>()
         }.map { it.contributors.map { c -> c.toDomain() } }
 
@@ -242,7 +244,7 @@ class ListenUpApi(
             client
                 .get("/api/v1/series/search") {
                     parameter("q", query)
-                    parameter("limit", limit.coerceIn(1, 50))
+                    parameter("limit", limit.coerceIn(1, MAX_SEARCH_LIMIT))
                 }.body<ApiResponse<SeriesSearchResponse>>()
         }.map { it.series.map { s -> s.toDomain() } }
 
