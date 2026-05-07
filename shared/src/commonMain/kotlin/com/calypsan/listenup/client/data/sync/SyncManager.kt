@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.getOrNull
@@ -288,7 +288,12 @@ class SyncManager(
                 }
 
                 // Check if server has books we don't have locally
-                val status = setupApi.getLibraryStatus()
+                val statusResult = setupApi.getLibraryStatus()
+                if (statusResult is AppResult.Failure) {
+                    logger.warn { "Scan completion sync failed: could not fetch library status" }
+                    return@launch
+                }
+                val status = (statusResult as AppResult.Success).data
                 val localBookCount = bookDao.count()
 
                 // If server has books but we don't, we need to sync
@@ -564,7 +569,12 @@ class SyncManager(
      */
     private suspend fun initializeScanState(): Boolean {
         try {
-            val status = setupApi.getLibraryStatus()
+            val statusResult = setupApi.getLibraryStatus()
+            if (statusResult is AppResult.Failure) {
+                logger.warn { "Failed to check library scan status" }
+                return false
+            }
+            val status = (statusResult as AppResult.Success).data
             val localBookCount = bookDao.count()
 
             // Set UI indicator based on current scan state

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.startup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -92,17 +93,15 @@ class AppStartupViewModel(
 
                 val needsSetup =
                     if (user?.isAdmin == true) {
-                        try {
-                            val status = setupApi.getLibraryStatus()
-                            logger.info { "AppStartupViewModel: library needsSetup=${status.needsSetup}" }
-                            status.needsSetup
-                        } catch (
-                            e: kotlin.coroutines.cancellation.CancellationException,
-                        ) {
-                            throw e
-                        } catch (e: Exception) {
-                            logger.warn(e) { "AppStartupViewModel: library status check failed, defaulting to false" }
-                            false
+                        when (val result = setupApi.getLibraryStatus()) {
+                            is AppResult.Success -> {
+                                logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
+                                result.data.needsSetup
+                            }
+                            is AppResult.Failure -> {
+                                logger.warn { "AppStartupViewModel: library status check failed, defaulting to false" }
+                                false
+                            }
                         }
                     } else {
                         false

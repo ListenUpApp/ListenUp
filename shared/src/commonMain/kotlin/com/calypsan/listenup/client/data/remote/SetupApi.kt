@@ -1,11 +1,6 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.client.core.error.AppException
+import com.calypsan.listenup.client.core.AppResult
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -20,21 +15,23 @@ import kotlinx.serialization.Serializable
 interface SetupApiContract {
     /**
      * Get the current library status.
-     * Returns whether a library exists and needs setup.
+     * Returns [AppResult.Success] with library status, or [AppResult.Failure] on network/server error.
      */
-    suspend fun getLibraryStatus(): LibraryStatusResponse
+    suspend fun getLibraryStatus(): AppResult<LibraryStatusResponse>
 
     /**
      * Browse the server's filesystem to select scan paths.
+     * Returns [AppResult.Success] with directory listing, or [AppResult.Failure] on network/server error.
      * @param path The directory path to browse (use "/" for root)
      */
-    suspend fun browseFilesystem(path: String): BrowseFilesystemResponse
+    suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse>
 
     /**
      * Set up the library with the provided configuration.
+     * Returns [AppResult.Success] with created library details, or [AppResult.Failure] on network/server error.
      * Creates the library and initiates the first scan.
      */
-    suspend fun setupLibrary(request: SetupLibraryRequest): LibrarySetupResponse
+    suspend fun setupLibrary(request: SetupLibraryRequest): AppResult<LibrarySetupResponse>
 }
 
 /**
@@ -46,46 +43,28 @@ interface SetupApiContract {
 class SetupApi(
     private val clientFactory: ApiClientFactory,
 ) : SetupApiContract {
-    override suspend fun getLibraryStatus(): LibraryStatusResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibraryStatusResponse> =
-            client.get("/api/v1/library/status").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+    override suspend fun getLibraryStatus(): AppResult<LibraryStatusResponse> =
+        apiCall(errorMessage = "library status response missing data") {
+            clientFactory.getClient().get("/api/v1/library/status").body()
         }
-    }
 
-    override suspend fun browseFilesystem(path: String): BrowseFilesystemResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<BrowseFilesystemResponse> =
-            client
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        apiCall(errorMessage = "filesystem browse response missing data") {
+            clientFactory.getClient()
                 .get("/api/v1/filesystem") {
                     url {
                         parameters.append("path", path)
                     }
                 }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
         }
-    }
 
-    override suspend fun setupLibrary(request: SetupLibraryRequest): LibrarySetupResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibrarySetupResponse> =
-            client
+    override suspend fun setupLibrary(request: SetupLibraryRequest): AppResult<LibrarySetupResponse> =
+        apiCall(errorMessage = "library setup response missing data") {
+            clientFactory.getClient()
                 .post("/api/v1/library/setup") {
                     setBody(request)
                 }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
         }
-    }
 }
 
 // =============================================================================
