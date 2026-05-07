@@ -13,7 +13,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface ServerConnectError : AppError {
-
     /**
      * The URL the user entered failed pre-flight validation.
      *

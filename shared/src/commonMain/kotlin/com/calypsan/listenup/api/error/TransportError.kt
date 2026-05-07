@@ -12,7 +12,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface TransportError : AppError {
-
     /** Network is unavailable: DNS failure, no internet, connection refused. */
     @Serializable
     @SerialName("TransportError.NetworkUnavailable")

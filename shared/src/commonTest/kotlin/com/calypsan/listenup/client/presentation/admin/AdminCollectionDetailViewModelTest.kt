@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -212,7 +213,7 @@ class AdminCollectionDetailViewModelTest {
             val fixture = TestFixture()
             val collection = createCollection(name = "Server Collection")
             everySuspend { fixture.collectionRepository.getById(collection.id) } returns null
-            everySuspend { fixture.collectionRepository.getCollectionFromServer(collection.id) } returns collection
+            everySuspend { fixture.collectionRepository.getCollectionFromServer(collection.id) } returns AppResult.Success(collection)
             everySuspend { fixture.loadCollectionBooksUseCase(collection.id) } returns Success(emptyList())
             everySuspend { fixture.loadCollectionSharesUseCase(collection.id) } returns Success(emptyList())
 
@@ -341,7 +342,11 @@ class AdminCollectionDetailViewModelTest {
             // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.updateCollectionNameUseCase(collectionId = "c1", name = "Renamed")
-            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "conflict"))
+            } returns
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "conflict"),
+                )
 
             val viewModel = fixture.build()
             advanceUntilIdle()
@@ -397,7 +402,11 @@ class AdminCollectionDetailViewModelTest {
             // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.removeBookFromCollectionUseCase(collectionId = "c1", bookId = "b1")
-            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "permission denied"))
+            } returns
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "permission denied"),
+                )
 
             val viewModel = fixture.build()
             advanceUntilIdle()
@@ -477,7 +486,11 @@ class AdminCollectionDetailViewModelTest {
             // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.updateCollectionNameUseCase(collectionId = "c1", name = any<String>())
-            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "boom"))
+            } returns
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "boom"),
+                )
             val viewModel = fixture.build()
             advanceUntilIdle()
             viewModel.updateName("Changed")

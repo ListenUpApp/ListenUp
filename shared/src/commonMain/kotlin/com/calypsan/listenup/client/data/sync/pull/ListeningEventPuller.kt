@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.remote.SyncApiContract
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -47,6 +48,9 @@ class ListeningEventPuller(
     /**
      * Pull listening events from server.
      *
+     * Non-critical — failures are logged and [AppResult.Success] is still returned
+     * so the surrounding sync cycle is not aborted.
+     *
      * Uses the latest local event timestamp as a cursor for delta sync,
      * so only new events from other devices are fetched.
      *
@@ -56,7 +60,7 @@ class ListeningEventPuller(
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting listening events sync..." }
 
         onProgress(
@@ -82,7 +86,7 @@ class ListeningEventPuller(
 
                     if (events.isEmpty()) {
                         logger.debug { "No new listening events to sync" }
-                        return
+                        return AppResult.Success(Unit)
                     }
 
                     // Convert to entities and upsert
@@ -121,6 +125,8 @@ class ListeningEventPuller(
             logger.warn(e) { "Failed to sync listening events" }
             // Don't throw - listening events are not critical for sync
         }
+
+        return AppResult.Success(Unit)
     }
 
     /**

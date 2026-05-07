@@ -186,7 +186,8 @@ class PushSyncOrchestratorTest {
             // `failure.error.message` into the markFailed text, so the typed
             // error must carry the literal "Still failing" on its message.
             val errorPayload =
-                com.calypsan.listenup.api.error.ValidationError(message = "Still failing")
+                com.calypsan.listenup.api.error
+                    .ValidationError(message = "Still failing")
 
             everySuspend { fixture.repository.getNextBatch(any()) } sequentially {
                 returns(listOf(operation))

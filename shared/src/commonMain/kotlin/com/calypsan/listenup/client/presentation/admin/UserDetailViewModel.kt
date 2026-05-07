@@ -2,10 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,24 +42,26 @@ class UserDetailViewModel(
      */
     private fun loadUser() {
         viewModelScope.launch {
-            try {
-                val user = adminRepository.getUser(userId)
-                state.update {
-                    UserDetailUiState.Ready(
-                        user = user,
-                        canShare = user.permissions.canShare,
-                        isProtected = user.isProtected,
-                    )
+            when (val result = adminRepository.getUser(userId)) {
+                is AppResult.Success -> {
+                    val user = result.data
+                    state.update {
+                        UserDetailUiState.Ready(
+                            user = user,
+                            canShare = user.permissions.canShare,
+                            isProtected = user.isProtected,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load user: $userId" }
-                state.update {
-                    UserDetailUiState.Error(
-                        message = e.message ?: "Failed to load user",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to load user: $userId — ${result.error}" }
+                    state.update {
+                        UserDetailUiState.Error(
+                            message = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -81,32 +84,30 @@ class UserDetailViewModel(
         updateReady { it.copy(canShare = newValue, isSaving = true) }
 
         viewModelScope.launch {
-            try {
-                val updatedUser =
-                    adminRepository.updateUser(
-                        userId = userId,
-                        canShare = newValue,
-                    )
-                logger.info { "Updated canShare for user $userId to $newValue" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        user = updatedUser,
-                        canShare = updatedUser.permissions.canShare,
-                    )
+            when (val result = adminRepository.updateUser(userId = userId, canShare = newValue)) {
+                is AppResult.Success -> {
+                    val updatedUser = result.data
+                    logger.info { "Updated canShare for user $userId to $newValue" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            user = updatedUser,
+                            canShare = updatedUser.permissions.canShare,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to update canShare for user: $userId" }
-                // Revert optimistic change and surface transient error in Ready.
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        canShare = previousValue,
-                        error = e.message ?: "Failed to update permission",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to update canShare for user: $userId — ${result.error}" }
+                    // Revert optimistic change and surface transient error in Ready.
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            canShare = previousValue,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }

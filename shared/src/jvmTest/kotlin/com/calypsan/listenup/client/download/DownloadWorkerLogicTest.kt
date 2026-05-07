@@ -6,7 +6,6 @@ package com.calypsan.listenup.client.download
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
@@ -103,8 +102,10 @@ class DownloadWorkerLogicTest {
      * Client with Bearer Auth plugin for 401 scenarios.
      *
      * Mirrors the production ApiClientFactory client: installs [installListenUpErrorHandling] so
-     * ResponseException is rewrapped as AppException(ServerError(401)) after a failed refresh.
-     * Without this, the 401 propagates as a raw ResponseException — not the production code path.
+     * non-2xx responses raise [io.ktor.client.plugins.ResponseException] (via
+     * `expectSuccess = true`); the surrounding `apiCall { ... }` boundary catches it and routes
+     * through `ErrorMapper` to produce an `AppResult.Failure(TransportError.Server4xx(401))`
+     * after a failed refresh. Without this, the 401 leaks through the success-decoder path.
      */
     private fun authProductionLikeClient(
         engine: HttpClientEngine,
@@ -311,16 +312,16 @@ class DownloadWorkerLogicTest {
     // ---- Scenario 4 ----
 
     /**
-     * 401 persistent → refresh returns null → AppException(TransportError.Server4xx(401)) propagates.
+     * 401 persistent → refresh returns null → returns AppResult.Failure(TransportError.Server4xx(401)).
      *
-     * Production path: installListenUpErrorHandling rewraps ResponseException as
-     * AppException(TransportError.Server4xx(statusCode=401)). The function throws; the worker's
-     * catch block detects the 401 and calls markPaused. This test replicates that catch to
-     * assert PAUSED — catching a bug where the old dead-code ResponseException catch caused
-     * FAILED instead.
+     * Production path: installListenUpErrorHandling raises ResponseException on the non-2xx
+     * response; the surrounding apiCall boundary catches it and produces
+     * AppResult.Failure(TransportError.Server4xx(statusCode=401)). The worker inspects the
+     * AppResult and on a 401 calls markPaused. This test asserts the typed-failure contract —
+     * catching a bug where the old dead-code ResponseException catch caused FAILED instead.
      */
     @Test
-    fun `401 persistent with null refresh — throws AppException and worker would markPaused`() =
+    fun `401 persistent with null refresh — returns AppResult Failure and worker would markPaused`() =
         runTest {
             val tmpRoot = tempDir()
             try {

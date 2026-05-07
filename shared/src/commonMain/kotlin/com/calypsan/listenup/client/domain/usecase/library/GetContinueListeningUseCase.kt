@@ -56,6 +56,7 @@ open class GetContinueListeningUseCase(
                 logger.debug { "Fetched ${result.data.size} continue listening books" }
                 result
             }
+
             is Failure -> {
                 logger.warn { "Failed to fetch continue listening: ${result.error.code}" }
                 result

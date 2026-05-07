@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.SyncDao
 import com.calypsan.listenup.client.data.local.db.getLastSyncTime
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.sync.SyncCoordinator
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -24,6 +25,11 @@ private val logger = KotlinLogging.logger {}
  * Fetches the sync manifest first to determine total item counts, then
  * reports real progress as each entity is synced: "Syncing books: 50 of 131"
  * and aggregate: "Syncing: 180 of 350 items".
+ *
+ * Returns [AppResult.Failure] on the first non-retryable puller failure or after
+ * all retry attempts are exhausted. [AppResult.Success] means all entity types
+ * were pulled without error (or individual puller errors were log-and-continued
+ * by the puller itself).
  */
 @Suppress("LongParameterList")
 class PullSyncOrchestrator(
@@ -48,12 +54,13 @@ class PullSyncOrchestrator(
      * Pull all entities from server with retry logic.
      *
      * Fetches the manifest first to know total counts, then pulls each entity
-     * type while reporting real per-item progress.
+     * type while reporting real per-item progress. Returns [AppResult.Failure]
+     * if any puller fails after all retry attempts; [AppResult.Success] otherwise.
      *
      * @param onProgress Callback for progress updates
      */
     @Suppress("CognitiveComplexMethod", "LongMethod", "CyclomaticComplexMethod")
-    suspend fun pull(onProgress: (SyncStatus) -> Unit) =
+    suspend fun pull(onProgress: (SyncStatus) -> Unit): AppResult<Unit> =
         coroutineScope {
             logger.debug { "Pulling changes from server" }
 
@@ -130,86 +137,97 @@ class PullSyncOrchestrator(
                 ),
             )
 
-            // Run with retry logic
-            coordinator.withRetry(
-                onRetry = { attempt, max ->
-                    onProgress(SyncStatus.Retrying(attempt = attempt, maxAttempts = max))
-                },
-            ) {
-                // Phase 1: Series + Contributors + Genres in parallel (reference data)
-                val seriesJob =
-                    async {
-                        seriesPuller.pull(updatedAfter) { status ->
-                            if (status is SyncStatus.Progress) {
-                                val count = status.phaseItemsSynced
-                                itemsSynced.value = count // series contributes to aggregate
-                                onProgress(
-                                    status.copy(
-                                        totalItemsSynced = itemsSynced.value,
-                                        totalItems = knownTotal,
-                                    ),
-                                )
+            // Run with retry logic — block returns AppResult<Unit>
+            val retryResult =
+                coordinator.withRetry(
+                    onRetry = { attempt, max ->
+                        onProgress(SyncStatus.Retrying(attempt = attempt, maxAttempts = max))
+                    },
+                ) {
+                    // Phase 1: Series + Contributors + Genres in parallel (reference data)
+                    val seriesResult =
+                        async {
+                            seriesPuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    val count = status.phaseItemsSynced
+                                    itemsSynced.value = count // series contributes to aggregate
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
                             }
                         }
-                    }
-                val contributorsJob =
-                    async {
-                        contributorPuller.pull(updatedAfter) { status ->
-                            if (status is SyncStatus.Progress) {
-                                onProgress(
-                                    status.copy(
-                                        totalItemsSynced = itemsSynced.value,
-                                        totalItems = knownTotal,
-                                    ),
-                                )
+                    val contributorsResult =
+                        async {
+                            contributorPuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
                             }
                         }
-                    }
-                val genresJob =
-                    async {
-                        genrePuller.pull(updatedAfter) { status ->
-                            if (status is SyncStatus.Progress) {
-                                onProgress(
-                                    status.copy(
-                                        totalItemsSynced = itemsSynced.value,
-                                        totalItems = knownTotal,
-                                    ),
-                                )
+                    val genresResult =
+                        async {
+                            genrePuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
                             }
                         }
-                    }
 
-                try {
-                    awaitAll(seriesJob, contributorsJob, genresJob)
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    seriesJob.cancel()
-                    contributorsJob.cancel()
-                    genresJob.cancel()
-                    throw e
+                    // Collect parallel results — return first failure encountered
+                    val phase1Results = awaitAll(seriesResult, contributorsResult, genresResult)
+                    val phase1Failure = phase1Results.filterIsInstance<AppResult.Failure>().firstOrNull()
+                    if (phase1Failure != null) return@withRetry phase1Failure
+
+                    // Phase 2: Books
+                    val bookResult =
+                        bookPuller.pull(updatedAfter) { status ->
+                            if (status is SyncStatus.Progress) {
+                                onProgress(
+                                    status.copy(
+                                        totalItemsSynced = itemsSynced.value,
+                                        totalItems = knownTotal,
+                                    ),
+                                )
+                            }
+                        }
+                    if (bookResult is AppResult.Failure) return@withRetry bookResult
+
+                    // Remaining phases — no known totals, just pass through
+                    val tagResult = tagPuller.pull(updatedAfter, onProgress)
+                    if (tagResult is AppResult.Failure) return@withRetry tagResult
+
+                    val shelfResult = shelfPuller.pull(updatedAfter, onProgress)
+                    if (shelfResult is AppResult.Failure) return@withRetry shelfResult
+
+                    val progressResult = progressPuller.pull(updatedAfter, onProgress)
+                    if (progressResult is AppResult.Failure) return@withRetry progressResult
+
+                    listeningEventPuller.pull(updatedAfter, onProgress)
+
+                    val activeSessionsResult = activeSessionsPuller.pull(updatedAfter, onProgress)
+                    if (activeSessionsResult is AppResult.Failure) return@withRetry activeSessionsResult
+
+                    val readingSessionsResult = readingSessionsPuller.pull(updatedAfter, onProgress)
+                    if (readingSessionsResult is AppResult.Failure) return@withRetry readingSessionsResult
+
+                    AppResult.Success(Unit)
                 }
 
-                // Phase 2: Books
-                bookPuller.pull(updatedAfter) { status ->
-                    if (status is SyncStatus.Progress) {
-                        onProgress(
-                            status.copy(
-                                totalItemsSynced = itemsSynced.value,
-                                totalItems = knownTotal,
-                            ),
-                        )
-                    }
-                }
-
-                // Remaining phases — no known totals, just pass through
-                tagPuller.pull(updatedAfter, onProgress)
-                shelfPuller.pull(updatedAfter, onProgress)
-                progressPuller.pull(updatedAfter, onProgress)
-                listeningEventPuller.pull(updatedAfter, onProgress)
-                activeSessionsPuller.pull(updatedAfter, onProgress)
-                readingSessionsPuller.pull(updatedAfter, onProgress)
-            }
+            if (retryResult is AppResult.Failure) return@coroutineScope retryResult
 
             // Self-healing: if local count < manifest count, the delta sync filtered out entities
             // whose updated_at predates the client checkpoint. Re-pull those entity types in full.
@@ -219,7 +237,8 @@ class PullSyncOrchestrator(
                     logger.warn {
                         "Book count mismatch: local=$localBookCount, server=$totalBooks — re-pulling books in full"
                     }
-                    bookPuller.pull(null) {}
+                    val result = bookPuller.pull(null) {}
+                    if (result is AppResult.Failure) return@coroutineScope result
                 }
                 val localSeriesCount = seriesDao.count()
                 if (totalSeries > 0 && localSeriesCount < totalSeries) {
@@ -227,7 +246,8 @@ class PullSyncOrchestrator(
                         "Series count mismatch: local=$localSeriesCount, " +
                             "server=$totalSeries — re-pulling series in full"
                     }
-                    seriesPuller.pull(null) {}
+                    val result = seriesPuller.pull(null) {}
+                    if (result is AppResult.Failure) return@coroutineScope result
                 }
                 val localContributorCount = contributorDao.count()
                 if (totalContributors > 0 && localContributorCount < totalContributors) {
@@ -235,7 +255,8 @@ class PullSyncOrchestrator(
                         "Contributor count mismatch: local=$localContributorCount, " +
                             "server=$totalContributors — re-pulling contributors in full"
                     }
-                    contributorPuller.pull(null) {}
+                    val result = contributorPuller.pull(null) {}
+                    if (result is AppResult.Failure) return@coroutineScope result
                 }
             }
 
@@ -247,6 +268,8 @@ class PullSyncOrchestrator(
                     message = "Finalizing sync...",
                 ),
             )
+
+            AppResult.Success(Unit)
         }
 
     /**

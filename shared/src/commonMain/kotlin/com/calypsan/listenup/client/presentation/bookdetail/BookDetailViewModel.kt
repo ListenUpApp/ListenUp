@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -272,16 +271,13 @@ class BookDetailViewModel(
     fun addTag(slug: String) {
         val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
         viewModelScope.launch {
-            try {
-                tagRepository.addTagToBook(bookId, slug)
-                // Observer will update UI automatically
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (
-                @Suppress("TooGenericExceptionCaught") e: Exception,
-            ) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to add tag '$slug' to book $bookId" }
+            when (val result = tagRepository.addTagToBook(bookId, slug)) {
+                is AppResult.Success -> { /* Observer will update UI automatically */ }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to add tag '$slug' to book $bookId: ${result.error.message}" }
+                }
             }
         }
     }
@@ -296,16 +292,13 @@ class BookDetailViewModel(
         val bookId = ready.book.id.value
         val tag = ready.tags.find { it.slug == slug } ?: return
         viewModelScope.launch {
-            try {
-                tagRepository.removeTagFromBook(bookId, slug, tag.id)
-                // Observer will update UI automatically
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (
-                @Suppress("TooGenericExceptionCaught") e: Exception,
-            ) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to remove tag '$slug' from book $bookId" }
+            when (val result = tagRepository.removeTagFromBook(bookId, slug, tag.id)) {
+                is AppResult.Success -> { /* Observer will update UI automatically */ }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to remove tag '$slug' from book $bookId: ${result.error.message}" }
+                }
             }
         }
     }
@@ -321,17 +314,16 @@ class BookDetailViewModel(
     fun addNewTag(rawInput: String) {
         val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
         viewModelScope.launch {
-            try {
-                tagRepository.addTagToBook(bookId, rawInput)
-                // Observer will update UI automatically
-                hideTagPicker()
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (
-                @Suppress("TooGenericExceptionCaught") e: Exception,
-            ) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to add tag '$rawInput' to book $bookId" }
+            when (val result = tagRepository.addTagToBook(bookId, rawInput)) {
+                is AppResult.Success -> {
+                    // Observer will update UI automatically
+                    hideTagPicker()
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to add tag '$rawInput' to book $bookId: ${result.error.message}" }
+                }
             }
         }
     }

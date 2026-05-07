@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.startup
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryStatusResponse
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.domain.model.User
@@ -131,12 +132,14 @@ class AppStartupViewModelTest {
             everySuspend { userRepository.refreshCurrentUser() } returns adminUser
             everySuspend { userRepository.getCurrentUser() } returns adminUser
             everySuspend { setupApi.getLibraryStatus() } returns
-                LibraryStatusResponse(
-                    exists = false,
-                    library = null,
-                    needsSetup = true,
-                    bookCount = 0,
-                    isScanning = false,
+                AppResult.Success(
+                    LibraryStatusResponse(
+                        exists = false,
+                        library = null,
+                        needsSetup = true,
+                        bookCount = 0,
+                        isScanning = false,
+                    ),
                 )
 
             // When
@@ -228,12 +231,14 @@ class AppStartupViewModelTest {
             everySuspend { userRepository.refreshCurrentUser() } returns adminUser
             everySuspend { userRepository.getCurrentUser() } returns adminUser
             everySuspend { setupApi.getLibraryStatus() } returns
-                LibraryStatusResponse(
-                    exists = false,
-                    library = null,
-                    needsSetup = true,
-                    bookCount = 0,
-                    isScanning = false,
+                AppResult.Success(
+                    LibraryStatusResponse(
+                        exists = false,
+                        library = null,
+                        needsSetup = true,
+                        bookCount = 0,
+                        isScanning = false,
+                    ),
                 )
 
             val viewModel = AppStartupViewModel(userRepository, setupApi)

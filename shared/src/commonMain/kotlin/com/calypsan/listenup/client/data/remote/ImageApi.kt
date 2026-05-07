@@ -2,14 +2,12 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.mapSuspend
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
@@ -111,38 +109,28 @@ class ImageApi(
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Book cover upload response missing data") {
             val client = clientFactory.getClient()
-            val response: ApiResponse<ImageUploadApiResponse> =
-                client
-                    .submitFormWithBinaryData(
-                        url = "/api/v1/books/$bookId/cover",
-                        formData =
-                            formData {
-                                append(
-                                    "file",
-                                    imageData,
-                                    Headers.build {
-                                        append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                        append(HttpHeaders.ContentType, "image/*")
-                                    },
-                                )
-                            },
-                    ) {
-                        method = io.ktor.http.HttpMethod.Put
-                    }.body()
-
-            when (val result = response.toResult()) {
-                is Success -> {
-                    val apiResponse = result.data
-                    val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-                    ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
-                }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+            client
+                .submitFormWithBinaryData(
+                    url = "/api/v1/books/$bookId/cover",
+                    formData =
+                        formData {
+                            append(
+                                "file",
+                                imageData,
+                                Headers.build {
+                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                                    append(HttpHeaders.ContentType, "image/*")
+                                },
+                            )
+                        },
+                ) {
+                    method = io.ktor.http.HttpMethod.Put
+                }.body<ApiResponse<ImageUploadApiResponse>>()
+        }.mapSuspend { apiResponse ->
+            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
+            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
         }
 
     /**
@@ -165,38 +153,28 @@ class ImageApi(
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Contributor image upload response missing data") {
             val client = clientFactory.getClient()
-            val response: ApiResponse<ImageUploadApiResponse> =
-                client
-                    .submitFormWithBinaryData(
-                        url = "/api/v1/contributors/$contributorId/image",
-                        formData =
-                            formData {
-                                append(
-                                    "file",
-                                    imageData,
-                                    Headers.build {
-                                        append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                        append(HttpHeaders.ContentType, "image/*")
-                                    },
-                                )
-                            },
-                    ) {
-                        method = io.ktor.http.HttpMethod.Put
-                    }.body()
-
-            when (val result = response.toResult()) {
-                is Success -> {
-                    val apiResponse = result.data
-                    val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-                    ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
-                }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+            client
+                .submitFormWithBinaryData(
+                    url = "/api/v1/contributors/$contributorId/image",
+                    formData =
+                        formData {
+                            append(
+                                "file",
+                                imageData,
+                                Headers.build {
+                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                                    append(HttpHeaders.ContentType, "image/*")
+                                },
+                            )
+                        },
+                ) {
+                    method = io.ktor.http.HttpMethod.Put
+                }.body<ApiResponse<ImageUploadApiResponse>>()
+        }.mapSuspend { apiResponse ->
+            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
+            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
         }
 
     /**
@@ -238,38 +216,28 @@ class ImageApi(
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Series cover upload response missing data") {
             val client = clientFactory.getClient()
-            val response: ApiResponse<ImageUploadApiResponse> =
-                client
-                    .submitFormWithBinaryData(
-                        url = "/api/v1/series/$seriesId/cover",
-                        formData =
-                            formData {
-                                append(
-                                    "file",
-                                    imageData,
-                                    Headers.build {
-                                        append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                        append(HttpHeaders.ContentType, "image/*")
-                                    },
-                                )
-                            },
-                    ) {
-                        method = io.ktor.http.HttpMethod.Put
-                    }.body()
-
-            when (val result = response.toResult()) {
-                is Success -> {
-                    val apiResponse = result.data
-                    val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-                    ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
-                }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+            client
+                .submitFormWithBinaryData(
+                    url = "/api/v1/series/$seriesId/cover",
+                    formData =
+                        formData {
+                            append(
+                                "file",
+                                imageData,
+                                Headers.build {
+                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                                    append(HttpHeaders.ContentType, "image/*")
+                                },
+                            )
+                        },
+                ) {
+                    method = io.ktor.http.HttpMethod.Put
+                }.body<ApiResponse<ImageUploadApiResponse>>()
+        }.mapSuspend { apiResponse ->
+            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
+            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
         }
 
     /**
@@ -285,17 +253,9 @@ class ImageApi(
      * @return Result with Unit on success or error
      */
     override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> =
-        suspendRunCatching {
+        apiCallUnit {
             val client = clientFactory.getClient()
-            val response: ApiResponse<Unit> = client.delete("/api/v1/series/$seriesId/cover").body()
-
-            when (val result = response.toResult()) {
-                is Success -> { /* Cover deleted successfully */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+            client.delete("/api/v1/series/$seriesId/cover").body<ApiResponse<Unit>>()
         }
 
     /**

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -9,22 +11,30 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Failure
 
 /**
  * Tests for SyncCoordinator.
  *
+ * The retry contract is now AppResult-native: blocks return [AppResult] and
+ * [SyncCoordinator.withRetry] decides whether to retry based on
+ * [com.calypsan.listenup.api.error.AppError.isRetryable]. Cancellation still
+ * propagates as a [CancellationException].
+ *
  * Tests cover:
- * - Retry logic with exponential backoff
+ * - Retry logic with exponential backoff (success, retryable failure, non-retryable failure)
  * - CancellationException handling
- * - Error classification for server unreachable errors
+ * - Error classification for server unreachable errors (connection-level Throwables)
  * - Callback invocation during retries
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyncCoordinatorTest {
+    private fun retryableError(detail: String = "transient"): TransportError = TransportError.Server5xx(statusCode = 503, debugInfo = detail)
+
+    private fun nonRetryableError(detail: String = "client error"): TransportError = TransportError.Server4xx(statusCode = 400, debugInfo = detail)
+
     // ========== withRetry Success Cases ==========
 
     @Test
@@ -41,16 +51,17 @@ class SyncCoordinatorTest {
                     initialDelay = 10.milliseconds,
                 ) {
                     callCount++
-                    "success"
+                    AppResult.Success("success")
                 }
 
             // Then
-            assertEquals("success", result)
+            assertIs<AppResult.Success<String>>(result)
+            assertEquals("success", result.data)
             assertEquals(1, callCount)
         }
 
     @Test
-    fun `withRetry succeeds on second attempt`() =
+    fun `withRetry succeeds on second attempt after retryable failure`() =
         runTest {
             // Given
             val coordinator = SyncCoordinator()
@@ -63,12 +74,12 @@ class SyncCoordinatorTest {
                     initialDelay = 10.milliseconds,
                 ) {
                     callCount++
-                    if (callCount == 1) throw RuntimeException("First attempt fails")
-                    "success on retry"
+                    if (callCount == 1) AppResult.Failure(retryableError("first")) else AppResult.Success("success on retry")
                 }
 
             // Then
-            assertEquals("success on retry", result)
+            assertIs<AppResult.Success<String>>(result)
+            assertEquals("success on retry", result.data)
             assertEquals(2, callCount)
         }
 
@@ -86,38 +97,62 @@ class SyncCoordinatorTest {
                     initialDelay = 10.milliseconds,
                 ) {
                     callCount++
-                    if (callCount < 3) throw RuntimeException("Attempt $callCount fails")
-                    "success on final attempt"
+                    if (callCount < 3) AppResult.Failure(retryableError("attempt $callCount")) else AppResult.Success("success on final attempt")
                 }
 
             // Then
-            assertEquals("success on final attempt", result)
+            assertIs<AppResult.Success<String>>(result)
+            assertEquals("success on final attempt", result.data)
             assertEquals(3, callCount)
         }
 
     // ========== withRetry Failure Cases ==========
 
     @Test
-    fun `withRetry throws after all retries exhausted`() =
+    fun `withRetry returns last Failure after all retries exhausted on retryable error`() =
         runTest {
             // Given
             val coordinator = SyncCoordinator()
             var callCount = 0
 
-            // When/Then
-            val exception =
-                assertFailsWith<RuntimeException> {
-                    coordinator.withRetry(
-                        maxRetries = 3,
-                        initialDelay = 10.milliseconds,
-                    ) {
-                        callCount++
-                        throw RuntimeException("Always fails: attempt $callCount")
-                    }
+            // When
+            val result =
+                coordinator.withRetry<String>(
+                    maxRetries = 3,
+                    initialDelay = 10.milliseconds,
+                ) {
+                    callCount++
+                    AppResult.Failure(retryableError("attempt $callCount"))
                 }
 
+            // Then
             assertEquals(3, callCount)
-            assertTrue(exception.message!!.contains("attempt 3"))
+            val failure = assertIs<AppResult.Failure>(result)
+            val typed = assertIs<TransportError.Server5xx>(failure.error)
+            assertTrue(typed.debugInfo!!.contains("attempt 3"))
+        }
+
+    @Test
+    fun `withRetry short-circuits on non-retryable error after first attempt`() =
+        runTest {
+            // Given
+            val coordinator = SyncCoordinator()
+            var callCount = 0
+
+            // When
+            val result =
+                coordinator.withRetry<String>(
+                    maxRetries = 3,
+                    initialDelay = 10.milliseconds,
+                ) {
+                    callCount++
+                    AppResult.Failure(nonRetryableError())
+                }
+
+            // Then
+            assertEquals(1, callCount)
+            val failure = assertIs<AppResult.Failure>(result)
+            assertIs<TransportError.Server4xx>(failure.error)
         }
 
     @Test
@@ -129,7 +164,7 @@ class SyncCoordinatorTest {
 
             // When/Then
             assertFailsWith<CancellationException> {
-                coordinator.withRetry(
+                coordinator.withRetry<String>(
                     maxRetries = 3,
                     initialDelay = 10.milliseconds,
                 ) {
@@ -152,14 +187,12 @@ class SyncCoordinatorTest {
             val retryAttempts = mutableListOf<Pair<Int, Int>>()
 
             // When
-            assertFailsWith<RuntimeException> {
-                coordinator.withRetry(
-                    maxRetries = 3,
-                    initialDelay = 10.milliseconds,
-                    onRetry = { attempt, max -> retryAttempts.add(attempt to max) },
-                ) {
-                    throw RuntimeException("Always fails")
-                }
+            coordinator.withRetry<String>(
+                maxRetries = 3,
+                initialDelay = 10.milliseconds,
+                onRetry = { attempt, max -> retryAttempts.add(attempt to max) },
+            ) {
+                AppResult.Failure(retryableError("always fails"))
             }
 
             // Then - onRetry called before attempts 2 and 3 (not before first attempt)
@@ -181,7 +214,7 @@ class SyncCoordinatorTest {
                 initialDelay = 10.milliseconds,
                 onRetry = { _, _ -> onRetryCalled = true },
             ) {
-                "success"
+                AppResult.Success("success")
             }
 
             // Then
@@ -198,18 +231,18 @@ class SyncCoordinatorTest {
             var callCount = 0
 
             // When
-            assertFailsWith<RuntimeException> {
-                coordinator.withRetry(
+            val result =
+                coordinator.withRetry<String>(
                     maxRetries = 5,
                     initialDelay = 10.milliseconds,
                 ) {
                     callCount++
-                    throw RuntimeException("Always fails")
+                    AppResult.Failure(retryableError("attempt $callCount"))
                 }
-            }
 
             // Then
             assertEquals(5, callCount)
+            assertIs<AppResult.Failure>(result)
         }
 
     @Test
@@ -220,18 +253,18 @@ class SyncCoordinatorTest {
             var callCount = 0
 
             // When
-            assertFailsWith<RuntimeException> {
-                coordinator.withRetry(
+            val result =
+                coordinator.withRetry<String>(
                     maxRetries = 1,
                     initialDelay = 10.milliseconds,
                 ) {
                     callCount++
-                    throw RuntimeException("Always fails")
+                    AppResult.Failure(retryableError())
                 }
-            }
 
             // Then
             assertEquals(1, callCount)
+            assertIs<AppResult.Failure>(result)
         }
 
     // ========== isServerUnreachableError Tests ==========

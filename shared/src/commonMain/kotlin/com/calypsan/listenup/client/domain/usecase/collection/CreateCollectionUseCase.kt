@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.core.validationError
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.validationError
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,8 +40,6 @@ open class CreateCollectionUseCase(
 
         logger.info { "Creating collection: $trimmedName" }
 
-        return suspendRunCatching {
-            collectionRepository.create(trimmedName)
-        }
+        return collectionRepository.create(trimmedName)
     }
 }

@@ -18,9 +18,9 @@ import com.calypsan.listenup.client.data.remote.model.SyncBooksResponse
 import com.calypsan.listenup.client.data.remote.model.toEntity
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.data.sync.conflict.ConflictDetectorContract
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Failure
@@ -44,13 +44,17 @@ class BookPuller(
     /**
      * Pull all books from server with pagination.
      *
+     * Returns [AppResult.Success] once all pages are fetched and persisted.
+     * Returns [AppResult.Failure] on the first network or server error — the caller
+     * is responsible for logging and retry decisions.
+     *
      * @param updatedAfter ISO timestamp for delta sync, null for full sync
      * @param onProgress Callback for progress updates
      */
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         var cursor: String? = null
         var hasMore = true
         val limit = 100
@@ -95,12 +99,13 @@ class BookPuller(
                 }
 
                 is Failure -> {
-                    throw AppException(result.error)
+                    return result
                 }
             }
         }
 
         logger.info { "Books sync complete: $itemsSynced items processed" }
+        return AppResult.Success(Unit)
     }
 
     /**

@@ -1,10 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.appJson
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -27,12 +24,12 @@ interface InviteApiContract {
      *
      * @param serverUrl The server URL (e.g., "https://audiobooks.example.com")
      * @param code The invite code
-     * @return Invite details including name, email, server name, and validity
+     * Returns [AppResult.Failure] carrying the typed error on network/envelope failure.
      */
     suspend fun getInviteDetails(
         serverUrl: String,
         code: String,
-    ): InviteDetails
+    ): AppResult<InviteDetails>
 
     /**
      * Claim an invite by creating a new user account.
@@ -40,13 +37,13 @@ interface InviteApiContract {
      * @param serverUrl The server URL
      * @param code The invite code
      * @param password The password for the new account
-     * @return Claim response with tokens and user info
+     * Returns [AppResult.Failure] carrying the typed error on network/envelope failure.
      */
     suspend fun claimInvite(
         serverUrl: String,
         code: String,
         password: String,
-    ): InviteClaimResponse
+    ): AppResult<InviteClaimResponse>
 }
 
 /**
@@ -77,15 +74,11 @@ class InviteApi : InviteApiContract {
     override suspend fun getInviteDetails(
         serverUrl: String,
         code: String,
-    ): InviteDetails {
+    ): AppResult<InviteDetails> {
         val client = createClient(serverUrl)
         try {
-            val response: ApiResponse<InviteDetails> =
+            return apiCall(errorMessage = "Failed to load invite details") {
                 client.get("/api/v1/invites/$code").body()
-
-            return when (val result = response.toResult()) {
-                is Success -> result.data
-                is Failure -> throw AppException(result.error)
             }
         } finally {
             client.close()
@@ -96,7 +89,7 @@ class InviteApi : InviteApiContract {
         serverUrl: String,
         code: String,
         password: String,
-    ): InviteClaimResponse {
+    ): AppResult<InviteClaimResponse> {
         val client = createClient(serverUrl)
         try {
             val deviceInfo =
@@ -111,16 +104,11 @@ class InviteApi : InviteApiContract {
                         com.calypsan.listenup.client.core.PlatformUtils
                             .getDeviceModel(),
                 )
-
-            val response: ApiResponse<InviteClaimResponse> =
+            return apiCall(errorMessage = "Failed to claim invite") {
                 client
                     .post("/api/v1/invites/$code/claim") {
                         setBody(ClaimInviteRequest(password, deviceInfo))
                     }.body()
-
-            return when (val result = response.toResult()) {
-                is Success -> result.data
-                is Failure -> throw AppException(result.error)
             }
         } finally {
             client.close()

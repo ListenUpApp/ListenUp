@@ -98,7 +98,10 @@ class DeleteContributorUseCaseTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation.
             everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Network error"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Network error"),
+                )
             val useCase = fixture.build()
 
             // When

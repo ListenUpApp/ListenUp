@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.Success
@@ -19,6 +20,7 @@ import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -333,29 +335,29 @@ class ABSImportViewModel(
         viewModelScope.launch {
             updateReady { it.copy(step = ABSImportStep.UPLOADING, isUploading = true, error = null) }
 
-            try {
-                // Upload the file using streaming (file content is read on-demand)
-                val uploadResult = backupApi.uploadABSBackup(file.fileSource)
-
-                // Proceed to analysis with the returned path
-                updateReady {
-                    it.copy(
-                        isUploading = false,
-                        backupPath = uploadResult.path,
-                    )
+            when (val result = backupApi.uploadABSBackup(file.fileSource)) {
+                is AppResult.Success -> {
+                    val uploadResult = result.data
+                    // Proceed to analysis with the returned path
+                    updateReady {
+                        it.copy(
+                            isUploading = false,
+                            backupPath = uploadResult.path,
+                        )
+                    }
+                    analyzeBackup(uploadResult.path)
                 }
-                analyzeBackup(uploadResult.path)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to upload ABS backup" }
-                updateReady {
-                    it.copy(
-                        step = ABSImportStep.SOURCE_SELECTION,
-                        isUploading = false,
-                        error = "Failed to upload file: ${e.message}",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to upload ABS backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            step = ABSImportStep.SOURCE_SELECTION,
+                            isUploading = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -370,27 +372,29 @@ class ABSImportViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isLoadingDirectories = true, error = null) }
 
-            try {
-                val result = backupApi.browseFilesystem(path)
-                updateReady {
-                    it.copy(
-                        currentPath = result.path,
-                        parentPath = result.parent,
-                        directories = result.entries,
-                        isRoot = result.isRoot,
-                        isLoadingDirectories = false,
-                    )
+            when (val result = backupApi.browseFilesystem(path)) {
+                is AppResult.Success -> {
+                    val browseResult = result.data
+                    updateReady {
+                        it.copy(
+                            currentPath = browseResult.path,
+                            parentPath = browseResult.parent,
+                            directories = browseResult.entries,
+                            isRoot = browseResult.isRoot,
+                            isLoadingDirectories = false,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to browse filesystem" }
-                updateReady {
-                    it.copy(
-                        isLoadingDirectories = false,
-                        error = "Failed to browse: ${e.message}",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to browse filesystem: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isLoadingDirectories = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -449,103 +453,141 @@ class ABSImportViewModel(
                 )
             }
 
-            try {
-                // Start async analysis
-                val asyncResponse =
-                    backupApi.analyzeABSBackupAsync(
-                        AnalyzeABSRequest(
-                            backupPath = path,
-                            matchByEmail = true,
-                            matchByPath = true,
-                            fuzzyMatchBooks = true,
-                            fuzzyThreshold = 0.85,
-                        ),
-                    )
+            // Start async analysis
+            val asyncResult =
+                backupApi.analyzeABSBackupAsync(
+                    AnalyzeABSRequest(
+                        backupPath = path,
+                        matchByEmail = true,
+                        matchByPath = true,
+                        fuzzyMatchBooks = true,
+                        fuzzyThreshold = 0.85,
+                    ),
+                )
 
-                // Poll for status
-                val analysisId = asyncResponse.analysisId
-                var statusResponse = backupApi.getAnalysisStatus(analysisId)
-
-                while (statusResponse.status == "running") {
-                    updateReady {
-                        it.copy(
-                            analyzePhase = statusResponse.phase,
-                            analyzeCurrent = statusResponse.current,
-                            analyzeTotal = statusResponse.total,
-                            totalBooks = maxOf(it.totalBooks, statusResponse.totalBooks),
-                            totalUsers = maxOf(it.totalUsers, statusResponse.totalUsers),
-                        )
-                    }
-                    delay(ANALYSIS_POLL_INTERVAL_MS)
-                    statusResponse = backupApi.getAnalysisStatus(analysisId)
-                }
-
-                if (statusResponse.status == "failed") {
-                    error(statusResponse.error ?: "Analysis failed")
-                }
-
-                val result = statusResponse.result!!
-
-                // Build initial mappings from server-matched items
-                // All items with listenupId are auto-matched; users can review and change
-                val initialUserMappings =
-                    result.userMatches
-                        .filter { it.listenupId != null }
-                        .associate { it.absUserId to it.listenupId!! }
-
-                val initialBookMappings =
-                    result.bookMatches
-                        .filter { it.listenupId != null }
-                        .associate { it.absItemId to it.listenupId!! }
-
-                // Pre-populate display info for auto-matched books
-                val initialBookDisplays = buildInitialBookDisplays(result)
-
-                // Determine next step based on what needs mapping
-                val nextStep =
-                    when {
-                        result.usersPending > 0 -> ABSImportStep.USER_MAPPING
-                        result.booksPending > 0 -> ABSImportStep.BOOK_MAPPING
-                        else -> ABSImportStep.IMPORT_OPTIONS
+            val asyncResponse =
+                when (asyncResult) {
+                    is AppResult.Success -> {
+                        asyncResult.data
                     }
 
+                    is AppResult.Failure -> {
+                        errorBus.emit(asyncResult.error)
+                        logger.error { "Failed to analyze ABS backup: ${asyncResult.error.message}" }
+                        updateReady {
+                            it.copy(
+                                isAnalyzing = false,
+                                step = ABSImportStep.SOURCE_SELECTION,
+                                error = userMessageFor(asyncResult.error),
+                            )
+                        }
+                        return@launch
+                    }
+                }
+
+            // Poll for status — helper unwraps AppResult<AnalysisStatusResponse> or
+            // emits the error, updates state, and returns null to signal early exit.
+            suspend fun pollStatus(analysisId: String) =
+                backupApi.getAnalysisStatus(analysisId).let { result ->
+                    when (result) {
+                        is AppResult.Success -> {
+                            result.data
+                        }
+
+                        is AppResult.Failure -> {
+                            errorBus.emit(result.error)
+                            logger.error { "Failed to poll analysis status: ${result.error.message}" }
+                            updateReady {
+                                it.copy(
+                                    isAnalyzing = false,
+                                    step = ABSImportStep.SOURCE_SELECTION,
+                                    error = userMessageFor(result.error),
+                                )
+                            }
+                            null
+                        }
+                    }
+                }
+
+            val analysisId = asyncResponse.analysisId
+            var statusResponse = pollStatus(analysisId) ?: return@launch
+
+            while (statusResponse.status == "running") {
                 updateReady {
                     it.copy(
-                        isAnalyzing = false,
-                        analysisComplete = true,
-                        step = nextStep,
-                        summary = result.summary,
-                        totalUsers = result.totalUsers,
-                        totalBooks = result.totalBooks,
-                        totalSessions = result.totalSessions,
-                        usersMatched = result.usersMatched,
-                        usersPending = result.usersPending,
-                        booksMatched = result.booksMatched,
-                        booksPending = result.booksPending,
-                        sessionsReady = result.sessionsReady,
-                        sessionsPending = result.sessionsPending,
-                        progressReady = result.progressReady,
-                        progressPending = result.progressPending,
-                        userMatches = result.userMatches,
-                        bookMatches = result.bookMatches,
-                        analysisWarnings = result.warnings,
-                        userMappings = initialUserMappings,
-                        bookMappings = initialBookMappings,
-                        selectedBookDisplays = initialBookDisplays,
+                        analyzePhase = statusResponse.phase,
+                        analyzeCurrent = statusResponse.current,
+                        analyzeTotal = statusResponse.total,
+                        totalBooks = maxOf(it.totalBooks, statusResponse.totalBooks),
+                        totalUsers = maxOf(it.totalUsers, statusResponse.totalUsers),
                     )
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to analyze ABS backup" }
+                delay(ANALYSIS_POLL_INTERVAL_MS)
+                statusResponse = pollStatus(analysisId) ?: return@launch
+            }
+
+            if (statusResponse.status == "failed") {
+                val errorMessage = statusResponse.error ?: "Analysis failed"
+                logger.error { "Analysis reported failed status: $errorMessage" }
                 updateReady {
                     it.copy(
                         isAnalyzing = false,
                         step = ABSImportStep.SOURCE_SELECTION,
-                        error = "Failed to analyze backup: ${e.message}",
+                        error = errorMessage,
                     )
                 }
+                return@launch
+            }
+
+            val result = statusResponse.result!!
+
+            // Build initial mappings from server-matched items
+            // All items with listenupId are auto-matched; users can review and change
+            val initialUserMappings =
+                result.userMatches
+                    .filter { it.listenupId != null }
+                    .associate { it.absUserId to it.listenupId!! }
+
+            val initialBookMappings =
+                result.bookMatches
+                    .filter { it.listenupId != null }
+                    .associate { it.absItemId to it.listenupId!! }
+
+            // Pre-populate display info for auto-matched books
+            val initialBookDisplays = buildInitialBookDisplays(result)
+
+            // Determine next step based on what needs mapping
+            val nextStep =
+                when {
+                    result.usersPending > 0 -> ABSImportStep.USER_MAPPING
+                    result.booksPending > 0 -> ABSImportStep.BOOK_MAPPING
+                    else -> ABSImportStep.IMPORT_OPTIONS
+                }
+
+            updateReady {
+                it.copy(
+                    isAnalyzing = false,
+                    analysisComplete = true,
+                    step = nextStep,
+                    summary = result.summary,
+                    totalUsers = result.totalUsers,
+                    totalBooks = result.totalBooks,
+                    totalSessions = result.totalSessions,
+                    usersMatched = result.usersMatched,
+                    usersPending = result.usersPending,
+                    booksMatched = result.booksMatched,
+                    booksPending = result.booksPending,
+                    sessionsReady = result.sessionsReady,
+                    sessionsPending = result.sessionsPending,
+                    progressReady = result.progressReady,
+                    progressPending = result.progressPending,
+                    userMatches = result.userMatches,
+                    bookMatches = result.bookMatches,
+                    analysisWarnings = result.warnings,
+                    userMappings = initialUserMappings,
+                    bookMappings = initialBookMappings,
+                    selectedBookDisplays = initialBookDisplays,
+                )
             }
         }
     }
@@ -1031,8 +1073,8 @@ class ABSImportViewModel(
         viewModelScope.launch {
             updateReady { it.copy(step = ABSImportStep.IMPORTING, isImporting = true, error = null) }
 
-            try {
-                val current = state.value as? ABSImportUiState.Ready ?: return@launch
+            val current = state.value as? ABSImportUiState.Ready ?: return@launch
+            when (
                 val result =
                     backupApi.importABSBackup(
                         ImportABSRequest(
@@ -1044,42 +1086,45 @@ class ABSImportViewModel(
                             rebuildProgress = current.rebuildProgress,
                         ),
                     )
+            ) {
+                is AppResult.Success -> {
+                    val importResult = result.data
+                    updateReady {
+                        it.copy(
+                            isImporting = false,
+                            step = ABSImportStep.RESULTS,
+                            importResults =
+                                ABSImportResults(
+                                    sessionsImported = importResult.sessionsImported,
+                                    sessionsSkipped = importResult.sessionsSkipped,
+                                    progressImported = importResult.progressImported,
+                                    progressSkipped = importResult.progressSkipped,
+                                    eventsCreated = importResult.eventsCreated,
+                                    affectedUsers = importResult.affectedUsers,
+                                    duration = importResult.duration,
+                                    warnings = importResult.warnings,
+                                    errors = importResult.errors,
+                                ),
+                        )
+                    }
 
-                updateReady {
-                    it.copy(
-                        isImporting = false,
-                        step = ABSImportStep.RESULTS,
-                        importResults =
-                            ABSImportResults(
-                                sessionsImported = result.sessionsImported,
-                                sessionsSkipped = result.sessionsSkipped,
-                                progressImported = result.progressImported,
-                                progressSkipped = result.progressSkipped,
-                                eventsCreated = result.eventsCreated,
-                                affectedUsers = result.affectedUsers,
-                                duration = result.duration,
-                                warnings = result.warnings,
-                                errors = result.errors,
-                            ),
-                    )
+                    // Refresh listening history to pull all imported events and rebuild positions
+                    // This uses a full refresh (ignoring delta sync cursor) because imported
+                    // events have historical timestamps that wouldn't be included in normal sync
+                    logger.info { "Import complete, refreshing listening history" }
+                    syncRepository.refreshListeningHistory()
                 }
 
-                // Refresh listening history to pull all imported events and rebuild positions
-                // This uses a full refresh (ignoring delta sync cursor) because imported
-                // events have historical timestamps that wouldn't be included in normal sync
-                logger.info { "Import complete, refreshing listening history" }
-                syncRepository.refreshListeningHistory()
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to import ABS backup" }
-                updateReady {
-                    it.copy(
-                        isImporting = false,
-                        step = ABSImportStep.IMPORT_OPTIONS,
-                        error = "Failed to import: ${e.message}",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to import ABS backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isImporting = false,
+                            step = ABSImportStep.IMPORT_OPTIONS,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }

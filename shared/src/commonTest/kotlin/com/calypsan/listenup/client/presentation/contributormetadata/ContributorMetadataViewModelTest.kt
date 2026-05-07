@@ -405,7 +405,10 @@ class ContributorMetadataViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.applyContributorMetadataUseCase.invoke(any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Server error"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Server error"),
+                )
 
             val viewModel = fixture.build()
             viewModel.init("contributor-1")

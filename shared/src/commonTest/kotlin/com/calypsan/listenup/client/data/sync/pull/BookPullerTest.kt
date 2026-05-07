@@ -45,7 +45,9 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Failure
 
@@ -241,7 +243,7 @@ class BookPullerTest {
         }
 
     @Test
-    fun `pull throws on API failure`() =
+    fun `pull returns Failure on API failure`() =
         runTest {
             // Given
             val fixture = TestFixture(this)
@@ -249,10 +251,11 @@ class BookPullerTest {
                 Failure(RuntimeException("API error"))
             val puller = fixture.build()
 
-            // When/Then
-            assertFailsWith<RuntimeException> {
-                puller.pull(null) {}
-            }
+            // When
+            val result = puller.pull(null) {}
+
+            // Then
+            assertIs<AppResult.Failure>(result)
         }
 
     // ========== Pagination Tests ==========

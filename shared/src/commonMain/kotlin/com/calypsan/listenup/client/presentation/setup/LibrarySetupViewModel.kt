@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.setup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.data.remote.SetupLibraryRequest
@@ -43,31 +43,30 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCheckingStatus = true, error = null) }
 
-            try {
-                val status = setupApi.getLibraryStatus()
-                logger.info { "Library status: exists=${status.exists}, needsSetup=${status.needsSetup}" }
-
-                state.update {
-                    it.copy(
-                        isCheckingStatus = false,
-                        needsSetup = status.needsSetup,
-                    )
+            when (val result = setupApi.getLibraryStatus()) {
+                is AppResult.Success -> {
+                    val status = result.data
+                    logger.info { "Library status: exists=${status.exists}, needsSetup=${status.needsSetup}" }
+                    state.update {
+                        it.copy(
+                            isCheckingStatus = false,
+                            needsSetup = status.needsSetup,
+                        )
+                    }
+                    if (status.needsSetup) {
+                        loadDirectory("/")
+                    }
                 }
 
-                // If setup is needed, start loading the root directory
-                if (status.needsSetup) {
-                    loadDirectory("/")
-                }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to check library status" }
-                state.update {
-                    it.copy(
-                        isCheckingStatus = false,
-                        error = e.message ?: "Failed to check library status",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to check library status: ${result.error.message}" }
+                    state.update {
+                        it.copy(
+                            isCheckingStatus = false,
+                            error = result.error.message,
+                        )
+                    }
                 }
             }
         }
@@ -81,29 +80,30 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isLoadingDirectories = true, error = null) }
 
-            try {
-                val response = setupApi.browseFilesystem(path)
-                logger.debug { "Loaded directory: ${response.path}, entries=${response.entries.size}" }
-
-                state.update {
-                    it.copy(
-                        isLoadingDirectories = false,
-                        currentPath = response.path,
-                        parentPath = response.parent,
-                        directories = response.entries,
-                        isRoot = response.isRoot,
-                    )
+            when (val result = setupApi.browseFilesystem(path)) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    logger.debug { "Loaded directory: ${response.path}, entries=${response.entries.size}" }
+                    state.update {
+                        it.copy(
+                            isLoadingDirectories = false,
+                            currentPath = response.path,
+                            parentPath = response.parent,
+                            directories = response.entries,
+                            isRoot = response.isRoot,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load directory: $path" }
-                state.update {
-                    it.copy(
-                        isLoadingDirectories = false,
-                        error = e.message ?: "Failed to load directory",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to load directory: $path — ${result.error.message}" }
+                    state.update {
+                        it.copy(
+                            isLoadingDirectories = false,
+                            error = result.error.message,
+                        )
+                    }
                 }
             }
         }
@@ -187,34 +187,35 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCreatingLibrary = true, error = null) }
 
-            try {
-                val request =
-                    SetupLibraryRequest(
-                        name = currentState.libraryName.trim(),
-                        scanPaths = currentState.selectedPaths.toList(),
-                        skipInbox = currentState.skipInbox,
-                    )
+            val request =
+                SetupLibraryRequest(
+                    name = currentState.libraryName.trim(),
+                    scanPaths = currentState.selectedPaths.toList(),
+                    skipInbox = currentState.skipInbox,
+                )
 
-                val response = setupApi.setupLibrary(request)
-                logger.info { "Library created: id=${response.id}, name=${response.name}" }
-
-                state.update {
-                    it.copy(
-                        isCreatingLibrary = false,
-                        setupComplete = true,
-                        needsSetup = false,
-                    )
+            when (val result = setupApi.setupLibrary(request)) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    logger.info { "Library created: id=${response.id}, name=${response.name}" }
+                    state.update {
+                        it.copy(
+                            isCreatingLibrary = false,
+                            setupComplete = true,
+                            needsSetup = false,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to create library" }
-                state.update {
-                    it.copy(
-                        isCreatingLibrary = false,
-                        error = e.message ?: "Failed to create library",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to create library: ${result.error.message}" }
+                    state.update {
+                        it.copy(
+                            isCreatingLibrary = false,
+                            error = result.error.message,
+                        )
+                    }
                 }
             }
         }

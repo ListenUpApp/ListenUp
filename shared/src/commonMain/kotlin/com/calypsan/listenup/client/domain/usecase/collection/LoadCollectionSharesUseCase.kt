@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.mapSuspend
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -38,19 +40,18 @@ open class LoadCollectionSharesUseCase(
     open suspend operator fun invoke(collectionId: String): AppResult<List<CollectionShareSummary>> {
         logger.debug { "Loading shares for collection: $collectionId" }
 
-        return suspendRunCatching {
-            // Get shares from collection repository
-            val shares = collectionRepository.getCollectionShares(collectionId)
-
-            // Get users to enrich with names/emails
+        return collectionRepository.getCollectionShares(collectionId).mapSuspend { shares ->
+            // Get users to enrich with names/emails; treat failure as empty list (non-fatal).
             val users =
-                try {
-                    adminRepository.getUsers()
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Failed to load users for share enrichment, using partial data" }
-                    emptyList()
+                when (val usersResult = adminRepository.getUsers()) {
+                    is Success -> {
+                        usersResult.data
+                    }
+
+                    is Failure -> {
+                        logger.warn { "Failed to load users for share enrichment, using partial data" }
+                        emptyList()
+                    }
                 }
             val userMap = users.associateBy { it.id }
 

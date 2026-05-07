@@ -2,21 +2,19 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.model.AddBooksToCollectionRequest
 import com.calypsan.listenup.client.data.remote.model.AdminCollectionResponse
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.CreateCollectionRequest
 import com.calypsan.listenup.client.data.remote.model.UpdateCollectionRequest
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -27,71 +25,93 @@ import kotlinx.serialization.Serializable
 interface AdminCollectionApiContract {
     /**
      * Get all collections.
+     *
+     * @return [AppResult.Success] containing the list of collections, [AppResult.Failure] on API error
      */
-    suspend fun getCollections(): List<AdminCollectionResponse>
+    suspend fun getCollections(): AppResult<List<AdminCollectionResponse>>
 
     /**
      * Create a new collection.
+     *
+     * @return [AppResult.Success] containing the created collection, [AppResult.Failure] on API error
      */
-    suspend fun createCollection(name: String): AdminCollectionResponse
+    suspend fun createCollection(name: String): AppResult<AdminCollectionResponse>
 
     /**
      * Get a single collection by ID.
+     *
+     * @return [AppResult.Success] containing the collection, [AppResult.Failure] on API error
      */
-    suspend fun getCollection(collectionId: String): AdminCollectionResponse
+    suspend fun getCollection(collectionId: String): AppResult<AdminCollectionResponse>
 
     /**
      * Get books in a collection.
+     *
+     * @return [AppResult.Success] containing the list of books, [AppResult.Failure] on API error
      */
-    suspend fun getCollectionBooks(collectionId: String): List<CollectionBookResponse>
+    suspend fun getCollectionBooks(collectionId: String): AppResult<List<CollectionBookResponse>>
 
     /**
      * Update a collection's name.
+     *
+     * @return [AppResult.Success] containing the updated collection, [AppResult.Failure] on API error
      */
     suspend fun updateCollection(
         collectionId: String,
         name: String,
-    ): AdminCollectionResponse
+    ): AppResult<AdminCollectionResponse>
 
     /**
      * Delete a collection.
+     *
+     * @return [AppResult.Success] on deletion, [AppResult.Failure] on API error
      */
-    suspend fun deleteCollection(collectionId: String)
+    suspend fun deleteCollection(collectionId: String): AppResult<Unit>
 
     /**
      * Add books to a collection.
+     *
+     * @return [AppResult.Success] on success, [AppResult.Failure] on API error
      */
     suspend fun addBooks(
         collectionId: String,
         bookIds: List<String>,
-    )
+    ): AppResult<Unit>
 
     /**
      * Remove a book from a collection.
+     *
+     * @return [AppResult.Success] on removal, [AppResult.Failure] on API error
      */
     suspend fun removeBook(
         collectionId: String,
         bookId: String,
-    )
+    ): AppResult<Unit>
 
     /**
      * Get shares for a collection.
+     *
+     * @return [AppResult.Success] containing the list of shares, [AppResult.Failure] on API error
      */
-    suspend fun getCollectionShares(collectionId: String): List<ShareResponse>
+    suspend fun getCollectionShares(collectionId: String): AppResult<List<ShareResponse>>
 
     /**
      * Share a collection with a user.
+     *
+     * @return [AppResult.Success] containing the created share, [AppResult.Failure] on API error
      */
     suspend fun shareCollection(
         collectionId: String,
         userId: String,
         permission: String = "read",
-    ): ShareResponse
+    ): AppResult<ShareResponse>
 
     /**
      * Remove a share.
+     *
+     * @return [AppResult.Success] on removal, [AppResult.Failure] on API error
      */
-    suspend fun deleteShare(shareId: String)
+    suspend fun deleteShare(shareId: String): AppResult<Unit>
 }
 
 /**
@@ -103,164 +123,105 @@ interface AdminCollectionApiContract {
 class AdminCollectionApi(
     private val clientFactory: ApiClientFactory,
 ) : AdminCollectionApiContract {
-    override suspend fun getCollections(): List<AdminCollectionResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<CollectionsResponse> =
-            client.get("/api/v1/admin/collections").body()
+    override suspend fun getCollections(): AppResult<List<AdminCollectionResponse>> =
+        apiCall(errorMessage = "Admin collections response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/collections").body<ApiResponse<CollectionsResponse>>()
+        }.map { it.collections }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.collections
-            is Failure -> throw AppException(result.error)
-        }
-    }
-
-    override suspend fun createCollection(name: String): AdminCollectionResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminCollectionResponse> =
-            client
+    override suspend fun createCollection(name: String): AppResult<AdminCollectionResponse> =
+        apiCall(errorMessage = "Create collection response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/collections") {
                     setBody(CreateCollectionRequest(name))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<AdminCollectionResponse>>()
         }
-    }
 
-    override suspend fun getCollection(collectionId: String): AdminCollectionResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminCollectionResponse> =
-            client.get("/api/v1/admin/collections/$collectionId").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+    override suspend fun getCollection(collectionId: String): AppResult<AdminCollectionResponse> =
+        apiCall(errorMessage = "Collection detail response missing data") {
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/admin/collections/$collectionId",
+                ).body<ApiResponse<AdminCollectionResponse>>()
         }
-    }
 
-    override suspend fun getCollectionBooks(collectionId: String): List<CollectionBookResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<CollectionBooksResponse> =
-            client.get("/api/v1/collections/$collectionId/books").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data.books
-            is Failure -> throw AppException(result.error)
-        }
-    }
+    override suspend fun getCollectionBooks(collectionId: String): AppResult<List<CollectionBookResponse>> =
+        apiCall(errorMessage = "Collection books response missing data") {
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/collections/$collectionId/books",
+                ).body<ApiResponse<CollectionBooksResponse>>()
+        }.map { it.books }
 
     override suspend fun updateCollection(
         collectionId: String,
         name: String,
-    ): AdminCollectionResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminCollectionResponse> =
-            client
+    ): AppResult<AdminCollectionResponse> =
+        apiCall(errorMessage = "Update collection response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/admin/collections/$collectionId") {
                     setBody(UpdateCollectionRequest(name))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<AdminCollectionResponse>>()
         }
-    }
 
-    override suspend fun deleteCollection(collectionId: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/admin/collections/$collectionId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Collection deleted successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    override suspend fun deleteCollection(collectionId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/admin/collections/$collectionId").body<ApiResponse<Unit>>()
         }
-    }
 
     override suspend fun addBooks(
         collectionId: String,
         bookIds: List<String>,
-    ) {
-        val client = clientFactory.getClient()
-        val response =
-            client.post("/api/v1/admin/collections/$collectionId/books") {
-                setBody(AddBooksToCollectionRequest(bookIds))
-            }
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .post("/api/v1/admin/collections/$collectionId/books") {
+                    setBody(AddBooksToCollectionRequest(bookIds))
+                }.body<ApiResponse<Unit>>()
         }
-        // 200 OK with message - success
-    }
 
     override suspend fun removeBook(
         collectionId: String,
         bookId: String,
-    ) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> =
-            client.delete("/api/v1/admin/collections/$collectionId/books/$bookId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Book removed from collection successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .delete(
+                    "/api/v1/admin/collections/$collectionId/books/$bookId",
+                ).body<ApiResponse<Unit>>()
         }
-    }
 
-    override suspend fun getCollectionShares(collectionId: String): List<ShareResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<SharesListResponse> =
-            client.get("/api/v1/collections/$collectionId/shares").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data.shares
-            is Failure -> throw AppException(result.error)
-        }
-    }
+    override suspend fun getCollectionShares(collectionId: String): AppResult<List<ShareResponse>> =
+        apiCall(errorMessage = "Collection shares response missing data") {
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/collections/$collectionId/shares",
+                ).body<ApiResponse<SharesListResponse>>()
+        }.map { it.shares }
 
     override suspend fun shareCollection(
         collectionId: String,
         userId: String,
         permission: String,
-    ): ShareResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ShareResponse> =
-            client
+    ): AppResult<ShareResponse> =
+        apiCall(errorMessage = "Share collection response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/collections/$collectionId/shares") {
                     setBody(ShareCollectionRequest(userId, permission))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<ShareResponse>>()
         }
-    }
 
-    override suspend fun deleteShare(shareId: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/shares/$shareId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Share deleted successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    override suspend fun deleteShare(shareId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/shares/$shareId").body<ApiResponse<Unit>>()
         }
-    }
 }
 
 /**

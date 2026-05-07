@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionBookSummary
@@ -60,47 +59,81 @@ class AdminCollectionDetailViewModel(
      * Drives the terminal Loading -> Ready | Error transition. Subsequent
      * refreshes after reaching Ready surface failures via the transient
      * `error` field on [AdminCollectionDetailUiState.Ready].
+     *
+     * `getById` is Room-first (plain suspend returning nullable) — a local
+     * DAO exception (e.g. corrupt DB) is caught and surfaces as [AdminCollectionDetailUiState.Error].
+     * `getCollectionFromServer` now returns [AppResult] and is handled with a `when` branch.
      */
     private fun loadCollection() {
         viewModelScope.launch {
-            try {
-                // First, try to get from local DB via repository
-                val collection =
+            // Room-first: try local DB first (plain suspend, no AppResult);
+            // catch DAO-level exceptions so a corrupt DB surfaces as Error state.
+            val localCollection =
+                try {
                     collectionRepository.getById(collectionId)
-                        ?: collectionRepository.getCollectionFromServer(collectionId)
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    errorBus.emit(
+                        com.calypsan.listenup.client.core.error.ErrorMapper
+                            .map(e),
+                    )
+                    logger.error(e) { "Failed to load collection from local DB: $collectionId" }
+                    val message = e.message ?: "Failed to load collection"
+                    state.update { current ->
+                        if (current is AdminCollectionDetailUiState.Ready) {
+                            current.copy(error = message)
+                        } else {
+                            AdminCollectionDetailUiState.Error(message)
+                        }
+                    }
+                    return@launch
+                }
 
-                state.update { current ->
-                    if (current is AdminCollectionDetailUiState.Ready) {
-                        current.copy(
-                            collection = collection,
-                            editedName = collection.name,
-                            error = null,
-                        )
-                    } else {
-                        AdminCollectionDetailUiState.Ready(
-                            collection = collection,
-                            editedName = collection.name,
-                        )
+            val collection =
+                if (localCollection != null) {
+                    localCollection
+                } else {
+                    // Fall back to server — now returns AppResult
+                    when (val result = collectionRepository.getCollectionFromServer(collectionId)) {
+                        is Success -> {
+                            result.data
+                        }
+
+                        is Failure -> {
+                            errorBus.emit(result.error)
+                            logger.error { "Failed to load collection from server: $collectionId" }
+                            val message = result.error.message
+                            state.update { current ->
+                                if (current is AdminCollectionDetailUiState.Ready) {
+                                    current.copy(error = message)
+                                } else {
+                                    AdminCollectionDetailUiState.Error(message)
+                                }
+                            }
+                            return@launch
+                        }
                     }
                 }
 
-                // Load books and shares sequentially (pipeline updates Ready as results arrive).
-                loadBooks()
-                loadShares()
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load collection: $collectionId" }
-                val message = e.message ?: "Failed to load collection"
-                state.update { current ->
-                    if (current is AdminCollectionDetailUiState.Ready) {
-                        current.copy(error = message)
-                    } else {
-                        AdminCollectionDetailUiState.Error(message)
-                    }
+            state.update { current ->
+                if (current is AdminCollectionDetailUiState.Ready) {
+                    current.copy(
+                        collection = collection,
+                        editedName = collection.name,
+                        error = null,
+                    )
+                } else {
+                    AdminCollectionDetailUiState.Ready(
+                        collection = collection,
+                        editedName = collection.name,
+                    )
                 }
             }
+
+            // Load books and shares sequentially (pipeline updates Ready as results arrive).
+            loadBooks()
+            loadShares()
         }
     }
 
@@ -186,6 +219,7 @@ class AdminCollectionDetailViewModel(
 
                 is Failure -> {
                     logger.error { "Failed to update collection name: ${result.message}" }
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(
                             isSaving = false,
@@ -224,6 +258,7 @@ class AdminCollectionDetailViewModel(
 
                 is Failure -> {
                     logger.error { "Failed to remove book from collection: ${result.message}" }
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(
                             removingBookId = null,
@@ -255,6 +290,7 @@ class AdminCollectionDetailViewModel(
 
                 is Failure -> {
                     logger.error { "Failed to load users: ${result.message}" }
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(
                             isLoadingUsers = false,
@@ -305,6 +341,7 @@ class AdminCollectionDetailViewModel(
 
                 is Failure -> {
                     logger.error { "Failed to share collection: ${result.message}" }
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(
                             isSharing = false,
@@ -339,6 +376,7 @@ class AdminCollectionDetailViewModel(
 
                 is Failure -> {
                     logger.error { "Failed to remove share: ${result.message}" }
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(
                             removingShareId = null,

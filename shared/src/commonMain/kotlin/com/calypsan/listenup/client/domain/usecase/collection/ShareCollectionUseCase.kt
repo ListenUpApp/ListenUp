@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.CollectionShareSummary
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -38,10 +37,6 @@ open class ShareCollectionUseCase(
     ): AppResult<CollectionShareSummary> {
         logger.info { "Sharing collection $collectionId with user $userId" }
 
-        return suspendRunCatching {
-            val share = collectionRepository.shareCollection(collectionId, userId)
-            logger.info { "Shared collection $collectionId with user $userId (share: ${share.id})" }
-            share
-        }
+        return collectionRepository.shareCollection(collectionId, userId)
     }
 }

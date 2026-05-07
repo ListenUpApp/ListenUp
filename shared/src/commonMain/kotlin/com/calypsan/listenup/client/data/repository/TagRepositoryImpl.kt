@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookTagCrossRef
@@ -56,34 +57,37 @@ class TagRepositoryImpl(
     override suspend fun addTagToBook(
         bookId: String,
         tagSlugOrName: String,
-    ): Tag {
+    ): AppResult<Tag> {
         // Call API to add tag (creates if doesn't exist)
-        val tag = tagApi.addTagToBook(bookId, tagSlugOrName)
-
-        // Update local Room for immediate reactivity
-        val entity =
-            TagEntity(
-                id = tag.id,
-                slug = tag.slug,
-                bookCount = tag.bookCount,
-                createdAt = tag.createdAt?.let { Timestamp(it.toEpochMilliseconds()) } ?: Timestamp.now(),
-            )
-        dao.upsert(entity)
-        dao.insertBookTag(BookTagCrossRef(bookId = BookId(bookId), tagId = tag.id))
-
-        return tag
+        val result = tagApi.addTagToBook(bookId, tagSlugOrName)
+        if (result is AppResult.Success) {
+            val tag = result.data
+            // Update local Room for immediate reactivity
+            val entity =
+                TagEntity(
+                    id = tag.id,
+                    slug = tag.slug,
+                    bookCount = tag.bookCount,
+                    createdAt = tag.createdAt?.let { Timestamp(it.toEpochMilliseconds()) } ?: Timestamp.now(),
+                )
+            dao.upsert(entity)
+            dao.insertBookTag(BookTagCrossRef(bookId = BookId(bookId), tagId = tag.id))
+        }
+        return result
     }
 
     override suspend fun removeTagFromBook(
         bookId: String,
         tagSlug: String,
         tagId: String,
-    ) {
+    ): AppResult<Unit> {
         // Call API to remove tag
-        tagApi.removeTagFromBook(bookId, tagSlug)
-
-        // Update local Room for immediate reactivity
-        dao.deleteBookTag(BookId(bookId), tagId)
+        val result = tagApi.removeTagFromBook(bookId, tagSlug)
+        if (result is AppResult.Success) {
+            // Update local Room for immediate reactivity
+            dao.deleteBookTag(BookId(bookId), tagId)
+        }
+        return result
     }
 }
 

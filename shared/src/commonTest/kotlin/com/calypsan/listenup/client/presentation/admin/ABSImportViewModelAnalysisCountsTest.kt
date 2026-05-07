@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.SearchApiContract
@@ -90,22 +91,26 @@ class ABSImportViewModelAnalysisCountsTest {
             val analysisResult = completedAnalysisResponse()
 
             everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AsyncAnalyzeResponse(analysisId = "a1")
+                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a1"))
 
             everySuspend { backupApi.getAnalysisStatus("a1") } sequentiallyReturns
                 listOf(
-                    AnalysisStatusResponse(
-                        status = "running",
-                        phase = "matching_books",
-                        current = 100,
-                        total = 1011,
-                        totalBooks = 1011,
-                        totalUsers = 5,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "running",
+                            phase = "matching_books",
+                            current = 100,
+                            total = 1011,
+                            totalBooks = 1011,
+                            totalUsers = 5,
+                        ),
                     ),
-                    AnalysisStatusResponse(
-                        status = "completed",
-                        phase = "done",
-                        result = analysisResult,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "completed",
+                            phase = "done",
+                            result = analysisResult,
+                        ),
                     ),
                 )
 
@@ -135,22 +140,26 @@ class ABSImportViewModelAnalysisCountsTest {
             val analysisResult = completedAnalysisResponse()
 
             everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AsyncAnalyzeResponse(analysisId = "a2")
+                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a2"))
 
             everySuspend { backupApi.getAnalysisStatus("a2") } sequentiallyReturns
                 listOf(
-                    AnalysisStatusResponse(
-                        status = "running",
-                        phase = "parsing",
-                        current = 0,
-                        total = 0,
-                        totalBooks = 0,
-                        totalUsers = 0,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "running",
+                            phase = "parsing",
+                            current = 0,
+                            total = 0,
+                            totalBooks = 0,
+                            totalUsers = 0,
+                        ),
                     ),
-                    AnalysisStatusResponse(
-                        status = "completed",
-                        phase = "done",
-                        result = analysisResult,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "completed",
+                            phase = "done",
+                            result = analysisResult,
+                        ),
                     ),
                 )
 
@@ -172,30 +181,36 @@ class ABSImportViewModelAnalysisCountsTest {
             val analysisResult = completedAnalysisResponse()
 
             everySuspend { backupApi.analyzeABSBackupAsync(any()) } returns
-                AsyncAnalyzeResponse(analysisId = "a3")
+                AppResult.Success(AsyncAnalyzeResponse(analysisId = "a3"))
 
             everySuspend { backupApi.getAnalysisStatus("a3") } sequentiallyReturns
                 listOf(
                     // First poll: only users known
-                    AnalysisStatusResponse(
-                        status = "running",
-                        phase = "matching_users",
-                        totalBooks = 0,
-                        totalUsers = 5,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "running",
+                            phase = "matching_users",
+                            totalBooks = 0,
+                            totalUsers = 5,
+                        ),
                     ),
                     // Second poll: books now known too
-                    AnalysisStatusResponse(
-                        status = "running",
-                        phase = "matching_books",
-                        current = 50,
-                        total = 1011,
-                        totalBooks = 1011,
-                        totalUsers = 5,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "running",
+                            phase = "matching_books",
+                            current = 50,
+                            total = 1011,
+                            totalBooks = 1011,
+                            totalUsers = 5,
+                        ),
                     ),
-                    AnalysisStatusResponse(
-                        status = "completed",
-                        phase = "done",
-                        result = analysisResult,
+                    AppResult.Success(
+                        AnalysisStatusResponse(
+                            status = "completed",
+                            phase = "done",
+                            result = analysisResult,
+                        ),
                     ),
                 )
 

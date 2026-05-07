@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.getOrNull
@@ -210,10 +210,13 @@ class SyncManager(
                 pushOrchestrator.flush()
 
                 // Pull changes since last sync
-                pullOrchestrator.pull { /* suppress progress updates for background sync */ }
-
-                // Update sync timestamp
-                syncDao.setLastSyncTime(Timestamp.now())
+                val deltaResult = pullOrchestrator.pull { /* suppress progress updates for background sync */ }
+                if (deltaResult is AppResult.Failure) {
+                    logger.warn { "Delta sync failed during connectRealtime: ${deltaResult.error.message}" }
+                } else {
+                    // Update sync timestamp only on success
+                    syncDao.setLastSyncTime(Timestamp.now())
+                }
             }
             logger.info { "Real-time connection established with delta sync" }
         } catch (e: CancellationException) {
@@ -253,11 +256,14 @@ class SyncManager(
                     // Pull changes since disconnect time for ALL entity types.
                     // PullSyncOrchestrator.pull() uses syncDao.getLastSyncTime() internally,
                     // which should be before disconnectedAt, so it catches everything.
-                    pullOrchestrator.pull { /* suppress progress updates for background sync */ }
-
-                    // Update sync timestamp
-                    val now = Timestamp.now()
-                    syncDao.setLastSyncTime(now)
+                    val reconnectResult = pullOrchestrator.pull { /* suppress progress updates for background sync */ }
+                    if (reconnectResult is AppResult.Failure) {
+                        logger.warn { "Reconnection pull sync failed: ${reconnectResult.error.message}" }
+                    } else {
+                        // Update sync timestamp only on success
+                        val now = Timestamp.now()
+                        syncDao.setLastSyncTime(now)
+                    }
                 }
 
                 logger.info { "Reconnection delta sync completed successfully" }
@@ -288,7 +294,12 @@ class SyncManager(
                 }
 
                 // Check if server has books we don't have locally
-                val status = setupApi.getLibraryStatus()
+                val statusResult = setupApi.getLibraryStatus()
+                if (statusResult is AppResult.Failure) {
+                    logger.warn { "Scan completion sync failed: could not fetch library status" }
+                    return@launch
+                }
+                val status = (statusResult as AppResult.Success).data
                 val localBookCount = bookDao.count()
 
                 // If server has books but we don't, we need to sync
@@ -301,17 +312,23 @@ class SyncManager(
                         // before the previous sync set lastSyncTime.
                         syncDao.clearLastSyncTime()
 
-                        pullOrchestrator.pull { /* suppress progress updates for background sync */ }
+                        val scanSyncResult =
+                            pullOrchestrator.pull {
+                                // suppress progress updates for background sync
+                            }
+                        if (scanSyncResult is AppResult.Failure) {
+                            logger.warn { "Post-scan full sync failed: ${scanSyncResult.error.message}" }
+                        } else {
+                            try {
+                                ftsPopulator.rebuildAll()
+                            } catch (e: CancellationException) {
+                                throw e // cooperative cancellation — never swallow
+                            } catch (e: Exception) {
+                                logger.warn(e) { "FTS rebuild failed after scan completion sync" }
+                            }
 
-                        try {
-                            ftsPopulator.rebuildAll()
-                        } catch (e: CancellationException) {
-                            throw e // cooperative cancellation — never swallow
-                        } catch (e: Exception) {
-                            logger.warn(e) { "FTS rebuild failed after scan completion sync" }
+                            syncDao.setLastSyncTime(Timestamp.now())
                         }
-
-                        syncDao.setLastSyncTime(Timestamp.now())
                     }
 
                     val newLocalCount = bookDao.count()
@@ -320,8 +337,14 @@ class SyncManager(
                     // SSE reported changes - do a delta sync
                     syncMutex.withLock {
                         pushOrchestrator.flush()
-                        pullOrchestrator.pull { /* suppress progress updates */ }
-                        syncDao.setLastSyncTime(Timestamp.now())
+                        val deltaSyncResult = pullOrchestrator.pull { /* suppress progress updates */ }
+                        if (deltaSyncResult is AppResult.Success) {
+                            syncDao.setLastSyncTime(Timestamp.now())
+                        } else {
+                            logger.warn {
+                                "Post-scan delta sync failed: ${(deltaSyncResult as AppResult.Failure).error.message}"
+                            }
+                        }
                     }
                 }
             } catch (e: CancellationException) {
@@ -350,7 +373,13 @@ class SyncManager(
             }
 
             // Phase 1: Pull changes from server
-            pullOrchestrator.pull { updateSyncState(it) }
+            val pullResult = pullOrchestrator.pull { updateSyncState(it) }
+            if (pullResult is AppResult.Failure) {
+                errorBus.emit(SyncError.SyncFailed(debugInfo = pullResult.error.debugInfo))
+                logger.error { "Pull sync failed: ${pullResult.error.message}" }
+                _syncState.value = SyncStatus.Error(exception = Exception(pullResult.error.message))
+                return pullResult
+            }
 
             // Phase 2: Pull user preferences (non-blocking)
             pullUserPreferences()
@@ -564,7 +593,12 @@ class SyncManager(
      */
     private suspend fun initializeScanState(): Boolean {
         try {
-            val status = setupApi.getLibraryStatus()
+            val statusResult = setupApi.getLibraryStatus()
+            if (statusResult is AppResult.Failure) {
+                logger.warn { "Failed to check library scan status" }
+                return false
+            }
+            val status = (statusResult as AppResult.Success).data
             val localBookCount = bookDao.count()
 
             // Set UI indicator based on current scan state

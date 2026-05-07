@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
@@ -45,46 +47,9 @@ class CollectionRepositoryImpl(
         dao.deleteById(id)
     }
 
-    override suspend fun create(name: String): Collection {
+    override suspend fun create(name: String): AppResult<Collection> {
         logger.info { "Creating collection: $name" }
-        val response = adminCollectionApi.createCollection(name)
-        val collection =
-            Collection(
-                id = response.id,
-                name = response.name,
-                bookCount = response.bookCount,
-                createdAtMs = response.createdAt.toTimestamp().epochMillis,
-                updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
-            )
-        // Persist locally for immediate UI feedback
-        dao.upsert(collection.toEntity())
-        logger.info { "Created collection: ${collection.name} (${collection.id})" }
-        return collection
-    }
-
-    override suspend fun delete(id: String) {
-        logger.info { "Deleting collection: $id" }
-        adminCollectionApi.deleteCollection(id)
-        // Remove locally for immediate feedback
-        dao.deleteById(id)
-        logger.info { "Deleted collection: $id" }
-    }
-
-    override suspend fun addBooksToCollection(
-        collectionId: String,
-        bookIds: List<String>,
-    ) {
-        logger.info { "Adding ${bookIds.size} books to collection $collectionId" }
-        adminCollectionApi.addBooks(collectionId, bookIds)
-    }
-
-    override suspend fun refreshFromServer() {
-        logger.debug { "Refreshing collections from server" }
-        val serverCollections = adminCollectionApi.getCollections()
-        logger.debug { "Fetched ${serverCollections.size} collections from server" }
-
-        // Update local database with server data
-        serverCollections.forEach { response ->
+        return adminCollectionApi.createCollection(name).map { response ->
             val collection =
                 Collection(
                     id = response.id,
@@ -93,69 +58,128 @@ class CollectionRepositoryImpl(
                     createdAtMs = response.createdAt.toTimestamp().epochMillis,
                     updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
                 )
+            // Persist locally for immediate UI feedback
             dao.upsert(collection.toEntity())
-        }
-
-        // Delete local collections that no longer exist on server
-        val serverIds = serverCollections.map { it.id }.toSet()
-        val localCollections = dao.getAll()
-        localCollections.filter { it.id !in serverIds }.forEach { orphan ->
-            logger.debug { "Removing orphaned collection: ${orphan.name} (${orphan.id})" }
-            dao.deleteById(orphan.id)
+            logger.info { "Created collection: ${collection.name} (${collection.id})" }
+            collection
         }
     }
 
-    override suspend fun getCollectionFromServer(collectionId: String): Collection {
+    override suspend fun delete(id: String): AppResult<Unit> {
+        logger.info { "Deleting collection: $id" }
+        return adminCollectionApi.deleteCollection(id).map {
+            // Remove locally for immediate feedback
+            dao.deleteById(id)
+            logger.info { "Deleted collection: $id" }
+        }
+    }
+
+    override suspend fun addBooksToCollection(
+        collectionId: String,
+        bookIds: List<String>,
+    ): AppResult<Unit> {
+        logger.info { "Adding ${bookIds.size} books to collection $collectionId" }
+        return adminCollectionApi.addBooks(collectionId, bookIds)
+    }
+
+    override suspend fun refreshFromServer(): AppResult<Unit> {
+        logger.debug { "Refreshing collections from server" }
+        return adminCollectionApi.getCollections().map { serverCollections ->
+            logger.debug { "Fetched ${serverCollections.size} collections from server" }
+
+            // Update local database with server data
+            serverCollections.forEach { response ->
+                val collection =
+                    Collection(
+                        id = response.id,
+                        name = response.name,
+                        bookCount = response.bookCount,
+                        createdAtMs = response.createdAt.toTimestamp().epochMillis,
+                        updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
+                    )
+                dao.upsert(collection.toEntity())
+            }
+
+            // Delete local collections that no longer exist on server
+            val serverIds = serverCollections.map { it.id }.toSet()
+            val localCollections = dao.getAll()
+            localCollections.filter { it.id !in serverIds }.forEach { orphan ->
+                logger.debug { "Removing orphaned collection: ${orphan.name} (${orphan.id})" }
+                dao.deleteById(orphan.id)
+            }
+        }
+    }
+
+    override suspend fun getCollectionFromServer(collectionId: String): AppResult<Collection> {
         logger.debug { "Fetching collection from server: $collectionId" }
-        val response = adminCollectionApi.getCollection(collectionId)
-        return Collection(
-            id = response.id,
-            name = response.name,
-            bookCount = response.bookCount,
-            createdAtMs = response.createdAt.toTimestamp().epochMillis,
-            updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
-        )
+        return adminCollectionApi.getCollection(collectionId).map { response ->
+            Collection(
+                id = response.id,
+                name = response.name,
+                bookCount = response.bookCount,
+                createdAtMs = response.createdAt.toTimestamp().epochMillis,
+                updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
+            )
+        }
     }
 
-    override suspend fun getCollectionBooks(collectionId: String): List<CollectionBookSummary> {
+    override suspend fun getCollectionBooks(collectionId: String): AppResult<List<CollectionBookSummary>> {
         logger.debug { "Fetching books for collection: $collectionId" }
-        val books = adminCollectionApi.getCollectionBooks(collectionId)
-        return books.map { book ->
-            CollectionBookSummary(
-                id = book.id,
-                title = book.title,
-                coverPath = book.coverPath,
-            )
+        return adminCollectionApi.getCollectionBooks(collectionId).map { books ->
+            books.map { book ->
+                CollectionBookSummary(
+                    id = book.id,
+                    title = book.title,
+                    coverPath = book.coverPath,
+                )
+            }
         }
     }
 
     override suspend fun updateCollectionName(
         collectionId: String,
         name: String,
-    ): Collection {
+    ): AppResult<Collection> {
         logger.info { "Updating collection name: $collectionId -> $name" }
-        val response = adminCollectionApi.updateCollection(collectionId, name)
-        return Collection(
-            id = response.id,
-            name = response.name,
-            bookCount = response.bookCount,
-            createdAtMs = response.createdAt.toTimestamp().epochMillis,
-            updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
-        )
+        return adminCollectionApi.updateCollection(collectionId, name).map { response ->
+            Collection(
+                id = response.id,
+                name = response.name,
+                bookCount = response.bookCount,
+                createdAtMs = response.createdAt.toTimestamp().epochMillis,
+                updatedAtMs = response.updatedAt.toTimestamp().epochMillis,
+            )
+        }
     }
 
     override suspend fun removeBookFromCollection(
         collectionId: String,
         bookId: String,
-    ) {
+    ): AppResult<Unit> {
         logger.info { "Removing book $bookId from collection $collectionId" }
-        adminCollectionApi.removeBook(collectionId, bookId)
+        return adminCollectionApi.removeBook(collectionId, bookId)
     }
 
-    override suspend fun getCollectionShares(collectionId: String): List<CollectionShareSummary> {
+    override suspend fun getCollectionShares(collectionId: String): AppResult<List<CollectionShareSummary>> {
         logger.debug { "Fetching shares for collection: $collectionId" }
-        val shares = adminCollectionApi.getCollectionShares(collectionId)
-        return shares.map { share ->
+        return adminCollectionApi.getCollectionShares(collectionId).map { shares ->
+            shares.map { share ->
+                CollectionShareSummary(
+                    id = share.id,
+                    userId = share.sharedWithUserId,
+                    // userName and userEmail left as defaults - can be enriched by use case
+                    permission = share.permission,
+                )
+            }
+        }
+    }
+
+    override suspend fun shareCollection(
+        collectionId: String,
+        userId: String,
+    ): AppResult<CollectionShareSummary> {
+        logger.info { "Sharing collection $collectionId with user $userId" }
+        return adminCollectionApi.shareCollection(collectionId, userId).map { share ->
             CollectionShareSummary(
                 id = share.id,
                 userId = share.sharedWithUserId,
@@ -165,23 +189,9 @@ class CollectionRepositoryImpl(
         }
     }
 
-    override suspend fun shareCollection(
-        collectionId: String,
-        userId: String,
-    ): CollectionShareSummary {
-        logger.info { "Sharing collection $collectionId with user $userId" }
-        val share = adminCollectionApi.shareCollection(collectionId, userId)
-        return CollectionShareSummary(
-            id = share.id,
-            userId = share.sharedWithUserId,
-            // userName and userEmail left as defaults - can be enriched by use case
-            permission = share.permission,
-        )
-    }
-
-    override suspend fun removeShare(shareId: String) {
+    override suspend fun removeShare(shareId: String): AppResult<Unit> {
         logger.info { "Removing share: $shareId" }
-        adminCollectionApi.deleteShare(shareId)
+        return adminCollectionApi.deleteShare(shareId)
     }
 }
 

@@ -1,10 +1,11 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.error.AppException
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.test.http.testMockEngine
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -17,15 +18,13 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Integration tests for [installListenUpErrorHandling], the response-validation
- * extension installed on every [HttpClient]. Verifies Ktor HTTP responses flow
- * through [ErrorMapper][com.calypsan.listenup.client.core.error.ErrorMapper]
- * into [AppException]-wrapped [AppError][com.calypsan.listenup.api.error.AppError]
- * at a single boundary.
+ * Verifies that [installListenUpErrorHandling] sets `expectSuccess = true` so that
+ * non-2xx responses surface as [ResponseException] (Ktor's standard exception for
+ * non-success HTTP status codes).
  *
- * See Finding 01 D6 for motivation: `expectSuccess` is off today, so a 500 returning
- * HTML is caught by `kotlinx.serialization` and misclassified as a data error rather
- * than a server error.
+ * Error mapping (ResponseException → typed AppError) happens at the `apiCall { ... }`
+ * boundary, not inside the plugin itself. These tests verify the plugin's single
+ * responsibility: raise on non-2xx rather than passing error bodies to the decoder.
  */
 class HttpClientErrorHandlingTest {
     private fun client(block: com.calypsan.listenup.client.test.http.TestMockEngineBuilder.() -> Unit): HttpClient =
@@ -44,55 +43,68 @@ class HttpClientErrorHandlingTest {
         }
 
     @Test
-    fun serverErrorResponseThrowsAppExceptionWithServer5xx500() =
+    fun serverErrorResponseRaisesResponseException() =
         runTest {
+            // expectSuccess = true means Ktor raises ResponseException on non-2xx.
+            // The exception type is ResponseException (or a ServerResponseException subtype).
             val c = client { respondStatus("/boom", HttpStatusCode.InternalServerError) }
 
-            val thrown = assertFailsWith<AppException> { c.get("http://unit.test/boom") }
-            val err = thrown.error
-            assertIs<TransportError.Server5xx>(err)
-            assertEquals(500, err.statusCode)
+            val thrown = assertFailsWith<ResponseException> { c.get("http://unit.test/boom") }
+            assertEquals(500, thrown.response.status.value)
         }
 
     @Test
-    fun unauthorizedResponseThrowsAppExceptionWithServer4xx401() =
+    fun unauthorizedResponseRaisesResponseException() =
         runTest {
-            // ErrorMapper maps 401 to TransportError.Server4xx with statusCode=401 (not
-            // AuthError — auth is a higher-level concept: 401 on an unauthenticated endpoint
-            // isn't "auth expired," so the boundary stays neutral). Auth-specific handling
-            // upgrades this to AuthError at the repository layer.
             val c = client { respondStatus("/secret", HttpStatusCode.Unauthorized) }
 
-            val thrown = assertFailsWith<AppException> { c.get("http://unit.test/secret") }
-            val err = thrown.error
-            assertIs<TransportError.Server4xx>(err)
-            assertEquals(401, err.statusCode)
+            val thrown = assertFailsWith<ResponseException> { c.get("http://unit.test/secret") }
+            assertEquals(401, thrown.response.status.value)
         }
 
     @Test
-    fun notFoundResponseThrowsAppExceptionWithServer4xx404() =
+    fun notFoundResponseRaisesResponseException() =
         runTest {
             val c = client { respondStatus("/missing", HttpStatusCode.NotFound) }
 
-            val thrown = assertFailsWith<AppException> { c.get("http://unit.test/missing") }
-            val err = thrown.error
-            assertIs<TransportError.Server4xx>(err)
-            assertEquals(404, err.statusCode)
+            val thrown = assertFailsWith<ResponseException> { c.get("http://unit.test/missing") }
+            assertEquals(404, thrown.response.status.value)
         }
 
     @Test
-    fun appExceptionPreservesErrorThroughCausalChain() =
+    fun apiCallCatchesResponseExceptionAndProducesTypedFailure() =
         runTest {
-            // The AppException wraps ErrorMapper's output without losing the typed AppError.
-            // Downstream catch sites read exception.error to get the already-categorised AppError.
+            // End-to-end: installListenUpErrorHandling raises ResponseException on non-2xx;
+            // apiCall catches it; ErrorMapper produces a typed AppError.
+            // This validates the full boundary contract without reaching any server.
+            val c = client { respondStatus("/boom", HttpStatusCode.InternalServerError) }
+
+            val result =
+                apiCall<String>(errorMessage = "Failed to fetch") {
+                    c.get("http://unit.test/boom").body()
+                }
+
+            assertIs<AppResult.Failure>(result)
+            val error = result.error
+            assertIs<TransportError.Server5xx>(error)
+            assertEquals(500, error.statusCode)
+        }
+
+    @Test
+    fun apiCallCatchesForbiddenAndProducesTypedServer4xxFailure() =
+        runTest {
+            // 403 Forbidden → ErrorMapper classifies as TransportError.Server4xx(403).
+            // Auth-specific upgrade (to AuthError) happens at the repository layer.
             val c = client { respondStatus("/forbidden", HttpStatusCode.Forbidden) }
 
-            val thrown = assertFailsWith<AppException> { c.get("http://unit.test/forbidden") }
-            // The shape is "caught AppException → read .error → switch on AppError subtype"
-            when (val e = thrown.error) {
-                is TransportError.Server4xx -> assertEquals(403, e.statusCode)
-                is AuthError -> error("403 must map to TransportError.Server4xx(403), not AuthError")
-                else -> error("unexpected error variant: $e")
-            }
+            val result =
+                apiCall<String>(errorMessage = "Failed to fetch") {
+                    c.get("http://unit.test/forbidden").body()
+                }
+
+            assertIs<AppResult.Failure>(result)
+            val error = result.error
+            assertIs<TransportError.Server4xx>(error)
+            assertEquals(403, error.statusCode)
         }
 }

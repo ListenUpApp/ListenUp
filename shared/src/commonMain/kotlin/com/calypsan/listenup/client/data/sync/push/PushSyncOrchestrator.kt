@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.error.AppException
 
 private val logger = KotlinLogging.logger {}
 
@@ -133,9 +132,7 @@ class PushSyncOrchestrator(
                                 val operation = batch.first { it.id == id }
                                 handleFailure(
                                     operation,
-                                    (result as? com.calypsan.listenup.client.core.Failure)?.let {
-                                        AppException(it.error)
-                                    },
+                                    (result as? com.calypsan.listenup.client.core.Failure)?.error?.message,
                                 )
                             }
                         }
@@ -170,14 +167,14 @@ class PushSyncOrchestrator(
 
     private suspend fun handleFailure(
         operation: com.calypsan.listenup.client.data.local.db.PendingOperationEntity,
-        e: Exception?,
+        errorMessage: String?,
     ) {
         val newAttemptCount = operation.attemptCount + 1
         val error =
             if (newAttemptCount >= MAX_RETRIES) {
-                "Max retries exceeded: ${e?.message ?: "Unknown error"}"
+                "Max retries exceeded: ${errorMessage ?: "Unknown error"}"
             } else {
-                e?.message ?: "Unknown error"
+                errorMessage ?: "Unknown error"
             }
         repository.markFailed(operation.id, error)
     }

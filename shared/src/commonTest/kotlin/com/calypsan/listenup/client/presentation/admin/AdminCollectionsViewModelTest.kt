@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.Collection
@@ -67,7 +68,7 @@ class AdminCollectionsViewModelTest {
     private fun createFixture(): TestFixture {
         val fixture = TestFixture()
         every { fixture.collectionRepository.observeAll() } returns fixture.collectionsFlow
-        everySuspend { fixture.collectionRepository.refreshFromServer() } returns Unit
+        everySuspend { fixture.collectionRepository.refreshFromServer() } returns AppResult.Success(Unit)
         return fixture
     }
 
@@ -107,7 +108,7 @@ class AdminCollectionsViewModelTest {
                 flow {
                     kotlinx.coroutines.awaitCancellation()
                 }
-            everySuspend { repository.refreshFromServer() } returns Unit
+            everySuspend { repository.refreshFromServer() } returns AppResult.Success(Unit)
 
             // When
             val viewModel =
@@ -157,7 +158,7 @@ class AdminCollectionsViewModelTest {
                 flow {
                     throw RuntimeException("db broken")
                 }
-            everySuspend { repository.refreshFromServer() } returns Unit
+            everySuspend { repository.refreshFromServer() } returns AppResult.Success(Unit)
 
             // When
             val viewModel =
@@ -207,7 +208,10 @@ class AdminCollectionsViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.createCollectionUseCase(any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "duplicate name"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "duplicate name"),
+                )
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -253,7 +257,10 @@ class AdminCollectionsViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.deleteCollectionUseCase("a") } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "not permitted"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "not permitted"),
+                )
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -278,7 +285,10 @@ class AdminCollectionsViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.deleteCollectionUseCase("a") } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "boom"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "boom"),
+                )
             val viewModel = fixture.build()
             advanceUntilIdle()
             viewModel.deleteCollection("a")

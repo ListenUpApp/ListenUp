@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -258,15 +258,16 @@ class DiscoverViewModel(
             }
 
             logger.debug { "Room is empty, fetching discover shelves from API" }
-            try {
-                val count = shelfRepository.fetchAndCacheDiscoverShelves()
-                logger.info { "Fetched and stored $count discover shelves" }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to fetch discover shelves" }
-                // Not fatal - Room Flow will show empty state, SSE will populate over time
+            when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
+                is AppResult.Success -> {
+                    logger.info { "Fetched and stored ${result.data} discover shelves" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to fetch discover shelves: ${result.error.message}" }
+                    // Not fatal - Room Flow will show empty state, SSE will populate over time
+                }
             }
         }
     }
@@ -276,14 +277,15 @@ class DiscoverViewModel(
      */
     private fun refreshDiscoverShelves() {
         viewModelScope.launch {
-            try {
-                val count = shelfRepository.fetchAndCacheDiscoverShelves()
-                logger.debug { "Refreshed $count discover shelves from API" }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to refresh discover shelves" }
+            when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
+                is AppResult.Success -> {
+                    logger.debug { "Refreshed ${result.data} discover shelves from API" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to refresh discover shelves: ${result.error.message}" }
+                }
             }
         }
     }

@@ -214,7 +214,10 @@ class SeriesEditViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Save failed"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Save failed"),
+                )
 
             val viewModel = fixture.build()
             viewModel.loadSeries("series-1")

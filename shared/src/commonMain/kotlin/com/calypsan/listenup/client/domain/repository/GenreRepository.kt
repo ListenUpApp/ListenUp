@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
 import kotlinx.coroutines.flow.Flow
 
@@ -10,6 +11,15 @@ import kotlinx.coroutines.flow.Flow
  * Genres form a tree structure (e.g., Fiction > Fantasy > Epic Fantasy).
  *
  * Part of the domain layer - implementations live in the data layer.
+ *
+ * Read methods (`observeAll`, `getAll`, `getById`, `getBySlug`,
+ * `observeGenresForBook`, `getGenresForBook`, `getBookIdsForGenre`)
+ * are local-only and cannot fail — they return plain values.
+ *
+ * Write methods that touch the server (`setGenresForBook`, `createGenre`,
+ * `updateGenre`, `deleteGenre`, `moveGenre`) return [AppResult] — success
+ * carries the value, failure carries a typed
+ * [com.calypsan.listenup.api.error.AppError].
  */
 interface GenreRepository {
     /**
@@ -69,7 +79,8 @@ interface GenreRepository {
     /**
      * Set genres for a book (replaces all existing genres).
      *
-     * Calls API to update server, then updates local Room for reactivity.
+     * Calls API to update server; on success, updates local Room for reactivity.
+     * On failure, the local cache is left untouched.
      *
      * @param bookId The book ID
      * @param genreIds List of genre IDs to set
@@ -77,7 +88,7 @@ interface GenreRepository {
     suspend fun setGenresForBook(
         bookId: String,
         genreIds: List<String>,
-    )
+    ): AppResult<Unit>
 
     /**
      * Create a new genre.
@@ -85,7 +96,7 @@ interface GenreRepository {
     suspend fun createGenre(
         name: String,
         parentId: String?,
-    ): Genre
+    ): AppResult<Genre>
 
     /**
      * Update an existing genre's name.
@@ -93,12 +104,16 @@ interface GenreRepository {
     suspend fun updateGenre(
         id: String,
         name: String,
-    ): Genre
+    ): AppResult<Genre>
 
     /**
      * Delete a genre.
+     *
+     * Calls API to delete from server; on success, removes the genre from
+     * local Room for immediate reactivity. On failure, the local cache is
+     * left untouched.
      */
-    suspend fun deleteGenre(id: String)
+    suspend fun deleteGenre(id: String): AppResult<Unit>
 
     /**
      * Move a genre to a new parent.
@@ -106,5 +121,5 @@ interface GenreRepository {
     suspend fun moveGenre(
         id: String,
         newParentId: String?,
-    )
+    ): AppResult<Unit>
 }

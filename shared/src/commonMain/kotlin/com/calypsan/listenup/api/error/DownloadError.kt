@@ -11,7 +11,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface DownloadError : AppError {
-
     /** Download of an audiobook failed. */
     @Serializable
     @SerialName("DownloadError.DownloadFailed")

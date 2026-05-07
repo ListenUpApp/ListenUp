@@ -35,6 +35,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
@@ -94,7 +95,7 @@ class DiscoverViewModelTest {
         every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
         every { fixture.shelfRepository.observeDiscoverShelves(any()) } returns fixture.discoverShelvesFlow
         everySuspend { fixture.shelfRepository.countDiscoverShelves(any()) } returns existingDiscoverShelfCount
-        everySuspend { fixture.shelfRepository.fetchAndCacheDiscoverShelves() } returns 0
+        everySuspend { fixture.shelfRepository.fetchAndCacheDiscoverShelves() } returns AppResult.Success(0)
 
         return fixture
     }

@@ -18,18 +18,20 @@ import kotlinx.serialization.Serializable
  *   payloads). If a new wire-borne type lands in `:server` instead of commonMain, this rule
  *   must be tightened or the type moved — that's the regression this rule blocks.
  */
-class DtosLiveInCommonMainRule : FunSpec({
-    test("every wire-borne @Serializable data class lives in a commonMain source set") {
-        val offenders = Konsist
-            .scopeFromProduction()
-            .classes()
-            .withAnnotationOf(Serializable::class)
-            .filter { !it.path.contains("/commonMain/") }
-            // Allowlist: see KDoc on this rule for justification.
-            .filter { !it.path.contains("/server/src/main/") }
-            .filter { !it.path.contains("/composeApp/") }
-            .map { "${it.fullyQualifiedName} @ ${it.path}" }
+class DtosLiveInCommonMainRule :
+    FunSpec({
+        test("every wire-borne @Serializable data class lives in a commonMain source set") {
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .classes()
+                    .withAnnotationOf(Serializable::class)
+                    .filter { !it.path.contains("/commonMain/") }
+                    // Allowlist: see KDoc on this rule for justification.
+                    .filter { !it.path.contains("/server/src/main/") }
+                    .filter { !it.path.contains("/composeApp/") }
+                    .map { "${it.fullyQualifiedName} @ ${it.path}" }
 
-        offenders.shouldBeEmpty()
-    }
-})
+            offenders.shouldBeEmpty()
+        }
+    })

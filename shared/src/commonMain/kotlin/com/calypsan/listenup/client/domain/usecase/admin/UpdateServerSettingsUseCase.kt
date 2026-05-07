@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
@@ -18,15 +17,11 @@ open class UpdateServerSettingsUseCase(
      * Update inbox enabled setting only (backwards compatible).
      */
     open suspend operator fun invoke(inboxEnabled: Boolean): AppResult<ServerSettings> =
-        suspendRunCatching {
-            adminRepository.updateServerSettings(inboxEnabled = inboxEnabled)
-        }
+        adminRepository.updateServerSettings(inboxEnabled = inboxEnabled)
 
     /**
      * Update server name only.
      */
     open suspend fun updateServerName(serverName: String): AppResult<ServerSettings> =
-        suspendRunCatching {
-            adminRepository.updateServerSettings(serverName = serverName)
-        }
+        adminRepository.updateServerSettings(serverName = serverName)
 }
