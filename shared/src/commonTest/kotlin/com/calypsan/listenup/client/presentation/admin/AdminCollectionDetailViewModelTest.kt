@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -212,7 +213,7 @@ class AdminCollectionDetailViewModelTest {
             val fixture = TestFixture()
             val collection = createCollection(name = "Server Collection")
             everySuspend { fixture.collectionRepository.getById(collection.id) } returns null
-            everySuspend { fixture.collectionRepository.getCollectionFromServer(collection.id) } returns collection
+            everySuspend { fixture.collectionRepository.getCollectionFromServer(collection.id) } returns AppResult.Success(collection)
             everySuspend { fixture.loadCollectionBooksUseCase(collection.id) } returns Success(emptyList())
             everySuspend { fixture.loadCollectionSharesUseCase(collection.id) } returns Success(emptyList())
 

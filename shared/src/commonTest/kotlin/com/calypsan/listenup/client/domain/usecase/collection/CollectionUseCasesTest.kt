@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.checkIs
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.Collection
@@ -46,7 +47,7 @@ class CollectionUseCasesTest {
             // Given
             val repository: CollectionRepository = mock()
             val collection = createCollection(name = "My Collection")
-            everySuspend { repository.create(any()) } returns collection
+            everySuspend { repository.create(any()) } returns AppResult.Success(collection)
             val useCase = CreateCollectionUseCase(repository)
 
             // When
@@ -63,7 +64,7 @@ class CollectionUseCasesTest {
         runTest {
             // Given
             val repository: CollectionRepository = mock()
-            everySuspend { repository.create(any()) } returns createCollection()
+            everySuspend { repository.create(any()) } returns AppResult.Success(createCollection())
             val useCase = CreateCollectionUseCase(repository)
 
             // When
@@ -111,7 +112,8 @@ class CollectionUseCasesTest {
             // failure path is hit. Specific message text comes from the test fixture
             // itself (not production behavior), so asserting on it adds no coverage.
             val repository: CollectionRepository = mock()
-            everySuspend { repository.create(any()) } throws Exception("repo failed")
+            everySuspend { repository.create(any()) } returns
+                AppResult.Failure(com.calypsan.listenup.api.error.ValidationError(message = "repo failed"))
             val useCase = CreateCollectionUseCase(repository)
 
             val result = useCase(name = "Test")
@@ -126,7 +128,7 @@ class CollectionUseCasesTest {
         runTest {
             // Given
             val repository: CollectionRepository = mock()
-            everySuspend { repository.delete(any()) } returns Unit
+            everySuspend { repository.delete(any()) } returns AppResult.Success(Unit)
             val useCase = DeleteCollectionUseCase(repository)
 
             // When
@@ -141,7 +143,7 @@ class CollectionUseCasesTest {
         runTest {
             // Given
             val repository: CollectionRepository = mock()
-            everySuspend { repository.delete(any()) } returns Unit
+            everySuspend { repository.delete(any()) } returns AppResult.Success(Unit)
             val useCase = DeleteCollectionUseCase(repository)
 
             // When
@@ -156,7 +158,8 @@ class CollectionUseCasesTest {
         runTest {
             // See `create collection returns failure on repository error` for rationale.
             val repository: CollectionRepository = mock()
-            everySuspend { repository.delete(any()) } throws Exception("repo failed")
+            everySuspend { repository.delete(any()) } returns
+                AppResult.Failure(com.calypsan.listenup.api.error.ValidationError(message = "repo failed"))
             val useCase = DeleteCollectionUseCase(repository)
 
             val result = useCase(collectionId = "collection-123")

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
@@ -40,19 +41,21 @@ open class GetUsersForSharingUseCase(
     open suspend operator fun invoke(collectionId: String): AppResult<List<AdminUserInfo>> {
         logger.debug { "Loading users available for sharing collection: $collectionId" }
 
+        // adminRepository.getUsers() still throws (not yet migrated to AppResult);
+        // suspendRunCatching wraps that throwing path.
         return suspendRunCatching {
             // Get all users
             val allUsers = adminRepository.getUsers()
 
-            // Get current shares to filter out
+            // Get current shares to filter out; collectionRepository.getCollectionShares()
+            // now returns AppResult — treat failure as empty list (non-fatal secondary call).
             val existingShares =
-                try {
-                    collectionRepository.getCollectionShares(collectionId)
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Failed to load existing shares, proceeding with all users" }
-                    emptyList()
+                when (val sharesResult = collectionRepository.getCollectionShares(collectionId)) {
+                    is Success -> sharesResult.data
+                    else -> {
+                        logger.warn { "Failed to load existing shares, proceeding with all users" }
+                        emptyList()
+                    }
                 }
             val sharedUserIds = existingShares.map { it.userId }.toSet()
 

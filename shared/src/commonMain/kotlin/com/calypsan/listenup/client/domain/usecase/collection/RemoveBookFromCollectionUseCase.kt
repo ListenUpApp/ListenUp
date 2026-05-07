@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -38,9 +37,6 @@ open class RemoveBookFromCollectionUseCase(
     ): AppResult<Unit> {
         logger.info { "Removing book $bookId from collection $collectionId" }
 
-        return suspendRunCatching {
-            collectionRepository.removeBookFromCollection(collectionId, bookId)
-            logger.info { "Removed book $bookId from collection $collectionId" }
-        }
+        return collectionRepository.removeBookFromCollection(collectionId, bookId)
     }
 }

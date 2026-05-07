@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
@@ -77,15 +76,16 @@ class AdminCollectionsViewModel(
      */
     fun refreshCollections() {
         viewModelScope.launch {
-            try {
-                collectionRepository.refreshFromServer()
-                logger.debug { "Refreshed collections from server" }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.warn(e) { "Failed to refresh collections from server" }
-                // Don't update error state - local data is still usable
+            when (val result = collectionRepository.refreshFromServer()) {
+                is Success -> {
+                    logger.debug { "Refreshed collections from server" }
+                }
+
+                is Failure -> {
+                    errorBus.emit(result.error)
+                    logger.warn { "Failed to refresh collections from server: ${result.message}" }
+                    // Don't update error state - local data is still usable
+                }
             }
         }
     }
@@ -105,6 +105,7 @@ class AdminCollectionsViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(isCreating = false, error = result.message)
                     }
@@ -128,6 +129,7 @@ class AdminCollectionsViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     updateReady {
                         it.copy(deletingCollectionId = null, error = result.message)
                     }
