@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.model.Genre
 import io.ktor.client.call.body
@@ -16,13 +18,16 @@ import kotlinx.serialization.Serializable
 /**
  * Contract interface for genre API operations.
  *
+ * All fallible methods return [AppResult] — success carries the value,
+ * failure carries a typed [com.calypsan.listenup.api.error.AppError].
+ *
  * Extracted to enable mocking in tests.
  */
 interface GenreApiContract {
     /**
      * Get all available genres.
      */
-    suspend fun listGenres(): List<Genre>
+    suspend fun listGenres(): AppResult<List<Genre>>
 
     /**
      * Set genres for a book (replaces all existing genre associations).
@@ -30,12 +35,12 @@ interface GenreApiContract {
     suspend fun setBookGenres(
         bookId: String,
         genreIds: List<String>,
-    )
+    ): AppResult<Unit>
 
     /**
      * Get genres for a specific book.
      */
-    suspend fun getBookGenres(bookId: String): List<Genre>
+    suspend fun getBookGenres(bookId: String): AppResult<List<Genre>>
 
     /**
      * Create a new genre.
@@ -43,7 +48,7 @@ interface GenreApiContract {
     suspend fun createGenre(
         name: String,
         parentId: String?,
-    ): Genre
+    ): AppResult<Genre>
 
     /**
      * Update an existing genre's name.
@@ -51,12 +56,12 @@ interface GenreApiContract {
     suspend fun updateGenre(
         id: String,
         name: String,
-    ): Genre
+    ): AppResult<Genre>
 
     /**
      * Delete a genre.
      */
-    suspend fun deleteGenre(id: String)
+    suspend fun deleteGenre(id: String): AppResult<Unit>
 
     /**
      * Move a genre to a new parent.
@@ -64,7 +69,7 @@ interface GenreApiContract {
     suspend fun moveGenre(
         id: String,
         newParentId: String?,
-    )
+    ): AppResult<Unit>
 }
 
 /**
@@ -83,11 +88,10 @@ class GenreApi(
      *
      * Endpoint: GET /api/v1/genres
      */
-    override suspend fun listGenres(): List<Genre> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GenreListResponse> = client.get("/api/v1/genres").body()
-        return response.dataOrThrow { GenreApiException(it) }.genres.map { it.toDomain() }
-    }
+    override suspend fun listGenres(): AppResult<List<Genre>> =
+        apiCall(errorMessage = "Failed to load genres") {
+            clientFactory.getClient().get("/api/v1/genres").body<ApiResponse<GenreListResponse>>()
+        }.map { it.genres.map { g -> g.toDomain() } }
 
     /**
      * Set genres for a book.
@@ -100,13 +104,13 @@ class GenreApi(
     override suspend fun setBookGenres(
         bookId: String,
         genreIds: List<String>,
-    ) {
-        val client = clientFactory.getClient()
-        client.post("/api/v1/books/$bookId/genres") {
-            contentType(ContentType.Application.Json)
-            setBody(SetBookGenresRequest(genreIds = genreIds))
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().post("/api/v1/books/$bookId/genres") {
+                contentType(ContentType.Application.Json)
+                setBody(SetBookGenresRequest(genreIds = genreIds))
+            }.body<ApiResponse<Unit>>()
         }
-    }
 
     /**
      * Get genres for a specific book.
@@ -115,59 +119,54 @@ class GenreApi(
      *
      * @param bookId The book ID to get genres for
      */
-    override suspend fun getBookGenres(bookId: String): List<Genre> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GenreListResponse> = client.get("/api/v1/books/$bookId/genres").body()
-        return response.dataOrThrow { GenreApiException(it) }.genres.map { it.toDomain() }
-    }
+    override suspend fun getBookGenres(bookId: String): AppResult<List<Genre>> =
+        apiCall(errorMessage = "Failed to load genres for book $bookId") {
+            clientFactory.getClient().get("/api/v1/books/$bookId/genres").body<ApiResponse<GenreListResponse>>()
+        }.map { it.genres.map { g -> g.toDomain() } }
 
     override suspend fun createGenre(
         name: String,
         parentId: String?,
-    ): Genre {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GenreResponse> =
-            client
+    ): AppResult<Genre> =
+        apiCall(errorMessage = "Failed to create genre") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/genres") {
                     contentType(ContentType.Application.Json)
                     setBody(CreateGenreRequest(name = name, parentId = parentId))
-                }.body()
-        return response.dataOrThrow { GenreApiException(it) }.toDomain()
-    }
+                }.body<ApiResponse<GenreResponse>>()
+        }.map { it.toDomain() }
 
     override suspend fun updateGenre(
         id: String,
         name: String,
-    ): Genre {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GenreResponse> =
-            client
+    ): AppResult<Genre> =
+        apiCall(errorMessage = "Failed to update genre") {
+            clientFactory
+                .getClient()
                 .put("/api/v1/genres/$id") {
                     contentType(ContentType.Application.Json)
                     setBody(UpdateGenreRequest(name = name))
-                }.body()
-        return response.dataOrThrow { GenreApiException(it) }.toDomain()
-    }
+                }.body<ApiResponse<GenreResponse>>()
+        }.map { it.toDomain() }
 
-    override suspend fun deleteGenre(id: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/genres/$id").body()
-        response.dataOrThrow { GenreApiException(it) }
-    }
+    override suspend fun deleteGenre(id: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/genres/$id").body<ApiResponse<Unit>>()
+        }
 
     override suspend fun moveGenre(
         id: String,
         newParentId: String?,
-    ) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GenreResponse> =
-            client
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
                 .post("/api/v1/genres/$id/move") {
                     contentType(ContentType.Application.Json)
                     setBody(MoveGenreRequest(newParentId = newParentId))
-                }.body()
-        response.dataOrThrow { GenreApiException(it) }
-    }
+                }.body<ApiResponse<Unit>>()
+        }
 }
 
 /**

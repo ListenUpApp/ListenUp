@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -56,11 +58,11 @@ class AdminCategoriesViewModelTest {
         val fixture = TestFixture()
         every { fixture.genreRepository.observeAll() } returns fixture.genresFlow
         everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
-            createGenre(id = "created")
+            AppResult.Success(createGenre(id = "created"))
         everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns
-            createGenre(id = "updated")
-        everySuspend { fixture.genreRepository.deleteGenre(any()) } returns Unit
-        everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns Unit
+            AppResult.Success(createGenre(id = "updated"))
+        everySuspend { fixture.genreRepository.deleteGenre(any()) } returns AppResult.Success(Unit)
+        everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns AppResult.Success(Unit)
         return fixture
     }
 
@@ -219,8 +221,9 @@ class AdminCategoriesViewModelTest {
             // Given
             val fixture = createFixture()
             fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            everySuspend { fixture.genreRepository.createGenre(any(), any()) } throws
-                RuntimeException("duplicate name")
+            val failureError = TransportError.Server4xx(statusCode = 409, debugInfo = "duplicate name")
+            everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
+                AppResult.Failure(failureError)
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -230,7 +233,7 @@ class AdminCategoriesViewModelTest {
 
             // Then
             val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
-            assertEquals("duplicate name", ready.error)
+            assertEquals(userMessageFor(failureError), ready.error)
             assertEquals(false, ready.isSaving)
         }
 
@@ -240,14 +243,15 @@ class AdminCategoriesViewModelTest {
             // Given — a Ready state with an error
             val fixture = createFixture()
             fixture.genresFlow.value = listOf(createGenre(id = "fiction"))
-            everySuspend { fixture.genreRepository.createGenre(any(), any()) } throws
-                RuntimeException("boom")
+            val failureError = TransportError.Server4xx(statusCode = 500, debugInfo = "boom")
+            everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
+                AppResult.Failure(failureError)
             val viewModel = fixture.build()
             advanceUntilIdle()
             viewModel.createGenre(name = "X", parentId = null)
             advanceUntilIdle()
             assertEquals(
-                "boom",
+                userMessageFor(failureError),
                 assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value).error,
             )
 

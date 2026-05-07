@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.test.http.TestMockEngineBuilder
 import com.calypsan.listenup.client.test.http.testMockEngine
 import io.ktor.client.HttpClient
@@ -9,6 +8,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
@@ -30,6 +30,10 @@ import kotlin.test.assertTrue
  * idempotent requests retry on 5xx and transient IO failures; non-idempotent methods never
  * retry. See Finding 04 D3 and rubric rule "HttpRequestRetry is installed on authenticated
  * clients with idempotent-only semantics."
+ *
+ * After [installListenUpErrorHandling] was shrunk to `expectSuccess = true` only, non-2xx
+ * responses surface as [ResponseException] (Ktor's standard exception for non-success HTTP
+ * status codes) rather than `AppException`. Tests assert on [ResponseException] accordingly.
  */
 class HttpRetryPolicyTest {
     private val idempotentMethods =
@@ -90,7 +94,7 @@ class HttpRetryPolicyTest {
                     }
                 }
 
-            assertFailsWith<AppException> { client.post("http://unit.test/submit") }
+            assertFailsWith<ResponseException> { client.post("http://unit.test/submit") }
             assertEquals(1, attempts, "POST must not retry on 5xx — only idempotent methods retry")
         }
 
@@ -106,7 +110,7 @@ class HttpRetryPolicyTest {
                     }
                 }
 
-            assertFailsWith<AppException> { client.get("http://unit.test/never-ok") }
+            assertFailsWith<ResponseException> { client.get("http://unit.test/never-ok") }
             assertEquals(4, attempts, "initial attempt + 3 retries = 4 total")
         }
 
@@ -122,7 +126,7 @@ class HttpRetryPolicyTest {
                     }
                 }
 
-            assertFailsWith<AppException> { client.get("http://unit.test/forbidden") }
+            assertFailsWith<ResponseException> { client.get("http://unit.test/forbidden") }
             assertEquals(1, attempts, "4xx responses are client errors; retrying doesn't help")
         }
 }

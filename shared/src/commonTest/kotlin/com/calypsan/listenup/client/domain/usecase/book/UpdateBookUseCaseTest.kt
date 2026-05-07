@@ -76,7 +76,7 @@ class UpdateBookUseCaseTest {
         everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns Success(Unit)
         everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
         everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
-        everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Unit
+        everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Success(Unit)
         everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
         everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
         everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns Success(Unit)

@@ -141,18 +141,6 @@ class AppResultTest {
     }
 
     @Test
-    fun failureFromAppExceptionPreservesTypedError() {
-        // [AppException] carries the unified [AppError] directly — [Failure] preserves
-        // identity, no bridge translation. (Task 27d will delete AppException entirely.)
-        val originalError = AuthError.SessionExpired()
-        val ex =
-            com.calypsan.listenup.client.core.error
-                .AppException(originalError)
-        val failure = Failure(ex)
-        assertSame(originalError, failure.error)
-    }
-
-    @Test
     fun validationErrorBuildsValidationErrorFailure() {
         val failure = validationError("bad input")
         assertIs<ValidationError>(failure.error)

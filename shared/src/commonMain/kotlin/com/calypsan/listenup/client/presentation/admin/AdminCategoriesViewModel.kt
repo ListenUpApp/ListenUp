@@ -2,10 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,25 +110,24 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            try {
-                genreRepository.createGenre(name, parentId)
-                // Auto-expand parent so user sees the new child
-                if (parentId != null) {
-                    updateReady { ready ->
-                        val expanded = ready.expandedIds.toMutableSet()
-                        expanded.add(parentId)
-                        ready.copy(expandedIds = expanded)
+            when (val result = genreRepository.createGenre(name, parentId)) {
+                is AppResult.Success -> {
+                    // Auto-expand parent so user sees the new child
+                    if (parentId != null) {
+                        updateReady { ready ->
+                            val expanded = ready.expandedIds.toMutableSet()
+                            expanded.add(parentId)
+                            ready.copy(expandedIds = expanded)
+                        }
                     }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to create genre" }
-                updateReady { it.copy(error = e.message ?: "Failed to create genre") }
-            } finally {
-                updateReady { it.copy(isSaving = false) }
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to create genre: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
             }
+            updateReady { it.copy(isSaving = false) }
         }
     }
 
@@ -140,17 +140,15 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            try {
-                genreRepository.updateGenre(id, name)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to rename genre" }
-                updateReady { it.copy(error = e.message ?: "Failed to rename genre") }
-            } finally {
-                updateReady { it.copy(isSaving = false) }
+            when (val result = genreRepository.updateGenre(id, name)) {
+                is AppResult.Success -> { /* observed list will refresh via Flow */ }
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to rename genre: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
             }
+            updateReady { it.copy(isSaving = false) }
         }
     }
 
@@ -160,17 +158,15 @@ class AdminCategoriesViewModel(
     fun deleteGenre(id: String) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            try {
-                genreRepository.deleteGenre(id)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to delete genre" }
-                updateReady { it.copy(error = e.message ?: "Failed to delete genre") }
-            } finally {
-                updateReady { it.copy(isSaving = false) }
+            when (val result = genreRepository.deleteGenre(id)) {
+                is AppResult.Success -> { /* observed list will refresh via Flow */ }
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to delete genre: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
             }
+            updateReady { it.copy(isSaving = false) }
         }
     }
 
@@ -183,25 +179,24 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            try {
-                genreRepository.moveGenre(id, newParentId)
-                // Auto-expand new parent so user sees the moved genre
-                if (newParentId != null) {
-                    updateReady { ready ->
-                        val expanded = ready.expandedIds.toMutableSet()
-                        expanded.add(newParentId)
-                        ready.copy(expandedIds = expanded)
+            when (val result = genreRepository.moveGenre(id, newParentId)) {
+                is AppResult.Success -> {
+                    // Auto-expand new parent so user sees the moved genre
+                    if (newParentId != null) {
+                        updateReady { ready ->
+                            val expanded = ready.expandedIds.toMutableSet()
+                            expanded.add(newParentId)
+                            ready.copy(expandedIds = expanded)
+                        }
                     }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to move genre" }
-                updateReady { it.copy(error = e.message ?: "Failed to move genre") }
-            } finally {
-                updateReady { it.copy(isSaving = false) }
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to move genre: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
             }
+            updateReady { it.copy(isSaving = false) }
         }
     }
 

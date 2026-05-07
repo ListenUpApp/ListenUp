@@ -88,8 +88,14 @@ open class UpdateBookUseCase(
             }
         }
 
+        if (changes.genresChanged) {
+            when (val result = updateGenres(current)) {
+                is Success -> {}
+                is Failure -> return result
+            }
+        }
+
         return suspendRunCatching {
-            if (changes.genresChanged) updateGenres(current)
             if (changes.tagsChanged) updateTags(current, original)
             if (changes.coverChanged) commitAndUploadCover(current)
             logger.info { "Book ${current.bookId} saved successfully" }
@@ -159,10 +165,10 @@ open class UpdateBookUseCase(
         return bookEditRepository.setBookSeries(current.bookId, seriesInputs)
     }
 
-    private suspend fun updateGenres(current: BookUpdateRequest) {
+    private suspend fun updateGenres(current: BookUpdateRequest): AppResult<Unit> {
         logger.debug { "Updating genres for book ${current.bookId}" }
 
-        genreRepository.setGenresForBook(
+        return genreRepository.setGenresForBook(
             bookId = current.bookId,
             genreIds = current.genres.map { it.id },
         )

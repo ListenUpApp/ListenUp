@@ -46,22 +46,23 @@ class GenrePuller(
             ),
         )
 
-        try {
-            val genres = genreApi.listGenres()
-            logger.info { "Fetched ${genres.size} global genres" }
+        when (val result = genreApi.listGenres()) {
+            is AppResult.Failure -> {
+                logger.warn { "Failed to fetch global genres: ${result.error.message}" }
+                // Don't propagate — genres are not critical for sync
+            }
+            is AppResult.Success -> {
+                val genres = result.data
+                logger.info { "Fetched ${genres.size} global genres" }
 
-            // Build path-to-ID lookup for resolving parent genres
-            val pathToId = genres.associate { it.path to it.id }
+                // Build path-to-ID lookup for resolving parent genres
+                val pathToId = genres.associate { it.path to it.id }
 
-            // Convert to entities and upsert
-            val genreEntities = genres.map { it.toEntity(pathToId) }
-            genreDao.upsertAll(genreEntities)
-            logger.info { "Genre sync complete: ${genreEntities.size} genres synced" }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to fetch global genres" }
-            // Don't throw - genres are not critical for sync
+                // Convert to entities and upsert
+                val genreEntities = genres.map { it.toEntity(pathToId) }
+                genreDao.upsertAll(genreEntities)
+                logger.info { "Genre sync complete: ${genreEntities.size} genres synced" }
+            }
         }
 
         return AppResult.Success(Unit)
