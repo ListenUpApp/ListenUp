@@ -1,5 +1,6 @@
 package com.calypsan.listenup.domain.embeddedmeta
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,6 +11,7 @@ import kotlinx.serialization.Serializable
  * membership is acknowledged but the position isn't known.
  */
 @Serializable
+@SerialName("SeriesEntry")
 data class SeriesEntry(
     val name: String,
     val sequence: String?,

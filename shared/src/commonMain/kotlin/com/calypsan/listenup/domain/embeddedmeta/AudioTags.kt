@@ -1,5 +1,6 @@
 package com.calypsan.listenup.domain.embeddedmeta
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -15,6 +16,7 @@ import kotlinx.serialization.Serializable
  * re-reading the file. Empty map when the file has no unmapped tags.
  */
 @Serializable
+@SerialName("AudioTags")
 data class AudioTags(
     val title: String?,
     val subtitle: String?,

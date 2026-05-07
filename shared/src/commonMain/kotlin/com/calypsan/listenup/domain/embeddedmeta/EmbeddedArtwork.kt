@@ -1,5 +1,6 @@
 package com.calypsan.listenup.domain.embeddedmeta
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -15,6 +16,7 @@ import kotlinx.serialization.Serializable
  * for [bytes] so two artworks with identical content compare equal.
  */
 @Serializable
+@SerialName("EmbeddedArtwork")
 data class EmbeddedArtwork(val mime: String, val bytes: ByteArray) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

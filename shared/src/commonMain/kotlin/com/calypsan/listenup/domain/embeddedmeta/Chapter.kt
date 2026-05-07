@@ -1,5 +1,6 @@
 package com.calypsan.listenup.domain.embeddedmeta
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,6 +14,7 @@ import kotlinx.serialization.Serializable
  * [index] is 1-based, matching ABS conventions.
  */
 @Serializable
+@SerialName("Chapter")
 data class Chapter(
     val index: Int,
     val title: String,

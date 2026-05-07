@@ -1,5 +1,6 @@
 package com.calypsan.listenup.domain.embeddedmeta
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,6 +15,7 @@ import kotlinx.serialization.Serializable
  * (first by stable sort) only; per spec §3 non-goals.
  */
 @Serializable
+@SerialName("EmbeddedAudioMetadata")
 data class EmbeddedAudioMetadata(
     val format: AudioFormat,
     val durationMs: Long,
