@@ -2,13 +2,14 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.RestoreError
 import com.calypsan.listenup.client.data.remote.model.RestoreRequest
 import com.calypsan.listenup.client.domain.model.BackupValidation
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,45 +132,46 @@ class RestoreBackupViewModel(
 
     private fun validateBackup() {
         viewModelScope.launch {
-            try {
-                val result = backupApi.validateBackup(backupId)
-                val validation =
-                    BackupValidation(
-                        valid = result.valid,
-                        version = result.version,
-                        serverName = result.serverName,
-                        entityCounts = result.expectedCounts ?: emptyMap(),
-                        errors = result.errors,
-                        warnings = result.warnings,
-                    )
-                state.update { current ->
-                    if (current is RestoreBackupUiState.Ready) {
-                        current.copy(isValidating = false, validation = validation, error = null)
-                    } else {
-                        // First emission (from Loading) or recovering from Error:
-                        // transition to Ready with freshly validated backup metadata.
-                        RestoreBackupUiState.Ready(
-                            backupId = backupId,
-                            validation = validation,
+            when (val result = backupApi.validateBackup(backupId)) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    val validation =
+                        BackupValidation(
+                            valid = response.valid,
+                            version = response.version,
+                            serverName = response.serverName,
+                            entityCounts = response.expectedCounts ?: emptyMap(),
+                            errors = response.errors,
+                            warnings = response.warnings,
                         )
+                    state.update { current ->
+                        if (current is RestoreBackupUiState.Ready) {
+                            current.copy(isValidating = false, validation = validation, error = null)
+                        } else {
+                            // First emission (from Loading) or recovering from Error:
+                            // transition to Ready with freshly validated backup metadata.
+                            RestoreBackupUiState.Ready(
+                                backupId = backupId,
+                                validation = validation,
+                            )
+                        }
                     }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to validate backup" }
-                state.update { current ->
-                    if (current is RestoreBackupUiState.Ready) {
-                        // Re-validation after reaching Ready failed: keep wizard state,
-                        // surface error transiently.
-                        current.copy(
-                            isValidating = false,
-                            error = "Failed to validate backup: ${e.message}",
-                        )
-                    } else {
-                        // Initial validation (from Loading or Error retry) failed: terminal.
-                        RestoreBackupUiState.Error("Failed to validate backup: ${e.message}")
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to validate backup: ${result.error.message}" }
+                    state.update { current ->
+                        if (current is RestoreBackupUiState.Ready) {
+                            // Re-validation after reaching Ready failed: keep wizard state,
+                            // surface error transiently.
+                            current.copy(
+                                isValidating = false,
+                                error = userMessageFor(result.error),
+                            )
+                        } else {
+                            // Initial validation (from Loading or Error retry) failed: terminal.
+                            RestoreBackupUiState.Error(userMessageFor(result.error))
+                        }
                     }
                 }
             }
@@ -260,40 +262,42 @@ class RestoreBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isValidating = true, error = null) }
 
-            try {
-                val current = state.value as? RestoreBackupUiState.Ready
-                val result =
-                    backupApi.restore(
-                        RestoreRequest(
-                            backupId = backupId,
-                            mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
-                            mergeStrategy = current?.mergeStrategy?.apiValue,
-                            dryRun = true,
-                            confirmFullWipe = false,
-                        ),
-                    )
-                updateReady {
-                    it.copy(
-                        isValidating = false,
-                        dryRunResults =
-                            DryRunResults(
-                                willImport = result.imported,
-                                willSkip = result.skipped,
-                                errors = result.errors,
-                                duration = result.duration,
-                            ),
-                    )
+            val current = state.value as? RestoreBackupUiState.Ready
+            when (
+                val result = backupApi.restore(
+                    RestoreRequest(
+                        backupId = backupId,
+                        mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
+                        mergeStrategy = current?.mergeStrategy?.apiValue,
+                        dryRun = true,
+                        confirmFullWipe = false,
+                    ),
+                )
+            ) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    updateReady {
+                        it.copy(
+                            isValidating = false,
+                            dryRunResults =
+                                DryRunResults(
+                                    willImport = response.imported,
+                                    willSkip = response.skipped,
+                                    errors = response.errors,
+                                    duration = response.duration,
+                                ),
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to perform dry run" }
-                updateReady {
-                    it.copy(
-                        isValidating = false,
-                        error = "Failed to preview restore: ${e.message}",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to perform dry run: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isValidating = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -303,54 +307,56 @@ class RestoreBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isRestoring = true, error = null) }
 
-            try {
-                val current = state.value as? RestoreBackupUiState.Ready
-                val result =
-                    backupApi.restore(
-                        RestoreRequest(
-                            backupId = backupId,
-                            mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
-                            mergeStrategy = current?.mergeStrategy?.apiValue,
-                            dryRun = false,
-                            confirmFullWipe = current?.mode == RestoreMode.FRESH,
-                        ),
-                    )
+            val current = state.value as? RestoreBackupUiState.Ready
+            when (
+                val result = backupApi.restore(
+                    RestoreRequest(
+                        backupId = backupId,
+                        mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
+                        mergeStrategy = current?.mergeStrategy?.apiValue,
+                        dryRun = false,
+                        confirmFullWipe = current?.mode == RestoreMode.FRESH,
+                    ),
+                )
+            ) {
+                is AppResult.Success -> {
+                    val response = result.data
 
-                // After server restore completes, sync client state
-                // FRESH: Server data was completely replaced, need to clear and resync
-                // MERGE: Server data was merged, need to refresh listening history
-                logger.info { "Restore complete, syncing client state for mode ${current?.mode}" }
-                if (current?.mode == RestoreMode.FRESH) {
-                    // Clear local database and do full resync
-                    syncRepository.forceFullResync()
-                } else {
-                    // Merge mode - just refresh listening history like ABS import
-                    syncRepository.refreshListeningHistory()
-                }
+                    // After server restore completes, sync client state
+                    // FRESH: Server data was completely replaced, need to clear and resync
+                    // MERGE: Server data was merged, need to refresh listening history
+                    logger.info { "Restore complete, syncing client state for mode ${current?.mode}" }
+                    if (current?.mode == RestoreMode.FRESH) {
+                        // Clear local database and do full resync
+                        syncRepository.forceFullResync()
+                    } else {
+                        // Merge mode - just refresh listening history like ABS import
+                        syncRepository.refreshListeningHistory()
+                    }
 
-                updateReady {
-                    it.copy(
-                        isRestoring = false,
-                        step = RestoreStep.RESULTS,
-                        restoreResults =
-                            RestoreResults(
-                                imported = result.imported,
-                                skipped = result.skipped,
-                                errors = result.errors,
-                                duration = result.duration,
-                            ),
-                    )
+                    updateReady {
+                        it.copy(
+                            isRestoring = false,
+                            step = RestoreStep.RESULTS,
+                            restoreResults =
+                                RestoreResults(
+                                    imported = response.imported,
+                                    skipped = response.skipped,
+                                    errors = response.errors,
+                                    duration = response.duration,
+                                ),
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to restore backup" }
-                updateReady {
-                    it.copy(
-                        isRestoring = false,
-                        error = "Failed to restore: ${e.message}",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to restore backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isRestoring = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }

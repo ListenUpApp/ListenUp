@@ -1,11 +1,12 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.BackupResponse
 import com.calypsan.listenup.client.data.remote.model.ValidationResponse
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
@@ -94,7 +95,7 @@ class AdminBackupViewModelTest {
     fun `initial state is Loading`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
 
@@ -113,7 +114,7 @@ class AdminBackupViewModelTest {
                     createBackupResponse(id = "newer", createdAt = "2024-01-15T00:00:00Z"),
                     createBackupResponse(id = "middle", createdAt = "2024-01-10T00:00:00Z"),
                 )
-            everySuspend { api.listBackups() } returns backups
+            everySuspend { api.listBackups() } returns AppResult.Success(backups)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -130,7 +131,7 @@ class AdminBackupViewModelTest {
     fun `loadBackups handles empty list`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -144,13 +145,13 @@ class AdminBackupViewModelTest {
     fun `loadBackups initial failure transitions to Error`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } throws RuntimeException("Network error")
+            everySuspend { api.listBackups() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
 
-            val error = assertIs<AdminBackupUiState.Error>(viewModel.state.value)
-            assertTrue(error.message.contains("Network error"))
+            assertIs<AdminBackupUiState.Error>(viewModel.state.value)
         }
 
     @Test
@@ -162,7 +163,7 @@ class AdminBackupViewModelTest {
                     createBackupResponse(id = "valid", createdAt = "2024-01-15T00:00:00Z"),
                     createBackupResponse(id = "invalid", createdAt = "not-a-date"),
                 )
-            everySuspend { api.listBackups() } returns backups
+            everySuspend { api.listBackups() } returns AppResult.Success(backups)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -179,9 +180,9 @@ class AdminBackupViewModelTest {
     fun `createBackup with default options`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
             everySuspend { api.createBackup(includeImages = false, includeEvents = true) } returns
-                createBackupResponse(id = "new-backup")
+                AppResult.Success(createBackupResponse(id = "new-backup"))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -199,9 +200,9 @@ class AdminBackupViewModelTest {
     fun `createBackup with images included`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
             everySuspend { api.createBackup(includeImages = true, includeEvents = true) } returns
-                createBackupResponse()
+                AppResult.Success(createBackupResponse())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -216,9 +217,9 @@ class AdminBackupViewModelTest {
     fun `createBackup without events`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
             everySuspend { api.createBackup(includeImages = false, includeEvents = false) } returns
-                createBackupResponse()
+                AppResult.Success(createBackupResponse())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -236,11 +237,11 @@ class AdminBackupViewModelTest {
             // Use sequentiallyReturns for multiple calls
             everySuspend { api.listBackups() } sequentiallyReturns
                 listOf(
-                    listOf(createBackupResponse(id = "initial-backup")),
-                    listOf(createBackupResponse(id = "reloaded-backup")),
+                    AppResult.Success(listOf(createBackupResponse(id = "initial-backup"))),
+                    AppResult.Success(listOf(createBackupResponse(id = "reloaded-backup"))),
                 )
             everySuspend { api.createBackup(includeImages = false, includeEvents = true) } returns
-                createBackupResponse(id = "new-backup")
+                AppResult.Success(createBackupResponse(id = "new-backup"))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -262,9 +263,9 @@ class AdminBackupViewModelTest {
     fun `createBackup handles error`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } returns emptyList()
-            everySuspend { api.createBackup(includeImages = false, includeEvents = true) } throws
-                RuntimeException("Disk full")
+            everySuspend { api.listBackups() } returns AppResult.Success(emptyList())
+            everySuspend { api.createBackup(includeImages = false, includeEvents = true) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 507))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -274,8 +275,7 @@ class AdminBackupViewModelTest {
 
             val ready = assertIs<AdminBackupUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isCreating)
-            val error = assertNotNull(ready.error)
-            assertTrue(error.contains("Disk full"))
+            assertNotNull(ready.error)
         }
 
     // ========== Delete Backup ==========
@@ -285,7 +285,7 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse(id = "to-delete")
-            everySuspend { api.listBackups() } returns listOf(backup)
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -303,7 +303,7 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse()
-            everySuspend { api.listBackups() } returns listOf(backup)
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -327,8 +327,8 @@ class AdminBackupViewModelTest {
                     createBackupResponse(id = "backup-1"),
                     createBackupResponse(id = "backup-2"),
                 )
-            everySuspend { api.listBackups() } returns backups
-            everySuspend { api.deleteBackup("backup-1") } returns Unit
+            everySuspend { api.listBackups() } returns AppResult.Success(backups)
+            everySuspend { api.deleteBackup("backup-1") } returns AppResult.Success(Unit)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -350,8 +350,8 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse()
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.deleteBackup(backup.id) } returns Unit
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.deleteBackup(backup.id) } returns AppResult.Success(Unit)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -374,8 +374,9 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse()
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.deleteBackup(backup.id) } throws RuntimeException("File in use")
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.deleteBackup(backup.id) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 409))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -386,8 +387,7 @@ class AdminBackupViewModelTest {
 
             val ready = assertIs<AdminBackupUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isDeleting)
-            val error = assertNotNull(ready.error)
-            assertTrue(error.contains("File in use"))
+            assertNotNull(ready.error)
             // Backup should still be in list
             assertEquals(1, ready.backups.size)
         }
@@ -399,8 +399,9 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse(id = "backup-1")
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup("backup-1") } returns createValidationResponse()
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup("backup-1") } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -428,8 +429,8 @@ class AdminBackupViewModelTest {
                     serverName = "My Server",
                     expectedCounts = mapOf("books" to 42),
                 )
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup(backup.id) } returns validation
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup(backup.id) } returns AppResult.Success(validation)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -457,8 +458,8 @@ class AdminBackupViewModelTest {
                     valid = false,
                     errors = listOf("Missing manifest.json", "Unsupported version"),
                 )
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup(backup.id) } returns validation
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup(backup.id) } returns AppResult.Success(validation)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -485,8 +486,8 @@ class AdminBackupViewModelTest {
                     valid = true,
                     warnings = listOf("Some images may be missing"),
                 )
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup(backup.id) } returns validation
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup(backup.id) } returns AppResult.Success(validation)
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -507,8 +508,9 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse()
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup(backup.id) } throws RuntimeException("Connection timeout")
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup(backup.id) } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -520,8 +522,7 @@ class AdminBackupViewModelTest {
             val ready = assertIs<AdminBackupUiState.Ready>(viewModel.state.value)
             assertNull(ready.validatingBackupId)
             assertNull(ready.validationResult)
-            val error = assertNotNull(ready.error)
-            assertTrue(error.contains("Connection timeout"))
+            assertNotNull(ready.error)
         }
 
     @Test
@@ -529,8 +530,9 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse()
-            everySuspend { api.listBackups() } returns listOf(backup)
-            everySuspend { api.validateBackup(backup.id) } returns createValidationResponse()
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
+            everySuspend { api.validateBackup(backup.id) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -552,7 +554,8 @@ class AdminBackupViewModelTest {
     fun `clearError noops in Error state`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.listBackups() } throws RuntimeException("Error")
+            everySuspend { api.listBackups() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -570,7 +573,7 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse(checksum = null)
-            everySuspend { api.listBackups() } returns listOf(backup)
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -585,7 +588,7 @@ class AdminBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val backup = createBackupResponse(size = 2L * 1024 * 1024 * 1024) // 2 GB
-            everySuspend { api.listBackups() } returns listOf(backup)
+            everySuspend { api.listBackups() } returns AppResult.Success(listOf(backup))
 
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()

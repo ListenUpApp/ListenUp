@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.RestoreError
 import com.calypsan.listenup.client.data.remote.model.RestoreRequest
@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.remote.model.RestoreResponse
 import com.calypsan.listenup.client.data.remote.model.ValidationResponse
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
+import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -51,8 +51,8 @@ class RestoreBackupViewModelTest {
 
     private fun createMockSyncRepository(): SyncRepository {
         val syncRepo: SyncRepository = mock()
-        everySuspend { syncRepo.forceFullResync() } returns Success(Unit)
-        everySuspend { syncRepo.refreshListeningHistory() } returns Success(Unit)
+        everySuspend { syncRepo.forceFullResync() } returns AppResult.Success(Unit)
+        everySuspend { syncRepo.refreshListeningHistory() } returns AppResult.Success(Unit)
         return syncRepo
     }
 
@@ -110,7 +110,8 @@ class RestoreBackupViewModelTest {
     fun `initial state is Loading`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup("backup-1") } returns createValidationResponse()
+            everySuspend { api.validateBackup("backup-1") } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
 
@@ -122,9 +123,11 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup("backup-1") } returns
-                createValidationResponse(
-                    valid = true,
-                    serverName = "My Server",
+                AppResult.Success(
+                    createValidationResponse(
+                        valid = true,
+                        serverName = "My Server",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -141,16 +144,16 @@ class RestoreBackupViewModelTest {
         }
 
     @Test
-    fun `init transitions to Error when initial validation throws`() =
+    fun `init transitions to Error when initial validation fails`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup("backup-1") } throws RuntimeException("Network error")
+            everySuspend { api.validateBackup("backup-1") } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
 
-            val error = assertIs<RestoreBackupUiState.Error>(viewModel.state.value)
-            assertTrue(error.message.contains("Network error"))
+            assertIs<RestoreBackupUiState.Error>(viewModel.state.value)
         }
 
     // ========== Mode Selection ==========
@@ -159,7 +162,8 @@ class RestoreBackupViewModelTest {
     fun `selectMode updates mode in state`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -175,9 +179,11 @@ class RestoreBackupViewModelTest {
     fun `selectMode clears any previous transient error`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // Use dry run failure to produce a transient error on Ready.
-            everySuspend { api.restore(any()) } throws RuntimeException("Error")
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 500))
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -197,7 +203,8 @@ class RestoreBackupViewModelTest {
     fun `selectMergeStrategy updates strategy in state`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -227,7 +234,8 @@ class RestoreBackupViewModelTest {
     fun `nextStep from MODE_SELECTION with FRESH mode goes to VALIDATION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -245,7 +253,8 @@ class RestoreBackupViewModelTest {
     fun `nextStep from MODE_SELECTION with MERGE mode goes to MERGE_STRATEGY`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -263,7 +272,8 @@ class RestoreBackupViewModelTest {
     fun `nextStep from MERGE_STRATEGY goes to VALIDATION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -284,7 +294,8 @@ class RestoreBackupViewModelTest {
     fun `nextStep from VALIDATION goes to CONFIRMATION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -303,8 +314,9 @@ class RestoreBackupViewModelTest {
     fun `nextStep from CONFIRMATION triggers restore`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -326,12 +338,15 @@ class RestoreBackupViewModelTest {
     fun `restore completes and goes to RESULTS`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 50, "users" to 3),
-                    skipped = mapOf("books" to 10),
-                    duration = "5.2s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 50, "users" to 3),
+                        skipped = mapOf("books" to 10),
+                        duration = "5.2s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -358,7 +373,8 @@ class RestoreBackupViewModelTest {
     fun `previousStep from MODE_SELECTION stays at MODE_SELECTION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -374,7 +390,8 @@ class RestoreBackupViewModelTest {
     fun `previousStep from MERGE_STRATEGY goes to MODE_SELECTION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -397,7 +414,8 @@ class RestoreBackupViewModelTest {
     fun `previousStep from VALIDATION with FRESH mode goes to MODE_SELECTION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -416,7 +434,8 @@ class RestoreBackupViewModelTest {
     fun `previousStep from VALIDATION with MERGE mode goes to MERGE_STRATEGY`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -437,7 +456,8 @@ class RestoreBackupViewModelTest {
     fun `previousStep from CONFIRMATION goes to VALIDATION`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -457,9 +477,10 @@ class RestoreBackupViewModelTest {
     fun `previousStep from RESTORING stays at RESTORING - cannot go back`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // Make restore hang by not completing
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -481,8 +502,9 @@ class RestoreBackupViewModelTest {
     fun `previousStep from RESULTS stays at RESULTS - cannot go back`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -506,12 +528,15 @@ class RestoreBackupViewModelTest {
     fun `performDryRun executes with dryRun flag true`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 100),
-                    skipped = mapOf("users" to 2),
-                    duration = "0.5s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 100),
+                        skipped = mapOf("users" to 2),
+                        duration = "0.5s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -546,8 +571,10 @@ class RestoreBackupViewModelTest {
     fun `performDryRun handles errors`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } throws RuntimeException("Server error")
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 500))
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -560,8 +587,7 @@ class RestoreBackupViewModelTest {
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isValidating)
             assertNull(ready.dryRunResults)
-            val error = assertNotNull(ready.error)
-            assertTrue(error.contains("preview"))
+            assertNotNull(ready.error)
         }
 
     // ========== Actual Restore ==========
@@ -570,8 +596,9 @@ class RestoreBackupViewModelTest {
     fun `restore with FRESH mode sends confirmFullWipe true`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -599,8 +626,9 @@ class RestoreBackupViewModelTest {
     fun `restore with MERGE mode sends mergeStrategy`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -630,17 +658,20 @@ class RestoreBackupViewModelTest {
     fun `restore handles partial failures with errors in response`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 98),
-                    skipped = mapOf("books" to 2),
-                    errors =
-                        listOf(
-                            RestoreError(entityType = "book", entityId = "book-1", error = "Invalid format"),
-                            RestoreError(entityType = "book", entityId = "book-2", error = "Missing field"),
-                        ),
-                    duration = "3.0s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 98),
+                        skipped = mapOf("books" to 2),
+                        errors =
+                            listOf(
+                                RestoreError(entityType = "book", entityId = "book-1", error = "Invalid format"),
+                                RestoreError(entityType = "book", entityId = "book-2", error = "Missing field"),
+                            ),
+                        duration = "3.0s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -663,8 +694,10 @@ class RestoreBackupViewModelTest {
     fun `restore handles complete failure`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } throws RuntimeException("Restore failed: database locked")
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 503))
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -678,8 +711,7 @@ class RestoreBackupViewModelTest {
             val ready = assertIs<RestoreBackupUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isRestoring)
             assertNull(ready.restoreResults)
-            val error = assertNotNull(ready.error)
-            assertTrue(error.contains("database locked"))
+            assertNotNull(ready.error)
             // Should still be at RESTORING step (not advance to RESULTS)
             assertEquals(RestoreStep.RESTORING, ready.step)
         }
@@ -690,8 +722,9 @@ class RestoreBackupViewModelTest {
     fun `KEEP_LOCAL strategy uses keep_local API value`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -721,8 +754,9 @@ class RestoreBackupViewModelTest {
     fun `KEEP_BACKUP strategy uses keep_backup API value`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -754,9 +788,11 @@ class RestoreBackupViewModelTest {
     fun `clearError clears transient error on Ready`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // Use dry run failure to produce a transient error on Ready.
-            everySuspend { api.restore(any()) } throws RuntimeException("Error")
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -776,12 +812,15 @@ class RestoreBackupViewModelTest {
     fun `handles empty import counts`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = emptyMap(),
-                    skipped = emptyMap(),
-                    errors = emptyList(),
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = emptyMap(),
+                        skipped = emptyMap(),
+                        errors = emptyList(),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -804,9 +843,11 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                createValidationResponse(
-                    valid = false,
-                    errors = listOf("Corrupted archive", "Missing manifest"),
+                AppResult.Success(
+                    createValidationResponse(
+                        valid = false,
+                        errors = listOf("Corrupted archive", "Missing manifest"),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -822,7 +863,8 @@ class RestoreBackupViewModelTest {
     fun `restore preserves mode selection when navigating back and forward`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -845,15 +887,19 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                createValidationResponse(
-                    valid = true,
-                    expectedCounts = mapOf("books" to 500, "users" to 10),
+                AppResult.Success(
+                    createValidationResponse(
+                        valid = true,
+                        expectedCounts = mapOf("books" to 500, "users" to 10),
+                    ),
                 )
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 450, "users" to 8),
-                    skipped = mapOf("books" to 50, "users" to 2),
-                    duration = "15.3s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 450, "users" to 8),
+                        skipped = mapOf("books" to 50, "users" to 2),
+                        duration = "15.3s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -905,8 +951,9 @@ class RestoreBackupViewModelTest {
     fun `full wizard flow for FRESH restore`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -942,10 +989,11 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val syncRepo: SyncRepository = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
-            everySuspend { syncRepo.forceFullResync() } returns Success(Unit)
-            everySuspend { syncRepo.refreshListeningHistory() } returns Success(Unit)
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
+            everySuspend { syncRepo.forceFullResync() } returns AppResult.Success(Unit)
+            everySuspend { syncRepo.refreshListeningHistory() } returns AppResult.Success(Unit)
 
             val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -966,10 +1014,11 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val syncRepo: SyncRepository = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
-            everySuspend { syncRepo.forceFullResync() } returns Success(Unit)
-            everySuspend { syncRepo.refreshListeningHistory() } returns Success(Unit)
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
+            everySuspend { syncRepo.forceFullResync() } returns AppResult.Success(Unit)
+            everySuspend { syncRepo.refreshListeningHistory() } returns AppResult.Success(Unit)
 
             val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -993,9 +1042,11 @@ class RestoreBackupViewModelTest {
     fun `selectMergeStrategy clears any previous transient error`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // Use dry run failure to produce a transient error on Ready.
-            everySuspend { api.restore(any()) } throws RuntimeException("Error")
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1014,9 +1065,11 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                createValidationResponse(
-                    valid = true,
-                    warnings = listOf("Some entities may have outdated references", "Media files not verified"),
+                AppResult.Success(
+                    createValidationResponse(
+                        valid = true,
+                        warnings = listOf("Some entities may have outdated references", "Media files not verified"),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1033,17 +1086,20 @@ class RestoreBackupViewModelTest {
     fun `dry run handles errors in response without throwing`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 95),
-                    skipped = mapOf("books" to 3),
-                    errors =
-                        listOf(
-                            RestoreError(entityType = "book", entityId = "book-corrupt", error = "Malformed JSON"),
-                            RestoreError(entityType = "user", entityId = "user-invalid", error = "Missing email"),
-                        ),
-                    duration = "1.2s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 95),
+                        skipped = mapOf("books" to 3),
+                        errors =
+                            listOf(
+                                RestoreError(entityType = "book", entityId = "book-corrupt", error = "Malformed JSON"),
+                                RestoreError(entityType = "user", entityId = "user-invalid", error = "Missing email"),
+                            ),
+                        duration = "1.2s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1067,13 +1123,15 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                ValidationResponse(
-                    valid = true,
-                    version = "1.0",
-                    serverName = "Test",
-                    expectedCounts = null, // Server returns null
-                    errors = emptyList(),
-                    warnings = emptyList(),
+                AppResult.Success(
+                    ValidationResponse(
+                        valid = true,
+                        version = "1.0",
+                        serverName = "Test",
+                        expectedCounts = null, // Server returns null
+                        errors = emptyList(),
+                        warnings = emptyList(),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1089,13 +1147,15 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                ValidationResponse(
-                    valid = true,
-                    version = null,
-                    serverName = null,
-                    expectedCounts = mapOf("books" to 10),
-                    errors = emptyList(),
-                    warnings = emptyList(),
+                AppResult.Success(
+                    ValidationResponse(
+                        valid = true,
+                        version = null,
+                        serverName = null,
+                        expectedCounts = mapOf("books" to 10),
+                        errors = emptyList(),
+                        warnings = emptyList(),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1111,8 +1171,9 @@ class RestoreBackupViewModelTest {
     fun `nextStep from RESULTS stays at RESULTS`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1140,7 +1201,8 @@ class RestoreBackupViewModelTest {
     fun `switching from MERGE to FRESH mode preserves merge strategy`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1167,12 +1229,15 @@ class RestoreBackupViewModelTest {
     fun `multiple dry runs update results`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // First dry run
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 50),
-                    duration = "1.0s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 50),
+                        duration = "1.0s",
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1194,9 +1259,11 @@ class RestoreBackupViewModelTest {
             // Change strategy and run second dry run with different results
             viewModel.selectMergeStrategy(MergeStrategy.KEEP_BACKUP)
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 100),
-                    duration = "1.5s",
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 100),
+                        duration = "1.5s",
+                    ),
                 )
             viewModel.performDryRun()
             advanceUntilIdle()
@@ -1216,14 +1283,17 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val syncRepo: SyncRepository = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             everySuspend { api.restore(any()) } returns
-                createRestoreResponse(
-                    imported = mapOf("books" to 100),
+                AppResult.Success(
+                    createRestoreResponse(
+                        imported = mapOf("books" to 100),
+                    ),
                 )
             // Sync fails after restore
             everySuspend { syncRepo.forceFullResync() } returns
-                Failure(RuntimeException("Network unavailable"))
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1248,11 +1318,12 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             val syncRepo: SyncRepository = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
             // Sync fails after restore
             everySuspend { syncRepo.refreshListeningHistory() } returns
-                Failure(RuntimeException("SSE disconnected"))
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, syncRepo, errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1292,9 +1363,11 @@ class RestoreBackupViewModelTest {
     fun `dry run clears error from previous failed dry run`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
             // First dry run fails
-            everySuspend { api.restore(any()) } throws RuntimeException("Network error")
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1307,7 +1380,7 @@ class RestoreBackupViewModelTest {
             assertNotNull(assertIs<RestoreBackupUiState.Ready>(viewModel.state.value).error)
 
             // Second dry run succeeds
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
             viewModel.performDryRun()
             advanceUntilIdle()
 
@@ -1322,8 +1395,10 @@ class RestoreBackupViewModelTest {
         runTest {
             val api: BackupApiContract = mock()
             everySuspend { api.validateBackup(any()) } returns
-                createValidationResponse(
-                    expectedCounts = emptyMap(),
+                AppResult.Success(
+                    createValidationResponse(
+                        expectedCounts = emptyMap(),
+                    ),
                 )
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
@@ -1338,7 +1413,8 @@ class RestoreBackupViewModelTest {
     fun `isValidating is false after validation completes`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1353,8 +1429,9 @@ class RestoreBackupViewModelTest {
     fun `isValidating is false after dry run completes`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1374,8 +1451,9 @@ class RestoreBackupViewModelTest {
     fun `isRestoring is false after restore completes`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1396,8 +1474,10 @@ class RestoreBackupViewModelTest {
     fun `restore failure does not advance to RESULTS step`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } throws RuntimeException("Server error")
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns
+                AppResult.Failure(TransportError.Server4xx(statusCode = 503))
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -1419,8 +1499,9 @@ class RestoreBackupViewModelTest {
     fun `dry run uses default MERGE mode when mode is null`() =
         runTest {
             val api: BackupApiContract = mock()
-            everySuspend { api.validateBackup(any()) } returns createValidationResponse()
-            everySuspend { api.restore(any()) } returns createRestoreResponse()
+            everySuspend { api.validateBackup(any()) } returns
+                AppResult.Success(createValidationResponse())
+            everySuspend { api.restore(any()) } returns AppResult.Success(createRestoreResponse())
 
             val viewModel = RestoreBackupViewModel("backup-1", api, createMockSyncRepository(), errorBus = ErrorBus())
             advanceUntilIdle()

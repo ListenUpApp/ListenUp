@@ -2,11 +2,12 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.domain.model.BackupValidation
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,34 +66,34 @@ class AdminBackupViewModel(
 
     fun loadBackups() {
         viewModelScope.launch {
-            try {
-                val backups = backupApi.listBackups()
-                val sorted =
-                    backups
-                        .map { b -> b.toDomain() }
-                        .sortedByDescending { b -> b.createdAt }
-                state.update { current ->
-                    if (current is AdminBackupUiState.Ready) {
-                        current.copy(backups = sorted, error = null)
-                    } else {
-                        // First emission (from Loading) or recovering from Error:
-                        // transition to Ready with fresh data and default UI fields.
-                        AdminBackupUiState.Ready(backups = sorted)
+            when (val result = backupApi.listBackups()) {
+                is AppResult.Success -> {
+                    val sorted =
+                        result.data
+                            .map { b -> b.toDomain() }
+                            .sortedByDescending { b -> b.createdAt }
+                    state.update { current ->
+                        if (current is AdminBackupUiState.Ready) {
+                            current.copy(backups = sorted, error = null)
+                        } else {
+                            // First emission (from Loading) or recovering from Error:
+                            // transition to Ready with fresh data and default UI fields.
+                            AdminBackupUiState.Ready(backups = sorted)
+                        }
                     }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load backups" }
-                state.update { current ->
-                    if (current is AdminBackupUiState.Ready) {
-                        // Transient refresh failure once already loaded: keep
-                        // backups and surface error to the snackbar.
-                        current.copy(error = "Failed to load backups: ${e.message}")
-                    } else {
-                        // Initial load (or post-Error retry) failed: terminal Error state.
-                        AdminBackupUiState.Error("Failed to load backups: ${e.message}")
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to load backups: ${result.error.message}" }
+                    state.update { current ->
+                        if (current is AdminBackupUiState.Ready) {
+                            // Transient refresh failure once already loaded: keep
+                            // backups and surface error to the snackbar.
+                            current.copy(error = userMessageFor(result.error))
+                        } else {
+                            // Initial load (or post-Error retry) failed: terminal Error state.
+                            AdminBackupUiState.Error(userMessageFor(result.error))
+                        }
                     }
                 }
             }
@@ -106,24 +107,26 @@ class AdminBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isCreating = true, error = null) }
 
-            try {
-                backupApi.createBackup(
+            when (
+                val result = backupApi.createBackup(
                     includeImages = includeImages,
                     includeEvents = includeEvents,
                 )
-                // Reload list to show new backup
-                loadBackups()
-                updateReady { it.copy(isCreating = false) }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to create backup" }
-                updateReady {
-                    it.copy(
-                        isCreating = false,
-                        error = "Failed to create backup: ${e.message}",
-                    )
+            ) {
+                is AppResult.Success -> {
+                    // Reload list to show new backup
+                    loadBackups()
+                    updateReady { it.copy(isCreating = false) }
+                }
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to create backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isCreating = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -141,24 +144,24 @@ class AdminBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isDeleting = true, deleteConfirmBackup = null) }
 
-            try {
-                backupApi.deleteBackup(backup.id)
-                updateReady { ready ->
-                    ready.copy(
-                        backups = ready.backups.filter { b -> b.id != backup.id },
-                        isDeleting = false,
-                    )
+            when (val result = backupApi.deleteBackup(backup.id)) {
+                is AppResult.Success -> {
+                    updateReady { ready ->
+                        ready.copy(
+                            backups = ready.backups.filter { b -> b.id != backup.id },
+                            isDeleting = false,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to delete backup" }
-                updateReady {
-                    it.copy(
-                        isDeleting = false,
-                        error = "Failed to delete backup: ${e.message}",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to delete backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            isDeleting = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -168,32 +171,33 @@ class AdminBackupViewModel(
         viewModelScope.launch {
             updateReady { it.copy(validatingBackupId = backup.id) }
 
-            try {
-                val result = backupApi.validateBackup(backup.id)
-                updateReady {
-                    it.copy(
-                        validatingBackupId = null,
-                        validationResult =
-                            BackupValidation(
-                                valid = result.valid,
-                                version = result.version,
-                                serverName = result.serverName,
-                                entityCounts = result.expectedCounts ?: emptyMap(),
-                                errors = result.errors,
-                                warnings = result.warnings,
-                            ),
-                    )
+            when (val result = backupApi.validateBackup(backup.id)) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    updateReady {
+                        it.copy(
+                            validatingBackupId = null,
+                            validationResult =
+                                BackupValidation(
+                                    valid = response.valid,
+                                    version = response.version,
+                                    serverName = response.serverName,
+                                    entityCounts = response.expectedCounts ?: emptyMap(),
+                                    errors = response.errors,
+                                    warnings = response.warnings,
+                                ),
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to validate backup" }
-                updateReady {
-                    it.copy(
-                        validatingBackupId = null,
-                        error = "Failed to validate backup: ${e.message}",
-                    )
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to validate backup: ${result.error.message}" }
+                    updateReady {
+                        it.copy(
+                            validatingBackupId = null,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -228,7 +232,9 @@ class AdminBackupViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    errorBus.emit(ErrorMapper.map(e))
+                    // Date parsing is not an API call — keep try/catch for this non-API failure.
+                    // Use DISTANT_PAST as graceful fallback so the backup still appears in list.
+                    logger.warn(e) { "Failed to parse backup date '$createdAt', using DISTANT_PAST" }
                     Instant.DISTANT_PAST
                 },
             checksum = checksum,
