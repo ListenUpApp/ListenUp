@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.Differ
@@ -50,6 +51,7 @@ private val logger = KotlinLogging.logger {}
 internal class Scanner(
     private val rootPath: Path,
     private val metadataReader: AbsMetadataReader,
+    private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val parseSubtitle: Boolean = false,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -141,7 +143,7 @@ internal class Scanner(
         val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
         val grouper = Grouper()
-        val analyzer = Analyzer(rootPath, metadataReader, parseSubtitle)
+        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle)
 
         emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
         val rebasedFiles =

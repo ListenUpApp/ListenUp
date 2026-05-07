@@ -1,19 +1,32 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
  * The Analyzer's output: a [CandidateBook] enriched with everything we can
- * infer from path components, filename annotations, and `metadata.json`.
+ * infer from path components, filename annotations, embedded audio tags,
+ * and `metadata.json`.
  *
- * Phase 2 fills in path-derived fields (title/authors/series/sequence/
- * narrators/asin/year) plus whatever an `metadata.json` overlay supplies.
- * Phase 3 (audiometa Kotlin port) fills in embedded-tag fields without
- * changing the shape — every embedded-only field is already nullable here.
+ * Three concerns coexist on the shape, deliberately separated:
  *
- * `sources` records the [MetadataSource]s that contributed at least one
- * field, so consumers can debug precedence.
+ *  1. **Resolved view** — `title`/`authors`/`narrators`/`series`/etc. The
+ *     merged result of every signal source after applying ABS invariant #7
+ *     precedence. UI list rendering reads these.
+ *  2. **Raw signal** — [embedded] preserves the parser's output verbatim.
+ *     Fields like real `durationMs`, `chapters`, and embedded `artwork`
+ *     bytes are unique to this source — discarding them after merge would
+ *     lose information no other source carries authoritatively.
+ *  3. **Provenance** — [sources] records which [MetadataSource]s
+ *     contributed at least one field; [embeddedStatus] records the parser
+ *     outcome for the primary audio file (success, unsupported format, or
+ *     typed parse error).
+ *
+ * Consumers reading the resolved view stay simple. Consumers needing
+ * authoritative duration, chapter list, or artwork bytes read [embedded]
+ * directly. Aggregators reading scan summaries group books by
+ * [embeddedStatus].
  */
 @Serializable
 data class AnalyzedBook(
@@ -34,7 +47,9 @@ data class AnalyzedBook(
     val tags: List<String> = emptyList(),
     val abridged: Boolean? = null,
     val explicit: Boolean? = null,
-    val cover: FileEntry? = null,
+    val cover: CoverSource? = null,
     val tracks: List<TrackEntry> = emptyList(),
+    val embedded: EmbeddedAudioMetadata? = null,
+    val embeddedStatus: MetadataStatus? = null,
     val sources: Set<MetadataSource> = emptySet(),
 )

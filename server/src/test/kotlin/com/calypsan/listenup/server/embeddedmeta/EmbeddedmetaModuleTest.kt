@@ -13,6 +13,10 @@ import org.koin.test.inject
 
 class EmbeddedmetaModuleTest :
     FunSpec({
+        // Ktor's testApplication blocks install Koin globally and (depending on Kotest
+        // runner ordering) may leave it running. Defensive stop ensures startKoin below
+        // begins from a clean state regardless of which test ran first.
+        beforeTest { runCatching { stopKoin() } }
         afterTest { stopKoin() }
 
         test("embeddedmetaModule resolves the entry point with both parsers wired") {

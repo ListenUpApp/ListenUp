@@ -92,6 +92,13 @@ private fun newService(
         Scanner(
             rootPath = fixture.root,
             metadataReader = AbsMetadataReader(contractJson),
+            embeddedMetadataParser =
+                com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser(
+                    detector =
+                        com.calypsan.listenup.server.embeddedmeta
+                            .AudioFormatDetector(),
+                    parsers = emptyList(),
+                ),
             eventBus = eventBus,
         )
     val coordinator =

@@ -2,11 +2,14 @@ package com.calypsan.listenup.server.scanner.pipeline
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
+import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
+import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
@@ -22,6 +25,11 @@ class AnalyzerTest :
     FunSpec({
 
         val metadataReader = AbsMetadataReader(contractJson)
+        // Empty parser registry — synthetic FileEntry paths in these tests don't
+        // resolve to real audio bytes, so every parse attempt yields IoError /
+        // UnsupportedFormat. Tests asserting on embedded enrichment live in
+        // AnalyzerEnrichmentTest with the real parser graph + on-disk fixtures.
+        val embeddedParser = EmbeddedMetadataParser(detector = AudioFormatDetector(), parsers = emptyList())
 
         test("infers title, author, and series from folder shape alone") {
             audioLibrary {
@@ -30,7 +38,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "Sanderson/Stormlight/The Way of Kings",
@@ -63,7 +71,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Sanderson/Stormlight/(2010) - Book 1 - The Way of Kings [B0015T963C] {Michael Kramer; Kate Reading}"
                     val candidate =
                         candidateOf(
@@ -115,7 +123,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Sanderson/Stormlight/Folder Title"
                     val candidate =
                         candidateOf(
@@ -161,7 +169,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "Author/Title",
@@ -188,7 +196,7 @@ class AnalyzerTest :
         test("picks cover.<ext> over other images") {
             audioLibrary { /* paths only — no real files needed for this case */ }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val firstImage = fileEntry("$rel/folder.png", FileType.IMAGE)
                     val cover = fileEntry("$rel/cover.jpg", FileType.IMAGE)
@@ -209,7 +217,7 @@ class AnalyzerTest :
                             .single()
                             .getOrThrow()
 
-                    book.cover shouldBe cover
+                    book.cover shouldBe CoverSource.Filesystem(cover)
                 }
             }
         }
@@ -217,7 +225,7 @@ class AnalyzerTest :
         test("falls back to first image when no cover.<ext> is present") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val firstImage = fileEntry("$rel/folder.png", FileType.IMAGE)
                     val candidate =
@@ -237,7 +245,7 @@ class AnalyzerTest :
                             .single()
                             .getOrThrow()
 
-                    book.cover shouldBe firstImage
+                    book.cover shouldBe CoverSource.Filesystem(firstImage)
                 }
             }
         }
@@ -245,7 +253,7 @@ class AnalyzerTest :
         test("emits null cover when there are no images") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val candidate =
                         candidateOf(
@@ -267,7 +275,7 @@ class AnalyzerTest :
         test("sorts tracks by disc then track number") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val candidate =
                         candidateOf(
@@ -308,7 +316,7 @@ class AnalyzerTest :
         test("title falls back to titleFolder when ABS regex strips everything") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     // Just an ASIN bracket, nothing else — parsed.title would be empty.
                     val rel = "Author/[B0015T963C]"
                     val candidate =
@@ -333,7 +341,7 @@ class AnalyzerTest :
         test("single-file book at library root is analyzed without crashing") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "standalone.m4b",
@@ -352,7 +360,7 @@ class AnalyzerTest :
         test("analyzer continues across multiple candidates") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val a =
                         candidateOf(
                             "Author/Book A",
@@ -373,7 +381,7 @@ class AnalyzerTest :
         test("read returns the live cover FileEntry, not a copy") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader)
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val cover = fileEntry("$rel/cover.jpg", FileType.IMAGE)
                     val candidate =
@@ -393,7 +401,7 @@ class AnalyzerTest :
                             .getOrThrow()
 
                     book.cover.shouldNotBeNull()
-                    book.cover shouldBe cover
+                    book.cover shouldBe CoverSource.Filesystem(cover)
                 }
             }
         }
