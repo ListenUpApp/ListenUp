@@ -2,9 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.AppException
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -75,9 +73,8 @@ class PlaybackApi(
         capabilities: List<String>,
         spatial: Boolean, // NEW parameter
     ): AppResult<PreparePlaybackResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Prepare-playback response missing data") {
             logger.debug { "Preparing playback: book=$bookId, file=$audioFileId, caps=$capabilities, spatial=$spatial" }
-
             val client = clientFactory.getClient()
             val request =
                 PreparePlaybackRequest(
@@ -86,21 +83,12 @@ class PlaybackApi(
                     capabilities = capabilities,
                     spatial = spatial,
                 )
-
-            val response: ApiResponse<PreparePlaybackApiResponse> =
-                client
-                    .post("/api/v1/playback/prepare") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-
-            logger.debug { "Prepare playback response: ready=${response.data?.ready}" }
-
-            when (val result = response.toResult()) {
-                is com.calypsan.listenup.client.core.Success -> result.data.toDomain()
-                is com.calypsan.listenup.client.core.Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .post("/api/v1/playback/prepare") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body<ApiResponse<PreparePlaybackApiResponse>>()
+        }.map { it.toDomain() }
 
     override suspend fun cancelTranscode(jobId: String): AppResult<Unit> =
         when (val result = suspendRunCatching { clientFactory.getClient().post("/api/v1/transcode/cancel/$jobId") }) {
