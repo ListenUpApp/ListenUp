@@ -2,14 +2,15 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -74,12 +75,13 @@ class AdminSettingsViewModel(
                 }
 
                 is Failure -> {
-                    logger.error { "Failed to load server settings: ${result.message}" }
+                    logger.error { "Failed to load server settings: ${result.error}" }
+                    val message = userMessageFor(result.error)
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
-                            current.copy(error = result.message)
+                            current.copy(error = message)
                         } else {
-                            AdminSettingsUiState.Error(result.message)
+                            AdminSettingsUiState.Error(message)
                         }
                     }
                 }
@@ -157,66 +159,90 @@ class AdminSettingsViewModel(
 
     /**
      * Persist all current settings to the server.
+     *
+     * Each changed field is saved independently. A failure in any one field
+     * surfaces as a transient error on [AdminSettingsUiState.Ready] and aborts
+     * the remaining saves — the error is also forwarded to the global error bus.
      */
-    @Suppress("ThrowsCount") // Boundary function: rethrow CancellationException + throw per-field failures
+    @Suppress("ReturnCount")
     fun saveAll() {
         val ready = state.value as? AdminSettingsUiState.Ready ?: return
 
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
 
-            try {
-                // Save server name if changed
-                if (ready.serverName != savedServerName) {
-                    when (val result = updateServerSettingsUseCase.updateServerName(ready.serverName)) {
-                        is Success -> {
-                            savedServerName = result.data.serverName
-                            logger.info { "Server name saved: ${result.data.serverName}" }
-                        }
-
-                        is Failure -> {
-                            throw IllegalStateException(result.message)
-                        }
+            // Save server name if changed
+            if (ready.serverName != savedServerName) {
+                when (val result = updateServerSettingsUseCase.updateServerName(ready.serverName)) {
+                    is Success -> {
+                        savedServerName = result.data.serverName
+                        logger.info { "Server name saved: ${result.data.serverName}" }
                     }
-                }
 
-                // Save remote URL if changed
-                if (ready.remoteUrl != savedRemoteUrl) {
-                    adminRepository.updateInstanceRemoteUrl(ready.remoteUrl)
-                    savedRemoteUrl = ready.remoteUrl
-                    logger.info { "Remote URL saved: ${ready.remoteUrl}" }
-                }
-
-                // Save inbox enabled if changed
-                if (ready.inboxEnabled != savedInboxEnabled) {
-                    when (val result = updateServerSettingsUseCase(ready.inboxEnabled)) {
-                        is Success -> {
-                            savedInboxEnabled = result.data.inboxEnabled
-                            val refreshedCount = result.data.inboxCount
-                            updateReady { it.copy(inboxCount = refreshedCount) }
-                            logger.info { "Inbox workflow ${if (ready.inboxEnabled) "enabled" else "disabled"}" }
+                    is Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to save server name: ${result.error}" }
+                        updateReady {
+                            it
+                                .copy(
+                                    isSaving = false,
+                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                ).withDirty()
                         }
-
-                        is Failure -> {
-                            throw IllegalStateException(result.message)
-                        }
+                        return@launch
                     }
-                }
-
-                updateReady { it.copy(isSaving = false).withDirty() }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to save settings" }
-                updateReady {
-                    it
-                        .copy(
-                            isSaving = false,
-                            error = "Failed to save settings: ${e.message}",
-                        ).withDirty()
                 }
             }
+
+            // Save remote URL if changed
+            if (ready.remoteUrl != savedRemoteUrl) {
+                when (val result = adminRepository.updateInstanceRemoteUrl(ready.remoteUrl)) {
+                    is AppResult.Success -> {
+                        savedRemoteUrl = ready.remoteUrl
+                        logger.info { "Remote URL saved: ${ready.remoteUrl}" }
+                    }
+
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to save remote URL: ${result.error}" }
+                        updateReady {
+                            it
+                                .copy(
+                                    isSaving = false,
+                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                ).withDirty()
+                        }
+                        return@launch
+                    }
+                }
+            }
+
+            // Save inbox enabled if changed
+            if (ready.inboxEnabled != savedInboxEnabled) {
+                when (val result = updateServerSettingsUseCase(ready.inboxEnabled)) {
+                    is Success -> {
+                        savedInboxEnabled = result.data.inboxEnabled
+                        val refreshedCount = result.data.inboxCount
+                        updateReady { it.copy(inboxCount = refreshedCount) }
+                        logger.info { "Inbox workflow ${if (ready.inboxEnabled) "enabled" else "disabled"}" }
+                    }
+
+                    is Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to save inbox setting: ${result.error}" }
+                        updateReady {
+                            it
+                                .copy(
+                                    isSaving = false,
+                                    error = "Failed to save settings: ${userMessageFor(result.error)}",
+                                ).withDirty()
+                        }
+                        return@launch
+                    }
+                }
+            }
+
+            updateReady { it.copy(isSaving = false).withDirty() }
         }
     }
 

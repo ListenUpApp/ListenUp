@@ -1,10 +1,11 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
@@ -46,6 +47,8 @@ class LibrarySettingsViewModelTest {
         updatedAt = "2024-01-01T00:00:00Z",
     )
 
+    private fun networkFailure() = AppResult.Failure(TransportError.NetworkUnavailable())
+
     @BeforeTest
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -60,7 +63,7 @@ class LibrarySettingsViewModelTest {
     fun `initial state is Loading`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            everySuspend { adminRepository.getLibrary("lib-1") } returns createLibrary()
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(createLibrary())
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -77,7 +80,7 @@ class LibrarySettingsViewModelTest {
         runTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(accessMode = AccessMode.RESTRICTED, skipInbox = true)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -97,7 +100,7 @@ class LibrarySettingsViewModelTest {
     fun `loadLibrary initial failure transitions to Error`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            everySuspend { adminRepository.getLibrary("lib-1") } throws RuntimeException("Network error")
+            everySuspend { adminRepository.getLibrary("lib-1") } returns networkFailure()
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -107,8 +110,7 @@ class LibrarySettingsViewModelTest {
                 )
             advanceUntilIdle()
 
-            val error = assertIs<LibrarySettingsUiState.Error>(viewModel.state.value)
-            assertTrue(error.message.contains("Network error"))
+            assertIs<LibrarySettingsUiState.Error>(viewModel.state.value)
         }
 
     @Test
@@ -117,13 +119,13 @@ class LibrarySettingsViewModelTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(accessMode = AccessMode.OPEN)
             val updatedLibrary = library.copy(accessMode = AccessMode.RESTRICTED)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
             everySuspend {
                 adminRepository.updateLibrary(
                     libraryId = "lib-1",
                     accessMode = AccessMode.RESTRICTED,
                 )
-            } returns updatedLibrary
+            } returns AppResult.Success(updatedLibrary)
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -149,13 +151,13 @@ class LibrarySettingsViewModelTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(skipInbox = false)
             val updatedLibrary = library.copy(skipInbox = true)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
             everySuspend {
                 adminRepository.updateLibrary(
                     libraryId = "lib-1",
                     skipInbox = true,
                 )
-            } returns updatedLibrary
+            } returns AppResult.Success(updatedLibrary)
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -180,13 +182,13 @@ class LibrarySettingsViewModelTest {
         runTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(accessMode = AccessMode.OPEN)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
             everySuspend {
                 adminRepository.updateLibrary(
                     libraryId = "lib-1",
                     accessMode = AccessMode.RESTRICTED,
                 )
-            } throws RuntimeException("Server error")
+            } returns networkFailure()
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -202,7 +204,7 @@ class LibrarySettingsViewModelTest {
             // Should revert to original state on error; transient refresh failure stays in Ready.
             val ready = assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
             assertEquals(AccessMode.OPEN, ready.accessMode)
-            assertTrue(ready.error?.contains("Server error") == true)
+            assertTrue(ready.error != null)
         }
 
     @Test
@@ -210,13 +212,13 @@ class LibrarySettingsViewModelTest {
         runTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(accessMode = AccessMode.OPEN)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
             everySuspend {
                 adminRepository.updateLibrary(
                     libraryId = "lib-1",
                     accessMode = AccessMode.RESTRICTED,
                 )
-            } throws RuntimeException("Server error")
+            } returns networkFailure()
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -243,7 +245,7 @@ class LibrarySettingsViewModelTest {
         runTest {
             val adminRepository: AdminRepository = mock()
             val library = createLibrary(accessMode = AccessMode.OPEN)
-            everySuspend { adminRepository.getLibrary("lib-1") } returns library
+            everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
 
             val viewModel =
                 LibrarySettingsViewModel(

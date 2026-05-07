@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
 /**
@@ -11,5 +10,5 @@ open class DenyUserUseCase(
     private val adminRepository: AdminRepository,
 ) {
     open suspend operator fun invoke(userId: String): AppResult<Unit> =
-        suspendRunCatching { adminRepository.denyUser(userId) }
+        adminRepository.denyUser(userId)
 }

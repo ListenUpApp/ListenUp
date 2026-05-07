@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.core.validationError
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.core.validationError
 
 /**
  * Creates a new invite code.
@@ -31,14 +30,12 @@ open class CreateInviteUseCase(
             return validationError("Invalid email address")
         }
 
-        return suspendRunCatching {
-            adminRepository.createInvite(
-                name = trimmedName,
-                email = trimmedEmail,
-                role = role,
-                expiresInDays = expiresInDays,
-            )
-        }
+        return adminRepository.createInvite(
+            name = trimmedName,
+            email = trimmedEmail,
+            role = role,
+            expiresInDays = expiresInDays,
+        )
     }
 
     private fun isValidEmail(email: String): Boolean = email.contains("@") && email.contains(".")

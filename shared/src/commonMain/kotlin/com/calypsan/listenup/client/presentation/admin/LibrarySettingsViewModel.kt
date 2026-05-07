@@ -2,12 +2,13 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.presentation.error.userMessageFor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,35 +46,37 @@ class LibrarySettingsViewModel(
      */
     private fun loadLibrary() {
         viewModelScope.launch {
-            try {
-                val library = adminRepository.getLibrary(libraryId)
-                state.update { current ->
-                    if (current is LibrarySettingsUiState.Ready) {
-                        current.copy(
-                            library = library,
-                            accessMode = library.accessMode,
-                            skipInbox = library.skipInbox,
-                            error = null,
-                        )
-                    } else {
-                        LibrarySettingsUiState.Ready(
-                            library = library,
-                            accessMode = library.accessMode,
-                            skipInbox = library.skipInbox,
-                        )
+            when (val result = adminRepository.getLibrary(libraryId)) {
+                is AppResult.Success -> {
+                    val library = result.data
+                    state.update { current ->
+                        if (current is LibrarySettingsUiState.Ready) {
+                            current.copy(
+                                library = library,
+                                accessMode = library.accessMode,
+                                skipInbox = library.skipInbox,
+                                error = null,
+                            )
+                        } else {
+                            LibrarySettingsUiState.Ready(
+                                library = library,
+                                accessMode = library.accessMode,
+                                skipInbox = library.skipInbox,
+                            )
+                        }
                     }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load library: $libraryId" }
-                val message = e.message ?: "Failed to load library"
-                state.update { current ->
-                    if (current is LibrarySettingsUiState.Ready) {
-                        current.copy(error = message)
-                    } else {
-                        LibrarySettingsUiState.Error(message)
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to load library: $libraryId — ${result.error}" }
+                    val message = userMessageFor(result.error)
+                    state.update { current ->
+                        if (current is LibrarySettingsUiState.Ready) {
+                            current.copy(error = message)
+                        } else {
+                            LibrarySettingsUiState.Error(message)
+                        }
                     }
                 }
             }
@@ -96,32 +99,30 @@ class LibrarySettingsViewModel(
         updateReady { it.copy(accessMode = accessMode, isSaving = true) }
 
         viewModelScope.launch {
-            try {
-                val updatedLibrary =
-                    adminRepository.updateLibrary(
-                        libraryId = libraryId,
-                        accessMode = accessMode,
-                    )
-                logger.info { "Updated access mode for library $libraryId to ${accessMode.toApiString()}" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        library = updatedLibrary,
-                        accessMode = updatedLibrary.accessMode,
-                    )
+            when (val result = adminRepository.updateLibrary(libraryId = libraryId, accessMode = accessMode)) {
+                is AppResult.Success -> {
+                    val updatedLibrary = result.data
+                    logger.info { "Updated access mode for library $libraryId to ${accessMode.toApiString()}" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            library = updatedLibrary,
+                            accessMode = updatedLibrary.accessMode,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to update access mode for library: $libraryId" }
-                // Revert to previous value
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        accessMode = previousValue,
-                        error = e.message ?: "Failed to update access mode",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to update access mode for library: $libraryId — ${result.error}" }
+                    // Revert to previous value
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            accessMode = previousValue,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -142,32 +143,30 @@ class LibrarySettingsViewModel(
         updateReady { it.copy(skipInbox = newValue, isSaving = true) }
 
         viewModelScope.launch {
-            try {
-                val updatedLibrary =
-                    adminRepository.updateLibrary(
-                        libraryId = libraryId,
-                        skipInbox = newValue,
-                    )
-                logger.info { "Updated skip inbox for library $libraryId to $newValue" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        library = updatedLibrary,
-                        skipInbox = updatedLibrary.skipInbox,
-                    )
+            when (val result = adminRepository.updateLibrary(libraryId = libraryId, skipInbox = newValue)) {
+                is AppResult.Success -> {
+                    val updatedLibrary = result.data
+                    logger.info { "Updated skip inbox for library $libraryId to $newValue" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            library = updatedLibrary,
+                            skipInbox = updatedLibrary.skipInbox,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to update skip inbox for library: $libraryId" }
-                // Revert to previous value
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        skipInbox = previousValue,
-                        error = e.message ?: "Failed to update skip inbox",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to update skip inbox for library: $libraryId — ${result.error}" }
+                    // Revert to previous value
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            skipInbox = previousValue,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -181,25 +180,27 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true) }
 
-            try {
-                val updatedLibrary = adminRepository.removeScanPath(libraryId, path)
-                logger.info { "Removed scan path from library $libraryId: $path" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        library = updatedLibrary,
-                    )
+            when (val result = adminRepository.removeScanPath(libraryId, path)) {
+                is AppResult.Success -> {
+                    val updatedLibrary = result.data
+                    logger.info { "Removed scan path from library $libraryId: $path" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            library = updatedLibrary,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to remove scan path from library: $libraryId" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        error = e.message ?: "Failed to remove scan path",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to remove scan path from library: $libraryId — ${result.error}" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -213,25 +214,27 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, showFolderBrowser = false) }
 
-            try {
-                val updatedLibrary = adminRepository.addScanPath(libraryId, path)
-                logger.info { "Added scan path to library $libraryId: $path" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        library = updatedLibrary,
-                    )
+            when (val result = adminRepository.addScanPath(libraryId, path)) {
+                is AppResult.Success -> {
+                    val updatedLibrary = result.data
+                    logger.info { "Added scan path to library $libraryId: $path" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            library = updatedLibrary,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to add scan path to library: $libraryId" }
-                updateReady {
-                    it.copy(
-                        isSaving = false,
-                        error = e.message ?: "Failed to add scan path",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to add scan path to library: $libraryId — ${result.error}" }
+                    updateReady {
+                        it.copy(
+                            isSaving = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -245,20 +248,21 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isScanning = true) }
 
-            try {
-                adminRepository.triggerScan(libraryId)
-                logger.info { "Triggered scan for library $libraryId" }
-                updateReady { it.copy(isScanning = false) }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to trigger scan for library: $libraryId" }
-                updateReady {
-                    it.copy(
-                        isScanning = false,
-                        error = e.message ?: "Failed to trigger scan",
-                    )
+            when (val result = adminRepository.triggerScan(libraryId)) {
+                is AppResult.Success -> {
+                    logger.info { "Triggered scan for library $libraryId" }
+                    updateReady { it.copy(isScanning = false) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to trigger scan for library: $libraryId — ${result.error}" }
+                    updateReady {
+                        it.copy(
+                            isScanning = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }
@@ -290,27 +294,29 @@ class LibrarySettingsViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isBrowserLoading = true) }
 
-            try {
-                val response = adminRepository.browseFilesystem(path)
-                updateReady {
-                    it.copy(
-                        isBrowserLoading = false,
-                        browserPath = response.path,
-                        browserParent = response.parent,
-                        browserEntries = response.entries,
-                        browserIsRoot = response.isRoot,
-                    )
+            when (val result = adminRepository.browseFilesystem(path)) {
+                is AppResult.Success -> {
+                    val response = result.data
+                    updateReady {
+                        it.copy(
+                            isBrowserLoading = false,
+                            browserPath = response.path,
+                            browserParent = response.parent,
+                            browserEntries = response.entries,
+                            browserIsRoot = response.isRoot,
+                        )
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to browse directory: $path" }
-                updateReady {
-                    it.copy(
-                        isBrowserLoading = false,
-                        error = e.message ?: "Failed to browse directory",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to browse directory: $path — ${result.error}" }
+                    updateReady {
+                        it.copy(
+                            isBrowserLoading = false,
+                            error = userMessageFor(result.error),
+                        )
+                    }
                 }
             }
         }

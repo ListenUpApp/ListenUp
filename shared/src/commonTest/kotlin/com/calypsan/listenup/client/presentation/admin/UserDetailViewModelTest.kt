@@ -1,10 +1,11 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
@@ -47,6 +48,8 @@ class UserDetailViewModelTest {
         createdAt = "2024-01-01T00:00:00Z",
     )
 
+    private fun networkFailure() = AppResult.Failure(TransportError.NetworkUnavailable())
+
     @BeforeTest
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -61,7 +64,7 @@ class UserDetailViewModelTest {
     fun `initial state is Loading`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            everySuspend { adminRepository.getUser("user-1") } returns createUser()
+            everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(createUser())
 
             val viewModel =
                 UserDetailViewModel(
@@ -78,7 +81,7 @@ class UserDetailViewModelTest {
         runTest {
             val adminRepository: AdminRepository = mock()
             val user = createUser(canShare = false)
-            everySuspend { adminRepository.getUser("user-1") } returns user
+            everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
 
             val viewModel =
                 UserDetailViewModel(
@@ -97,7 +100,7 @@ class UserDetailViewModelTest {
     fun `loadUser initial failure transitions to Error`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            everySuspend { adminRepository.getUser("user-1") } throws RuntimeException("Network error")
+            everySuspend { adminRepository.getUser("user-1") } returns networkFailure()
 
             val viewModel =
                 UserDetailViewModel(
@@ -107,8 +110,7 @@ class UserDetailViewModelTest {
                 )
             advanceUntilIdle()
 
-            val error = assertIs<UserDetailUiState.Error>(viewModel.state.value)
-            assertTrue(error.message.contains("Network error"))
+            assertIs<UserDetailUiState.Error>(viewModel.state.value)
         }
 
     @Test
@@ -120,13 +122,13 @@ class UserDetailViewModelTest {
                 user.copy(
                     permissions = UserPermissions(canShare = false),
                 )
-            everySuspend { adminRepository.getUser("user-1") } returns user
+            everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
             everySuspend {
                 adminRepository.updateUser(
                     userId = "user-1",
                     canShare = false,
                 )
-            } returns updatedUser
+            } returns AppResult.Success(updatedUser)
 
             val viewModel =
                 UserDetailViewModel(
@@ -153,13 +155,13 @@ class UserDetailViewModelTest {
             // transient error on Ready that clearError resets.
             val adminRepository: AdminRepository = mock()
             val user = createUser(canShare = true)
-            everySuspend { adminRepository.getUser("user-1") } returns user
+            everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
             everySuspend {
                 adminRepository.updateUser(
                     userId = "user-1",
                     canShare = false,
                 )
-            } throws RuntimeException("Save failed")
+            } returns networkFailure()
 
             val viewModel =
                 UserDetailViewModel(
@@ -198,7 +200,7 @@ class UserDetailViewModelTest {
                     permissions = UserPermissions(canShare = true),
                     createdAt = "2024-01-01T00:00:00Z",
                 )
-            everySuspend { adminRepository.getUser("root-1") } returns rootUser
+            everySuspend { adminRepository.getUser("root-1") } returns AppResult.Success(rootUser)
 
             val viewModel =
                 UserDetailViewModel(

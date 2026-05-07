@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
 /**
@@ -17,7 +16,5 @@ open class StageCollectionUseCase(
         bookId: String,
         collectionId: String,
     ): AppResult<Unit> =
-        suspendRunCatching {
-            adminRepository.stageCollection(bookId, collectionId)
-        }
+        adminRepository.stageCollection(bookId, collectionId)
 }
