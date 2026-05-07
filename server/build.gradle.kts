@@ -60,6 +60,10 @@ dependencies {
     implementation(libs.kotlinx.rpc.krpc.ktor.server)
     implementation(libs.kotlinx.rpc.krpc.serialization.json)
 
+    // kotlinx-io — binary decoding for the audiometa parser package
+    implementation(libs.kotlinx.io.core)
+    implementation(libs.kotlinx.io.bytestring)
+
     // Logging
     implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
