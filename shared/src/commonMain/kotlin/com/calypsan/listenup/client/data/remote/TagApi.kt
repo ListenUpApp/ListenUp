@@ -1,19 +1,16 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.model.Tag
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -34,11 +31,10 @@ class TagApi(
      *
      * Endpoint: GET /api/v1/tags
      */
-    override suspend fun listTags(): List<Tag> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ListTagsResponse> = client.get("/api/v1/tags").body()
-        return response.dataOrThrow { TagApiException(it) }.tags.map { it.toDomain() }
-    }
+    override suspend fun listTags(): AppResult<List<Tag>> =
+        apiCall(errorMessage = "Tag list response missing data") {
+            clientFactory.getClient().get("/api/v1/tags").body<ApiResponse<ListTagsResponse>>()
+        }.map { it.tags.map(TagResponse::toDomain) }
 
     /**
      * Get a tag by its slug.
@@ -46,22 +42,13 @@ class TagApi(
      * Endpoint: GET /api/v1/tags/{slug}
      *
      * @param slug The tag slug
-     * @return The tag, or null if not found
+     * @return [AppResult.Success] containing the tag, or [AppResult.Failure] on error
+     *   (including 404 Not Found, which maps to [com.calypsan.listenup.api.error.TransportError.Server4xx])
      */
-    override suspend fun getTagBySlug(slug: String): Tag? {
-        val client = clientFactory.getClient()
-        val httpResponse: HttpResponse = client.get("/api/v1/tags/$slug")
-        return if (httpResponse.status.isSuccess()) {
-            val response: ApiResponse<TagResponse> = httpResponse.body()
-            if (response.success && response.data != null) {
-                response.data.toDomain()
-            } else {
-                null
-            }
-        } else {
-            null
-        }
-    }
+    override suspend fun getTagBySlug(slug: String): AppResult<Tag> =
+        apiCall(errorMessage = "Tag response missing data") {
+            clientFactory.getClient().get("/api/v1/tags/$slug").body<ApiResponse<TagResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Get tags for a specific book.
@@ -70,11 +57,10 @@ class TagApi(
      *
      * @param bookId The book ID to get tags for
      */
-    override suspend fun getBookTags(bookId: String): List<Tag> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<GetBookTagsResponse> = client.get("/api/v1/books/$bookId/tags").body()
-        return response.dataOrThrow { TagApiException(it) }.tags.map { it.toDomain() }
-    }
+    override suspend fun getBookTags(bookId: String): AppResult<List<Tag>> =
+        apiCall(errorMessage = "Book tags response missing data") {
+            clientFactory.getClient().get("/api/v1/books/$bookId/tags").body<ApiResponse<GetBookTagsResponse>>()
+        }.map { it.tags.map(TagResponse::toDomain) }
 
     /**
      * Add a tag to a book. Creates the tag if it doesn't exist.
@@ -83,21 +69,20 @@ class TagApi(
      *
      * @param bookId The book to tag
      * @param rawInput The tag text (will be normalized to slug by server)
-     * @return The tag that was added or created
+     * @return [AppResult.Success] containing the tag that was added or created
      */
     override suspend fun addTagToBook(
         bookId: String,
         rawInput: String,
-    ): Tag {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<TagResponse> =
-            client
+    ): AppResult<Tag> =
+        apiCall(errorMessage = "Add-tag response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/books/$bookId/tags") {
                     contentType(ContentType.Application.Json)
                     setBody(AddTagRequest(tag = rawInput))
-                }.body()
-        return response.dataOrThrow { TagApiException(it) }.toDomain()
-    }
+                }.body<ApiResponse<TagResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Remove a tag from a book.
@@ -110,18 +95,10 @@ class TagApi(
     override suspend fun removeTagFromBook(
         bookId: String,
         slug: String,
-    ) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/books/$bookId/tags/$slug").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Tag removed successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/books/$bookId/tags/$slug").body<ApiResponse<Unit>>()
         }
-    }
 }
 
 // === Response DTOs ===
@@ -172,10 +149,3 @@ internal data class AddTagRequest(
     @SerialName("tag")
     val tag: String,
 )
-
-/**
- * Exception thrown when a tag API call fails.
- */
-class TagApiException(
-    message: String,
-) : Exception(message)

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.pull
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity
@@ -43,29 +44,31 @@ class TagPuller(
 
         // Fetch all global tags
         // Book-tag relationships are synced inline with BookPuller
-        try {
-            val tags = tagApi.listTags()
-            logger.info { "Fetched ${tags.size} global tags" }
+        when (val result = tagApi.listTags()) {
+            is AppResult.Success -> {
+                val tags = result.data
+                logger.info { "Fetched ${tags.size} global tags" }
 
-            // Convert to entities and upsert
-            val tagEntities =
-                tags.map { tag ->
-                    TagEntity(
-                        id = tag.id,
-                        slug = tag.slug,
-                        bookCount = tag.bookCount,
-                        createdAt =
-                            tag.createdAt?.let { Timestamp(it.toEpochMilliseconds()) }
-                                ?: Timestamp.now(),
-                    )
-                }
-            tagDao.upsertAll(tagEntities)
-            logger.info { "Tag sync complete: ${tagEntities.size} tags synced" }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to fetch global tags" }
-            // Don't throw - tags are not critical for sync
+                // Convert to entities and upsert
+                val tagEntities =
+                    tags.map { tag ->
+                        TagEntity(
+                            id = tag.id,
+                            slug = tag.slug,
+                            bookCount = tag.bookCount,
+                            createdAt =
+                                tag.createdAt?.let { Timestamp(it.toEpochMilliseconds()) }
+                                    ?: Timestamp.now(),
+                        )
+                    }
+                tagDao.upsertAll(tagEntities)
+                logger.info { "Tag sync complete: ${tagEntities.size} tags synced" }
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "Failed to fetch global tags: ${result.error.message}" }
+                // Don't throw - tags are not critical for sync
+            }
         }
     }
 }

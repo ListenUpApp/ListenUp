@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
 
@@ -90,12 +91,12 @@ interface TagRepository {
      *
      * @param bookId The book to add the tag to
      * @param tagSlugOrName The tag slug or name (will be normalized by server)
-     * @return The added tag on success
+     * @return [AppResult.Success] containing the added tag, or [AppResult.Failure] on error
      */
     suspend fun addTagToBook(
         bookId: String,
         tagSlugOrName: String,
-    ): Tag
+    ): AppResult<Tag>
 
     /**
      * Remove a tag from a book.
@@ -105,10 +106,11 @@ interface TagRepository {
      * @param bookId The book to remove the tag from
      * @param tagSlug The tag slug to remove
      * @param tagId The tag ID (for local database update)
+     * @return [AppResult.Success] with Unit on success, or [AppResult.Failure] on error
      */
     suspend fun removeTagFromBook(
         bookId: String,
         tagSlug: String,
         tagId: String,
-    )
+    ): AppResult<Unit>
 }

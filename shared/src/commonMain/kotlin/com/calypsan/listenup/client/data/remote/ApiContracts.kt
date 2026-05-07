@@ -298,23 +298,27 @@ interface SyncApiContract {
 interface TagApiContract {
     /**
      * Get all global tags ordered by popularity (book count).
+     *
+     * @return [AppResult.Success] containing the tag list, or [AppResult.Failure] on error
      */
-    suspend fun listTags(): List<Tag>
+    suspend fun listTags(): AppResult<List<Tag>>
 
     /**
      * Get a specific tag by its slug.
      *
      * @param slug The tag slug (e.g., "found-family")
-     * @return The tag, or null if not found
+     * @return [AppResult.Success] containing the tag, or [AppResult.Failure] on error
+     *   (including 404 Not Found, which maps to [com.calypsan.listenup.api.error.TransportError.Server4xx])
      */
-    suspend fun getTagBySlug(slug: String): Tag?
+    suspend fun getTagBySlug(slug: String): AppResult<Tag>
 
     /**
      * Get tags for a specific book.
      *
      * @param bookId The book ID
+     * @return [AppResult.Success] containing the tag list, or [AppResult.Failure] on error
      */
-    suspend fun getBookTags(bookId: String): List<Tag>
+    suspend fun getBookTags(bookId: String): AppResult<List<Tag>>
 
     /**
      * Add a tag to a book. Creates the tag if it doesn't exist.
@@ -324,23 +328,24 @@ interface TagApiContract {
      *
      * @param bookId The book ID
      * @param rawInput The tag text (will be normalized to slug)
-     * @return The tag that was added (or created)
+     * @return [AppResult.Success] containing the tag that was added (or created), or [AppResult.Failure] on error
      */
     suspend fun addTagToBook(
         bookId: String,
         rawInput: String,
-    ): Tag
+    ): AppResult<Tag>
 
     /**
      * Remove a tag from a book.
      *
      * @param bookId The book ID
      * @param slug The tag slug to remove
+     * @return [AppResult.Success] with Unit on success, or [AppResult.Failure] on error
      */
     suspend fun removeTagFromBook(
         bookId: String,
         slug: String,
-    )
+    ): AppResult<Unit>
 }
 
 /**

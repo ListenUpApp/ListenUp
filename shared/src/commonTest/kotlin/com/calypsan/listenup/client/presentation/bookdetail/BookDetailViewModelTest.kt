@@ -626,7 +626,7 @@ class BookDetailViewModelTest {
             val tag = TestData.tag(id = "tag-1", slug = "favorites")
             every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
             everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns tag
+            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns AppResult.Success(tag)
             val viewModel = fixture.build()
 
             turbineScope {
@@ -657,7 +657,7 @@ class BookDetailViewModelTest {
             val book = TestData.bookDetail(id = "book-1", tags = bookTags)
             every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
             everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-            everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Unit
+            everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns AppResult.Success(Unit)
             val viewModel = fixture.build()
 
             turbineScope {
@@ -687,7 +687,7 @@ class BookDetailViewModelTest {
             val newTag = TestData.tag(id = "new-tag", slug = "new-tag")
             every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
             everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
-            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns newTag
+            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns AppResult.Success(newTag)
             val viewModel = fixture.build()
 
             turbineScope {
