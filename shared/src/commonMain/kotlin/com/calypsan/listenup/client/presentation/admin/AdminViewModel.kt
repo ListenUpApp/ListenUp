@@ -354,6 +354,10 @@ class AdminViewModel(
 sealed interface AdminUiState {
     data object Loading : AdminUiState
 
+    /**
+     * Admin data has loaded; carries users, pending users, pending invites,
+     * per-action overlays, and a transient `error` surfaced as a snackbar.
+     */
     data class Ready(
         val openRegistration: Boolean = false,
         val users: List<AdminUserInfo> = emptyList(),
@@ -367,6 +371,7 @@ sealed interface AdminUiState {
         val error: String? = null,
     ) : AdminUiState
 
+    /** Terminal state when the initial users load fails. */
     data class Error(
         val message: String,
     ) : AdminUiState

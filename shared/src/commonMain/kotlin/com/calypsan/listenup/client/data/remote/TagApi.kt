@@ -131,6 +131,7 @@ class TagApi(
  */
 @Serializable
 internal data class ListTagsResponse(
+    @SerialName("tags")
     val tags: List<TagResponse>,
 )
 
@@ -139,6 +140,7 @@ internal data class ListTagsResponse(
  */
 @Serializable
 internal data class GetBookTagsResponse(
+    @SerialName("tags")
     val tags: List<TagResponse>,
 )
 
@@ -167,6 +169,7 @@ internal data class TagResponse(
 
 @Serializable
 internal data class AddTagRequest(
+    @SerialName("tag")
     val tag: String,
 )
 

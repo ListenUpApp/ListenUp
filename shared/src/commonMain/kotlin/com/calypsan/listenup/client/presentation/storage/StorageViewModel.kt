@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadService
@@ -35,6 +36,7 @@ data class StorageUiState(
  * State for delete confirmation dialogs.
  */
 sealed interface DeleteConfirmation {
+    /** Confirm deletion of a single downloaded [book]. */
     data class SingleBook(
         val book: DownloadedBookSummary,
     ) : DeleteConfirmation
@@ -52,6 +54,7 @@ class StorageViewModel(
     private val downloadRepository: DownloadRepository,
     private val downloadService: DownloadService,
     private val storageSpaceProvider: StorageSpaceProvider,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val internalState = MutableStateFlow(StorageUiState())
 
@@ -119,7 +122,7 @@ class StorageViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to delete download(s)" }
             } finally {
                 internalState.update { it.copy(isDeleting = false) }

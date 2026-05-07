@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.device
 
+/**
+ * Capability snapshot for the current device. Wraps a [DeviceType] with derived capability
+ * predicates (touch, D-pad, edit affordances, etc.) the UI consults to choose layouts and
+ * affordances appropriate to the form factor.
+ */
 data class DeviceContext(
     val type: DeviceType,
 ) {

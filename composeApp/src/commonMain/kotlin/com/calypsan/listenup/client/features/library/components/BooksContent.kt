@@ -73,10 +73,12 @@ private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
  * Represents an item in the book grid - either a section header or a book.
  */
 private sealed class BookGridItem {
+    /** Section divider showing the [letter] heading above the books that follow it. */
     data class Header(
         val letter: Char,
     ) : BookGridItem()
 
+    /** A single book row in the grid. */
     data class BookItem(
         val book: BookListItem,
     ) : BookGridItem()

@@ -221,8 +221,10 @@ class ContributorEditViewModelTest {
 
             everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
             // Use case fails
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
-                Failure(Exception("Network error"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Network error"))
 
             val viewModel = fixture.build()
             viewModel.loadContributor("contributor-1")

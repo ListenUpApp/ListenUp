@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class ScanResult(
+    @SerialName("correlationId")
     val correlationId: String,
     val rootPath: String,
     val books: List<AnalyzedBook>,
@@ -27,6 +29,7 @@ data class ScanResult(
  */
 @Serializable
 data class ScanResultSummary(
+    @SerialName("correlationId")
     val correlationId: String,
     val totalBooks: Int,
     val added: Int,

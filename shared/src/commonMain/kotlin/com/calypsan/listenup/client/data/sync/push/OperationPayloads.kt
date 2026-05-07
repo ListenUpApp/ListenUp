@@ -47,6 +47,7 @@ data class ContributorUpdatePayload(
  */
 @Serializable
 data class SeriesUpdatePayload(
+    @SerialName("name")
     val name: String? = null,
     val description: String? = null,
 )
@@ -57,11 +58,17 @@ data class SeriesUpdatePayload(
  */
 @Serializable
 data class SetBookContributorsPayload(
+    @SerialName("contributors")
     val contributors: List<ContributorInput>,
 )
 
+/**
+ * One contributor entry in a [SetBookContributorsPayload]: the [name] resolved or created
+ * server-side, and the [roles] (e.g. AUTHOR, NARRATOR) the contributor holds for this book.
+ */
 @Serializable
 data class ContributorInput(
+    @SerialName("name")
     val name: String,
     val roles: List<String>,
 )
@@ -72,11 +79,17 @@ data class ContributorInput(
  */
 @Serializable
 data class SetBookSeriesPayload(
+    @SerialName("series")
     val series: List<SeriesInput>,
 )
 
+/**
+ * One series entry in a [SetBookSeriesPayload]: the series [name] (resolved or created
+ * server-side) and the optional [sequence] number for this book within the series.
+ */
 @Serializable
 data class SeriesInput(
+    @SerialName("name")
     val name: String,
     val sequence: String?,
 )

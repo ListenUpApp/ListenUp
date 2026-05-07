@@ -116,7 +116,7 @@ fun String.toRelativeOrMonthYear(): String {
  */
 fun String.parseToTimestampOrNow(): Timestamp =
     try {
-        Timestamp.fromEpochMillis(Instant.parse(this).toEpochMilliseconds())
+        Timestamp(Instant.parse(this).toEpochMilliseconds())
     } catch (_: Exception) {
         Timestamp.now()
     }

@@ -6,7 +6,7 @@ package com.calypsan.listenup.server.scanner.inference
  * decides which fields to keep based on context (e.g. `sequence` is only
  * meaningful when a series folder is present).
  */
-data class ParsedTitle(
+internal data class ParsedTitle(
     val title: String,
     val subtitle: String? = null,
     val asin: String? = null,
@@ -34,7 +34,7 @@ data class ParsedTitle(
  * when name normalization gets a real implementation. For the typical
  * `{Michael Kramer; Kate Reading}` form, the simple split is correct.
  */
-object AbsTitleParser {
+internal object AbsTitleParser {
     private val asinPattern = Regex("""(?: |^)\[([A-Z0-9]{10})](?= |$)""")
     private val narratorPattern = Regex("""^(?<title>.*) \{(?<narrators>.*)}$""")
     private val sequencePattern =

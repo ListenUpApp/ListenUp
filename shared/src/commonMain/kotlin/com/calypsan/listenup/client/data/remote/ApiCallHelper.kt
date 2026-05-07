@@ -15,8 +15,13 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
  * ```
  * boilerplate at the data-layer boundary.
  *
- * @throws AppException when the envelope indicates failure — carrying the already-typed
- *   [com.calypsan.listenup.client.core.error.AppError] so callers can react to it.
+ * Throwing convention is being unified on [com.calypsan.listenup.client.core.AppResult]
+ * by Task 27d. Until that lands, this helper bridges envelope failures into the throwable
+ * channel via [AppException] (which now carries the unified
+ * [com.calypsan.listenup.api.error.AppError] directly — no hierarchy bridge needed).
+ *
+ * @throws AppException when the envelope indicates failure — carrying the typed error
+ *   so callers can react to it.
  * @throws ApiException when the success envelope arrived with null data.
  */
 fun <T> ApiResponse<T>.dataOrThrow(errorMessage: String): T =

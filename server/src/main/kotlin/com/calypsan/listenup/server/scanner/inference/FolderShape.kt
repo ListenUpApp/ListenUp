@@ -10,7 +10,7 @@ package com.calypsan.listenup.server.scanner.inference
  * (a file or folder directly in the library root) yields a title-only
  * shape.
  */
-data class FolderShape(
+internal data class FolderShape(
     val titleFolder: String,
     val seriesFolder: String? = null,
     val authorFolder: String? = null,

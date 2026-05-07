@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.TransportError
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -51,6 +52,11 @@ class AppErrorStatusPagesTest :
                 val internal = body.shouldBeInstanceOf<InternalError>()
                 internal.correlationId shouldBe "test-correlation-id"
             }
+        }
+
+        test("TransportError maps to InternalServerError as a server-local bug guard") {
+            val err: AppError = TransportError.NetworkUnavailable()
+            err.toHttpStatus() shouldBe HttpStatusCode.InternalServerError
         }
 
         test("unknown paths return structured JSON 404") {

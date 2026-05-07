@@ -211,8 +211,10 @@ class SeriesEditViewModelTest {
             everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
             everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
             everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
-                Failure(Exception("Save failed"))
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Save failed"))
 
             val viewModel = fixture.build()
             viewModel.loadSeries("series-1")

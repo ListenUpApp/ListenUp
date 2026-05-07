@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,6 +11,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class ServerInfo(
+    @SerialName("name")
     val name: String,
     val version: String,
     val apiVersion: String,

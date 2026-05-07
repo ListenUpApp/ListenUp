@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
  * null when no signal is found; consumers use original filesystem order as
  * the fallback.
  */
-data class TrackInfo(
+internal data class TrackInfo(
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
     val trackSource: TrackNumberSource? = null,
@@ -30,7 +30,7 @@ data class TrackInfo(
  * skips that — embedded-tag-driven track inference is the right fix and
  * lands in Phase 3 (`TrackNumberSource.METADATA`).
  */
-object TrackInference {
+internal object TrackInference {
     private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,2})\b""", RegexOption.IGNORE_CASE)
 
     // No `\b` boundaries: filenames like `track01` don't have a word boundary

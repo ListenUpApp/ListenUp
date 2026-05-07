@@ -19,6 +19,16 @@ data class PushConflict(
 )
 
 /**
+ * Pull-side conflict — server has a newer version than the local unsynced changes for [bookId].
+ *
+ * Carried so [BookDao.markConflict] can record [serverTimestamp] alongside the conflict marker.
+ */
+data class BookConflict(
+    val bookId: BookId,
+    val serverTimestamp: Timestamp,
+)
+
+/**
  * Interface for conflict detection operations.
  *
  * Enables testing by allowing mock implementations.
@@ -27,7 +37,7 @@ interface ConflictDetectorContract {
     /**
      * Detect conflicts where server has newer version than local unsynced changes.
      */
-    suspend fun detectBookConflicts(serverBooks: List<BookEntity>): List<Pair<BookId, Timestamp>>
+    suspend fun detectBookConflicts(serverBooks: List<BookEntity>): List<BookConflict>
 
     /**
      * Check if local changes should be preserved (local is newer than server).
@@ -59,15 +69,15 @@ class ConflictDetector(
      * Detect conflicts where server has newer version than local unsynced changes.
      *
      * @param serverBooks Books fetched from server
-     * @return List of (BookId, Timestamp) pairs for books with conflicts
+     * @return Conflicts found, each carrying the book id and the server's newer timestamp
      */
-    override suspend fun detectBookConflicts(serverBooks: List<BookEntity>): List<Pair<BookId, Timestamp>> =
+    override suspend fun detectBookConflicts(serverBooks: List<BookEntity>): List<BookConflict> =
         serverBooks.mapNotNull { serverBook ->
             bookDao
                 .getById(serverBook.id)
                 ?.takeIf { it.syncState == SyncState.NOT_SYNCED }
                 ?.takeIf { serverBook.updatedAt > it.lastModified }
-                ?.let { serverBook.id to serverBook.updatedAt }
+                ?.let { BookConflict(serverBook.id, serverBook.updatedAt) }
         }
 
     /**

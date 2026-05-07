@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 private const val SERVER_URL = "https://server.example.com"
 private const val INVITE_CODE = "abc123"
@@ -71,6 +72,7 @@ class InviteRegistrationViewModelTest :
                 serverConfig = serverConfig,
                 serverUrl = SERVER_URL,
                 inviteCode = INVITE_CODE,
+                errorBus = ErrorBus(),
             )
 
         // ========== Load phase ==========

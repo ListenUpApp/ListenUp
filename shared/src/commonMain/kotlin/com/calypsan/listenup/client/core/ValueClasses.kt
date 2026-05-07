@@ -144,10 +144,5 @@ value class Timestamp(
          * Get current system time as Timestamp.
          */
         fun now(): Timestamp = Timestamp(currentEpochMilliseconds())
-
-        /**
-         * Create Timestamp from epoch milliseconds.
-         */
-        fun fromEpochMillis(value: Long): Timestamp = Timestamp(value)
     }
 }

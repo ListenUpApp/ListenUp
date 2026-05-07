@@ -77,7 +77,7 @@ class LoadBookForEditUseCaseTest {
 
             // Then
             val failure = assertIs<Failure>(result)
-            assertIs<com.calypsan.listenup.client.core.error.DataError>(failure.error)
+            assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
             assertTrue(failure.message.contains("not found", ignoreCase = true))
         }
 

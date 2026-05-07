@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.AppException
-import com.calypsan.listenup.client.core.error.ServerError
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -103,21 +103,17 @@ class PlaybackApi(
         }
 
     override suspend fun cancelTranscode(jobId: String): AppResult<Unit> =
-        try {
-            clientFactory.getClient().post("/api/v1/transcode/cancel/$jobId")
-            AppResult.Success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: AppException) {
-            // 404 means "already cancelled / completed / never existed" — idempotent per server contract.
-            val serverError = e.error as? ServerError
-            if (serverError?.statusCode == HTTP_NOT_FOUND) {
-                AppResult.Success(Unit)
-            } else {
-                AppResult.Failure(e.error)
+        when (val result = suspendRunCatching { clientFactory.getClient().post("/api/v1/transcode/cancel/$jobId") }) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> {
+                // 404 means "already cancelled / completed / never existed" — idempotent per server contract.
+                val server4xx = result.error as? TransportError.Server4xx
+                if (server4xx?.statusCode == HTTP_NOT_FOUND) {
+                    AppResult.Success(Unit)
+                } else {
+                    result
+                }
             }
-        } catch (e: Exception) {
-            Failure(e)
         }
 }
 

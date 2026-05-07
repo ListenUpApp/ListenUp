@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.remote.model.RebuildProgressResponse
 import com.calypsan.listenup.client.data.remote.model.RestoreRequest
 import com.calypsan.listenup.client.data.remote.model.RestoreResponse
 import com.calypsan.listenup.client.data.remote.model.ValidationResponse
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -111,5 +112,6 @@ interface BackupApiContract {
  */
 @Serializable
 data class UploadABSBackupResponse(
+    @SerialName("path")
     val path: String,
 )

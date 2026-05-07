@@ -12,7 +12,7 @@ import java.nio.file.Path
  * filesystem event warrants a re-scan — keeping a single source of truth
  * means a file ABS hides can never accidentally surface in our pipeline.
  */
-object SkipRules {
+internal object SkipRules {
     private val tempExtensions =
         setOf(
             ".part",

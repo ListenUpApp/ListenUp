@@ -25,7 +25,7 @@ import org.koin.dsl.module
  */
 val authPresentationModule =
     module {
-        factory { ServerSelectViewModel(serverRepository = get(), serverConfig = get(), instanceRepository = get()) }
+        factory { ServerSelectViewModel(serverRepository = get(), serverConfig = get(), instanceRepository = get(), errorBus = get()) }
         factory { ServerConnectViewModel(serverConfig = get(), instanceRepository = get()) }
         factory {
             com.calypsan.listenup.client.presentation.auth.SetupViewModel(
@@ -59,12 +59,14 @@ val authPresentationModule =
                 serverConfig = get(),
                 serverUrl = params.get<String>(0),
                 inviteCode = params.get<String>(1),
+                errorBus = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration
         factory {
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
                 setupApi = get(),
+                errorBus = get(),
             )
         }
     }
@@ -95,6 +97,7 @@ val adminPresentationModule =
                 updateServerSettingsUseCase = get(),
                 instanceRepository = get(),
                 adminRepository = get(),
+                errorBus = get(),
             )
         }
         factory {
@@ -111,11 +114,13 @@ val adminPresentationModule =
                 collectionRepository = get(),
                 createCollectionUseCase = get(),
                 deleteCollectionUseCase = get(),
+                errorBus = get(),
             )
         }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel(
                 genreRepository = get(),
+                errorBus = get(),
             )
         }
         // AdminCollectionDetailViewModel - takes collectionId as parameter
@@ -130,6 +135,7 @@ val adminPresentationModule =
                 shareCollectionUseCase = get(),
                 removeCollectionShareUseCase = get(),
                 getUsersForSharingUseCase = get(),
+                errorBus = get(),
             )
         }
         // UserDetailViewModel - takes userId as parameter
@@ -137,6 +143,7 @@ val adminPresentationModule =
             com.calypsan.listenup.client.presentation.admin.UserDetailViewModel(
                 userId = params.get<String>(0),
                 adminRepository = get(),
+                errorBus = get(),
             )
         }
         // LibrarySettingsViewModel - takes libraryId as parameter
@@ -144,12 +151,14 @@ val adminPresentationModule =
             com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel(
                 libraryId = params.get<String>(0),
                 adminRepository = get(),
+                errorBus = get(),
             )
         }
         // AdminBackupViewModel for backup management
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel(
                 backupApi = get(),
+                errorBus = get(),
             )
         }
         // RestoreBackupViewModel - takes backupId as parameter
@@ -158,6 +167,7 @@ val adminPresentationModule =
                 backupId = params.get<String>(0),
                 backupApi = get(),
                 syncRepository = get(),
+                errorBus = get(),
             )
         }
         // ABSImportViewModel for Audiobookshelf import (legacy wizard)
@@ -167,6 +177,7 @@ val adminPresentationModule =
                 searchApi = get(),
                 absImportApi = get(),
                 syncRepository = get(),
+                errorBus = get(),
             )
         }
 
@@ -176,6 +187,7 @@ val adminPresentationModule =
                 absImportApi = get(),
                 searchApi = get(),
                 syncRepository = get(),
+                errorBus = get(),
             )
         }
     }
@@ -221,6 +233,7 @@ val libraryPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.search.SearchViewModel(
                 searchRepository = get(),
+                errorBus = get(),
             )
         }
     }
@@ -239,6 +252,7 @@ val bookPresentationModule =
                 shelfRepository = get(),
                 addBooksToShelfUseCase = get(),
                 createShelfUseCase = get(),
+                errorBus = get(),
             )
         }
         factory {
@@ -262,6 +276,7 @@ val bookPresentationModule =
             com.calypsan.listenup.client.presentation.metadata.MetadataViewModel(
                 metadataRepository = get(),
                 applyMetadataMatchUseCase = get(),
+                errorBus = get(),
             )
         }
     }
@@ -318,6 +333,7 @@ val contributorPresentationModule =
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 metadataRepository = get(),
                 applyContributorMetadataUseCase = get(),
+                errorBus = get(),
             )
         }
     }
@@ -333,6 +349,7 @@ val discoverPresentationModule =
                 userRepository = get(),
                 shelfRepository = get(),
                 syncRepository = get(),
+                errorBus = get(),
             )
         }
         // HomeStatsViewModel for home screen stats section (observes local stats)
@@ -343,6 +360,7 @@ val discoverPresentationModule =
                 activeSessionRepository = get(),
                 authSession = get(),
                 shelfRepository = get(),
+                errorBus = get(),
             )
         }
         // LeaderboardViewModel for discover screen leaderboard
@@ -375,6 +393,7 @@ val tagShelfPresentationModule =
                 updateShelfUseCase = get(),
                 deleteShelfUseCase = get(),
                 shelfRepository = get(),
+                errorBus = get(),
             )
         }
     }
@@ -390,6 +409,7 @@ val profilePresentationModule =
                 loadUserProfileUseCase = get(),
                 userRepository = get(),
                 imageRepository = get(),
+                errorBus = get(),
             )
         }
         // EditProfileViewModel for editing own profile
@@ -427,6 +447,7 @@ val settingsPresentationModule =
                 downloadRepository = get(),
                 downloadService = get(),
                 storageSpaceProvider = get(),
+                errorBus = get(),
             )
         }
     }

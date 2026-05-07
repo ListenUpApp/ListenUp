@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.metadata
 import app.cash.turbine.test
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.UnknownError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.domain.repository.CoverOption
 import com.calypsan.listenup.client.domain.repository.MetadataBook
 import com.calypsan.listenup.client.domain.repository.MetadataContributor
@@ -29,6 +29,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MetadataViewModelTest {
@@ -42,6 +43,7 @@ class MetadataViewModelTest {
             MetadataViewModel(
                 metadataRepository = metadataRepository,
                 applyMetadataMatchUseCase = applyMetadataMatchUseCase,
+                errorBus = ErrorBus(),
             )
     }
 
@@ -343,7 +345,7 @@ class MetadataViewModelTest {
             everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
             everySuspend {
                 fixture.applyMetadataMatchUseCase(any(), any(), any(), any(), any(), any())
-            } returns AppResult.Failure(UnknownError(message = "server down", debugInfo = null))
+            } returns AppResult.Failure(ValidationError(message = "server down"))
             val viewModel = fixture.build()
 
             viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")

@@ -5,9 +5,9 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.error.AppException
-import com.calypsan.listenup.client.core.error.DownloadError
-import com.calypsan.listenup.client.core.error.ServerError
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
@@ -311,12 +311,13 @@ class DownloadWorkerLogicTest {
     // ---- Scenario 4 ----
 
     /**
-     * 401 persistent → refresh returns null → AppException(ServerError(401)) propagates.
+     * 401 persistent → refresh returns null → AppException(TransportError.Server4xx(401)) propagates.
      *
      * Production path: installListenUpErrorHandling rewraps ResponseException as
-     * AppException(ServerError(statusCode=401)). The function throws; the worker's catch block
-     * detects the 401 and calls markPaused. This test replicates that catch to assert PAUSED —
-     * catching a bug where the old dead-code ResponseException catch caused FAILED instead.
+     * AppException(TransportError.Server4xx(statusCode=401)). The function throws; the worker's
+     * catch block detects the 401 and calls markPaused. This test replicates that catch to
+     * assert PAUSED — catching a bug where the old dead-code ResponseException catch caused
+     * FAILED instead.
      */
     @Test
     fun `401 persistent with null refresh — throws AppException and worker would markPaused`() =
@@ -333,9 +334,9 @@ class DownloadWorkerLogicTest {
                         )
                     }
 
-                // Replicate the worker's catch block: on AppException with ServerError(401),
+                // Replicate the worker's failure-handling: on TransportError.Server4xx(401),
                 // the worker calls markPaused. Test this contract without WorkManager involvement.
-                try {
+                val result =
                     downloadAudioFile(
                         audioFileId = "file-1",
                         bookId = "book-1",
@@ -348,13 +349,16 @@ class DownloadWorkerLogicTest {
                         playbackPreferences = FakePlaybackPreferences(),
                         capabilityDetector = FakeAudioCapabilityDetector(),
                     )
-                } catch (e: AppException) {
-                    val serverError = e.error as? ServerError
-                    assertIs<ServerError>(e.error, "Expected ServerError but got ${e.error::class.simpleName}")
-                    assertEquals(HttpStatusCode.Unauthorized.value, serverError?.statusCode)
-                    // Replicate worker's auth-failure catch: markPaused (not markFailed).
-                    fakeRepo.markPaused("file-1")
-                }
+
+                assertIs<AppResult.Failure>(result)
+                val server4xx = result.error as? TransportError.Server4xx
+                assertIs<TransportError.Server4xx>(
+                    result.error,
+                    "Expected TransportError.Server4xx but got ${result.error::class.simpleName}",
+                )
+                assertEquals(HttpStatusCode.Unauthorized.value, server4xx?.statusCode)
+                // Replicate worker's auth-failure path: markPaused (not markFailed).
+                fakeRepo.markPaused("file-1")
 
                 assertEquals(DownloadState.PAUSED, fakeRepo.entities.single().state)
             } finally {
@@ -430,7 +434,7 @@ class DownloadWorkerLogicTest {
                         respondError(HttpStatusCode.InternalServerError)
                     }
 
-                assertFails {
+                val result =
                     downloadAudioFile(
                         audioFileId = "file-1",
                         bookId = "book-1",
@@ -443,8 +447,8 @@ class DownloadWorkerLogicTest {
                         playbackPreferences = FakePlaybackPreferences(),
                         capabilityDetector = FakeAudioCapabilityDetector(),
                     )
-                }
 
+                assertIs<AppResult.Failure>(result)
                 assertEquals(4, attemptCount) // 1 original + 3 retries
             } finally {
                 tmpRoot.deleteRecursively()
@@ -481,8 +485,9 @@ class DownloadWorkerLogicTest {
                         )
                     }
 
-                // Replicate the worker's IOException catch: handleRetryableError calls markFailed.
-                try {
+                // Replicate the worker's failure path: handleFailure calls markFailed for IO-class
+                // failures (ErrorMapper maps IOException → TransportError.NetworkUnavailable).
+                val result =
                     downloadAudioFile(
                         audioFileId = "file-1",
                         bookId = "book-1",
@@ -495,10 +500,9 @@ class DownloadWorkerLogicTest {
                         playbackPreferences = FakePlaybackPreferences(),
                         capabilityDetector = FakeAudioCapabilityDetector(),
                     )
-                } catch (e: kotlinx.io.IOException) {
-                    // Replicate worker's retryable-error path: markFailed on IOException.
-                    fakeRepo.markFailed("file-1", DownloadError.DownloadFailed(debugInfo = e.message))
-                }
+
+                assertIs<AppResult.Failure>(result)
+                fakeRepo.markFailed("file-1", DownloadError.DownloadFailed(debugInfo = result.error.debugInfo))
 
                 assertEquals(DownloadState.FAILED, fakeRepo.entities.single().state)
             } finally {
@@ -527,26 +531,31 @@ class DownloadWorkerLogicTest {
                         )
                     }
 
-                val ex =
-                    assertFails {
-                        downloadAudioFile(
-                            audioFileId = "file-1",
-                            bookId = "book-1",
-                            filename = "file-1.mp3",
-                            expectedSize = 1000L,
-                            httpClient = productionLikeClient(binaryEngine),
-                            repository = fakeRepo,
-                            fileManager = FailingMoveFileManager(tmpRoot),
-                            playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                            playbackPreferences = FakePlaybackPreferences(),
-                            capabilityDetector = FakeAudioCapabilityDetector(),
-                        )
-                    }
+                val result =
+                    downloadAudioFile(
+                        audioFileId = "file-1",
+                        bookId = "book-1",
+                        filename = "file-1.mp3",
+                        expectedSize = 1000L,
+                        httpClient = productionLikeClient(binaryEngine),
+                        repository = fakeRepo,
+                        fileManager = FailingMoveFileManager(tmpRoot),
+                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
+                        playbackPreferences = FakePlaybackPreferences(),
+                        capabilityDetector = FakeAudioCapabilityDetector(),
+                    )
+
+                // The internal IOException("Failed to move...") is caught by suspendRunCatching
+                // and routed through ErrorMapper, which classifies IOException as
+                // TransportError.NetworkUnavailable. The user-actionable detail (failed-to-move
+                // message) lives in [debugInfo]; the worker's storage-keyword string-match runs
+                // against debugInfo to detect ENOSPC-class failures.
+                assertIs<AppResult.Failure>(result)
+                assertIs<TransportError.NetworkUnavailable>(result.error)
                 assertTrue(
-                    ex is kotlinx.io.IOException,
-                    "Expected IOException but got ${ex::class.simpleName}: ${ex.message}",
+                    result.error.debugInfo?.contains("Failed to move") == true,
+                    "Expected 'Failed to move' in debugInfo: ${result.error.debugInfo}",
                 )
-                assertTrue(ex.message?.contains("Failed to move") == true, "Expected 'Failed to move' in: ${ex.message}")
             } finally {
                 tmpRoot.deleteRecursively()
             }

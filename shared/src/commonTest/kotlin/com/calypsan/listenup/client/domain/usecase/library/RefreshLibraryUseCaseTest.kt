@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
@@ -18,16 +17,16 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Tests for RefreshLibraryUseCase.
  *
  * Tests cover:
  * - Successful sync flow
- * - Sync error handling and user-friendly messages
- * - Library mismatch handling
+ * - Failure propagation (the use case returns the repository's [AppError] unmodified;
+ *   user-message translation lives in the presentation layer)
  * - Reset for new library flow
+ * - SyncState exposure
  */
 class RefreshLibraryUseCaseTest {
     // ========== Test Fixtures ==========
@@ -88,80 +87,19 @@ class RefreshLibraryUseCaseTest {
     // ========== Error Handling Tests ==========
 
     @Test
-    fun `sync failure returns failure with user-friendly message`() =
+    fun `sync failure propagates repository AppError unmodified`() =
         runTest {
-            // Given
+            // The use case is a pure pass-through on failure — translation to
+            // user-facing copy happens in the presentation layer, not here.
             val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("Connection refused"))
+            val repoFailure = Failure(Exception("Connection refused"))
+            everySuspend { fixture.syncRepository.sync() } returns repoFailure
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.isNotEmpty())
-        }
-
-    @Test
-    fun `network error maps to user-friendly message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("network connection failed"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(
-                failure.message.contains("network", ignoreCase = true) ||
-                    failure.message.contains("connect", ignoreCase = true),
-            )
-        }
-
-    @Test
-    fun `timeout error maps to user-friendly message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("Request timeout"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(
-                failure.message.contains("timeout", ignoreCase = true) ||
-                    failure.message.contains("responding", ignoreCase = true),
-            )
-        }
-
-    @Test
-    fun `unauthorized error maps to session expired message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns
-                Failure(Exception("401 Unauthorized"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(
-                failure.message.contains("session", ignoreCase = true) ||
-                    failure.message.contains("log in", ignoreCase = true),
-            )
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== Reset for New Library Tests ==========
@@ -200,20 +138,17 @@ class RefreshLibraryUseCaseTest {
         }
 
     @Test
-    fun `resetForNewLibrary failure returns failure`() =
+    fun `resetForNewLibrary failure propagates repository AppError unmodified`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns
-                Failure(Exception("Reset failed"))
+            val repoFailure = Failure(Exception("Reset failed"))
+            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns repoFailure
             val useCase = fixture.build()
 
-            // When
             val result = useCase.resetForNewLibrary("new-library-id")
 
-            // Then
             val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.isNotEmpty())
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== SyncState Access Tests ==========

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -21,6 +22,7 @@ private val logger = KotlinLogging.logger {}
  */
 class AdminCategoriesViewModel(
     private val genreRepository: GenreRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCategoriesUiState>
         field = MutableStateFlow<AdminCategoriesUiState>(AdminCategoriesUiState.Loading)
@@ -120,7 +122,7 @@ class AdminCategoriesViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to create genre" }
                 updateReady { it.copy(error = e.message ?: "Failed to create genre") }
             } finally {
@@ -143,7 +145,7 @@ class AdminCategoriesViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to rename genre" }
                 updateReady { it.copy(error = e.message ?: "Failed to rename genre") }
             } finally {
@@ -163,7 +165,7 @@ class AdminCategoriesViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to delete genre" }
                 updateReady { it.copy(error = e.message ?: "Failed to delete genre") }
             } finally {
@@ -194,7 +196,7 @@ class AdminCategoriesViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to move genre" }
                 updateReady { it.copy(error = e.message ?: "Failed to move genre") }
             } finally {
@@ -287,6 +289,7 @@ data class GenreTreeNode(
 sealed interface AdminCategoriesUiState {
     data object Loading : AdminCategoriesUiState
 
+    /** Genres have loaded; carries the tree, expand/collapse state, save overlay, and a transient `error`. */
     data class Ready(
         val isSaving: Boolean = false,
         val genres: List<Genre> = emptyList(),
@@ -296,6 +299,7 @@ sealed interface AdminCategoriesUiState {
         val error: String? = null,
     ) : AdminCategoriesUiState
 
+    /** Terminal state when the observe pipeline fails. */
     data class Error(
         val message: String,
     ) : AdminCategoriesUiState

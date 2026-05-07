@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.getOrThrow
+import com.calypsan.listenup.client.core.flatten
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
@@ -44,8 +44,8 @@ class ProfileApi(
             val client = clientFactory.getClient()
             val response: ApiResponse<ProfileResponse> =
                 client.get("/api/v1/profile").body()
-            response.toResult().getOrThrow()
-        }
+            response.toResult()
+        }.flatten()
 
     /**
      * Update the authenticated user's profile.
@@ -76,8 +76,8 @@ class ProfileApi(
                         contentType(ContentType.Application.Json)
                         setBody(request)
                     }.body()
-            response.toResult().getOrThrow()
-        }
+            response.toResult()
+        }.flatten()
 
     /**
      * Upload avatar image for the authenticated user.
@@ -95,8 +95,8 @@ class ProfileApi(
                         contentType(ContentType.parse(contentType))
                         setBody(imageData)
                     }.body()
-            response.toResult().getOrThrow()
-        }
+            response.toResult()
+        }.flatten()
 
     /**
      * Get a user's full profile with stats and activity.
@@ -107,6 +107,6 @@ class ProfileApi(
             val client = clientFactory.getClient()
             val response: ApiResponse<FullProfileResponse> =
                 client.get("/api/v1/users/$userId/profile").body()
-            response.toResult().getOrThrow()
-        }
+            response.toResult()
+        }.flatten()
 }

@@ -28,6 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for [SearchViewModel].
@@ -42,7 +43,7 @@ class SearchViewModelTest {
     private class TestFixture {
         val searchRepository: SearchRepository = mock()
 
-        fun build(): SearchViewModel = SearchViewModel(searchRepository = searchRepository)
+        fun build(): SearchViewModel = SearchViewModel(searchRepository = searchRepository, errorBus = ErrorBus())
     }
 
     private fun TestScope.createFixture(): TestFixture = TestFixture()

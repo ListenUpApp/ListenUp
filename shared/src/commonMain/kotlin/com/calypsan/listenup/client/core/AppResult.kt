@@ -2,14 +2,12 @@
 
 package com.calypsan.listenup.client.core
 
-import com.calypsan.listenup.client.core.error.AppError
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.core.error.AppException
-import com.calypsan.listenup.client.core.error.AuthError
-import com.calypsan.listenup.client.core.error.DataError
 import com.calypsan.listenup.client.core.error.ErrorMapper
-import com.calypsan.listenup.client.core.error.NetworkError
-import com.calypsan.listenup.client.core.error.ServerError
-import com.calypsan.listenup.client.core.error.UnknownError
 import kotlin.MustUseReturnValues
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -33,10 +31,12 @@ import kotlinx.coroutines.CancellationException
  */
 @MustUseReturnValues
 sealed interface AppResult<out T> {
+    /** Carries the value [data] produced by a successful operation. */
     data class Success<T>(
         val data: T,
     ) : AppResult<T>
 
+    /** Carries the typed [error] from a failed operation; [message] forwards [AppError.message] for terse catch sites. */
     data class Failure(
         val error: AppError,
     ) : AppResult<Nothing> {
@@ -55,7 +55,12 @@ typealias Failure = AppResult.Failure
 
 /**
  * Wraps an arbitrary [Throwable] as an [AppResult.Failure]. Preserves the typed [AppError]
- * when [throwable] is already an [AppException]; otherwise routes through [ErrorMapper].
+ * when [throwable] is already an [AppException] (which carries it directly); otherwise
+ * routes through [ErrorMapper].
+ *
+ * The [AppException] special case becomes redundant once Task 27d migrates the throwing
+ * data-layer surface to return [AppResult] directly — at which point both [AppException]
+ * and this branch are deleted.
  */
 fun Failure(throwable: Throwable): AppResult.Failure =
     if (throwable is AppException) {
@@ -96,12 +101,6 @@ inline fun <T> AppResult<T>.getOrDefault(defaultValue: () -> T): T =
         is AppResult.Failure -> defaultValue()
     }
 
-fun <T> AppResult<T>.getOrThrow(): T =
-    when (this) {
-        is AppResult.Success -> data
-        is AppResult.Failure -> throw AppException(error)
-    }
-
 fun <T> AppResult<T>.errorOrNull(): AppError? =
     when (this) {
         is AppResult.Success -> null
@@ -127,6 +126,9 @@ inline fun <T, R> AppResult<T>.flatMap(transform: (T) -> AppResult<R>): AppResul
         is AppResult.Success -> transform(data)
         is AppResult.Failure -> this
     }
+
+/** Collapse a nested [AppResult] into a single layer. */
+fun <T> AppResult<AppResult<T>>.flatten(): AppResult<T> = flatMap { it }
 
 inline fun <T, R> AppResult<T>.fold(
     onSuccess: (T) -> R,
@@ -194,34 +196,44 @@ inline fun <T> runCatching(block: () -> T): AppResult<T> {
 
 // ---- Domain-specific failure factories ---------------------------------------------------
 
-/** Construct an [AppResult.Failure] carrying a generic [UnknownError]. */
+/**
+ * Construct an [AppResult.Failure] carrying a generic error.
+ *
+ * Uses [ValidationError] so the supplied [message] survives to consumers reading
+ * `failure.message`. Unified [InternalError] has a fixed message and only carries
+ * [debugInfo], which would silently drop the caller-supplied text. This is a
+ * transitional shim; once Task 16 deletes the legacy hierarchy and call sites
+ * migrate to typed unified errors, this generic helper goes away.
+ */
 fun failureOf(
     message: String,
     debugInfo: String? = null,
-): AppResult.Failure = AppResult.Failure(UnknownError(message = message, debugInfo = debugInfo))
+): AppResult.Failure = AppResult.Failure(ValidationError(message = message, debugInfo = debugInfo))
 
-/** Construct an [AppResult.Failure] carrying a [DataError] for validation failures. */
-fun validationError(message: String): AppResult.Failure = AppResult.Failure(DataError(message = message))
+/** Construct an [AppResult.Failure] carrying a [ValidationError] for validation failures. */
+fun validationError(message: String): AppResult.Failure = AppResult.Failure(ValidationError(message = message))
 
-/** Construct an [AppResult.Failure] carrying a [DataError] for "resource not found". */
+/** Construct an [AppResult.Failure] carrying a [ValidationError] for "resource not found". */
 fun notFoundError(message: String = "Resource not found"): AppResult.Failure =
-    AppResult.Failure(DataError(message = message))
+    AppResult.Failure(ValidationError(message = message))
 
-/** Construct an [AppResult.Failure] carrying a [NetworkError]. */
+/** Construct an [AppResult.Failure] carrying a [TransportError.NetworkUnavailable]. */
+@Suppress("UnusedParameter")
 fun networkError(
     message: String = "Network unavailable",
     cause: Throwable? = null,
-): AppResult.Failure = AppResult.Failure(NetworkError(message = message, debugInfo = cause?.message))
+): AppResult.Failure = AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = cause?.message ?: message))
 
-/** Construct an [AppResult.Failure] carrying an [AuthError]. */
+/** Construct an [AppResult.Failure] carrying an [AuthError.SessionExpired]. */
 fun unauthorizedError(message: String = "Session expired"): AppResult.Failure =
-    AppResult.Failure(AuthError(message = message))
+    AppResult.Failure(AuthError.SessionExpired(debugInfo = message))
 
-/** Construct an [AppResult.Failure] carrying a [ServerError] with unknown status. */
+/** Construct an [AppResult.Failure] carrying a [TransportError.Server5xx] with unknown status. */
+@Suppress("UnusedParameter")
 fun serverError(
     message: String,
     cause: Throwable? = null,
 ): AppResult.Failure =
     AppResult.Failure(
-        ServerError(statusCode = 0, message = message, debugInfo = cause?.message),
+        TransportError.Server5xx(debugInfo = cause?.message ?: message, statusCode = 0),
     )

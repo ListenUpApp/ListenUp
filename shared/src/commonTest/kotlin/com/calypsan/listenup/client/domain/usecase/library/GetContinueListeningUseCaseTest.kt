@@ -192,42 +192,19 @@ class GetContinueListeningUseCaseTest {
     // ========== Error Handling Tests ==========
 
     @Test
-    fun `repository failure returns failure`() =
+    fun `repository failure propagates AppError unmodified`() =
         runTest {
-            // Given
+            // The use case is a pure pass-through on failure — translation to user-facing
+            // copy lives in the presentation layer, not here.
             val fixture = createFixture()
-            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(Exception("Database error"))
+            val repoFailure = Failure(Exception("Database error"))
+            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns repoFailure
             val useCase = fixture.build()
 
-            // When
             val result = useCase()
 
-            // Then
             val failure = assertIs<Failure>(result)
-            // Use case wraps repo failures as ContinueListeningException before rethrowing;
-            // Failure(Throwable) preserves the user-facing message through the AppError.
-            assertTrue(failure.message.isNotEmpty())
-        }
-
-    @Test
-    fun `database error maps to user-friendly message`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.homeRepository.getContinueListening(any()) } returns
-                Failure(Exception("database connection lost"))
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase()
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(
-                failure.message.contains("listening history", ignoreCase = true) ||
-                    failure.message.contains("load", ignoreCase = true),
-            )
+            assertEquals(repoFailure.error, failure.error)
         }
 
     // ========== Flow Observation Tests ==========

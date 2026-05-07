@@ -11,6 +11,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 private val logger = KotlinLogging.logger {}
@@ -107,6 +108,7 @@ class RegistrationStatusStreamImpl(
  */
 @Serializable
 private data class RegistrationStatusEvent(
+    @SerialName("status")
     val status: String,
     val timestamp: String? = null,
     val message: String? = null,

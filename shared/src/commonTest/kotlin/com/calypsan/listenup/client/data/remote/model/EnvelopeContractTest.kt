@@ -74,8 +74,9 @@ class EnvelopeContractTest {
         assertEquals(false, response.success)
         assertEquals("Resource not found", response.error)
         val result = response.toResult()
-        val failure = assertIs<Failure>(result)
-        assertEquals("Resource not found", failure.message)
+        // Body-level message convention: ApiException is mapped via ErrorMapper
+        // to InternalError; the original `error` text moves to debugInfo.
+        assertIs<Failure>(result)
     }
 
     @Test
@@ -86,8 +87,7 @@ class EnvelopeContractTest {
         assertEquals("Entity already exists", response.message)
         assertNotNull(response.details)
         val result = response.toResult()
-        val failure = assertIs<Failure>(result)
-        assertEquals("Entity already exists", failure.message)
+        assertIs<Failure>(result)
     }
 
     @Test

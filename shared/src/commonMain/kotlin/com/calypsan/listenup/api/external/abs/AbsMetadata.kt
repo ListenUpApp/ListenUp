@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.external.abs
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -19,6 +20,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AbsMetadata(
+    @SerialName("title")
     val title: String? = null,
     val subtitle: String? = null,
     val authors: List<String> = emptyList(),

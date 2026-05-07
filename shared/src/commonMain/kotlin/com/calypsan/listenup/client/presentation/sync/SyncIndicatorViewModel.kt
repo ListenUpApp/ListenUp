@@ -203,8 +203,10 @@ class SyncIndicatorViewModel(
 }
 
 internal sealed interface OpDescription {
+    /** Operation describes work on a specific entity; [template] is invoked with the entity name. */
     data class Entity(val template: (String) -> String) : OpDescription
 
+    /** Operation has no per-entity context; [text] is the fixed description shown to the user. */
     data class Global(val text: String) : OpDescription
 }
 

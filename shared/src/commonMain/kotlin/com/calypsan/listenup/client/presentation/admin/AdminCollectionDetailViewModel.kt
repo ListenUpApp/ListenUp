@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionBookSummary
@@ -44,6 +45,7 @@ class AdminCollectionDetailViewModel(
     private val shareCollectionUseCase: ShareCollectionUseCase,
     private val removeCollectionShareUseCase: RemoveCollectionShareUseCase,
     private val getUsersForSharingUseCase: GetUsersForSharingUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCollectionDetailUiState>
         field = MutableStateFlow<AdminCollectionDetailUiState>(AdminCollectionDetailUiState.Loading)
@@ -88,7 +90,7 @@ class AdminCollectionDetailViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load collection: $collectionId" }
                 val message = e.message ?: "Failed to load collection"
                 state.update { current ->
@@ -431,6 +433,10 @@ class AdminCollectionDetailViewModel(
 sealed interface AdminCollectionDetailUiState {
     data object Loading : AdminCollectionDetailUiState
 
+    /**
+     * Collection has loaded; carries the canonical [collection], the [editedName] edit
+     * buffer, books and shares lists, action overlays, and a transient `error`.
+     */
     data class Ready(
         val collection: Collection,
         val editedName: String,
@@ -455,6 +461,7 @@ sealed interface AdminCollectionDetailUiState {
             get() = editedName.trim() != collection.name && editedName.isNotBlank()
     }
 
+    /** Terminal state when the initial collection load fails. */
     data class Error(
         val message: String,
     ) : AdminCollectionDetailUiState

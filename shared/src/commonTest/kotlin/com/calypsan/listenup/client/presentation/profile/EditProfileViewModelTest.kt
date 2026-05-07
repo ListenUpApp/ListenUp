@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.error.UnknownError
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
@@ -207,7 +207,7 @@ class EditProfileViewModelTest {
                 createFixture().apply {
                     configure(currentUser = user)
                     everySuspend { profileEditRepository.updateTagline(any()) } returns
-                        AppResult.Failure(UnknownError(message = "db error", debugInfo = null))
+                        AppResult.Failure(InternalError(debugInfo = "db error"))
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)

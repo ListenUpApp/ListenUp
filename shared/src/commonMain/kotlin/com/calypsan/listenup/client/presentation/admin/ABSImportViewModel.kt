@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
@@ -141,6 +142,11 @@ data class SelectedBookDisplay(
 sealed interface ABSImportUiState {
     data object Loading : ABSImportUiState
 
+    /**
+     * Wizard is interactive. [step] discriminates the current phase; the remaining fields
+     * carry pipeline inputs/outputs, action overlays, and a transient `error` for snackbar
+     * surfacing. See the parent KDoc for the W5 minimal-flatten note.
+     */
     @Suppress("LongParameterList")
     data class Ready(
         val step: ABSImportStep = ABSImportStep.SOURCE_SELECTION,
@@ -215,6 +221,7 @@ sealed interface ABSImportUiState {
         val error: String? = null,
     ) : ABSImportUiState
 
+    /** Terminal failure state declared for parity with other W5 migrations; not currently reached. */
     data class Error(
         val message: String,
     ) : ABSImportUiState
@@ -263,6 +270,7 @@ class ABSImportViewModel(
     private val searchApi: SearchApiContract,
     private val absImportApi: ABSImportApiContract,
     private val syncRepository: SyncRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ABSImportUiState>
         field = MutableStateFlow<ABSImportUiState>(ABSImportUiState.Ready())
@@ -340,7 +348,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to upload ABS backup" }
                 updateReady {
                     it.copy(
@@ -376,7 +384,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to browse filesystem" }
                 updateReady {
                     it.copy(
@@ -529,7 +537,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to analyze ABS backup" }
                 updateReady {
                     it.copy(
@@ -682,7 +690,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "User search failed: ${e.message}" }
                 updateReady {
                     it.copy(
@@ -828,7 +836,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Book search failed: ${e.message}" }
                 updateReady {
                     it.copy(
@@ -1064,7 +1072,7 @@ class ABSImportViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to import ABS backup" }
                 updateReady {
                     it.copy(

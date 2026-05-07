@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,6 +15,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class FileEntry(
+    @SerialName("relPath")
     val relPath: String,
     val name: String,
     val ext: String,
@@ -23,6 +25,11 @@ data class FileEntry(
     val fileType: FileType,
 )
 
+/**
+ * Classification the Walker assigns to each [FileEntry] based on extension. Drives downstream
+ * routing — audio files become [TrackEntry]s, images become candidate covers, the rest are
+ * carried for diagnostics but ignored by the Differ.
+ */
 @Serializable
 enum class FileType {
     AUDIO,

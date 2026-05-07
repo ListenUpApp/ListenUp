@@ -2,8 +2,13 @@ package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.HttpStatusCode
@@ -47,18 +52,30 @@ fun Application.installAppErrorStatusPages() {
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
+        is DownloadError -> toHttpStatus()
+        is ImportError -> toHttpStatus()
         is ScanError -> toHttpStatus()
+        is ServerConnectError -> toHttpStatus()
+        is SyncError -> toHttpStatus()
         is ValidationError -> HttpStatusCode.BadRequest
         is InternalError -> HttpStatusCode.InternalServerError
+        // TransportError is client-local — it should never originate on the server.
+        // If one escapes here it's a server bug; surface it as 500.
+        is TransportError -> HttpStatusCode.InternalServerError
     }
 
 /** Stamp the request's correlation id onto a typed wire error. */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
+        is DownloadError -> withCorrelationId(id)
+        is ImportError -> withCorrelationId(id)
         is ScanError -> withCorrelationId(id)
+        is ServerConnectError -> withCorrelationId(id)
+        is SyncError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is TransportError -> withCorrelationId(id)
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -113,4 +130,71 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)
+    }
+
+private fun TransportError.withCorrelationId(id: String?): TransportError =
+    when (this) {
+        is TransportError.NetworkUnavailable -> copy(correlationId = id)
+        is TransportError.Timeout -> copy(correlationId = id)
+        is TransportError.Server4xx -> copy(correlationId = id)
+        is TransportError.Server5xx -> copy(correlationId = id)
+        is TransportError.DataMalformed -> copy(correlationId = id)
+    }
+
+private fun SyncError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SyncError.SyncFailed -> HttpStatusCode.ServiceUnavailable
+        is SyncError.RealtimeDisconnected -> HttpStatusCode.ServiceUnavailable
+        is SyncError.PushFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun SyncError.withCorrelationId(id: String?): SyncError =
+    when (this) {
+        is SyncError.SyncFailed -> copy(correlationId = id)
+        is SyncError.RealtimeDisconnected -> copy(correlationId = id)
+        is SyncError.PushFailed -> copy(correlationId = id)
+    }
+
+private fun DownloadError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is DownloadError.DownloadFailed -> HttpStatusCode.ServiceUnavailable
+        is DownloadError.InsufficientStorage -> HttpStatusCode.InsufficientStorage
+        is DownloadError.TranscodeTimeout -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun DownloadError.withCorrelationId(id: String?): DownloadError =
+    when (this) {
+        is DownloadError.DownloadFailed -> copy(correlationId = id)
+        is DownloadError.InsufficientStorage -> copy(correlationId = id)
+        is DownloadError.TranscodeTimeout -> copy(correlationId = id)
+    }
+
+private fun ImportError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ImportError.UploadFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.AnalysisFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun ImportError.withCorrelationId(id: String?): ImportError =
+    when (this) {
+        is ImportError.UploadFailed -> copy(correlationId = id)
+        is ImportError.AnalysisFailed -> copy(correlationId = id)
+        is ImportError.ApplyFailed -> copy(correlationId = id)
+    }
+
+private fun ServerConnectError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ServerConnectError.InvalidUrl -> HttpStatusCode.BadRequest
+        is ServerConnectError.NotListenUpServer -> HttpStatusCode.BadGateway
+        is ServerConnectError.ServerNotReachable -> HttpStatusCode.ServiceUnavailable
+        is ServerConnectError.VerificationFailed -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =
+    when (this) {
+        is ServerConnectError.InvalidUrl -> copy(correlationId = id)
+        is ServerConnectError.NotListenUpServer -> copy(correlationId = id)
+        is ServerConnectError.ServerNotReachable -> copy(correlationId = id)
+        is ServerConnectError.VerificationFailed -> copy(correlationId = id)
     }

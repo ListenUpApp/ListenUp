@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.profile
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.error.UnknownError
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.User
@@ -32,6 +32,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserProfileViewModelTest {
@@ -64,6 +65,7 @@ class UserProfileViewModelTest {
                 loadUserProfileUseCase = loadUserProfileUseCase,
                 userRepository = userRepository,
                 imageRepository = imageRepository,
+                errorBus = ErrorBus(),
             )
     }
 
@@ -257,7 +259,7 @@ class UserProfileViewModelTest {
                 createFixture().apply {
                     configure(currentUser = null)
                     everySuspend { loadUserProfileUseCase(any()) } returns
-                        AppResult.Failure(UnknownError(message = "nope", debugInfo = null))
+                        AppResult.Failure(InternalError(debugInfo = "nope"))
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -351,7 +353,7 @@ class UserProfileViewModelTest {
 
             // currentUser is null → isOwn = false → falls through to other-user fetch → no mock → test expects failure
             everySuspend { fixture.loadUserProfileUseCase(any()) } returns
-                AppResult.Failure(UnknownError(message = "nope", debugInfo = null))
+                AppResult.Failure(InternalError(debugInfo = "nope"))
 
             viewModel.loadProfile("ghost")
             advanceUntilIdle()

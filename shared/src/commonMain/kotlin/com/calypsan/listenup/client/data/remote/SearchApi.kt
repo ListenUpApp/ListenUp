@@ -97,6 +97,10 @@ data class SearchResponse(
     val facets: SearchFacetsResponse? = null,
 )
 
+/**
+ * One hit returned by the federated search endpoint. [type] discriminates which fields are
+ * populated (e.g. `book` hits carry [author] and [duration]; `series` hits carry [bookCount]).
+ */
 @Serializable
 data class SearchHitResponse(
     val id: String,
@@ -117,16 +121,20 @@ data class SearchHitResponse(
     val highlights: Map<String, String>? = null,
 )
 
+/** Facet aggregations returned alongside [SearchResponse.hits] when `facets=true` is requested. */
 @Serializable
 data class SearchFacetsResponse(
+    @SerialName("types")
     val types: List<FacetCountResponse>? = null,
     val genres: List<FacetCountResponse>? = null,
     val authors: List<FacetCountResponse>? = null,
     val narrators: List<FacetCountResponse>? = null,
 )
 
+/** A single facet bucket: [value] is the facet term, [count] is the number of hits in it. */
 @Serializable
 data class FacetCountResponse(
+    @SerialName("value")
     val value: String,
     val count: Int,
 )

@@ -30,6 +30,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerSelectViewModelTest {
@@ -86,7 +87,7 @@ class ServerSelectViewModelTest {
                 }
             every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -104,7 +105,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
             every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
 
             verify { serverRepository.startDiscovery() }
@@ -120,7 +121,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.observeServers() } returns serversFlow
             every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -144,7 +145,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
             every { serverRepository.startDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -165,7 +166,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.startDiscovery() } returns Unit
             every { serverRepository.stopDiscovery() } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -187,7 +188,7 @@ class ServerSelectViewModelTest {
             everySuspend { serverRepository.setActiveServer(server.id) } returns Unit
             everySuspend { serverConfig.setServerUrl(any()) } returns Unit
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -215,7 +216,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.startDiscovery() } returns Unit
             everySuspend { serverRepository.setActiveServer(any<String>()) } throws RuntimeException("Failed")
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
 
@@ -237,7 +238,7 @@ class ServerSelectViewModelTest {
             every { serverRepository.startDiscovery() } returns Unit
             everySuspend { serverRepository.setActiveServer(any<String>()) } throws RuntimeException("Failed")
 
-            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository)
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
             advanceUntilIdle()
             viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))

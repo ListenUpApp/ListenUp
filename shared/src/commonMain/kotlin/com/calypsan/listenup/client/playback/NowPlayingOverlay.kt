@@ -17,6 +17,7 @@ sealed interface NowPlayingOverlay {
 
     data object SleepTimer : NowPlayingOverlay
 
+    /** Picker for the book's contributors, scoped to a single role via [type] (authors, narrators, etc.). */
     data class ContributorPicker(
         val type: ContributorPickerType,
     ) : NowPlayingOverlay

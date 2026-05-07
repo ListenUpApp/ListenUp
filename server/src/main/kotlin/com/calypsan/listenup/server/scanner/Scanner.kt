@@ -47,7 +47,7 @@ private val logger = KotlinLogging.logger {}
  * **`@Volatile lastResult`.** Read by `lastResult()` from arbitrary
  * threads; written only from inside the coordinator's mutex.
  */
-class Scanner(
+internal class Scanner(
     private val rootPath: Path,
     private val metadataReader: AbsMetadataReader,
     private val eventBus: MutableSharedFlow<ScanEvent>,
@@ -205,7 +205,7 @@ class Scanner(
     private fun toScanError(t: Throwable): ScanError =
         ScanError.FileUnreadable(
             path = rootPath.toString(),
-            message = t.message ?: t::class.simpleName ?: "unknown error",
+            debugInfo = t.message ?: t::class.simpleName ?: "unknown error",
         )
 }
 

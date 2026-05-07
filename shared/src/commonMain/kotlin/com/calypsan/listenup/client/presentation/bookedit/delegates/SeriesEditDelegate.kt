@@ -61,6 +61,10 @@ class SeriesEditDelegate(
 
         data object Loading : SeriesSearchFlowResult
 
+        /**
+         * Search succeeded; [results] is filtered to exclude series already attached to the book.
+         * [isOffline] is true when the results came from the local cache rather than a server hit.
+         */
         data class Success(
             val results: List<SeriesSearchResult>,
             val isOffline: Boolean,

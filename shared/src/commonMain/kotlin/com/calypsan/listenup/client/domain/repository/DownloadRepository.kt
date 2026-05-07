@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
@@ -119,7 +119,7 @@ interface DownloadRepository {
 
     /**
      * App-startup recovery: 24h backstop for stale WAITING_FOR_SERVER rows (mark as
-     * [com.calypsan.listenup.client.core.error.DownloadError.TranscodeTimeout]) + re-enqueue
+     * [com.calypsan.listenup.api.error.DownloadError.TranscodeTimeout]) + re-enqueue
      * any other incomplete downloads via the platform [com.calypsan.listenup.client.download.DownloadEnqueuer].
      * Existing `DownloadManager.resumeIncompleteDownloads` (Android) remains the primary app-startup
      * hook; this method is for parity. Phase E may consolidate.
@@ -129,7 +129,7 @@ interface DownloadRepository {
     /**
      * SSE-reconnect hook: re-issue `preparePlayback` for any rows in WAITING_FOR_SERVER to catch
      * transcodes that completed during disconnect. Ready ones → [resumeForAudioFile]. Lost-job
-     * ones → [markFailed] with [com.calypsan.listenup.client.core.error.DownloadError.TranscodeTimeout].
+     * ones → [markFailed] with [com.calypsan.listenup.api.error.DownloadError.TranscodeTimeout].
      * Still-transcoding ones left alone.
      */
     suspend fun recheckWaitingForServer(): AppResult<Unit>

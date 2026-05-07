@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.fold
  * in the upstream Walker flow. Walker is depth-first stable, so the order
  * is reproducible across runs over the same filesystem snapshot.
  */
-class Grouper {
+internal class Grouper {
     fun group(files: Flow<FileEntry>): Flow<CandidateBook> =
         flow {
             // Single-file books emit immediately. Folder-rooted books accumulate

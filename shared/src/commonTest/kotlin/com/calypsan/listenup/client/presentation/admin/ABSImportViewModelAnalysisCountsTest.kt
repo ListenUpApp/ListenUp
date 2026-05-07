@@ -26,6 +26,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests that totalBooks/totalUsers from AnalysisStatusResponse
@@ -80,6 +81,7 @@ class ABSImportViewModelAnalysisCountsTest {
             searchApi = searchApi,
             absImportApi = absImportApi,
             syncRepository = syncRepository,
+            errorBus = ErrorBus(),
         )
 
     @Test

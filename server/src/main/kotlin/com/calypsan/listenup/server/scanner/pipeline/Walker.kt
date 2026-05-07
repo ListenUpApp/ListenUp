@@ -41,7 +41,7 @@ private val logger = KotlinLogging.logger {}
  *    (thousands of files, not gigabytes streamed); the simplicity beats the
  *    backpressure precision of channelFlow for this use case.
  */
-class Walker(
+internal class Walker(
     private val skipRules: (Path) -> Boolean = SkipRules::shouldSkip,
 ) {
     fun walk(root: Path): Flow<FileEntry> =

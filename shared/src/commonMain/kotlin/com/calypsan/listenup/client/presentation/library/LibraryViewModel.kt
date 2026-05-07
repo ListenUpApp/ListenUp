@@ -598,11 +598,14 @@ class LibraryViewModel(
 sealed interface LibraryUiEvent {
     data object RefreshRequested : LibraryUiEvent
 
+    /** User tapped a book row; navigation is handled by the parent route. */
     data class BookClicked(
         val bookId: String,
     ) : LibraryUiEvent
 
     // Books tab
+
+    /** User picked a new sort category for the Books tab. */
     data class BooksCategoryChanged(
         val category: SortCategory,
     ) : LibraryUiEvent
@@ -612,6 +615,8 @@ sealed interface LibraryUiEvent {
     data object ToggleIgnoreTitleArticles : LibraryUiEvent
 
     // Series tab
+
+    /** User picked a new sort category for the Series tab. */
     data class SeriesCategoryChanged(
         val category: SortCategory,
     ) : LibraryUiEvent
@@ -619,6 +624,8 @@ sealed interface LibraryUiEvent {
     data object SeriesDirectionToggled : LibraryUiEvent
 
     // Authors tab
+
+    /** User picked a new sort category for the Authors tab. */
     data class AuthorsCategoryChanged(
         val category: SortCategory,
     ) : LibraryUiEvent
@@ -626,6 +633,8 @@ sealed interface LibraryUiEvent {
     data object AuthorsDirectionToggled : LibraryUiEvent
 
     // Narrators tab
+
+    /** User picked a new sort category for the Narrators tab. */
     data class NarratorsCategoryChanged(
         val category: SortCategory,
     ) : LibraryUiEvent

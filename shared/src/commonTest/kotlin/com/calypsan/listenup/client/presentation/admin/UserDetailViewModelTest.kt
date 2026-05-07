@@ -24,6 +24,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserDetailViewModelTest {
@@ -66,6 +67,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "user-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
 
             assertIs<UserDetailUiState.Loading>(viewModel.state.value)
@@ -82,6 +84,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "user-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 
@@ -100,6 +103,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "user-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 
@@ -128,6 +132,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "user-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 
@@ -160,6 +165,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "user-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 
@@ -198,6 +204,7 @@ class UserDetailViewModelTest {
                 UserDetailViewModel(
                     userId = "root-1",
                     adminRepository = adminRepository,
+                    errorBus = ErrorBus(),
                 )
             advanceUntilIdle()
 

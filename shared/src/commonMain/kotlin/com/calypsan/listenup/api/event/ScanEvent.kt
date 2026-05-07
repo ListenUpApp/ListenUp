@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 sealed interface ScanEvent {
     val correlationId: String
 
+    /** Scan has begun. Emitted once per [correlationId]; carries the root path being scanned. */
     @Serializable
     @SerialName("started")
     data class Started(
@@ -27,6 +28,10 @@ sealed interface ScanEvent {
         val rootPath: String,
     ) : ScanEvent
 
+    /**
+     * Periodic progress tick. Throttled at the scanner to at most one emit per ~200ms; clients
+     * use this to drive UI counters without redrawing on every file processed.
+     */
     @Serializable
     @SerialName("progress")
     data class Progress(
@@ -37,6 +42,10 @@ sealed interface ScanEvent {
         val errors: Int,
     ) : ScanEvent
 
+    /**
+     * One Differ output (added/modified/removed/moved book) emitted as soon as the scanner
+     * categorises it. The client applies these to its local index incrementally.
+     */
     @Serializable
     @SerialName("change")
     data class Change(
@@ -44,6 +53,7 @@ sealed interface ScanEvent {
         val event: ChangeEventDto,
     ) : ScanEvent
 
+    /** Terminal event for [correlationId]. Carries the aggregate summary; no further events follow. */
     @Serializable
     @SerialName("completed")
     data class Completed(

@@ -73,6 +73,7 @@ data class RestoreError(
  */
 @Serializable
 data class RestoreResponse(
+    @SerialName("imported")
     val imported: Map<String, Int>,
     val skipped: Map<String, Int>,
     val errors: List<RestoreError> = emptyList(),
@@ -84,6 +85,7 @@ data class RestoreResponse(
  */
 @Serializable
 data class RebuildProgressResponse(
+    @SerialName("message")
     val message: String,
 )
 

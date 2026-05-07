@@ -228,30 +228,29 @@ object Language {
     fun getDisplayName(code: String): String = codeToName[code.lowercase()] ?: code
 
     /**
-     * Get all languages as code-name pairs, with common languages first.
-     * Used for populating the dropdown.
+     * Get all languages with common ones first, used for populating the dropdown.
      */
-    fun getAllLanguages(): List<Pair<String, String>> {
+    fun getAllLanguages(): List<LanguageOption> {
         val common =
             commonLanguages.mapNotNull { code ->
-                codeToName[code]?.let { name -> code to name }
+                codeToName[code]?.let { name -> LanguageOption(code, name) }
             }
         val remaining =
             codeToName
                 .filterKeys { it !in commonLanguages }
-                .toList()
-                .sortedBy { it.second } // Sort alphabetically by name
+                .map { (code, name) -> LanguageOption(code, name) }
+                .sortedBy { it.name } // Sort alphabetically by name
         return common + remaining
     }
 
     /**
      * Filter languages by search query (matches code or name).
      */
-    fun filterLanguages(query: String): List<Pair<String, String>> {
+    fun filterLanguages(query: String): List<LanguageOption> {
         if (query.isBlank()) return getAllLanguages()
         val lowerQuery = query.lowercase()
-        return getAllLanguages().filter { (code, name) ->
-            code.contains(lowerQuery) || name.lowercase().contains(lowerQuery)
+        return getAllLanguages().filter { option ->
+            option.code.contains(lowerQuery) || option.name.lowercase().contains(lowerQuery)
         }
     }
 
@@ -260,3 +259,11 @@ object Language {
      */
     fun isValidCode(code: String): Boolean = codeToName.containsKey(code.lowercase())
 }
+
+/**
+ * One ISO 639-1 language entry rendered in pickers (code + display name).
+ */
+data class LanguageOption(
+    val code: String,
+    val name: String,
+)

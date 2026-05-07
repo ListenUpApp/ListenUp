@@ -116,10 +116,13 @@ class ImageDownloaderTest {
             val fixture = createFixture()
             val bookId = BookId("book-1")
             val imageBytes = ByteArray(100)
-            val storageException = Exception("Disk full")
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation.
+            val storageFailure =
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Disk full"))
 
             everySuspend { fixture.imageApi.downloadCover(bookId) } returns Success(imageBytes)
-            everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns Failure(storageException)
+            everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns storageFailure
             val imageDownloader = fixture.build()
 
             // When

@@ -34,6 +34,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
  * Tests for AdminCollectionDetailViewModel.
@@ -81,6 +82,7 @@ class AdminCollectionDetailViewModelTest {
                 shareCollectionUseCase = shareCollectionUseCase,
                 removeCollectionShareUseCase = removeCollectionShareUseCase,
                 getUsersForSharingUseCase = getUsersForSharingUseCase,
+                errorBus = ErrorBus(),
             )
     }
 
@@ -335,9 +337,11 @@ class AdminCollectionDetailViewModelTest {
     fun `saveName failure surfaces as transient error on Ready`() =
         runTest {
             val fixture = createFixture(collection = createCollection(name = "Original"))
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.updateCollectionNameUseCase(collectionId = "c1", name = "Renamed")
-            } returns Failure(RuntimeException("conflict"))
+            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "conflict"))
 
             val viewModel = fixture.build()
             advanceUntilIdle()
@@ -389,9 +393,11 @@ class AdminCollectionDetailViewModelTest {
                 createFixture(
                     books = listOf(book),
                 )
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.removeBookFromCollectionUseCase(collectionId = "c1", bookId = "b1")
-            } returns Failure(RuntimeException("permission denied"))
+            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "permission denied"))
 
             val viewModel = fixture.build()
             advanceUntilIdle()
@@ -467,9 +473,11 @@ class AdminCollectionDetailViewModelTest {
     fun `clearError resets Ready error to null`() =
         runTest {
             val fixture = createFixture()
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the ViewModel.
             everySuspend {
                 fixture.updateCollectionNameUseCase(collectionId = "c1", name = any<String>())
-            } returns Failure(RuntimeException("boom"))
+            } returns Failure(com.calypsan.listenup.api.error.ValidationError(message = "boom"))
             val viewModel = fixture.build()
             advanceUntilIdle()
             viewModel.updateName("Changed")

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.CoverOption
 import com.calypsan.listenup.client.domain.repository.MetadataBook
 import com.calypsan.listenup.client.domain.repository.MetadataContributor
@@ -90,10 +91,12 @@ data class BookContext(
 sealed interface MetadataUiState {
     val region: AudibleRegion
 
+    /** No book loaded yet; pre-[MetadataViewModel.initForBook] placeholder. */
     data class Idle(
         override val region: AudibleRegion = AudibleRegion.US,
     ) : MetadataUiState
 
+    /** Book loaded; user is editing the search query and browsing results. */
     data class Search(
         override val region: AudibleRegion,
         val context: BookContext,
@@ -101,6 +104,10 @@ sealed interface MetadataUiState {
         val loadState: SearchLoadState,
     ) : MetadataUiState
 
+    /**
+     * User picked a [match]; preview is loading or ready. [searchResults] is retained so
+     * [MetadataViewModel.clearSelection] can return to [Search] without re-issuing the search.
+     */
     data class Preview(
         override val region: AudibleRegion,
         val context: BookContext,
@@ -117,10 +124,12 @@ sealed interface SearchLoadState {
 
     data object InFlight : SearchLoadState
 
+    /** Audible search returned [results]. */
     data class Loaded(
         val results: List<MetadataSearchResult>,
     ) : SearchLoadState
 
+    /** Audible search failed; [message] is shown in-line. */
     data class Failed(
         val message: String,
     ) : SearchLoadState
@@ -146,6 +155,7 @@ sealed interface PreviewLoadState {
         val previewNotFound: Boolean,
     ) : PreviewLoadState
 
+    /** Preview fetch failed; [message] is shown in-line. */
     data class Failed(
         val message: String,
     ) : PreviewLoadState
@@ -168,6 +178,7 @@ sealed interface MetadataEvent {
 class MetadataViewModel(
     private val metadataRepository: MetadataRepository,
     private val applyMetadataMatchUseCase: ApplyMetadataMatchUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
     val state: StateFlow<MetadataUiState> = _state.asStateFlow()
@@ -257,7 +268,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Metadata search failed" }
                 _state.update { latest ->
                     if (latest is MetadataUiState.Search && latest.query.trim() == query) {
@@ -420,7 +431,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.error(e) { "Failed to load metadata preview" }
                 if (match.title.isNotBlank()) {
                     logger.info { "Using search result data as preview fallback" }
@@ -449,7 +460,7 @@ class MetadataViewModel(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 @Suppress("DEPRECATION")
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.warn(e) { "Cover search failed, using Audible cover only" }
                 updateReady { it.copy(isLoadingCovers = false) }
             }

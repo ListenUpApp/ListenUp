@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
@@ -31,6 +32,7 @@ class AdminCollectionsViewModel(
     private val collectionRepository: CollectionRepository,
     private val createCollectionUseCase: CreateCollectionUseCase,
     private val deleteCollectionUseCase: DeleteCollectionUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCollectionsUiState>
         field = MutableStateFlow<AdminCollectionsUiState>(AdminCollectionsUiState.Loading)
@@ -81,7 +83,7 @@ class AdminCollectionsViewModel(
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ErrorBus.emit(e)
+                errorBus.emit(ErrorMapper.map(e))
                 logger.warn(e) { "Failed to refresh collections from server" }
                 // Don't update error state - local data is still usable
             }
@@ -173,6 +175,7 @@ class AdminCollectionsViewModel(
 sealed interface AdminCollectionsUiState {
     data object Loading : AdminCollectionsUiState
 
+    /** Collections have loaded; carries the list, action overlays, success flag, and a transient `error`. */
     data class Ready(
         val collections: List<Collection> = emptyList(),
         val isCreating: Boolean = false,
@@ -181,6 +184,7 @@ sealed interface AdminCollectionsUiState {
         val error: String? = null,
     ) : AdminCollectionsUiState
 
+    /** Terminal state when the observe pipeline fails. */
     data class Error(
         val message: String,
     ) : AdminCollectionsUiState

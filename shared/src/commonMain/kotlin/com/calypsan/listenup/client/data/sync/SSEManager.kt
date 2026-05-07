@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.SyncError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -56,6 +56,7 @@ class SSEManager(
     private val serverConfig: ServerConfig,
     private val scope: CoroutineScope,
     private val downloadRepository: DownloadRepository,
+    private val errorBus: ErrorBus,
 ) : SSEManagerContract {
     private val _eventFlow =
         MutableSharedFlow<SSEChannelMessage>(
@@ -153,14 +154,14 @@ class SSEManager(
                 logger.warn { "SSE connection failed with auth error ($statusCode), not retrying" }
                 return false
             }
-            ErrorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
+            errorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
             logger.warn(e) { "Connection error" }
             true
         } catch (e: Exception) {
             _isConnected.value = false
             disconnectedAt = Timestamp.now().toIsoString()
             logger.debug { "SSE disconnected at $disconnectedAt" }
-            ErrorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
+            errorBus.emit(SyncError.RealtimeDisconnected(debugInfo = e.message))
             logger.warn(e) { "Connection error" }
             true
         }

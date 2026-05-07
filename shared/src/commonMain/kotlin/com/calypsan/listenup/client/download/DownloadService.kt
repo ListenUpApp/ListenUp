@@ -37,7 +37,7 @@ interface DownloadService {
      * - [DownloadOutcome.AlreadyDownloaded] — all files already complete; no work enqueued.
      * - [DownloadOutcome.InsufficientStorage] — pre-flight storage check failed; no work enqueued.
      *
-     * Returns [AppResult.Failure] with [com.calypsan.listenup.client.core.error.DownloadError]
+     * Returns [AppResult.Failure] with [com.calypsan.listenup.api.error.DownloadError]
      * for unexpected errors (book not found, missing audio metadata, etc.).
      */
     suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome>

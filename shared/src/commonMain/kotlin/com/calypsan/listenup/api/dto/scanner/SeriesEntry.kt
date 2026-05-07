@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,6 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class SeriesEntry(
+    @SerialName("name")
     val name: String,
     val sequence: String? = null,
 )

@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.getOrThrow
+import com.calypsan.listenup.client.core.flatten
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -43,8 +44,8 @@ class UserPreferencesApi(
             val client = clientFactory.getClient()
             val response: ApiResponse<UserSettingsApiResponse> =
                 client.get("/api/v1/settings").body()
-            response.toResult().getOrThrow().toDomain()
-        }
+            response.toResult()
+        }.flatten().map { it.toDomain() }
 
     /**
      * Update user settings on the server.
@@ -75,8 +76,8 @@ class UserPreferencesApi(
                         contentType(ContentType.Application.Json)
                         setBody(apiRequest)
                     }.body()
-            response.toResult().getOrThrow().toDomain()
-        }
+            response.toResult()
+        }.flatten().map { it.toDomain() }
 }
 
 /**

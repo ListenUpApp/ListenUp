@@ -5,7 +5,7 @@ package com.calypsan.listenup.client.domain.model
  *
  * Wrapped in [com.calypsan.listenup.client.core.AppResult.Success] when the request succeeds.
  * Failures use [com.calypsan.listenup.client.core.AppResult.Failure] with a
- * [com.calypsan.listenup.client.core.error.DownloadError].
+ * [com.calypsan.listenup.api.error.DownloadError].
  *
  * Replaces the legacy `DownloadResult` sealed type per W8 Phase B
  * (W8 handoff design § "Migrate `DownloadResult` → `AppResult<DownloadOutcome>`").

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -68,18 +69,22 @@ sealed interface SearchUiState {
  * Navigation actions emitted when a search hit is clicked.
  */
 sealed interface SearchNavAction {
+    /** User picked a book hit; navigate to the book detail screen. */
     data class NavigateToBook(
         val bookId: String,
     ) : SearchNavAction
 
+    /** User picked a contributor hit; navigate to the contributor detail screen. */
     data class NavigateToContributor(
         val contributorId: String,
     ) : SearchNavAction
 
+    /** User picked a series hit; navigate to the series detail screen. */
     data class NavigateToSeries(
         val seriesId: String,
     ) : SearchNavAction
 
+    /** User picked a tag hit; navigate to the tag detail screen. */
     data class NavigateToTag(
         val tagId: String,
     ) : SearchNavAction
@@ -95,6 +100,7 @@ sealed interface SearchNavAction {
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val searchRepository: SearchRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val queryFlow = MutableStateFlow("")
     private val typesFlow = MutableStateFlow<Set<SearchHitType>>(emptySet())
@@ -156,7 +162,7 @@ class SearchViewModel(
         ) {
             logger.error { "Search failed for '$query'" }
             @Suppress("DEPRECATION")
-            ErrorBus.emit(e)
+            errorBus.emit(ErrorMapper.map(e))
             emit(Phase.Error("Search unavailable. Please try again."))
         }
     }
@@ -192,10 +198,12 @@ class SearchViewModel(
 
         data object Searching : Phase
 
+        /** Search call completed successfully; carries the raw result for the public state. */
         data class Results(
             val data: SearchResult,
         ) : Phase
 
+        /** Search call failed; carries the user-facing message for the public state. */
         data class Error(
             val message: String,
         ) : Phase

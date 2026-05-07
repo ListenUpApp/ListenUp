@@ -27,6 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StorageViewModelTest {
@@ -79,6 +80,7 @@ class StorageViewModelTest {
                 downloadRepository = fixture.downloadRepository,
                 downloadService = fixture.downloadService,
                 storageSpaceProvider = fixture.storageSpaceProvider,
+                errorBus = ErrorBus(),
             )
         return vm to fixture
     }

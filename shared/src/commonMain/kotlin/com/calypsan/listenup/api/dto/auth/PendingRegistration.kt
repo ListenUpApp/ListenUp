@@ -1,10 +1,12 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Admin-issued decision on a pending registration. */
 @Serializable
 data class PendingRegistrationDecision(
+    @SerialName("userId")
     val userId: UserId,
     val approved: Boolean,
 )

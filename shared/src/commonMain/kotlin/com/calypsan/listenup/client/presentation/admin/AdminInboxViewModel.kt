@@ -297,6 +297,10 @@ class AdminInboxViewModel(
 sealed interface AdminInboxUiState {
     data object Loading : AdminInboxUiState
 
+    /**
+     * Inbox books have loaded; carries the books, selection state, action overlays,
+     * a transient `error`, and the [lastReleaseResult] for success confirmation.
+     */
     data class Ready(
         val books: List<InboxBook> = emptyList(),
         val selectedBookIds: Set<String> = emptySet(),
@@ -315,6 +319,7 @@ sealed interface AdminInboxUiState {
         fun isBookStaging(bookId: String): Boolean = stagingBookId == bookId
     }
 
+    /** Terminal state when the initial inbox load fails. */
     data class Error(
         val message: String,
     ) : AdminInboxUiState

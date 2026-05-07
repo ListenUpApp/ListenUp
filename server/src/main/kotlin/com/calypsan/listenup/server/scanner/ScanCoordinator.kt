@@ -45,7 +45,7 @@ private val logger = KotlinLogging.logger {}
  * `CancellationException` is always re-raised — the coordinator never
  * swallows it.
  */
-class ScanCoordinator(
+internal class ScanCoordinator(
     private val runFullScan: suspend () -> ScanResult,
     private val runIncremental: suspend (Path) -> Unit,
     scope: CoroutineScope,

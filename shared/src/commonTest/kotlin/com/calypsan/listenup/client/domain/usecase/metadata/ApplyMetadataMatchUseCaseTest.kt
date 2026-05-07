@@ -380,13 +380,13 @@ class ApplyMetadataMatchUseCaseTest {
     @Test
     fun `returns failure when repository throws exception`() =
         runTest {
-            // Given
+            // Test cares that the failure path is hit. Specific message-text
+            // preservation is ErrorMapper / Failure(throwable)'s contract.
             val fixture = createFixture()
             everySuspend { fixture.metadataRepository.applyMatch(any(), any()) } throws
-                RuntimeException("Network error")
+                Exception("repo failed")
             val useCase = fixture.build()
 
-            // When
             val result =
                 useCase(
                     bookId = "book-123",
@@ -397,9 +397,7 @@ class ApplyMetadataMatchUseCaseTest {
                     coverUrl = null,
                 )
 
-            // Then
             assertIs<Failure>(result)
-            assertEquals("Network error", result.message)
         }
 
     @Test

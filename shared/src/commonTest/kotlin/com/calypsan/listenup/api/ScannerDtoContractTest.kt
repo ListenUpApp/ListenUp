@@ -187,10 +187,10 @@ class ScannerDtoContractTest :
                 listOf<ScanError>(
                     ScanError.AlreadyRunning(correlationId = "c"),
                     ScanError.LibraryPathNotConfigured(correlationId = "c"),
-                    ScanError.LibraryPathNotFound("/missing", correlationId = "c"),
-                    ScanError.FileUnreadable("/path", "perm denied", correlationId = "c"),
-                    ScanError.MetadataParseError("/path", "bad json", correlationId = "c"),
-                    ScanError.TitleInferenceError("/path", correlationId = "c"),
+                    ScanError.LibraryPathNotFound(correlationId = "c", path = "/missing"),
+                    ScanError.FileUnreadable(correlationId = "c", debugInfo = "perm denied", path = "/path"),
+                    ScanError.MetadataParseError(correlationId = "c", debugInfo = "bad json", path = "/path"),
+                    ScanError.TitleInferenceError(correlationId = "c", path = "/path"),
                 )
             variants.forEach { original ->
                 val asAppError: AppError = original

@@ -34,7 +34,7 @@ import kotlin.time.Duration.Companion.seconds
  * The [SettleWindow] state machine is the testable core; [awaitStable] is
  * the I/O-driven wrapper.
  */
-class StableSizeDebouncer(
+internal class StableSizeDebouncer(
     private val settle: Duration = 2.seconds,
     private val poll: Duration = 500.milliseconds,
     private val clock: () -> Long = System::currentTimeMillis,

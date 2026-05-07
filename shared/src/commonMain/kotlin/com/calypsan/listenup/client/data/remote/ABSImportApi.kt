@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ImportError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.core.AppResult
@@ -215,12 +215,14 @@ interface ABSImportApiContract {
 
 // === Filter Enums ===
 
+/** Filter for [ABSImportApiContract.listImportUsers] / `listImportBooks` by mapping status. */
 enum class MappingFilter {
     ALL,
     MAPPED,
     UNMAPPED,
 }
 
+/** Filter for [ABSImportApiContract.listSessions] by session lifecycle status. */
 enum class SessionStatusFilter {
     ALL,
     PENDING,
@@ -330,6 +332,7 @@ data class ABSImportSession(
  */
 @Serializable
 data class ABSSessionsResponse(
+    @SerialName("sessions")
     val sessions: List<ABSImportSession>,
     val summary: SessionsSummary,
 ) {
@@ -341,8 +344,10 @@ data class ABSSessionsResponse(
     val skippedCount: Int get() = summary.skipped
 }
 
+/** Per-status session counts that back the convenience accessors on [ABSSessionsResponse]. */
 @Serializable
 data class SessionsSummary(
+    @SerialName("total")
     val total: Int = 0,
     val pending: Int = 0,
     val ready: Int = 0,
@@ -395,6 +400,7 @@ private data class MapBookRequest(
 
 @Serializable
 private data class SkipSessionRequest(
+    @SerialName("reason")
     val reason: String? = null,
 )
 
@@ -402,21 +408,25 @@ private data class SkipSessionRequest(
 
 @Serializable
 private data class ImportListResponse(
+    @SerialName("imports")
     val imports: List<ABSImportSummary>,
 )
 
 @Serializable
 private data class UsersListResponse(
+    @SerialName("users")
     val users: List<ABSImportUser>,
 )
 
 @Serializable
 private data class BooksListResponse(
+    @SerialName("books")
     val books: List<ABSImportBook>,
 )
 
 @Serializable
 private data class UserSearchResponse(
+    @SerialName("users")
     val users: List<UserSearchResult>,
 )
 
@@ -427,6 +437,7 @@ private data class UserSearchResponse(
  */
 class ABSImportApi(
     private val clientFactory: ApiClientFactory,
+    private val errorBus: ErrorBus,
 ) : ABSImportApiContract {
 
     // === Import Management ===
@@ -466,7 +477,7 @@ class ABSImportApi(
             // Then create the import from the uploaded path
             createImportFromPath(uploadPath, name)
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -491,7 +502,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.UploadFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -561,7 +572,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -583,7 +594,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -649,7 +660,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -671,7 +682,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -714,7 +725,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.AnalysisFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -735,7 +746,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }
@@ -757,7 +768,7 @@ class ABSImportApi(
                 is Failure -> Failure(AppException(result.error))
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) {
-            ErrorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
+            errorBus.emit(ImportError.ApplyFailed(debugInfo = e.message))
             Failure(e)
         }
     }

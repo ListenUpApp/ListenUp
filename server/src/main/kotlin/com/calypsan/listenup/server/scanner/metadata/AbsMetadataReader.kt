@@ -27,7 +27,7 @@ private val logger = KotlinLogging.logger {}
  * `parseSeriesEntries` converts ABS's `["Series Name #1.5"]` string format
  * into structured [SeriesEntry] values.
  */
-class AbsMetadataReader(
+internal class AbsMetadataReader(
     private val json: Json,
 ) {
     suspend fun read(file: Path): AbsMetadata? =

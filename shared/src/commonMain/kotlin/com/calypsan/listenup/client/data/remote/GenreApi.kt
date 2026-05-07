@@ -178,6 +178,7 @@ class GenreApi(
  */
 @Serializable
 internal data class GenreListResponse(
+    @SerialName("genres")
     val genres: List<GenreResponse>,
 )
 
@@ -227,6 +228,7 @@ internal data class CreateGenreRequest(
 
 @Serializable
 internal data class UpdateGenreRequest(
+    @SerialName("name")
     val name: String,
 )
 

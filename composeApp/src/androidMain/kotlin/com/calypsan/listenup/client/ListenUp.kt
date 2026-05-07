@@ -277,6 +277,7 @@ class ListenUp :
                 capabilityDetector = get(),
                 backupApi = get(),
                 absImportApi = get(),
+                errorBus = get(),
             )
 
         val workManagerConfig =

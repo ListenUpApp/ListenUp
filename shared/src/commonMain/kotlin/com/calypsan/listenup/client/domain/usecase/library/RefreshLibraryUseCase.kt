@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -24,21 +23,15 @@ data class RefreshLibraryResult(
 /**
  * Use case for refreshing the library from the server.
  *
- * Encapsulates all business logic for library refresh:
- * - Triggering sync via SyncManager
- * - Handling sync errors gracefully
- * - Providing user-friendly error messages
+ * Triggers a sync via [SyncRepository] and surfaces the resulting [SyncState] to the
+ * caller. On failure, the unified [com.calypsan.listenup.api.error.AppError] from the
+ * repository propagates as-is — translation to user-facing copy is the consumer's
+ * responsibility (presentation layer), not the domain's.
  *
- * The ViewModel becomes a thin coordinator that:
- * - Manages UI state (Loading indicator)
- * - Observes sync state changes
- * - Delegates to this use case for business logic
- *
- * Follows the operator invoke pattern for clean call-site syntax:
  * ```kotlin
  * when (val result = refreshLibraryUseCase()) {
  *     is Success -> showSuccess(result.data.message)
- *     is Failure -> showError(result.message)
+ *     is Failure -> showError(userMessageFor(result.error)) // presentation translator
  * }
  * ```
  */
@@ -63,24 +56,20 @@ open class RefreshLibraryUseCase(
      */
     open suspend operator fun invoke(): AppResult<RefreshLibraryResult> {
         logger.info { "Starting library refresh" }
-
-        return suspendRunCatching {
-            when (val syncResult = syncRepository.sync()) {
-                is Success -> {
-                    logger.info { "Library refresh completed successfully" }
+        return when (val syncResult = syncRepository.sync()) {
+            is Success -> {
+                logger.info { "Library refresh completed successfully" }
+                Success(
                     RefreshLibraryResult(
                         state = syncRepository.syncState.value,
                         message = "Library refreshed successfully",
-                    )
-                }
+                    ),
+                )
+            }
 
-                is Failure -> {
-                    logger.warn { "Library refresh failed: ${syncResult.message}" }
-                    throw RefreshException(
-                        message = mapErrorMessage(syncResult),
-                        cause = null,
-                    )
-                }
+            is Failure -> {
+                logger.warn { "Library refresh failed: ${syncResult.error.code}" }
+                syncResult
             }
         }
     }
@@ -96,57 +85,21 @@ open class RefreshLibraryUseCase(
      */
     open suspend fun resetForNewLibrary(newLibraryId: String): AppResult<RefreshLibraryResult> {
         logger.info { "Resetting for new library: $newLibraryId" }
-
-        return suspendRunCatching {
-            when (val syncResult = syncRepository.resetForNewLibrary(newLibraryId)) {
-                is Success -> {
-                    logger.info { "Library reset completed successfully" }
+        return when (val syncResult = syncRepository.resetForNewLibrary(newLibraryId)) {
+            is Success -> {
+                logger.info { "Library reset completed successfully" }
+                Success(
                     RefreshLibraryResult(
                         state = syncRepository.syncState.value,
                         message = "Library synced with new server",
-                    )
-                }
+                    ),
+                )
+            }
 
-                is Failure -> {
-                    logger.warn { "Library reset failed: ${syncResult.message}" }
-                    throw RefreshException(
-                        message = mapErrorMessage(syncResult),
-                        cause = null,
-                    )
-                }
+            is Failure -> {
+                logger.warn { "Library reset failed: ${syncResult.error.code}" }
+                syncResult
             }
         }
     }
-
-    /**
-     * Map technical errors to user-friendly messages.
-     */
-    private fun mapErrorMessage(failure: Failure): String {
-        val message = failure.message
-        return when {
-            message.contains(
-                "network",
-                ignoreCase = true,
-            ) -> "Unable to connect to server. Check your network connection."
-
-            message.contains("unauthorized", ignoreCase = true) -> "Session expired. Please log in again."
-
-            message.contains("timeout", ignoreCase = true) -> "Server is not responding. Please try again later."
-
-            message.contains(
-                "mismatch",
-                ignoreCase = true,
-            ) -> "Server library has changed. Local data needs to be reset."
-
-            else -> message
-        }
-    }
 }
-
-/**
- * Exception thrown when library refresh fails.
- */
-class RefreshException(
-    message: String,
-    cause: Throwable? = null,
-) : Exception(message, cause)

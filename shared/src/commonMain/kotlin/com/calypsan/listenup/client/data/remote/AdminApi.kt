@@ -566,6 +566,11 @@ data class AdminInvite(
         get() = if (claimedAt != null) InviteStatus.CLAIMED else InviteStatus.PENDING
 }
 
+/**
+ * Lifecycle state of an [AdminInvite] as surfaced to the admin UI. Currently derived
+ * from `claimedAt` only; [EXPIRED] and [REVOKED] are reserved for future server-side
+ * status reporting.
+ */
 enum class InviteStatus {
     PENDING,
     CLAIMED,

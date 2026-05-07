@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.SyncError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
@@ -140,6 +140,7 @@ class SyncManager(
     private val coverDownloadWorker: CoverDownloadWorker,
     private val ftsPopulator: FtsPopulatorContract,
     private val syncMutex: SyncMutex,
+    private val errorBus: ErrorBus,
     private val scope: CoroutineScope,
 ) : SyncManagerContract {
     // Override properties can't use explicit backing fields - must use traditional pattern
@@ -408,7 +409,7 @@ class SyncManager(
         } catch (e: CancellationException) {
             throw e // cooperative cancellation — never swallow
         } catch (e: Exception) {
-            ErrorBus.emit(SyncError.SyncFailed(debugInfo = e.message))
+            errorBus.emit(SyncError.SyncFailed(debugInfo = e.message))
             logger.error(e) { "Sync failed after retries" }
             _syncState.value = SyncStatus.Error(exception = e)
 

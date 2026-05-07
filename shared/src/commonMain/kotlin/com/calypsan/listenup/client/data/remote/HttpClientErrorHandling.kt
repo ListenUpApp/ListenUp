@@ -16,10 +16,10 @@ import io.ktor.client.plugins.HttpResponseValidator
  *    instead of letting the body decoder see error HTML.
  * 2. `HttpResponseValidator { handleResponseExceptionWithRequest { ... } }` — every
  *    exception from the request pipeline is routed through [ErrorMapper] and re-thrown
- *    as [AppException] carrying the already-typed [com.calypsan.listenup.client.core.error.AppError].
+ *    as [AppException] carrying the already-typed [com.calypsan.listenup.api.error.AppError].
  *
  * Call sites catch [AppException] once; the `error` property carries the categorised
- * [com.calypsan.listenup.client.core.error.AppError] with no further mapping needed.
+ * [com.calypsan.listenup.api.error.AppError] with no further mapping needed.
  */
 fun HttpClientConfig<*>.installListenUpErrorHandling() {
     expectSuccess = true

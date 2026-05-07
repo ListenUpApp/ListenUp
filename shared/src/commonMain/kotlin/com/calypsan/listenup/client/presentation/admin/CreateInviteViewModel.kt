@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -37,30 +40,7 @@ class CreateInviteViewModel(
                 }
 
                 is Failure -> {
-                    val errorType =
-                        when {
-                            result.message.contains("Name is required", ignoreCase = true) -> {
-                                CreateInviteErrorType.ValidationError(CreateInviteField.NAME)
-                            }
-
-                            result.message.contains("Invalid email", ignoreCase = true) -> {
-                                CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
-                            }
-
-                            result.message.contains("already exists", ignoreCase = true) ||
-                                result.message.contains("conflict", ignoreCase = true) -> {
-                                CreateInviteErrorType.EmailInUse
-                            }
-
-                            result.message.contains("network", ignoreCase = true) ||
-                                result.message.contains("connection", ignoreCase = true) -> {
-                                CreateInviteErrorType.NetworkError(result.message)
-                            }
-
-                            else -> {
-                                CreateInviteErrorType.ServerError(result.message)
-                            }
-                        }
+                    val errorType = classifyError(result.error)
                     updateReady { it.copy(status = CreateInviteStatus.Error(errorType)) }
                 }
             }
@@ -86,6 +66,40 @@ class CreateInviteViewModel(
         state.update { current ->
             if (current is CreateInviteUiState.Ready) transform(current) else current
         }
+    }
+
+    /**
+     * Classify a [Failure]'s [AppError] into the UI's error type by *type*, not by
+     * substring-matching the message text. The pre-Phase-3 implementation matched on
+     * `result.message` substrings — that worked for the [ValidationError] cases
+     * (constructor-supplied message text travels through verbatim) but silently fell
+     * through for "already exists" / "conflict" (server 409 → `TransportError.Server4xx`
+     * has body-level message `"Request rejected by server (HTTP 409)."` — no "conflict"
+     * substring). The type-pattern shape below preserves the validation sub-classification
+     * (because `ValidationError.message` is per-instance) and replaces the brittle bits.
+     */
+    private fun classifyError(error: AppError): CreateInviteErrorType =
+        when (error) {
+            is ValidationError -> when {
+                error.message.contains("Name is required", ignoreCase = true) ->
+                    CreateInviteErrorType.ValidationError(CreateInviteField.NAME)
+                error.message.contains("Invalid email", ignoreCase = true) ->
+                    CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
+                else -> CreateInviteErrorType.ServerError(error.message)
+            }
+            is TransportError.Server4xx ->
+                if (error.statusCode == HTTP_CONFLICT) {
+                    CreateInviteErrorType.EmailInUse
+                } else {
+                    CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+                }
+            is TransportError.NetworkUnavailable, is TransportError.Timeout ->
+                CreateInviteErrorType.NetworkError(error.message)
+            else -> CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+        }
+
+    companion object {
+        private const val HTTP_CONFLICT = 409
     }
 }
 
@@ -118,31 +132,37 @@ sealed interface CreateInviteStatus {
 
     data object Submitting : CreateInviteStatus
 
+    /** Invite was created; carries the server-issued [invite] details for display. */
     data class Success(
         val invite: InviteInfo,
     ) : CreateInviteStatus
 
+    /** Invite creation failed; [type] determines which UI message and field highlight to show. */
     data class Error(
         val type: CreateInviteErrorType,
     ) : CreateInviteStatus
 }
 
 sealed interface CreateInviteErrorType {
+    /** Client-side validation failed for [field]; the form highlights that input. */
     data class ValidationError(
         val field: CreateInviteField,
     ) : CreateInviteErrorType
 
     data object EmailInUse : CreateInviteErrorType
 
+    /** Network transport failure (offline / timeout); [detail] is the underlying message if any. */
     data class NetworkError(
         val detail: String?,
     ) : CreateInviteErrorType
 
+    /** Server-side failure not covered by [ValidationError] or [EmailInUse]; [detail] is the server message if any. */
     data class ServerError(
         val detail: String?,
     ) : CreateInviteErrorType
 }
 
+/** Form field highlighted by [CreateInviteErrorType.ValidationError]. */
 enum class CreateInviteField {
     NAME,
     EMAIL,

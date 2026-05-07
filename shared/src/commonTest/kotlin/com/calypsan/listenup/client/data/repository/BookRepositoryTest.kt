@@ -125,7 +125,10 @@ class BookRepositoryTest {
         runTest {
             // Given
             val fixture = createFixture()
-            everySuspend { fixture.syncManager.sync() } returns Failure(Exception("Network error"))
+            // Body-level message convention: pass a typed AppError so the
+            // user-facing message survives delegation to the repository.
+            everySuspend { fixture.syncManager.sync() } returns
+                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Network error"))
             val repository = fixture.build()
 
             // When

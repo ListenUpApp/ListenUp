@@ -52,7 +52,7 @@ private val logger = KotlinLogging.logger {}
  * The watcher does not start listening until [start] is called; cleanup
  * via [close] releases the inotify / FSEvents / RDC handles.
  */
-class FolderWatcher(
+internal class FolderWatcher(
     private val libraryRoot: Path,
     private val scope: CoroutineScope,
     private val debouncer: StableSizeDebouncer = StableSizeDebouncer(),

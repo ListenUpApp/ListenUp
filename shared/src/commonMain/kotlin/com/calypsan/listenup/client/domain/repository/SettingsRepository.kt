@@ -25,6 +25,18 @@ sealed interface PreferenceChangeEvent {
 // region Segregated Interfaces (ISP)
 
 /**
+ * Persistence record for a registration awaiting admin approval.
+ *
+ * `userId` keys the server-side approval-status stream (SSE/polling);
+ * `email` is shown on the pending-approval screen. No credentials are kept —
+ * once approved the user retries `login()` normally.
+ */
+data class PendingRegistration(
+    val userId: String,
+    val email: String,
+)
+
+/**
  * Contract for authentication and session management.
  *
  * Used by components that need to manage auth tokens, session state,
@@ -85,10 +97,9 @@ interface AuthSession {
     )
 
     /**
-     * Get the (userId, email) of any pending registration on this device,
-     * or null when no registration is in flight.
+     * Get the pending registration on this device, or null when none is in flight.
      */
-    suspend fun getPendingRegistration(): Pair<String, String>?
+    suspend fun getPendingRegistration(): PendingRegistration?
 
     /**
      * Clear pending registration state.
