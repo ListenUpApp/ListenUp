@@ -824,14 +824,12 @@ class CreateShelfHandler(
         operation: PendingOperationEntity,
         payload: CreateShelfPayload,
     ): AppResult<Unit> =
-        try {
-            api.createShelf(payload.name, payload.description)
-            Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "CreateShelfHandler failed for localId=${payload.localId}" }
-            Failure(e)
+        when (val result = api.createShelf(payload.name, payload.description)) {
+            is Success -> Success(Unit)
+            is Failure -> {
+                logger.warn { "CreateShelfHandler failed for localId=${payload.localId}: ${result.error.message}" }
+                result
+            }
         }
 }
 
@@ -858,14 +856,12 @@ class UpdateShelfHandler(
         operation: PendingOperationEntity,
         payload: UpdateShelfPayload,
     ): AppResult<Unit> =
-        try {
-            api.updateShelf(payload.shelfId, payload.name, payload.description)
-            Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "UpdateShelfHandler failed for shelfId=${payload.shelfId}" }
-            Failure(e)
+        when (val result = api.updateShelf(payload.shelfId, payload.name, payload.description)) {
+            is Success -> Success(Unit)
+            is Failure -> {
+                logger.warn { "UpdateShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
+                result
+            }
         }
 }
 
@@ -892,14 +888,12 @@ class DeleteShelfHandler(
         operation: PendingOperationEntity,
         payload: DeleteShelfPayload,
     ): AppResult<Unit> =
-        try {
-            api.deleteShelf(payload.shelfId)
-            Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "DeleteShelfHandler failed for shelfId=${payload.shelfId}" }
-            Failure(e)
+        when (val result = api.deleteShelf(payload.shelfId)) {
+            is Success -> result
+            is Failure -> {
+                logger.warn { "DeleteShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
+                result
+            }
         }
 }
 
@@ -926,14 +920,12 @@ class AddBooksToShelfHandler(
         operation: PendingOperationEntity,
         payload: AddBooksToShelfPayload,
     ): AppResult<Unit> =
-        try {
-            api.addBooks(payload.shelfId, payload.bookIds)
-            Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "AddBooksToShelfHandler failed for shelfId=${payload.shelfId}" }
-            Failure(e)
+        when (val result = api.addBooks(payload.shelfId, payload.bookIds)) {
+            is Success -> result
+            is Failure -> {
+                logger.warn { "AddBooksToShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
+                result
+            }
         }
 }
 
@@ -960,15 +952,11 @@ class RemoveBookFromShelfHandler(
         operation: PendingOperationEntity,
         payload: RemoveBookFromShelfPayload,
     ): AppResult<Unit> =
-        try {
-            api.removeBook(payload.shelfId, payload.bookId)
-            Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(
-                e,
-            ) { "RemoveBookFromShelfHandler failed for shelfId=${payload.shelfId}, bookId=${payload.bookId}" }
-            Failure(e)
+        when (val result = api.removeBook(payload.shelfId, payload.bookId)) {
+            is Success -> result
+            is Failure -> {
+                logger.warn { "RemoveBookFromShelfHandler failed for shelfId=${payload.shelfId}, bookId=${payload.bookId}: ${result.error.message}" }
+                result
+            }
         }
 }

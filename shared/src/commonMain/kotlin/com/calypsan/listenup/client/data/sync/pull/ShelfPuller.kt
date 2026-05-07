@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.pull
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
@@ -39,18 +40,28 @@ class ShelfPuller(
     ) {
         logger.debug { "Starting shelf sync..." }
 
-        try {
-            // 1. Fetch basic shelf list
-            val shelves = shelfApi.getMyShelves()
-            logger.info { "Fetched ${shelves.size} shelves" }
+        // 1. Fetch basic shelf list
+        val shelvesResult = shelfApi.getMyShelves()
+        val shelves =
+            when (shelvesResult) {
+                is AppResult.Success -> shelvesResult.data
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to fetch shelves: ${shelvesResult.error.message}" }
+                    // Non-critical — don't throw
+                    return
+                }
+            }
 
-            // 2. Fetch individual shelf details for book relationships
-            val allShelfBooks = mutableListOf<ShelfBookCrossRef>()
-            val entitiesWithCovers = mutableListOf<ShelfEntity>()
+        logger.info { "Fetched ${shelves.size} shelves" }
 
-            shelves.forEach { shelfResponse ->
-                try {
-                    val shelfDetail = shelfApi.getShelf(shelfResponse.id)
+        // 2. Fetch individual shelf details for book relationships
+        val allShelfBooks = mutableListOf<ShelfBookCrossRef>()
+        val entitiesWithCovers = mutableListOf<ShelfEntity>()
+
+        shelves.forEach { shelfResponse ->
+            when (val detailResult = shelfApi.getShelf(shelfResponse.id)) {
+                is AppResult.Success -> {
+                    val shelfDetail = detailResult.data
                     logger.debug {
                         "Fetched details for shelf '${shelfDetail.name}' with ${shelfDetail.books.size} books"
                     }
@@ -83,32 +94,35 @@ class ShelfPuller(
                     entitiesWithCovers.add(entity)
 
                     allShelfBooks.addAll(shelfBooks)
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Failed to fetch details for shelf ${shelfResponse.id}, using basic info" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to fetch details for shelf ${shelfResponse.id}: ${detailResult.error.message}, using basic info" }
                     // Fall back to basic entity without cover paths
                     entitiesWithCovers.add(shelfResponse.toEntity())
                 }
             }
+        }
 
-            // 3. Commit the refreshed shelves and shelf-book cross-refs in a single
-            //    transaction so the pull never leaves the DB with shelves that
-            //    reference books we haven't yet re-linked (Finding 05 D2).
+        // 3. Commit the refreshed shelves and shelf-book cross-refs in a single
+        //    transaction so the pull never leaves the DB with shelves that
+        //    reference books we haven't yet re-linked (Finding 05 D2).
+        try {
             transactionRunner.atomically {
                 shelfDao.upsertAll(entitiesWithCovers)
                 shelfBookDao.deleteAll()
                 shelfBookDao.upsertAll(allShelfBooks)
             }
-
-            logger.info {
-                "Shelf sync complete: ${entitiesWithCovers.size} shelves, ${allShelfBooks.size} shelf-book relationships cached"
-            }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to fetch shelves" }
+            logger.warn(e) { "Failed to persist shelf data to Room" }
             // Non-critical — don't throw
+            return
+        }
+
+        logger.info {
+            "Shelf sync complete: ${entitiesWithCovers.size} shelves, ${allShelfBooks.size} shelf-book relationships cached"
         }
     }
 }
