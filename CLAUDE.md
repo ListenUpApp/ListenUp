@@ -138,7 +138,21 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+### 5. Pattern Uniformity
+
+**One canonical shape per concern. Diverging patterns are a tax on every reader.**
+
+When the codebase has more than one way to do the same thing, every contributor has to learn both, decide which to use, and wonder whether the difference is meaningful. That cost compounds.
+
+- Before introducing a new pattern, search for existing solutions to the same problem. If one exists, use it.
+- If existing code uses an old pattern and you're touching it, convert to the canonical shape — even if "it already works." Style divergence is a real reasoning cost.
+- "We can't break callers" is rarely true. Signature changes ripple cleanly; compile errors guide the cascade.
+- When a new canonical pattern is genuinely needed, replace the old one everywhere in the same PR. Don't leave two coexisting.
+- Konsist rules pin the canonical shape so drift can't reintroduce. If a pattern matters, write the rule.
+
+Concrete example: `data/remote/` API methods use `apiCall(errorMessage = "...") { ... }` exclusively. Not `suspendRunCatching { … }.flatten()`, not direct `try/catch`, not `.body<ApiResponse<T>>().toResult().getOrThrow()`. One shape, every file. The Konsist rule `NoThrowsInDataLayerRule` enforces it.
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, fewer "wait, when do I use this version vs that version?" questions, and clarifying questions come before implementation rather than after mistakes.
 
 ---
 
