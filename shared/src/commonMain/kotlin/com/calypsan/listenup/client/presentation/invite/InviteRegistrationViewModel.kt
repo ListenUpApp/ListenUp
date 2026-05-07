@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -30,6 +31,7 @@ class InviteRegistrationViewModel(
     private val serverConfig: ServerConfig,
     private val serverUrl: String,
     private val inviteCode: String,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<InviteRegistrationUiState>(InviteRegistrationUiState.Loading)
     val state: StateFlow<InviteRegistrationUiState> = _state.asStateFlow()
@@ -55,8 +57,10 @@ class InviteRegistrationViewModel(
                             InviteRegistrationUiState.Ready(details)
                         }
                 }
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
                     _state.value = InviteRegistrationUiState.LoadError(result.error.message)
+                }
             }
         }
     }
@@ -97,11 +101,13 @@ class InviteRegistrationViewModel(
             serverConfig.setServerUrl(ServerUrl(serverUrl))
             when (val result = inviteRepository.claimInvite(serverUrl, inviteCode, password)) {
                 is AppResult.Success -> _state.value = InviteRegistrationUiState.Submitted
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
                     _state.value = InviteRegistrationUiState.SubmitError(
                         details,
                         result.error.toInviteErrorType(),
                     )
+                }
             }
         }
     }

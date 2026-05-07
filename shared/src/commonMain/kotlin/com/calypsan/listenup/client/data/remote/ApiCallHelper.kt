@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.Success
@@ -69,9 +69,9 @@ fun <T> ApiResponse<T>.validateOrThrow() {
  * [HttpClientErrorHandling] plugin's `expectSuccess = true` setting raises on
  * non-2xx — and routes them through [com.calypsan.listenup.client.core.error.ErrorMapper].
  *
- * @param errorMessage Used as the `ValidationError.message` if the envelope reports
- *   `success = true` but `data == null` (the only case where the body decoder
- *   couldn't surface a typed error itself).
+ * @param errorMessage Used as the `TransportError.DataMalformed.detail` if the
+ *   envelope reports `success = true` but `data == null` (the only case where
+ *   the body decoder couldn't surface a typed error itself).
  */
 suspend inline fun <T> apiCall(
     errorMessage: String,
@@ -94,7 +94,7 @@ suspend inline fun apiCallUnit(
 fun <T> ApiResponse<T>.dataOrFailure(errorMessage: String): AppResult<T> =
     when (val result = toResult()) {
         is Success -> result.data?.let { AppResult.Success(it) }
-            ?: AppResult.Failure(ValidationError(message = errorMessage))
+            ?: AppResult.Failure(TransportError.DataMalformed(detail = errorMessage))
         is Failure -> result
     }
 

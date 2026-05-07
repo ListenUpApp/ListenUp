@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.InviteRepository
@@ -65,12 +66,14 @@ class InviteRegistrationViewModelTest :
         fun newVm(
             inviteRepository: InviteRepository = mock(),
             serverConfig: ServerConfig = mock(),
+            errorBus: ErrorBus = ErrorBus(),
         ): InviteRegistrationViewModel =
             InviteRegistrationViewModel(
                 inviteRepository = inviteRepository,
                 serverConfig = serverConfig,
                 serverUrl = SERVER_URL,
                 inviteCode = INVITE_CODE,
+                errorBus = errorBus,
             )
 
         // ========== Load phase ==========
