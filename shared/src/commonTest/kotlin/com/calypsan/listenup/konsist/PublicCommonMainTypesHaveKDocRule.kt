@@ -14,16 +14,18 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * how to use it doesn't have a parent class or surrounding callsite to lean on; KDoc
  * is what carries the contract across platforms.
  */
-class PublicCommonMainTypesHaveKDocRule : FunSpec({
-    test("every public commonMain class/interface has a KDoc block") {
-        val offenders = Konsist
-            .scopeFromProduction()
-            .classes()
-            .filter { it.path.contains("/commonMain/") }
-            .withPublicOrDefaultModifier()
-            .filter { !it.hasKDoc }
-            .map { "${it.fullyQualifiedName} @ ${it.path}" }
+class PublicCommonMainTypesHaveKDocRule :
+    FunSpec({
+        test("every public commonMain class/interface has a KDoc block") {
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .classes()
+                    .filter { it.path.contains("/commonMain/") }
+                    .withPublicOrDefaultModifier()
+                    .filter { !it.hasKDoc }
+                    .map { "${it.fullyQualifiedName} @ ${it.path}" }
 
-        offenders.shouldBeEmpty()
-    }
-})
+            offenders.shouldBeEmpty()
+        }
+    })

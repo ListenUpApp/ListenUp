@@ -23,15 +23,30 @@ import com.calypsan.listenup.api.error.TransportError
  * For ErrorBus emissions, emit the typed `result.error` directly — the global snackbar
  * has its own translation logic; presentation translation is for in-screen error states.
  */
-fun userMessageFor(error: AppError): String = when (error) {
-    is TransportError.NetworkUnavailable -> "Can't reach the server. Check your connection."
-    is TransportError.Timeout -> "The request took too long. Please try again."
-    is TransportError.Server4xx -> when (error.statusCode) {
-        409 -> "That resource is in use or already exists."
-        403 -> "You don't have permission to do that."
-        404 -> "Not found."
-        else -> error.message
+fun userMessageFor(error: AppError): String =
+    when (error) {
+        is TransportError.NetworkUnavailable -> {
+            "Can't reach the server. Check your connection."
+        }
+
+        is TransportError.Timeout -> {
+            "The request took too long. Please try again."
+        }
+
+        is TransportError.Server4xx -> {
+            when (error.statusCode) {
+                409 -> "That resource is in use or already exists."
+                403 -> "You don't have permission to do that."
+                404 -> "Not found."
+                else -> error.message
+            }
+        }
+
+        is AuthError.SessionExpired -> {
+            "Your session expired. Please sign in again."
+        }
+
+        else -> {
+            error.message
+        }
     }
-    is AuthError.SessionExpired -> "Your session expired. Please sign in again."
-    else -> error.message
-}

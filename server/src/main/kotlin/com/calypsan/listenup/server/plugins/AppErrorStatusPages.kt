@@ -52,13 +52,21 @@ fun Application.installAppErrorStatusPages() {
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
+
         is DownloadError -> toHttpStatus()
+
         is ImportError -> toHttpStatus()
+
         is ScanError -> toHttpStatus()
+
         is ServerConnectError -> toHttpStatus()
+
         is SyncError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
+
         is InternalError -> HttpStatusCode.InternalServerError
+
         // TransportError is client-local — it should never originate on the server.
         // If one escapes here it's a server bug; surface it as 500.
         is TransportError -> HttpStatusCode.InternalServerError

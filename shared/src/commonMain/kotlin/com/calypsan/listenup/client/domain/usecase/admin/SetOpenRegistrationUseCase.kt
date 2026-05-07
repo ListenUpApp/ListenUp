@@ -9,6 +9,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class SetOpenRegistrationUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(enabled: Boolean): AppResult<Unit> =
-        adminRepository.setOpenRegistration(enabled)
+    open suspend operator fun invoke(enabled: Boolean): AppResult<Unit> = adminRepository.setOpenRegistration(enabled)
 }

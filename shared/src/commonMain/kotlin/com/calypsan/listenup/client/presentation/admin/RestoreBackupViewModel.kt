@@ -157,6 +157,7 @@ class RestoreBackupViewModel(
                         }
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to validate backup: ${result.error.message}" }
@@ -264,15 +265,16 @@ class RestoreBackupViewModel(
 
             val current = state.value as? RestoreBackupUiState.Ready
             when (
-                val result = backupApi.restore(
-                    RestoreRequest(
-                        backupId = backupId,
-                        mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
-                        mergeStrategy = current?.mergeStrategy?.apiValue,
-                        dryRun = true,
-                        confirmFullWipe = false,
-                    ),
-                )
+                val result =
+                    backupApi.restore(
+                        RestoreRequest(
+                            backupId = backupId,
+                            mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
+                            mergeStrategy = current?.mergeStrategy?.apiValue,
+                            dryRun = true,
+                            confirmFullWipe = false,
+                        ),
+                    )
             ) {
                 is AppResult.Success -> {
                     val response = result.data
@@ -289,6 +291,7 @@ class RestoreBackupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to perform dry run: ${result.error.message}" }
@@ -309,15 +312,16 @@ class RestoreBackupViewModel(
 
             val current = state.value as? RestoreBackupUiState.Ready
             when (
-                val result = backupApi.restore(
-                    RestoreRequest(
-                        backupId = backupId,
-                        mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
-                        mergeStrategy = current?.mergeStrategy?.apiValue,
-                        dryRun = false,
-                        confirmFullWipe = current?.mode == RestoreMode.FRESH,
-                    ),
-                )
+                val result =
+                    backupApi.restore(
+                        RestoreRequest(
+                            backupId = backupId,
+                            mode = current?.mode?.apiValue ?: RestoreMode.MERGE.apiValue,
+                            mergeStrategy = current?.mergeStrategy?.apiValue,
+                            dryRun = false,
+                            confirmFullWipe = current?.mode == RestoreMode.FRESH,
+                        ),
+                    )
             ) {
                 is AppResult.Success -> {
                     val response = result.data
@@ -348,6 +352,7 @@ class RestoreBackupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to restore backup: ${result.error.message}" }

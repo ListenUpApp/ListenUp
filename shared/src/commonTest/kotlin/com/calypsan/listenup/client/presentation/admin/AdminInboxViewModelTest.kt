@@ -124,7 +124,10 @@ class AdminInboxViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.loadInboxBooksUseCase() } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Network error"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Network error"),
+                )
 
             val viewModel = fixture.build()
             advanceUntilIdle()

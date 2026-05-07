@@ -15,6 +15,5 @@ open class StageCollectionUseCase(
     open suspend operator fun invoke(
         bookId: String,
         collectionId: String,
-    ): AppResult<Unit> =
-        adminRepository.stageCollection(bookId, collectionId)
+    ): AppResult<Unit> = adminRepository.stageCollection(bookId, collectionId)
 }

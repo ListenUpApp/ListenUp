@@ -56,8 +56,7 @@ typealias Failure = AppResult.Failure
  * Wraps an arbitrary [Throwable] as an [AppResult.Failure].
  * Routes through [ErrorMapper] to produce a typed [com.calypsan.listenup.api.error.AppError].
  */
-fun Failure(throwable: Throwable): AppResult.Failure =
-    AppResult.Failure(ErrorMapper.map(throwable))
+fun Failure(throwable: Throwable): AppResult.Failure = AppResult.Failure(ErrorMapper.map(throwable))
 
 // ---- Smart-cast helpers ------------------------------------------------------------------
 

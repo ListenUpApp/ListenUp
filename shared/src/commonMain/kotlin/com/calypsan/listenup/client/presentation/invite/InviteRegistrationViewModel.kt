@@ -57,6 +57,7 @@ class InviteRegistrationViewModel(
                             InviteRegistrationUiState.Ready(details)
                         }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     _state.value = InviteRegistrationUiState.LoadError(result.error.message)
@@ -100,13 +101,17 @@ class InviteRegistrationViewModel(
 
             serverConfig.setServerUrl(ServerUrl(serverUrl))
             when (val result = inviteRepository.claimInvite(serverUrl, inviteCode, password)) {
-                is AppResult.Success -> _state.value = InviteRegistrationUiState.Submitted
+                is AppResult.Success -> {
+                    _state.value = InviteRegistrationUiState.Submitted
+                }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    _state.value = InviteRegistrationUiState.SubmitError(
-                        details,
-                        result.error.toInviteErrorType(),
-                    )
+                    _state.value =
+                        InviteRegistrationUiState.SubmitError(
+                            details,
+                            result.error.toInviteErrorType(),
+                        )
                 }
             }
         }

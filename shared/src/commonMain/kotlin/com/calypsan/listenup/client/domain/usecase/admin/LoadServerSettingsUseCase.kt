@@ -12,6 +12,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class LoadServerSettingsUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(): AppResult<ServerSettings> =
-        adminRepository.getServerSettings()
+    open suspend operator fun invoke(): AppResult<ServerSettings> = adminRepository.getServerSettings()
 }

@@ -82,6 +82,7 @@ class AdminBackupViewModel(
                         }
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to load backups: ${result.error.message}" }
@@ -108,16 +109,18 @@ class AdminBackupViewModel(
             updateReady { it.copy(isCreating = true, error = null) }
 
             when (
-                val result = backupApi.createBackup(
-                    includeImages = includeImages,
-                    includeEvents = includeEvents,
-                )
+                val result =
+                    backupApi.createBackup(
+                        includeImages = includeImages,
+                        includeEvents = includeEvents,
+                    )
             ) {
                 is AppResult.Success -> {
                     // Reload list to show new backup
                     loadBackups()
                     updateReady { it.copy(isCreating = false) }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to create backup: ${result.error.message}" }
@@ -153,6 +156,7 @@ class AdminBackupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete backup: ${result.error.message}" }
@@ -189,6 +193,7 @@ class AdminBackupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to validate backup: ${result.error.message}" }

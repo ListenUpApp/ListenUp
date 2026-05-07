@@ -32,8 +32,10 @@ class InviteRepositoryImpl(
     override suspend fun getInviteDetails(
         serverUrl: String,
         code: String,
-    ): AppResult<InviteDetails> = inviteApi.getInviteDetails(serverUrl, code)
-        .map { it.toDomain() }
+    ): AppResult<InviteDetails> =
+        inviteApi
+            .getInviteDetails(serverUrl, code)
+            .map { it.toDomain() }
 
     override suspend fun claimInvite(
         serverUrl: String,
@@ -54,7 +56,10 @@ class InviteRepositoryImpl(
                 userRepository.saveUser(user)
                 AppResult.Success(user)
             }
-            is AppResult.Failure -> result
+
+            is AppResult.Failure -> {
+                result
+            }
         }
     }
 }

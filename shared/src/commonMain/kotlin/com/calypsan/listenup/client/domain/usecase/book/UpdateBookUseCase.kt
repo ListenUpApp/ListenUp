@@ -70,28 +70,40 @@ open class UpdateBookUseCase(
         if (changes.metadataChanged) {
             when (val result = updateMetadata(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
         if (changes.contributorsChanged) {
             when (val result = updateContributors(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
         if (changes.seriesChanged) {
             when (val result = updateSeries(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
         if (changes.genresChanged) {
             when (val result = updateGenres(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
@@ -189,7 +201,10 @@ open class UpdateBookUseCase(
             val tagId = original.tags.find { it.slug == slug }?.id ?: continue
             when (val result = tagRepository.removeTagFromBook(current.bookId, slug, tagId)) {
                 is AppResult.Success -> { /* ok */ }
-                is AppResult.Failure -> logger.warn { "Failed to remove tag '$slug' from book ${current.bookId}: ${result.error.message}" }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to remove tag '$slug' from book ${current.bookId}: ${result.error.message}" }
+                }
                 // Continue with other tags - tag removal is non-critical
             }
         }
@@ -199,7 +214,10 @@ open class UpdateBookUseCase(
         for (slug in addedSlugs) {
             when (val result = tagRepository.addTagToBook(current.bookId, slug)) {
                 is AppResult.Success -> { /* ok */ }
-                is AppResult.Failure -> logger.warn { "Failed to add tag '$slug' to book ${current.bookId}: ${result.error.message}" }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to add tag '$slug' to book ${current.bookId}: ${result.error.message}" }
+                }
                 // Continue with other tags - tag addition is non-critical
             }
         }

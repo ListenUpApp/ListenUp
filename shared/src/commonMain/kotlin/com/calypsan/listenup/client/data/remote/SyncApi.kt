@@ -91,7 +91,8 @@ class SyncApi(
         updatedAfter: String?,
     ): AppResult<SyncBooksResponse> =
         apiCall(errorMessage = "Failed to fetch books for sync") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/sync/books") {
                     parameter("limit", limit)
                     cursor?.let { parameter("cursor", it) }
@@ -126,7 +127,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }
@@ -149,7 +152,8 @@ class SyncApi(
         updatedAfter: String?,
     ): AppResult<SyncSeriesResponse> =
         apiCall(errorMessage = "Failed to fetch series for sync") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/sync/series") {
                     parameter("limit", limit)
                     cursor?.let { parameter("cursor", it) }
@@ -172,7 +176,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }
@@ -189,7 +195,8 @@ class SyncApi(
         updatedAfter: String?,
     ): AppResult<SyncContributorsResponse> =
         apiCall(errorMessage = "Failed to fetch contributors for sync") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/sync/contributors") {
                     parameter("limit", limit)
                     cursor?.let { parameter("cursor", it) }
@@ -212,7 +219,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }
@@ -236,7 +245,8 @@ class SyncApi(
         events: List<ListeningEventRequest>,
     ): AppResult<ListeningEventsResponse> =
         apiCall(errorMessage = "Failed to submit listening events") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/listening/events") {
                     contentType(ContentType.Application.Json)
                     setBody(ListeningEventsRequest(events = events))
@@ -287,7 +297,8 @@ class SyncApi(
      */
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningItemResponse>> =
         apiCall<ContinueListeningResponse>(errorMessage = "Failed to fetch continue listening") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/listening/continue") {
                     parameter("limit", limit)
                 }.body()
@@ -295,7 +306,8 @@ class SyncApi(
 
     override suspend fun getAllProgress(updatedAfter: String?): AppResult<AllProgressResponse> =
         apiCall(errorMessage = "Failed to fetch playback progress") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/listening/progress") {
                     updatedAfter?.let { parameter("updated_after", it) }
                 }.body()
@@ -336,7 +348,8 @@ class SyncApi(
      */
     override suspend fun getListeningEvents(sinceMs: Long?): AppResult<ListeningEventsApiResponse> =
         apiCall<SyncListeningEventsResponse>(errorMessage = "Failed to fetch listening events") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/listening/events") {
                     sinceMs?.let { parameter("since", it) }
                 }.body()
@@ -453,7 +466,8 @@ class SyncApi(
         finishedAt: String?,
     ): AppResult<PlaybackProgressResponse> =
         apiCall(errorMessage = "Failed to mark book $bookId as complete") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/books/$bookId/progress/complete") {
                     contentType(ContentType.Application.Json)
                     if (startedAt != null || finishedAt != null) {

@@ -25,7 +25,9 @@ object ErrorMapper {
             is ConnectTimeoutException,
             is SocketTimeoutException,
             is HttpRequestTimeoutException,
-            -> TransportError.Timeout(debugInfo = exception.message)
+            -> {
+                TransportError.Timeout(debugInfo = exception.message)
+            }
 
             is ResponseException -> {
                 val status = exception.response.status.value
@@ -36,18 +38,26 @@ object ErrorMapper {
                 }
             }
 
-            is SerializationException -> TransportError.DataMalformed(
-                detail = exception.message ?: "deserialization failed",
-                debugInfo = exception.message,
-            )
+            is SerializationException -> {
+                TransportError.DataMalformed(
+                    detail = exception.message ?: "deserialization failed",
+                    debugInfo = exception.message,
+                )
+            }
 
-            is IOException -> TransportError.NetworkUnavailable(debugInfo = exception.message)
+            is IOException -> {
+                TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
 
-            is IllegalArgumentException -> ValidationError(
-                message = exception.message ?: "Invalid input.",
-                debugInfo = exception.message,
-            )
+            is IllegalArgumentException -> {
+                ValidationError(
+                    message = exception.message ?: "Invalid input.",
+                    debugInfo = exception.message,
+                )
+            }
 
-            else -> InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
+            else -> {
+                InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
+            }
         }
 }

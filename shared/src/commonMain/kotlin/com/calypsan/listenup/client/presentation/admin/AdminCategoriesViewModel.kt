@@ -121,6 +121,7 @@ class AdminCategoriesViewModel(
                         }
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to create genre: ${result.error.message}" }
@@ -142,6 +143,7 @@ class AdminCategoriesViewModel(
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.updateGenre(id, name)) {
                 is AppResult.Success -> { /* observed list will refresh via Flow */ }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to rename genre: ${result.error.message}" }
@@ -160,6 +162,7 @@ class AdminCategoriesViewModel(
             updateReady { it.copy(isSaving = true, error = null) }
             when (val result = genreRepository.deleteGenre(id)) {
                 is AppResult.Success -> { /* observed list will refresh via Flow */ }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to delete genre: ${result.error.message}" }
@@ -190,6 +193,7 @@ class AdminCategoriesViewModel(
                         }
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to move genre: ${result.error.message}" }

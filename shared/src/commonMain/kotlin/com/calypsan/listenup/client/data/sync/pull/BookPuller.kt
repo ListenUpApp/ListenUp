@@ -98,7 +98,9 @@ class BookPuller(
                     hasMore = response.hasMore
                 }
 
-                is Failure -> return result
+                is Failure -> {
+                    return result
+                }
             }
         }
 

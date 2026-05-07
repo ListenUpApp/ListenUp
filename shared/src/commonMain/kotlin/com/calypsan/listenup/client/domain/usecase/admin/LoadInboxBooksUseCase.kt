@@ -13,6 +13,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class LoadInboxBooksUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(): AppResult<List<InboxBook>> =
-        adminRepository.getInboxBooks()
+    open suspend operator fun invoke(): AppResult<List<InboxBook>> = adminRepository.getInboxBooks()
 }

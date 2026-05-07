@@ -259,7 +259,10 @@ class DiscoverViewModel(
 
             logger.debug { "Room is empty, fetching discover shelves from API" }
             when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
-                is AppResult.Success -> logger.info { "Fetched and stored ${result.data} discover shelves" }
+                is AppResult.Success -> {
+                    logger.info { "Fetched and stored ${result.data} discover shelves" }
+                }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to fetch discover shelves: ${result.error.message}" }
@@ -275,7 +278,10 @@ class DiscoverViewModel(
     private fun refreshDiscoverShelves() {
         viewModelScope.launch {
             when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
-                is AppResult.Success -> logger.debug { "Refreshed ${result.data} discover shelves from API" }
+                is AppResult.Success -> {
+                    logger.debug { "Refreshed ${result.data} discover shelves from API" }
+                }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to refresh discover shelves: ${result.error.message}" }

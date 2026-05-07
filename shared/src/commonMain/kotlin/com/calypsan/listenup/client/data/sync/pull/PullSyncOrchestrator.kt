@@ -138,89 +138,94 @@ class PullSyncOrchestrator(
             )
 
             // Run with retry logic — block returns AppResult<Unit>
-            val retryResult = coordinator.withRetry(
-                onRetry = { attempt, max ->
-                    onProgress(SyncStatus.Retrying(attempt = attempt, maxAttempts = max))
-                },
-            ) {
-                // Phase 1: Series + Contributors + Genres in parallel (reference data)
-                val seriesResult = async {
-                    seriesPuller.pull(updatedAfter) { status ->
-                        if (status is SyncStatus.Progress) {
-                            val count = status.phaseItemsSynced
-                            itemsSynced.value = count // series contributes to aggregate
-                            onProgress(
-                                status.copy(
-                                    totalItemsSynced = itemsSynced.value,
-                                    totalItems = knownTotal,
-                                ),
-                            )
+            val retryResult =
+                coordinator.withRetry(
+                    onRetry = { attempt, max ->
+                        onProgress(SyncStatus.Retrying(attempt = attempt, maxAttempts = max))
+                    },
+                ) {
+                    // Phase 1: Series + Contributors + Genres in parallel (reference data)
+                    val seriesResult =
+                        async {
+                            seriesPuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    val count = status.phaseItemsSynced
+                                    itemsSynced.value = count // series contributes to aggregate
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
-                val contributorsResult = async {
-                    contributorPuller.pull(updatedAfter) { status ->
-                        if (status is SyncStatus.Progress) {
-                            onProgress(
-                                status.copy(
-                                    totalItemsSynced = itemsSynced.value,
-                                    totalItems = knownTotal,
-                                ),
-                            )
+                    val contributorsResult =
+                        async {
+                            contributorPuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
-                val genresResult = async {
-                    genrePuller.pull(updatedAfter) { status ->
-                        if (status is SyncStatus.Progress) {
-                            onProgress(
-                                status.copy(
-                                    totalItemsSynced = itemsSynced.value,
-                                    totalItems = knownTotal,
-                                ),
-                            )
+                    val genresResult =
+                        async {
+                            genrePuller.pull(updatedAfter) { status ->
+                                if (status is SyncStatus.Progress) {
+                                    onProgress(
+                                        status.copy(
+                                            totalItemsSynced = itemsSynced.value,
+                                            totalItems = knownTotal,
+                                        ),
+                                    )
+                                }
+                            }
                         }
-                    }
+
+                    // Collect parallel results — return first failure encountered
+                    val phase1Results = awaitAll(seriesResult, contributorsResult, genresResult)
+                    val phase1Failure = phase1Results.filterIsInstance<AppResult.Failure>().firstOrNull()
+                    if (phase1Failure != null) return@withRetry phase1Failure
+
+                    // Phase 2: Books
+                    val bookResult =
+                        bookPuller.pull(updatedAfter) { status ->
+                            if (status is SyncStatus.Progress) {
+                                onProgress(
+                                    status.copy(
+                                        totalItemsSynced = itemsSynced.value,
+                                        totalItems = knownTotal,
+                                    ),
+                                )
+                            }
+                        }
+                    if (bookResult is AppResult.Failure) return@withRetry bookResult
+
+                    // Remaining phases — no known totals, just pass through
+                    val tagResult = tagPuller.pull(updatedAfter, onProgress)
+                    if (tagResult is AppResult.Failure) return@withRetry tagResult
+
+                    val shelfResult = shelfPuller.pull(updatedAfter, onProgress)
+                    if (shelfResult is AppResult.Failure) return@withRetry shelfResult
+
+                    val progressResult = progressPuller.pull(updatedAfter, onProgress)
+                    if (progressResult is AppResult.Failure) return@withRetry progressResult
+
+                    listeningEventPuller.pull(updatedAfter, onProgress)
+
+                    val activeSessionsResult = activeSessionsPuller.pull(updatedAfter, onProgress)
+                    if (activeSessionsResult is AppResult.Failure) return@withRetry activeSessionsResult
+
+                    val readingSessionsResult = readingSessionsPuller.pull(updatedAfter, onProgress)
+                    if (readingSessionsResult is AppResult.Failure) return@withRetry readingSessionsResult
+
+                    AppResult.Success(Unit)
                 }
-
-                // Collect parallel results — return first failure encountered
-                val phase1Results = awaitAll(seriesResult, contributorsResult, genresResult)
-                val phase1Failure = phase1Results.filterIsInstance<AppResult.Failure>().firstOrNull()
-                if (phase1Failure != null) return@withRetry phase1Failure
-
-                // Phase 2: Books
-                val bookResult = bookPuller.pull(updatedAfter) { status ->
-                    if (status is SyncStatus.Progress) {
-                        onProgress(
-                            status.copy(
-                                totalItemsSynced = itemsSynced.value,
-                                totalItems = knownTotal,
-                            ),
-                        )
-                    }
-                }
-                if (bookResult is AppResult.Failure) return@withRetry bookResult
-
-                // Remaining phases — no known totals, just pass through
-                val tagResult = tagPuller.pull(updatedAfter, onProgress)
-                if (tagResult is AppResult.Failure) return@withRetry tagResult
-
-                val shelfResult = shelfPuller.pull(updatedAfter, onProgress)
-                if (shelfResult is AppResult.Failure) return@withRetry shelfResult
-
-                val progressResult = progressPuller.pull(updatedAfter, onProgress)
-                if (progressResult is AppResult.Failure) return@withRetry progressResult
-
-                listeningEventPuller.pull(updatedAfter, onProgress)
-
-                val activeSessionsResult = activeSessionsPuller.pull(updatedAfter, onProgress)
-                if (activeSessionsResult is AppResult.Failure) return@withRetry activeSessionsResult
-
-                val readingSessionsResult = readingSessionsPuller.pull(updatedAfter, onProgress)
-                if (readingSessionsResult is AppResult.Failure) return@withRetry readingSessionsResult
-
-                AppResult.Success(Unit)
-            }
 
             if (retryResult is AppResult.Failure) return@coroutineScope retryResult
 

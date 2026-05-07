@@ -50,7 +50,8 @@ class SetupApi(
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
         apiCall(errorMessage = "filesystem browse response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/filesystem") {
                     url {
                         parameters.append("path", path)
@@ -60,7 +61,8 @@ class SetupApi(
 
     override suspend fun setupLibrary(request: SetupLibraryRequest): AppResult<LibrarySetupResponse> =
         apiCall(errorMessage = "library setup response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/library/setup") {
                     setBody(request)
                 }.body()

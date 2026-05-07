@@ -52,7 +52,10 @@ open class GetUsersForSharingUseCase(
         // returns AppResult — treat failure as empty list (non-fatal secondary call).
         val existingShares =
             when (val sharesResult = collectionRepository.getCollectionShares(collectionId)) {
-                is Success -> sharesResult.data
+                is Success -> {
+                    sharesResult.data
+                }
+
                 else -> {
                     logger.warn { "Failed to load existing shares, proceeding with all users" }
                     emptyList()

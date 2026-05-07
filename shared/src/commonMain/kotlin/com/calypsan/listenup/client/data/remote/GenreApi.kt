@@ -106,10 +106,12 @@ class GenreApi(
         genreIds: List<String>,
     ): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().post("/api/v1/books/$bookId/genres") {
-                contentType(ContentType.Application.Json)
-                setBody(SetBookGenresRequest(genreIds = genreIds))
-            }.body<ApiResponse<Unit>>()
+            clientFactory
+                .getClient()
+                .post("/api/v1/books/$bookId/genres") {
+                    contentType(ContentType.Application.Json)
+                    setBody(SetBookGenresRequest(genreIds = genreIds))
+                }.body<ApiResponse<Unit>>()
         }
 
     /**

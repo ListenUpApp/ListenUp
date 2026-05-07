@@ -31,11 +31,9 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyncCoordinatorTest {
-    private fun retryableError(detail: String = "transient"): TransportError =
-        TransportError.Server5xx(statusCode = 503, debugInfo = detail)
+    private fun retryableError(detail: String = "transient"): TransportError = TransportError.Server5xx(statusCode = 503, debugInfo = detail)
 
-    private fun nonRetryableError(detail: String = "client error"): TransportError =
-        TransportError.Server4xx(statusCode = 400, debugInfo = detail)
+    private fun nonRetryableError(detail: String = "client error"): TransportError = TransportError.Server4xx(statusCode = 400, debugInfo = detail)
 
     // ========== withRetry Success Cases ==========
 

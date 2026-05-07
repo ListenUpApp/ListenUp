@@ -44,7 +44,10 @@ class ShelfPuller(
         val shelvesResult = shelfApi.getMyShelves()
         val shelves =
             when (shelvesResult) {
-                is AppResult.Success -> shelvesResult.data
+                is AppResult.Success -> {
+                    shelvesResult.data
+                }
+
                 is AppResult.Failure -> {
                     logger.warn { "Failed to fetch shelves: ${shelvesResult.error.message}" }
                     // Non-critical — don't throw
@@ -97,7 +100,9 @@ class ShelfPuller(
                 }
 
                 is AppResult.Failure -> {
-                    logger.warn { "Failed to fetch details for shelf ${shelfResponse.id}: ${detailResult.error.message}, using basic info" }
+                    logger.warn {
+                        "Failed to fetch details for shelf ${shelfResponse.id}: ${detailResult.error.message}, using basic info"
+                    }
                     // Fall back to basic entity without cover paths
                     entitiesWithCovers.add(shelfResponse.toEntity())
                 }

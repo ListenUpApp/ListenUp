@@ -10,6 +10,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class ApproveUserUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(userId: String): AppResult<AdminUserInfo> =
-        adminRepository.approveUser(userId)
+    open suspend operator fun invoke(userId: String): AppResult<AdminUserInfo> = adminRepository.approveUser(userId)
 }

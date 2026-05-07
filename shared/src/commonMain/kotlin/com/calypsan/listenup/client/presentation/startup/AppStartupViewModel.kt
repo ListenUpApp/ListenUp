@@ -98,6 +98,7 @@ class AppStartupViewModel(
                                 logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
                                 result.data.needsSetup
                             }
+
                             is AppResult.Failure -> {
                                 logger.warn { "AppStartupViewModel: library status check failed, defaulting to false" }
                                 false

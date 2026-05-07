@@ -273,6 +273,7 @@ class BookDetailViewModel(
         viewModelScope.launch {
             when (val result = tagRepository.addTagToBook(bookId, slug)) {
                 is AppResult.Success -> { /* Observer will update UI automatically */ }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to add tag '$slug' to book $bookId: ${result.error.message}" }
@@ -293,6 +294,7 @@ class BookDetailViewModel(
         viewModelScope.launch {
             when (val result = tagRepository.removeTagFromBook(bookId, slug, tag.id)) {
                 is AppResult.Success -> { /* Observer will update UI automatically */ }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to remove tag '$slug' from book $bookId: ${result.error.message}" }
@@ -317,6 +319,7 @@ class BookDetailViewModel(
                     // Observer will update UI automatically
                     hideTagPicker()
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to add tag '$rawInput' to book $bookId: ${result.error.message}" }

@@ -74,7 +74,10 @@ class AdminCollectionDetailViewModel(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    errorBus.emit(com.calypsan.listenup.client.core.error.ErrorMapper.map(e))
+                    errorBus.emit(
+                        com.calypsan.listenup.client.core.error.ErrorMapper
+                            .map(e),
+                    )
                     logger.error(e) { "Failed to load collection from local DB: $collectionId" }
                     val message = e.message ?: "Failed to load collection"
                     state.update { current ->
@@ -93,7 +96,10 @@ class AdminCollectionDetailViewModel(
                 } else {
                     // Fall back to server — now returns AppResult
                     when (val result = collectionRepository.getCollectionFromServer(collectionId)) {
-                        is Success -> result.data
+                        is Success -> {
+                            result.data
+                        }
+
                         is Failure -> {
                             errorBus.emit(result.error)
                             logger.error { "Failed to load collection from server: $collectionId" }

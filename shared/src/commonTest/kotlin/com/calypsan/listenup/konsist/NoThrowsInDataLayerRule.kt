@@ -35,35 +35,38 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * it) is the explicit signal that one of those re-touches has shipped. The
  * allowlist keeps the migration debt visible without forcing a dedicated PR.
  */
-class NoThrowsInDataLayerRule : FunSpec({
-    test("data/remote/ functions don't throw outside the documented allowlist") {
-        val offenders = Konsist
-            .scopeFromProduction()
-            .functions()
-            .filter { it.path.contains("/data/remote/") }
-            // `data/remote/model/` holds DTOs + pure mappers (e.g. Instant parsing).
-            // Those are utility functions, not API-call boundaries — Task 27d's
-            // AppResult contract applies to API methods, not parser utilities.
-            .filter { !it.path.contains("/data/remote/model/") }
-            .filter { fn -> fn.containsDisallowedThrow() }
-            .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
-            .map { "${it.name} in ${it.path}" }
+class NoThrowsInDataLayerRule :
+    FunSpec({
+        test("data/remote/ functions don't throw outside the documented allowlist") {
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .functions()
+                    .filter { it.path.contains("/data/remote/") }
+                    // `data/remote/model/` holds DTOs + pure mappers (e.g. Instant parsing).
+                    // Those are utility functions, not API-call boundaries — Task 27d's
+                    // AppResult contract applies to API methods, not parser utilities.
+                    .filter { !it.path.contains("/data/remote/model/") }
+                    .filter { fn -> fn.containsDisallowedThrow() }
+                    .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
+                    .map { "${it.name} in ${it.path}" }
 
-        offenders.shouldBeEmpty()
-    }
+            offenders.shouldBeEmpty()
+        }
 
-    test("data/repository/*Impl functions don't throw outside the documented allowlist") {
-        val offenders = Konsist
-            .scopeFromProduction()
-            .functions()
-            .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
-            .filter { fn -> fn.containsDisallowedThrow() }
-            .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
-            .map { "${it.name} in ${it.path}" }
+        test("data/repository/*Impl functions don't throw outside the documented allowlist") {
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .functions()
+                    .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
+                    .filter { fn -> fn.containsDisallowedThrow() }
+                    .filter { fn -> RESIDUAL_THROWS_ALLOWLIST.none { allowed -> fn.path.endsWith(allowed) } }
+                    .map { "${it.name} in ${it.path}" }
 
-        offenders.shouldBeEmpty()
-    }
-})
+            offenders.shouldBeEmpty()
+        }
+    })
 
 /**
  * Files known to still throw post-Task-27d. The in-place rewrite will migrate
@@ -74,33 +77,34 @@ class NoThrowsInDataLayerRule : FunSpec({
  * `data/remote/` or `data/repository/` is expected to return `AppResult<T>`
  * from day one.
  */
-private val RESIDUAL_THROWS_ALLOWLIST: Set<String> = setOf(
-    // APIs (each typically pairs with a repo-impl below):
-    "/data/remote/ActivityFeedApi.kt",
-    "/data/remote/LeaderboardApi.kt",
-    "/data/remote/MetadataApi.kt",
-    "/data/remote/SearchApi.kt",
-    "/data/remote/StatsApi.kt",
-    // Auth / refresh / SSE infrastructure with throwing patterns that pre-date 27d:
-    "/data/remote/ApiClientFactory.kt",
-    "/data/remote/ABSImportApi.kt",
-    // Repo impls still in throwing style:
-    "/data/repository/ActivityRepositoryImpl.kt",
-    "/data/repository/AuthRepositoryImpl.kt",
-    "/data/repository/AvatarDownloadRepositoryImpl.kt",
-    "/data/repository/ContributorRepositoryImpl.kt",
-    "/data/repository/CoverDownloadRepositoryImpl.kt",
-    "/data/repository/DownloadRepositoryImpl.kt",
-    "/data/repository/InstanceRepositoryImpl.kt",
-    "/data/repository/LeaderboardRepositoryImpl.kt",
-    "/data/repository/MetadataRepositoryImpl.kt",
-    "/data/repository/RegistrationStatusStreamImpl.kt",
-    "/data/repository/SearchRepositoryImpl.kt",
-    "/data/repository/SeriesRepositoryImpl.kt",
-    "/data/repository/SessionRepositoryImpl.kt",
-    "/data/repository/SettingsRepositoryImpl.kt",
-    "/data/repository/ShelfRepositoryImpl.kt",
-)
+private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
+    setOf(
+        // APIs (each typically pairs with a repo-impl below):
+        "/data/remote/ActivityFeedApi.kt",
+        "/data/remote/LeaderboardApi.kt",
+        "/data/remote/MetadataApi.kt",
+        "/data/remote/SearchApi.kt",
+        "/data/remote/StatsApi.kt",
+        // Auth / refresh / SSE infrastructure with throwing patterns that pre-date 27d:
+        "/data/remote/ApiClientFactory.kt",
+        "/data/remote/ABSImportApi.kt",
+        // Repo impls still in throwing style:
+        "/data/repository/ActivityRepositoryImpl.kt",
+        "/data/repository/AuthRepositoryImpl.kt",
+        "/data/repository/AvatarDownloadRepositoryImpl.kt",
+        "/data/repository/ContributorRepositoryImpl.kt",
+        "/data/repository/CoverDownloadRepositoryImpl.kt",
+        "/data/repository/DownloadRepositoryImpl.kt",
+        "/data/repository/InstanceRepositoryImpl.kt",
+        "/data/repository/LeaderboardRepositoryImpl.kt",
+        "/data/repository/MetadataRepositoryImpl.kt",
+        "/data/repository/RegistrationStatusStreamImpl.kt",
+        "/data/repository/SearchRepositoryImpl.kt",
+        "/data/repository/SeriesRepositoryImpl.kt",
+        "/data/repository/SessionRepositoryImpl.kt",
+        "/data/repository/SettingsRepositoryImpl.kt",
+        "/data/repository/ShelfRepositoryImpl.kt",
+    )
 
 private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.containsDisallowedThrow(): Boolean {
     val body = text

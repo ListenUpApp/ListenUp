@@ -9,6 +9,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class RevokeInviteUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(inviteId: String): AppResult<Unit> =
-        adminRepository.deleteInvite(inviteId)
+    open suspend operator fun invoke(inviteId: String): AppResult<Unit> = adminRepository.deleteInvite(inviteId)
 }

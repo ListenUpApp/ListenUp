@@ -825,7 +825,10 @@ class CreateShelfHandler(
         payload: CreateShelfPayload,
     ): AppResult<Unit> =
         when (val result = api.createShelf(payload.name, payload.description)) {
-            is Success -> Success(Unit)
+            is Success -> {
+                Success(Unit)
+            }
+
             is Failure -> {
                 logger.warn { "CreateShelfHandler failed for localId=${payload.localId}: ${result.error.message}" }
                 result
@@ -857,7 +860,10 @@ class UpdateShelfHandler(
         payload: UpdateShelfPayload,
     ): AppResult<Unit> =
         when (val result = api.updateShelf(payload.shelfId, payload.name, payload.description)) {
-            is Success -> Success(Unit)
+            is Success -> {
+                Success(Unit)
+            }
+
             is Failure -> {
                 logger.warn { "UpdateShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
                 result
@@ -889,7 +895,10 @@ class DeleteShelfHandler(
         payload: DeleteShelfPayload,
     ): AppResult<Unit> =
         when (val result = api.deleteShelf(payload.shelfId)) {
-            is Success -> result
+            is Success -> {
+                result
+            }
+
             is Failure -> {
                 logger.warn { "DeleteShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
                 result
@@ -921,7 +930,10 @@ class AddBooksToShelfHandler(
         payload: AddBooksToShelfPayload,
     ): AppResult<Unit> =
         when (val result = api.addBooks(payload.shelfId, payload.bookIds)) {
-            is Success -> result
+            is Success -> {
+                result
+            }
+
             is Failure -> {
                 logger.warn { "AddBooksToShelfHandler failed for shelfId=${payload.shelfId}: ${result.error.message}" }
                 result
@@ -953,9 +965,14 @@ class RemoveBookFromShelfHandler(
         payload: RemoveBookFromShelfPayload,
     ): AppResult<Unit> =
         when (val result = api.removeBook(payload.shelfId, payload.bookId)) {
-            is Success -> result
+            is Success -> {
+                result
+            }
+
             is Failure -> {
-                logger.warn { "RemoveBookFromShelfHandler failed for shelfId=${payload.shelfId}, bookId=${payload.bookId}: ${result.error.message}" }
+                logger.warn {
+                    "RemoveBookFromShelfHandler failed for shelfId=${payload.shelfId}, bookId=${payload.bookId}: ${result.error.message}"
+                }
                 result
             }
         }

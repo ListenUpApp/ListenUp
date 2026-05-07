@@ -41,7 +41,8 @@ class BackupApi(
         includeEvents: Boolean,
     ): AppResult<BackupResponse> =
         apiCall(errorMessage = "Create-backup response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/backups") {
                     setBody(
                         CreateBackupRequest(
@@ -69,7 +70,8 @@ class BackupApi(
 
     override suspend fun validateBackup(backupId: String): AppResult<ValidationResponse> =
         apiCall(errorMessage = "Validate-backup response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/backups/validate") {
                     setBody(ValidateBackupRequest(backupId = backupId))
                 }.body<ApiResponse<ValidationResponse>>()
@@ -77,7 +79,8 @@ class BackupApi(
 
     override suspend fun restore(request: RestoreRequest): AppResult<RestoreResponse> =
         apiCall(errorMessage = "Restore-backup response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/restore") {
                     setBody(request)
                     // Full restore can take significant time to wipe and reimport all data
@@ -90,14 +93,19 @@ class BackupApi(
 
     override suspend fun rebuildProgress(): AppResult<RebuildProgressResponse> =
         apiCall(errorMessage = "Rebuild-progress response missing data") {
-            clientFactory.getClient().post("/api/v1/admin/rebuild-progress").body<ApiResponse<RebuildProgressResponse>>()
+            clientFactory
+                .getClient()
+                .post(
+                    "/api/v1/admin/rebuild-progress",
+                ).body<ApiResponse<RebuildProgressResponse>>()
         }
 
     // === Filesystem Browsing ===
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
         apiCall(errorMessage = "Browse-filesystem response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/filesystem") {
                     url {
                         parameters.append("path", path)
@@ -109,7 +117,8 @@ class BackupApi(
 
     override suspend fun uploadABSBackup(fileSource: FileSource): AppResult<UploadABSBackupResponse> =
         apiCall(errorMessage = "ABS upload response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .submitFormWithBinaryData(
                     url = "/api/v1/admin/abs/upload",
                     formData =
@@ -136,7 +145,8 @@ class BackupApi(
 
     override suspend fun analyzeABSBackup(request: AnalyzeABSRequest): AppResult<AnalyzeABSResponse> =
         apiCall(errorMessage = "ABS analyze response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/abs/analyze") {
                     setBody(request)
                     // Parsing large SQLite databases can take time (5 minutes)
@@ -149,7 +159,8 @@ class BackupApi(
 
     override suspend fun analyzeABSBackupAsync(request: AnalyzeABSRequest): AppResult<AsyncAnalyzeResponse> =
         apiCall(errorMessage = "ABS async-analyze response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/abs/analyze/async") {
                     contentType(ContentType.Application.Json)
                     setBody(request)
@@ -158,14 +169,16 @@ class BackupApi(
 
     override suspend fun getAnalysisStatus(analysisId: String): AppResult<AnalysisStatusResponse> =
         apiCall(errorMessage = "ABS analysis-status response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .get("/api/v1/admin/abs/analyze/$analysisId/status")
                 .body<ApiResponse<AnalysisStatusResponse>>()
         }
 
     override suspend fun importABSBackup(request: ImportABSRequest): AppResult<ImportABSResponse> =
         apiCall(errorMessage = "ABS import response missing data") {
-            clientFactory.getClient()
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/abs/import") {
                     setBody(request)
                     // Import can process many items (5 minutes)

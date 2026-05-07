@@ -113,7 +113,10 @@ class CollectionUseCasesTest {
             // itself (not production behavior), so asserting on it adds no coverage.
             val repository: CollectionRepository = mock()
             everySuspend { repository.create(any()) } returns
-                AppResult.Failure(com.calypsan.listenup.api.error.ValidationError(message = "repo failed"))
+                AppResult.Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "repo failed"),
+                )
             val useCase = CreateCollectionUseCase(repository)
 
             val result = useCase(name = "Test")
@@ -159,7 +162,10 @@ class CollectionUseCasesTest {
             // See `create collection returns failure on repository error` for rationale.
             val repository: CollectionRepository = mock()
             everySuspend { repository.delete(any()) } returns
-                AppResult.Failure(com.calypsan.listenup.api.error.ValidationError(message = "repo failed"))
+                AppResult.Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "repo failed"),
+                )
             val useCase = DeleteCollectionUseCase(repository)
 
             val result = useCase(collectionId = "collection-123")

@@ -57,6 +57,7 @@ class LibrarySetupViewModel(
                         loadDirectory("/")
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to check library status: ${result.error.message}" }
@@ -93,6 +94,7 @@ class LibrarySetupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to load directory: $path — ${result.error.message}" }
@@ -204,6 +206,7 @@ class LibrarySetupViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to create library: ${result.error.message}" }

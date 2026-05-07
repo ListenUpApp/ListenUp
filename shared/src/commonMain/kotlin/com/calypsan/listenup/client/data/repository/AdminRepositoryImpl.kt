@@ -51,11 +51,9 @@ class AdminRepositoryImpl(
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
         adminApi.approveUser(userId).map { it.toDomain() }
 
-    override suspend fun denyUser(userId: String): AppResult<Unit> =
-        adminApi.denyUser(userId)
+    override suspend fun denyUser(userId: String): AppResult<Unit> = adminApi.denyUser(userId)
 
-    override suspend fun deleteUser(userId: String): AppResult<Unit> =
-        adminApi.deleteUser(userId)
+    override suspend fun deleteUser(userId: String): AppResult<Unit> = adminApi.deleteUser(userId)
 
     override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
         adminApi.getUser(userId).map { it.toDomain() }
@@ -110,15 +108,13 @@ class AdminRepositoryImpl(
         return adminApi.createInvite(request).map { it.toDomain() }
     }
 
-    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
-        adminApi.deleteInvite(inviteId)
+    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = adminApi.deleteInvite(inviteId)
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER SETTINGS
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
-        adminApi.setOpenRegistration(enabled)
+    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = adminApi.setOpenRegistration(enabled)
 
     override suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?> =
         adminApi.updateInstance(UpdateInstanceRequest(remoteUrl = remoteUrl)).map { it.remoteUrl }
@@ -154,14 +150,12 @@ class AdminRepositoryImpl(
     override suspend fun stageCollection(
         bookId: String,
         collectionId: String,
-    ): AppResult<Unit> =
-        adminApi.stageCollection(bookId, collectionId)
+    ): AppResult<Unit> = adminApi.stageCollection(bookId, collectionId)
 
     override suspend fun unstageCollection(
         bookId: String,
         collectionId: String,
-    ): AppResult<Unit> =
-        adminApi.unstageCollection(bookId, collectionId)
+    ): AppResult<Unit> = adminApi.unstageCollection(bookId, collectionId)
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
@@ -198,8 +192,7 @@ class AdminRepositoryImpl(
         path: String,
     ): AppResult<Library> = adminApi.removeScanPath(libraryId, path).map { it.toDomain() }
 
-    override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
-        adminApi.triggerScan(libraryId)
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = adminApi.triggerScan(libraryId)
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
         adminApi.browseFilesystem(path)

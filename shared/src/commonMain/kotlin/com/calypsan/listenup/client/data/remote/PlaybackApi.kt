@@ -92,7 +92,10 @@ class PlaybackApi(
 
     override suspend fun cancelTranscode(jobId: String): AppResult<Unit> =
         when (val result = suspendRunCatching { clientFactory.getClient().post("/api/v1/transcode/cancel/$jobId") }) {
-            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Success -> {
+                AppResult.Success(Unit)
+            }
+
             is AppResult.Failure -> {
                 // 404 means "already cancelled / completed / never existed" — idempotent per server contract.
                 val server4xx = result.error as? TransportError.Server4xx

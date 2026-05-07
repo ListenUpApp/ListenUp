@@ -128,9 +128,11 @@ class AdminApi(
         request: UpdateUserRequest,
     ): AppResult<AdminUser> =
         apiCall(errorMessage = "Admin update-user response missing data") {
-            clientFactory.getClient().patch("/api/v1/admin/users/$userId") {
-                setBody(request)
-            }.body<ApiResponse<AdminUser>>()
+            clientFactory
+                .getClient()
+                .patch("/api/v1/admin/users/$userId") {
+                    setBody(request)
+                }.body<ApiResponse<AdminUser>>()
         }
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> =
@@ -164,9 +166,11 @@ class AdminApi(
 
     override suspend fun createInvite(request: CreateInviteRequest): AppResult<AdminInvite> =
         apiCall(errorMessage = "Create invite response missing data") {
-            clientFactory.getClient().post("/api/v1/admin/invites") {
-                setBody(request)
-            }.body<ApiResponse<AdminInvite>>()
+            clientFactory
+                .getClient()
+                .post("/api/v1/admin/invites") {
+                    setBody(request)
+                }.body<ApiResponse<AdminInvite>>()
         }
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
@@ -178,9 +182,11 @@ class AdminApi(
 
     override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().put("/api/v1/admin/settings/open-registration") {
-                setBody(SetOpenRegistrationRequest(enabled))
-            }.body<ApiResponse<Unit>>()
+            clientFactory
+                .getClient()
+                .put("/api/v1/admin/settings/open-registration") {
+                    setBody(SetOpenRegistrationRequest(enabled))
+                }.body<ApiResponse<Unit>>()
         }
 
     // Server Settings (Inbox Workflow)
@@ -192,18 +198,22 @@ class AdminApi(
 
     override suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse> =
         apiCall(errorMessage = "Update server settings response missing data") {
-            clientFactory.getClient().patch("/api/v1/admin/settings") {
-                setBody(request.toApiRequest())
-            }.body<ApiResponse<ServerSettingsApiResponse>>()
+            clientFactory
+                .getClient()
+                .patch("/api/v1/admin/settings") {
+                    setBody(request.toApiRequest())
+                }.body<ApiResponse<ServerSettingsApiResponse>>()
         }.map { it.toDomain() }
 
     // Instance Management
 
     override suspend fun updateInstance(request: UpdateInstanceRequest): AppResult<InstanceSettingsResponse> =
         apiCall(errorMessage = "Update instance response missing data") {
-            clientFactory.getClient().patch("/api/v1/admin/instance") {
-                setBody(request)
-            }.body<ApiResponse<InstanceSettingsResponse>>()
+            clientFactory
+                .getClient()
+                .patch("/api/v1/admin/instance") {
+                    setBody(request)
+                }.body<ApiResponse<InstanceSettingsResponse>>()
         }
 
     // Inbox Management
@@ -215,9 +225,11 @@ class AdminApi(
 
     override suspend fun releaseBooks(bookIds: List<String>): AppResult<ReleaseInboxBooksResponse> =
         apiCall(errorMessage = "Release inbox books response missing data") {
-            clientFactory.getClient().post("/api/v1/admin/inbox/release") {
-                setBody(ReleaseInboxBooksApiRequest(bookIds))
-            }.body<ApiResponse<ReleaseInboxBooksApiResponse>>()
+            clientFactory
+                .getClient()
+                .post("/api/v1/admin/inbox/release") {
+                    setBody(ReleaseInboxBooksApiRequest(bookIds))
+                }.body<ApiResponse<ReleaseInboxBooksApiResponse>>()
         }.map { it.toDomain() }
 
     override suspend fun stageCollection(
@@ -225,9 +237,11 @@ class AdminApi(
         collectionId: String,
     ): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().post("/api/v1/admin/inbox/$bookId/stage") {
-                setBody(StageCollectionApiRequest(collectionId))
-            }.body<ApiResponse<Unit>>()
+            clientFactory
+                .getClient()
+                .post("/api/v1/admin/inbox/$bookId/stage") {
+                    setBody(StageCollectionApiRequest(collectionId))
+                }.body<ApiResponse<Unit>>()
         }
 
     override suspend fun unstageCollection(
@@ -235,7 +249,11 @@ class AdminApi(
         collectionId: String,
     ): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().delete("/api/v1/admin/inbox/$bookId/stage/$collectionId").body<ApiResponse<Unit>>()
+            clientFactory
+                .getClient()
+                .delete(
+                    "/api/v1/admin/inbox/$bookId/stage/$collectionId",
+                ).body<ApiResponse<Unit>>()
         }
 
     // Library Management
@@ -255,9 +273,11 @@ class AdminApi(
         request: UpdateLibraryRequest,
     ): AppResult<LibraryResponse> =
         apiCall(errorMessage = "Update library response missing data") {
-            clientFactory.getClient().patch("/api/v1/libraries/$libraryId") {
-                setBody(request)
-            }.body<ApiResponse<LibraryResponse>>()
+            clientFactory
+                .getClient()
+                .patch("/api/v1/libraries/$libraryId") {
+                    setBody(request)
+                }.body<ApiResponse<LibraryResponse>>()
         }
 
     // Scan Path Management
@@ -267,9 +287,11 @@ class AdminApi(
         path: String,
     ): AppResult<LibraryResponse> =
         apiCall(errorMessage = "Add scan path response missing data") {
-            clientFactory.getClient().post("/api/v1/libraries/$libraryId/scan-paths") {
-                setBody(ScanPathRequest(path))
-            }.body<ApiResponse<LibraryResponse>>()
+            clientFactory
+                .getClient()
+                .post("/api/v1/libraries/$libraryId/scan-paths") {
+                    setBody(ScanPathRequest(path))
+                }.body<ApiResponse<LibraryResponse>>()
         }
 
     override suspend fun removeScanPath(
@@ -278,7 +300,9 @@ class AdminApi(
     ): AppResult<LibraryResponse> =
         apiCall(errorMessage = "Remove scan path response missing data") {
             val encodedPath = path.encodeURLPath()
-            clientFactory.getClient().delete("/api/v1/libraries/$libraryId/scan-paths/$encodedPath")
+            clientFactory
+                .getClient()
+                .delete("/api/v1/libraries/$libraryId/scan-paths/$encodedPath")
                 .body<ApiResponse<LibraryResponse>>()
         }
 
@@ -289,11 +313,13 @@ class AdminApi(
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
         apiCall(errorMessage = "Browse filesystem response missing data") {
-            clientFactory.getClient().get("/api/v1/filesystem") {
-                url {
-                    parameters.append("path", path)
-                }
-            }.body<ApiResponse<BrowseFilesystemResponse>>()
+            clientFactory
+                .getClient()
+                .get("/api/v1/filesystem") {
+                    url {
+                        parameters.append("path", path)
+                    }
+                }.body<ApiResponse<BrowseFilesystemResponse>>()
         }
 }
 

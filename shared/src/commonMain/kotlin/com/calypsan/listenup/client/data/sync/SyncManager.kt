@@ -312,7 +312,10 @@ class SyncManager(
                         // before the previous sync set lastSyncTime.
                         syncDao.clearLastSyncTime()
 
-                        val scanSyncResult = pullOrchestrator.pull { /* suppress progress updates for background sync */ }
+                        val scanSyncResult =
+                            pullOrchestrator.pull {
+                                // suppress progress updates for background sync
+                            }
                         if (scanSyncResult is AppResult.Failure) {
                             logger.warn { "Post-scan full sync failed: ${scanSyncResult.error.message}" }
                         } else {
@@ -338,7 +341,9 @@ class SyncManager(
                         if (deltaSyncResult is AppResult.Success) {
                             syncDao.setLastSyncTime(Timestamp.now())
                         } else {
-                            logger.warn { "Post-scan delta sync failed: ${(deltaSyncResult as AppResult.Failure).error.message}" }
+                            logger.warn {
+                                "Post-scan delta sync failed: ${(deltaSyncResult as AppResult.Failure).error.message}"
+                            }
                         }
                     }
                 }

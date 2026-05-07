@@ -95,7 +95,9 @@ class SeriesPuller(
                     )
                 }
 
-                is Failure -> return result
+                is Failure -> {
+                    return result
+                }
             }
         }
 

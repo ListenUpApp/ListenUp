@@ -118,21 +118,25 @@ class ServerConnectViewModel(
         url: String,
     ): ServerConnectError =
         when (val error = result.error) {
-            is TransportError.NetworkUnavailable, is TransportError.Timeout ->
+            is TransportError.NetworkUnavailable, is TransportError.Timeout -> {
                 ServerConnectError.ServerNotReachable(debugInfo = "Server not reachable at $url")
+            }
 
-            is TransportError.DataMalformed ->
+            is TransportError.DataMalformed -> {
                 ServerConnectError.NotListenUpServer(debugInfo = "Failed to parse server response: ${error.detail}")
+            }
 
-            is TransportError.Server4xx ->
+            is TransportError.Server4xx -> {
                 if (error.statusCode == HTTP_NOT_FOUND) {
                     ServerConnectError.NotListenUpServer(debugInfo = "Server returned 404 — endpoint absent")
                 } else {
                     ServerConnectError.VerificationFailed(debugInfo = error.debugInfo ?: error.message)
                 }
+            }
 
-            else ->
+            else -> {
                 ServerConnectError.VerificationFailed(debugInfo = error.debugInfo ?: error.message)
+            }
         }
 
     companion object {

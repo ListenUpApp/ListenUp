@@ -44,7 +44,10 @@ open class LoadCollectionSharesUseCase(
             // Get users to enrich with names/emails; treat failure as empty list (non-fatal).
             val users =
                 when (val usersResult = adminRepository.getUsers()) {
-                    is Success -> usersResult.data
+                    is Success -> {
+                        usersResult.data
+                    }
+
                     is Failure -> {
                         logger.warn { "Failed to load users for share enrichment, using partial data" }
                         emptyList()

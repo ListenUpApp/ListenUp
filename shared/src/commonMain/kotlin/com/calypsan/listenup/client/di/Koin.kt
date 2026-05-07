@@ -254,7 +254,10 @@ val dataModule =
     module {
         // Error bus — single instance shared by every emitter (data layer, ViewModels)
         // and the single subscriber (GlobalErrorSnackbar in AppShell).
-        single { com.calypsan.listenup.client.core.error.ErrorBus() }
+        single {
+            com.calypsan.listenup.client.core.error
+                .ErrorBus()
+        }
 
         // Deep link manager - singleton for handling invite deep links
         // Must be initialized before MainActivity handles intents

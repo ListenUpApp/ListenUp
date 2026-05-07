@@ -139,12 +139,20 @@ class AdminCollectionApi(
 
     override suspend fun getCollection(collectionId: String): AppResult<AdminCollectionResponse> =
         apiCall(errorMessage = "Collection detail response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/collections/$collectionId").body<ApiResponse<AdminCollectionResponse>>()
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/admin/collections/$collectionId",
+                ).body<ApiResponse<AdminCollectionResponse>>()
         }
 
     override suspend fun getCollectionBooks(collectionId: String): AppResult<List<CollectionBookResponse>> =
         apiCall(errorMessage = "Collection books response missing data") {
-            clientFactory.getClient().get("/api/v1/collections/$collectionId/books").body<ApiResponse<CollectionBooksResponse>>()
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/collections/$collectionId/books",
+                ).body<ApiResponse<CollectionBooksResponse>>()
         }.map { it.books }
 
     override suspend fun updateCollection(
@@ -181,12 +189,20 @@ class AdminCollectionApi(
         bookId: String,
     ): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().delete("/api/v1/admin/collections/$collectionId/books/$bookId").body<ApiResponse<Unit>>()
+            clientFactory
+                .getClient()
+                .delete(
+                    "/api/v1/admin/collections/$collectionId/books/$bookId",
+                ).body<ApiResponse<Unit>>()
         }
 
     override suspend fun getCollectionShares(collectionId: String): AppResult<List<ShareResponse>> =
         apiCall(errorMessage = "Collection shares response missing data") {
-            clientFactory.getClient().get("/api/v1/collections/$collectionId/shares").body<ApiResponse<SharesListResponse>>()
+            clientFactory
+                .getClient()
+                .get(
+                    "/api/v1/collections/$collectionId/shares",
+                ).body<ApiResponse<SharesListResponse>>()
         }.map { it.shares }
 
     override suspend fun shareCollection(

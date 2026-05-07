@@ -183,7 +183,9 @@ class ContributorRepositoryImpl(
                 }
 
                 is Failure -> {
-                    logger.warn { "Server contributor search failed, falling back to local FTS: ${result.error.message}" }
+                    logger.warn {
+                        "Server contributor search failed, falling back to local FTS: ${result.error.message}"
+                    }
                     null
                 }
             }

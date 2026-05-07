@@ -67,7 +67,9 @@ class DownloadWorker(
                     Result.success()
                 }
 
-                is AppResult.Failure -> handleFailure(audioFileId, result.error)
+                is AppResult.Failure -> {
+                    handleFailure(audioFileId, result.error)
+                }
             }
         } catch (e: CancellationException) {
             logger.info { "Download cancelled: $audioFileId" }

@@ -30,9 +30,8 @@ suspend inline fun <T> apiCall(
  * Unit-returning variant of [apiCall] for POST/DELETE endpoints whose response
  * envelope carries no body data.
  */
-suspend inline fun apiCallUnit(
-    crossinline block: suspend () -> ApiResponse<*>,
-): AppResult<Unit> = suspendRunCatching { block() }.flatMap { it.validateOrFailure() }
+suspend inline fun apiCallUnit(crossinline block: suspend () -> ApiResponse<*>): AppResult<Unit> =
+    suspendRunCatching { block() }.flatMap { it.validateOrFailure() }
 
 /**
  * Extract data from [ApiResponse] as an [AppResult]. Used internally by [apiCall];
@@ -41,9 +40,14 @@ suspend inline fun apiCallUnit(
  */
 fun <T> ApiResponse<T>.dataOrFailure(errorMessage: String): AppResult<T> =
     when (val result = toResult()) {
-        is Success -> result.data?.let { AppResult.Success(it) }
-            ?: AppResult.Failure(TransportError.DataMalformed(detail = errorMessage))
-        is Failure -> result
+        is Success -> {
+            result.data?.let { AppResult.Success(it) }
+                ?: AppResult.Failure(TransportError.DataMalformed(detail = errorMessage))
+        }
+
+        is Failure -> {
+            result
+        }
     }
 
 /**

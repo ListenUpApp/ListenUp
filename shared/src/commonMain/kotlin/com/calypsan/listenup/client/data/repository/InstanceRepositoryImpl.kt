@@ -89,18 +89,19 @@ class InstanceRepositoryImpl(
 
         logger.debug { "Fetching instance from ${serverUrl.value}/api/v1/instance" }
 
-        val result = suspendRunCatching {
-            val client = createClient(serverUrl)
-            try {
-                val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
+        val result =
+            suspendRunCatching {
+                val client = createClient(serverUrl)
+                try {
+                    val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
 
-                logger.debug { "Received instance response: success=${response.success}" }
+                    logger.debug { "Received instance response: success=${response.success}" }
 
-                response.dataOrFailure("Failed to fetch instance")
-            } finally {
-                client.close()
-            }
-        }.flatMap { it }
+                    response.dataOrFailure("Failed to fetch instance")
+                } finally {
+                    client.close()
+                }
+            }.flatMap { it }
 
         // Cache successful results
         if (result is AppResult.Success) {
@@ -122,7 +123,9 @@ class InstanceRepositoryImpl(
                     Success(VerifiedServer(result.data, currentUrl))
                 }
 
-                is Failure -> result
+                is Failure -> {
+                    result
+                }
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
@@ -158,7 +161,8 @@ class InstanceRepositoryImpl(
                 }
             }
         }
-        return lastFailure ?: AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server verification failed"))
+        return lastFailure
+            ?: AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server verification failed"))
     }
 
     /**

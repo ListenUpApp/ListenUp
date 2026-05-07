@@ -151,7 +151,9 @@ class ErrorMapperTest {
 
     @Test
     fun `map custom exception returns InternalError`() {
-        class CustomException(message: String) : Exception(message)
+        class CustomException(
+            message: String,
+        ) : Exception(message)
         val exception = CustomException("Custom domain error")
         val error = ErrorMapper.map(exception)
 

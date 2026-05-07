@@ -347,6 +347,7 @@ class ABSImportViewModel(
                     }
                     analyzeBackup(uploadResult.path)
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to upload ABS backup: ${result.error.message}" }
@@ -384,6 +385,7 @@ class ABSImportViewModel(
                         )
                     }
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to browse filesystem: ${result.error.message}" }
@@ -452,38 +454,46 @@ class ABSImportViewModel(
             }
 
             // Start async analysis
-            val asyncResult = backupApi.analyzeABSBackupAsync(
-                AnalyzeABSRequest(
-                    backupPath = path,
-                    matchByEmail = true,
-                    matchByPath = true,
-                    fuzzyMatchBooks = true,
-                    fuzzyThreshold = 0.85,
-                ),
-            )
+            val asyncResult =
+                backupApi.analyzeABSBackupAsync(
+                    AnalyzeABSRequest(
+                        backupPath = path,
+                        matchByEmail = true,
+                        matchByPath = true,
+                        fuzzyMatchBooks = true,
+                        fuzzyThreshold = 0.85,
+                    ),
+                )
 
-            val asyncResponse = when (asyncResult) {
-                is AppResult.Success -> asyncResult.data
-                is AppResult.Failure -> {
-                    errorBus.emit(asyncResult.error)
-                    logger.error { "Failed to analyze ABS backup: ${asyncResult.error.message}" }
-                    updateReady {
-                        it.copy(
-                            isAnalyzing = false,
-                            step = ABSImportStep.SOURCE_SELECTION,
-                            error = userMessageFor(asyncResult.error),
-                        )
+            val asyncResponse =
+                when (asyncResult) {
+                    is AppResult.Success -> {
+                        asyncResult.data
                     }
-                    return@launch
+
+                    is AppResult.Failure -> {
+                        errorBus.emit(asyncResult.error)
+                        logger.error { "Failed to analyze ABS backup: ${asyncResult.error.message}" }
+                        updateReady {
+                            it.copy(
+                                isAnalyzing = false,
+                                step = ABSImportStep.SOURCE_SELECTION,
+                                error = userMessageFor(asyncResult.error),
+                            )
+                        }
+                        return@launch
+                    }
                 }
-            }
 
             // Poll for status — helper unwraps AppResult<AnalysisStatusResponse> or
             // emits the error, updates state, and returns null to signal early exit.
             suspend fun pollStatus(analysisId: String) =
                 backupApi.getAnalysisStatus(analysisId).let { result ->
                     when (result) {
-                        is AppResult.Success -> result.data
+                        is AppResult.Success -> {
+                            result.data
+                        }
+
                         is AppResult.Failure -> {
                             errorBus.emit(result.error)
                             logger.error { "Failed to poll analysis status: ${result.error.message}" }
@@ -1065,16 +1075,17 @@ class ABSImportViewModel(
 
             val current = state.value as? ABSImportUiState.Ready ?: return@launch
             when (
-                val result = backupApi.importABSBackup(
-                    ImportABSRequest(
-                        backupPath = current.backupPath,
-                        userMappings = current.userMappings,
-                        bookMappings = current.bookMappings,
-                        importSessions = current.importSessions,
-                        importProgress = current.importProgress,
-                        rebuildProgress = current.rebuildProgress,
-                    ),
-                )
+                val result =
+                    backupApi.importABSBackup(
+                        ImportABSRequest(
+                            backupPath = current.backupPath,
+                            userMappings = current.userMappings,
+                            bookMappings = current.bookMappings,
+                            importSessions = current.importSessions,
+                            importProgress = current.importProgress,
+                            rebuildProgress = current.rebuildProgress,
+                        ),
+                    )
             ) {
                 is AppResult.Success -> {
                     val importResult = result.data
@@ -1103,6 +1114,7 @@ class ABSImportViewModel(
                     logger.info { "Import complete, refreshing listening history" }
                     syncRepository.refreshListeningHistory()
                 }
+
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to import ABS backup: ${result.error.message}" }

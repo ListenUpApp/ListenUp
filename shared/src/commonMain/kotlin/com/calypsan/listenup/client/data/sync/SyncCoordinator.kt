@@ -60,7 +60,10 @@ class SyncCoordinator {
             // Re-throw coroutine cancellation — never retry, never swallow.
             try {
                 when (val result = block()) {
-                    is AppResult.Success -> return result
+                    is AppResult.Success -> {
+                        return result
+                    }
+
                     is AppResult.Failure -> {
                         lastFailure = result
                         if (!result.error.isRetryable || attempt == maxRetries - 1) {

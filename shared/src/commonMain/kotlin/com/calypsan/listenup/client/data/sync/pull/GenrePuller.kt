@@ -51,6 +51,7 @@ class GenrePuller(
                 logger.warn { "Failed to fetch global genres: ${result.error.message}" }
                 // Don't propagate — genres are not critical for sync
             }
+
             is AppResult.Success -> {
                 val genres = result.data
                 logger.info { "Fetched ${genres.size} global genres" }

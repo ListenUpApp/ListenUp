@@ -14,6 +14,5 @@ open class UnstageCollectionUseCase(
     open suspend operator fun invoke(
         bookId: String,
         collectionId: String,
-    ): AppResult<Unit> =
-        adminRepository.unstageCollection(bookId, collectionId)
+    ): AppResult<Unit> = adminRepository.unstageCollection(bookId, collectionId)
 }

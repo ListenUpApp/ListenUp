@@ -10,6 +10,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class LoadUsersUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(): AppResult<List<AdminUserInfo>> =
-        adminRepository.getUsers()
+    open suspend operator fun invoke(): AppResult<List<AdminUserInfo>> = adminRepository.getUsers()
 }
