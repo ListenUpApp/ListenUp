@@ -59,7 +59,6 @@ val authPresentationModule =
                 serverConfig = get(),
                 serverUrl = params.get<String>(0),
                 inviteCode = params.get<String>(1),
-                errorBus = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

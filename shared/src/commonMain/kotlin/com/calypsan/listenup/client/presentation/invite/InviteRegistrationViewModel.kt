@@ -3,9 +3,10 @@ package com.calypsan.listenup.client.presentation.invite
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -29,7 +30,6 @@ class InviteRegistrationViewModel(
     private val serverConfig: ServerConfig,
     private val serverUrl: String,
     private val inviteCode: String,
-    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val _state = MutableStateFlow<InviteRegistrationUiState>(InviteRegistrationUiState.Loading)
     val state: StateFlow<InviteRegistrationUiState> = _state.asStateFlow()
@@ -43,22 +43,20 @@ class InviteRegistrationViewModel(
         viewModelScope.launch {
             _state.value = InviteRegistrationUiState.Loading
 
-            try {
-                val details = inviteRepository.getInviteDetails(serverUrl, inviteCode)
-
-                _state.value =
-                    if (!details.valid) {
-                        InviteRegistrationUiState.Invalid(
-                            "This invite is no longer valid. It may have already been used or expired.",
-                        )
-                    } else {
-                        InviteRegistrationUiState.Ready(details)
-                    }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                _state.value = InviteRegistrationUiState.LoadError(e.message ?: "Failed to load invite")
+            when (val result = inviteRepository.getInviteDetails(serverUrl, inviteCode)) {
+                is AppResult.Success -> {
+                    val details = result.data
+                    _state.value =
+                        if (!details.valid) {
+                            InviteRegistrationUiState.Invalid(
+                                "This invite is no longer valid. It may have already been used or expired.",
+                            )
+                        } else {
+                            InviteRegistrationUiState.Ready(details)
+                        }
+                }
+                is AppResult.Failure ->
+                    _state.value = InviteRegistrationUiState.LoadError(result.error.message)
             }
         }
     }
@@ -96,15 +94,14 @@ class InviteRegistrationViewModel(
         viewModelScope.launch {
             _state.value = InviteRegistrationUiState.Submitting(details)
 
-            try {
-                serverConfig.setServerUrl(ServerUrl(serverUrl))
-                inviteRepository.claimInvite(serverUrl, inviteCode, password)
-                _state.value = InviteRegistrationUiState.Submitted
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                _state.value = InviteRegistrationUiState.SubmitError(details, e.toInviteErrorType())
+            serverConfig.setServerUrl(ServerUrl(serverUrl))
+            when (val result = inviteRepository.claimInvite(serverUrl, inviteCode, password)) {
+                is AppResult.Success -> _state.value = InviteRegistrationUiState.Submitted
+                is AppResult.Failure ->
+                    _state.value = InviteRegistrationUiState.SubmitError(
+                        details,
+                        result.error.toInviteErrorType(),
+                    )
             }
         }
     }
@@ -126,44 +123,11 @@ class InviteRegistrationViewModel(
         }
 }
 
-@Suppress("CyclomaticComplexMethod")
-private fun Exception.toInviteErrorType(): InviteErrorType {
-    val msg = message?.lowercase() ?: ""
-    val causeMsg = cause?.message?.lowercase() ?: ""
-    val fullMsg = "$msg $causeMsg"
-
-    return when {
-        msg.contains("already claimed") ||
-            msg.contains("claimed") ||
-            msg.contains("expired") ||
-            (msg.contains("invalid") && msg.contains("invite")) -> {
-            InviteErrorType.InviteInvalid
-        }
-
-        fullMsg.contains("connection refused") ||
-            fullMsg.contains("econnrefused") ||
-            fullMsg.contains("timeout") ||
-            fullMsg.contains("timed out") ||
-            fullMsg.contains("unable to resolve host") ||
-            fullMsg.contains("unknown host") -> {
-            InviteErrorType.NetworkError(cause?.message ?: message)
-        }
-
-        fullMsg.contains("network") ||
-            fullMsg.contains("connect") ||
-            fullMsg.contains("socket") -> {
-            InviteErrorType.NetworkError(cause?.message ?: message)
-        }
-
-        fullMsg.contains("500") ||
-            fullMsg.contains("502") ||
-            fullMsg.contains("503") ||
-            fullMsg.contains("504") -> {
-            InviteErrorType.ServerError("Server error. Please try again later.")
-        }
-
-        else -> {
-            InviteErrorType.ServerError(message ?: "Unknown error")
-        }
+private fun AppError.toInviteErrorType(): InviteErrorType =
+    when (this) {
+        is TransportError.NetworkUnavailable -> InviteErrorType.NetworkError(debugInfo)
+        is TransportError.Timeout -> InviteErrorType.NetworkError(debugInfo)
+        is TransportError.Server4xx -> InviteErrorType.InviteInvalid
+        is TransportError.Server5xx -> InviteErrorType.ServerError(message)
+        else -> InviteErrorType.ServerError(message)
     }
-}
