@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.pull
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.data.local.db.PendingOperationDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
@@ -43,10 +44,25 @@ class ProgressPuller(
      *                     progress is fetched (used for full sync and `refreshListeningHistory`).
      * @param onProgress Callback for progress updates.
      */
+    /**
+     * Pull progress from server and upsert locally.
+     *
+     * Non-critical — failures are logged and [AppResult.Success] is still returned
+     * so the surrounding sync cycle is not aborted.
+     *
+     * Merges server progress with local records, preserving local-only fields
+     * (playbackSpeed, hasCustomSpeed) while syncing server fields (position,
+     * isFinished, lastPlayedAt).
+     *
+     * @param updatedAfter ISO-8601 timestamp; when non-null, only rows updated server-side
+     *                     after this point are returned (SP2 delta sync). When null, all
+     *                     progress is fetched (used for full sync and `refreshListeningHistory`).
+     * @param onProgress Callback for progress updates.
+     */
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting progress sync (updatedAfter=$updatedAfter)..." }
 
         onProgress(
@@ -66,7 +82,7 @@ class ProgressPuller(
 
                     if (items.isEmpty()) {
                         logger.debug { "No progress records to sync" }
-                        return
+                        return AppResult.Success(Unit)
                     }
 
                     // Batch fetch existing local positions to preserve local-only fields
@@ -108,6 +124,8 @@ class ProgressPuller(
             logger.warn(e) { "Failed to sync progress" }
             // Don't throw - progress sync is not critical for basic functionality
         }
+
+        return AppResult.Success(Unit)
     }
 
     /**

@@ -37,7 +37,7 @@ class ShelfPuller(
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting shelf sync..." }
 
         // 1. Fetch basic shelf list
@@ -48,7 +48,7 @@ class ShelfPuller(
                 is AppResult.Failure -> {
                     logger.warn { "Failed to fetch shelves: ${shelvesResult.error.message}" }
                     // Non-critical — don't throw
-                    return
+                    return AppResult.Success(Unit)
                 }
             }
 
@@ -118,12 +118,14 @@ class ShelfPuller(
         } catch (e: Exception) {
             logger.warn(e) { "Failed to persist shelf data to Room" }
             // Non-critical — don't throw
-            return
+            return AppResult.Success(Unit)
         }
 
         logger.info {
             "Shelf sync complete: ${entitiesWithCovers.size} shelves, ${allShelfBooks.size} shelf-book relationships cached"
         }
+
+        return AppResult.Success(Unit)
     }
 }
 

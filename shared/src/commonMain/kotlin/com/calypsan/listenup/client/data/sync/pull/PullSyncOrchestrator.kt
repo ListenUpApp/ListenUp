@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.data.local.db.SyncDao
 import com.calypsan.listenup.client.data.local.db.getLastSyncTime
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.sync.SyncCoordinator
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -17,6 +19,17 @@ import kotlinx.coroutines.coroutineScope
 import com.calypsan.listenup.client.core.Success
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Convert [AppResult.Failure] to [AppException] so the surrounding
+ * [com.calypsan.listenup.client.data.sync.SyncCoordinator.withRetry] loop
+ * sees a throwable and applies its retry/backoff logic.
+ *
+ * Removed in slice 18 once the retry loop itself speaks [AppResult].
+ */
+private fun AppResult<Unit>.rethrowOnFailure() {
+    if (this is AppResult.Failure) throw AppException(error)
+}
 
 /**
  * Coordinates parallel entity pulls with retry logic and progress reporting.
@@ -150,7 +163,7 @@ class PullSyncOrchestrator(
                                     ),
                                 )
                             }
-                        }
+                        }.rethrowOnFailure()
                     }
                 val contributorsJob =
                     async {
@@ -163,7 +176,7 @@ class PullSyncOrchestrator(
                                     ),
                                 )
                             }
-                        }
+                        }.rethrowOnFailure()
                     }
                 val genresJob =
                     async {
@@ -176,7 +189,7 @@ class PullSyncOrchestrator(
                                     ),
                                 )
                             }
-                        }
+                        }.rethrowOnFailure()
                     }
 
                 try {
@@ -200,15 +213,15 @@ class PullSyncOrchestrator(
                             ),
                         )
                     }
-                }
+                }.rethrowOnFailure()
 
                 // Remaining phases — no known totals, just pass through
-                tagPuller.pull(updatedAfter, onProgress)
-                shelfPuller.pull(updatedAfter, onProgress)
-                progressPuller.pull(updatedAfter, onProgress)
+                tagPuller.pull(updatedAfter, onProgress).rethrowOnFailure()
+                shelfPuller.pull(updatedAfter, onProgress).rethrowOnFailure()
+                progressPuller.pull(updatedAfter, onProgress).rethrowOnFailure()
                 listeningEventPuller.pull(updatedAfter, onProgress)
-                activeSessionsPuller.pull(updatedAfter, onProgress)
-                readingSessionsPuller.pull(updatedAfter, onProgress)
+                activeSessionsPuller.pull(updatedAfter, onProgress).rethrowOnFailure()
+                readingSessionsPuller.pull(updatedAfter, onProgress).rethrowOnFailure()
             }
 
             // Self-healing: if local count < manifest count, the delta sync filtered out entities
@@ -219,7 +232,7 @@ class PullSyncOrchestrator(
                     logger.warn {
                         "Book count mismatch: local=$localBookCount, server=$totalBooks — re-pulling books in full"
                     }
-                    bookPuller.pull(null) {}
+                    bookPuller.pull(null) {}.rethrowOnFailure()
                 }
                 val localSeriesCount = seriesDao.count()
                 if (totalSeries > 0 && localSeriesCount < totalSeries) {
@@ -227,7 +240,7 @@ class PullSyncOrchestrator(
                         "Series count mismatch: local=$localSeriesCount, " +
                             "server=$totalSeries — re-pulling series in full"
                     }
-                    seriesPuller.pull(null) {}
+                    seriesPuller.pull(null) {}.rethrowOnFailure()
                 }
                 val localContributorCount = contributorDao.count()
                 if (totalContributors > 0 && localContributorCount < totalContributors) {
@@ -235,7 +248,7 @@ class PullSyncOrchestrator(
                         "Contributor count mismatch: local=$localContributorCount, " +
                             "server=$totalContributors — re-pulling contributors in full"
                     }
-                    contributorPuller.pull(null) {}
+                    contributorPuller.pull(null) {}.rethrowOnFailure()
                 }
             }
 

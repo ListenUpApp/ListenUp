@@ -1,17 +1,19 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.client.core.flatMap
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
+import com.calypsan.listenup.client.data.remote.dataOrFailure
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -82,31 +84,30 @@ class InstanceRepositoryImpl(
         val serverUrl = getServerUrl()
         if (serverUrl == null) {
             logger.warn { "Cannot fetch instance: server URL not configured" }
-            return Failure(IllegalStateException("Server URL not configured"))
+            return AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server URL not configured"))
         }
 
         logger.debug { "Fetching instance from ${serverUrl.value}/api/v1/instance" }
 
-        return suspendRunCatching {
+        val result = suspendRunCatching {
             val client = createClient(serverUrl)
             try {
                 val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
 
                 logger.debug { "Received instance response: success=${response.success}" }
 
-                when (val result = response.toResult()) {
-                    is Success -> result.data
-                    is Failure -> throw AppException(result.error)
-                }
+                response.dataOrFailure("Failed to fetch instance")
             } finally {
                 client.close()
             }
-        }.also { result ->
-            // Cache successful results
-            if (result is Success) {
-                cachedInstance = result.data
-            }
+        }.flatMap { it }
+
+        // Cache successful results
+        if (result is AppResult.Success) {
+            cachedInstance = result.data
         }
+
+        return result
     }
 
     private suspend fun attemptServerVerification(currentUrl: String): AppResult<VerifiedServer> {
@@ -121,9 +122,7 @@ class InstanceRepositoryImpl(
                     Success(VerifiedServer(result.data, currentUrl))
                 }
 
-                is Failure -> {
-                    Failure(AppException(result.error))
-                }
+                is Failure -> result
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
@@ -136,7 +135,7 @@ class InstanceRepositoryImpl(
 
     override suspend fun verifyServer(baseUrl: String): AppResult<VerifiedServer> {
         val urlsToTry = normalizeUrl(baseUrl)
-        var lastException: Exception? = null
+        var lastFailure: AppResult.Failure? = null
         for ((index, currentUrl) in urlsToTry.withIndex()) {
             when (val result = attemptServerVerification(currentUrl)) {
                 is Success -> {
@@ -151,15 +150,15 @@ class InstanceRepositoryImpl(
                             errorMessage.contains("handshake")
                     if (isSslError && index < urlsToTry.size - 1) {
                         logger.debug { "SSL error at $currentUrl, trying HTTP fallback" }
-                        lastException = AppException(result.error)
+                        lastFailure = result
                         continue
                     }
-                    lastException = AppException(result.error)
+                    lastFailure = result
                     break
                 }
             }
         }
-        return Failure(lastException ?: Exception("Server verification failed"))
+        return lastFailure ?: AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server verification failed"))
     }
 
     /**

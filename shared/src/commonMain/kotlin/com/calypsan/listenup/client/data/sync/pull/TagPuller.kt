@@ -24,13 +24,16 @@ class TagPuller(
     /**
      * Pull global tags from server.
      *
+     * Non-critical — failures are logged and [AppResult.Success] is still returned
+     * so the surrounding sync cycle is not aborted.
+     *
      * @param updatedAfter ISO timestamp for delta sync (currently ignored - full sync only)
      * @param onProgress Callback for progress updates
      */
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting tag sync..." }
 
         onProgress(
@@ -70,5 +73,7 @@ class TagPuller(
                 // Don't throw - tags are not critical for sync
             }
         }
+
+        return AppResult.Success(Unit)
     }
 }
