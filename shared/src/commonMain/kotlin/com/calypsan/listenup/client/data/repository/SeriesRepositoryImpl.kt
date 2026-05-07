@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.Success
@@ -17,7 +18,6 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -160,43 +160,46 @@ class SeriesRepositoryImpl(
             )
         }
 
-        // Try server search if online
+        // Try server search if online; on Failure fall back to local FTS (never-stranded pattern)
         if (networkMonitor.isOnline()) {
-            try {
-                return searchServer(sanitizedQuery, limit)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Server series search failed, falling back to local FTS" }
-            }
+            val serverResult = searchServer(sanitizedQuery, limit)
+            if (serverResult != null) return serverResult
         }
 
         // Offline or server failed - use local FTS
         return searchLocal(sanitizedQuery, limit)
     }
 
+    /**
+     * Attempt a server-side series search. Returns `null` on [AppResult.Failure] so the
+     * caller can fall back to local FTS (never-stranded pattern).
+     */
     private suspend fun searchServer(
         query: String,
         limit: Int,
-    ): SeriesSearchResponse =
+    ): SeriesSearchResponse? =
         withContext(IODispatcher) {
-            val (series, duration) =
-                measureTimedValue {
-                    when (val result = api.searchSeries(query, limit)) {
-                        is Success -> result.data.map { it.toDomain() }
-                        is Failure -> throw AppException(result.error)
+            val (result, duration) =
+                measureTimedValue { api.searchSeries(query, limit) }
+
+            when (result) {
+                is Success -> {
+                    val series = result.data.map { it.toDomain() }
+                    logger.debug {
+                        "Server series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
                     }
+                    SeriesSearchResponse(
+                        series = series,
+                        isOfflineResult = false,
+                        tookMs = duration.inWholeMilliseconds,
+                    )
                 }
 
-            logger.debug {
-                "Server series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
+                is Failure -> {
+                    logger.warn { "Server series search failed, falling back to local FTS: ${result.error.message}" }
+                    null
+                }
             }
-
-            SeriesSearchResponse(
-                series = series,
-                isOfflineResult = false,
-                tookMs = duration.inWholeMilliseconds,
-            )
         }
 
     private suspend fun searchLocal(

@@ -2,13 +2,12 @@
 
 package com.calypsan.listenup.client.data.remote.api
 
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.appJson
 import com.calypsan.listenup.client.core.isDebugBuild
+import com.calypsan.listenup.client.data.remote.apiCall
+import com.calypsan.listenup.client.data.remote.apiCallUnit
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.BookEditResponse
@@ -27,8 +26,8 @@ import com.calypsan.listenup.client.data.remote.UnmergeContributorResponse
 import com.calypsan.listenup.client.data.remote.UpdateContributorRequest
 import com.calypsan.listenup.client.data.remote.UpdateContributorResponse
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.domain.model.Instance
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -132,21 +131,12 @@ class ListenUpApi(
      *
      * This is a public endpoint - no authentication required.
      *
-     * @return Result containing the Instance on success, or an error on failure
+     * @return [AppResult] containing the [Instance] on success, or an error on failure
      */
     override suspend fun getInstance(): AppResult<Instance> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Failed to fetch instance info") {
             logger.debug { "Fetching instance information from $baseUrl/api/v1/instance" }
-
-            val response: ApiResponse<Instance> = publicClient.get("/api/v1/instance").body()
-
-            logger.debug { "Received response: success=${response.success}" }
-
-            // Convert API response to Result and extract data
-            when (val result = response.toResult()) {
-                is Success -> result.data
-                is Failure -> throw AppException(result.error)
-            }
+            publicClient.get("/api/v1/instance").body<ApiResponse<Instance>>()
         }
 
     /**
@@ -167,24 +157,15 @@ class ListenUpApi(
         query: String,
         limit: Int,
     ): AppResult<List<ContributorSearchResult>> =
-        suspendRunCatching {
+        apiCall<ContributorSearchResponse>(errorMessage = "Failed to search contributors") {
             logger.debug { "Searching contributors: query='$query', limit=$limit" }
-
             val client = getAuthenticatedClient()
-            val response: ApiResponse<ContributorSearchResponse> =
-                client
-                    .get("/api/v1/contributors/search") {
-                        parameter("q", query)
-                        parameter("limit", limit.coerceIn(1, 50))
-                    }.body()
-
-            logger.debug { "Received contributor search response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.contributors.map { it.toDomain() }
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .get("/api/v1/contributors/search") {
+                    parameter("q", query)
+                    parameter("limit", limit.coerceIn(1, 50))
+                }.body<ApiResponse<ContributorSearchResponse>>()
+        }.map { it.contributors.map { c -> c.toDomain() } }
 
     /**
      * Update book metadata (PATCH semantics).
@@ -200,24 +181,15 @@ class ListenUpApi(
         bookId: String,
         update: BookUpdateRequest,
     ): AppResult<BookEditResponse> =
-        suspendRunCatching {
+        apiCall<BookEditApiResponse>(errorMessage = "Failed to update book $bookId") {
             logger.debug { "Updating book: id=$bookId" }
-
             val client = getAuthenticatedClient()
-            val response: ApiResponse<BookEditApiResponse> =
-                client
-                    .patch("/api/v1/books/$bookId") {
-                        contentType(ContentType.Application.Json)
-                        setBody(update.toApiRequest())
-                    }.body()
-
-            logger.debug { "Received book update response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .patch("/api/v1/books/$bookId") {
+                    contentType(ContentType.Application.Json)
+                    setBody(update.toApiRequest())
+                }.body<ApiResponse<BookEditApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Set book contributors (replaces all existing contributors).
@@ -232,28 +204,19 @@ class ListenUpApi(
         bookId: String,
         contributors: List<ContributorInput>,
     ): AppResult<BookEditResponse> =
-        suspendRunCatching {
+        apiCall<BookEditApiResponse>(errorMessage = "Failed to set contributors for book $bookId") {
             logger.debug { "Setting book contributors: id=$bookId, count=${contributors.size}" }
-
             val client = getAuthenticatedClient()
             val request =
                 SetContributorsApiRequest(
                     contributors = contributors.map { ContributorApiInput(it.name, it.roles) },
                 )
-            val response: ApiResponse<BookEditApiResponse> =
-                client
-                    .put("/api/v1/books/$bookId/contributors") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-
-            logger.debug { "Received set contributors response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .put("/api/v1/books/$bookId/contributors") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body<ApiResponse<BookEditApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Search series for autocomplete during book editing.
@@ -273,24 +236,15 @@ class ListenUpApi(
         query: String,
         limit: Int,
     ): AppResult<List<SeriesSearchResult>> =
-        suspendRunCatching {
+        apiCall<SeriesSearchResponse>(errorMessage = "Failed to search series") {
             logger.debug { "Searching series: query='$query', limit=$limit" }
-
             val client = getAuthenticatedClient()
-            val response: ApiResponse<SeriesSearchResponse> =
-                client
-                    .get("/api/v1/series/search") {
-                        parameter("q", query)
-                        parameter("limit", limit.coerceIn(1, 50))
-                    }.body()
-
-            logger.debug { "Received series search response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.series.map { it.toDomain() }
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .get("/api/v1/series/search") {
+                    parameter("q", query)
+                    parameter("limit", limit.coerceIn(1, 50))
+                }.body<ApiResponse<SeriesSearchResponse>>()
+        }.map { it.series.map { s -> s.toDomain() } }
 
     /**
      * Set book series (replaces all existing series relationships).
@@ -305,28 +259,19 @@ class ListenUpApi(
         bookId: String,
         series: List<SeriesInput>,
     ): AppResult<BookEditResponse> =
-        suspendRunCatching {
+        apiCall<BookEditApiResponse>(errorMessage = "Failed to set series for book $bookId") {
             logger.debug { "Setting book series: id=$bookId, count=${series.size}" }
-
             val client = getAuthenticatedClient()
             val request =
                 SetSeriesApiRequest(
                     series = series.map { SeriesApiInput(it.name, it.sequence) },
                 )
-            val response: ApiResponse<BookEditApiResponse> =
-                client
-                    .put("/api/v1/books/$bookId/series") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-
-            logger.debug { "Received set series response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .put("/api/v1/books/$bookId/series") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body<ApiResponse<BookEditApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Merge a source contributor into a target contributor.
@@ -346,25 +291,18 @@ class ListenUpApi(
         targetContributorId: String,
         sourceContributorId: String,
     ): AppResult<MergeContributorResponse> =
-        suspendRunCatching {
+        apiCall<MergeContributorApiResponse>(
+            errorMessage = "Failed to merge contributor $sourceContributorId into $targetContributorId",
+        ) {
             logger.debug { "Merging contributor: source=$sourceContributorId into target=$targetContributorId" }
-
             val client = getAuthenticatedClient()
             val request = MergeContributorApiRequest(sourceContributorId = sourceContributorId)
-            val response: ApiResponse<MergeContributorApiResponse> =
-                client
-                    .post("/api/v1/contributors/$targetContributorId/merge") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-
-            logger.debug { "Received merge contributor response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .post("/api/v1/contributors/$targetContributorId/merge") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body<ApiResponse<MergeContributorApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Unmerge an alias from a contributor, creating a new separate contributor.
@@ -379,25 +317,18 @@ class ListenUpApi(
         contributorId: String,
         aliasName: String,
     ): AppResult<UnmergeContributorResponse> =
-        suspendRunCatching {
+        apiCall<UnmergeContributorApiResponse>(
+            errorMessage = "Failed to unmerge alias '$aliasName' from contributor $contributorId",
+        ) {
             logger.debug { "Unmerging alias '$aliasName' from contributor: $contributorId" }
-
             val client = getAuthenticatedClient()
             val request = UnmergeContributorApiRequest(aliasName = aliasName)
-            val response: ApiResponse<UnmergeContributorApiResponse> =
-                client
-                    .post("/api/v1/contributors/$contributorId/unmerge") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-
-            logger.debug { "Received unmerge contributor response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .post("/api/v1/contributors/$contributorId/unmerge") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body<ApiResponse<UnmergeContributorApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Update a contributor's metadata.
@@ -412,9 +343,8 @@ class ListenUpApi(
         contributorId: String,
         request: UpdateContributorRequest,
     ): AppResult<UpdateContributorResponse> =
-        suspendRunCatching {
+        apiCall<UpdateContributorApiResponse>(errorMessage = "Failed to update contributor $contributorId") {
             logger.debug { "Updating contributor: $contributorId" }
-
             val client = getAuthenticatedClient()
             val apiRequest =
                 UpdateContributorApiRequest(
@@ -425,20 +355,12 @@ class ListenUpApi(
                     deathDate = request.deathDate,
                     aliases = request.aliases,
                 )
-            val response: ApiResponse<UpdateContributorApiResponse> =
-                client
-                    .put("/api/v1/contributors/$contributorId") {
-                        contentType(ContentType.Application.Json)
-                        setBody(apiRequest)
-                    }.body()
-
-            logger.debug { "Received update contributor response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .put("/api/v1/contributors/$contributorId") {
+                    contentType(ContentType.Application.Json)
+                    setBody(apiRequest)
+                }.body<ApiResponse<UpdateContributorApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Delete a contributor.
@@ -449,16 +371,10 @@ class ListenUpApi(
      * @return Result indicating success or failure
      */
     override suspend fun deleteContributor(contributorId: String): AppResult<Unit> =
-        suspendRunCatching {
+        apiCallUnit {
             logger.debug { "Deleting contributor: $contributorId" }
-
             val client = getAuthenticatedClient()
-            val response: ApiResponse<Unit> = client.delete("/api/v1/contributors/$contributorId").body()
-
-            when (val result = response.toResult()) {
-                is Success -> logger.debug { "Contributor deleted: $contributorId" }
-                is Failure -> throw AppException(result.error)
-            }
+            client.delete("/api/v1/contributors/$contributorId").body<ApiResponse<Unit>>()
         }
 
     /**
@@ -475,24 +391,15 @@ class ListenUpApi(
         seriesId: String,
         request: SeriesUpdateRequest,
     ): AppResult<SeriesEditResponse> =
-        suspendRunCatching {
+        apiCall<SeriesEditApiResponse>(errorMessage = "Failed to update series $seriesId") {
             logger.debug { "Updating series: id=$seriesId" }
-
             val client = getAuthenticatedClient()
-            val response: ApiResponse<SeriesEditApiResponse> =
-                client
-                    .patch("/api/v1/series/$seriesId") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request.toApiRequest())
-                    }.body()
-
-            logger.debug { "Received series update response: success=${response.success}" }
-
-            when (val result = response.toResult()) {
-                is Success -> result.data.toDomain()
-                is Failure -> throw AppException(result.error)
-            }
-        }
+            client
+                .patch("/api/v1/series/$seriesId") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request.toApiRequest())
+                }.body<ApiResponse<SeriesEditApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Clean up resources when the API client is no longer needed.
