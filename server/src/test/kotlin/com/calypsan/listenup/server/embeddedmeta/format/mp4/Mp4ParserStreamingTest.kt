@@ -29,6 +29,76 @@ import java.io.IOException
  */
 class Mp4ParserStreamingTest :
     FunSpec({
+        test("parser handles non-fast-start MP4 with mdat size > 2GB (Stormlight regression)") {
+            // Real-world layout from `/mnt/Igni/Audiobooks/Brandon Sanderson/.../The Way of Kings.m4b`:
+            // `ftyp` (32 bytes) → `mdat` (size 0x950eddb5 ≈ 2.5 GB) → `moov` at the end.
+            // The streaming walker must traverse past the mdat header and read moov from the
+            // file-absolute offset its size implies. Pre-fix the walker rejected the mdat header
+            // because `size32 = 0x950eddb5` was interpreted as a *signed* Int (negative) and
+            // failed the `< 8` guard, returning null and producing AUDIO_META_CORRUPT_HEADER on
+            // 32 of 1,123 real M4Bs.
+            val moov =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 60_000)
+                        udta { meta { tag(atomType = "©nam", value = "Way of Kings Test") } }
+                    }
+                }.let { fullPrefix ->
+                    // buildMp4File emits ftyp + moov + mdat; we want only the moov bytes for our
+                    // synthetic file, so split out the moov region. The first atom is ftyp at
+                    // offset 0; the second atom is moov.
+                    val ftypSize =
+                        ((fullPrefix[0].toInt() and 0xFF) shl 24) or
+                            ((fullPrefix[1].toInt() and 0xFF) shl 16) or
+                            ((fullPrefix[2].toInt() and 0xFF) shl 8) or
+                            (fullPrefix[3].toInt() and 0xFF)
+                    val moovSize =
+                        ((fullPrefix[ftypSize].toInt() and 0xFF) shl 24) or
+                            ((fullPrefix[ftypSize + 1].toInt() and 0xFF) shl 16) or
+                            ((fullPrefix[ftypSize + 2].toInt() and 0xFF) shl 8) or
+                            (fullPrefix[ftypSize + 3].toInt() and 0xFF)
+                    fullPrefix.copyOfRange(ftypSize, ftypSize + moovSize)
+                }
+            // Synthetic file: ftyp (32 bytes) + mdat header (8 bytes claiming 2.6 GB) + moov.
+            val mdatPayloadSize = 2_700_000_000L // > Int.MAX_VALUE
+            val mdatTotalSize = mdatPayloadSize + 8 // including 8-byte header
+            val ftypBytes = byteArrayOf(
+                0, 0, 0, 0x20.toByte(), 'f'.code.toByte(), 't'.code.toByte(), 'y'.code.toByte(), 'p'.code.toByte(),
+                'M'.code.toByte(), '4'.code.toByte(), 'B'.code.toByte(), ' '.code.toByte(),
+                0, 0, 0, 0,
+                'M'.code.toByte(), '4'.code.toByte(), 'B'.code.toByte(), ' '.code.toByte(),
+                'i'.code.toByte(), 's'.code.toByte(), 'o'.code.toByte(), 'm'.code.toByte(),
+                0, 0, 0, 0, 0, 0, 0, 0, // padding to 32 bytes
+            )
+            val mdatHeader = byteArrayOf(
+                ((mdatTotalSize ushr 24) and 0xFF).toByte(),
+                ((mdatTotalSize ushr 16) and 0xFF).toByte(),
+                ((mdatTotalSize ushr 8) and 0xFF).toByte(),
+                (mdatTotalSize and 0xFFL).toByte(),
+                'm'.code.toByte(), 'd'.code.toByte(), 'a'.code.toByte(), 't'.code.toByte(),
+            )
+            val moovOffset = ftypBytes.size + mdatTotalSize
+            val totalLength = moovOffset + moov.size
+            val source =
+                NonFastStartSource(
+                    ftyp = ftypBytes,
+                    mdatHeader = mdatHeader,
+                    moovOffset = moovOffset,
+                    moov = moov,
+                    totalLength = totalLength,
+                )
+
+            val result = Mp4Parser().parse(source)
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.format shouldBe AudioFormat.Mp4
+            success.data.tags.title shouldBe "Way of Kings Test"
+
+            // Bound check: total bytes read must be tiny (ftyp + mdat header + moov), not 2.7 GB.
+            val budget: Long = (ftypBytes.size + mdatHeader.size + moov.size + 1024).toLong()
+            source.totalBytesRead shouldBeLessThan budget
+        }
+
         test("parser does not allocate the full file length when mdat is huge") {
             val realPrefix =
                 buildMp4File {
@@ -64,6 +134,94 @@ class Mp4ParserStreamingTest :
             source.maxSingleReadBytes intShouldBeLessThan Int.MAX_VALUE
         }
     })
+
+/**
+ * Synthetic [SeekableAudioSource] simulating a non-fast-start MP4 layout
+ * (`ftyp` → `mdat` larger than 2 GB → `moov` at the end). Holds only the
+ * tiny header + moov regions in memory; the synthetic mdat payload is
+ * never materialised. Tracks total bytes pulled to assert the parser
+ * doesn't read the audio region.
+ */
+private class NonFastStartSource(
+    private val ftyp: ByteArray,
+    private val mdatHeader: ByteArray,
+    private val moovOffset: Long,
+    private val moov: ByteArray,
+    private val totalLength: Long,
+) : SeekableAudioSource {
+    var totalBytesRead: Long = 0
+        private set
+
+    private var pos: Long = 0
+
+    override val length: Long get() = totalLength
+
+    override fun position(): Long = pos
+
+    override fun seek(offset: Long) {
+        require(offset in 0..totalLength) { "seek out of range: $offset" }
+        pos = offset
+    }
+
+    override fun read(
+        into: ByteArray,
+        count: Int,
+    ): Int {
+        if (pos >= totalLength) return -1
+        val n = (totalLength - pos).coerceAtMost(count.toLong()).toInt()
+        copyInto(into, 0, n)
+        pos += n
+        totalBytesRead += n
+        return n
+    }
+
+    override fun readFully(count: Int): ByteArray {
+        if (pos + count > totalLength) throw IOException("EOF: pos=$pos count=$count length=$totalLength")
+        val buf = ByteArray(count)
+        copyInto(buf, 0, count)
+        pos += count
+        totalBytesRead += count
+        return buf
+    }
+
+    override fun close() { /* no-op */ }
+
+    private fun copyInto(
+        dst: ByteArray,
+        dstOffset: Int,
+        count: Int,
+    ) {
+        val ftypEnd = ftyp.size.toLong()
+        val mdatHeaderEnd = ftypEnd + mdatHeader.size
+        var written = 0
+        while (written < count) {
+            val cur = pos + written
+            val remaining = count - written
+            when {
+                cur < ftypEnd -> {
+                    val copyN = minOf(remaining.toLong(), ftypEnd - cur).toInt()
+                    System.arraycopy(ftyp, cur.toInt(), dst, dstOffset + written, copyN)
+                    written += copyN
+                }
+                cur < mdatHeaderEnd -> {
+                    val copyN = minOf(remaining.toLong(), mdatHeaderEnd - cur).toInt()
+                    System.arraycopy(mdatHeader, (cur - ftypEnd).toInt(), dst, dstOffset + written, copyN)
+                    written += copyN
+                }
+                cur >= moovOffset -> {
+                    val copyN = minOf(remaining.toLong(), moov.size.toLong() - (cur - moovOffset)).toInt()
+                    System.arraycopy(moov, (cur - moovOffset).toInt(), dst, dstOffset + written, copyN)
+                    written += copyN
+                }
+                else -> {
+                    // Synthetic mdat payload: zeros (dst is already zero-initialised).
+                    val copyN = minOf(remaining.toLong(), moovOffset - cur).toInt()
+                    written += copyN
+                }
+            }
+        }
+    }
+}
 
 /**
  * Synthetic [SeekableAudioSource] that lies about its total length.

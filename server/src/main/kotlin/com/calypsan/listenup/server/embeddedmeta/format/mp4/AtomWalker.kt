@@ -216,15 +216,18 @@ internal object AtomWalker {
         while (offset + 8 <= length) {
             source.seek(offset)
             val headerBytes = source.readFully(8)
+            // The 32-bit size field is unsigned per ISO/IEC 14496-12 — sizes from 2 GB to 4 GB
+            // are valid in the wild (audiobook `mdat` atoms carrying 30+ hours of audio).
+            // Read into a Long so the high bit doesn't flip to a negative signed Int.
             val size32 =
-                ((headerBytes[0].toInt() and 0xFF) shl 24) or
-                    ((headerBytes[1].toInt() and 0xFF) shl 16) or
-                    ((headerBytes[2].toInt() and 0xFF) shl 8) or
-                    (headerBytes[3].toInt() and 0xFF)
+                ((headerBytes[0].toLong() and 0xFFL) shl 24) or
+                    ((headerBytes[1].toLong() and 0xFFL) shl 16) or
+                    ((headerBytes[2].toLong() and 0xFFL) shl 8) or
+                    (headerBytes[3].toLong() and 0xFFL)
             val atomType = String(headerBytes, 4, 4, Charsets.ISO_8859_1)
             val (size, headerSize) =
                 when (size32) {
-                    1 -> {
+                    1L -> {
                         if (offset + 16 > length) return null
                         source.seek(offset + 8)
                         val ext = source.readFully(8)
@@ -233,14 +236,15 @@ internal object AtomWalker {
                         size64 to 16L
                     }
 
-                    0 -> {
+                    // 0 = atom extends to EOF
+                    0L -> {
                         (length - offset) to 8L
                     }
 
-                    // 0 = atom extends to EOF
                     else -> {
-                        if (size32 < 8) return null
-                        size32.toLong() to 8L
+                        if (size32 < 8L) return null
+                        if (offset + size32 > length) return null
+                        size32 to 8L
                     }
                 }
             if (atomType == type) {
