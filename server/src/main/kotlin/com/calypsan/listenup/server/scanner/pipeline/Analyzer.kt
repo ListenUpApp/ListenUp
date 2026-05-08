@@ -86,7 +86,13 @@ internal class Analyzer(
             val (embedded, embeddedStatus) = parseEmbedded(primaryAudio)
             val cover = resolveCover(candidate.files, embedded)
             val metadata = readMetadata(candidate)
-            compose(candidate, shape, parsed, tracks, cover, embedded, embeddedStatus, metadata)
+            val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?> =
+                if (shouldSynthesizeChapters(metadata, embedded, tracks)) {
+                    parseAllTrackDurations(tracks)
+                } else {
+                    emptyMap()
+                }
+            compose(candidate, shape, parsed, tracks, cover, embedded, embeddedStatus, metadata, perTrackMetadata)
         }
 
     private fun buildTracks(candidate: CandidateBook): List<TrackEntry> =
@@ -169,6 +175,47 @@ internal class Analyzer(
         }
     }
 
+    /**
+     * Per-track parse for chapter synthesis. Mirrors [parseEmbedded] but
+     * discards the [MetadataStatus] distinctions — synthesis only cares
+     * whether a duration came back.
+     *
+     * Returns a map keyed by [TrackEntry]. A `null` value means the track's
+     * parse failed (file too small, unsupported format, IO error); the
+     * caller (synthesis) substitutes `0L` for [durationMs] in that case
+     * and the affected chapter is zero-length.
+     *
+     * Called only from the synthesis-eligible branch in [analyzeOne], so
+     * single-file books and books with higher-precedence chapter sources
+     * pay nothing.
+     */
+    private suspend fun parseAllTrackDurations(
+        tracks: List<TrackEntry>,
+    ): Map<TrackEntry, EmbeddedAudioMetadata?> {
+        val result = LinkedHashMap<TrackEntry, EmbeddedAudioMetadata?>(tracks.size)
+        for (track in tracks) {
+            result[track] = parseTrackForDuration(track.file)
+        }
+        return result
+    }
+
+    private suspend fun parseTrackForDuration(file: FileEntry): EmbeddedAudioMetadata? {
+        if (file.size < AudioFormatDetector.MIN_HEADER_BYTES) return null
+        val absolutePath = rootPath.resolve(file.relPath)
+        val ioPath = kotlinx.io.files.Path(absolutePath.toString())
+        return when (val result = embeddedMetadataParser.parse(ioPath)) {
+            is AppResult.Success -> result.data
+            is AppResult.Failure -> {
+                logger.warn {
+                    "synthesis per-track parse failed " +
+                        "path=$absolutePath err=${result.error.code} " +
+                        "corr=${result.error.correlationId}"
+                }
+                null
+            }
+        }
+    }
+
     private suspend fun readMetadata(candidate: CandidateBook): AbsMetadata? {
         val sidecar =
             candidate.files.firstOrNull {
@@ -187,11 +234,13 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         embeddedStatus: MetadataStatus?,
         metadata: AbsMetadata?,
+        perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata)
+        val title = pickTitle(candidate, shape, parsed, embedded, metadata)
+        val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
         return AnalyzedBook(
             candidate = candidate,
-            title = pickTitle(candidate, shape, parsed, embedded, metadata),
+            title = title,
             subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: parsed.subtitle,
             authors = pickAuthors(shape, embedded, metadata),
             narrators = pickNarrators(parsed, embedded, metadata),
@@ -217,9 +266,13 @@ internal class Analyzer(
     }
 
     /**
-     * Chapter precedence: `metadata.json.chapters` (if non-empty) → embedded
-     * chapters (if non-empty) → empty. The sidecar wins when present so
-     * user-curated chapter titles in ABS survive a rescan.
+     * Chapter precedence:
+     *   metadata.json (non-empty) → embedded (non-empty) → synthesized (multi-file) → empty.
+     *
+     * Spec §3 of `2026-05-07-phase-4-multifile-chapter-synthesis-design.md`. The
+     * sidecar wins when present so user-curated chapter titles in ABS survive
+     * a rescan. Synthesis activates only when no higher source exists AND the
+     * book is multi-file.
      *
      * `embedded.chapters` continues to surface verbatim on
      * [AnalyzedBook.embedded] regardless of which won — the resolved view is
@@ -228,6 +281,9 @@ internal class Analyzer(
     private fun pickChapters(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        tracks: List<TrackEntry>,
+        perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
+        bookTitle: String,
     ): Pair<List<Chapter>, BookChapterSource> {
         val sidecar = metadata?.chapters.orEmpty()
         if (sidecar.isNotEmpty()) {
@@ -236,7 +292,25 @@ internal class Analyzer(
         if (embedded != null && embedded.chapters.isNotEmpty()) {
             return embedded.chapters to BookChapterSource.Embedded(embedded.chaptersSource)
         }
+        if (tracks.size >= 2) {
+            return synthesizeChapters(tracks, perTrackMetadata, bookTitle) to
+                BookChapterSource.SynthesizedFromTracks
+        }
         return emptyList<Chapter>() to BookChapterSource.None
+    }
+
+    /**
+     * Synthesis is eligible when no higher-precedence chapter source exists
+     * AND the book is multi-file. Spec §3.
+     */
+    private fun shouldSynthesizeChapters(
+        metadata: AbsMetadata?,
+        embedded: EmbeddedAudioMetadata?,
+        tracks: List<TrackEntry>,
+    ): Boolean {
+        if (metadata?.chapters?.isNotEmpty() == true) return false
+        if (embedded != null && embedded.chapters.isNotEmpty()) return false
+        return tracks.size >= 2
     }
 
     private fun pickTitle(

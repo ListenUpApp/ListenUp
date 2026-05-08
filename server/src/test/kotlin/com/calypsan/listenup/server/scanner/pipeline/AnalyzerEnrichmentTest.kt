@@ -336,6 +336,55 @@ class AnalyzerEnrichmentTest :
                 }
             }
         }
+
+        test("multi-file MP3 book with no chapter sources synthesizes one chapter per track") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    // Book title comes from the folder name ("Multi") because
+                    // the tracks carry no TIT2 — no collision between book title
+                    // and chapter titles, so filename-based resolution fires.
+                    val rel = "Author/Multi"
+                    val track1Bytes =
+                        buildMp3File {
+                            id3v2(version = 4) {}
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val track2Bytes =
+                        buildMp3File {
+                            id3v2(version = 4) {}
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val track1Path = fixture.root.writeAudioFile("$rel/01 Foreword.mp3", track1Bytes)
+                    val track2Path = fixture.root.writeAudioFile("$rel/02 Prologue.mp3", track2Bytes)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01 Foreword.mp3", FileType.AUDIO, size = Files.size(track1Path)),
+                                    fileEntry("$rel/02 Prologue.mp3", FileType.AUDIO, size = Files.size(track2Path)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 2
+                    book.chapters[0].index shouldBe 1
+                    book.chapters[0].title shouldBe "Foreword"
+                    book.chapters[0].startMs shouldBe 0L
+                    book.chapters[1].index shouldBe 2
+                    book.chapters[1].title shouldBe "Prologue"
+                    book.chapters[1].startMs shouldBe book.chapters[0].endMs
+                    book.chaptersSource shouldBe BookChapterSource.SynthesizedFromTracks
+                }
+            }
+        }
     })
 
 private fun candidateForPath(
