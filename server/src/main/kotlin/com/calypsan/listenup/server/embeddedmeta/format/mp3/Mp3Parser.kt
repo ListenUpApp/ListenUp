@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
-import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
@@ -20,22 +19,23 @@ import java.io.IOException
  *   slots; unmapped `T*` frames and all `TXXX` user-defined frames land in
  *   [AudioTags.custom]. UTF-16 text frames are decoded via the shared
  *   `BinaryDecoder.readUtf16WithBom` helper.
- * - **Chapters.** ID3v2 `CHAP` frames produce [Chapter] entries with
- *   [ChapterSource.Id3v2Chap]. Each `CHAP` may embed a `TIT2` sub-frame
- *   carrying the chapter title; if absent the element id is used.
+ * - **Chapters.** ID3v2 `CHAP` frames produce [com.calypsan.listenup.domain.embeddedmeta.Chapter]
+ *   entries with [ChapterSource.Id3v2Chap]. Each `CHAP` may embed a `TIT2`
+ *   sub-frame carrying the chapter title; if absent the element id is used.
  * - **Artwork.** `APIC` frames are scanned in tag order; the highest-priority
  *   match wins (picture type 3 "Cover (front)" beats every other type;
  *   otherwise first APIC wins).
  * - **Duration.** CBR-only — read bitrate and sample rate from the first
- *   MPEG frame header, count frames at the nominal frame size, multiply by
- *   1152 samples/frame.
+ *   MPEG frame header found within a 64 KB sniff window past the tag,
+ *   then derive duration from the audio-region size.
+ *
+ * Streaming contract: the parser only reads bounded regions out of [source]
+ * — the ID3v2 tag (capped at [ID3V2_SOFT_LIMIT_BYTES]), the trailing 128-byte
+ * ID3v1 footer, and a 64 KB sniff window for the first MPEG frame. Files
+ * larger than the heap parse without ever materialising the audio body.
  *
  * Failure mapping:
  * - File-level read errors → [AudioMetadataError.IoError].
- * - ID3v2 sync-safe size overruns the file length → [AudioMetadataError.TruncatedStream].
- * - First MPEG sync byte cannot be located within the audio region →
- *   [AudioMetadataError.CorruptHeader] (synthesised so the duration field is
- *   zero rather than misleading).
  *
  * TODO(VBR): Xing/VBRI VBR-header parsing is deferred. Real-world audiobook
  * MP3s are overwhelmingly CBR; the duration approximation is good enough for
@@ -45,47 +45,59 @@ import java.io.IOException
 internal class Mp3Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp3)
 
-    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> {
-        val bytes =
-            try {
-                source.seek(0)
-                source.readFully(source.length.toInt())
-            } catch (e: IOException) {
-                return AppResult.Failure(
-                    AudioMetadataError.IoError(
-                        pathString = "<source>",
-                        ioMessage = e.message ?: "io error",
-                    ),
+    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> =
+        try {
+            val id3v2 = readId3v2Region(source)
+            val id3v1Tags = readId3v1Footer(source)
+            val hasV1Footer = id3v1Tags != null
+
+            val tags = id3v2?.tags ?: id3v1Tags ?: emptyTags()
+            val tagSize = id3v2?.tagSize ?: 0
+            val chapters = id3v2?.chapters.orEmpty()
+
+            val durationMs =
+                MpegDurationCalculator.compute(
+                    source = source,
+                    audioStart = tagSize.toLong(),
+                    hasV1Footer = hasV1Footer,
                 )
-            }
 
-        val id3v2 = if (Id3v2Reader.hasId3v2Prefix(bytes)) Id3v2Reader.read(bytes) else null
-        val id3v2Tags = id3v2?.tags
-        val id3v2Chapters = id3v2?.chapters.orEmpty()
-        val id3v2Artwork = id3v2?.artwork
+            AppResult.Success(
+                EmbeddedAudioMetadata(
+                    format = AudioFormat.Mp3,
+                    durationMs = durationMs,
+                    tags = tags,
+                    chapters = chapters,
+                    chaptersSource = if (chapters.isNotEmpty()) ChapterSource.Id3v2Chap else ChapterSource.None,
+                    artwork = id3v2?.artwork,
+                ),
+            )
+        } catch (e: IOException) {
+            AppResult.Failure(
+                AudioMetadataError.IoError(
+                    pathString = "<source>",
+                    ioMessage = e.message ?: "io error",
+                ),
+            )
+        }
 
-        val tags =
-            id3v2Tags ?: run {
-                // Fall back to ID3v1 footer
-                Id3v1Reader.read(bytes) ?: emptyTags()
-            }
+    private fun readId3v2Region(source: SeekableAudioSource): Id3v2ReadResult? {
+        if (source.length < ID3V2_HEADER_SIZE) return null
+        source.seek(0)
+        val header = source.readFully(ID3V2_HEADER_SIZE)
+        val tagSize = Id3v2Reader.peekTagSize(header) ?: return null
+        if (tagSize > ID3V2_SOFT_LIMIT_BYTES) return null
+        if (tagSize > source.length) return null
+        source.seek(0)
+        val tagBytes = source.readFully(tagSize)
+        return Id3v2Reader.read(tagBytes)
+    }
 
-        val tagSize = id3v2?.tagSize ?: 0
-        val durationMs = MpegDurationCalculator.compute(bytes, audioStart = tagSize.toLong())
-
-        val chaptersSource =
-            if (id3v2Chapters.isNotEmpty()) ChapterSource.Id3v2Chap else ChapterSource.None
-
-        return AppResult.Success(
-            EmbeddedAudioMetadata(
-                format = AudioFormat.Mp3,
-                durationMs = durationMs,
-                tags = tags,
-                chapters = id3v2Chapters,
-                chaptersSource = chaptersSource,
-                artwork = id3v2Artwork,
-            ),
-        )
+    private fun readId3v1Footer(source: SeekableAudioSource): AudioTags? {
+        if (source.length < ID3V1_LEN) return null
+        source.seek(source.length - ID3V1_LEN)
+        val footer = source.readFully(ID3V1_LEN)
+        return Id3v1Reader.read(footer)
     }
 
     private fun emptyTags(): AudioTags =
@@ -106,4 +118,17 @@ internal class Mp3Parser : AudioFormatParser {
             discNumber = null,
             custom = emptyMap(),
         )
+
+    private companion object {
+        /**
+         * Defensive cap on ID3v2 tag size. Real-world ID3v2 tags max out around
+         * 1-10 MB even with full-resolution embedded cover art. A 200 MB cap
+         * leaves generous headroom while preventing a corrupt sync-safe size
+         * field from triggering a multi-GB allocation. Mirrors `Mp4Parser`'s
+         * `MOOV_SOFT_LIMIT_BYTES`.
+         */
+        private const val ID3V2_SOFT_LIMIT_BYTES = 200 * 1024 * 1024
+        private const val ID3V2_HEADER_SIZE = 10
+        private const val ID3V1_LEN = 128
+    }
 }
