@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.flatten
-import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
 import com.calypsan.listenup.client.data.remote.model.ProfileResponse
 import com.calypsan.listenup.client.data.remote.model.UpdateProfileRequest
@@ -39,13 +36,11 @@ class ProfileApi(
      * Get the authenticated user's own profile.
      */
     override suspend fun getMyProfile(): AppResult<ProfileResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Profile response missing data") {
             logger.debug { "Fetching own profile" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<ProfileResponse> =
-                client.get("/api/v1/profile").body()
-            response.toResult()
-        }.flatten()
+            client.get("/api/v1/profile").body()
+        }
 
     /**
      * Update the authenticated user's profile.
@@ -57,7 +52,7 @@ class ProfileApi(
         lastName: String?,
         newPassword: String?,
     ): AppResult<ProfileResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Updated profile response missing data") {
             logger.debug {
                 "Updating own profile: avatarType=$avatarType, tagline=$tagline, firstName=$firstName, lastName=$lastName"
             }
@@ -70,14 +65,12 @@ class ProfileApi(
                     lastName = lastName,
                     newPassword = newPassword,
                 )
-            val response: ApiResponse<ProfileResponse> =
-                client
-                    .patch("/api/v1/profile") {
-                        contentType(ContentType.Application.Json)
-                        setBody(request)
-                    }.body()
-            response.toResult()
-        }.flatten()
+            client
+                .patch("/api/v1/profile") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body()
+        }
 
     /**
      * Upload avatar image for the authenticated user.
@@ -86,27 +79,23 @@ class ProfileApi(
         imageData: ByteArray,
         contentType: String,
     ): AppResult<ProfileResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Avatar upload response missing data") {
             logger.debug { "Uploading avatar: ${imageData.size} bytes, contentType=$contentType" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<ProfileResponse> =
-                client
-                    .post("/api/v1/profile/avatar") {
-                        contentType(ContentType.parse(contentType))
-                        setBody(imageData)
-                    }.body()
-            response.toResult()
-        }.flatten()
+            client
+                .post("/api/v1/profile/avatar") {
+                    contentType(ContentType.parse(contentType))
+                    setBody(imageData)
+                }.body()
+        }
 
     /**
      * Get a user's full profile with stats and activity.
      */
     override suspend fun getUserProfile(userId: String): AppResult<FullProfileResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "User profile response missing data") {
             logger.debug { "Fetching profile for user: $userId" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<FullProfileResponse> =
-                client.get("/api/v1/users/$userId/profile").body()
-            response.toResult()
-        }.flatten()
+            client.get("/api/v1/users/$userId/profile").body()
+        }
 }

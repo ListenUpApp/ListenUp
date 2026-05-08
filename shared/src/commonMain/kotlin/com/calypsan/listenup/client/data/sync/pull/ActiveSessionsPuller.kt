@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.local.db.UserProfileEntity
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -43,6 +44,9 @@ class ActiveSessionsPuller(
     /**
      * Pull active sessions from server.
      *
+     * Non-critical — failures are logged and [AppResult.Success] is still returned
+     * so the surrounding sync cycle is not aborted.
+     *
      * Replaces all existing active sessions with the current server state.
      * This ensures any stale sessions (from missed SSE events) are cleared.
      *
@@ -52,7 +56,7 @@ class ActiveSessionsPuller(
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting active sessions sync..." }
 
         onProgress(
@@ -76,7 +80,7 @@ class ActiveSessionsPuller(
 
                     if (sessions.isEmpty()) {
                         logger.debug { "No active sessions to sync" }
-                        return
+                        return AppResult.Success(Unit)
                     }
 
                     val now = currentEpochMilliseconds()
@@ -158,6 +162,8 @@ class ActiveSessionsPuller(
             logger.warn(e) { "Failed to sync active sessions" }
             // Don't throw - active sessions are not critical for sync
         }
+
+        return AppResult.Success(Unit)
     }
 
     /**

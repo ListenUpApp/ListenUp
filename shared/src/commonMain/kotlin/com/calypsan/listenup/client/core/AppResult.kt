@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.client.core.error.AppException
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import kotlin.MustUseReturnValues
 import kotlin.contracts.ExperimentalContracts
@@ -54,20 +53,10 @@ typealias Failure = AppResult.Failure
 // ---- Construction helpers ----------------------------------------------------------------
 
 /**
- * Wraps an arbitrary [Throwable] as an [AppResult.Failure]. Preserves the typed [AppError]
- * when [throwable] is already an [AppException] (which carries it directly); otherwise
- * routes through [ErrorMapper].
- *
- * The [AppException] special case becomes redundant once Task 27d migrates the throwing
- * data-layer surface to return [AppResult] directly — at which point both [AppException]
- * and this branch are deleted.
+ * Wraps an arbitrary [Throwable] as an [AppResult.Failure].
+ * Routes through [ErrorMapper] to produce a typed [com.calypsan.listenup.api.error.AppError].
  */
-fun Failure(throwable: Throwable): AppResult.Failure =
-    if (throwable is AppException) {
-        AppResult.Failure(throwable.error)
-    } else {
-        AppResult.Failure(ErrorMapper.map(throwable))
-    }
+fun Failure(throwable: Throwable): AppResult.Failure = AppResult.Failure(ErrorMapper.map(throwable))
 
 // ---- Smart-cast helpers ------------------------------------------------------------------
 
@@ -161,8 +150,8 @@ inline fun <T> AppResult<T>.recover(recovery: (AppError) -> T): AppResult<T> =
  * Catch exceptions in a suspend block and wrap them in [AppResult].
  *
  * Re-throws [CancellationException] to preserve coroutine cancellation semantics
- * (Finding 01 D4 / kotlinx.coroutines canonical rule). All other throwables are mapped
- * via [Failure] — which preserves [AppException.error] when the cause is already typed.
+ * (Finding 01 D4 / kotlinx.coroutines canonical rule). All other throwables are routed
+ * through [com.calypsan.listenup.client.core.error.ErrorMapper] via [Failure].
  */
 @OptIn(ExperimentalContracts::class)
 suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): AppResult<T> {
@@ -179,8 +168,8 @@ suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): A
 }
 
 /**
- * Non-suspending equivalent of [suspendRunCatching]. Still routes typed [AppException]s
- * through their [AppError] unchanged.
+ * Non-suspending equivalent of [suspendRunCatching]. Routes throwables through
+ * [com.calypsan.listenup.client.core.error.ErrorMapper] via [Failure].
  */
 @OptIn(ExperimentalContracts::class)
 inline fun <T> runCatching(block: () -> T): AppResult<T> {

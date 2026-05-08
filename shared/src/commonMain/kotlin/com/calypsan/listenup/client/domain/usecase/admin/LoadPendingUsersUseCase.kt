@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
@@ -11,6 +10,5 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 open class LoadPendingUsersUseCase(
     private val adminRepository: AdminRepository,
 ) {
-    open suspend operator fun invoke(): AppResult<List<AdminUserInfo>> =
-        suspendRunCatching { adminRepository.getPendingUsers() }
+    open suspend operator fun invoke(): AppResult<List<AdminUserInfo>> = adminRepository.getPendingUsers()
 }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.Shelf
 import kotlinx.coroutines.flow.Flow
 
@@ -63,8 +64,10 @@ interface ShelfRepository {
      *
      * Used for initial population when Room is empty (e.g., fresh install
      * or after adding sync support for shelves).
+     *
+     * @return [AppResult.Success] when fetch and cache succeeds, [AppResult.Failure] on API error
      */
-    suspend fun fetchAndCacheMyShelves()
+    suspend fun fetchAndCacheMyShelves(): AppResult<Unit>
 
     /**
      * Fetch discover shelves from API and cache locally.
@@ -73,9 +76,9 @@ interface ShelfRepository {
      * and for manual refresh. Fetches shelves from other users via API
      * and stores them in the local database.
      *
-     * @return Number of shelves fetched and cached
+     * @return [AppResult.Success] containing the number of shelves fetched, [AppResult.Failure] on API error
      */
-    suspend fun fetchAndCacheDiscoverShelves(): Int
+    suspend fun fetchAndCacheDiscoverShelves(): AppResult<Int>
 
     /**
      * Get full shelf detail including books from the server.
@@ -83,9 +86,9 @@ interface ShelfRepository {
      * Fetches shelf details via API and updates local cache.
      *
      * @param shelfId The shelf ID to fetch
-     * @return The shelf detail with books
+     * @return [AppResult.Success] containing the shelf detail, [AppResult.Failure] on API error
      */
-    suspend fun getShelfDetail(shelfId: String): com.calypsan.listenup.client.domain.model.ShelfDetail
+    suspend fun getShelfDetail(shelfId: String): AppResult<com.calypsan.listenup.client.domain.model.ShelfDetail>
 
     /**
      * Remove a book from a shelf.

@@ -2,10 +2,9 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.http.encodeURLPath
@@ -14,7 +13,6 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -25,83 +23,83 @@ import kotlinx.serialization.Serializable
 @Suppress("TooManyFunctions")
 interface AdminApiContract {
     // User management
-    suspend fun getUsers(): List<AdminUser>
+    suspend fun getUsers(): AppResult<List<AdminUser>>
 
-    suspend fun getUser(userId: String): AdminUser
+    suspend fun getUser(userId: String): AppResult<AdminUser>
 
     suspend fun updateUser(
         userId: String,
         request: UpdateUserRequest,
-    ): AdminUser
+    ): AppResult<AdminUser>
 
-    suspend fun deleteUser(userId: String)
+    suspend fun deleteUser(userId: String): AppResult<Unit>
 
     // Pending user management
-    suspend fun getPendingUsers(): List<AdminUser>
+    suspend fun getPendingUsers(): AppResult<List<AdminUser>>
 
-    suspend fun approveUser(userId: String): AdminUser
+    suspend fun approveUser(userId: String): AppResult<AdminUser>
 
-    suspend fun denyUser(userId: String)
+    suspend fun denyUser(userId: String): AppResult<Unit>
 
     // Invite management
-    suspend fun getInvites(): List<AdminInvite>
+    suspend fun getInvites(): AppResult<List<AdminInvite>>
 
-    suspend fun createInvite(request: CreateInviteRequest): AdminInvite
+    suspend fun createInvite(request: CreateInviteRequest): AppResult<AdminInvite>
 
-    suspend fun deleteInvite(inviteId: String)
+    suspend fun deleteInvite(inviteId: String): AppResult<Unit>
 
     // Settings
-    suspend fun setOpenRegistration(enabled: Boolean)
+    suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit>
 
     // Server settings (inbox workflow)
-    suspend fun getServerSettings(): ServerSettingsResponse
+    suspend fun getServerSettings(): AppResult<ServerSettingsResponse>
 
-    suspend fun updateServerSettings(request: ServerSettingsRequest): ServerSettingsResponse
+    suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse>
 
     // Instance settings
-    suspend fun updateInstance(request: UpdateInstanceRequest): InstanceSettingsResponse
+    suspend fun updateInstance(request: UpdateInstanceRequest): AppResult<InstanceSettingsResponse>
 
     // Inbox management
-    suspend fun listInboxBooks(): InboxBooksResponse
+    suspend fun listInboxBooks(): AppResult<InboxBooksResponse>
 
-    suspend fun releaseBooks(bookIds: List<String>): ReleaseInboxBooksResponse
+    suspend fun releaseBooks(bookIds: List<String>): AppResult<ReleaseInboxBooksResponse>
 
     suspend fun stageCollection(
         bookId: String,
         collectionId: String,
-    )
+    ): AppResult<Unit>
 
     suspend fun unstageCollection(
         bookId: String,
         collectionId: String,
-    )
+    ): AppResult<Unit>
 
     // Library management
-    suspend fun getLibraries(): List<LibraryResponse>
+    suspend fun getLibraries(): AppResult<List<LibraryResponse>>
 
-    suspend fun getLibrary(libraryId: String): LibraryResponse
+    suspend fun getLibrary(libraryId: String): AppResult<LibraryResponse>
 
     suspend fun updateLibrary(
         libraryId: String,
         request: UpdateLibraryRequest,
-    ): LibraryResponse
+    ): AppResult<LibraryResponse>
 
     // Scan path management
     suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): LibraryResponse
+    ): AppResult<LibraryResponse>
 
     suspend fun removeScanPath(
         libraryId: String,
         path: String,
-    ): LibraryResponse
+    ): AppResult<LibraryResponse>
 
     // Manual scan trigger
-    suspend fun triggerScan(libraryId: String)
+    suspend fun triggerScan(libraryId: String): AppResult<Unit>
 
     // Filesystem browsing (reused from setup)
-    suspend fun browseFilesystem(path: String): BrowseFilesystemResponse
+    suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse>
 }
 
 /**
@@ -115,376 +113,214 @@ class AdminApi(
 ) : AdminApiContract {
     // User Management
 
-    override suspend fun getUsers(): List<AdminUser> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<UsersResponse> =
-            client.get("/api/v1/admin/users").body()
+    override suspend fun getUsers(): AppResult<List<AdminUser>> =
+        apiCall(errorMessage = "Admin users response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/users").body<ApiResponse<UsersResponse>>()
+        }.map { it.users }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.users
-            is Failure -> throw AppException(result.error)
+    override suspend fun getUser(userId: String): AppResult<AdminUser> =
+        apiCall(errorMessage = "Admin user detail response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/users/$userId").body<ApiResponse<AdminUser>>()
         }
-    }
-
-    override suspend fun getUser(userId: String): AdminUser {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminUser> =
-            client.get("/api/v1/admin/users/$userId").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
-        }
-    }
 
     override suspend fun updateUser(
         userId: String,
         request: UpdateUserRequest,
-    ): AdminUser {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminUser> =
-            client
+    ): AppResult<AdminUser> =
+        apiCall(errorMessage = "Admin update-user response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/admin/users/$userId") {
                     setBody(request)
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<AdminUser>>()
         }
-    }
 
-    override suspend fun deleteUser(userId: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/admin/users/$userId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* User deleted successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    override suspend fun deleteUser(userId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/admin/users/$userId").body<ApiResponse<Unit>>()
         }
-    }
 
     // Pending User Management
 
-    override suspend fun getPendingUsers(): List<AdminUser> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<UsersResponse> =
-            client.get("/api/v1/admin/users/pending").body()
+    override suspend fun getPendingUsers(): AppResult<List<AdminUser>> =
+        apiCall(errorMessage = "Pending users response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/users/pending").body<ApiResponse<UsersResponse>>()
+        }.map { it.users }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.users
-            is Failure -> throw AppException(result.error)
+    override suspend fun approveUser(userId: String): AppResult<AdminUser> =
+        apiCall(errorMessage = "Approve user response missing data") {
+            clientFactory.getClient().post("/api/v1/admin/users/$userId/approve").body<ApiResponse<AdminUser>>()
         }
-    }
 
-    override suspend fun approveUser(userId: String): AdminUser {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminUser> =
-            client.post("/api/v1/admin/users/$userId/approve").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+    override suspend fun denyUser(userId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().post("/api/v1/admin/users/$userId/deny").body<ApiResponse<Unit>>()
         }
-    }
-
-    override suspend fun denyUser(userId: String) {
-        val client = clientFactory.getClient()
-        val response = client.post("/api/v1/admin/users/$userId/deny")
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
-        }
-    }
 
     // Invite Management
 
-    override suspend fun getInvites(): List<AdminInvite> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<InvitesResponse> =
-            client.get("/api/v1/admin/invites").body()
+    override suspend fun getInvites(): AppResult<List<AdminInvite>> =
+        apiCall(errorMessage = "Admin invites response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/invites").body<ApiResponse<InvitesResponse>>()
+        }.map { it.invites }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.invites
-            is Failure -> throw AppException(result.error)
-        }
-    }
-
-    override suspend fun createInvite(request: CreateInviteRequest): AdminInvite {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<AdminInvite> =
-            client
+    override suspend fun createInvite(request: CreateInviteRequest): AppResult<AdminInvite> =
+        apiCall(errorMessage = "Create invite response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/invites") {
                     setBody(request)
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<AdminInvite>>()
         }
-    }
 
-    override suspend fun deleteInvite(inviteId: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/admin/invites/$inviteId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Invite deleted successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/admin/invites/$inviteId").body<ApiResponse<Unit>>()
         }
-    }
 
     // Settings
 
-    override suspend fun setOpenRegistration(enabled: Boolean) {
-        val client = clientFactory.getClient()
-        val response =
-            client.put("/api/v1/admin/settings/open-registration") {
-                setBody(SetOpenRegistrationRequest(enabled))
-            }
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .put("/api/v1/admin/settings/open-registration") {
+                    setBody(SetOpenRegistrationRequest(enabled))
+                }.body<ApiResponse<Unit>>()
         }
-    }
 
     // Server Settings (Inbox Workflow)
 
-    override suspend fun getServerSettings(): ServerSettingsResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ServerSettingsApiResponse> =
-            client.get("/api/v1/admin/settings").body()
+    override suspend fun getServerSettings(): AppResult<ServerSettingsResponse> =
+        apiCall(errorMessage = "Server settings response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/settings").body<ApiResponse<ServerSettingsApiResponse>>()
+        }.map { it.toDomain() }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.toDomain()
-            is Failure -> throw AppException(result.error)
-        }
-    }
-
-    override suspend fun updateServerSettings(request: ServerSettingsRequest): ServerSettingsResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ServerSettingsApiResponse> =
-            client
+    override suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse> =
+        apiCall(errorMessage = "Update server settings response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/admin/settings") {
                     setBody(request.toApiRequest())
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data.toDomain()
-            is Failure -> throw AppException(result.error)
-        }
-    }
+                }.body<ApiResponse<ServerSettingsApiResponse>>()
+        }.map { it.toDomain() }
 
     // Instance Management
 
-    override suspend fun updateInstance(request: UpdateInstanceRequest): InstanceSettingsResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<InstanceSettingsResponse> =
-            client
+    override suspend fun updateInstance(request: UpdateInstanceRequest): AppResult<InstanceSettingsResponse> =
+        apiCall(errorMessage = "Update instance response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/admin/instance") {
                     setBody(request)
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<InstanceSettingsResponse>>()
         }
-    }
 
     // Inbox Management
 
-    override suspend fun listInboxBooks(): InboxBooksResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<InboxBooksApiResponse> =
-            client.get("/api/v1/admin/inbox").body()
+    override suspend fun listInboxBooks(): AppResult<InboxBooksResponse> =
+        apiCall(errorMessage = "Inbox books response missing data") {
+            clientFactory.getClient().get("/api/v1/admin/inbox").body<ApiResponse<InboxBooksApiResponse>>()
+        }.map { it.toDomain() }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.toDomain()
-            is Failure -> throw AppException(result.error)
-        }
-    }
-
-    override suspend fun releaseBooks(bookIds: List<String>): ReleaseInboxBooksResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ReleaseInboxBooksApiResponse> =
-            client
+    override suspend fun releaseBooks(bookIds: List<String>): AppResult<ReleaseInboxBooksResponse> =
+        apiCall(errorMessage = "Release inbox books response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/admin/inbox/release") {
                     setBody(ReleaseInboxBooksApiRequest(bookIds))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data.toDomain()
-            is Failure -> throw AppException(result.error)
-        }
-    }
+                }.body<ApiResponse<ReleaseInboxBooksApiResponse>>()
+        }.map { it.toDomain() }
 
     override suspend fun stageCollection(
         bookId: String,
         collectionId: String,
-    ) {
-        val client = clientFactory.getClient()
-        val response =
-            client.post("/api/v1/admin/inbox/$bookId/stage") {
-                setBody(StageCollectionApiRequest(collectionId))
-            }
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .post("/api/v1/admin/inbox/$bookId/stage") {
+                    setBody(StageCollectionApiRequest(collectionId))
+                }.body<ApiResponse<Unit>>()
         }
-    }
 
     override suspend fun unstageCollection(
         bookId: String,
         collectionId: String,
-    ) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> =
-            client.delete("/api/v1/admin/inbox/$bookId/stage/$collectionId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Collection unstaged successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .delete(
+                    "/api/v1/admin/inbox/$bookId/stage/$collectionId",
+                ).body<ApiResponse<Unit>>()
         }
-    }
 
     // Library Management
 
-    override suspend fun getLibraries(): List<LibraryResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibrariesResponse> =
-            client.get("/api/v1/libraries").body()
+    override suspend fun getLibraries(): AppResult<List<LibraryResponse>> =
+        apiCall(errorMessage = "Admin libraries response missing data") {
+            clientFactory.getClient().get("/api/v1/libraries").body<ApiResponse<LibrariesResponse>>()
+        }.map { it.libraries }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.libraries
-            is Failure -> throw AppException(result.error)
+    override suspend fun getLibrary(libraryId: String): AppResult<LibraryResponse> =
+        apiCall(errorMessage = "Library detail response missing data") {
+            clientFactory.getClient().get("/api/v1/libraries/$libraryId").body<ApiResponse<LibraryResponse>>()
         }
-    }
-
-    override suspend fun getLibrary(libraryId: String): LibraryResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibraryResponse> =
-            client.get("/api/v1/libraries/$libraryId").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
-        }
-    }
 
     override suspend fun updateLibrary(
         libraryId: String,
         request: UpdateLibraryRequest,
-    ): LibraryResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibraryResponse> =
-            client
+    ): AppResult<LibraryResponse> =
+        apiCall(errorMessage = "Update library response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/libraries/$libraryId") {
                     setBody(request)
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<LibraryResponse>>()
         }
-    }
 
     // Scan Path Management
 
     override suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): LibraryResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<LibraryResponse> =
-            client
+    ): AppResult<LibraryResponse> =
+        apiCall(errorMessage = "Add scan path response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/libraries/$libraryId/scan-paths") {
                     setBody(ScanPathRequest(path))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<LibraryResponse>>()
         }
-    }
 
     override suspend fun removeScanPath(
         libraryId: String,
         path: String,
-    ): LibraryResponse {
-        val client = clientFactory.getClient()
-        val encodedPath = path.encodeURLPath()
-        val response: ApiResponse<LibraryResponse> =
-            client
+    ): AppResult<LibraryResponse> =
+        apiCall(errorMessage = "Remove scan path response missing data") {
+            val encodedPath = path.encodeURLPath()
+            clientFactory
+                .getClient()
                 .delete("/api/v1/libraries/$libraryId/scan-paths/$encodedPath")
-                .body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                .body<ApiResponse<LibraryResponse>>()
         }
-    }
 
-    override suspend fun triggerScan(libraryId: String) {
-        val client = clientFactory.getClient()
-        val response = client.post("/api/v1/libraries/$libraryId/scan")
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().post("/api/v1/libraries/$libraryId/scan").body<ApiResponse<Unit>>()
         }
-    }
 
-    override suspend fun browseFilesystem(path: String): BrowseFilesystemResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<BrowseFilesystemResponse> =
-            client
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        apiCall(errorMessage = "Browse filesystem response missing data") {
+            clientFactory
+                .getClient()
                 .get("/api/v1/filesystem") {
                     url {
                         parameters.append("path", path)
                     }
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<BrowseFilesystemResponse>>()
         }
-    }
 }
 
 // Response wrappers

@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.failureOf
 
@@ -58,16 +59,16 @@ class PullSyncOrchestratorTest {
 
         init {
             // Default stubs - successful pulls
-            everySuspend { bookPuller.pull(any(), any()) } returns Unit
-            everySuspend { seriesPuller.pull(any(), any()) } returns Unit
-            everySuspend { contributorPuller.pull(any(), any()) } returns Unit
-            everySuspend { tagPuller.pull(any(), any()) } returns Unit
-            everySuspend { genrePuller.pull(any(), any()) } returns Unit
-            everySuspend { shelfPuller.pull(any(), any()) } returns Unit
-            everySuspend { listeningEventPuller.pull(any(), any()) } returns Unit
-            everySuspend { progressPuller.pull(any(), any()) } returns Unit
-            everySuspend { activeSessionsPuller.pull(any(), any()) } returns Unit
-            everySuspend { readingSessionsPuller.pull(any(), any()) } returns Unit
+            everySuspend { bookPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { seriesPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { contributorPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { tagPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { genrePuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { shelfPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { listeningEventPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { progressPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { activeSessionsPuller.pull(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { readingSessionsPuller.pull(any(), any()) } returns AppResult.Success(Unit)
             everySuspend { syncDao.getValue(SyncDao.KEY_LAST_SYNC_BOOKS) } returns null
             everySuspend { syncApi.getManifest() } returns
                 com.calypsan.listenup.client.core

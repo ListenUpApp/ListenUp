@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserReadingSessionDao
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.SyncReadingSessionReaderResponse
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -59,7 +60,7 @@ class ReadingSessionPuller(
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting reading sessions sync..." }
 
         onProgress(
@@ -116,6 +117,8 @@ class ReadingSessionPuller(
             logger.warn(e) { "Failed to sync reading sessions" }
             // Don't throw - reading sessions are not critical for sync.
         }
+
+        return AppResult.Success(Unit)
     }
 }
 

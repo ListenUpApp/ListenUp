@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.mapSuspend
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.remote.GenreApiContract
@@ -10,10 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Implementation of GenreRepository using Room and GenreApi.
+ * Implementation of [GenreRepository] using Room and GenreApi.
  *
- * Handles genre operations with API calls and local Room updates
- * for immediate reactivity.
+ * Read methods are local-only and return plain values. Server-touching
+ * write methods return [AppResult]; on success, the local cache is updated
+ * for immediate reactivity, on failure the cache is left untouched and the
+ * typed error is propagated unchanged.
  *
  * @property dao Room DAO for genre operations
  * @property genreApi API client for server genre operations
@@ -47,36 +51,30 @@ class GenreRepositoryImpl(
     override suspend fun setGenresForBook(
         bookId: String,
         genreIds: List<String>,
-    ) {
-        // Call API to update server
-        genreApi.setBookGenres(bookId, genreIds)
-
-        // Update local Room for immediate reactivity
-        dao.replaceGenresForBook(BookId(bookId), genreIds)
-    }
+    ): AppResult<Unit> =
+        genreApi
+            .setBookGenres(bookId, genreIds)
+            .mapSuspend { dao.replaceGenresForBook(BookId(bookId), genreIds) }
 
     override suspend fun createGenre(
         name: String,
         parentId: String?,
-    ): Genre = genreApi.createGenre(name, parentId)
+    ): AppResult<Genre> = genreApi.createGenre(name, parentId)
 
     override suspend fun updateGenre(
         id: String,
         name: String,
-    ): Genre = genreApi.updateGenre(id, name)
+    ): AppResult<Genre> = genreApi.updateGenre(id, name)
 
-    override suspend fun deleteGenre(id: String) {
-        genreApi.deleteGenre(id)
-        // Immediate local delete for responsiveness
-        dao.deleteById(id)
-    }
+    override suspend fun deleteGenre(id: String): AppResult<Unit> =
+        genreApi
+            .deleteGenre(id)
+            .mapSuspend { dao.deleteById(id) }
 
     override suspend fun moveGenre(
         id: String,
         newParentId: String?,
-    ) {
-        genreApi.moveGenre(id, newParentId)
-    }
+    ): AppResult<Unit> = genreApi.moveGenre(id, newParentId)
 }
 
 /**

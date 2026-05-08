@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InboxBook
@@ -15,6 +16,9 @@ import com.calypsan.listenup.client.domain.model.ServerSettings
  * Provides access to user management, invite management, and server settings.
  * Only accessible to users with admin privileges.
  *
+ * All methods return [AppResult] — callers handle [AppResult.Success] and
+ * [AppResult.Failure] directly without catching exceptions.
+ *
  * Part of the domain layer - implementations live in the data layer.
  */
 @Suppress("TooManyFunctions")
@@ -26,46 +30,48 @@ interface AdminRepository {
     /**
      * Get all approved users.
      *
-     * @return List of all approved users
+     * @return [AppResult] carrying list of all approved users, or a failure.
      */
-    suspend fun getUsers(): List<AdminUserInfo>
+    suspend fun getUsers(): AppResult<List<AdminUserInfo>>
 
     /**
      * Get all users awaiting approval.
      *
-     * @return List of pending users
+     * @return [AppResult] carrying list of pending users, or a failure.
      */
-    suspend fun getPendingUsers(): List<AdminUserInfo>
+    suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>>
 
     /**
      * Approve a pending user registration.
      *
      * @param userId The user ID to approve
-     * @return The approved user info
+     * @return [AppResult] carrying the approved user info, or a failure.
      */
-    suspend fun approveUser(userId: String): AdminUserInfo
+    suspend fun approveUser(userId: String): AppResult<AdminUserInfo>
 
     /**
      * Deny a pending user registration.
      *
      * @param userId The user ID to deny
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun denyUser(userId: String)
+    suspend fun denyUser(userId: String): AppResult<Unit>
 
     /**
      * Delete an existing user.
      *
      * @param userId The user ID to delete
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun deleteUser(userId: String)
+    suspend fun deleteUser(userId: String): AppResult<Unit>
 
     /**
      * Get a single user by ID.
      *
      * @param userId The user ID to fetch
-     * @return The user info
+     * @return [AppResult] carrying the user info, or a failure.
      */
-    suspend fun getUser(userId: String): AdminUserInfo
+    suspend fun getUser(userId: String): AppResult<AdminUserInfo>
 
     /**
      * Update a user's details and permissions.
@@ -75,7 +81,7 @@ interface AdminRepository {
      * @param lastName New last name (null to keep unchanged)
      * @param role New role (null to keep unchanged)
      * @param canShare New share permission (null to keep unchanged)
-     * @return The updated user info
+     * @return [AppResult] carrying the updated user info, or a failure.
      */
     suspend fun updateUser(
         userId: String,
@@ -83,7 +89,7 @@ interface AdminRepository {
         lastName: String? = null,
         role: String? = null,
         canShare: Boolean? = null,
-    ): AdminUserInfo
+    ): AppResult<AdminUserInfo>
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT
@@ -92,9 +98,9 @@ interface AdminRepository {
     /**
      * Get all invites (both pending and claimed).
      *
-     * @return List of all invites
+     * @return [AppResult] carrying list of all invites, or a failure.
      */
-    suspend fun getInvites(): List<InviteInfo>
+    suspend fun getInvites(): AppResult<List<InviteInfo>>
 
     /**
      * Create a new invite code.
@@ -103,21 +109,22 @@ interface AdminRepository {
      * @param email Email to restrict the invite to
      * @param role Role to assign to users who use this invite
      * @param expiresInDays Number of days until the invite expires
-     * @return The created invite
+     * @return [AppResult] carrying the created invite, or a failure.
      */
     suspend fun createInvite(
         name: String,
         email: String,
         role: String = "member",
         expiresInDays: Int = 7,
-    ): InviteInfo
+    ): AppResult<InviteInfo>
 
     /**
      * Delete/revoke an invite.
      *
      * @param inviteId The invite ID to delete
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun deleteInvite(inviteId: String)
+    suspend fun deleteInvite(inviteId: String): AppResult<Unit>
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER SETTINGS
@@ -129,25 +136,35 @@ interface AdminRepository {
      * When enabled, new users can register without an invite.
      *
      * @param enabled True to enable open registration
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun setOpenRegistration(enabled: Boolean)
+    suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit>
 
     /**
      * Get server settings.
      *
-     * @return Current server settings including inbox status
+     * @return [AppResult] carrying current server settings including inbox status, or a failure.
      */
-    suspend fun getServerSettings(): ServerSettings
+    suspend fun getServerSettings(): AppResult<ServerSettings>
 
     /**
      * Update instance settings (remote URL, name).
+     *
+     * @return [AppResult] carrying the updated remote URL (may be null), or a failure.
      */
-    suspend fun updateInstanceRemoteUrl(remoteUrl: String): String?
+    suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?>
 
+    /**
+     * Update server-wide settings.
+     *
+     * @param serverName New server display name (null to keep unchanged)
+     * @param inboxEnabled New inbox workflow state (null to keep unchanged)
+     * @return [AppResult] carrying updated server settings, or a failure.
+     */
     suspend fun updateServerSettings(
         serverName: String? = null,
         inboxEnabled: Boolean? = null,
-    ): ServerSettings
+    ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════
     // INBOX MANAGEMENT
@@ -156,9 +173,9 @@ interface AdminRepository {
     /**
      * Get all books in the inbox.
      *
-     * @return List of inbox books awaiting review
+     * @return [AppResult] carrying list of inbox books awaiting review, or a failure.
      */
-    suspend fun getInboxBooks(): List<InboxBook>
+    suspend fun getInboxBooks(): AppResult<List<InboxBook>>
 
     /**
      * Release books from inbox.
@@ -167,9 +184,9 @@ interface AdminRepository {
      * in their staged collections).
      *
      * @param bookIds List of book IDs to release
-     * @return Release result with counts
+     * @return [AppResult] carrying release result with counts, or a failure.
      */
-    suspend fun releaseBooks(bookIds: List<String>): InboxReleaseResult
+    suspend fun releaseBooks(bookIds: List<String>): AppResult<InboxReleaseResult>
 
     /**
      * Stage a collection for an inbox book.
@@ -178,22 +195,24 @@ interface AdminRepository {
      *
      * @param bookId The inbox book ID
      * @param collectionId The collection to stage
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
     suspend fun stageCollection(
         bookId: String,
         collectionId: String,
-    )
+    ): AppResult<Unit>
 
     /**
      * Remove a staged collection from an inbox book.
      *
      * @param bookId The inbox book ID
      * @param collectionId The collection to unstage
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
     suspend fun unstageCollection(
         bookId: String,
         collectionId: String,
-    )
+    ): AppResult<Unit>
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
@@ -202,17 +221,17 @@ interface AdminRepository {
     /**
      * Get all libraries.
      *
-     * @return List of all libraries
+     * @return [AppResult] carrying list of all libraries, or a failure.
      */
-    suspend fun getLibraries(): List<Library>
+    suspend fun getLibraries(): AppResult<List<Library>>
 
     /**
      * Get a specific library.
      *
      * @param libraryId The library ID
-     * @return The library
+     * @return [AppResult] carrying the library, or a failure.
      */
-    suspend fun getLibrary(libraryId: String): Library
+    suspend fun getLibrary(libraryId: String): AppResult<Library>
 
     /**
      * Update library settings.
@@ -221,51 +240,52 @@ interface AdminRepository {
      * @param name New library name (null to keep unchanged)
      * @param skipInbox New inbox skip setting (null to keep unchanged)
      * @param accessMode New access mode (null to keep unchanged)
-     * @return The updated library
+     * @return [AppResult] carrying the updated library, or a failure.
      */
     suspend fun updateLibrary(
         libraryId: String,
         name: String? = null,
         skipInbox: Boolean? = null,
         accessMode: AccessMode? = null,
-    ): Library
+    ): AppResult<Library>
 
     /**
      * Add a scan path to a library.
      *
      * @param libraryId The library ID
      * @param path Absolute filesystem path to add
-     * @return The updated library
+     * @return [AppResult] carrying the updated library, or a failure.
      */
     suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): Library
+    ): AppResult<Library>
 
     /**
      * Remove a scan path from a library.
      *
      * @param libraryId The library ID
      * @param path The scan path to remove
-     * @return The updated library
+     * @return [AppResult] carrying the updated library, or a failure.
      */
     suspend fun removeScanPath(
         libraryId: String,
         path: String,
-    ): Library
+    ): AppResult<Library>
 
     /**
      * Trigger a manual library rescan.
      *
      * @param libraryId The library ID
+     * @return [AppResult] carrying [Unit] on success, or a failure.
      */
-    suspend fun triggerScan(libraryId: String)
+    suspend fun triggerScan(libraryId: String): AppResult<Unit>
 
     /**
      * Browse the server filesystem.
      *
      * @param path Directory path to browse
-     * @return Directory listing
+     * @return [AppResult] carrying directory listing, or a failure.
      */
-    suspend fun browseFilesystem(path: String): BrowseFilesystemResponse
+    suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse>
 }

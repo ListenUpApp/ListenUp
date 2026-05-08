@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.data.sync.push
 
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.data.local.db.OperationStatus
 import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PendingOperationEntity
@@ -9,7 +11,6 @@ import com.calypsan.listenup.client.data.remote.ShelfApiContract
 import com.calypsan.listenup.client.data.remote.ShelfOwnerResponse
 import com.calypsan.listenup.client.data.remote.ShelfResponse
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
@@ -22,7 +23,7 @@ import kotlin.test.assertIs
  *
  * Each handler:
  * - Success path: verifies the correct API method is called and Success(Unit) is returned.
- * - Failure path: verifies that a thrown exception is converted to Failure.
+ * - Failure path: verifies that an API failure is propagated as Failure.
  */
 class ShelfHandlersTest {
     private val owner =
@@ -39,6 +40,8 @@ class ShelfHandlersTest {
             createdAt = "2024-01-01T00:00:00Z",
             updatedAt = "2024-01-01T00:00:00Z",
         )
+
+    private val apiFailure = AppResult.Failure(TransportError.NetworkUnavailable())
 
     private fun pendingOp(type: OperationType): PendingOperationEntity =
         PendingOperationEntity(
@@ -61,7 +64,7 @@ class ShelfHandlersTest {
     fun `CreateShelfHandler execute - success - calls createShelf and returns Success`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.createShelf("My Shelf", "A description") } returns shelfResponse
+            everySuspend { api.createShelf("My Shelf", "A description") } returns AppResult.Success(shelfResponse)
 
             val handler = CreateShelfHandler(api)
             val payload = CreateShelfPayload(localId = "local-1", name = "My Shelf", description = "A description")
@@ -75,7 +78,7 @@ class ShelfHandlersTest {
     fun `CreateShelfHandler execute - failure - returns Failure`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.createShelf("My Shelf", null) } throws RuntimeException("network error")
+            everySuspend { api.createShelf("My Shelf", null) } returns apiFailure
 
             val handler = CreateShelfHandler(api)
             val payload = CreateShelfPayload(localId = "local-1", name = "My Shelf", description = null)
@@ -90,7 +93,7 @@ class ShelfHandlersTest {
     fun `UpdateShelfHandler execute - success - calls updateShelf and returns Success`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.updateShelf("shelf-1", "Renamed", null) } returns shelfResponse
+            everySuspend { api.updateShelf("shelf-1", "Renamed", null) } returns AppResult.Success(shelfResponse)
 
             val handler = UpdateShelfHandler(api)
             val payload = UpdateShelfPayload(shelfId = "shelf-1", name = "Renamed", description = null)
@@ -104,7 +107,7 @@ class ShelfHandlersTest {
     fun `UpdateShelfHandler execute - failure - returns Failure`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.updateShelf("shelf-1", "Renamed", null) } throws RuntimeException("network error")
+            everySuspend { api.updateShelf("shelf-1", "Renamed", null) } returns apiFailure
 
             val handler = UpdateShelfHandler(api)
             val payload = UpdateShelfPayload(shelfId = "shelf-1", name = "Renamed", description = null)
@@ -119,7 +122,7 @@ class ShelfHandlersTest {
     fun `DeleteShelfHandler execute - success - calls deleteShelf and returns Success`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.deleteShelf("shelf-1") } returns Unit
+            everySuspend { api.deleteShelf("shelf-1") } returns AppResult.Success(Unit)
 
             val handler = DeleteShelfHandler(api)
             val payload = DeleteShelfPayload(shelfId = "shelf-1")
@@ -133,7 +136,7 @@ class ShelfHandlersTest {
     fun `DeleteShelfHandler execute - failure - returns Failure`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.deleteShelf("shelf-1") } throws RuntimeException("network error")
+            everySuspend { api.deleteShelf("shelf-1") } returns apiFailure
 
             val handler = DeleteShelfHandler(api)
             val payload = DeleteShelfPayload(shelfId = "shelf-1")
@@ -149,7 +152,7 @@ class ShelfHandlersTest {
         runTest {
             val api: ShelfApiContract = mock()
             val bookIds = listOf("book-1", "book-2")
-            everySuspend { api.addBooks("shelf-1", bookIds) } returns Unit
+            everySuspend { api.addBooks("shelf-1", bookIds) } returns AppResult.Success(Unit)
 
             val handler = AddBooksToShelfHandler(api)
             val payload = AddBooksToShelfPayload(shelfId = "shelf-1", bookIds = bookIds)
@@ -164,7 +167,7 @@ class ShelfHandlersTest {
         runTest {
             val api: ShelfApiContract = mock()
             val bookIds = listOf("book-1")
-            everySuspend { api.addBooks("shelf-1", bookIds) } throws RuntimeException("network error")
+            everySuspend { api.addBooks("shelf-1", bookIds) } returns apiFailure
 
             val handler = AddBooksToShelfHandler(api)
             val payload = AddBooksToShelfPayload(shelfId = "shelf-1", bookIds = bookIds)
@@ -179,7 +182,7 @@ class ShelfHandlersTest {
     fun `RemoveBookFromShelfHandler execute - success - calls removeBook and returns Success`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.removeBook("shelf-1", "book-1") } returns Unit
+            everySuspend { api.removeBook("shelf-1", "book-1") } returns AppResult.Success(Unit)
 
             val handler = RemoveBookFromShelfHandler(api)
             val payload = RemoveBookFromShelfPayload(shelfId = "shelf-1", bookId = "book-1")
@@ -193,7 +196,7 @@ class ShelfHandlersTest {
     fun `RemoveBookFromShelfHandler execute - failure - returns Failure`() =
         runTest {
             val api: ShelfApiContract = mock()
-            everySuspend { api.removeBook("shelf-1", "book-1") } throws RuntimeException("network error")
+            everySuspend { api.removeBook("shelf-1", "book-1") } returns apiFailure
 
             val handler = RemoveBookFromShelfHandler(api)
             val payload = RemoveBookFromShelfPayload(shelfId = "shelf-1", bookId = "book-1")

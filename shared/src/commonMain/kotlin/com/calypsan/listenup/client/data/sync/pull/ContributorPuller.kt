@@ -8,9 +8,9 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.toEntity
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.sync.model.SyncPhase
 import com.calypsan.listenup.client.data.sync.model.SyncStatus
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -33,116 +33,118 @@ class ContributorPuller(
     /**
      * Pull all contributors from server with pagination.
      *
+     * Returns [AppResult.Success] once all pages are fetched and persisted.
+     * Returns [AppResult.Failure] on the first network or server error — the caller
+     * is responsible for logging and retry decisions.
+     *
      * @param updatedAfter ISO timestamp for delta sync, null for full sync
      * @param onProgress Callback for progress updates
      */
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         var cursor: String? = null
         var hasMore = true
         val limit = 100
         var itemsSynced = 0
         var totalDeleted = 0
+        val contributorsWithImages = mutableListOf<String>()
 
-        val contributorsWithImages =
-            buildList {
-                while (hasMore) {
-                    when (
-                        val result =
-                            syncApi.getContributors(
-                                limit = limit,
-                                cursor = cursor,
-                                updatedAfter = updatedAfter,
-                            )
-                    ) {
-                        is Success -> {
-                            val response = result.data
-                            cursor = response.nextCursor
-                            hasMore = response.hasMore
+        while (hasMore) {
+            when (
+                val result =
+                    syncApi.getContributors(
+                        limit = limit,
+                        cursor = cursor,
+                        updatedAfter = updatedAfter,
+                    )
+            ) {
+                is Success -> {
+                    val response = result.data
+                    cursor = response.nextCursor
+                    hasMore = response.hasMore
 
-                            val serverContributors = response.contributors.map { it.toEntity() }
-                            val deletedContributorIds = response.deletedContributorIds
+                    val serverContributors = response.contributors.map { it.toEntity() }
+                    val deletedContributorIds = response.deletedContributorIds
 
-                            // Track contributors with images for later download
-                            response.contributors
-                                .filter { !it.imageUrl.isNullOrBlank() }
-                                .forEach { add(it.id) }
+                    // Track contributors with images for later download
+                    response.contributors
+                        .filter { !it.imageUrl.isNullOrBlank() }
+                        .forEach { contributorsWithImages.add(it.id) }
 
-                            logger.debug {
-                                "Fetched batch: ${serverContributors.size} contributors, ${deletedContributorIds.size} deletions"
-                            }
+                    logger.debug {
+                        "Fetched batch: ${serverContributors.size} contributors, ${deletedContributorIds.size} deletions"
+                    }
 
-                            // Handle deletions
-                            if (deletedContributorIds.isNotEmpty()) {
-                                contributorDao.deleteByIds(deletedContributorIds)
-                                totalDeleted += deletedContributorIds.size
-                                logger.info { "Removed ${deletedContributorIds.size} contributors deleted on server" }
-                            }
+                    // Handle deletions
+                    if (deletedContributorIds.isNotEmpty()) {
+                        contributorDao.deleteByIds(deletedContributorIds)
+                        totalDeleted += deletedContributorIds.size
+                        logger.info { "Removed ${deletedContributorIds.size} contributors deleted on server" }
+                    }
 
-                            if (serverContributors.isNotEmpty()) {
-                                // Preserve existing local imagePath — the server entity has
-                                // imagePath=null because image URLs need local download first.
-                                // Without this, sync overwrites downloaded images with null.
-                                val existingIds = serverContributors.map { it.id.value }
-                                val existingPaths =
-                                    existingIds
-                                        .mapNotNull { id ->
-                                            contributorDao.getById(id)?.let { it.id.value to it.imagePath }
-                                        }.toMap()
+                    if (serverContributors.isNotEmpty()) {
+                        // Preserve existing local imagePath — the server entity has
+                        // imagePath=null because image URLs need local download first.
+                        // Without this, sync overwrites downloaded images with null.
+                        val existingIds = serverContributors.map { it.id.value }
+                        val existingPaths =
+                            existingIds
+                                .mapNotNull { id ->
+                                    contributorDao.getById(id)?.let { it.id.value to it.imagePath }
+                                }.toMap()
 
-                                val merged =
-                                    serverContributors.map { entity ->
-                                        val existingPath = existingPaths[entity.id.value]
-                                        if (entity.imagePath == null && existingPath != null) {
-                                            entity.copy(imagePath = existingPath)
-                                        } else {
-                                            entity
-                                        }
-                                    }
-
-                                val aliasRows =
-                                    response.contributors.flatMap { resp ->
-                                        resp.aliases
-                                            .orEmpty()
-                                            .distinctBy { it.lowercase() }
-                                            .map {
-                                                ContributorAliasCrossRef(
-                                                    contributorId = ContributorId(resp.id),
-                                                    alias = it,
-                                                )
-                                            }
-                                    }
-
-                                transactionRunner.atomically {
-                                    contributorDao.upsertAll(merged)
-                                    merged.forEach { entity ->
-                                        contributorAliasDao.deleteForContributor(entity.id.value)
-                                    }
-                                    if (aliasRows.isNotEmpty()) {
-                                        contributorAliasDao.insertAll(aliasRows)
-                                    }
+                        val merged =
+                            serverContributors.map { entity ->
+                                val existingPath = existingPaths[entity.id.value]
+                                if (entity.imagePath == null && existingPath != null) {
+                                    entity.copy(imagePath = existingPath)
+                                } else {
+                                    entity
                                 }
                             }
 
-                            itemsSynced += serverContributors.size + deletedContributorIds.size
-                            onProgress(
-                                SyncStatus.Progress(
-                                    phase = SyncPhase.SYNCING_CONTRIBUTORS,
-                                    phaseItemsSynced = itemsSynced,
-                                    phaseTotalItems = -1,
-                                    message = "Syncing contributors: $itemsSynced synced...",
-                                ),
-                            )
-                        }
+                        val aliasRows =
+                            response.contributors.flatMap { resp ->
+                                resp.aliases
+                                    .orEmpty()
+                                    .distinctBy { it.lowercase() }
+                                    .map {
+                                        ContributorAliasCrossRef(
+                                            contributorId = ContributorId(resp.id),
+                                            alias = it,
+                                        )
+                                    }
+                            }
 
-                        is Failure -> {
-                            throw AppException(result.error)
+                        transactionRunner.atomically {
+                            contributorDao.upsertAll(merged)
+                            merged.forEach { entity ->
+                                contributorAliasDao.deleteForContributor(entity.id.value)
+                            }
+                            if (aliasRows.isNotEmpty()) {
+                                contributorAliasDao.insertAll(aliasRows)
+                            }
                         }
                     }
+
+                    itemsSynced += serverContributors.size + deletedContributorIds.size
+                    onProgress(
+                        SyncStatus.Progress(
+                            phase = SyncPhase.SYNCING_CONTRIBUTORS,
+                            phaseItemsSynced = itemsSynced,
+                            phaseTotalItems = -1,
+                            message = "Syncing contributors: $itemsSynced synced...",
+                        ),
+                    )
+                }
+
+                is Failure -> {
+                    return result
                 }
             }
+        }
 
         logger.info { "Contributors sync complete: $itemsSynced items processed" }
 
@@ -163,5 +165,7 @@ class ContributorPuller(
                 }
             }
         }
+
+        return AppResult.Success(Unit)
     }
 }

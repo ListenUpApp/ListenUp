@@ -3,7 +3,9 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.flatten
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.flatMap
 import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.AllProgressResponse
@@ -31,8 +33,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Failure
 
 private const val RESUME_PROGRESS_REQUEST_TIMEOUT_MS = 3_000L
 
@@ -67,12 +67,9 @@ class SyncApi(
      * @return Result containing SyncManifestResponse or error
      */
     override suspend fun getManifest(): AppResult<SyncManifestResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<SyncManifestResponse> =
-                client.get("/api/v1/sync/manifest").body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to fetch sync manifest") {
+            clientFactory.getClient().get("/api/v1/sync/manifest").body()
+        }
 
     /**
      * Fetch paginated books for syncing.
@@ -93,17 +90,15 @@ class SyncApi(
         cursor: String?,
         updatedAfter: String?,
     ): AppResult<SyncBooksResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<SyncBooksResponse> =
-                client
-                    .get("/api/v1/sync/books") {
-                        parameter("limit", limit)
-                        cursor?.let { parameter("cursor", it) }
-                        updatedAfter?.let { parameter("updated_after", it) }
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to fetch books for sync") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/sync/books") {
+                    parameter("limit", limit)
+                    cursor?.let { parameter("cursor", it) }
+                    updatedAfter?.let { parameter("updated_after", it) }
+                }.body()
+        }
 
     /**
      * Fetch all books/changes across all pages.
@@ -156,17 +151,15 @@ class SyncApi(
         cursor: String?,
         updatedAfter: String?,
     ): AppResult<SyncSeriesResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<SyncSeriesResponse> =
-                client
-                    .get("/api/v1/sync/series") {
-                        parameter("limit", limit)
-                        cursor?.let { parameter("cursor", it) }
-                        updatedAfter?.let { parameter("updated_after", it) }
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to fetch series for sync") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/sync/series") {
+                    parameter("limit", limit)
+                    cursor?.let { parameter("cursor", it) }
+                    updatedAfter?.let { parameter("updated_after", it) }
+                }.body()
+        }
 
     override suspend fun getAllSeries(
         limit: Int,
@@ -201,17 +194,15 @@ class SyncApi(
         cursor: String?,
         updatedAfter: String?,
     ): AppResult<SyncContributorsResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<SyncContributorsResponse> =
-                client
-                    .get("/api/v1/sync/contributors") {
-                        parameter("limit", limit)
-                        cursor?.let { parameter("cursor", it) }
-                        updatedAfter?.let { parameter("updated_after", it) }
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to fetch contributors for sync") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/sync/contributors") {
+                    parameter("limit", limit)
+                    cursor?.let { parameter("cursor", it) }
+                    updatedAfter?.let { parameter("updated_after", it) }
+                }.body()
+        }
 
     override suspend fun getAllContributors(
         limit: Int,
@@ -253,16 +244,14 @@ class SyncApi(
     override suspend fun submitListeningEvents(
         events: List<ListeningEventRequest>,
     ): AppResult<ListeningEventsResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<ListeningEventsResponse> =
-                client
-                    .post("/api/v1/listening/events") {
-                        contentType(ContentType.Application.Json)
-                        setBody(ListeningEventsRequest(events = events))
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to submit listening events") {
+            clientFactory
+                .getClient()
+                .post("/api/v1/listening/events") {
+                    contentType(ContentType.Application.Json)
+                    setBody(ListeningEventsRequest(events = events))
+                }.body()
+        }
 
     /**
      * Get playback progress for a specific book.
@@ -278,9 +267,8 @@ class SyncApi(
      */
     override suspend fun getProgress(bookId: String): AppResult<PlaybackProgressResponse?> =
         suspendRunCatching {
-            val client = clientFactory.getClient()
             val httpResponse: HttpResponse =
-                client.get("/api/v1/books/$bookId/progress") {
+                clientFactory.getClient().get("/api/v1/books/$bookId/progress") {
                     // Bound to 3 s: resume must not block ExoPlayer prepare while the
                     // server is slow or unreachable (global client default is 30 s).
                     timeout { requestTimeoutMillis = RESUME_PROGRESS_REQUEST_TIMEOUT_MS }
@@ -288,12 +276,12 @@ class SyncApi(
 
             // Handle 404 as null (no progress yet)
             if (httpResponse.status == HttpStatusCode.NotFound) {
-                Success<PlaybackProgressResponse?>(null)
+                AppResult.Success<PlaybackProgressResponse?>(null)
             } else {
                 val response: ApiResponse<PlaybackProgressResponse> = httpResponse.body()
-                response.toResult()
+                response.dataOrFailure("Failed to fetch playback progress")
             }
-        }.flatten()
+        }.flatMap { it }
 
     /**
      * Get list of books with playback progress (Continue Listening).
@@ -308,26 +296,22 @@ class SyncApi(
      * @return Result containing list of ContinueListeningItemResponse
      */
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningItemResponse>> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<ContinueListeningResponse> =
-                client
-                    .get("/api/v1/listening/continue") {
-                        parameter("limit", limit)
-                    }.body()
-            response.toResult()
-        }.flatten().map { it.items }
+        apiCall<ContinueListeningResponse>(errorMessage = "Failed to fetch continue listening") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/listening/continue") {
+                    parameter("limit", limit)
+                }.body()
+        }.map { it.items }
 
     override suspend fun getAllProgress(updatedAfter: String?): AppResult<AllProgressResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<AllProgressResponse> =
-                client
-                    .get("/api/v1/listening/progress") {
-                        updatedAfter?.let { parameter("updated_after", it) }
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to fetch playback progress") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/listening/progress") {
+                    updatedAfter?.let { parameter("updated_after", it) }
+                }.body()
+        }
 
     /**
      * Get a single book by ID.
@@ -344,12 +328,11 @@ class SyncApi(
     override suspend fun getBook(
         bookId: String,
     ): AppResult<com.calypsan.listenup.client.data.remote.model.BookResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<com.calypsan.listenup.client.data.remote.model.SingleBookResponse> =
-                client.get("/api/v1/books/$bookId").body()
-            response.toResult()
-        }.flatten().map { it.toBookResponse() }
+        apiCall<com.calypsan.listenup.client.data.remote.model.SingleBookResponse>(
+            errorMessage = "Failed to fetch book $bookId",
+        ) {
+            clientFactory.getClient().get("/api/v1/books/$bookId").body()
+        }.map { it.toBookResponse() }
 
     /**
      * Get listening events for initial sync.
@@ -364,15 +347,13 @@ class SyncApi(
      * @return Result containing list of listening events
      */
     override suspend fun getListeningEvents(sinceMs: Long?): AppResult<ListeningEventsApiResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<SyncListeningEventsResponse> =
-                client
-                    .get("/api/v1/listening/events") {
-                        sinceMs?.let { parameter("since", it) }
-                    }.body()
-            response.toResult()
-        }.flatten().map { syncResponse ->
+        apiCall<SyncListeningEventsResponse>(errorMessage = "Failed to fetch listening events") {
+            clientFactory
+                .getClient()
+                .get("/api/v1/listening/events") {
+                    sinceMs?.let { parameter("since", it) }
+                }.body()
+        }.map { syncResponse ->
             ListeningEventsApiResponse(
                 events =
                     syncResponse.events.map { event ->
@@ -408,8 +389,7 @@ class SyncApi(
         durationMs: Long,
     ): AppResult<Unit> =
         suspendRunCatching {
-            val client = clientFactory.getClient()
-            client.post("/api/v1/listening/session/end") {
+            clientFactory.getClient().post("/api/v1/listening/session/end") {
                 contentType(ContentType.Application.Json)
                 setBody(EndPlaybackSessionRequest(bookId = bookId, durationMs = durationMs))
             }
@@ -422,12 +402,9 @@ class SyncApi(
      * Auth: Required
      */
     override suspend fun getActiveSessions(): AppResult<SyncActiveSessionsResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<ApiActiveSessions> =
-                client.get("/api/v1/sync/active-sessions").body()
-            response.toResult()
-        }.flatten().map { apiSessions ->
+        apiCall<ApiActiveSessions>(errorMessage = "Failed to fetch active sessions") {
+            clientFactory.getClient().get("/api/v1/sync/active-sessions").body()
+        }.map { apiSessions ->
             SyncActiveSessionsResponse(
                 sessions =
                     apiSessions.sessions.map { session ->
@@ -453,12 +430,9 @@ class SyncApi(
      * Auth: Required
      */
     override suspend fun getReadingSessions(): AppResult<SyncReadingSessionsResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<ApiReadingSessions> =
-                client.get("/api/v1/sync/reading-sessions").body()
-            response.toResult()
-        }.flatten().map { apiSessions ->
+        apiCall<ApiReadingSessions>(errorMessage = "Failed to fetch reading sessions") {
+            clientFactory.getClient().get("/api/v1/sync/reading-sessions").body()
+        }.map { apiSessions ->
             SyncReadingSessionsResponse(
                 readers =
                     apiSessions.readers.map { reader ->
@@ -491,18 +465,16 @@ class SyncApi(
         startedAt: String?,
         finishedAt: String?,
     ): AppResult<PlaybackProgressResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<PlaybackProgressResponse> =
-                client
-                    .post("/api/v1/books/$bookId/progress/complete") {
-                        contentType(ContentType.Application.Json)
-                        if (startedAt != null || finishedAt != null) {
-                            setBody(MarkCompleteRequest(startedAt = startedAt, finishedAt = finishedAt))
-                        }
-                    }.body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to mark book $bookId as complete") {
+            clientFactory
+                .getClient()
+                .post("/api/v1/books/$bookId/progress/complete") {
+                    contentType(ContentType.Application.Json)
+                    if (startedAt != null || finishedAt != null) {
+                        setBody(MarkCompleteRequest(startedAt = startedAt, finishedAt = finishedAt))
+                    }
+                }.body()
+        }
 
     /**
      * Discard all progress for a book.
@@ -515,8 +487,7 @@ class SyncApi(
         keepHistory: Boolean,
     ): AppResult<Unit> =
         suspendRunCatching {
-            val client = clientFactory.getClient()
-            client.delete("/api/v1/books/$bookId/progress/discard") {
+            clientFactory.getClient().delete("/api/v1/books/$bookId/progress/discard") {
                 parameter("keep_history", keepHistory)
             }
         }
@@ -528,12 +499,9 @@ class SyncApi(
      * Auth: Required
      */
     override suspend fun restartBook(bookId: String): AppResult<PlaybackProgressResponse> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val response: ApiResponse<PlaybackProgressResponse> =
-                client.post("/api/v1/books/$bookId/progress/restart").body()
-            response.toResult()
-        }.flatten()
+        apiCall(errorMessage = "Failed to restart book $bookId") {
+            clientFactory.getClient().post("/api/v1/books/$bookId/progress/restart").body()
+        }
 }
 
 /**

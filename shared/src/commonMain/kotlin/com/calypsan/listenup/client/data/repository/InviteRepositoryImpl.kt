@@ -5,6 +5,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.InviteClaimedUser
 import com.calypsan.listenup.client.domain.model.InviteDetails
@@ -30,23 +32,35 @@ class InviteRepositoryImpl(
     override suspend fun getInviteDetails(
         serverUrl: String,
         code: String,
-    ): InviteDetails = inviteApi.getInviteDetails(serverUrl, code).toDomain()
+    ): AppResult<InviteDetails> =
+        inviteApi
+            .getInviteDetails(serverUrl, code)
+            .map { it.toDomain() }
 
     override suspend fun claimInvite(
         serverUrl: String,
         code: String,
         password: String,
-    ): User {
-        val response = inviteApi.claimInvite(serverUrl, code, password)
-        authSession.saveAuthTokens(
-            access = AccessToken(response.accessToken),
-            refresh = RefreshToken(response.refreshToken),
-            sessionId = response.sessionId,
-            userId = response.userId,
-        )
-        val user = response.user.toDomain()
-        userRepository.saveUser(user)
-        return user
+    ): AppResult<User> {
+        val result = inviteApi.claimInvite(serverUrl, code, password)
+        return when (result) {
+            is AppResult.Success -> {
+                val response = result.data
+                authSession.saveAuthTokens(
+                    access = AccessToken(response.accessToken),
+                    refresh = RefreshToken(response.refreshToken),
+                    sessionId = response.sessionId,
+                    userId = response.userId,
+                )
+                val user = response.user.toDomain()
+                userRepository.saveUser(user)
+                AppResult.Success(user)
+            }
+
+            is AppResult.Failure -> {
+                result
+            }
+        }
     }
 }
 

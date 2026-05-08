@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
@@ -28,7 +27,6 @@ import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
 import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
-import com.calypsan.listenup.client.core.error.AppException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -147,44 +145,50 @@ class ContributorRepositoryImpl(
             )
         }
 
-        // Try server search if online
+        // Try server search if online; on Failure fall back to local FTS (never-stranded pattern)
         if (networkMonitor.isOnline()) {
-            try {
-                return searchServer(sanitizedQuery, limit)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Server contributor search failed, falling back to local FTS" }
-            }
+            val serverResult = searchServer(sanitizedQuery, limit)
+            if (serverResult != null) return serverResult
         }
 
         // Offline or server failed - use local FTS
         return searchLocal(sanitizedQuery, limit)
     }
 
+    /**
+     * Attempt a server-side contributor search. Returns `null` on [AppResult.Failure] so the
+     * caller can fall back to local FTS (never-stranded pattern). CancellationException is
+     * re-thrown so coroutine cancellation is never swallowed.
+     */
     private suspend fun searchServer(
         query: String,
         limit: Int,
-    ): ContributorSearchResponse =
+    ): ContributorSearchResponse? =
         withContext(IODispatcher) {
-            val (contributors, duration) =
-                measureTimedValue {
-                    when (val result = api.searchContributors(query, limit)) {
-                        is Success -> result.data.map { it.toDomain() }
-                        is Failure -> throw AppException(result.error)
+            val (result, duration) =
+                measureTimedValue { api.searchContributors(query, limit) }
+
+            when (result) {
+                is Success -> {
+                    val contributors = result.data.map { it.toDomain() }
+                    logger.debug {
+                        "Server contributor search: query='$query', " +
+                            "results=${contributors.size}, took=${duration.inWholeMilliseconds}ms"
                     }
+                    ContributorSearchResponse(
+                        contributors = contributors,
+                        isOfflineResult = false,
+                        tookMs = duration.inWholeMilliseconds,
+                    )
                 }
 
-            logger.debug {
-                "Server contributor search: query='$query', " +
-                    "results=${contributors.size}, took=${duration.inWholeMilliseconds}ms"
+                is Failure -> {
+                    logger.warn {
+                        "Server contributor search failed, falling back to local FTS: ${result.error.message}"
+                    }
+                    null
+                }
             }
-
-            ContributorSearchResponse(
-                contributors = contributors,
-                isOfflineResult = false,
-                tookMs = duration.inWholeMilliseconds,
-            )
         }
 
     private suspend fun searchLocal(
@@ -229,10 +233,9 @@ class ContributorRepositoryImpl(
     }
 
     override suspend fun deleteContributor(contributorId: String): AppResult<Unit> =
-        suspendRunCatching {
-            withContext(IODispatcher) {
-                api.deleteContributor(contributorId)
-                logger.info { "Deleted contributor $contributorId" }
+        withContext(IODispatcher) {
+            api.deleteContributor(contributorId).also { result ->
+                if (result is Success) logger.info { "Deleted contributor $contributorId" }
             }
         }
 

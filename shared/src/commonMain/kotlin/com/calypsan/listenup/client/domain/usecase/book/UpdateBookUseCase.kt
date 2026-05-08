@@ -97,8 +97,17 @@ open class UpdateBookUseCase(
             }
         }
 
+        if (changes.genresChanged) {
+            when (val result = updateGenres(current)) {
+                is Success -> {}
+
+                is Failure -> {
+                    return result
+                }
+            }
+        }
+
         return suspendRunCatching {
-            if (changes.genresChanged) updateGenres(current)
             if (changes.tagsChanged) updateTags(current, original)
             if (changes.coverChanged) commitAndUploadCover(current)
             logger.info { "Book ${current.bookId} saved successfully" }
@@ -168,10 +177,10 @@ open class UpdateBookUseCase(
         return bookEditRepository.setBookSeries(current.bookId, seriesInputs)
     }
 
-    private suspend fun updateGenres(current: BookUpdateRequest) {
+    private suspend fun updateGenres(current: BookUpdateRequest): AppResult<Unit> {
         logger.debug { "Updating genres for book ${current.bookId}" }
 
-        genreRepository.setGenresForBook(
+        return genreRepository.setGenresForBook(
             bookId = current.bookId,
             genreIds = current.genres.map { it.id },
         )
@@ -190,12 +199,12 @@ open class UpdateBookUseCase(
         val removedSlugs = originalSlugs - currentSlugs
         for (slug in removedSlugs) {
             val tagId = original.tags.find { it.slug == slug }?.id ?: continue
-            try {
-                tagRepository.removeTagFromBook(current.bookId, slug, tagId)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to remove tag '$slug' from book ${current.bookId}" }
+            when (val result = tagRepository.removeTagFromBook(current.bookId, slug, tagId)) {
+                is AppResult.Success -> { /* ok */ }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to remove tag '$slug' from book ${current.bookId}: ${result.error.message}" }
+                }
                 // Continue with other tags - tag removal is non-critical
             }
         }
@@ -203,12 +212,12 @@ open class UpdateBookUseCase(
         // Add new tags
         val addedSlugs = currentSlugs - originalSlugs
         for (slug in addedSlugs) {
-            try {
-                tagRepository.addTagToBook(current.bookId, slug)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to add tag '$slug' to book ${current.bookId}" }
+            when (val result = tagRepository.addTagToBook(current.bookId, slug)) {
+                is AppResult.Success -> { /* ok */ }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to add tag '$slug' to book ${current.bookId}: ${result.error.message}" }
+                }
                 // Continue with other tags - tag addition is non-critical
             }
         }

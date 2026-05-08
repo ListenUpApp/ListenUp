@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.pull
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.remote.GenreApiContract
@@ -24,13 +25,16 @@ class GenrePuller(
     /**
      * Pull global genres from server.
      *
+     * Non-critical — failures are logged and [AppResult.Success] is still returned
+     * so the surrounding sync cycle is not aborted.
+     *
      * @param updatedAfter ISO timestamp for delta sync (currently ignored - full sync only)
      * @param onProgress Callback for progress updates
      */
     override suspend fun pull(
         updatedAfter: String?,
         onProgress: (SyncStatus) -> Unit,
-    ) {
+    ): AppResult<Unit> {
         logger.debug { "Starting genre sync..." }
 
         onProgress(
@@ -42,23 +46,27 @@ class GenrePuller(
             ),
         )
 
-        try {
-            val genres = genreApi.listGenres()
-            logger.info { "Fetched ${genres.size} global genres" }
+        when (val result = genreApi.listGenres()) {
+            is AppResult.Failure -> {
+                logger.warn { "Failed to fetch global genres: ${result.error.message}" }
+                // Don't propagate — genres are not critical for sync
+            }
 
-            // Build path-to-ID lookup for resolving parent genres
-            val pathToId = genres.associate { it.path to it.id }
+            is AppResult.Success -> {
+                val genres = result.data
+                logger.info { "Fetched ${genres.size} global genres" }
 
-            // Convert to entities and upsert
-            val genreEntities = genres.map { it.toEntity(pathToId) }
-            genreDao.upsertAll(genreEntities)
-            logger.info { "Genre sync complete: ${genreEntities.size} genres synced" }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to fetch global genres" }
-            // Don't throw - genres are not critical for sync
+                // Build path-to-ID lookup for resolving parent genres
+                val pathToId = genres.associate { it.path to it.id }
+
+                // Convert to entities and upsert
+                val genreEntities = genres.map { it.toEntity(pathToId) }
+                genreDao.upsertAll(genreEntities)
+                logger.info { "Genre sync complete: ${genreEntities.size} genres synced" }
+            }
         }
+
+        return AppResult.Success(Unit)
     }
 
     /**

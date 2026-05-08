@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.FileSource
 import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
@@ -25,42 +26,42 @@ interface BackupApiContract {
      *
      * @param includeImages Include cover images and avatars (increases size)
      * @param includeEvents Include listening events (required for history)
-     * @return Backup metadata
+     * @return [AppResult] wrapping backup metadata, or a typed [com.calypsan.listenup.api.error.AppError] on failure.
      */
     suspend fun createBackup(
         includeImages: Boolean = false,
         includeEvents: Boolean = true,
-    ): BackupResponse
+    ): AppResult<BackupResponse>
 
     /**
      * List all available backups.
      */
-    suspend fun listBackups(): List<BackupResponse>
+    suspend fun listBackups(): AppResult<List<BackupResponse>>
 
     /**
      * Get details for a specific backup.
      */
-    suspend fun getBackup(id: String): BackupResponse
+    suspend fun getBackup(id: String): AppResult<BackupResponse>
 
     /**
      * Delete a backup.
      */
-    suspend fun deleteBackup(id: String)
+    suspend fun deleteBackup(id: String): AppResult<Unit>
 
     /**
      * Validate a backup without restoring.
      */
-    suspend fun validateBackup(backupId: String): ValidationResponse
+    suspend fun validateBackup(backupId: String): AppResult<ValidationResponse>
 
     /**
      * Restore from a backup.
      */
-    suspend fun restore(request: RestoreRequest): RestoreResponse
+    suspend fun restore(request: RestoreRequest): AppResult<RestoreResponse>
 
     /**
      * Rebuild all playback progress from listening events.
      */
-    suspend fun rebuildProgress(): RebuildProgressResponse
+    suspend fun rebuildProgress(): AppResult<RebuildProgressResponse>
 
     // === Filesystem Browsing ===
 
@@ -68,9 +69,9 @@ interface BackupApiContract {
      * Browse the server filesystem to find backup files.
      *
      * @param path Directory path to browse (use "/" for root)
-     * @return Directory listing with entries
+     * @return [AppResult] wrapping a directory listing with entries.
      */
-    suspend fun browseFilesystem(path: String): BrowseFilesystemResponse
+    suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse>
 
     // === ABS Import ===
 
@@ -82,29 +83,29 @@ interface BackupApiContract {
      * that could otherwise cause out-of-memory crashes.
      *
      * @param fileSource Streaming source for the backup file content
-     * @return The server path where the file was saved
+     * @return [AppResult] wrapping the server path where the file was saved.
      */
-    suspend fun uploadABSBackup(fileSource: FileSource): UploadABSBackupResponse
+    suspend fun uploadABSBackup(fileSource: FileSource): AppResult<UploadABSBackupResponse>
 
     /**
      * Analyze an Audiobookshelf backup.
      */
-    suspend fun analyzeABSBackup(request: AnalyzeABSRequest): AnalyzeABSResponse
+    suspend fun analyzeABSBackup(request: AnalyzeABSRequest): AppResult<AnalyzeABSResponse>
 
     /**
      * Start an async analysis of an Audiobookshelf backup.
      */
-    suspend fun analyzeABSBackupAsync(request: AnalyzeABSRequest): AsyncAnalyzeResponse
+    suspend fun analyzeABSBackupAsync(request: AnalyzeABSRequest): AppResult<AsyncAnalyzeResponse>
 
     /**
      * Poll the status of an async analysis.
      */
-    suspend fun getAnalysisStatus(analysisId: String): AnalysisStatusResponse
+    suspend fun getAnalysisStatus(analysisId: String): AppResult<AnalysisStatusResponse>
 
     /**
      * Import from an Audiobookshelf backup.
      */
-    suspend fun importABSBackup(request: ImportABSRequest): ImportABSResponse
+    suspend fun importABSBackup(request: ImportABSRequest): AppResult<ImportABSResponse>
 }
 
 /**

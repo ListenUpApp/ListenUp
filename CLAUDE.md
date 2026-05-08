@@ -138,7 +138,21 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+### 5. Pattern Uniformity
+
+**One canonical shape per concern. Diverging patterns are a tax on every reader.**
+
+When the codebase has more than one way to do the same thing, every contributor has to learn both, decide which to use, and wonder whether the difference is meaningful. That cost compounds.
+
+- Before introducing a new pattern, search for existing solutions to the same problem. If one exists, use it.
+- If existing code uses an old pattern and you're touching it, convert to the canonical shape — even if "it already works." Style divergence is a real reasoning cost.
+- "We can't break callers" is rarely true. Signature changes ripple cleanly; compile errors guide the cascade.
+- When a new canonical pattern is genuinely needed, replace the old one everywhere in the same PR. Don't leave two coexisting.
+- Konsist rules pin the canonical shape so drift can't reintroduce. If a pattern matters, write the rule.
+
+Concrete example: `data/remote/` API methods use `apiCall(errorMessage = "...") { ... }` exclusively. Not `suspendRunCatching { … }.flatten()`, not direct `try/catch`, not `.body<ApiResponse<T>>().toResult().getOrThrow()`. One shape, every file. The Konsist rule `NoThrowsInDataLayerRule` enforces it.
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, fewer "wait, when do I use this version vs that version?" questions, and clarifying questions come before implementation rather than after mistakes.
 
 ---
 
@@ -187,14 +201,24 @@ These are the rules most likely to affect day-to-day work. The full rubric is in
 
 Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
 
-- **Fallible suspend functions return `AppResult<T>`** (`shared/.../client/core/AppResult.kt`). Not `Result<T>`, not `throw`. Legacy throw-based APIs (~19 files) are mid-migration; new data-layer code returns `AppResult`.
+- **Fallible suspend functions return `AppResult<T>`** (`shared/.../client/core/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
+- **Data-layer APIs use `apiCall { ... }` / `apiCallUnit { ... }`** (in `data/remote/ApiCallHelper.kt`) at the request boundary. The Ktor plugin (`installListenUpErrorHandling`, `expectSuccess = true`) raises `ResponseException` on non-2xx; `apiCall` catches it via `suspendRunCatching` and routes through `ErrorMapper` to a typed `AppResult.Failure`. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.
 - **Errors are typed `AppError` subtypes** in `commonMain api.error.*` — `@Serializable`. Hierarchy: `AppError`, `AuthError`, `TransportError`, `SyncError`, `ScanError`, `DownloadError`, `ImportError`, `ServerConnectError`. Every subtype carries `correlationId`, `message`, `code`, `isRetryable`, `debugInfo`.
 - **`message` is a body-level constant per subtype** — user-facing-quality, period-terminated, no jargon. Per-instance technical detail goes in `debugInfo`. UI consumes `message` directly; logs consume `debugInfo`.
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
 - **No closures in error types.** `@Serializable` errors cross the wire — recovery actions live at the consumer based on the typed subtype.
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
-- **Don't add new `throw AppException(...)` call sites.** `AppException` is `@Deprecated`; the typed `AppResult<T>`-returning shape is canonical.
-- **Konsist enforces it.** `NoLegacyAppErrorRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule` (active); `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` (disabled, backlog).
+- **VM Failure-branch shape** (preserves the global snackbar):
+  ```kotlin
+  when (val result = repo.foo()) {
+      is AppResult.Success -> _state.value = State.Loaded(result.data)
+      is AppResult.Failure -> {
+          errorBus.emit(result.error)
+          _state.value = State.Error(userMessageFor(result.error))
+      }
+  }
+  ```
+- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule` (active); `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` (disabled, backlog).
 
 ### Code Style
 

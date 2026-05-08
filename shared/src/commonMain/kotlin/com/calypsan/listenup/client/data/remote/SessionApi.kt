@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.flatten
 import com.calypsan.listenup.client.core.map
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.BookReadersApiResponse
 import com.calypsan.listenup.client.data.remote.model.CurrentUserApiResponse
@@ -34,17 +32,14 @@ class SessionApi(
         bookId: String,
         limit: Int,
     ): AppResult<BookReadersResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Book readers response missing data") {
             logger.debug { "Fetching readers for book $bookId (limit=$limit)" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<BookReadersApiResponse> =
-                client
-                    .get("/api/v1/books/$bookId/readers") {
-                        parameter("limit", limit)
-                    }.body()
-            logger.debug { "Fetched readers for book $bookId" }
-            response.toResult()
-        }.flatten().map { it.toDomain() }
+            client
+                .get("/api/v1/books/$bookId/readers") {
+                    parameter("limit", limit)
+                }.body<ApiResponse<BookReadersApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Get the current user's reading history.
@@ -52,17 +47,14 @@ class SessionApi(
      * Endpoint: GET /api/v1/users/me/reading-sessions
      */
     override suspend fun getUserReadingHistory(limit: Int): AppResult<UserReadingHistoryResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "User reading history response missing data") {
             logger.debug { "Fetching user reading history (limit=$limit)" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<UserReadingHistoryApiResponse> =
-                client
-                    .get("/api/v1/users/me/reading-sessions") {
-                        parameter("limit", limit)
-                    }.body()
-            logger.debug { "Fetched ${response.data?.sessions?.size ?: 0} sessions" }
-            response.toResult()
-        }.flatten().map { it.toDomain() }
+            client
+                .get("/api/v1/users/me/reading-sessions") {
+                    parameter("limit", limit)
+                }.body<ApiResponse<UserReadingHistoryApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Get the current authenticated user's profile.
@@ -72,12 +64,9 @@ class SessionApi(
      * Endpoint: GET /api/v1/users/me
      */
     override suspend fun getCurrentUser(): AppResult<CurrentUserResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Current user response missing data") {
             logger.debug { "Fetching current user profile" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<CurrentUserApiResponse> =
-                client.get("/api/v1/users/me").body()
-            logger.debug { "Fetched user: ${response.data?.email}" }
-            response.toResult()
-        }.flatten().map { it.toDomain() }
+            client.get("/api/v1/users/me").body<ApiResponse<CurrentUserApiResponse>>()
+        }.map { it.toDomain() }
 }

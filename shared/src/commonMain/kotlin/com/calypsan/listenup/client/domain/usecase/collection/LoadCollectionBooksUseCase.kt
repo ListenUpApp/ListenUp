@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.CollectionBookSummary
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -34,10 +33,6 @@ open class LoadCollectionBooksUseCase(
     open suspend operator fun invoke(collectionId: String): AppResult<List<CollectionBookSummary>> {
         logger.debug { "Loading books for collection: $collectionId" }
 
-        return suspendRunCatching {
-            val books = collectionRepository.getCollectionBooks(collectionId)
-            logger.debug { "Loaded ${books.size} books for collection $collectionId" }
-            books
-        }
+        return collectionRepository.getCollectionBooks(collectionId)
     }
 }

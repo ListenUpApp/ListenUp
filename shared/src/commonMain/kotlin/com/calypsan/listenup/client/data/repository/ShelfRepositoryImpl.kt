@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.local.db.EntityType
 import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.ShelfBookCrossRef
@@ -87,12 +89,13 @@ class ShelfRepositoryImpl(
 
     override suspend fun countDiscoverShelves(currentUserId: String): Int = dao.countDiscoverShelves(currentUserId)
 
-    override suspend fun fetchAndCacheMyShelves() {
+    override suspend fun fetchAndCacheMyShelves(): AppResult<Unit> {
         logger.debug { "Fetching my shelves from API" }
-        val shelves = shelfApi.getMyShelves()
-        val entities = shelves.map { it.toEntity() }
-        dao.upsertAll(entities)
-        logger.info { "Fetched and cached ${entities.size} my shelves" }
+        return shelfApi.getMyShelves().map { shelves ->
+            val entities = shelves.map { it.toEntity() }
+            dao.upsertAll(entities)
+            logger.info { "Fetched and cached ${entities.size} my shelves" }
+        }
     }
 
     /**
@@ -101,37 +104,37 @@ class ShelfRepositoryImpl(
      * Fetches shelves from other users via API and stores them in the local database.
      * This is used for initial population when Room is empty and for manual refresh.
      *
-     * @return Number of shelves fetched and cached
+     * @return [AppResult.Success] containing the number of shelves fetched, [AppResult.Failure] on API error
      */
-    override suspend fun fetchAndCacheDiscoverShelves(): Int {
+    override suspend fun fetchAndCacheDiscoverShelves(): AppResult<Int> {
         logger.debug { "Fetching discover shelves from API" }
-        val userShelves = shelfApi.discoverShelves()
-        val entities =
-            userShelves.flatMap { userShelvesResponse ->
-                userShelvesResponse.shelves.map { shelf ->
-                    shelf.toEntity()
+        return shelfApi.discoverShelves().map { userShelves ->
+            val entities =
+                userShelves.flatMap { userShelvesResponse ->
+                    userShelvesResponse.shelves.map { shelf ->
+                        shelf.toEntity()
+                    }
                 }
-            }
-        dao.upsertAll(entities)
-        logger.info { "Fetched and cached ${entities.size} discover shelves" }
-        return entities.size
+            dao.upsertAll(entities)
+            logger.info { "Fetched and cached ${entities.size} discover shelves" }
+            entities.size
+        }
     }
 
-    override suspend fun getShelfDetail(shelfId: String): ShelfDetail {
+    override suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail> {
         logger.debug { "Fetching shelf detail from API: $shelfId" }
-        val response = shelfApi.getShelf(shelfId)
-
-        // Update local cache with latest book count and duration
-        dao.getById(shelfId)?.let { cached ->
-            dao.upsert(
-                cached.copy(
-                    bookCount = response.bookCount,
-                    totalDurationSeconds = response.totalDuration,
-                ),
-            )
+        return shelfApi.getShelf(shelfId).map { response ->
+            // Update local cache with latest book count and duration
+            dao.getById(shelfId)?.let { cached ->
+                dao.upsert(
+                    cached.copy(
+                        bookCount = response.bookCount,
+                        totalDurationSeconds = response.totalDuration,
+                    ),
+                )
+            }
+            response.toDomain()
         }
-
-        return response.toDomain()
     }
 
     /**

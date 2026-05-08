@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.AdminInvite
@@ -29,6 +31,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
  * Implementation of AdminRepository using AdminApiContract.
  *
  * Wraps admin API calls and converts data layer types to domain models.
+ * All methods return [AppResult] — no exceptions are thrown.
  *
  * @property adminApi API client for admin operations
  */
@@ -39,21 +42,21 @@ class AdminRepositoryImpl(
     // USER MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getUsers(): List<AdminUserInfo> = adminApi.getUsers().map { it.toDomain() }
+    override suspend fun getUsers(): AppResult<List<AdminUserInfo>> =
+        adminApi.getUsers().map { users -> users.map { it.toDomain() } }
 
-    override suspend fun getPendingUsers(): List<AdminUserInfo> = adminApi.getPendingUsers().map { it.toDomain() }
+    override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> =
+        adminApi.getPendingUsers().map { users -> users.map { it.toDomain() } }
 
-    override suspend fun approveUser(userId: String): AdminUserInfo = adminApi.approveUser(userId).toDomain()
+    override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
+        adminApi.approveUser(userId).map { it.toDomain() }
 
-    override suspend fun denyUser(userId: String) {
-        adminApi.denyUser(userId)
-    }
+    override suspend fun denyUser(userId: String): AppResult<Unit> = adminApi.denyUser(userId)
 
-    override suspend fun deleteUser(userId: String) {
-        adminApi.deleteUser(userId)
-    }
+    override suspend fun deleteUser(userId: String): AppResult<Unit> = adminApi.deleteUser(userId)
 
-    override suspend fun getUser(userId: String): AdminUserInfo = adminApi.getUser(userId).toDomain()
+    override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
+        adminApi.getUser(userId).map { it.toDomain() }
 
     override suspend fun updateUser(
         userId: String,
@@ -61,7 +64,7 @@ class AdminRepositoryImpl(
         lastName: String?,
         role: String?,
         canShare: Boolean?,
-    ): AdminUserInfo {
+    ): AppResult<AdminUserInfo> {
         val permissionsUpdate =
             if (canShare != null) {
                 UpdatePermissionsRequest(
@@ -79,21 +82,22 @@ class AdminRepositoryImpl(
                 permissions = permissionsUpdate,
             )
 
-        return adminApi.updateUser(userId, request).toDomain()
+        return adminApi.updateUser(userId, request).map { it.toDomain() }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getInvites(): List<InviteInfo> = adminApi.getInvites().map { it.toDomain() }
+    override suspend fun getInvites(): AppResult<List<InviteInfo>> =
+        adminApi.getInvites().map { invites -> invites.map { it.toDomain() } }
 
     override suspend fun createInvite(
         name: String,
         email: String,
         role: String,
         expiresInDays: Int,
-    ): InviteInfo {
+    ): AppResult<InviteInfo> {
         val request =
             CreateInviteRequest(
                 name = name,
@@ -101,104 +105,97 @@ class AdminRepositoryImpl(
                 role = role,
                 expiresInDays = expiresInDays,
             )
-        return adminApi.createInvite(request).toDomain()
+        return adminApi.createInvite(request).map { it.toDomain() }
     }
 
-    override suspend fun deleteInvite(inviteId: String) {
-        adminApi.deleteInvite(inviteId)
-    }
+    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = adminApi.deleteInvite(inviteId)
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER SETTINGS
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun setOpenRegistration(enabled: Boolean) {
-        adminApi.setOpenRegistration(enabled)
-    }
+    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = adminApi.setOpenRegistration(enabled)
 
-    override suspend fun updateInstanceRemoteUrl(remoteUrl: String): String? {
-        val response = adminApi.updateInstance(UpdateInstanceRequest(remoteUrl = remoteUrl))
-        return response.remoteUrl
-    }
+    override suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?> =
+        adminApi.updateInstance(UpdateInstanceRequest(remoteUrl = remoteUrl)).map { it.remoteUrl }
 
-    override suspend fun getServerSettings(): ServerSettings = adminApi.getServerSettings().toDomain()
+    override suspend fun getServerSettings(): AppResult<ServerSettings> =
+        adminApi.getServerSettings().map { it.toDomain() }
 
     override suspend fun updateServerSettings(
         serverName: String?,
         inboxEnabled: Boolean?,
-    ): ServerSettings =
+    ): AppResult<ServerSettings> =
         adminApi
             .updateServerSettings(
                 ServerSettingsRequest(serverName = serverName, inboxEnabled = inboxEnabled),
-            ).toDomain()
+            ).map { it.toDomain() }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INBOX MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getInboxBooks(): List<InboxBook> = adminApi.listInboxBooks().books.map { it.toDomain() }
+    override suspend fun getInboxBooks(): AppResult<List<InboxBook>> =
+        adminApi.listInboxBooks().map { it.books.map { book -> book.toDomain() } }
 
-    override suspend fun releaseBooks(bookIds: List<String>): InboxReleaseResult {
-        val response = adminApi.releaseBooks(bookIds)
-        return InboxReleaseResult(
-            released = response.released,
-            publicCount = response.public,
-            toCollections = response.toCollections,
-        )
-    }
+    override suspend fun releaseBooks(bookIds: List<String>): AppResult<InboxReleaseResult> =
+        adminApi.releaseBooks(bookIds).map { response ->
+            InboxReleaseResult(
+                released = response.released,
+                publicCount = response.public,
+                toCollections = response.toCollections,
+            )
+        }
 
     override suspend fun stageCollection(
         bookId: String,
         collectionId: String,
-    ) {
-        adminApi.stageCollection(bookId, collectionId)
-    }
+    ): AppResult<Unit> = adminApi.stageCollection(bookId, collectionId)
 
     override suspend fun unstageCollection(
         bookId: String,
         collectionId: String,
-    ) {
-        adminApi.unstageCollection(bookId, collectionId)
-    }
+    ): AppResult<Unit> = adminApi.unstageCollection(bookId, collectionId)
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getLibraries(): List<Library> = adminApi.getLibraries().map { it.toDomain() }
+    override suspend fun getLibraries(): AppResult<List<Library>> =
+        adminApi.getLibraries().map { libraries -> libraries.map { it.toDomain() } }
 
-    override suspend fun getLibrary(libraryId: String): Library = adminApi.getLibrary(libraryId).toDomain()
+    override suspend fun getLibrary(libraryId: String): AppResult<Library> =
+        adminApi.getLibrary(libraryId).map { it.toDomain() }
 
     override suspend fun updateLibrary(
         libraryId: String,
         name: String?,
         skipInbox: Boolean?,
         accessMode: AccessMode?,
-    ): Library {
+    ): AppResult<Library> {
         val request =
             UpdateLibraryRequest(
                 name = name,
                 skipInbox = skipInbox,
                 accessMode = accessMode?.toApiString(),
             )
-        return adminApi.updateLibrary(libraryId, request).toDomain()
+        return adminApi.updateLibrary(libraryId, request).map { it.toDomain() }
     }
 
     override suspend fun addScanPath(
         libraryId: String,
         path: String,
-    ): Library = adminApi.addScanPath(libraryId, path).toDomain()
+    ): AppResult<Library> = adminApi.addScanPath(libraryId, path).map { it.toDomain() }
 
     override suspend fun removeScanPath(
         libraryId: String,
         path: String,
-    ): Library = adminApi.removeScanPath(libraryId, path).toDomain()
+    ): AppResult<Library> = adminApi.removeScanPath(libraryId, path).map { it.toDomain() }
 
-    override suspend fun triggerScan(libraryId: String) {
-        adminApi.triggerScan(libraryId)
-    }
+    override suspend fun triggerScan(libraryId: String): AppResult<Unit> = adminApi.triggerScan(libraryId)
 
-    override suspend fun browseFilesystem(path: String): BrowseFilesystemResponse = adminApi.browseFilesystem(path)
+    override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
+        adminApi.browseFilesystem(path)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

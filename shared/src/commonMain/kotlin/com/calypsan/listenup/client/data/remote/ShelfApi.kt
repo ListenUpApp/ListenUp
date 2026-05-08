@@ -2,17 +2,17 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.map
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.client.core.error.AppException
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.http.isSuccess
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -24,13 +24,13 @@ interface ShelfApiContract {
     /**
      * Get all shelves owned by the current user.
      */
-    suspend fun getMyShelves(): List<ShelfResponse>
+    suspend fun getMyShelves(): AppResult<List<ShelfResponse>>
 
     /**
      * Discover shelves from other users containing accessible books.
      * Returns shelves grouped by owner.
      */
-    suspend fun discoverShelves(): List<UserShelvesResponse>
+    suspend fun discoverShelves(): AppResult<List<UserShelvesResponse>>
 
     /**
      * Create a new shelf.
@@ -38,12 +38,12 @@ interface ShelfApiContract {
     suspend fun createShelf(
         name: String,
         description: String?,
-    ): ShelfResponse
+    ): AppResult<ShelfResponse>
 
     /**
      * Get a shelf by ID with its books.
      */
-    suspend fun getShelf(shelfId: String): ShelfDetailResponse
+    suspend fun getShelf(shelfId: String): AppResult<ShelfDetailResponse>
 
     /**
      * Update a shelf (owner only).
@@ -52,12 +52,12 @@ interface ShelfApiContract {
         shelfId: String,
         name: String,
         description: String?,
-    ): ShelfResponse
+    ): AppResult<ShelfResponse>
 
     /**
      * Delete a shelf (owner only).
      */
-    suspend fun deleteShelf(shelfId: String)
+    suspend fun deleteShelf(shelfId: String): AppResult<Unit>
 
     /**
      * Add books to a shelf (owner only).
@@ -65,7 +65,7 @@ interface ShelfApiContract {
     suspend fun addBooks(
         shelfId: String,
         bookIds: List<String>,
-    )
+    ): AppResult<Unit>
 
     /**
      * Remove a book from a shelf (owner only).
@@ -73,7 +73,7 @@ interface ShelfApiContract {
     suspend fun removeBook(
         shelfId: String,
         bookId: String,
-    )
+    ): AppResult<Unit>
 }
 
 /**
@@ -84,124 +84,73 @@ interface ShelfApiContract {
 class ShelfApi(
     private val clientFactory: ApiClientFactory,
 ) : ShelfApiContract {
-    override suspend fun getMyShelves(): List<ShelfResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ListShelvesResponse> =
-            client.get("/api/v1/shelves").body()
+    override suspend fun getMyShelves(): AppResult<List<ShelfResponse>> =
+        apiCall(errorMessage = "My shelves response missing data") {
+            clientFactory.getClient().get("/api/v1/shelves").body<ApiResponse<ListShelvesResponse>>()
+        }.map { it.shelves }
 
-        return when (val result = response.toResult()) {
-            is Success -> result.data.shelves
-            is Failure -> throw AppException(result.error)
-        }
-    }
-
-    override suspend fun discoverShelves(): List<UserShelvesResponse> {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<DiscoverShelvesResponse> =
-            client.get("/api/v1/shelves/discover").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data.users
-            is Failure -> throw AppException(result.error)
-        }
-    }
+    override suspend fun discoverShelves(): AppResult<List<UserShelvesResponse>> =
+        apiCall(errorMessage = "Discover shelves response missing data") {
+            clientFactory.getClient().get("/api/v1/shelves/discover").body<ApiResponse<DiscoverShelvesResponse>>()
+        }.map { it.users }
 
     override suspend fun createShelf(
         name: String,
         description: String?,
-    ): ShelfResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ShelfResponse> =
-            client
+    ): AppResult<ShelfResponse> =
+        apiCall(errorMessage = "Create shelf response missing data") {
+            clientFactory
+                .getClient()
                 .post("/api/v1/shelves") {
+                    contentType(ContentType.Application.Json)
                     setBody(CreateShelfRequest(name, description ?: ""))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<ShelfResponse>>()
         }
-    }
 
-    override suspend fun getShelf(shelfId: String): ShelfDetailResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ShelfDetailResponse> =
-            client.get("/api/v1/shelves/$shelfId").body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+    override suspend fun getShelf(shelfId: String): AppResult<ShelfDetailResponse> =
+        apiCall(errorMessage = "Shelf detail response missing data") {
+            clientFactory.getClient().get("/api/v1/shelves/$shelfId").body<ApiResponse<ShelfDetailResponse>>()
         }
-    }
 
     override suspend fun updateShelf(
         shelfId: String,
         name: String,
         description: String?,
-    ): ShelfResponse {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<ShelfResponse> =
-            client
+    ): AppResult<ShelfResponse> =
+        apiCall(errorMessage = "Update shelf response missing data") {
+            clientFactory
+                .getClient()
                 .patch("/api/v1/shelves/$shelfId") {
+                    contentType(ContentType.Application.Json)
                     setBody(UpdateShelfRequest(name, description ?: ""))
-                }.body()
-
-        return when (val result = response.toResult()) {
-            is Success -> result.data
-            is Failure -> throw AppException(result.error)
+                }.body<ApiResponse<ShelfResponse>>()
         }
-    }
 
-    override suspend fun deleteShelf(shelfId: String) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/shelves/$shelfId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Shelf deleted successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    override suspend fun deleteShelf(shelfId: String): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/shelves/$shelfId").body<ApiResponse<Unit>>()
         }
-    }
 
     override suspend fun addBooks(
         shelfId: String,
         bookIds: List<String>,
-    ) {
-        val client = clientFactory.getClient()
-        val response =
-            client.post("/api/v1/shelves/$shelfId/books") {
-                setBody(AddBooksToShelfRequest(bookIds))
-            }
-
-        if (!response.status.isSuccess()) {
-            val errorResponse: ApiResponse<Unit> = response.body()
-            when (val result = errorResponse.toResult()) {
-                is Success -> { /* Shouldn't happen */ }
-
-                is Failure -> {
-                    throw AppException(result.error)
-                }
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory
+                .getClient()
+                .post("/api/v1/shelves/$shelfId/books") {
+                    contentType(ContentType.Application.Json)
+                    setBody(AddBooksToShelfRequest(bookIds))
+                }.body<ApiResponse<Unit>>()
         }
-    }
 
     override suspend fun removeBook(
         shelfId: String,
         bookId: String,
-    ) {
-        val client = clientFactory.getClient()
-        val response: ApiResponse<Unit> = client.delete("/api/v1/shelves/$shelfId/books/$bookId").body()
-
-        when (val result = response.toResult()) {
-            is Success -> { /* Book removed from shelf successfully */ }
-
-            is Failure -> {
-                throw AppException(result.error)
-            }
+    ): AppResult<Unit> =
+        apiCallUnit {
+            clientFactory.getClient().delete("/api/v1/shelves/$shelfId/books/$bookId").body<ApiResponse<Unit>>()
         }
-    }
 }
 
 // ========== Response Models ==========

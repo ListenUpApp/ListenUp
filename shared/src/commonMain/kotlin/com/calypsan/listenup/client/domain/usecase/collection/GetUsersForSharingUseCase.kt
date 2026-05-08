@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.collection
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -40,34 +41,39 @@ open class GetUsersForSharingUseCase(
     open suspend operator fun invoke(collectionId: String): AppResult<List<AdminUserInfo>> {
         logger.debug { "Loading users available for sharing collection: $collectionId" }
 
-        return suspendRunCatching {
-            // Get all users
-            val allUsers = adminRepository.getUsers()
+        // Propagate failure if users can't be fetched — callers need the list to function.
+        val allUsers =
+            when (val usersResult = adminRepository.getUsers()) {
+                is Success -> usersResult.data
+                is Failure -> return usersResult
+            }
 
-            // Get current shares to filter out
-            val existingShares =
-                try {
-                    collectionRepository.getCollectionShares(collectionId)
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Failed to load existing shares, proceeding with all users" }
+        // Get current shares to filter out; collectionRepository.getCollectionShares()
+        // returns AppResult — treat failure as empty list (non-fatal secondary call).
+        val existingShares =
+            when (val sharesResult = collectionRepository.getCollectionShares(collectionId)) {
+                is Success -> {
+                    sharesResult.data
+                }
+
+                else -> {
+                    logger.warn { "Failed to load existing shares, proceeding with all users" }
                     emptyList()
                 }
-            val sharedUserIds = existingShares.map { it.userId }.toSet()
+            }
+        val sharedUserIds = existingShares.map { it.userId }.toSet()
 
-            // Get current user to filter out
-            val currentUser = userRepository.getCurrentUser()
-            val currentUserId = currentUser?.id?.value
+        // Get current user to filter out
+        val currentUser = userRepository.getCurrentUser()
+        val currentUserId = currentUser?.id?.value
 
-            // Filter to available users
-            val availableUsers =
-                allUsers.filter { user ->
-                    user.id !in sharedUserIds && user.id != currentUserId
-                }
+        // Filter to available users
+        val availableUsers =
+            allUsers.filter { user ->
+                user.id !in sharedUserIds && user.id != currentUserId
+            }
 
-            logger.debug { "Found ${availableUsers.size} users available for sharing (of ${allUsers.size} total)" }
-            availableUsers
-        }
+        logger.debug { "Found ${availableUsers.size} users available for sharing (of ${allUsers.size} total)" }
+        return AppResult.Success(availableUsers)
     }
 }

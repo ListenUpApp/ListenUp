@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.flatten
 import com.calypsan.listenup.client.core.map
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.call.body
@@ -39,13 +37,11 @@ class UserPreferencesApi(
      * @return Result containing user settings or error
      */
     override suspend fun getPreferences(): AppResult<UserPreferencesResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "User preferences response missing data") {
             logger.debug { "Fetching user settings" }
             val client = clientFactory.getClient()
-            val response: ApiResponse<UserSettingsApiResponse> =
-                client.get("/api/v1/settings").body()
-            response.toResult()
-        }.flatten().map { it.toDomain() }
+            client.get("/api/v1/settings").body<ApiResponse<UserSettingsApiResponse>>()
+        }.map { it.toDomain() }
 
     /**
      * Update user settings on the server.
@@ -59,7 +55,7 @@ class UserPreferencesApi(
      * @return Result containing updated settings or error
      */
     override suspend fun updatePreferences(request: UserPreferencesRequest): AppResult<UserPreferencesResponse> =
-        suspendRunCatching {
+        apiCall(errorMessage = "Updated user preferences response missing data") {
             logger.debug { "Updating user settings: $request" }
             val client = clientFactory.getClient()
             val apiRequest =
@@ -70,14 +66,12 @@ class UserPreferencesApi(
                     defaultSleepTimerMin = request.defaultSleepTimerMin,
                     shakeToResetSleepTimer = request.shakeToResetSleepTimer,
                 )
-            val response: ApiResponse<UserSettingsApiResponse> =
-                client
-                    .patch("/api/v1/settings") {
-                        contentType(ContentType.Application.Json)
-                        setBody(apiRequest)
-                    }.body()
-            response.toResult()
-        }.flatten().map { it.toDomain() }
+            client
+                .patch("/api/v1/settings") {
+                    contentType(ContentType.Application.Json)
+                    setBody(apiRequest)
+                }.body<ApiResponse<UserSettingsApiResponse>>()
+        }.map { it.toDomain() }
 }
 
 /**

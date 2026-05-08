@@ -135,15 +135,25 @@ class ABSUploadWorker(
 
             // Upload the backup file
             val fileSource = CachedFileSource(cacheFile, filename)
-            val uploadResponse = backupApi.uploadABSBackup(fileSource)
-            logger.info { "Upload complete, server path: ${uploadResponse.path}" }
+            val uploadResult = backupApi.uploadABSBackup(fileSource)
+            if (uploadResult is Failure) {
+                val error = uploadResult.message
+                logger.error { "ABS upload failed: $error" }
+                workerResult = retryOrFail(error)
+                if (workerResult is Result.Failure) {
+                    showFailureNotification()
+                }
+                return workerResult
+            }
+            val uploadedPath = (uploadResult as Success).data.path
+            logger.info { "Upload complete, server path: $uploadedPath" }
 
             // Signal to the UI that upload is done and analysis is starting
             setProgress(workDataOf("phase" to "analyzing"))
 
             // Create the import from the uploaded file
             workerResult =
-                when (val importResult = absImportApi.createImportFromPath(uploadResponse.path, filename)) {
+                when (val importResult = absImportApi.createImportFromPath(uploadedPath, filename)) {
                     is Success -> {
                         val importId = importResult.data.id
                         logger.info { "Import created: id=$importId" }
