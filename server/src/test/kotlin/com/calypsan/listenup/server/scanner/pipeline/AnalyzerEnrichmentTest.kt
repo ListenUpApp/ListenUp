@@ -484,6 +484,74 @@ class AnalyzerEnrichmentTest :
                 }
             }
         }
+
+        test("single-file book never triggers synthesis") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Single"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Single") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    // Single-file with no chapter sources → None, not SynthesizedFromTracks.
+                    book.chapters shouldBe emptyList()
+                    book.chaptersSource shouldBe BookChapterSource.None
+                }
+            }
+        }
+
+        test("multi-file: one track's parse failure produces zero-length chapter, book still emerges") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Multi"
+                    val track1Bytes =
+                        buildMp3File {
+                            id3v2(version = 4) {}
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    // Random non-audio bytes for track 2 — parser should reject as UnsupportedFormat.
+                    val track2Bytes = ByteArray(64) { it.toByte() }
+                    // Meaningful filenames so cleanFilename() can derive chapter titles.
+                    val t1 = fixture.root.writeAudioFile("$rel/01 Real Track.mp3", track1Bytes)
+                    val t2 = fixture.root.writeAudioFile("$rel/02 Bad Track.mp3", track2Bytes)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01 Real Track.mp3", FileType.AUDIO, size = Files.size(t1)),
+                                    fileEntry("$rel/02 Bad Track.mp3", FileType.AUDIO, size = Files.size(t2)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 2
+                    book.chapters[0].title shouldBe "Real Track"
+                    // Track 2's chapter exists but is zero-length: failed parse → 0ms duration.
+                    book.chapters[1].startMs shouldBe book.chapters[0].endMs
+                    book.chapters[1].endMs shouldBe book.chapters[1].startMs
+                    book.chaptersSource shouldBe BookChapterSource.SynthesizedFromTracks
+                }
+            }
+        }
     })
 
 private fun candidateForPath(
