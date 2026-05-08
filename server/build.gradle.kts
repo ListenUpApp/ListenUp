@@ -60,6 +60,10 @@ dependencies {
     implementation(libs.kotlinx.rpc.krpc.ktor.server)
     implementation(libs.kotlinx.rpc.krpc.serialization.json)
 
+    // kotlinx-io — binary decoding for the audiometa parser package
+    implementation(libs.kotlinx.io.core)
+    implementation(libs.kotlinx.io.bytestring)
+
     // Logging
     implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
@@ -75,6 +79,7 @@ dependencies {
     testImplementation(libs.ktor.client.content.negotiation)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.kotest.property)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test)
     testImplementation(libs.kotlinx.rpc.krpc.client)

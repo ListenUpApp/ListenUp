@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -57,6 +59,57 @@ class AppErrorStatusPagesTest :
         test("TransportError maps to InternalServerError as a server-local bug guard") {
             val err: AppError = TransportError.NetworkUnavailable()
             err.toHttpStatus() shouldBe HttpStatusCode.InternalServerError
+        }
+
+        test("AudioMetadataError.UnsupportedFormat maps to 415 UnsupportedMediaType") {
+            val err: AppError =
+                AudioMetadataError.UnsupportedFormat(
+                    pathString = "/lib/foo.wav",
+                    detectedMagic = "RIFF",
+                )
+            err.toHttpStatus() shouldBe HttpStatusCode.UnsupportedMediaType
+        }
+
+        test("AudioMetadataError.CorruptHeader maps to 422 UnprocessableEntity") {
+            val err: AppError =
+                AudioMetadataError.CorruptHeader(
+                    pathString = "/lib/bad.mp3",
+                    format = AudioFormat.Mp3,
+                    offset = 0,
+                    expected = "ID3",
+                )
+            err.toHttpStatus() shouldBe HttpStatusCode.UnprocessableEntity
+        }
+
+        test("AudioMetadataError.TruncatedStream maps to 422 UnprocessableEntity") {
+            val err: AppError =
+                AudioMetadataError.TruncatedStream(
+                    pathString = "/lib/short.flac",
+                    format = AudioFormat.Flac,
+                    expectedBytes = 1024,
+                    actualBytes = 512,
+                )
+            err.toHttpStatus() shouldBe HttpStatusCode.UnprocessableEntity
+        }
+
+        test("AudioMetadataError.IoError maps to 500 InternalServerError") {
+            val err: AppError =
+                AudioMetadataError.IoError(
+                    pathString = "/lib/locked.m4b",
+                    ioMessage = "permission denied",
+                )
+            err.toHttpStatus() shouldBe HttpStatusCode.InternalServerError
+        }
+
+        test("AudioMetadataError.withCorrelationId stamps id on UnsupportedFormat") {
+            val err: AppError =
+                AudioMetadataError.UnsupportedFormat(
+                    pathString = "/lib/foo.wav",
+                    detectedMagic = "RIFF",
+                )
+            val stamped = err.withCorrelationId("corr-123")
+            stamped.shouldBeInstanceOf<AudioMetadataError.UnsupportedFormat>()
+            stamped.correlationId shouldBe "corr-123"
         }
 
         test("unknown paths return structured JSON 404") {

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.ImportError
@@ -63,6 +64,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is SyncError -> toHttpStatus()
 
+        is AudioMetadataError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
@@ -81,6 +84,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is ScanError -> withCorrelationId(id)
         is ServerConnectError -> withCorrelationId(id)
         is SyncError -> withCorrelationId(id)
+        is AudioMetadataError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -205,4 +209,28 @@ private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectErro
         is ServerConnectError.NotListenUpServer -> copy(correlationId = id)
         is ServerConnectError.ServerNotReachable -> copy(correlationId = id)
         is ServerConnectError.VerificationFailed -> copy(correlationId = id)
+    }
+
+private fun AudioMetadataError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        // The server can't parse this format. 415 communicates "the server understands
+        // the request but won't process media of this type."
+        is AudioMetadataError.UnsupportedFormat -> HttpStatusCode.UnsupportedMediaType
+
+        // Format detected, content malformed. 422 — request was well-formed but the
+        // entity it referenced is semantically invalid.
+        is AudioMetadataError.CorruptHeader -> HttpStatusCode.UnprocessableEntity
+
+        is AudioMetadataError.TruncatedStream -> HttpStatusCode.UnprocessableEntity
+
+        // Server-side IO failure (permission denied, transient disk error). 500.
+        is AudioMetadataError.IoError -> HttpStatusCode.InternalServerError
+    }
+
+private fun AudioMetadataError.withCorrelationId(id: String?): AudioMetadataError =
+    when (this) {
+        is AudioMetadataError.UnsupportedFormat -> copy(correlationId = id)
+        is AudioMetadataError.CorruptHeader -> copy(correlationId = id)
+        is AudioMetadataError.TruncatedStream -> copy(correlationId = id)
+        is AudioMetadataError.IoError -> copy(correlationId = id)
     }

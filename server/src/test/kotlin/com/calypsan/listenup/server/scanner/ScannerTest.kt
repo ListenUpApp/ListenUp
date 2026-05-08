@@ -194,8 +194,23 @@ private fun newScanner(
         Scanner(
             rootPath = fixture.root,
             metadataReader = AbsMetadataReader(contractJson),
+            embeddedMetadataParser = noOpEmbeddedParser(),
             eventBus = eventBus,
             correlationIdFactory = correlationIdFactory,
         )
     return scanner to eventBus
 }
+
+/**
+ * Empty parser registry — synthetic placeholder audio files in scanner tests
+ * are zero-byte, so every detect call would fall to the size guard or
+ * unrecognised-magic path. Embedded enrichment integration coverage lives in
+ * `AnalyzerEnrichmentTest` with on-disk MP3 fixtures.
+ */
+private fun noOpEmbeddedParser(): com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser =
+    com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser(
+        detector =
+            com.calypsan.listenup.server.embeddedmeta
+                .AudioFormatDetector(),
+        parsers = emptyList(),
+    )

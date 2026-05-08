@@ -2,11 +2,15 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
+import com.calypsan.listenup.api.dto.scanner.EmbeddedScanCounters
+import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.dto.scanner.UnsupportedFormatCount
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.Differ
@@ -50,6 +54,7 @@ private val logger = KotlinLogging.logger {}
 internal class Scanner(
     private val rootPath: Path,
     private val metadataReader: AbsMetadataReader,
+    private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val parseSubtitle: Boolean = false,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -84,10 +89,9 @@ internal class Scanner(
                 filesSkipped = 0,
             )
         lastResult = result
-        eventBus.emit(ScanEvent.Completed(correlationId, result.toSummary()))
-        logger.info {
-            "scan complete: ${books.size} books, ${changes.size} changes, ${errors.size} errors in ${result.durationMs}ms"
-        }
+        val summary = result.toSummary()
+        eventBus.emit(ScanEvent.Completed(correlationId, summary))
+        logger.info { "scan complete: ${formatScanCompleteLog(summary)}" }
         return result
     }
 
@@ -141,7 +145,7 @@ internal class Scanner(
         val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
         val grouper = Grouper()
-        val analyzer = Analyzer(rootPath, metadataReader, parseSubtitle)
+        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle)
 
         emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
         val rebasedFiles =
@@ -226,4 +230,90 @@ internal fun ScanResult.toSummary(): ScanResultSummary =
         errors = errors.size,
         durationMs = durationMs,
         filesWalked = filesWalked,
+        embedded = books.toEmbeddedScanCounters(),
     )
+
+/**
+ * Single-pass aggregation over [AnalyzedBook] embedded-metadata signals.
+ * Books with `embeddedStatus = null` (no audio file in the candidate) are
+ * skipped — they're not part of the embedded-enrichment population.
+ */
+internal fun List<AnalyzedBook>.toEmbeddedScanCounters(): EmbeddedScanCounters {
+    var parsed = 0
+    var unsupported = 0
+    var parseErrors = 0
+    var withChapters = 0
+    var withArtwork = 0
+    var unrecognisedMagic = 0
+    val perFormat = mutableMapOf<com.calypsan.listenup.domain.embeddedmeta.AudioFormat, Int>()
+
+    for (book in this) {
+        when (val status = book.embeddedStatus) {
+            null -> {
+                // Candidate had no audio file; not part of the embedded-eligible population.
+            }
+
+            is MetadataStatus.Available -> {
+                parsed += 1
+                val embedded = book.embedded ?: continue
+                if (embedded.chapters.isNotEmpty()) withChapters += 1
+                if (embedded.artwork != null) withArtwork += 1
+            }
+
+            is MetadataStatus.UnsupportedFormat -> {
+                unsupported += 1
+                val format = status.format
+                if (format == null) {
+                    unrecognisedMagic += 1
+                } else {
+                    perFormat[format] = (perFormat[format] ?: 0) + 1
+                }
+            }
+
+            is MetadataStatus.ParseError -> {
+                parseErrors += 1
+            }
+        }
+    }
+
+    return EmbeddedScanCounters(
+        parsed = parsed,
+        unsupported = unsupported,
+        parseErrors = parseErrors,
+        withChapters = withChapters,
+        withArtwork = withArtwork,
+        unsupportedFormats = perFormat.entries.map { (f, c) -> UnsupportedFormatCount(format = f, count = c) },
+        unrecognisedMagic = unrecognisedMagic,
+    )
+}
+
+/**
+ * Renders [ScanResultSummary] as the human-readable scan-complete log
+ * line. Embedded counters are appended only when the scan actually had
+ * embedded-eligible books, so legacy zero-counter scans look unchanged.
+ */
+internal fun formatScanCompleteLog(summary: ScanResultSummary): String =
+    buildString {
+        append(summary.totalBooks).append(" books, ")
+        append(summary.added + summary.modified + summary.removed + summary.moved).append(" changes, ")
+        append(summary.errors).append(" errors in ")
+        append(summary.durationMs).append("ms")
+
+        val e = summary.embedded
+        val embeddedTotal = e.parsed + e.unsupported + e.parseErrors
+        if (embeddedTotal == 0) return@buildString
+
+        append(" | embedded: ")
+        append(e.parsed).append(" parsed (")
+        append(e.withChapters).append(" w/chapters, ")
+        append(e.withArtwork).append(" w/artwork)")
+        if (e.unsupported > 0) {
+            append(", ").append(e.unsupported).append(" unsupported")
+            if (e.unsupportedFormats.isNotEmpty()) {
+                val breakdown = e.unsupportedFormats.joinToString(",") { "${it.format::class.simpleName}=${it.count}" }
+                append(" [").append(breakdown).append("]")
+            }
+            if (e.unrecognisedMagic > 0) append(", ").append(e.unrecognisedMagic).append(" unrecognised")
+        }
+        if (e.parseErrors > 0) append(", ").append(e.parseErrors).append(" parse errors")
+    }

@@ -56,6 +56,7 @@ fun scannerModule(
             Scanner(
                 rootPath = get(),
                 metadataReader = get(),
+                embeddedMetadataParser = get(),
                 eventBus = get<MutableSharedFlow<ScanEvent>>(),
             )
         }
