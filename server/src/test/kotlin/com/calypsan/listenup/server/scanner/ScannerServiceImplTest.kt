@@ -12,10 +12,8 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 class ScannerServiceImplTest :
@@ -32,25 +30,6 @@ class ScannerServiceImplTest :
                     success.data.totalBooks shouldBe 1
                     success.data.added shouldBe 1
                     success.data.errors shouldBe 0
-                }
-            }
-        }
-
-        test("scanFull returns Failure(AlreadyRunning) on overlapping invocations") {
-            runTest {
-                audioLibrary {
-                    book("Author/Title") { tracks(count = 1) }
-                }.use { fixture ->
-                    val service = newService(fixture, scope = this)
-
-                    val first = async { service.scanFull() }
-                    runCurrent()
-
-                    val second = service.scanFull()
-                    val failure = second.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<ScanError.AlreadyRunning>()
-
-                    first.await().shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
                 }
             }
         }

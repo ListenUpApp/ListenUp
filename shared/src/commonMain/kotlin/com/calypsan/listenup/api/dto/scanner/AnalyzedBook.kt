@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -49,6 +50,8 @@ data class AnalyzedBook(
     val explicit: Boolean? = null,
     val cover: CoverSource? = null,
     val tracks: List<TrackEntry> = emptyList(),
+    val chapters: List<Chapter> = emptyList(),
+    val chaptersSource: BookChapterSource = BookChapterSource.None,
     val embedded: EmbeddedAudioMetadata? = null,
     val embeddedStatus: MetadataStatus? = null,
     val sources: Set<MetadataSource> = emptySet(),

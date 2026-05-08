@@ -32,6 +32,24 @@ internal object Id3v2Reader {
             bytes[1] == 0x44.toByte() &&
             bytes[2] == 0x33.toByte()
 
+    /**
+     * Decode the total tag size (10-byte header + body) from the first 10
+     * bytes of the file. Returns `null` when the prefix isn't ID3v2,
+     * the major version isn't 2.3/2.4, or the sync-safe size is malformed.
+     *
+     * Lets the caller size a single bounded read for the tag region instead
+     * of loading the whole file just to discover how large the tag is.
+     */
+    fun peekTagSize(header: ByteArray): Int? {
+        if (header.size < ID3V2_HEADER_SIZE) return null
+        if (!hasId3v2Prefix(header)) return null
+        val version = header[3].toInt() and 0xFF
+        if (version != 3 && version != 4) return null
+        val bodySize = decodeSyncSafe(header[6], header[7], header[8], header[9])
+        if (bodySize < 0) return null
+        return ID3V2_HEADER_SIZE + bodySize
+    }
+
     fun read(bytes: ByteArray): Id3v2ReadResult? {
         if (!hasId3v2Prefix(bytes) || bytes.size < ID3V2_HEADER_SIZE) return null
         val version = bytes[3].toInt() and 0xFF
