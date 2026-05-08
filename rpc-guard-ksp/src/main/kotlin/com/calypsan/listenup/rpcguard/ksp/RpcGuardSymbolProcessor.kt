@@ -18,11 +18,12 @@ internal class RpcGuardSymbolProcessor(
     private val env: SymbolProcessorEnvironment,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val services = resolver
-            .getSymbolsWithAnnotation(RPC_ANNOTATION_FQN)
-            .filterIsInstance<KSClassDeclaration>()
-            .filter { it.classKind == ClassKind.INTERFACE }
-            .toList()
+        val services =
+            resolver
+                .getSymbolsWithAnnotation(RPC_ANNOTATION_FQN)
+                .filterIsInstance<KSClassDeclaration>()
+                .filter { it.classKind == ClassKind.INTERFACE }
+                .toList()
 
         val models = services.mapNotNull { decl -> buildServiceModel(decl) }
 
@@ -40,16 +41,18 @@ internal class RpcGuardSymbolProcessor(
 
     private fun buildServiceModel(decl: KSClassDeclaration): RpcServiceModel? {
         val methods = decl.getDeclaredFunctions().toList()
-        val analyzed = methods.map { fn ->
-            RpcMethodModel(
-                declaration = fn,
-                name = fn.simpleName.asString(),
-                parameters = fn.parameters.map { p ->
-                    RpcParameterModel(p.name?.asString() ?: "_", p.type.resolve())
-                },
-                returnShape = analyzeReturnShape(fn),
-            )
-        }
+        val analyzed =
+            methods.map { fn ->
+                RpcMethodModel(
+                    declaration = fn,
+                    name = fn.simpleName.asString(),
+                    parameters =
+                        fn.parameters.map { p ->
+                            RpcParameterModel(p.name?.asString() ?: "_", p.type.resolve())
+                        },
+                    returnShape = analyzeReturnShape(fn),
+                )
+            }
 
         var hasInvalid = false
         for (method in analyzed) {
@@ -74,8 +77,9 @@ internal class RpcGuardSymbolProcessor(
 
     private fun analyzeReturnShape(fn: KSFunctionDeclaration): ReturnShape {
         val isSuspend = Modifier.SUSPEND in fn.modifiers
-        val returnType = fn.returnType?.resolve()
-            ?: return ReturnShape.Invalid("missing return type")
+        val returnType =
+            fn.returnType?.resolve()
+                ?: return ReturnShape.Invalid("missing return type")
 
         val returnFqn = returnType.declaration.qualifiedName?.asString()
 
@@ -83,22 +87,34 @@ internal class RpcGuardSymbolProcessor(
             if (returnFqn != APP_RESULT_FQN) {
                 ReturnShape.Invalid("suspend functions on @Rpc interfaces must return AppResult<*>")
             } else {
-                val inner = returnType.arguments.firstOrNull()?.type?.resolve()
-                    ?: return ReturnShape.Invalid("AppResult<?> missing type argument")
+                val inner =
+                    returnType.arguments
+                        .firstOrNull()
+                        ?.type
+                        ?.resolve()
+                        ?: return ReturnShape.Invalid("AppResult<?> missing type argument")
                 ReturnShape.SuspendAppResult(inner)
             }
         } else {
             if (returnFqn != FLOW_FQN) {
                 return ReturnShape.Invalid("non-suspend functions on @Rpc interfaces must return Flow<RpcEvent<*>>")
             }
-            val flowArg = returnType.arguments.firstOrNull()?.type?.resolve()
-                ?: return ReturnShape.Invalid("Flow<?> missing type argument")
+            val flowArg =
+                returnType.arguments
+                    .firstOrNull()
+                    ?.type
+                    ?.resolve()
+                    ?: return ReturnShape.Invalid("Flow<?> missing type argument")
             val flowArgFqn = flowArg.declaration.qualifiedName?.asString()
             if (flowArgFqn != RPC_EVENT_FQN) {
                 return ReturnShape.Invalid("non-suspend functions on @Rpc interfaces must return Flow<RpcEvent<*>>")
             }
-            val inner = flowArg.arguments.firstOrNull()?.type?.resolve()
-                ?: return ReturnShape.Invalid("RpcEvent<?> missing type argument")
+            val inner =
+                flowArg.arguments
+                    .firstOrNull()
+                    ?.type
+                    ?.resolve()
+                    ?: return ReturnShape.Invalid("RpcEvent<?> missing type argument")
             ReturnShape.FlowOfRpcEvent(inner)
         }
     }

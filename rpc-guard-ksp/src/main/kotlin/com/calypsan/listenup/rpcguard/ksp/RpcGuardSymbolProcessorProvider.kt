@@ -6,6 +6,5 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 
 /** ServiceLoader entry point for the RPC-guard KSP processor. See [RpcGuardSymbolProcessor]. */
 class RpcGuardSymbolProcessorProvider : SymbolProcessorProvider {
-    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
-        RpcGuardSymbolProcessor(environment)
+    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor = RpcGuardSymbolProcessor(environment)
 }

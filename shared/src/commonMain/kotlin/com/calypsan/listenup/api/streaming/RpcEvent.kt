@@ -24,12 +24,16 @@ sealed interface RpcEvent<out T> {
     /** Successful event payload. */
     @Serializable
     @SerialName("RpcEvent.Data")
-    data class Data<T>(val value: T) : RpcEvent<T>
+    data class Data<T>(
+        val value: T,
+    ) : RpcEvent<T>
 
     /** Server-side error captured by the guard. Carries a typed [AppError] (usually [com.calypsan.listenup.api.error.InternalError]). */
     @Serializable
     @SerialName("RpcEvent.Error")
-    data class Error(val error: AppError) : RpcEvent<Nothing>
+    data class Error(
+        val error: AppError,
+    ) : RpcEvent<Nothing>
 
     /** Optional explicit terminal marker. Most flows end via normal collection completion. */
     @Serializable

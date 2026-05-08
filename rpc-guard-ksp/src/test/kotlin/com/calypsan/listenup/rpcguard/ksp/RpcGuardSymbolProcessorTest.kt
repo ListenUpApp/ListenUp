@@ -14,26 +14,29 @@ import io.kotest.matchers.shouldBe
  * wires through ServiceLoader. Real coverage of discovery, return-shape validation, and
  * codegen lands in Tasks 4–7's tests.
  */
-class RpcGuardSymbolProcessorTest : FunSpec({
+class RpcGuardSymbolProcessorTest :
+    FunSpec({
 
-    test("processor runs cleanly on a source set with no @Rpc interfaces") {
-        val result = compile(
-            SourceFile.kotlin(
-                "Empty.kt",
-                """
-                class Empty
-                """.trimIndent(),
-            ),
-        )
-        result.exitCode shouldBe KotlinCompilation.ExitCode.OK
-    }
-})
+        test("processor runs cleanly on a source set with no @Rpc interfaces") {
+            val result =
+                compile(
+                    SourceFile.kotlin(
+                        "Empty.kt",
+                        """
+                        class Empty
+                        """.trimIndent(),
+                    ),
+                )
+            result.exitCode shouldBe KotlinCompilation.ExitCode.OK
+        }
+    })
 
 private fun compile(vararg sources: SourceFile): JvmCompilationResult =
-    KotlinCompilation().apply {
-        this.sources = sources.toList()
-        configureKsp {
-            symbolProcessorProviders += RpcGuardSymbolProcessorProvider()
-        }
-        inheritClassPath = true
-    }.compile()
+    KotlinCompilation()
+        .apply {
+            this.sources = sources.toList()
+            configureKsp {
+                symbolProcessorProviders += RpcGuardSymbolProcessorProvider()
+            }
+            inheritClassPath = true
+        }.compile()

@@ -24,11 +24,12 @@ class AppErrorContractTest :
         }
 
         test("InternalError.cause survives JSON round-trip") {
-            val original: AppError = InternalError(
-                correlationId = "abc-123",
-                debugInfo = "NPE in foo",
-                cause = "NullPointerException",
-            )
+            val original: AppError =
+                InternalError(
+                    correlationId = "abc-123",
+                    debugInfo = "NPE in foo",
+                    cause = "NullPointerException",
+                )
             val json = contractJson.encodeToString(AppError.serializer(), original)
             val decoded = contractJson.decodeFromString(AppError.serializer(), json)
             decoded.shouldBeInstanceOf<InternalError>()

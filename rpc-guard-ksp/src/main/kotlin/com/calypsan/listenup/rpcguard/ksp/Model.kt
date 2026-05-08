@@ -25,11 +25,17 @@ internal data class RpcParameterModel(
 
 internal sealed interface ReturnShape {
     /** `suspend fun X(...): AppResult<R>` — `inner` is `R`. */
-    data class SuspendAppResult(val inner: KSType) : ReturnShape
+    data class SuspendAppResult(
+        val inner: KSType,
+    ) : ReturnShape
 
     /** `fun X(...): Flow<RpcEvent<R>>` — `inner` is `R`. */
-    data class FlowOfRpcEvent(val inner: KSType) : ReturnShape
+    data class FlowOfRpcEvent(
+        val inner: KSType,
+    ) : ReturnShape
 
     /** Anything else. The processor emits `KSPLogger.error` for these. */
-    data class Invalid(val reason: String) : ReturnShape
+    data class Invalid(
+        val reason: String,
+    ) : ReturnShape
 }
