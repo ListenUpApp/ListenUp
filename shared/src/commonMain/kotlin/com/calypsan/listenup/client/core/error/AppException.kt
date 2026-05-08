@@ -22,9 +22,10 @@ import com.calypsan.listenup.api.error.AppError
  * data-layer code**; do not throw [AppException] from new APIs.
  */
 @Deprecated(
-    message = "Throwing convention is being unified on AppResult. " +
-        "New data-layer code should return `AppResult<T>` instead of throwing. " +
-        "Deleted in Task 27d of Phase 3 (data-layer AppResult unification).",
+    message =
+        "Throwing convention is being unified on AppResult. " +
+            "New data-layer code should return `AppResult<T>` instead of throwing. " +
+            "Deleted in Task 27d of Phase 3 (data-layer AppResult unification).",
     level = DeprecationLevel.WARNING,
 )
 class AppException(

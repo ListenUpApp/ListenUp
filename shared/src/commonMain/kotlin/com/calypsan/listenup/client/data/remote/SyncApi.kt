@@ -132,7 +132,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }
@@ -181,7 +183,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }
@@ -224,7 +228,9 @@ class SyncApi(
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> return result
+                        is Failure -> {
+                            return result
+                        }
                     }
                 } while (cursor != null)
             }

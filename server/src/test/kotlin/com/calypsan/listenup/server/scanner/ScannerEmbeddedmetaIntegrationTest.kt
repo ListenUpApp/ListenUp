@@ -171,8 +171,7 @@ private fun writeBytes(
     Files.write(bookRoot.resolve(name), bytes)
 }
 
-private fun fakeJpeg(): ByteArray =
-    byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 'J'.code.toByte(), 'F'.code.toByte())
+private fun fakeJpeg(): ByteArray = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 'J'.code.toByte(), 'F'.code.toByte())
 
 private fun newScanner(fixture: AudioLibraryFixture): Pair<Scanner, MutableSharedFlow<ScanEvent>> {
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)

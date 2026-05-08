@@ -109,9 +109,11 @@ internal class LiveCorpusValidator(
                     typedErrors += file to err
                 }
             }
+
             is AudioMetadataError -> {
                 typedErrors += file to err
             }
+
             else -> {
                 // Parser only returns AudioMetadataError subtypes; other AppError shouldn't reach here.
             }

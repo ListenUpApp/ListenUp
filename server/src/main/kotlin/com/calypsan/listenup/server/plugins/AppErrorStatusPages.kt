@@ -53,14 +53,23 @@ fun Application.installAppErrorStatusPages() {
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
+
         is DownloadError -> toHttpStatus()
+
         is ImportError -> toHttpStatus()
+
         is ScanError -> toHttpStatus()
+
         is ServerConnectError -> toHttpStatus()
+
         is SyncError -> toHttpStatus()
+
         is AudioMetadataError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
+
         is InternalError -> HttpStatusCode.InternalServerError
+
         // TransportError is client-local — it should never originate on the server.
         // If one escapes here it's a server bug; surface it as 500.
         is TransportError -> HttpStatusCode.InternalServerError
@@ -207,10 +216,13 @@ private fun AudioMetadataError.toHttpStatus(): HttpStatusCode =
         // The server can't parse this format. 415 communicates "the server understands
         // the request but won't process media of this type."
         is AudioMetadataError.UnsupportedFormat -> HttpStatusCode.UnsupportedMediaType
+
         // Format detected, content malformed. 422 — request was well-formed but the
         // entity it referenced is semantically invalid.
         is AudioMetadataError.CorruptHeader -> HttpStatusCode.UnprocessableEntity
+
         is AudioMetadataError.TruncatedStream -> HttpStatusCode.UnprocessableEntity
+
         // Server-side IO failure (permission denied, transient disk error). 500.
         is AudioMetadataError.IoError -> HttpStatusCode.InternalServerError
     }

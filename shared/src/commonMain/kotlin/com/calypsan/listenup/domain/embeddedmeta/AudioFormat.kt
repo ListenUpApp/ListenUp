@@ -18,13 +18,23 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface AudioFormat {
-    @Serializable @SerialName("AudioFormat.Mp3") data object Mp3 : AudioFormat
+    @Serializable
+    @SerialName("AudioFormat.Mp3")
+    data object Mp3 : AudioFormat
 
-    @Serializable @SerialName("AudioFormat.Flac") data object Flac : AudioFormat
+    @Serializable
+    @SerialName("AudioFormat.Flac")
+    data object Flac : AudioFormat
 
-    @Serializable @SerialName("AudioFormat.Mp4") data object Mp4 : AudioFormat
+    @Serializable
+    @SerialName("AudioFormat.Mp4")
+    data object Mp4 : AudioFormat
 
-    @Serializable @SerialName("AudioFormat.Ogg") data object Ogg : AudioFormat
+    @Serializable
+    @SerialName("AudioFormat.Ogg")
+    data object Ogg : AudioFormat
 
-    @Serializable @SerialName("AudioFormat.Opus") data object Opus : AudioFormat
+    @Serializable
+    @SerialName("AudioFormat.Opus")
+    data object Opus : AudioFormat
 }

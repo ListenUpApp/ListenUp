@@ -17,24 +17,26 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * one property OR on the class itself. Classes with fully untagged properties get flagged.
  * Tighten in a future phase if appropriate (e.g., require `@SerialName` on every property).
  */
-class StablePropertyOrderRule : FunSpec({
-    test("@Serializable data classes tag at least one property or the class with @SerialName") {
-        val offenders = Konsist
-            .scopeFromProduction()
-            .classes()
-            .filter { it.path.contains("/commonMain/") }
-            .filter { klass ->
-                klass.annotations.any { it.name == "Serializable" } &&
-                    klass.hasModifier(KoModifier.DATA)
-            }
-            .filter { klass ->
-                val classTagged = klass.annotations.any { it.name == "SerialName" }
-                val anyPropertyTagged = klass.primaryConstructor?.parameters
-                    ?.any { p -> p.annotations.any { it.name == "SerialName" } } == true
-                !classTagged && !anyPropertyTagged
-            }
-            .map { "${it.fullyQualifiedName} @ ${it.path}" }
+class StablePropertyOrderRule :
+    FunSpec({
+        test("@Serializable data classes tag at least one property or the class with @SerialName") {
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .classes()
+                    .filter { it.path.contains("/commonMain/") }
+                    .filter { klass ->
+                        klass.annotations.any { it.name == "Serializable" } &&
+                            klass.hasModifier(KoModifier.DATA)
+                    }.filter { klass ->
+                        val classTagged = klass.annotations.any { it.name == "SerialName" }
+                        val anyPropertyTagged =
+                            klass.primaryConstructor
+                                ?.parameters
+                                ?.any { p -> p.annotations.any { it.name == "SerialName" } } == true
+                        !classTagged && !anyPropertyTagged
+                    }.map { "${it.fullyQualifiedName} @ ${it.path}" }
 
-        offenders.shouldBeEmpty()
-    }
-})
+            offenders.shouldBeEmpty()
+        }
+    })

@@ -12,7 +12,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface SyncError : AppError {
-
     /** Top-level pull-sync failed. User's library may be stale. */
     @Serializable
     @SerialName("SyncError.SyncFailed")

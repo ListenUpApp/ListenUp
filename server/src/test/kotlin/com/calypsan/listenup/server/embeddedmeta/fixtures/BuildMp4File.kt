@@ -35,6 +35,7 @@ internal fun buildMp4File(block: Mp4Builder.() -> Unit): ByteArray = Mp4Builder(
 internal class Mp4Builder internal constructor() {
     private var ftypAtom: ByteArray? = null
     private var moovAtom: ByteArray? = null
+
     // Minimal mdat stub — 8-byte header + zero-byte payload. The parser
     // skips mdat entirely, so this never needs real audio bytes.
     private var mdatAtom: ByteArray = atom("mdat", ByteArray(0))
@@ -317,10 +318,11 @@ internal class MoovBuilder internal constructor() {
         // Minimal stsd — single entry whose payload the parser doesn't read for
         // text tracks. Format: version+flags(4) + entry_count(4) + zero entries.
         val stsd =
-            Buffer().apply {
-                writeBigEndianInt(0)
-                writeBigEndianInt(0) // entry count
-            }.readByteArray()
+            Buffer()
+                .apply {
+                    writeBigEndianInt(0)
+                    writeBigEndianInt(0) // entry count
+                }.readByteArray()
         children += atom("stsd", stsd)
 
         // stts: sample timings. Layout: version+flags(4) + entry_count(4) +
@@ -388,7 +390,10 @@ internal class MoovBuilder internal constructor() {
         error("stco atom not found inside trak — DSL invariant violated")
     }
 
-    private data class TextTrackPatch(val trakIndex: Int, val sampleDataIndex: Int)
+    private data class TextTrackPatch(
+        val trakIndex: Int,
+        val sampleDataIndex: Int,
+    )
 }
 
 internal class UdtaBuilder internal constructor() {
@@ -450,11 +455,12 @@ internal class IlstBuilder internal constructor() {
     ) {
         require(atomType.length == 4) { "iLst atom type must be 4 chars (got '$atomType')" }
         val dataPayload =
-            Buffer().apply {
-                writeBigEndianInt(dataType)
-                writeBigEndianInt(0) // locale
-                write(value.toByteArray(Charsets.UTF_8))
-            }.readByteArray()
+            Buffer()
+                .apply {
+                    writeBigEndianInt(dataType)
+                    writeBigEndianInt(0) // locale
+                    write(value.toByteArray(Charsets.UTF_8))
+                }.readByteArray()
         tags += atom(atomType, atom("data", dataPayload))
     }
 
@@ -470,11 +476,12 @@ internal class IlstBuilder internal constructor() {
                 else -> error("only image/jpeg and image/png supported in test fixture (got $mime)")
             }
         val dataPayload =
-            Buffer().apply {
-                writeBigEndianInt(dataType)
-                writeBigEndianInt(0)
-                write(bytes)
-            }.readByteArray()
+            Buffer()
+                .apply {
+                    writeBigEndianInt(dataType)
+                    writeBigEndianInt(0)
+                    write(bytes)
+                }.readByteArray()
         tags += atom("covr", atom("data", dataPayload))
     }
 
@@ -491,11 +498,12 @@ internal class IlstBuilder internal constructor() {
         val meanAtom = atom("mean", byteArrayOf(0, 0, 0, 0) + mean.toByteArray(Charsets.UTF_8))
         val nameAtom = atom("name", byteArrayOf(0, 0, 0, 0) + name.toByteArray(Charsets.UTF_8))
         val dataPayload =
-            Buffer().apply {
-                writeBigEndianInt(1) // UTF-8
-                writeBigEndianInt(0) // locale
-                write(value.toByteArray(Charsets.UTF_8))
-            }.readByteArray()
+            Buffer()
+                .apply {
+                    writeBigEndianInt(1) // UTF-8
+                    writeBigEndianInt(0) // locale
+                    write(value.toByteArray(Charsets.UTF_8))
+                }.readByteArray()
         val dataAtom = atom("data", dataPayload)
         tags += atom("----", meanAtom + nameAtom + dataAtom)
     }
@@ -504,10 +512,16 @@ internal class IlstBuilder internal constructor() {
 }
 
 /** Nero `chpl` chapter entry: start time in ms relative to file start + UTF-8 title. */
-internal data class NeroChapter(val startMs: Long, val title: String)
+internal data class NeroChapter(
+    val startMs: Long,
+    val title: String,
+)
 
 /** Apple text-track chapter entry: start time in ms relative to file start + UTF-8 title. */
-internal data class TextTrackChapter(val startMs: Long, val title: String)
+internal data class TextTrackChapter(
+    val startMs: Long,
+    val title: String,
+)
 
 /**
  * Encode a single MP4 atom: 4-byte big-endian size + 4-byte ASCII type + payload.

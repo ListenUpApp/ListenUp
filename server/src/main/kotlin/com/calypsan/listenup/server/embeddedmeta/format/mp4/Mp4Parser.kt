@@ -43,15 +43,16 @@ internal class Mp4Parser : AudioFormatParser {
     override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> {
         val moovBytes =
             try {
-                val topMoov = AtomWalker.findTopLevelAtom(source, "moov")
-                    ?: return AppResult.Failure(
-                        AudioMetadataError.CorruptHeader(
-                            pathString = "<source>",
-                            format = AudioFormat.Mp4,
-                            offset = 0,
-                            expected = "moov atom",
-                        ),
-                    )
+                val topMoov =
+                    AtomWalker.findTopLevelAtom(source, "moov")
+                        ?: return AppResult.Failure(
+                            AudioMetadataError.CorruptHeader(
+                                pathString = "<source>",
+                                format = AudioFormat.Mp4,
+                                offset = 0,
+                                expected = "moov atom",
+                            ),
+                        )
                 if (topMoov.size > MOOV_SOFT_LIMIT_BYTES) {
                     return AppResult.Failure(
                         AudioMetadataError.CorruptHeader(

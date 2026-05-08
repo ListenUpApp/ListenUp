@@ -14,15 +14,27 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface ChapterSource {
-    @Serializable @SerialName("ChapterSource.Mp4Chpl") data object Mp4Chpl : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.Mp4Chpl")
+    data object Mp4Chpl : ChapterSource
 
-    @Serializable @SerialName("ChapterSource.Mp4TextTrack") data object Mp4TextTrack : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.Mp4TextTrack")
+    data object Mp4TextTrack : ChapterSource
 
-    @Serializable @SerialName("ChapterSource.Id3v2Chap") data object Id3v2Chap : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.Id3v2Chap")
+    data object Id3v2Chap : ChapterSource
 
-    @Serializable @SerialName("ChapterSource.FlacCuesheet") data object FlacCuesheet : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.FlacCuesheet")
+    data object FlacCuesheet : ChapterSource
 
-    @Serializable @SerialName("ChapterSource.OggVorbisComment") data object OggVorbisComment : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.OggVorbisComment")
+    data object OggVorbisComment : ChapterSource
 
-    @Serializable @SerialName("ChapterSource.None") data object None : ChapterSource
+    @Serializable
+    @SerialName("ChapterSource.None")
+    data object None : ChapterSource
 }

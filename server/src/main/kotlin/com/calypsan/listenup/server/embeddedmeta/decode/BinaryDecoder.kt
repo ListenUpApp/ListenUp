@@ -55,11 +55,19 @@ internal fun Buffer.readUtf16WithBom(byteCount: Int): String {
     val raw = readByteArray(byteCount)
     val (offset, charset) =
         when {
-            raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_BE_HI && (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_BE_LO ->
+            raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_BE_HI &&
+                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_BE_LO -> {
                 2 to Charsets.UTF_16BE
-            raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_LE_HI && (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_LE_LO ->
+            }
+
+            raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_LE_HI &&
+                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_LE_LO -> {
                 2 to Charsets.UTF_16LE
-            else -> 0 to Charsets.UTF_16BE
+            }
+
+            else -> {
+                0 to Charsets.UTF_16BE
+            }
         }
     return String(raw, offset, raw.size - offset, charset)
 }

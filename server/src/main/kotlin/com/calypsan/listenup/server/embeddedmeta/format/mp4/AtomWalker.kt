@@ -59,7 +59,16 @@ internal data class TopLevelAtom(
 
 private val CONTAINER_TYPES =
     setOf(
-        "moov", "udta", "ilst", "trak", "mdia", "minf", "stbl", "tref", "----", "covr",
+        "moov",
+        "udta",
+        "ilst",
+        "trak",
+        "mdia",
+        "minf",
+        "stbl",
+        "tref",
+        "----",
+        "covr",
         // `meta` is a container too, but its payload starts with 4 extra bytes
         // (version+flags) before the first child atom — readers handle the
         // skip explicitly via [readMetaChildren].
@@ -93,8 +102,15 @@ internal object AtomWalker {
                     }
                     size64.toInt() to true
                 }
-                0 -> (end - offset) to false // 0 = atom extends to EOF
-                else -> size32 to false
+
+                0 -> {
+                    (end - offset) to false
+                }
+
+                // 0 = atom extends to EOF
+                else -> {
+                    size32 to false
+                }
             }
         if (size < 8) {
             throw AtomParseException(offset, "atom size $size below 8-byte minimum")
@@ -216,7 +232,12 @@ internal object AtomWalker {
                         if (size64 < 16 || offset + size64 > length) return null
                         size64 to 16L
                     }
-                    0 -> (length - offset) to 8L // 0 = atom extends to EOF
+
+                    0 -> {
+                        (length - offset) to 8L
+                    }
+
+                    // 0 = atom extends to EOF
                     else -> {
                         if (size32 < 8) return null
                         size32.toLong() to 8L

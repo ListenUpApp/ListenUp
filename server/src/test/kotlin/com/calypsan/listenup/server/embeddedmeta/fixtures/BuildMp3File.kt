@@ -134,10 +134,10 @@ internal fun mpegFrameHeader(
         }
     // Build 32-bit header
     var header = 0
-    header = header or (0xFFE shl 20)              // sync (11 bits) → bits 31..21
-    header = header or (0b11 shl 19)               // version MPEG-1 → bits 20..19
-    header = header or (0b01 shl 17)               // layer III     → bits 18..17
-    header = header or (1 shl 16)                  // protection bit (no CRC) → bit 16
+    header = header or (0xFFE shl 20) // sync (11 bits) → bits 31..21
+    header = header or (0b11 shl 19) // version MPEG-1 → bits 20..19
+    header = header or (0b01 shl 17) // layer III     → bits 18..17
+    header = header or (1 shl 16) // protection bit (no CRC) → bit 16
     header = header or ((bitrateIdx and 0xF) shl 12)
     header = header or ((sampleRateIdx and 0x3) shl 10)
     // padding=0, private=0, channel=stereo(0b00), mode-ext=0, copyright=0, original=0, emphasis=0
@@ -174,7 +174,9 @@ internal fun writeSyncSafeInt(
  * the ID3v2 spec: `0x00`=ISO-8859-1, `0x01`=UTF-16 with BOM, `0x02`=UTF-16BE
  * (v2.4 only), `0x03`=UTF-8 (v2.4 only). Default is `0x03` (UTF-8).
  */
-internal class Id3v2FrameSet internal constructor(private val version: Int) {
+internal class Id3v2FrameSet internal constructor(
+    private val version: Int,
+) {
     private val frames = mutableListOf<Pair<String, ByteArray>>()
 
     /** Standard text frame (TIT2, TPE1, …). Body = encoding byte + UTF-8 text. */

@@ -17,7 +17,10 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 @SerialName("EmbeddedArtwork")
-data class EmbeddedArtwork(val mime: String, val bytes: ByteArray) {
+data class EmbeddedArtwork(
+    val mime: String,
+    val bytes: ByteArray,
+) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is EmbeddedArtwork) return false

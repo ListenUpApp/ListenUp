@@ -36,7 +36,8 @@ internal interface SeekableAudioSource : AutoCloseable {
 }
 
 /** Default factory: opens a [RandomAccessFile] in read-only mode. */
-internal fun defaultSeekableSource(path: Path): SeekableAudioSource = RandomAccessFileSource(RandomAccessFile(path.toString(), "r"))
+internal fun defaultSeekableSource(path: Path): SeekableAudioSource =
+    RandomAccessFileSource(RandomAccessFile(path.toString(), "r"))
 
 private class RandomAccessFileSource(
     private val raf: RandomAccessFile,

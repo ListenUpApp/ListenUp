@@ -12,7 +12,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface ImportError : AppError {
-
     /**
      * Backup file upload failed.
      *

@@ -19,298 +19,318 @@ import java.io.IOException
  * MP4 byte stream; the parser walks it and surfaces tags, chapters, artwork
  * and duration. Property tests live in [Mp4ParserPropertyTest].
  */
-class Mp4ParserTest : FunSpec({
-    val parser = Mp4Parser()
+class Mp4ParserTest :
+    FunSpec({
+        val parser = Mp4Parser()
 
-    test("supports = setOf(AudioFormat.Mp4)") {
-        parser.supports shouldBe setOf(AudioFormat.Mp4)
-    }
+        test("supports = setOf(AudioFormat.Mp4)") {
+            parser.supports shouldBe setOf(AudioFormat.Mp4)
+        }
 
-    test("parse extracts title + artist from ©nam / ©ART ilst tags") {
-        val bytes =
-            buildMp4File {
-                ftyp(brand = "M4B ")
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 60_000)
-                    udta {
-                        meta {
-                            tag("©nam", "The Way of Kings")
-                            tag("©ART", "Brandon Sanderson")
-                            tag("©alb", "The Stormlight Archive")
+        test("parse extracts title + artist from ©nam / ©ART ilst tags") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 60_000)
+                        udta {
+                            meta {
+                                tag("©nam", "The Way of Kings")
+                                tag("©ART", "Brandon Sanderson")
+                                tag("©alb", "The Stormlight Archive")
+                            }
                         }
+                        audioTrack()
                     }
-                    audioTrack()
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.format shouldBe AudioFormat.Mp4
-        result.data.tags.title shouldBe "The Way of Kings"
-        result.data.tags.authors shouldBe listOf("Brandon Sanderson")
-        result.data.tags.custom["album"] shouldBe "The Stormlight Archive"
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.format shouldBe AudioFormat.Mp4
+            result.data.tags.title shouldBe "The Way of Kings"
+            result.data.tags.authors shouldBe listOf("Brandon Sanderson")
+            result.data.tags.custom["album"] shouldBe "The Stormlight Archive"
+        }
 
-    test("parse computes durationMs from mvhd timescale + duration (v0)") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    // 90_000 timescale units / 1000 Hz = 90 seconds = 90_000 ms
-                    mvhd(timescale = 1000, durationInTimescale = 90_000)
-                    udta { meta { tag("©nam", "Book") } }
-                    audioTrack()
+        test("parse computes durationMs from mvhd timescale + duration (v0)") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        // 90_000 timescale units / 1000 Hz = 90 seconds = 90_000 ms
+                        mvhd(timescale = 1000, durationInTimescale = 90_000)
+                        udta { meta { tag("©nam", "Book") } }
+                        audioTrack()
+                    }
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.durationMs shouldBe 90_000L
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.durationMs shouldBe 90_000L
+        }
 
-    test("parse computes durationMs from mvhd v1 (64-bit duration)") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    // Force v1 by exceeding Int.MAX_VALUE — 1 hour at 1e9 timescale
-                    mvhd(timescale = 1_000_000_000, durationInTimescale = 3_600L * 1_000_000_000L)
-                    udta { meta { tag("©nam", "Long Book") } }
-                    audioTrack()
+        test("parse computes durationMs from mvhd v1 (64-bit duration)") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        // Force v1 by exceeding Int.MAX_VALUE — 1 hour at 1e9 timescale
+                        mvhd(timescale = 1_000_000_000, durationInTimescale = 3_600L * 1_000_000_000L)
+                        udta { meta { tag("©nam", "Long Book") } }
+                        audioTrack()
+                    }
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.durationMs shouldBe 3_600_000L // 1 hour in ms
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.durationMs shouldBe 3_600_000L // 1 hour in ms
+        }
 
-    test("parse extracts Nero chpl chapters with computed end times") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 90_000)
-                    udta {
-                        meta { tag("©nam", "Book") }
-                        chpl(
+        test("parse extracts Nero chpl chapters with computed end times") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 90_000)
+                        udta {
+                            meta { tag("©nam", "Book") }
+                            chpl(
+                                chapters =
+                                    listOf(
+                                        NeroChapter(startMs = 0, title = "Prologue"),
+                                        NeroChapter(startMs = 30_000, title = "Chapter 1"),
+                                        NeroChapter(startMs = 60_000, title = "Chapter 2"),
+                                    ),
+                            )
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.chaptersSource shouldBe ChapterSource.Mp4Chpl
+            result.data.chapters shouldHaveSize 3
+            result.data.chapters[0].title shouldBe "Prologue"
+            result.data.chapters[0].startMs shouldBe 0L
+            result.data.chapters[0].endMs shouldBe 29_999L
+            result.data.chapters[1].startMs shouldBe 30_000L
+            result.data.chapters[1].endMs shouldBe 59_999L
+            // Last chapter clamps to durationMs.
+            result.data.chapters[2].startMs shouldBe 60_000L
+            result.data.chapters[2].endMs shouldBe 90_000L
+        }
+
+        test("parse extracts cover artwork (JPEG, sniffed MIME)") {
+            val fakeJpeg =
+                byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 'J'.code.toByte(), 'F'.code.toByte())
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                cover(mime = "image/jpeg", bytes = fakeJpeg)
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.artwork?.mime shouldBe "image/jpeg"
+            result.data.artwork
+                ?.bytes
+                ?.toList() shouldBe fakeJpeg.toList()
+        }
+
+        test("parse extracts cover artwork (PNG, sniffed MIME)") {
+            val fakePng =
+                byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                cover(mime = "image/png", bytes = fakePng)
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.artwork?.mime shouldBe "image/png"
+            result.data.artwork
+                ?.bytes
+                ?.toList() shouldBe fakePng.toList()
+        }
+
+        test("parse maps com.apple.iTunes/Narrator (---- atom) to tags.narrators") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                freeform(mean = "com.apple.iTunes", name = "Narrator", value = "Kate Reading")
+                                freeform(mean = "com.apple.iTunes", name = "ASIN", value = "B00ABCDEF1")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.narrators shouldBe listOf("Kate Reading")
+            result.data.tags.asin shouldBe "B00ABCDEF1"
+        }
+
+        test("parse falls back to Apple text-track chapters when chpl absent") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 90_000)
+                        udta { meta { tag("©nam", "Book") } }
+                        audioTrack(trackId = 1, chapterTrackRef = 2)
+                        chapterTextTrack(
+                            trackId = 2,
+                            timescale = 1000,
                             chapters =
                                 listOf(
-                                    NeroChapter(startMs = 0, title = "Prologue"),
-                                    NeroChapter(startMs = 30_000, title = "Chapter 1"),
-                                    NeroChapter(startMs = 60_000, title = "Chapter 2"),
+                                    TextTrackChapter(startMs = 0, title = "Prologue"),
+                                    TextTrackChapter(startMs = 30_000, title = "Chapter 1"),
                                 ),
                         )
                     }
-                    audioTrack()
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.chaptersSource shouldBe ChapterSource.Mp4Chpl
-        result.data.chapters shouldHaveSize 3
-        result.data.chapters[0].title shouldBe "Prologue"
-        result.data.chapters[0].startMs shouldBe 0L
-        result.data.chapters[0].endMs shouldBe 29_999L
-        result.data.chapters[1].startMs shouldBe 30_000L
-        result.data.chapters[1].endMs shouldBe 59_999L
-        // Last chapter clamps to durationMs.
-        result.data.chapters[2].startMs shouldBe 60_000L
-        result.data.chapters[2].endMs shouldBe 90_000L
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.chaptersSource shouldBe ChapterSource.Mp4TextTrack
+            result.data.chapters shouldHaveSize 2
+            result.data.chapters[0].title shouldBe "Prologue"
+            result.data.chapters[0].startMs shouldBe 0L
+            result.data.chapters[1].title shouldBe "Chapter 1"
+            result.data.chapters[1].startMs shouldBe 30_000L
+        }
 
-    test("parse extracts cover artwork (JPEG, sniffed MIME)") {
-        val fakeJpeg =
-            byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 'J'.code.toByte(), 'F'.code.toByte())
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 1000)
-                    udta {
-                        meta {
-                            tag("©nam", "Book")
-                            cover(mime = "image/jpeg", bytes = fakeJpeg)
+        test("parse prefers Nero chpl when both Nero and Apple text-track are present") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 90_000)
+                        udta {
+                            meta { tag("©nam", "Book") }
+                            chpl(
+                                chapters =
+                                    listOf(
+                                        NeroChapter(startMs = 0, title = "Nero-A"),
+                                        NeroChapter(startMs = 45_000, title = "Nero-B"),
+                                    ),
+                            )
                         }
-                    }
-                    audioTrack()
-                }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.artwork?.mime shouldBe "image/jpeg"
-        result.data.artwork?.bytes?.toList() shouldBe fakeJpeg.toList()
-    }
-
-    test("parse extracts cover artwork (PNG, sniffed MIME)") {
-        val fakePng =
-            byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 1000)
-                    udta {
-                        meta {
-                            tag("©nam", "Book")
-                            cover(mime = "image/png", bytes = fakePng)
-                        }
-                    }
-                    audioTrack()
-                }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.artwork?.mime shouldBe "image/png"
-        result.data.artwork?.bytes?.toList() shouldBe fakePng.toList()
-    }
-
-    test("parse maps com.apple.iTunes/Narrator (---- atom) to tags.narrators") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 1000)
-                    udta {
-                        meta {
-                            tag("©nam", "Book")
-                            freeform(mean = "com.apple.iTunes", name = "Narrator", value = "Kate Reading")
-                            freeform(mean = "com.apple.iTunes", name = "ASIN", value = "B00ABCDEF1")
-                        }
-                    }
-                    audioTrack()
-                }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.tags.narrators shouldBe listOf("Kate Reading")
-        result.data.tags.asin shouldBe "B00ABCDEF1"
-    }
-
-    test("parse falls back to Apple text-track chapters when chpl absent") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 90_000)
-                    udta { meta { tag("©nam", "Book") } }
-                    audioTrack(trackId = 1, chapterTrackRef = 2)
-                    chapterTextTrack(
-                        trackId = 2,
-                        timescale = 1000,
-                        chapters =
-                            listOf(
-                                TextTrackChapter(startMs = 0, title = "Prologue"),
-                                TextTrackChapter(startMs = 30_000, title = "Chapter 1"),
-                            ),
-                    )
-                }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.chaptersSource shouldBe ChapterSource.Mp4TextTrack
-        result.data.chapters shouldHaveSize 2
-        result.data.chapters[0].title shouldBe "Prologue"
-        result.data.chapters[0].startMs shouldBe 0L
-        result.data.chapters[1].title shouldBe "Chapter 1"
-        result.data.chapters[1].startMs shouldBe 30_000L
-    }
-
-    test("parse prefers Nero chpl when both Nero and Apple text-track are present") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 90_000)
-                    udta {
-                        meta { tag("©nam", "Book") }
-                        chpl(
+                        audioTrack(trackId = 1, chapterTrackRef = 2)
+                        chapterTextTrack(
+                            trackId = 2,
+                            timescale = 1000,
                             chapters =
                                 listOf(
-                                    NeroChapter(startMs = 0, title = "Nero-A"),
-                                    NeroChapter(startMs = 45_000, title = "Nero-B"),
+                                    TextTrackChapter(startMs = 0, title = "Apple-A"),
+                                    TextTrackChapter(startMs = 30_000, title = "Apple-B"),
                                 ),
                         )
                     }
-                    audioTrack(trackId = 1, chapterTrackRef = 2)
-                    chapterTextTrack(
-                        trackId = 2,
-                        timescale = 1000,
-                        chapters =
-                            listOf(
-                                TextTrackChapter(startMs = 0, title = "Apple-A"),
-                                TextTrackChapter(startMs = 30_000, title = "Apple-B"),
-                            ),
-                    )
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.chaptersSource shouldBe ChapterSource.Mp4Chpl
-        result.data.chapters.map { it.title } shouldBe listOf("Nero-A", "Nero-B")
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.chaptersSource shouldBe ChapterSource.Mp4Chpl
+            result.data.chapters.map { it.title } shouldBe listOf("Nero-A", "Nero-B")
+        }
 
-    test("parse returns Success with empty chapters when neither source present") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 1000)
-                    udta { meta { tag("©nam", "Book") } }
-                    audioTrack()
+        test("parse returns Success with empty chapters when neither source present") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta { meta { tag("©nam", "Book") } }
+                        audioTrack()
+                    }
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.chapters.size shouldBe 0
-        result.data.chaptersSource shouldBe ChapterSource.None
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.chapters.size shouldBe 0
+            result.data.chaptersSource shouldBe ChapterSource.None
+        }
 
-    test("parse returns Success with empty fields when udta is absent") {
-        val bytes =
-            buildMp4File {
-                ftyp()
-                moov {
-                    mvhd(timescale = 1000, durationInTimescale = 1000)
-                    audioTrack()
+        test("parse returns Success with empty fields when udta is absent") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        audioTrack()
+                    }
                 }
-            }
-        val result = runBlocking { parser.parse(byteSource(bytes)) }
-        require(result is AppResult.Success<EmbeddedAudioMetadata>)
-        result.data.tags.title shouldBe null
-        result.data.tags.authors shouldBe emptyList()
-        result.data.chapters shouldBe emptyList()
-        result.data.artwork shouldBe null
-    }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.title shouldBe null
+            result.data.tags.authors shouldBe emptyList()
+            result.data.chapters shouldBe emptyList()
+            result.data.artwork shouldBe null
+        }
 
-    test("parse maps IO failure to AudioMetadataError.IoError") {
-        val source =
-            object : SeekableAudioSource {
-                override val length: Long = 100
-                override fun position(): Long = 0
-                override fun seek(offset: Long) {}
-                override fun read(into: ByteArray, count: Int): Int = -1
-                override fun readFully(count: Int): ByteArray = throw IOException("boom")
-                override fun close() {}
-            }
-        val result = runBlocking { parser.parse(source) }
-        require(result is AppResult.Failure)
-        (result.error is com.calypsan.listenup.api.error.AudioMetadataError.IoError) shouldBe true
-    }
-})
+        test("parse maps IO failure to AudioMetadataError.IoError") {
+            val source =
+                object : SeekableAudioSource {
+                    override val length: Long = 100
+
+                    override fun position(): Long = 0
+
+                    override fun seek(offset: Long) {}
+
+                    override fun read(
+                        into: ByteArray,
+                        count: Int,
+                    ): Int = -1
+
+                    override fun readFully(count: Int): ByteArray = throw IOException("boom")
+
+                    override fun close() {}
+                }
+            val result = runBlocking { parser.parse(source) }
+            require(result is AppResult.Failure)
+            (result.error is com.calypsan.listenup.api.error.AudioMetadataError.IoError) shouldBe true
+        }
+    })
 
 internal fun byteSource(bytes: ByteArray): SeekableAudioSource =
     object : SeekableAudioSource {
         private var pos: Long = 0
         override val length: Long = bytes.size.toLong()
+
         override fun position(): Long = pos
+
         override fun seek(offset: Long) {
             pos = offset
         }
-        override fun read(into: ByteArray, count: Int): Int {
+
+        override fun read(
+            into: ByteArray,
+            count: Int,
+        ): Int {
             if (pos >= bytes.size) return -1
             val n = minOf(count, bytes.size - pos.toInt())
             System.arraycopy(bytes, pos.toInt(), into, 0, n)
             pos += n
             return n
         }
+
         override fun readFully(count: Int): ByteArray {
             if (pos + count > bytes.size) throw IOException("EOF: requested $count from pos=$pos, length=$length")
             val out = ByteArray(count)
@@ -318,5 +338,6 @@ internal fun byteSource(bytes: ByteArray): SeekableAudioSource =
             pos += count
             return out
         }
+
         override fun close() {}
     }

@@ -67,7 +67,10 @@ class CreateInviteViewModelTest {
             // failure.message, so pass a typed AppError whose body-level message
             // matches the relevant branch ("Name is required").
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Name is required"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Name is required"),
+                )
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "", email = "test@example.com", role = "user", expiresInDays = 7)
@@ -85,7 +88,10 @@ class CreateInviteViewModelTest {
             val createInviteUseCase: CreateInviteUseCase = mock()
             // Body-level message convention: see empty-name test for explanation.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(com.calypsan.listenup.api.error.ValidationError(message = "Invalid email"))
+                Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Invalid email"),
+                )
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test User", email = "invalid-email", role = "user", expiresInDays = 7)
@@ -120,7 +126,10 @@ class CreateInviteViewModelTest {
             // Server returns 409 Conflict for duplicate email — ViewModel routes
             // TransportError.Server4xx(409) → EmailInUse via type-pattern matching.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(com.calypsan.listenup.api.error.TransportError.Server4xx(statusCode = 409))
+                Failure(
+                    com.calypsan.listenup.api.error.TransportError
+                        .Server4xx(statusCode = 409),
+                )
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test", email = "test@example.com", role = "user", expiresInDays = 7)
@@ -140,7 +149,10 @@ class CreateInviteViewModelTest {
             // contains both "network" and "connection", which the VM's branch
             // looks for.
             everySuspend { createInviteUseCase(any(), any(), any(), any()) } returns
-                Failure(com.calypsan.listenup.api.error.TransportError.NetworkUnavailable())
+                Failure(
+                    com.calypsan.listenup.api.error.TransportError
+                        .NetworkUnavailable(),
+                )
             val viewModel = CreateInviteViewModel(createInviteUseCase)
 
             viewModel.createInvite(name = "Test", email = "test@example.com", role = "user", expiresInDays = 7)

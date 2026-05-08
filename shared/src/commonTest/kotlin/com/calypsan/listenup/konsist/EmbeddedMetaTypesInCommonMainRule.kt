@@ -21,59 +21,66 @@ import io.kotest.matchers.collections.shouldContainAll
  *     this — Konsist's heuristic catches the obvious `setOf()` mistake
  *     but is structurally limited.
  */
-class EmbeddedMetaTypesInCommonMainRule : FunSpec({
+class EmbeddedMetaTypesInCommonMainRule :
+    FunSpec({
 
-    test("embeddedmeta domain types live in commonMain") {
-        val expectedTypes = setOf(
-            "com.calypsan.listenup.domain.embeddedmeta.AudioFormat",
-            "com.calypsan.listenup.domain.embeddedmeta.AudioTags",
-            "com.calypsan.listenup.domain.embeddedmeta.Chapter",
-            "com.calypsan.listenup.domain.embeddedmeta.ChapterSource",
-            "com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork",
-            "com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata",
-            "com.calypsan.listenup.domain.embeddedmeta.SeriesEntry",
-        )
-        // Sealed interfaces (`AudioFormat`, `ChapterSource`) live alongside data classes,
-        // so both Konsist accessors must contribute to the FQN set.
-        val scope = Konsist.scopeFromProduction()
-        val foundInCommonMain = (scope.classes() + scope.interfaces())
-            .filter { it.path.contains("/commonMain/") }
-            .mapNotNull { it.fullyQualifiedName }
-            .toSet()
+        test("embeddedmeta domain types live in commonMain") {
+            val expectedTypes =
+                setOf(
+                    "com.calypsan.listenup.domain.embeddedmeta.AudioFormat",
+                    "com.calypsan.listenup.domain.embeddedmeta.AudioTags",
+                    "com.calypsan.listenup.domain.embeddedmeta.Chapter",
+                    "com.calypsan.listenup.domain.embeddedmeta.ChapterSource",
+                    "com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork",
+                    "com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata",
+                    "com.calypsan.listenup.domain.embeddedmeta.SeriesEntry",
+                )
+            // Sealed interfaces (`AudioFormat`, `ChapterSource`) live alongside data classes,
+            // so both Konsist accessors must contribute to the FQN set.
+            val scope = Konsist.scopeFromProduction()
+            val foundInCommonMain =
+                (scope.classes() + scope.interfaces())
+                    .filter { it.path.contains("/commonMain/") }
+                    .mapNotNull { it.fullyQualifiedName }
+                    .toSet()
 
-        foundInCommonMain shouldContainAll expectedTypes
-    }
-
-    test("AudioFormatParser implementations live under :server.embeddedmeta") {
-        val implementations = Konsist
-            .scopeFromProduction()
-            .classes()
-            .withoutAbstractModifier()
-            .filter { cls ->
-                cls.parents().any { it.name == "AudioFormatParser" }
-            }
-        val misplaced = implementations.filterNot { cls ->
-            cls.fullyQualifiedName?.startsWith("com.calypsan.listenup.server.embeddedmeta.") ?: false
+            foundInCommonMain shouldContainAll expectedTypes
         }
-        misplaced.map { it.fullyQualifiedName }.shouldBeEmpty()
-    }
 
-    test("every AudioFormatParser implementation declares non-empty supports") {
-        val implementations = Konsist
-            .scopeFromProduction()
-            .classes()
-            .withoutAbstractModifier()
-            .filter { cls ->
-                cls.parents().any { it.name == "AudioFormatParser" }
-            }
-        val violators = implementations.filter { cls ->
-            val supportsProperty = cls.properties().firstOrNull { it.name == "supports" }
-            supportsProperty == null ||
-                supportsProperty.text.let { src ->
-                    src.contains("setOf(") &&
-                        src.substringAfter("setOf(").substringBefore(")").isBlank()
+        test("AudioFormatParser implementations live under :server.embeddedmeta") {
+            val implementations =
+                Konsist
+                    .scopeFromProduction()
+                    .classes()
+                    .withoutAbstractModifier()
+                    .filter { cls ->
+                        cls.parents().any { it.name == "AudioFormatParser" }
+                    }
+            val misplaced =
+                implementations.filterNot { cls ->
+                    cls.fullyQualifiedName?.startsWith("com.calypsan.listenup.server.embeddedmeta.") ?: false
                 }
+            misplaced.map { it.fullyQualifiedName }.shouldBeEmpty()
         }
-        violators.map { it.fullyQualifiedName }.shouldBeEmpty()
-    }
-})
+
+        test("every AudioFormatParser implementation declares non-empty supports") {
+            val implementations =
+                Konsist
+                    .scopeFromProduction()
+                    .classes()
+                    .withoutAbstractModifier()
+                    .filter { cls ->
+                        cls.parents().any { it.name == "AudioFormatParser" }
+                    }
+            val violators =
+                implementations.filter { cls ->
+                    val supportsProperty = cls.properties().firstOrNull { it.name == "supports" }
+                    supportsProperty == null ||
+                        supportsProperty.text.let { src ->
+                            src.contains("setOf(") &&
+                                src.substringAfter("setOf(").substringBefore(")").isBlank()
+                        }
+                }
+            violators.map { it.fullyQualifiedName }.shouldBeEmpty()
+        }
+    })

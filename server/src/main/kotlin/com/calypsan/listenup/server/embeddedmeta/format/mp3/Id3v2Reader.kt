@@ -78,12 +78,19 @@ internal object Id3v2Reader {
             if (frameSize < 0 || frameDataEnd > tagEnd) break
             val frameData = bytes.copyOfRange(frameDataStart, frameDataEnd)
             when {
-                frameId == "TXXX" -> handleTxxx(frameData, builder)
-                frameId.startsWith("T") -> handleTextFrame(frameId, frameData, builder)
+                frameId == "TXXX" -> {
+                    handleTxxx(frameData, builder)
+                }
+
+                frameId.startsWith("T") -> {
+                    handleTextFrame(frameId, frameData, builder)
+                }
+
                 frameId == "CHAP" -> {
                     val chapter = parseChap(frameData, version, chapters.size + 1)
                     if (chapter != null) chapters += chapter
                 }
+
                 frameId == "APIC" -> {
                     val (artwork, priority) = parseApic(frameData) ?: (null to -1)
                     if (artwork != null && priority > bestArtworkPriority) {
@@ -118,19 +125,34 @@ internal object Id3v2Reader {
         if (text.isEmpty()) return
         when (frameId) {
             "TIT2" -> builder.title = text
+
             "TIT3" -> builder.subtitle = text
+
             "TPE1" -> builder.authors += text
+
             "TALB" -> builder.custom["album"] = text
+
             "TCON" -> builder.genres += text
+
             "TYER" -> parseYear(text)?.let { builder.publishedYear = it }
+
             "TDRC" -> parseYear(text)?.let { builder.publishedYear = it }
-            "TCOM" -> builder.narrators += text // Composer often used as narrator in audiobooks
+
+            "TCOM" -> builder.narrators += text
+
+            // Composer often used as narrator in audiobooks
             "TRCK" -> parseTrack(text)?.let { builder.trackNumber = it }
+
             "TPOS" -> parseTrack(text)?.let { builder.discNumber = it }
+
             "TPUB" -> builder.publisher = text
+
             "TLAN" -> builder.language = text
+
             "MVNM" -> builder.seriesName = builder.seriesName ?: text
+
             "MVIN" -> builder.seriesPart = builder.seriesPart ?: text
+
             else -> builder.custom[frameId] = text
         }
     }
@@ -143,16 +165,41 @@ internal object Id3v2Reader {
         val encoding = data[0]
         val (description, value) = splitNullTerminated(data.copyOfRange(1, data.size), encoding) ?: return
         when (description.lowercase()) {
-            "narrator" -> builder.narrators += value
-            "series" -> builder.seriesName = value
-            "series part", "seriespart", "part", "series-part", "series position" ->
+            "narrator" -> {
+                builder.narrators += value
+            }
+
+            "series" -> {
+                builder.seriesName = value
+            }
+
+            "series part", "seriespart", "part", "series-part", "series position" -> {
                 builder.seriesPart = value
-            "publisher" -> builder.publisher = value
-            "isbn" -> builder.isbn = value
-            "asin", "audible_asin" -> builder.asin = value
-            "language", "lang" -> builder.language = value
-            "description" -> builder.description = builder.description ?: value
-            else -> builder.custom[description] = value
+            }
+
+            "publisher" -> {
+                builder.publisher = value
+            }
+
+            "isbn" -> {
+                builder.isbn = value
+            }
+
+            "asin", "audible_asin" -> {
+                builder.asin = value
+            }
+
+            "language", "lang" -> {
+                builder.language = value
+            }
+
+            "description" -> {
+                builder.description = builder.description ?: value
+            }
+
+            else -> {
+                builder.custom[description] = value
+            }
         }
     }
 
@@ -238,11 +285,13 @@ internal object Id3v2Reader {
                 bytes[0] == 0xFF.toByte() &&
                 bytes[1] == 0xD8.toByte() &&
                 bytes[2] == 0xFF.toByte() -> "image/jpeg"
+
             bytes.size >= 4 &&
                 bytes[0] == 0x89.toByte() &&
                 bytes[1] == 0x50.toByte() &&
                 bytes[2] == 0x4E.toByte() &&
                 bytes[3] == 0x47.toByte() -> "image/png"
+
             else -> null
         }
 
@@ -297,6 +346,7 @@ internal object Id3v2Reader {
                 }
                 -1
             }
+
             else -> {
                 // Single-byte null
                 (from until data.size).firstOrNull { data[it] == 0.toByte() } ?: -1
@@ -351,8 +401,7 @@ internal object Id3v2Reader {
      * Does not strip whitespace -- \r/\n/\t may legitimately appear inside an authored
      * title/description field and must round-trip.
      */
-    private fun String.trimNulls(): String =
-        this.trim { it == '\u0000' }
+    private fun String.trimNulls(): String = this.trim { it == '\u0000' }
 
     private const val ID3V2_HEADER_SIZE = 10
     private const val ID3V2_FRAME_HEADER_SIZE = 10

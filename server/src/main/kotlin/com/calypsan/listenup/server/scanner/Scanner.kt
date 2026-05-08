@@ -252,12 +252,14 @@ internal fun List<AnalyzedBook>.toEmbeddedScanCounters(): EmbeddedScanCounters {
             null -> {
                 // Candidate had no audio file; not part of the embedded-eligible population.
             }
+
             is MetadataStatus.Available -> {
                 parsed += 1
                 val embedded = book.embedded ?: continue
                 if (embedded.chapters.isNotEmpty()) withChapters += 1
                 if (embedded.artwork != null) withArtwork += 1
             }
+
             is MetadataStatus.UnsupportedFormat -> {
                 unsupported += 1
                 val format = status.format
@@ -267,6 +269,7 @@ internal fun List<AnalyzedBook>.toEmbeddedScanCounters(): EmbeddedScanCounters {
                     perFormat[format] = (perFormat[format] ?: 0) + 1
                 }
             }
+
             is MetadataStatus.ParseError -> {
                 parseErrors += 1
             }

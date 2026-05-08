@@ -14,55 +14,56 @@ import io.kotest.matchers.shouldBe
  * registration is required (refinement spec §1 — and Task 53 in the plan
  * collapses to this test once the sealed-hierarchy assertion holds).
  */
-class AudioMetadataErrorWireRoundTripTest : FunSpec({
-    val json = contractJson
+class AudioMetadataErrorWireRoundTripTest :
+    FunSpec({
+        val json = contractJson
 
-    test("UnsupportedFormat round-trips") {
-        val err: AppError =
-            AudioMetadataError.UnsupportedFormat(
-                pathString = "/lib/foo.flac",
-                detectedMagic = "fLaC",
-                format = AudioFormat.Flac,
-                correlationId = "cor-1",
-            )
-        val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
-        decoded shouldBe err
-    }
+        test("UnsupportedFormat round-trips") {
+            val err: AppError =
+                AudioMetadataError.UnsupportedFormat(
+                    pathString = "/lib/foo.flac",
+                    detectedMagic = "fLaC",
+                    format = AudioFormat.Flac,
+                    correlationId = "cor-1",
+                )
+            val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
+            decoded shouldBe err
+        }
 
-    test("CorruptHeader round-trips") {
-        val err: AppError =
-            AudioMetadataError.CorruptHeader(
-                pathString = "/lib/bad.mp3",
-                format = AudioFormat.Mp3,
-                offset = 42,
-                expected = "ID3",
-                correlationId = "cor-2",
-            )
-        val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
-        decoded shouldBe err
-    }
+        test("CorruptHeader round-trips") {
+            val err: AppError =
+                AudioMetadataError.CorruptHeader(
+                    pathString = "/lib/bad.mp3",
+                    format = AudioFormat.Mp3,
+                    offset = 42,
+                    expected = "ID3",
+                    correlationId = "cor-2",
+                )
+            val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
+            decoded shouldBe err
+        }
 
-    test("TruncatedStream round-trips") {
-        val err: AppError =
-            AudioMetadataError.TruncatedStream(
-                pathString = "/lib/short.flac",
-                format = AudioFormat.Flac,
-                expectedBytes = 1024,
-                actualBytes = 512,
-                correlationId = "cor-3",
-            )
-        val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
-        decoded shouldBe err
-    }
+        test("TruncatedStream round-trips") {
+            val err: AppError =
+                AudioMetadataError.TruncatedStream(
+                    pathString = "/lib/short.flac",
+                    format = AudioFormat.Flac,
+                    expectedBytes = 1024,
+                    actualBytes = 512,
+                    correlationId = "cor-3",
+                )
+            val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
+            decoded shouldBe err
+        }
 
-    test("IoError round-trips") {
-        val err: AppError =
-            AudioMetadataError.IoError(
-                pathString = "/lib/locked.m4b",
-                ioMessage = "permission denied",
-                correlationId = "cor-4",
-            )
-        val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
-        decoded shouldBe err
-    }
-})
+        test("IoError round-trips") {
+            val err: AppError =
+                AudioMetadataError.IoError(
+                    pathString = "/lib/locked.m4b",
+                    ioMessage = "permission denied",
+                    correlationId = "cor-4",
+                )
+            val decoded = json.decodeFromString(AppError.serializer(), json.encodeToString(AppError.serializer(), err))
+            decoded shouldBe err
+        }
+    })

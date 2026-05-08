@@ -11,25 +11,27 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * domain models to layers above. Domain layer mocking and platform portability both
  * depend on this separation.
  */
-class NoTransportTypesInDomainRule : FunSpec({
-    test("no commonMain domain code imports kotlinx.rpc or io.ktor symbols") {
-        val transportPackagePrefixes = listOf(
-            "kotlinx.rpc.",
-            "io.ktor.",
-        )
-        val offenders = Konsist
-            .scopeFromProduction()
-            .files
-            .filter { it.path.contains("/commonMain/") }
-            .filter { it.path.contains("/domain/") }
-            .flatMap { file ->
-                file.imports
-                    .filter { import ->
-                        transportPackagePrefixes.any { import.name.startsWith(it) }
+class NoTransportTypesInDomainRule :
+    FunSpec({
+        test("no commonMain domain code imports kotlinx.rpc or io.ktor symbols") {
+            val transportPackagePrefixes =
+                listOf(
+                    "kotlinx.rpc.",
+                    "io.ktor.",
+                )
+            val offenders =
+                Konsist
+                    .scopeFromProduction()
+                    .files
+                    .filter { it.path.contains("/commonMain/") }
+                    .filter { it.path.contains("/domain/") }
+                    .flatMap { file ->
+                        file.imports
+                            .filter { import ->
+                                transportPackagePrefixes.any { import.name.startsWith(it) }
+                            }.map { "${file.path} -> ${it.name}" }
                     }
-                    .map { "${file.path} -> ${it.name}" }
-            }
 
-        offenders.shouldBeEmpty()
-    }
-})
+            offenders.shouldBeEmpty()
+        }
+    })

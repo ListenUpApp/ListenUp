@@ -80,22 +80,37 @@ class CreateInviteViewModel(
      */
     private fun classifyError(error: AppError): CreateInviteErrorType =
         when (error) {
-            is ValidationError -> when {
-                error.message.contains("Name is required", ignoreCase = true) ->
-                    CreateInviteErrorType.ValidationError(CreateInviteField.NAME)
-                error.message.contains("Invalid email", ignoreCase = true) ->
-                    CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
-                else -> CreateInviteErrorType.ServerError(error.message)
+            is ValidationError -> {
+                when {
+                    error.message.contains("Name is required", ignoreCase = true) -> {
+                        CreateInviteErrorType.ValidationError(CreateInviteField.NAME)
+                    }
+
+                    error.message.contains("Invalid email", ignoreCase = true) -> {
+                        CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
+                    }
+
+                    else -> {
+                        CreateInviteErrorType.ServerError(error.message)
+                    }
+                }
             }
-            is TransportError.Server4xx ->
+
+            is TransportError.Server4xx -> {
                 if (error.statusCode == HTTP_CONFLICT) {
                     CreateInviteErrorType.EmailInUse
                 } else {
                     CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
                 }
-            is TransportError.NetworkUnavailable, is TransportError.Timeout ->
+            }
+
+            is TransportError.NetworkUnavailable, is TransportError.Timeout -> {
                 CreateInviteErrorType.NetworkError(error.message)
-            else -> CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+            }
+
+            else -> {
+                CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+            }
         }
 
     companion object {

@@ -70,21 +70,30 @@ open class UpdateBookUseCase(
         if (changes.metadataChanged) {
             when (val result = updateMetadata(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
         if (changes.contributorsChanged) {
             when (val result = updateContributors(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
         if (changes.seriesChanged) {
             when (val result = updateSeries(current)) {
                 is Success -> {}
-                is Failure -> return result
+
+                is Failure -> {
+                    return result
+                }
             }
         }
 
