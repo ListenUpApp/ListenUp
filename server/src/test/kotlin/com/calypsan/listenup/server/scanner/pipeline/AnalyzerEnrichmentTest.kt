@@ -59,7 +59,7 @@ class AnalyzerEnrichmentTest :
                             mpegFrames(durationSeconds = 1)
                         }
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
-                    val candidate = candidateForPath(rel, fixture.root, audioPath)
+                    val candidate = candidateForPath(rel, audioPath)
 
                     val book =
                         Analyzer(fixture.root, metadataReader, embeddedParser)
@@ -93,7 +93,7 @@ class AnalyzerEnrichmentTest :
                             mpegFrames(durationSeconds = 1)
                         }
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
-                    val candidate = candidateForPath(rel, fixture.root, audioPath)
+                    val candidate = candidateForPath(rel, audioPath)
 
                     val book =
                         Analyzer(fixture.root, metadataReader, embeddedParser)
@@ -199,7 +199,7 @@ class AnalyzerEnrichmentTest :
                     // Random bytes that aren't any known audio format.
                     val randomBytes = ByteArray(64) { it.toByte() }
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", randomBytes)
-                    val candidate = candidateForPath(rel, fixture.root, audioPath)
+                    val candidate = candidateForPath(rel, audioPath)
 
                     val book =
                         Analyzer(fixture.root, metadataReader, embeddedParser)
@@ -220,7 +220,6 @@ class AnalyzerEnrichmentTest :
 
 private fun candidateForPath(
     rel: String,
-    root: Path,
     audioPath: Path,
 ): CandidateBook =
     CandidateBook(

@@ -59,44 +59,62 @@ internal class LiveCorpusValidator(
         typedErrors: MutableList<Pair<JPath, AudioMetadataError>>,
         crashed: MutableList<Pair<JPath, Throwable>>,
     ) {
-        try {
-            when (val result = runBlocking { parser.parse(Path(file.toAbsolutePath().toString())) }) {
-                is AppResult.Success -> {
-                    val parsed = result.data
-                    byFormat.merge(
-                        parsed.format,
-                        FormatReport(
-                            parsed = 1,
-                            withChapters = if (parsed.chapters.isNotEmpty()) 1 else 0,
-                            withArtwork = if (parsed.artwork != null) 1 else 0,
-                        ),
-                    ) { old, new ->
-                        old.copy(
-                            parsed = old.parsed + new.parsed,
-                            withChapters = old.withChapters + new.withChapters,
-                            withArtwork = old.withArtwork + new.withArtwork,
-                        )
-                    }
-                }
-                is AppResult.Failure -> {
-                    when (val err = result.error) {
-                        is AudioMetadataError.UnsupportedFormat -> {
-                            val format = err.format
-                            if (format != null) {
-                                unsupportedByFormat.merge(format, 1, Int::plus)
-                            } else {
-                                // Magic unrecognised — surface for inspection rather than silently
-                                // dropping; an operator may want to add a new format to the detector.
-                                typedErrors += file to err
-                            }
-                        }
-                        is AudioMetadataError -> typedErrors += file to err
-                        else -> Unit // Parser only returns AudioMetadataError; other AppError shouldn't reach here.
-                    }
+        val result =
+            try {
+                runBlocking { parser.parse(Path(file.toAbsolutePath().toString())) }
+            } catch (e: Throwable) {
+                crashed += file to e
+                return
+            }
+        when (result) {
+            is AppResult.Success -> recordSuccess(byFormat, result.data)
+            is AppResult.Failure -> recordFailure(file, result.error, unsupportedByFormat, typedErrors)
+        }
+    }
+
+    private fun recordSuccess(
+        byFormat: MutableMap<AudioFormat, FormatReport>,
+        parsed: com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata,
+    ) {
+        byFormat.merge(
+            parsed.format,
+            FormatReport(
+                parsed = 1,
+                withChapters = if (parsed.chapters.isNotEmpty()) 1 else 0,
+                withArtwork = if (parsed.artwork != null) 1 else 0,
+            ),
+        ) { old, new ->
+            old.copy(
+                parsed = old.parsed + new.parsed,
+                withChapters = old.withChapters + new.withChapters,
+                withArtwork = old.withArtwork + new.withArtwork,
+            )
+        }
+    }
+
+    private fun recordFailure(
+        file: JPath,
+        err: com.calypsan.listenup.api.error.AppError,
+        unsupportedByFormat: MutableMap<AudioFormat, Int>,
+        typedErrors: MutableList<Pair<JPath, AudioMetadataError>>,
+    ) {
+        when (err) {
+            is AudioMetadataError.UnsupportedFormat -> {
+                val format = err.format
+                if (format != null) {
+                    unsupportedByFormat.merge(format, 1, Int::plus)
+                } else {
+                    // Magic unrecognised — surface for inspection rather than silently
+                    // dropping; an operator may want to add a new format to the detector.
+                    typedErrors += file to err
                 }
             }
-        } catch (e: Throwable) {
-            crashed += file to e
+            is AudioMetadataError -> {
+                typedErrors += file to err
+            }
+            else -> {
+                // Parser only returns AudioMetadataError subtypes; other AppError shouldn't reach here.
+            }
         }
     }
 

@@ -104,9 +104,11 @@ class ScanSummaryAggregationTest :
                         ).toEmbeddedScanCounters(),
                 )
 
-            val rendered = formatScanCompleteLog(summary)
-            rendered shouldBe
-                "9 books, 9 changes, 0 errors in 350ms | embedded: 3 parsed (2 w/chapters, 2 w/artwork), 4 unsupported [Flac=2,Opus=1], 1 unrecognised, 1 parse errors"
+            val expected =
+                "9 books, 9 changes, 0 errors in 350ms | " +
+                    "embedded: 3 parsed (2 w/chapters, 2 w/artwork), " +
+                    "4 unsupported [Flac=2,Opus=1], 1 unrecognised, 1 parse errors"
+            formatScanCompleteLog(summary) shouldBe expected
         }
     })
 
