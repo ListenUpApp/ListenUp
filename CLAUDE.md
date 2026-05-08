@@ -218,7 +218,7 @@ Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
       }
   }
   ```
-- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule` (active); `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` (disabled, backlog).
+- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI. Adding a public commonMain type without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build.
 
 ### Code Style
 
@@ -252,6 +252,7 @@ Before `git push`, from the repo root:
 | CI job | Local command |
 |---|---|
 | `Unit Tests` | `./gradlew :shared:jvmTest --no-daemon` |
+| `Server Tests` | `./gradlew :server:test --no-daemon` |
 | `Lint & Static Analysis` | `./gradlew spotlessCheck detekt --no-daemon` |
 | `Build APK` | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
 
