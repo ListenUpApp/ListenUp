@@ -9,6 +9,11 @@ import com.tschuchort.compiletesting.configureKsp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
+/**
+ * Scaffold smoke test — proves the module builds and the [RpcGuardSymbolProcessorProvider]
+ * wires through ServiceLoader. Real coverage of discovery, return-shape validation, and
+ * codegen lands in Tasks 4–7's tests.
+ */
 class RpcGuardSymbolProcessorTest : FunSpec({
 
     test("processor runs cleanly on a source set with no @Rpc interfaces") {
