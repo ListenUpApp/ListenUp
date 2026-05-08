@@ -17,7 +17,10 @@ import kotlinx.serialization.Serializable
  *     stick across rescans; the sidecar must override.
  *  2. [Embedded] — the parser found chapters inside the primary audio
  *     file ([parserSource] records which extraction path).
- *  3. [None] — no chapter signal anywhere.
+ *  3. [SynthesizedFromTracks] — multi-file book with no higher-precedence
+ *     source; one chapter per track, derived from per-track durations and
+ *     filenames. See `ChapterSynthesis.kt` for the algorithm.
+ *  4. [None] — no chapter signal anywhere.
  */
 @Serializable
 sealed interface BookChapterSource {
@@ -34,4 +37,8 @@ sealed interface BookChapterSource {
     @Serializable
     @SerialName("BookChapterSource.AbsMetadata")
     data object AbsMetadata : BookChapterSource
+
+    @Serializable
+    @SerialName("BookChapterSource.SynthesizedFromTracks")
+    data object SynthesizedFromTracks : BookChapterSource
 }
