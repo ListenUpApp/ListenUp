@@ -63,21 +63,52 @@ class Mp4ParserStreamingTest :
             // Synthetic file: ftyp (32 bytes) + mdat header (8 bytes claiming 2.6 GB) + moov.
             val mdatPayloadSize = 2_700_000_000L // > Int.MAX_VALUE
             val mdatTotalSize = mdatPayloadSize + 8 // including 8-byte header
-            val ftypBytes = byteArrayOf(
-                0, 0, 0, 0x20.toByte(), 'f'.code.toByte(), 't'.code.toByte(), 'y'.code.toByte(), 'p'.code.toByte(),
-                'M'.code.toByte(), '4'.code.toByte(), 'B'.code.toByte(), ' '.code.toByte(),
-                0, 0, 0, 0,
-                'M'.code.toByte(), '4'.code.toByte(), 'B'.code.toByte(), ' '.code.toByte(),
-                'i'.code.toByte(), 's'.code.toByte(), 'o'.code.toByte(), 'm'.code.toByte(),
-                0, 0, 0, 0, 0, 0, 0, 0, // padding to 32 bytes
-            )
-            val mdatHeader = byteArrayOf(
-                ((mdatTotalSize ushr 24) and 0xFF).toByte(),
-                ((mdatTotalSize ushr 16) and 0xFF).toByte(),
-                ((mdatTotalSize ushr 8) and 0xFF).toByte(),
-                (mdatTotalSize and 0xFFL).toByte(),
-                'm'.code.toByte(), 'd'.code.toByte(), 'a'.code.toByte(), 't'.code.toByte(),
-            )
+            val ftypBytes =
+                byteArrayOf(
+                    0,
+                    0,
+                    0,
+                    0x20.toByte(),
+                    'f'.code.toByte(),
+                    't'.code.toByte(),
+                    'y'.code.toByte(),
+                    'p'.code.toByte(),
+                    'M'.code.toByte(),
+                    '4'.code.toByte(),
+                    'B'.code.toByte(),
+                    ' '.code.toByte(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    'M'.code.toByte(),
+                    '4'.code.toByte(),
+                    'B'.code.toByte(),
+                    ' '.code.toByte(),
+                    'i'.code.toByte(),
+                    's'.code.toByte(),
+                    'o'.code.toByte(),
+                    'm'.code.toByte(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0, // padding to 32 bytes
+                )
+            val mdatHeader =
+                byteArrayOf(
+                    ((mdatTotalSize ushr 24) and 0xFF).toByte(),
+                    ((mdatTotalSize ushr 16) and 0xFF).toByte(),
+                    ((mdatTotalSize ushr 8) and 0xFF).toByte(),
+                    (mdatTotalSize and 0xFFL).toByte(),
+                    'm'.code.toByte(),
+                    'd'.code.toByte(),
+                    'a'.code.toByte(),
+                    't'.code.toByte(),
+                )
             val moovOffset = ftypBytes.size + mdatTotalSize
             val totalLength = moovOffset + moov.size
             val source =
@@ -203,16 +234,19 @@ private class NonFastStartSource(
                     System.arraycopy(ftyp, cur.toInt(), dst, dstOffset + written, copyN)
                     written += copyN
                 }
+
                 cur < mdatHeaderEnd -> {
                     val copyN = minOf(remaining.toLong(), mdatHeaderEnd - cur).toInt()
                     System.arraycopy(mdatHeader, (cur - ftypEnd).toInt(), dst, dstOffset + written, copyN)
                     written += copyN
                 }
+
                 cur >= moovOffset -> {
                     val copyN = minOf(remaining.toLong(), moov.size.toLong() - (cur - moovOffset)).toInt()
                     System.arraycopy(moov, (cur - moovOffset).toInt(), dst, dstOffset + written, copyN)
                     written += copyN
                 }
+
                 else -> {
                     // Synthetic mdat payload: zeros (dst is already zero-initialised).
                     val copyN = minOf(remaining.toLong(), moovOffset - cur).toInt()
