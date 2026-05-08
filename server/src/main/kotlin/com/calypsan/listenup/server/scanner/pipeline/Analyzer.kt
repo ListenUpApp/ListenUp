@@ -189,9 +189,7 @@ internal class Analyzer(
      * single-file books and books with higher-precedence chapter sources
      * pay nothing.
      */
-    private suspend fun parseAllTrackDurations(
-        tracks: List<TrackEntry>,
-    ): Map<TrackEntry, EmbeddedAudioMetadata?> {
+    private suspend fun parseAllTrackDurations(tracks: List<TrackEntry>): Map<TrackEntry, EmbeddedAudioMetadata?> {
         val result = LinkedHashMap<TrackEntry, EmbeddedAudioMetadata?>(tracks.size)
         for (track in tracks) {
             result[track] = parseTrackForDuration(track.file)
@@ -204,7 +202,10 @@ internal class Analyzer(
         val absolutePath = rootPath.resolve(file.relPath)
         val ioPath = kotlinx.io.files.Path(absolutePath.toString())
         return when (val result = embeddedMetadataParser.parse(ioPath)) {
-            is AppResult.Success -> result.data
+            is AppResult.Success -> {
+                result.data
+            }
+
             is AppResult.Failure -> {
                 logger.warn {
                     "synthesis per-track parse failed " +

@@ -77,22 +77,25 @@ class ChapterSynthesisTest :
         }
 
         test("synthesizeChapters: cumulative startMs/endMs follow track durations") {
-            val tracks = listOf(
-                trackEntry("01 Foreword.mp3"),
-                trackEntry("02 Prologue.mp3"),
-                trackEntry("03 Chapter One.mp3"),
-            )
-            val perTrackMetadata = mapOf(
-                tracks[0] to embeddedDuration(60_000L),
-                tracks[1] to embeddedDuration(120_000L),
-                tracks[2] to embeddedDuration(180_000L),
-            )
+            val tracks =
+                listOf(
+                    trackEntry("01 Foreword.mp3"),
+                    trackEntry("02 Prologue.mp3"),
+                    trackEntry("03 Chapter One.mp3"),
+                )
+            val perTrackMetadata =
+                mapOf(
+                    tracks[0] to embeddedDuration(60_000L),
+                    tracks[1] to embeddedDuration(120_000L),
+                    tracks[2] to embeddedDuration(180_000L),
+                )
 
-            val chapters = synthesizeChapters(
-                tracks = tracks,
-                perTrackMetadata = perTrackMetadata,
-                bookTitle = "Some Book",
-            )
+            val chapters =
+                synthesizeChapters(
+                    tracks = tracks,
+                    perTrackMetadata = perTrackMetadata,
+                    bookTitle = "Some Book",
+                )
 
             chapters shouldHaveSize 3
             chapters[0].index shouldBe 1
@@ -110,22 +113,25 @@ class ChapterSynthesisTest :
         }
 
         test("synthesizeChapters: missing trackMeta produces zero-length chapter") {
-            val tracks = listOf(
-                trackEntry("01 First.mp3"),
-                trackEntry("02 Failed.mp3"),
-                trackEntry("03 Third.mp3"),
-            )
-            val perTrackMetadata = mapOf(
-                tracks[0] to embeddedDuration(60_000L),
-                tracks[1] to null, // parse failed for this track
-                tracks[2] to embeddedDuration(90_000L),
-            )
+            val tracks =
+                listOf(
+                    trackEntry("01 First.mp3"),
+                    trackEntry("02 Failed.mp3"),
+                    trackEntry("03 Third.mp3"),
+                )
+            val perTrackMetadata =
+                mapOf(
+                    tracks[0] to embeddedDuration(60_000L),
+                    tracks[1] to null, // parse failed for this track
+                    tracks[2] to embeddedDuration(90_000L),
+                )
 
-            val chapters = synthesizeChapters(
-                tracks = tracks,
-                perTrackMetadata = perTrackMetadata,
-                bookTitle = "Some Book",
-            )
+            val chapters =
+                synthesizeChapters(
+                    tracks = tracks,
+                    perTrackMetadata = perTrackMetadata,
+                    bookTitle = "Some Book",
+                )
 
             chapters shouldHaveSize 3
             chapters[0].endMs shouldBe 60_000L
@@ -141,42 +147,43 @@ class ChapterSynthesisTest :
 
 private fun trackEntry(filename: String): TrackEntry =
     TrackEntry(
-        file = FileEntry(
-            relPath = "Author/Title/$filename",
-            name = filename,
-            ext = filename.substringAfterLast('.', "").lowercase(),
-            size = 1024,
-            mtimeMs = 0,
-            inode = null,
-            fileType = FileType.AUDIO,
-        ),
+        file =
+            FileEntry(
+                relPath = "Author/Title/$filename",
+                name = filename,
+                ext = filename.substringAfterLast('.', "").lowercase(),
+                size = 1024,
+                mtimeMs = 0,
+                inode = null,
+                fileType = FileType.AUDIO,
+            ),
     )
 
 private fun embeddedTagsTitle(title: String?): EmbeddedAudioMetadata =
     EmbeddedAudioMetadata(
         format = AudioFormat.Mp3,
         durationMs = 1_000L,
-        tags = AudioTags(
-            title = title,
-            subtitle = null,
-            authors = emptyList(),
-            narrators = emptyList(),
-            series = emptyList(),
-            genres = emptyList(),
-            description = null,
-            publisher = null,
-            publishedYear = null,
-            asin = null,
-            isbn = null,
-            language = null,
-            trackNumber = null,
-            discNumber = null,
-            custom = emptyMap(),
-        ),
+        tags =
+            AudioTags(
+                title = title,
+                subtitle = null,
+                authors = emptyList(),
+                narrators = emptyList(),
+                series = emptyList(),
+                genres = emptyList(),
+                description = null,
+                publisher = null,
+                publishedYear = null,
+                asin = null,
+                isbn = null,
+                language = null,
+                trackNumber = null,
+                discNumber = null,
+                custom = emptyMap(),
+            ),
         chapters = emptyList(),
         chaptersSource = ChapterSource.None,
         artwork = null,
     )
 
-private fun embeddedDuration(durationMs: Long): EmbeddedAudioMetadata =
-    embeddedTagsTitle(title = null).copy(durationMs = durationMs)
+private fun embeddedDuration(durationMs: Long): EmbeddedAudioMetadata = embeddedTagsTitle(title = null).copy(durationMs = durationMs)

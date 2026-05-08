@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.BookChapterSource
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
-import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
@@ -96,7 +95,12 @@ private suspend fun assertSynthesis(
 
     val candidate = CandidateBook(rootRelPath = rel, isFile = false, files = files)
     val analyzer = Analyzer(rootPath, AbsMetadataReader(contractJson), liveParser)
-    val book = analyzer.analyze(flowOf(candidate)).toList().single().getOrThrow()
+    val book =
+        analyzer
+            .analyze(flowOf(candidate))
+            .toList()
+            .single()
+            .getOrThrow()
 
     println(
         "[live-corpus] '${book.title}' tracks=${book.tracks.size} " +

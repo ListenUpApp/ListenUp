@@ -20,10 +20,10 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
  */
 private val FILENAME_PREFIX_REGEX =
     Regex(
-        """^(?:(?:disc|cd|track)\s*)?""" +   // optional leading word
-            """\d{1,3}""" +                   // first number
+        """^(?:(?:disc|cd|track)\s*)?""" + // optional leading word
+            """\d{1,3}""" + // first number
             """(?:[\s\-_.]+(?:(?:disc|cd|track)\s*)?\d{1,3})?""" + // optional: sep [word] second-number
-            """[\s\-_.]*""",                  // optional trailing separator
+            """[\s\-_.]*""", // optional trailing separator
         RegexOption.IGNORE_CASE,
     )
 
