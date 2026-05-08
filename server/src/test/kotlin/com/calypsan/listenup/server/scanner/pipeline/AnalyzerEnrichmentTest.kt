@@ -385,6 +385,105 @@ class AnalyzerEnrichmentTest :
                 }
             }
         }
+
+        test("metadata.json chapters override synthesized chapters on multi-file book") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Multi"
+                    val track1Bytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Foreword") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val track2Bytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Prologue") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val t1 = fixture.root.writeAudioFile("$rel/01.mp3", track1Bytes)
+                    val t2 = fixture.root.writeAudioFile("$rel/02.mp3", track2Bytes)
+                    val metadataJson =
+                        """
+                        {
+                            "title": "Multi",
+                            "chapters": [
+                                {"id": 0, "start": 0.0, "end": 30.0, "title": "Sidecar 1"},
+                                {"id": 1, "start": 30.0, "end": 60.0, "title": "Sidecar 2"}
+                            ]
+                        }
+                        """.trimIndent()
+                    val metaPath = fixture.root.writeFile("$rel/metadata.json", metadataJson.toByteArray())
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", FileType.AUDIO, size = Files.size(t1)),
+                                    fileEntry("$rel/02.mp3", FileType.AUDIO, size = Files.size(t2)),
+                                    fileEntry("$rel/metadata.json", FileType.METADATA, size = Files.size(metaPath)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 2
+                    book.chapters[0].title shouldBe "Sidecar 1"
+                    book.chaptersSource shouldBe BookChapterSource.AbsMetadata
+                }
+            }
+        }
+
+        test("embedded CHAP frames on primary track override synthesized chapters") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Multi"
+                    val primaryBytes =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "Multi")
+                                chapFrame("c1", startMs = 0, endMs = 5_000, title = "Embedded A")
+                                chapFrame("c2", startMs = 5_000, endMs = 10_000, title = "Embedded B")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val secondaryBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Track Two") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val t1 = fixture.root.writeAudioFile("$rel/01.mp3", primaryBytes)
+                    val t2 = fixture.root.writeAudioFile("$rel/02.mp3", secondaryBytes)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", FileType.AUDIO, size = Files.size(t1)),
+                                    fileEntry("$rel/02.mp3", FileType.AUDIO, size = Files.size(t2)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 2
+                    book.chapters[0].title shouldBe "Embedded A"
+                    val source = book.chaptersSource.shouldBeInstanceOf<BookChapterSource.Embedded>()
+                    source.parserSource shouldBe ChapterSource.Id3v2Chap
+                }
+            }
+        }
     })
 
 private fun candidateForPath(
