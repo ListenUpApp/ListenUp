@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.pipeline
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.BookChapterSource
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
@@ -10,8 +11,10 @@ import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.AudioMetadataError
+import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
@@ -184,8 +187,9 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         embeddedStatus: MetadataStatus?,
         metadata: AbsMetadata?,
-    ): AnalyzedBook =
-        AnalyzedBook(
+    ): AnalyzedBook {
+        val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata)
+        return AnalyzedBook(
             candidate = candidate,
             title = pickTitle(candidate, shape, parsed, embedded, metadata),
             subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: parsed.subtitle,
@@ -204,10 +208,36 @@ internal class Analyzer(
             explicit = metadata?.explicit,
             cover = cover,
             tracks = tracks,
+            chapters = resolvedChapters,
+            chaptersSource = chaptersSource,
             embedded = embedded,
             embeddedStatus = embeddedStatus,
             sources = collectSources(shape, parsed, embedded, metadata),
         )
+    }
+
+    /**
+     * Chapter precedence: `metadata.json.chapters` (if non-empty) → embedded
+     * chapters (if non-empty) → empty. The sidecar wins when present so
+     * user-curated chapter titles in ABS survive a rescan.
+     *
+     * `embedded.chapters` continues to surface verbatim on
+     * [AnalyzedBook.embedded] regardless of which won — the resolved view is
+     * additive, not destructive.
+     */
+    private fun pickChapters(
+        embedded: EmbeddedAudioMetadata?,
+        metadata: AbsMetadata?,
+    ): Pair<List<Chapter>, BookChapterSource> {
+        val sidecar = metadata?.chapters.orEmpty()
+        if (sidecar.isNotEmpty()) {
+            return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
+        }
+        if (embedded != null && embedded.chapters.isNotEmpty()) {
+            return embedded.chapters to BookChapterSource.Embedded(embedded.chaptersSource)
+        }
+        return emptyList<Chapter>() to BookChapterSource.None
+    }
 
     private fun pickTitle(
         candidate: CandidateBook,
@@ -284,6 +314,22 @@ internal class Analyzer(
 }
 
 private fun EmbeddedSeriesEntry.toContract(): SeriesEntry = SeriesEntry(name = name, sequence = sequence)
+
+/**
+ * Convert ABS sidecar chapters (seconds, optional ABS-internal id) to
+ * domain chapters (millis, 1-based index). The ABS `id` field is its own
+ * 0-based ordering used by the ABS UI; we re-derive a stable 1-based
+ * `index` from list position to match [Chapter]'s contract.
+ */
+private fun List<AbsChapter>.toDomainChapters(): List<Chapter> =
+    mapIndexed { i, c ->
+        Chapter(
+            index = i + 1,
+            title = c.title,
+            startMs = (c.start * 1000.0).toLong(),
+            endMs = (c.end * 1000.0).toLong(),
+        )
+    }
 
 private fun FolderShape.contributesAnything(): Boolean =
     titleFolder.isNotEmpty() || seriesFolder != null || authorFolder != null

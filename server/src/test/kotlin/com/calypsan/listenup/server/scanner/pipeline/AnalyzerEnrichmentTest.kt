@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.pipeline
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.scanner.BookChapterSource
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
@@ -8,6 +9,7 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
+import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
@@ -16,6 +18,7 @@ import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -188,6 +191,123 @@ class AnalyzerEnrichmentTest :
                     book.embedded?.tags?.title shouldBe "Embedded Title"
                     book.sources shouldContain MetadataSource.ABS_METADATA
                     book.sources shouldContain MetadataSource.AUDIO_METATAGS
+                }
+            }
+        }
+
+        test("metadata.json chapters override embedded CHAP frames") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Title"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "Title")
+                                chapFrame("emb1", startMs = 0, endMs = 10_000, title = "Embedded Chapter A")
+                                chapFrame("emb2", startMs = 10_000, endMs = 20_000, title = "Embedded Chapter B")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val metadataJson =
+                        """
+                        {
+                            "title": "Title",
+                            "chapters": [
+                                {"id": 0, "start": 0.0, "end": 30.5, "title": "Sidecar Chapter 1"},
+                                {"id": 1, "start": 30.5, "end": 60.0, "title": "Sidecar Chapter 2"},
+                                {"id": 2, "start": 60.0, "end": 90.0, "title": "Sidecar Chapter 3"}
+                            ]
+                        }
+                        """.trimIndent()
+                    val metadataPath = fixture.root.writeFile("$rel/metadata.json", metadataJson.toByteArray())
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", FileType.AUDIO, size = Files.size(audioPath)),
+                                    fileEntry("$rel/metadata.json", FileType.METADATA, size = Files.size(metadataPath)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 3
+                    book.chapters[0].index shouldBe 1
+                    book.chapters[0].title shouldBe "Sidecar Chapter 1"
+                    book.chapters[0].startMs shouldBe 0L
+                    book.chapters[0].endMs shouldBe 30_500L
+                    book.chapters[1].index shouldBe 2
+                    book.chapters[2].index shouldBe 3
+                    book.chaptersSource shouldBe BookChapterSource.AbsMetadata
+                    // embedded chapters preserved verbatim on `embedded`
+                    book.embedded?.chapters?.shouldHaveSize(2)
+                    book.embedded
+                        ?.chapters
+                        ?.get(0)
+                        ?.title shouldBe "Embedded Chapter A"
+                }
+            }
+        }
+
+        test("embedded chapters surface when metadata.json carries no chapters") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Title"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "Title")
+                                chapFrame("emb1", startMs = 0, endMs = 10_000, title = "Embedded Chapter A")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldHaveSize 1
+                    book.chapters[0].title shouldBe "Embedded Chapter A"
+                    val source = book.chaptersSource.shouldBeInstanceOf<BookChapterSource.Embedded>()
+                    source.parserSource shouldBe ChapterSource.Id3v2Chap
+                }
+            }
+        }
+
+        test("no chapter signal anywhere → empty list and BookChapterSource.None") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Title"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Title") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.chapters shouldBe emptyList()
+                    book.chaptersSource shouldBe BookChapterSource.None
                 }
             }
         }
