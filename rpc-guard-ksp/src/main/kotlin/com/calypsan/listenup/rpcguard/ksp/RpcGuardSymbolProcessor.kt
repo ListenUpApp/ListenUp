@@ -18,6 +18,9 @@ internal class RpcGuardSymbolProcessor(
     private val env: SymbolProcessorEnvironment,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
+        // TODO(Task 5): @Rpc applied to a non-interface (class/object) is currently
+        // silently filtered. Add an explicit error branch + a regression test:
+        //   "@Rpc may only be applied to interfaces; <Name> is a <classKind>".
         val services =
             resolver
                 .getSymbolsWithAnnotation(RPC_ANNOTATION_FQN)
@@ -27,6 +30,8 @@ internal class RpcGuardSymbolProcessor(
 
         val models = services.mapNotNull { decl -> buildServiceModel(decl) }
 
+        // TODO(Task 5): drop the discovery log once <Service>Guarded codegen replaces
+        // the message-string assertion in DiscoveryTest as the testable signal.
         for (model in models) {
             // warn() is used instead of info() because kctfork 0.12.1's TestKSPLogger only
             // forwards ERROR/EXCEPTION to the MessageCollector during KSP execution; info

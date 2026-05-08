@@ -2,10 +2,8 @@
 
 package com.calypsan.listenup.rpcguard.ksp
 
-import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
-import com.tschuchort.compiletesting.configureKsp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -85,16 +83,3 @@ class DiscoveryTest :
             result.messages shouldContain "BadStream.observe: non-suspend functions on @Rpc interfaces must return Flow<RpcEvent<*>>"
         }
     })
-
-private fun compile(vararg sources: SourceFile): JvmCompilationResult =
-    KotlinCompilation()
-        .apply {
-            this.sources = sources.toList()
-            configureKsp {
-                symbolProcessorProviders += RpcGuardSymbolProcessorProvider()
-            }
-            inheritClassPath = true
-            // :shared is compiled with Kotlin 2.3 pre-release; kctfork's embedded compiler
-            // rejects pre-release class files by default.
-            kotlincArguments = listOf("-Xskip-prerelease-check")
-        }.compile()
