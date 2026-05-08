@@ -39,4 +39,5 @@ data class ScanResultSummary(
     val errors: Int,
     val durationMs: Long,
     val filesWalked: Int,
+    val embedded: EmbeddedScanCounters = EmbeddedScanCounters(),
 )
