@@ -48,6 +48,8 @@ detekt {
         "$rootDir/composeApp/src/androidMain/kotlin",
         "$rootDir/server/src/main/kotlin",
         "$rootDir/server/src/test/kotlin",
+        "$rootDir/rpc-guard-ksp/src/main/kotlin",
+        "$rootDir/rpc-guard-ksp/src/test/kotlin",
     )
 }
 

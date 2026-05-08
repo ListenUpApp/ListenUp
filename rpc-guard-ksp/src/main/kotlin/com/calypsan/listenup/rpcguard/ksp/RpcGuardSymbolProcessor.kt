@@ -7,7 +7,6 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
-import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.Modifier
 
 private const val RPC_ANNOTATION_FQN = "kotlinx.rpc.annotations.Rpc"
@@ -31,7 +30,8 @@ internal class RpcGuardSymbolProcessor(
             // warn() is used instead of info() because kctfork 0.12.1's TestKSPLogger only
             // forwards ERROR/EXCEPTION to the MessageCollector during KSP execution; info
             // messages never reach result.messages. warn() is visible in test assertions.
-            env.logger.warn("[rpc-guard] discovered: ${model.packageName}.${model.simpleName} [${model.methods.joinToString(", ") { it.name }}]")
+            val methodNames = model.methods.joinToString(", ") { it.name }
+            env.logger.warn("[rpc-guard] discovered: ${model.packageName}.${model.simpleName} [$methodNames]")
         }
 
         // Codegen happens in Tasks 5–7.
