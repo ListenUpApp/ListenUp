@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
+import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+
 /**
  * Lightweight MP4 atom (box) walker over an in-memory byte slice.
  *
@@ -40,6 +42,20 @@ internal class AtomParseException(
     val offset: Int,
     val expected: String,
 ) : RuntimeException("invalid atom at offset $offset: $expected")
+
+/**
+ * Result of a streaming top-level atom lookup. Records the file-absolute
+ * offset of the atom header, the atom's total size including header, and
+ * the header size itself (8 or 16 bytes for extended atoms) so callers
+ * can decide whether to read just the payload or header+payload.
+ */
+internal data class TopLevelAtom(
+    val offset: Long,
+    val size: Long,
+    val headerSize: Long,
+) {
+    val end: Long get() = offset + size
+}
 
 private val CONTAINER_TYPES =
     setOf(
@@ -160,6 +176,69 @@ internal object AtomWalker {
             }
         }
         return found
+    }
+
+    /**
+     * Streaming counterpart of [findChild] for the top-level box list.
+     *
+     * Walks the file's top-level atoms by reading only their 8/16-byte
+     * headers via [source.seek]/[source.readFully] — never the payload.
+     * Returns the (offset, size) of the first atom whose type matches
+     * [type], or null if the file has no such atom or contains a
+     * malformed header before the target is found.
+     *
+     * Used by [Mp4Parser] to locate `moov` without loading the whole
+     * file (typically multi-GB for audiobooks) into memory; only
+     * `moov`'s payload is then read back as a sub-range.
+     */
+    fun findTopLevelAtom(
+        source: SeekableAudioSource,
+        type: String,
+    ): TopLevelAtom? {
+        val length = source.length
+        var offset = 0L
+        while (offset + 8 <= length) {
+            source.seek(offset)
+            val headerBytes = source.readFully(8)
+            val size32 =
+                ((headerBytes[0].toInt() and 0xFF) shl 24) or
+                    ((headerBytes[1].toInt() and 0xFF) shl 16) or
+                    ((headerBytes[2].toInt() and 0xFF) shl 8) or
+                    (headerBytes[3].toInt() and 0xFF)
+            val atomType = String(headerBytes, 4, 4, Charsets.ISO_8859_1)
+            val (size, headerSize) =
+                when (size32) {
+                    1 -> {
+                        if (offset + 16 > length) return null
+                        source.seek(offset + 8)
+                        val ext = source.readFully(8)
+                        val size64 = bytesToBeInt64(ext, 0)
+                        if (size64 < 16 || offset + size64 > length) return null
+                        size64 to 16L
+                    }
+                    0 -> (length - offset) to 8L // 0 = atom extends to EOF
+                    else -> {
+                        if (size32 < 8) return null
+                        size32.toLong() to 8L
+                    }
+                }
+            if (atomType == type) {
+                return TopLevelAtom(offset = offset, size = size, headerSize = headerSize)
+            }
+            offset += size
+        }
+        return null
+    }
+
+    private fun bytesToBeInt64(
+        bytes: ByteArray,
+        off: Int,
+    ): Long {
+        var v = 0L
+        for (i in 0 until 8) {
+            v = (v shl 8) or (bytes[off + i].toLong() and 0xFFL)
+        }
+        return v
     }
 
     /** Read 4 big-endian bytes as a signed Int. */

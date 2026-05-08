@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
+import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 
 /**
  * Extracts chapter lists from MP4 files. Two encodings are supported:
@@ -76,16 +77,22 @@ internal object Mp4ChapterExtractor {
      * via the audio track's `tref.chap`, walks the chapter track's sample
      * table, and decodes each text sample.
      *
+     * Sample text bytes live in the file's `mdat` at file-absolute offsets
+     * recorded in `stco`/`co64`; [source] is used to read those tens-of-bytes
+     * slices on demand rather than loading mdat into memory. [bytes] is the
+     * pre-buffered moov payload only.
+     *
      * Returns empty list if the file lacks any of the required atoms.
      */
     fun readAppleTextTrack(
         bytes: ByteArray,
         moovAtom: Atom,
         durationMs: Long,
+        source: SeekableAudioSource,
     ): List<Chapter> {
         val chapterTrackId = findChapterTrackRef(bytes, moovAtom) ?: return emptyList()
         val chapterTrak = findTrackById(bytes, moovAtom, chapterTrackId) ?: return emptyList()
-        return parseTextTrackChapters(bytes, chapterTrak, durationMs)
+        return parseTextTrackChapters(bytes, chapterTrak, durationMs, source)
     }
 
     /** Walk every `trak` looking for one whose `tref.chap` carries a track id. */
@@ -129,6 +136,7 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         trakAtom: Atom,
         durationMs: Long,
+        source: SeekableAudioSource,
     ): List<Chapter> {
         val mdia = AtomWalker.findChild(bytes, trakAtom.dataOffset, trakAtom.end, "mdia") ?: return emptyList()
         val minf = AtomWalker.findChild(bytes, mdia.dataOffset, mdia.end, "minf") ?: return emptyList()
@@ -161,17 +169,24 @@ internal object Mp4ChapterExtractor {
 
         val maxSamples = minOf(sampleStartsMs.size, sampleSizes.size, sampleOffsets.size)
         val starts = mutableListOf<Pair<Long, String>>()
+        val sourceLength = source.length
         for (i in 0 until maxSamples) {
             val size = sampleSizes[i]
             if (size <= 0 || size >= 10_000) continue
-            val absOffset = sampleOffsets[i].toInt()
-            val sampleEnd = absOffset + size
-            if (absOffset < 0 || sampleEnd > bytes.size) continue
+            val absOffset = sampleOffsets[i]
+            if (absOffset < 0 || absOffset + size > sourceLength) continue
             // Each text sample: length(2 BE) + UTF-8 title.
             if (size < 2) continue
-            val titleLen = ((bytes[absOffset].toInt() and 0xFF) shl 8) or (bytes[absOffset + 1].toInt() and 0xFF)
+            val sampleBytes =
+                try {
+                    source.seek(absOffset)
+                    source.readFully(size)
+                } catch (_: java.io.IOException) {
+                    continue
+                }
+            val titleLen = ((sampleBytes[0].toInt() and 0xFF) shl 8) or (sampleBytes[1].toInt() and 0xFF)
             if (titleLen <= 0 || titleLen > size - 2) continue
-            val title = String(bytes, absOffset + 2, titleLen, Charsets.UTF_8)
+            val title = String(sampleBytes, 2, titleLen, Charsets.UTF_8)
             starts += sampleStartsMs[i] to title
         }
 
@@ -320,10 +335,11 @@ internal fun extractMp4Chapters(
     bytes: ByteArray,
     moovAtom: Atom,
     durationMs: Long,
+    source: SeekableAudioSource,
 ): Mp4ChapterResult {
     val nero = Mp4ChapterExtractor.readNeroChpl(bytes, moovAtom, durationMs)
     if (nero.isNotEmpty()) return Mp4ChapterResult(nero, ChapterSource.Mp4Chpl)
-    val apple = Mp4ChapterExtractor.readAppleTextTrack(bytes, moovAtom, durationMs)
+    val apple = Mp4ChapterExtractor.readAppleTextTrack(bytes, moovAtom, durationMs, source)
     if (apple.isNotEmpty()) return Mp4ChapterResult(apple, ChapterSource.Mp4TextTrack)
     return Mp4ChapterResult(emptyList(), ChapterSource.None)
 }

@@ -41,10 +41,29 @@ internal class Mp4Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp4)
 
     override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> {
-        val bytes =
+        val moovBytes =
             try {
-                source.seek(0)
-                source.readFully(source.length.toInt())
+                val topMoov = AtomWalker.findTopLevelAtom(source, "moov")
+                    ?: return AppResult.Failure(
+                        AudioMetadataError.CorruptHeader(
+                            pathString = "<source>",
+                            format = AudioFormat.Mp4,
+                            offset = 0,
+                            expected = "moov atom",
+                        ),
+                    )
+                if (topMoov.size > MOOV_SOFT_LIMIT_BYTES) {
+                    return AppResult.Failure(
+                        AudioMetadataError.CorruptHeader(
+                            pathString = "<source>",
+                            format = AudioFormat.Mp4,
+                            offset = topMoov.offset,
+                            expected = "moov within sane size budget (got ${topMoov.size} bytes)",
+                        ),
+                    )
+                }
+                source.seek(topMoov.offset)
+                source.readFully(topMoov.size.toInt())
             } catch (e: IOException) {
                 return AppResult.Failure(
                     AudioMetadataError.IoError(
@@ -54,9 +73,14 @@ internal class Mp4Parser : AudioFormatParser {
                 )
             }
 
+        // The freshly-read [moovBytes] starts at moov's header; the parser
+        // walks it as if it were the whole file. Internal atom offsets become
+        // relative to moov (i.e. moov.offset = 0). Chunk offsets stored
+        // inside `stco`/`co64` remain file-absolute and are dereferenced via
+        // [source] in the chapter extractor — never via [moovBytes].
         val moov =
             try {
-                AtomWalker.findPath(bytes, "moov")
+                AtomWalker.findPath(moovBytes, "moov")
             } catch (e: AtomParseException) {
                 return AppResult.Failure(
                     AudioMetadataError.CorruptHeader(
@@ -76,7 +100,7 @@ internal class Mp4Parser : AudioFormatParser {
             )
 
         val mvhd =
-            AtomWalker.findChild(bytes, moov.dataOffset, moov.end, "mvhd")
+            AtomWalker.findChild(moovBytes, moov.dataOffset, moov.end, "mvhd")
                 ?: return AppResult.Failure(
                     AudioMetadataError.CorruptHeader(
                         pathString = "<source>",
@@ -86,14 +110,14 @@ internal class Mp4Parser : AudioFormatParser {
                     ),
                 )
 
-        val durationMs = readMvhdDurationMs(bytes, mvhd)
+        val durationMs = readMvhdDurationMs(moovBytes, mvhd)
 
-        val ilst = findIlst(bytes, moov)
-        val ilstResult = ilst?.let { IlstReader.read(bytes, it) }
+        val ilst = findIlst(moovBytes, moov)
+        val ilstResult = ilst?.let { IlstReader.read(moovBytes, it) }
         val tags = ilstResult?.tags ?: emptyAudioTags()
         val artwork = ilstResult?.artwork
 
-        val chapterResult = extractMp4Chapters(bytes, moov, durationMs)
+        val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
 
         return AppResult.Success(
             EmbeddedAudioMetadata(
@@ -105,6 +129,16 @@ internal class Mp4Parser : AudioFormatParser {
                 artwork = artwork,
             ),
         )
+    }
+
+    private companion object {
+        /**
+         * Defensive cap on `moov` size — real-world audiobook moov atoms run
+         * under 10 MB even for very long books with chapter tracks. A 200 MB
+         * cap leaves generous headroom for outliers while preventing a
+         * malformed atom-size header from triggering a multi-GB allocation.
+         */
+        private const val MOOV_SOFT_LIMIT_BYTES = 200L * 1024 * 1024
     }
 
     /** Locate `moov.udta.meta.ilst`, accounting for `meta`'s 4-byte version+flags prefix. */
