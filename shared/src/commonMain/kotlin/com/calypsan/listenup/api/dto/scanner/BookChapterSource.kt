@@ -28,6 +28,11 @@ sealed interface BookChapterSource {
     @SerialName("BookChapterSource.None")
     data object None : BookChapterSource
 
+    /**
+     * Chapters were extracted from the primary audio file by the embedded-metadata
+     * parser. [parserSource] records which extraction path succeeded (e.g. MP4 chapter
+     * atoms, ID3 CHAP frames).
+     */
     @Serializable
     @SerialName("BookChapterSource.Embedded")
     data class Embedded(
