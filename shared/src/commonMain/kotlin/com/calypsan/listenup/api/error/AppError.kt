@@ -46,6 +46,8 @@ sealed interface AppError {
 data class InternalError(
     override val correlationId: String? = null,
     override val debugInfo: String? = null,
+    /** Simple class name of the original throwable, e.g. `"NullPointerException"`. Null on client-local errors. */
+    val cause: String? = null,
 ) : AppError {
     override val message: String = "Something went wrong on the server."
     override val code: String = "INTERNAL_ERROR"

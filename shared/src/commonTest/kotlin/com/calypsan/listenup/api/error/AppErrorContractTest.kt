@@ -1,7 +1,9 @@
 package com.calypsan.listenup.api.error
 
+import com.calypsan.listenup.api.contractJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 class AppErrorContractTest :
     FunSpec({
@@ -19,5 +21,19 @@ class AppErrorContractTest :
             err.message shouldBe "title too long"
             err.code shouldBe "VALIDATION_ERROR"
             err.isRetryable shouldBe false
+        }
+
+        test("InternalError.cause survives JSON round-trip") {
+            val original: AppError = InternalError(
+                correlationId = "abc-123",
+                debugInfo = "NPE in foo",
+                cause = "NullPointerException",
+            )
+            val json = contractJson.encodeToString(AppError.serializer(), original)
+            val decoded = contractJson.decodeFromString(AppError.serializer(), json)
+            decoded.shouldBeInstanceOf<InternalError>()
+            (decoded as InternalError).cause shouldBe "NullPointerException"
+            decoded.correlationId shouldBe "abc-123"
+            decoded.debugInfo shouldBe "NPE in foo"
         }
     })
