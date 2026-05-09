@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
@@ -8,6 +9,13 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -47,6 +55,32 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     protected abstract fun ResultRow.toDto(): T
 
     protected abstract fun T.writeTo(stmt: UpdateBuilder<*>)
+
+    /**
+     * kotlinx.serialization serializer for the concrete DTO type [T].
+     * Provided by each subclass so the route handler can encode [Page] responses
+     * without losing type information through the type-erased registry.
+     */
+    abstract val elementSerializer: KSerializer<T>
+
+    /**
+     * Encodes a [Page] of [T] to a JSON string using [contractJson] and the
+     * concrete [elementSerializer]. Called by the catch-up route to work around
+     * the type-erasure of the registry (`SyncableRepository<Any, Any>` cast).
+     */
+    fun encodePageAsJson(page: Page<T>): String {
+        val json: JsonObject =
+            buildJsonObject {
+                putJsonArray("items") {
+                    page.items.forEach { item ->
+                        add(contractJson.encodeToJsonElement(elementSerializer, item))
+                    }
+                }
+                put("nextCursor", page.nextCursor)
+                put("hasMore", page.hasMore)
+            }
+        return contractJson.encodeToString(JsonElement.serializer(), json)
+    }
 
     protected abstract val T.id: ID
 

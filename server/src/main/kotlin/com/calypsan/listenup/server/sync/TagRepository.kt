@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.db.TagTable
 import kotlin.time.Clock
+import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -16,6 +17,8 @@ class TagRepository(
     bus: ChangeBus,
     clock: Clock = Clock.System,
 ) : SyncableRepository<Tag, String>(db, TagTable, bus, "tags", clock) {
+    override val elementSerializer: KSerializer<Tag> = Tag.serializer()
+
     override fun ResultRow.toDto(): Tag =
         Tag(
             id = this[TagTable.id],

@@ -1,5 +1,12 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.sync.Page
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -23,4 +30,37 @@ internal object SyncRoutes {
     fun lookup(domainName: String): SyncableRepository<*, *>? = registry[domainName]
 
     fun knownDomains(): List<String> = registry.keys.sorted()
+}
+
+/**
+ * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
+ *  - `GET /api/v1/sync/<domain>?since=<rev>&limit=<n>` — paginated catch-up
+ *
+ * SSE firehose and the digest/domain-list endpoints are added in Tasks 16-18.
+ */
+fun Route.syncRoutes() {
+    get("/api/v1/sync/{domain}") {
+        val domainName =
+            call.parameters["domain"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
+        val since =
+            call.request.queryParameters["since"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "since must be a Long")
+        val limit =
+            call.request.queryParameters["limit"]
+                ?.toIntOrNull()
+                ?.coerceIn(1, 5000) ?: 500
+
+        val repo =
+            SyncRoutes.lookup(domainName)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
+
+        @Suppress("UNCHECKED_CAST")
+        val typedRepo = repo as SyncableRepository<Any, Any>
+        val page: Page<Any> = typedRepo.pullSince(since, limit)
+        // call.respond(page) would fail at runtime: kotlinx.serialization cannot
+        // infer the concrete element serializer from the type-erased Page<Any>.
+        // encodePageAsJson uses the concrete KSerializer<T> each repository provides.
+        call.respondText(typedRepo.encodePageAsJson(page), ContentType.Application.Json)
+    }
 }

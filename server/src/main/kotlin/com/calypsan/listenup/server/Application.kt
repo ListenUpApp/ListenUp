@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
+import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -83,6 +84,7 @@ fun Application.module() {
         sseRoutes()
         authRoutes(authService)
         rpcRoutes(authService, scannerService)
+        syncRoutes()
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
