@@ -9,6 +9,7 @@ import com.google.devtools.ksp.symbol.KSType
 
 internal object GuardedClassWriter {
     private const val PACKAGE = "com.calypsan.listenup.server.rpcguard"
+    private const val INDENT_CLOSE_PAREN = "            )"
 
     fun write(
         model: RpcServiceModel,
@@ -34,7 +35,6 @@ internal object GuardedClassWriter {
             appendLine("import kotlinx.coroutines.CancellationException")
             appendLine("import kotlinx.coroutines.flow.Flow")
             appendLine("import kotlinx.coroutines.flow.catch")
-            appendLine("import kotlinx.coroutines.flow.flow")
             appendLine("import com.calypsan.listenup.api.result.AppResult")
             appendLine("import com.calypsan.listenup.api.error.InternalError")
             appendLine("import com.calypsan.listenup.api.streaming.RpcEvent")
@@ -65,7 +65,7 @@ internal object GuardedClassWriter {
             }
 
             is ReturnShape.FlowOfRpcEvent -> {
-                renderFlowStub(method, shape.inner)
+                renderFlow(service, method, shape.inner)
             }
 
             is ReturnShape.Invalid -> {
@@ -105,24 +105,43 @@ internal object GuardedClassWriter {
         appendLine("                correlationId = cid,")
         appendLine("                cause = e::class.simpleName,")
         appendLine("                debugInfo = \"\${e::class.simpleName}: \${e.message}\",")
-        appendLine("            )")
-        appendLine("            )")
+        appendLine(INDENT_CLOSE_PAREN)
+        appendLine(INDENT_CLOSE_PAREN)
         appendLine("        }")
         appendLine("    }")
     }
 
-    /** Emits a compilable stub for Flow methods. Task 6 replaces this with the real guarded body. */
-    private fun StringBuilder.renderFlowStub(
+    private fun StringBuilder.renderFlow(
+        service: RpcServiceModel,
         method: RpcMethodModel,
         inner: KSType,
     ) {
         val params = method.parameters.joinToString(", ") { "${it.name}: ${it.type.qualifiedRender()}" }
+        val args = method.parameters.joinToString(", ") { it.name }
+        val innerRendered = inner.qualifiedRender()
         val returnType =
             "kotlinx.coroutines.flow.Flow<" +
-                "com.calypsan.listenup.api.streaming.RpcEvent<${inner.qualifiedRender()}>>"
-        appendLine("    // TODO Task 6: render guarded Flow path for ${method.name}")
+                "com.calypsan.listenup.api.streaming.RpcEvent<$innerRendered>>"
         appendLine("    override fun ${method.name}($params): $returnType =")
-        appendLine("        kotlinx.coroutines.flow.flow { }")
+        appendLine("        delegate.${method.name}($args).catch { e ->")
+        appendLine("            if (e is kotlinx.coroutines.CancellationException) throw e")
+        appendLine("            val cid = currentCorrelationId() ?: newCorrelationId()")
+        appendLine(
+            "            log.error(\"Uncaught flow exception in ${service.simpleName}.${method.name} [cid=\$cid]\", e)",
+        )
+        appendLine(
+            """            metrics.recordEscape("${service.simpleName}", "${method.name}", e::class.simpleName ?: "Unknown")""",
+        )
+        appendLine("            emit(")
+        appendLine("            com.calypsan.listenup.api.streaming.RpcEvent.Error(")
+        appendLine("                com.calypsan.listenup.api.error.InternalError(")
+        appendLine("                    correlationId = cid,")
+        appendLine("                    cause = e::class.simpleName,")
+        appendLine("                    debugInfo = \"\${e::class.simpleName}: \${e.message}\",")
+        appendLine("                )")
+        appendLine(INDENT_CLOSE_PAREN)
+        appendLine(INDENT_CLOSE_PAREN)
+        appendLine("        }")
     }
 }
 
