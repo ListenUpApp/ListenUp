@@ -34,9 +34,9 @@ class SyncCatchUpClient(
     private val httpClient: HttpClient,
     private val store: SyncCursorStore,
     private val baseUrl: String,
-) {
+) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
-    suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
+    override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
         suspendRunCatching {
             var since = store.getCursor(handler.domainName) ?: 0L
             while (true) {
@@ -66,7 +66,7 @@ class SyncCatchUpClient(
      * in registration order. Per-domain failures are logged but do not abort
      * the loop — one slow domain shouldn't strand the rest.
      */
-    suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> =
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> =
         suspendRunCatching {
             for (domainName in registry.registeredDomains()) {
                 val handler = registry.lookup(domainName) ?: continue
@@ -81,7 +81,7 @@ class SyncCatchUpClient(
         }
 
     /** Server-side domain discovery via `GET /api/v1/sync/domains`. */
-    suspend fun domains(): AppResult<List<String>> =
+    override suspend fun domains(): AppResult<List<String>> =
         suspendRunCatching {
             httpClient.get("$baseUrl/api/v1/sync/domains").body<DomainList>().domains
         }

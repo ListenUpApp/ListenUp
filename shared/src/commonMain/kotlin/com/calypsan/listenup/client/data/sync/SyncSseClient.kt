@@ -102,7 +102,7 @@ class SyncSseClient(
     private val state: SyncEngineState,
     private val scope: CoroutineScope,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
-) {
+) : SseClient {
     private val frameBus =
         MutableSharedFlow<ParsedSseFrame>(
             replay = 0,
@@ -111,7 +111,7 @@ class SyncSseClient(
         )
 
     /** Hot stream of parsed frames; consumers (the dispatcher) collect from here. */
-    val frames: SharedFlow<ParsedSseFrame> = frameBus.asSharedFlow()
+    override val frames: SharedFlow<ParsedSseFrame> = frameBus.asSharedFlow()
 
     private var connectionJob: Job? = null
 
@@ -119,12 +119,12 @@ class SyncSseClient(
     private var lastEventId: Long? = null
 
     /** Seed [lastEventId] from the persisted highest cursor before the first connect. */
-    fun seedLastEventId(initial: Long?) {
+    override fun seedLastEventId(initial: Long?) {
         if (initial != null) lastEventId = initial
     }
 
     /** Open an SSE connection (or no-op if one is already active). */
-    fun connect() {
+    override fun connect() {
         if (connectionJob?.isActive == true) return
         connectionJob =
             scope.launch {
@@ -160,7 +160,7 @@ class SyncSseClient(
     }
 
     /** Close the SSE connection and stop the reconnect loop. */
-    fun disconnect() {
+    override fun disconnect() {
         connectionJob?.cancel()
         connectionJob = null
         state.setConnection(ConnectionState.Disconnected("closed"))
