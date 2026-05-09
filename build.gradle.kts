@@ -44,6 +44,8 @@ detekt {
         "$rootDir/shared/src/commonMain/kotlin",
         "$rootDir/shared/src/androidMain/kotlin",
         "$rootDir/shared/src/iosMain/kotlin",
+        "$rootDir/shared/src/jvmMain/kotlin",
+        "$rootDir/shared/src/jvmTest/kotlin",
         "$rootDir/composeApp/src/commonMain/kotlin",
         "$rootDir/composeApp/src/androidMain/kotlin",
         "$rootDir/server/src/main/kotlin",
