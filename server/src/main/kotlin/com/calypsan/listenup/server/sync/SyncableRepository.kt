@@ -2,12 +2,15 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
 import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -43,6 +46,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     protected abstract fun T.writeTo(stmt: UpdateBuilder<*>)
 
     protected abstract val T.id: ID
+
+    /** Subclass-provided projection of the DTO's revision. */
+    protected abstract fun T.revisionOf(): Long
 
     /**
      * Insert or update [value], bumping the global revision counter and publishing
@@ -176,6 +182,30 @@ abstract class SyncableRepository<T : Any, ID : Any>(
             }
         }
 
-    // pullSince: Task 12
+    /**
+     * Returns up to [limit] rows with `revision > cursor`, ordered by revision
+     * ascending. Includes soft-deleted rows so clients can apply tombstones.
+     * [Page.hasMore] is true when the result set hit the limit, signalling more
+     * pages remain.
+     */
+    suspend fun pullSince(
+        cursor: Long,
+        limit: Int,
+    ): Page<T> =
+        newSuspendedTransaction(Dispatchers.IO, db) {
+            val rows =
+                table
+                    .selectAll()
+                    .where { table.revision greater cursor }
+                    .orderBy(table.revision, SortOrder.ASC)
+                    .limit(limit)
+                    .map { it.toDto() }
+            Page(
+                items = rows,
+                nextCursor = if (rows.isEmpty()) null else rows.last().revisionOf(),
+                hasMore = rows.size == limit,
+            )
+        }
+
     // digest: Task 13
 }

@@ -31,4 +31,6 @@ class TagRepository(
     }
 
     override val Tag.id: String get() = this.id
+
+    override fun Tag.revisionOf(): Long = revision
 }
