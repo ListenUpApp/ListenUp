@@ -32,7 +32,7 @@ class DispatcherCodegenTest :
                 )
             result.exitCode shouldBe KotlinCompilation.ExitCode.OK
             val dispatcher = result.kspGeneratedFile("RpcGuardDispatcher.kt")
-            dispatcher.shouldContain("internal fun guard(impl: fake.Alpha): fake.Alpha = AlphaGuarded(impl)")
-            dispatcher.shouldContain("internal fun guard(impl: fake.Beta): fake.Beta = BetaGuarded(impl)")
+            dispatcher.shouldContain("fun guard(impl: fake.Alpha): fake.Alpha = AlphaGuarded(impl)")
+            dispatcher.shouldContain("fun guard(impl: fake.Beta): fake.Beta = BetaGuarded(impl)")
         }
     })

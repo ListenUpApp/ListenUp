@@ -31,7 +31,7 @@ internal object DispatcherWriter {
             appendLine()
             for (model in models) {
                 val fqn = "${model.packageName}.${model.simpleName}"
-                appendLine("internal fun guard(impl: $fqn): $fqn = ${model.simpleName}Guarded(impl)")
+                appendLine("public fun guard(impl: $fqn): $fqn = ${model.simpleName}Guarded(impl)")
             }
         }
 }
