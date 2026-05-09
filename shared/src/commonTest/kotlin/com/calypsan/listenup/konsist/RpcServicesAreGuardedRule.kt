@@ -27,6 +27,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * initial roll-out, all `registerService<...>` call sites live in
  * `RpcRoutes.kt` and wrap inline — the simple count comparison is sufficient.
  *
+ * Line and block comments are stripped from the function text before counting,
+ * so neither code-shaped comments (`// guard(...)`) nor docstrings can inflate
+ * the guard count and hide an unguarded `registerService<...>` call.
+ *
  * Production call sites validated by this rule (all in `RpcRoutes.kt`):
  * - `registerService<PingService> { guard(PingServiceImpl()) }`
  * - `registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }`
@@ -42,11 +46,17 @@ class RpcServicesAreGuardedRule :
                     .functions()
                     .filter { fn -> fn.text.contains("registerService<") }
                     .filter { fn ->
-                        val registerCount = Regex("""registerService<""").findAll(fn.text).count()
-                        val guardCount = Regex("""\bguard\s*\(""").findAll(fn.text).count()
+                        val body = stripComments(fn.text)
+                        val registerCount = Regex("""registerService<""").findAll(body).count()
+                        val guardCount = Regex("""\bguard\s*\(""").findAll(body).count()
                         guardCount < registerCount
                     }.map { fn -> "${fn.name} @ ${fn.path}" }
 
             offenders.shouldBeEmpty()
         }
     })
+
+private fun stripComments(source: String): String =
+    source
+        .replace(Regex("""//[^\n]*"""), "")
+        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
