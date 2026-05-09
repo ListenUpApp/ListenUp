@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
@@ -12,10 +13,12 @@ import kotlinx.rpc.annotations.Rpc
  * Phase 2; admin-gating lands when the auth surface gets a role check in
  * Phase 4).
  *
- * `observeProgress()` is a server-pushed [Flow] of [ScanEvent] —
+ * `observeProgress()` is a server-pushed [Flow] of [RpcEvent]-wrapped [ScanEvent]s —
  * kotlinx.rpc opens a dedicated WebSocket frame stream for it. Multiple
  * clients can subscribe simultaneously and they all see the same events
- * (the scanner's event bus is a broadcast `SharedFlow`).
+ * (the scanner's event bus is a broadcast `SharedFlow`). Emits
+ * [RpcEvent.Data] for each underlying event; the guard wraps any internal
+ * failures as [RpcEvent.Error].
  *
  *  - `scanFull()` returns immediately with `Failure(AlreadyRunning)` if a
  *    scan is in flight.
@@ -29,5 +32,5 @@ interface ScannerService {
 
     suspend fun lastScanResult(): AppResult<ScanResult>
 
-    fun observeProgress(): Flow<ScanEvent>
+    fun observeProgress(): Flow<RpcEvent<ScanEvent>>
 }
