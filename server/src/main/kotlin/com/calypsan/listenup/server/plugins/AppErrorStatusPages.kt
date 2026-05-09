@@ -158,6 +158,7 @@ private fun SyncError.toHttpStatus(): HttpStatusCode =
         is SyncError.SyncFailed -> HttpStatusCode.ServiceUnavailable
         is SyncError.RealtimeDisconnected -> HttpStatusCode.ServiceUnavailable
         is SyncError.PushFailed -> HttpStatusCode.ServiceUnavailable
+        is SyncError.NotFound -> HttpStatusCode.NotFound
     }
 
 private fun SyncError.withCorrelationId(id: String?): SyncError =
@@ -165,6 +166,7 @@ private fun SyncError.withCorrelationId(id: String?): SyncError =
         is SyncError.SyncFailed -> copy(correlationId = id)
         is SyncError.RealtimeDisconnected -> copy(correlationId = id)
         is SyncError.PushFailed -> copy(correlationId = id)
+        is SyncError.NotFound -> copy(correlationId = id)
     }
 
 private fun DownloadError.toHttpStatus(): HttpStatusCode =

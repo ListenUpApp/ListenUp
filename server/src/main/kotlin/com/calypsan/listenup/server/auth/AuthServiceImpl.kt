@@ -22,10 +22,9 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
-import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.time.Clock
 import java.util.UUID
 
@@ -57,7 +56,7 @@ class AuthServiceImpl(
 
         val normalized = Email.normalize(request.email)
         val user =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.find { UserTable.emailNormalized eq normalized }.firstOrNull()
             } ?: return AppResult.Failure(AuthError.InvalidCredentials())
 
@@ -80,7 +79,7 @@ class AuthServiceImpl(
 
         val normalized = Email.normalize(request.email)
         val empty =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.all().limit(1).empty()
             }
         if (empty) return AppResult.Failure(AuthError.SetupRequired())
@@ -91,7 +90,7 @@ class AuthServiceImpl(
         }
 
         val existing =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.find { UserTable.emailNormalized eq normalized }.any()
             }
         if (existing) return AppResult.Failure(AuthError.EmailAlreadyExists())
@@ -101,7 +100,7 @@ class AuthServiceImpl(
         val passwordHashed = hasher.hash(request.password)
         val now = clock.millis()
         val user =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.new(newUserId()) {
                     email = request.email
                     emailNormalized = normalized
@@ -132,7 +131,7 @@ class AuthServiceImpl(
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val empty =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.all().limit(1).empty()
             }
         if (!empty) return AppResult.Failure(AuthError.SetupAlreadyComplete())
@@ -140,7 +139,7 @@ class AuthServiceImpl(
         val passwordHashed = hasher.hash(request.password)
         val now = clock.millis()
         val user =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.new(newUserId()) {
                     email = request.email
                     emailNormalized = Email.normalize(request.email)
@@ -163,7 +162,7 @@ class AuthServiceImpl(
                 )
 
         val user =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity[rotated.userId.value]
             }
         val role = user.role.toContract()
@@ -213,7 +212,7 @@ class AuthServiceImpl(
     override suspend fun currentUser(): AppResult<User> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         val user =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.findById(p.userId.value)
             } ?: return AppResult.Failure(AuthError.SessionNotFound())
         return AppResult.Success(user.toContract())
@@ -245,7 +244,7 @@ class AuthServiceImpl(
         // Don't leak existence-or-state of the target — admin actions only succeed
         // against a genuinely pending row; everything else is PermissionDenied.
         val target =
-            newSuspendedTransaction(Dispatchers.IO, db) {
+            suspendTransaction(db) {
                 UserEntity.findById(request.userId.value)
             } ?: return AppResult.Failure(AuthError.PermissionDenied())
         if (target.status != UserStatusColumn.PENDING_APPROVAL) {
@@ -254,7 +253,7 @@ class AuthServiceImpl(
 
         val now = clock.millis()
         val newStatus = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             target.status = newStatus
             target.updatedAt = now
         }
@@ -284,7 +283,7 @@ class AuthServiceImpl(
 
     private suspend fun markLastLogin(userId: String) {
         val now = clock.millis()
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             UserEntity[userId].lastLoginAt = now
         }
     }

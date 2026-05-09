@@ -47,4 +47,23 @@ sealed interface SyncError : AppError {
         override val code: String = "SYNC_PUSH_FAILED"
         override val isRetryable: Boolean = true
     }
+
+    /**
+     * Returned when an operation references a row that does not exist (e.g.
+     * [softDelete][com.calypsan.listenup.server.sync.SyncableRepository.softDelete] of a
+     * missing id). [domain] and [entityId] carry diagnostic context; the
+     * user-facing [message] is generic.
+     */
+    @Serializable
+    @SerialName("SyncError.NotFound")
+    data class NotFound(
+        val domain: String,
+        val entityId: String,
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SyncError {
+        override val message: String = "The requested item could not be found."
+        override val code: String = "SYNC_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
 }

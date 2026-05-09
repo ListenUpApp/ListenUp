@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.scannerModule
+import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
@@ -19,6 +20,7 @@ import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
+import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -59,6 +61,7 @@ fun Application.module() {
             modules += scannerModule(resolvedLibraryPath, applicationScope)
         }
         modules += embeddedmetaModule
+        modules += syncModule
         modules(modules)
     }
 
@@ -81,6 +84,7 @@ fun Application.module() {
         sseRoutes()
         authRoutes(authService)
         rpcRoutes(authService, scannerService)
+        syncRoutes()
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
