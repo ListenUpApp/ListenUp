@@ -51,8 +51,10 @@ import androidx.room.TypeConverters
         UserReadingSessionEntity::class,
         ReaderSessionCacheEntity::class,
         CoverDownloadTaskEntity::class,
+        SyncCursorEntity::class,
+        PendingOperationV2Entity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(
@@ -122,6 +124,10 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun coverDownloadDao(): CoverDownloadDao
 
     abstract fun bookReadersSummaryDao(): BookReadersSummaryDao
+
+    abstract fun syncCursorDao(): SyncCursorDao
+
+    abstract fun pendingOperationV2Dao(): PendingOperationV2Dao
 }
 
 /**
