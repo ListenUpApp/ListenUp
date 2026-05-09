@@ -25,4 +25,13 @@ class SyncErrorTest :
             err.code shouldBe "SYNC_PUSH_FAILED"
             err.isRetryable shouldBe true
         }
+
+        test("NotFound has stable code, is not retryable, and carries domain + entityId") {
+            val err = SyncError.NotFound(domain = "tags", entityId = "abc-123")
+            err.message.isNotBlank() shouldBe true
+            err.code shouldBe "SYNC_NOT_FOUND"
+            err.isRetryable shouldBe false
+            err.domain shouldBe "tags"
+            err.entityId shouldBe "abc-123"
+        }
     })

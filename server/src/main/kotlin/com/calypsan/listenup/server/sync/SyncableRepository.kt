@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
@@ -217,10 +217,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 }
             if (rowsAffected == 0) {
                 AppResult.Failure(
-                    InternalError(
-                        correlationId = null,
-                        cause = "NotFound",
-                        debugInfo = "No $domainName row with id=$id",
+                    SyncError.NotFound(
+                        domain = domainName,
+                        entityId = id.toString(),
                     ),
                 )
             } else {
