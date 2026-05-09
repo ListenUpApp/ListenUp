@@ -1,9 +1,11 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.get
@@ -73,7 +75,9 @@ class PluginSmokeTest :
                             rpcConfig { serialization { json() } }
                         }.withService<PingService>()
 
-                service.ping() shouldBe "pong"
+                val result = service.ping()
+                result.shouldBeInstanceOf<AppResult.Success<String>>()
+                result.data shouldBe "pong"
             }
         }
     })

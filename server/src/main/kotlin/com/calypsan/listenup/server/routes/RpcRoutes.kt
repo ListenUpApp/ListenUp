@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
@@ -17,7 +18,7 @@ import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.registerService
 
 private class PingServiceImpl : PingService {
-    override suspend fun ping(): String = "pong"
+    override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
 }
 
 /**
