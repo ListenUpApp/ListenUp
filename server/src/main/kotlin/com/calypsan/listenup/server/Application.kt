@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
+import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
@@ -27,6 +28,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.auth.authenticate
 import io.ktor.server.cio.EngineMain
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.resources.Resources
@@ -84,7 +86,9 @@ fun Application.module() {
         sseRoutes()
         authRoutes(authService)
         rpcRoutes(authService, scannerService)
-        syncRoutes()
+        authenticate(JWT_PROVIDER) {
+            syncRoutes()
+        }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
