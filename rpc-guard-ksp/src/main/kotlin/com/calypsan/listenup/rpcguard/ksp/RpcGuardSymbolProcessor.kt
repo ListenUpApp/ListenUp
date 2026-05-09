@@ -30,17 +30,16 @@ internal class RpcGuardSymbolProcessor(
 
         val models = services.mapNotNull { decl -> buildServiceModel(decl) }
 
-        // TODO(Task 5): drop the discovery log once <Service>Guarded codegen replaces
-        // the message-string assertion in DiscoveryTest as the testable signal.
+        // warn() is used instead of info() because kctfork 0.12.1's TestKSPLogger only
+        // forwards ERROR/EXCEPTION to the MessageCollector during KSP execution; info
+        // messages never reach result.messages. warn() is visible in test assertions.
         for (model in models) {
-            // warn() is used instead of info() because kctfork 0.12.1's TestKSPLogger only
-            // forwards ERROR/EXCEPTION to the MessageCollector during KSP execution; info
-            // messages never reach result.messages. warn() is visible in test assertions.
             val methodNames = model.methods.joinToString(", ") { it.name }
             env.logger.warn("[rpc-guard] discovered: ${model.packageName}.${model.simpleName} [$methodNames]")
+            com.calypsan.listenup.rpcguard.ksp.codegen.GuardedClassWriter
+                .write(model, env.codeGenerator)
         }
 
-        // Codegen happens in Tasks 5–7.
         return emptyList()
     }
 
