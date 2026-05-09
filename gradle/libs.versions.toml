@@ -69,6 +69,7 @@ hikari = "6.3.0"
 password4j = "1.8.4"
 konsist = "0.17.3"
 kfswatch = "1.4.0"
+micrometer = "1.14.0"
 ksp-symbol-processing-api = "2.3.4" # matches project ksp version — bump in lockstep with `ksp`
 kctfork = "0.12.1" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 
@@ -215,6 +216,8 @@ kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpal
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 # kfswatch — KMP filesystem watcher (inotify / FSEvents / ReadDirectoryChangesW)
 kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
+# Micrometer — metrics for Prometheus
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
 ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
 kctfork-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kctfork" }
 

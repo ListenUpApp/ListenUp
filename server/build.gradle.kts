@@ -64,11 +64,12 @@ dependencies {
     implementation(libs.kotlinx.io.core)
     implementation(libs.kotlinx.io.bytestring)
 
-    // Logging
+    // Logging + Metrics
     implementation(libs.kotlin.logging)
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
     implementation(libs.kotlinx.coroutines.slf4j)
+    implementation(libs.micrometer.core)
     runtimeOnly(libs.janino) // enables logback.xml <if>/<condition> elements
 
     // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
