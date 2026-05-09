@@ -40,5 +40,16 @@ class SuspendCodegenTest :
                 "AppResult.Failure(\n            com.calypsan.listenup.api.error.InternalError(",
             )
             generated.shouldContain("cause = e::class.simpleName")
+            generated.shouldContain("private val log: Logger = LoggerFactory.getLogger(\"rpc.FakeService\")")
+            generated.shouldContain("private val metrics: RpcGuardMetrics = RpcGuardMetrics.global")
+            generated.shouldContain("val cid = currentCorrelationId() ?: newCorrelationId()")
+            generated.shouldContain(
+                """withMdc("service" to "FakeService", "method" to "foo", "correlationId" to cid)""",
+            )
+            generated.shouldContain("log.error(\"Uncaught exception in FakeService.foo [cid=\$cid]\", e)")
+            generated.shouldContain(
+                """metrics.recordEscape("FakeService", "foo", e::class.simpleName ?: "Unknown")""",
+            )
+            generated.shouldContain("correlationId = cid")
         }
     })
