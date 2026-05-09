@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -81,5 +82,9 @@ fun Route.syncRoutes() {
         val typedRepo = repo as SyncableRepository<Any, Any>
         val digest: DomainDigest = typedRepo.digest(cursor)
         call.respond(digest)
+    }
+
+    get("/api/v1/sync/domains") {
+        call.respond(DomainList(domains = SyncRoutes.knownDomains()))
     }
 }
