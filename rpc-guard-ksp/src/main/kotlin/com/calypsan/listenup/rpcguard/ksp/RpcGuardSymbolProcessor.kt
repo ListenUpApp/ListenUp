@@ -39,6 +39,8 @@ internal class RpcGuardSymbolProcessor(
             com.calypsan.listenup.rpcguard.ksp.codegen.GuardedClassWriter
                 .write(model, env.codeGenerator)
         }
+        com.calypsan.listenup.rpcguard.ksp.codegen.DispatcherWriter
+            .write(models, env.codeGenerator)
 
         return emptyList()
     }
