@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import kotlin.time.Clock
@@ -132,7 +133,49 @@ abstract class SyncableRepository<T : Any, ID : Any>(
             ?: error("Domain table ${table.tableName} has no 'id' column; override idColumn().")
     }
 
-    // softDelete: Task 11
+    /**
+     * Marks the row as deleted by setting `deleted_at`. Bumps revision and
+     * publishes [SyncEvent.Deleted]. Returns [AppResult.Failure] if no row exists
+     * with the given id.
+     *
+     * @param clientOpId originating client operation id for SSE echo matching; null
+     *   for server-initiated deletes.
+     */
+    suspend fun softDelete(
+        id: ID,
+        clientOpId: String? = null,
+    ): AppResult<Unit> =
+        newSuspendedTransaction(Dispatchers.IO, db) {
+            val rev = nextRevision(db)
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                table.update({ idColumn() eq id.toString() }) { stmt ->
+                    stmt[table.revision] = rev
+                    stmt[table.updatedAt] = now
+                    stmt[table.deletedAt] = now
+                    stmt[table.clientOpId] = clientOpId
+                }
+            if (rowsAffected == 0) {
+                AppResult.Failure(
+                    InternalError(
+                        correlationId = null,
+                        cause = "NotFound",
+                        debugInfo = "No $domainName row with id=$id",
+                    ),
+                )
+            } else {
+                bus.publish(
+                    SyncEvent.Deleted(
+                        id = id.toString(),
+                        revision = rev,
+                        occurredAt = now,
+                        clientOpId = clientOpId,
+                    ),
+                )
+                AppResult.Success(Unit)
+            }
+        }
+
     // pullSince: Task 12
     // digest: Task 13
 }
