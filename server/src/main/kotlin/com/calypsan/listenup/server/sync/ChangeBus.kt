@@ -5,7 +5,6 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.concurrent.atomic.AtomicReference
 
 private const val LIVE_TAIL_BUFFER = 256
 
@@ -23,30 +22,25 @@ data class BusEvent(
  * Koin singleton with `createdAtStart()` so domain repositories' init blocks
  * can publish during application bootstrap.
  *
- * `replay = 0` because reconnect catch-up uses the database (REST `?since=<rev>`),
- * not the bus's internal buffer. `extraBufferCapacity = 256` is the live-tail
- * window for slow consumers; `BufferOverflow.DROP_OLDEST` means a slow client
- * gets `SyncControl.CursorStale` and falls back to REST.
+ * `replay = 256` retains the last 256 events for late subscribers and for
+ * [oldestRetainedRevision] reads. `extraBufferCapacity = 0` means the replay
+ * cache is the sole buffer; `BufferOverflow.DROP_OLDEST` evicts the head of
+ * the replay cache when it is full, so a slow client gets
+ * `SyncControl.CursorStale` and falls back to REST catch-up.
  *
- * [oldestRetainedRevision] is updated heuristically — when an event is
- * published, the oldest tracked is set to the new event's revision if it's
- * the first; on overflow eviction we don't have a hook from MutableSharedFlow,
- * so the value is conservative — it tracks what we *might* still have. When
- * the buffer is empty (no subscribers, or just-emitted-and-collected), it's
- * null.
+ * [oldestRetainedRevision] reads directly from [MutableSharedFlow.replayCache]
+ * so it always reflects the actual buffer floor, including after DROP_OLDEST
+ * evictions.
  */
 class ChangeBus {
     private val flow =
         MutableSharedFlow<BusEvent>(
-            replay = 0,
-            extraBufferCapacity = LIVE_TAIL_BUFFER,
+            replay = LIVE_TAIL_BUFFER,
+            extraBufferCapacity = 0,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
-    private val oldest = AtomicReference<Long?>(null)
-
     suspend fun publish(busEvent: BusEvent) {
-        oldest.updateAndGet { current -> current ?: busEvent.event.revision }
         flow.emit(busEvent)
     }
 
@@ -54,8 +48,12 @@ class ChangeBus {
 
     /**
      * Best-effort lower bound on the oldest revision still in the live-tail
-     * buffer. Used by the SSE endpoint to decide cursor-stale fallback.
-     * Returns null when no events have been published since process start.
+     * replay buffer. Returns null when the buffer is empty (no events
+     * published since process start, or all events evicted under DROP_OLDEST).
      */
-    fun oldestRetainedRevision(): Long? = oldest.get()
+    fun oldestRetainedRevision(): Long? =
+        flow.replayCache
+            .firstOrNull()
+            ?.event
+            ?.revision
 }

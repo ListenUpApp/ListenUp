@@ -17,6 +17,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.filter
 import org.koin.ktor.ext.inject
 
 /**
@@ -62,9 +63,10 @@ fun Route.syncRoutes() {
         val lastEventId = call.request.headers["Last-Event-ID"]?.toLongOrNull()
         val oldestRetained = bus.oldestRetainedRevision()
 
-        // Stale if client cursor is newer than anything the bus has retained.
-        // "999999 > 1" → stale; "null" → fresh subscriber, stream normally.
-        val isStale = lastEventId != null && oldestRetained != null && lastEventId > oldestRetained
+        // Stale if client cursor is older than the bus's replay-buffer floor:
+        // the bus has already evicted the events the client needs.
+        // "clientCursor < oldestRetained" → stale; "null" → fresh subscriber, stream normally.
+        val isStale = lastEventId != null && oldestRetained != null && lastEventId < oldestRetained
 
         if (isStale) {
             send(
@@ -79,17 +81,23 @@ fun Route.syncRoutes() {
         }
 
         try {
-            bus.subscribe().collect { busEvent ->
-                val repo = SyncRoutes.lookup(busEvent.domainName) ?: return@collect
+            bus
+                .subscribe()
+                // Skip events the client already received. With replay=256, a reconnecting
+                // client would otherwise see events from the replay cache that it already
+                // processed in a previous session.
+                .filter { it.event.revision > (lastEventId ?: 0L) }
+                .collect { busEvent ->
+                    val repo = SyncRoutes.lookup(busEvent.domainName) ?: return@collect
 
-                @Suppress("UNCHECKED_CAST")
-                val typedRepo = repo as SyncableRepository<Any, Any>
-                send(
-                    id = busEvent.event.revision.toString(),
-                    event = busEvent.domainName,
-                    data = typedRepo.encodeSyncEventAsJson(busEvent.event),
-                )
-            }
+                    @Suppress("UNCHECKED_CAST")
+                    val typedRepo = repo as SyncableRepository<Any, Any>
+                    send(
+                        id = busEvent.event.revision.toString(),
+                        event = busEvent.domainName,
+                        data = typedRepo.encodeSyncEventAsJson(busEvent.event),
+                    )
+                }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -104,7 +112,7 @@ fun Route.syncRoutes() {
                                 InternalError(
                                     correlationId = cid,
                                     cause = e::class.simpleName,
-                                    debugInfo = "${e::class.simpleName}: ${e.message}",
+                                    debugInfo = null,
                                 ),
                         ),
                     ),

@@ -34,14 +34,15 @@ class SyncFirehoseTest :
 
         test("SSE with stale Last-Event-Id emits CursorStale and closes") {
             withTestApplication {
-                // Publish events to advance the bus's tracked oldest revision
-                tagRepo.upsert(Tag("a", "x", 0, 0))
-                tagRepo.upsert(Tag("b", "y", 0, 0))
+                // Publish 300 events to overflow the 256-event replay buffer.
+                // After overflow, the buffer holds revisions 45–300; revision 1 is evicted.
+                repeat(300) { i -> tagRepo.upsert(Tag("tag-$i", "label-$i", 0, 0)) }
 
-                // Connect with a Last-Event-Id far beyond anything the bus has
+                // Connect with Last-Event-Id=1 — older than the buffer floor (~45).
+                // client cursor < oldestRetained → stale.
                 client.sse(
                     urlString = "/api/v1/sync/events",
-                    request = { headers { append(HttpHeaders.LastEventID, "999999") } },
+                    request = { headers { append(HttpHeaders.LastEventID, "1") } },
                 ) {
                     val event = incoming.first()
                     event.event shouldBe "control"

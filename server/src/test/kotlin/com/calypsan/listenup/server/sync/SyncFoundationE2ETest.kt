@@ -18,6 +18,8 @@ import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 
 class SyncFoundationE2ETest :
     FunSpec({
@@ -42,7 +44,10 @@ class SyncFoundationE2ETest :
                 // ---- Phase 2: Write while disconnected ----
                 tagRepo.upsert(Tag("t2", "beta", 0, 0))
 
-                // ---- Phase 3: Reconnect with Last-Event-Id, write fresh t3, assert receive ----
+                // ---- Phase 3: Reconnect with Last-Event-Id, verify replay + live tail ----
+                // With replay=256, reconnecting with Last-Event-Id=1 delivers t2 (missed while
+                // disconnected) from the replay cache, then t3 live. This is the desired catch-up
+                // behavior — the client doesn't need REST for events still in the bus buffer.
                 client.sse(
                     urlString = "/api/v1/sync/events",
                     request = {
@@ -50,10 +55,12 @@ class SyncFoundationE2ETest :
                     },
                 ) {
                     coroutineScope {
-                        val deferred = async { incoming.first() }
+                        // Collect two events: the replayed t2 + the live t3
+                        val deferred = async { incoming.take(2).toList() }
                         tagRepo.upsert(Tag("t3", "gamma", 0, 0))
-                        val event3 = deferred.await()
-                        event3.data!! shouldContain """"id":"t3""""
+                        val events = deferred.await()
+                        events[0].data!! shouldContain """"id":"t2""""
+                        events[1].data!! shouldContain """"id":"t3""""
                     }
                 }
 

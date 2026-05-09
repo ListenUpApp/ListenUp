@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -68,7 +69,9 @@ class TagRepositoryUpsertTest :
                     val initial = Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0)
                     repo.upsert(initial)
 
-                    val sub = async { bus.subscribe().first() }
+                    // With replay=256, the subscriber immediately sees the replay cache.
+                    // Drop the already-published Created event to observe only the next write.
+                    val sub = async { bus.subscribe().drop(1).first() }
                     advanceUntilIdle()
 
                     val updated = initial.copy(name = "scifi-updated")
