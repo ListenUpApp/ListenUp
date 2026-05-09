@@ -67,6 +67,7 @@ internal fun withTestApplication(block: suspend SyncTestScope.() -> Unit) {
         val jsonClient =
             createClient {
                 install(ContentNegotiation) { json(contractJson) }
+                install(io.ktor.client.plugins.sse.SSE)
             }
 
         SyncTestScope(client = jsonClient, tagRepo = tagRepo).block()

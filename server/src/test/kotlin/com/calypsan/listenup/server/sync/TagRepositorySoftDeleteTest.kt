@@ -21,12 +21,14 @@ class TagRepositorySoftDeleteTest :
                 val repo = TagRepository(db, bus)
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
-                    val deferredEvent = async { bus.subscribe().first() }
+                    val deferredBusEvent = async { bus.subscribe().first() }
 
                     val result = repo.softDelete("t1", clientOpId = "op-del")
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    val event = deferredEvent.await()
+                    val busEvent = deferredBusEvent.await()
+                    busEvent.domainName shouldBe "tags"
+                    val event = busEvent.event
                     event.shouldBeInstanceOf<SyncEvent.Deleted>()
                     event.id shouldBe "t1"
                     event.clientOpId shouldBe "op-del"
@@ -54,14 +56,14 @@ class TagRepositorySoftDeleteTest :
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
                     repo.softDelete("t1")
-                    val deferredEvent = async { bus.subscribe().first() }
+                    val deferredBusEvent = async { bus.subscribe().first() }
 
                     val resurrected = repo.upsert(Tag("t1", "sci-fi-resurrected", 0, 0))
                     resurrected.shouldBeInstanceOf<AppResult.Success<Tag>>()
                     (resurrected as AppResult.Success).data.deletedAt shouldBe null
 
-                    val event = deferredEvent.await()
-                    event.shouldBeInstanceOf<SyncEvent.Updated<Tag>>()
+                    val busEvent = deferredBusEvent.await()
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<Tag>>()
                 }
             }
         }

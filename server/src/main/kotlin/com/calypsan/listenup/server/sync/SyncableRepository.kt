@@ -82,6 +82,16 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         return contractJson.encodeToString(JsonElement.serializer(), json)
     }
 
+    /**
+     * Encodes a [SyncEvent] to a JSON string using [contractJson] and the
+     * concrete [elementSerializer]. Called by the SSE firehose to serialise
+     * the event payload without losing type information through the
+     * type-erased registry (`SyncableRepository<Any, Any>` cast).
+     */
+    @Suppress("UNCHECKED_CAST")
+    internal fun encodeSyncEventAsJson(event: SyncEvent<*>): String =
+        contractJson.encodeToString(SyncEvent.serializer(elementSerializer), event as SyncEvent<T>)
+
     protected abstract val T.id: ID
 
     /** Subclass-provided projection of the DTO's revision. */
@@ -142,22 +152,30 @@ abstract class SyncableRepository<T : Any, ID : Any>(
 
             if (existed) {
                 bus.publish(
-                    SyncEvent.Updated(
-                        id = idStr,
-                        revision = rev,
-                        occurredAt = now,
-                        clientOpId = clientOpId,
-                        payload = saved,
+                    BusEvent(
+                        domainName = domainName,
+                        event =
+                            SyncEvent.Updated(
+                                id = idStr,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = clientOpId,
+                                payload = saved,
+                            ),
                     ),
                 )
             } else {
                 bus.publish(
-                    SyncEvent.Created(
-                        id = idStr,
-                        revision = rev,
-                        occurredAt = now,
-                        clientOpId = clientOpId,
-                        payload = saved,
+                    BusEvent(
+                        domainName = domainName,
+                        event =
+                            SyncEvent.Created(
+                                id = idStr,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = clientOpId,
+                                payload = saved,
+                            ),
                     ),
                 )
             }
@@ -208,11 +226,15 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 )
             } else {
                 bus.publish(
-                    SyncEvent.Deleted(
-                        id = id.toString(),
-                        revision = rev,
-                        occurredAt = now,
-                        clientOpId = clientOpId,
+                    BusEvent(
+                        domainName = domainName,
+                        event =
+                            SyncEvent.Deleted(
+                                id = id.toString(),
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = clientOpId,
+                            ),
                     ),
                 )
                 AppResult.Success(Unit)

@@ -34,7 +34,7 @@ class TagRepositoryUpsertTest :
                     )
 
                 runTest {
-                    val deferredEvent = async { bus.subscribe().first() }
+                    val deferredBusEvent = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
                     val initial = Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0)
@@ -47,7 +47,9 @@ class TagRepositoryUpsertTest :
                     saved.revision shouldBe 1L
                     saved.updatedAt shouldBe 1_730_000_000_000L
 
-                    val event = deferredEvent.await()
+                    val busEvent = deferredBusEvent.await()
+                    busEvent.domainName shouldBe "tags"
+                    val event = busEvent.event
                     event.shouldBeInstanceOf<SyncEvent.Created<Tag>>()
                     event.id shouldBe "t1"
                     event.revision shouldBe 1L
@@ -72,9 +74,10 @@ class TagRepositoryUpsertTest :
                     val updated = initial.copy(name = "scifi-updated")
                     repo.upsert(updated, clientOpId = "op-2")
 
-                    val event = sub.await()
-                    event.shouldBeInstanceOf<SyncEvent.Updated<Tag>>()
-                    event.clientOpId shouldBe "op-2"
+                    val busEvent = sub.await()
+                    busEvent.domainName shouldBe "tags"
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<Tag>>()
+                    busEvent.event.clientOpId shouldBe "op-2"
                 }
             }
         }
@@ -85,13 +88,13 @@ class TagRepositoryUpsertTest :
                 val repo = TagRepository(db = this, bus = bus)
 
                 runTest {
-                    val deferredEvent = async { bus.subscribe().first() }
+                    val deferredBusEvent = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
                     repo.upsert(Tag(id = "t2", name = "x", revision = 0, updatedAt = 0))
 
-                    val event = deferredEvent.await()
-                    event.clientOpId shouldBe null
+                    val busEvent = deferredBusEvent.await()
+                    busEvent.event.clientOpId shouldBe null
                 }
             }
         }

@@ -20,20 +20,21 @@ class ChangeBusTest :
         test("publish then subscribe receives the event") {
             runTest {
                 val bus = ChangeBus()
-                val event = SyncEvent.Created(id = "a", revision = 1, occurredAt = 100, payload = "x")
+                val syncEvent = SyncEvent.Created(id = "a", revision = 1, occurredAt = 100, payload = "x")
+                val busEvent = BusEvent(domainName = "tags", event = syncEvent)
                 val deferred = async { bus.subscribe().first() }
                 // Yield so the subscriber coroutine can register on the SharedFlow before publish.
                 advanceUntilIdle()
-                bus.publish(event)
-                deferred.await() shouldBe event
+                bus.publish(busEvent)
+                deferred.await() shouldBe busEvent
             }
         }
 
         test("multiple subscribers each receive every event") {
             runTest {
                 val bus = ChangeBus()
-                val ev1 = SyncEvent.Created(id = "a", revision = 1, occurredAt = 100, payload = "x")
-                val ev2 = SyncEvent.Updated<String>(id = "a", revision = 2, occurredAt = 101, payload = "y")
+                val ev1 = BusEvent("tags", SyncEvent.Created(id = "a", revision = 1, occurredAt = 100, payload = "x"))
+                val ev2 = BusEvent("tags", SyncEvent.Updated<String>(id = "a", revision = 2, occurredAt = 101, payload = "y"))
                 val sub1 = async { bus.subscribe().take(2).toList() }
                 val sub2 = async { bus.subscribe().take(2).toList() }
                 // Yield so both subscribers register before events are published.
@@ -49,8 +50,8 @@ class ChangeBusTest :
             runTest {
                 val bus = ChangeBus()
                 bus.oldestRetainedRevision() shouldBe null
-                bus.publish(SyncEvent.Created(id = "a", revision = 5, occurredAt = 100, payload = "x"))
-                bus.publish(SyncEvent.Created(id = "b", revision = 7, occurredAt = 101, payload = "y"))
+                bus.publish(BusEvent("tags", SyncEvent.Created(id = "a", revision = 5, occurredAt = 100, payload = "x")))
+                bus.publish(BusEvent("tags", SyncEvent.Created(id = "b", revision = 7, occurredAt = 101, payload = "y")))
                 bus.oldestRetainedRevision()!! shouldBeGreaterThanOrEqual 5L
             }
         }

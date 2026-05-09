@@ -10,7 +10,16 @@ import java.util.concurrent.atomic.AtomicReference
 private const val LIVE_TAIL_BUFFER = 256
 
 /**
- * In-memory pub/sub for [SyncEvent]s. Single bus per process, registered as a
+ * Bus payload pairing the originating domain name with the typed event.
+ * The domain name is used by the SSE endpoint to set the correct `event:` line.
+ */
+data class BusEvent(
+    val domainName: String,
+    val event: SyncEvent<*>,
+)
+
+/**
+ * In-memory pub/sub for [BusEvent]s. Single bus per process, registered as a
  * Koin singleton with `createdAtStart()` so domain repositories' init blocks
  * can publish during application bootstrap.
  *
@@ -28,7 +37,7 @@ private const val LIVE_TAIL_BUFFER = 256
  */
 class ChangeBus {
     private val flow =
-        MutableSharedFlow<SyncEvent<*>>(
+        MutableSharedFlow<BusEvent>(
             replay = 0,
             extraBufferCapacity = LIVE_TAIL_BUFFER,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -36,12 +45,12 @@ class ChangeBus {
 
     private val oldest = AtomicReference<Long?>(null)
 
-    suspend fun publish(event: SyncEvent<*>) {
-        oldest.updateAndGet { current -> current ?: event.revision }
-        flow.emit(event)
+    suspend fun publish(busEvent: BusEvent) {
+        oldest.updateAndGet { current -> current ?: busEvent.event.revision }
+        flow.emit(busEvent)
     }
 
-    fun subscribe(): SharedFlow<SyncEvent<*>> = flow.asSharedFlow()
+    fun subscribe(): SharedFlow<BusEvent> = flow.asSharedFlow()
 
     /**
      * Best-effort lower bound on the oldest revision still in the live-tail
