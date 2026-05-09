@@ -81,4 +81,25 @@ class TagRepositoryDigestTest :
                 }
             }
         }
+
+        test("digest byte format is the canonical wire contract") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    repo.upsert(Tag("a", "alpha", 0, 0)) // revision 1
+                    repo.upsert(Tag("b", "beta", 0, 0)) // revision 2
+                    // Canonical layout: <id>|<revision>\n per row, sorted by id, trailing \n
+                    // Input bytes: "a|1\nb|2\n"
+                    val expectedInput = "a|1\nb|2\n"
+                    val md = java.security.MessageDigest.getInstance("SHA-256")
+                    val expectedHex =
+                        md
+                            .digest(expectedInput.toByteArray(Charsets.UTF_8))
+                            .joinToString("") { "%02x".format(it) }
+                    val actual = repo.digest(cursor = Long.MAX_VALUE)
+                    actual.hash shouldBe "sha256:$expectedHex"
+                }
+            }
+        }
     })
