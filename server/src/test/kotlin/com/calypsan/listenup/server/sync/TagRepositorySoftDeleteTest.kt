@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
@@ -9,6 +11,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 class TagRepositorySoftDeleteTest :
@@ -22,6 +25,7 @@ class TagRepositorySoftDeleteTest :
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
                     val deferredBusEvent = async { bus.subscribe().first() }
+                    advanceUntilIdle()
 
                     val result = repo.softDelete("t1", clientOpId = "op-del")
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -57,6 +61,7 @@ class TagRepositorySoftDeleteTest :
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
                     repo.softDelete("t1")
                     val deferredBusEvent = async { bus.subscribe().first() }
+                    advanceUntilIdle()
 
                     val resurrected = repo.upsert(Tag("t1", "sci-fi-resurrected", 0, 0))
                     resurrected.shouldBeInstanceOf<AppResult.Success<Tag>>()

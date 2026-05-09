@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
 import java.security.MessageDigest
 import kotlin.time.Clock
-import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -26,7 +25,7 @@ import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
@@ -112,8 +111,8 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         value: T,
         clientOpId: String? = null,
     ): AppResult<T> =
-        newSuspendedTransaction(Dispatchers.IO, db) {
-            val rev = nextRevision(db)
+        suspendTransaction(db) {
+            val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
             val idStr = value.id.toString()
 
@@ -206,8 +205,8 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         id: ID,
         clientOpId: String? = null,
     ): AppResult<Unit> =
-        newSuspendedTransaction(Dispatchers.IO, db) {
-            val rev = nextRevision(db)
+        suspendTransaction(db) {
+            val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
             val rowsAffected =
                 table.update({ idColumn() eq id.toString() }) { stmt ->
@@ -251,7 +250,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         cursor: Long,
         limit: Int,
     ): Page<T> =
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             val rows =
                 table
                     .selectAll()
@@ -277,7 +276,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * compute identically over their local rows.
      */
     suspend fun digest(cursor: Long): DomainDigest =
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             val rows =
                 table
                     .selectAll()

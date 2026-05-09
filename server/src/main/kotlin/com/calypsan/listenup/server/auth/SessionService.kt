@@ -6,12 +6,11 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.db.SessionTable
 import com.calypsan.listenup.server.db.UserEntity
-import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.time.Clock
 import java.time.Duration
@@ -58,7 +57,7 @@ class SessionService(
         val expires = clock.instant().plus(refreshTtl).toEpochMilli()
         val sid = newSessionId()
         val familyId = newFamilyId()
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             SessionEntity.new(sid) {
                 user = UserEntity[userId.value]
                 refreshTokenHash = hash
@@ -86,7 +85,7 @@ class SessionService(
         val newHash = tokenHasher.hash(newRaw)
         val newExpires = clock.instant().plus(refreshTtl).toEpochMilli()
 
-        return newSuspendedTransaction(Dispatchers.IO, db) {
+        return suspendTransaction(db) {
             // Pass 1: live-token match → rotate. Indexed via UNIQUE INDEX
             // idx_sessions_token_hash on refresh_token_hash.
             val live =
@@ -101,7 +100,7 @@ class SessionService(
                 live.refreshTokenHash = newHash
                 live.lastUsedAt = now
                 live.expiresAt = newExpires
-                return@newSuspendedTransaction RotatedSession(
+                return@suspendTransaction RotatedSession(
                     sessionId = SessionId(live.id.value),
                     userId = UserId(live.user.id.value),
                     refreshToken = RefreshToken(newRaw),
@@ -127,7 +126,7 @@ class SessionService(
         sessionId: SessionId,
         ownerUserId: UserId,
     ) {
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             SessionTable.update({
                 (SessionTable.id eq sessionId.value) and
                     (SessionTable.userId eq ownerUserId.value) and
@@ -139,7 +138,7 @@ class SessionService(
     }
 
     suspend fun revokeAll(userId: UserId) {
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             SessionTable.update({
                 (SessionTable.userId eq userId.value) and (SessionTable.revokedAt eq null)
             }) {
@@ -160,7 +159,7 @@ class SessionService(
      */
     suspend fun wasReplay(token: RefreshToken): Boolean {
         val hash = tokenHasher.hash(token.value)
-        return newSuspendedTransaction(Dispatchers.IO, db) {
+        return suspendTransaction(db) {
             SessionEntity
                 .find { SessionTable.previousHash eq hash }
                 .any()
@@ -168,13 +167,13 @@ class SessionService(
     }
 
     suspend fun isLive(sessionId: SessionId): Boolean =
-        newSuspendedTransaction(Dispatchers.IO, db) {
-            val s = SessionEntity.findById(sessionId.value) ?: return@newSuspendedTransaction false
+        suspendTransaction(db) {
+            val s = SessionEntity.findById(sessionId.value) ?: return@suspendTransaction false
             s.revokedAt == null && s.expiresAt > clock.millis()
         }
 
     suspend fun listActiveFor(userId: UserId): List<SessionEntity> =
-        newSuspendedTransaction(Dispatchers.IO, db) {
+        suspendTransaction(db) {
             SessionEntity
                 .find {
                     (SessionTable.userId eq userId.value) and
