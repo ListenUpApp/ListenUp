@@ -5,7 +5,9 @@ import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
+import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -17,7 +19,7 @@ import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.registerService
 
 private class PingServiceImpl : PingService {
-    override suspend fun ping(): String = "pong"
+    override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
 }
 
 /**
@@ -30,12 +32,11 @@ private class PingServiceImpl : PingService {
  * The split mirrors the contract's trust boundary structurally — the URL
  * reflects which methods need a session, no fallback hacks needed.
  *
- * Known limitation (Phase F open question): kotlinx.rpc 0.10.x serializes
- * server-side exceptions as `SerializedException` (class name + message +
- * stacktrace), so typed `AuthError` values do not survive the RPC wire as
- * structured data. Phase 1 ships with REST as the primary error surface for
- * the client; RPC-side typed-error recovery awaits either a kotlinx.rpc
- * interceptor API or a migration to `AppResult<T>` return shapes.
+ * The KSP-generated `<Service>Guarded` decorator wraps every `registerService`
+ * factory below. Domain failures already cross the wire as typed `AppError`
+ * via `AppResult<T>` returns; the guard catches anything that *escapes* a
+ * service (bugs, infra faults), logs it server-side with the correlation id,
+ * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
  */
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
@@ -43,10 +44,10 @@ fun Route.rpcRoutes(
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
-        registerService<PingService> { PingServiceImpl() }
-        registerService<AuthServicePublic> { authService }
+        registerService<PingService> { guard(PingServiceImpl()) }
+        registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }
         if (scannerService != null) {
-            registerService<ScannerService> { scannerService }
+            registerService<ScannerService> { guard(scannerService) }
         }
     }
 
@@ -57,7 +58,7 @@ fun Route.rpcRoutes(
                 val p =
                     call.userPrincipalOrNull()
                         ?: error("authed RPC mount reached without a principal — auth wall regression")
-                authService.copyWith(PrincipalProvider { p })
+                guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
             }
         }
     }

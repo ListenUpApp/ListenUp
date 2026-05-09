@@ -10,7 +10,7 @@ androidx-navigation3 = "1.1.1"
 androidx-palette = "1.0.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.11.1"
-robolectric = "4.15.1"
+robolectric = "4.16.1"
 composeMultiplatform = "1.10.3"
 compose-material3 = "1.11.0-alpha07"
 kotlin = "2.3.20"
@@ -19,9 +19,9 @@ mokkery = "3.3.0"
 ktor = "3.4.3"
 kotlinx-rpc = "0.10.2"
 kotest = "6.1.11"
-kotlinx-coroutines = "1.10.2"
+kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
-kotlinx-datetime = "0.7.1"
+kotlinx-datetime = "0.8.0"
 kotlinx-collections-immutable = "0.4.0"
 kotlinx-io = "0.9.0"
 koin = "4.2.1"
@@ -51,7 +51,7 @@ ffmpeg-javacpp = "8.0.1-1.5.13"
 jnativehook = "2.2.2"
 
 # Multiplatform (JetBrains) - using dev builds from compose-dev repo
-navigation3-multiplatform = "1.1.0"
+navigation3-multiplatform = "1.1.1"
 material3-adaptive-multiplatform = "1.2.0"
 
 # Quality Tool
@@ -62,13 +62,16 @@ kover = "0.9.8"
 atomicfu = "0.32.1"
 
 # Server persistence + password hashing
-exposed = "0.61.0"
-sqlite-jdbc = "3.50.1.0"
-flyway = "11.7.0"
-hikari = "6.3.0"
+exposed = "1.2.0"
+sqlite-jdbc = "3.53.1.0"
+flyway = "12.6.0"
+hikari = "7.0.2"
 password4j = "1.8.4"
 konsist = "0.17.3"
 kfswatch = "1.4.0"
+micrometer = "1.14.0"
+ksp-symbol-processing-api = "2.3.4" # matches project ksp version — bump in lockstep with `ksp`
+kctfork = "0.12.1" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
@@ -213,6 +216,10 @@ kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpal
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 # kfswatch — KMP filesystem watcher (inotify / FSEvents / ReadDirectoryChangesW)
 kfswatch = { module = "io.github.irgaly.kfswatch:kfswatch", version.ref = "kfswatch" }
+# Micrometer — metrics for Prometheus
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
+kctfork-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kctfork" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

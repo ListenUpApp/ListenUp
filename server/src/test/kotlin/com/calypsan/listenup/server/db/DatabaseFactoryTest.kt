@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.db
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 
 class DatabaseFactoryTest :

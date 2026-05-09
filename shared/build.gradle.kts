@@ -143,10 +143,20 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.jmdns) // mDNS server discovery
             // Note: SLF4J backend provided by consuming app (desktopApp uses logback)
+
+            // RPC guard runtime helpers — used by rpc-guard-ksp generated code.
+            // These live in jvmMain so KSP-generated *Guarded classes (also jvmMain)
+            // can compile against them. The desktop client carries them on its classpath
+            // but never calls them; the server provides Micrometer at runtime.
+            implementation(libs.micrometer.core)
+            implementation(libs.kotlinx.coroutines.slf4j)
         }
 
         jvmTest.dependencies {
-            implementation(libs.slf4j.simple) // Simple backend for tests only
+            // logback-classic instead of slf4j-simple: the rpcguard helpers use MDC
+            // (via kotlinx-coroutines-slf4j) which requires a backend that supports
+            // Mapped Diagnostic Context. slf4j-simple always returns null for MDC.get().
+            implementation(libs.logback.classic)
             implementation(libs.androidx.room.testing) // MigrationTestHelper for W4.5+
             implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
             // G1: Konsist — architectural assertions on the contract boundary.
@@ -181,6 +191,12 @@ room {
 // Note: kspCommonMainMetadata is intentionally omitted to avoid generating
 // an actual object that conflicts with the expect declaration.
 // Platform-specific KSP tasks generate the actual implementations.
+//
+// rpc-guard-ksp runs on kspJvm only: it discovers @Rpc interfaces in commonMain
+// and emits *Guarded decorator classes + RpcGuardDispatcher into the JVM source
+// set. These generated classes compile against the rpcguard runtime helpers in
+// jvmMain (RpcGuardMetrics, withMdc, currentCorrelationId) and are consumed by
+// :server transitively via the shared JVM artifact.
 dependencies {
     // Android target
     add("kspAndroid", libs.androidx.room.compiler)
@@ -195,6 +211,10 @@ dependencies {
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
+
+    // rpc-guard-ksp: generates exception-guard decorators for all @Rpc services.
+    // JVM-only because the generated code imports server-side helpers (MDC, Micrometer).
+    add("kspJvm", project(":rpc-guard-ksp"))
 }
 
 // SKIE configuration for enhanced Swift interop

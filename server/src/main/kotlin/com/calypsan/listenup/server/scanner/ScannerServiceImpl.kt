@@ -7,8 +7,10 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.streaming.RpcEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * Thin [ScannerService] implementation. The work lives in [Scanner];
@@ -33,5 +35,5 @@ internal class ScannerServiceImpl(
         scanner.lastResult()?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ScanError.LibraryPathNotConfigured())
 
-    override fun observeProgress(): Flow<ScanEvent> = eventBus
+    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = eventBus.map { RpcEvent.Data(it) }
 }

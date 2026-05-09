@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.result.AppResult
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -12,5 +13,5 @@ import kotlinx.rpc.annotations.Rpc
 @Rpc
 interface PingService {
     /** Returns a constant string. Proves the full RPC round-trip is operational. */
-    suspend fun ping(): String
+    suspend fun ping(): AppResult<String>
 }
