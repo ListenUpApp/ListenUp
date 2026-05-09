@@ -2,8 +2,10 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
+import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.v1.core.Column
@@ -11,6 +13,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -207,5 +210,35 @@ abstract class SyncableRepository<T : Any, ID : Any>(
             )
         }
 
-    // digest: Task 13
+    /**
+     * Returns a [DomainDigest] over all rows with `revision <= cursor`, soft-deleted rows
+     * included. Used by clients to detect drift cheaply — a `(count, hash)` mismatch signals
+     * the client should re-pull from `?since=0`.
+     *
+     * Algorithm: sort `(id, revision)` pairs lexicographically by id, concatenate as
+     * `<id>|<revision>\n` per row, SHA-256 the bytes, format as `"sha256:<lowercase-hex>"`.
+     * Empty domain → `count = 0`, `hash = ""`. This is a permanent wire contract — clients
+     * compute identically over their local rows.
+     */
+    suspend fun digest(cursor: Long): DomainDigest =
+        newSuspendedTransaction(Dispatchers.IO, db) {
+            val rows =
+                table
+                    .selectAll()
+                    .where { table.revision lessEq cursor }
+                    .map { row -> row[idColumn()] to row[table.revision] }
+                    .sortedBy { it.first }
+            if (rows.isEmpty()) {
+                DomainDigest(cursor = cursor, count = 0, hash = "")
+            } else {
+                val md = MessageDigest.getInstance("SHA-256")
+                val joined =
+                    rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
+                val hex =
+                    md
+                        .digest(joined.toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
+                DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
+            }
+        }
 }

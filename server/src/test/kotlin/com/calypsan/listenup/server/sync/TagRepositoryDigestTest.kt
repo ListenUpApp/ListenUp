@@ -1,0 +1,84 @@
+package com.calypsan.listenup.server.sync
+
+import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
+import kotlinx.coroutines.test.runTest
+
+class TagRepositoryDigestTest :
+    FunSpec({
+
+        test("empty domain digest is count=0, hash=empty") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    val d = repo.digest(cursor = Long.MAX_VALUE)
+                    d.cursor shouldBe Long.MAX_VALUE
+                    d.count shouldBe 0
+                    d.hash shouldBe ""
+                }
+            }
+        }
+
+        test("digest is deterministic and sha256-prefixed") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    repo.upsert(Tag("b", "beta", 0, 0))
+                    val d1 = repo.digest(cursor = Long.MAX_VALUE)
+                    val d2 = repo.digest(cursor = Long.MAX_VALUE)
+                    d1 shouldBe d2
+                    d1.count shouldBe 2
+                    d1.hash shouldStartWith "sha256:"
+                    d1.hash.length shouldBe "sha256:".length + 64 // 64 hex chars
+                }
+            }
+        }
+
+        test("digest changes when a row is updated") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    val before = repo.digest(cursor = Long.MAX_VALUE)
+                    repo.upsert(Tag("a", "alpha-updated", 0, 0))
+                    val after = repo.digest(cursor = Long.MAX_VALUE)
+                    (before.hash != after.hash) shouldBe true
+                    before.count shouldBe after.count // still one row
+                }
+            }
+        }
+
+        test("digest scopes by cursor") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    repo.upsert(Tag("a", "alpha", 0, 0)) // rev 1
+                    repo.upsert(Tag("b", "beta", 0, 0)) // rev 2
+                    repo.upsert(Tag("c", "gamma", 0, 0)) // rev 3
+                    val d = repo.digest(cursor = 2L)
+                    d.count shouldBe 2 // only a, b
+                }
+            }
+        }
+
+        test("digest includes soft-deleted rows") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = TagRepository(db, ChangeBus())
+                runTest {
+                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    repo.softDelete("a")
+                    val d = repo.digest(cursor = Long.MAX_VALUE)
+                    d.count shouldBe 1
+                }
+            }
+        }
+    })
