@@ -12,13 +12,10 @@ import kotlinx.serialization.json.Json
  * - `isLenient = true` — tolerates minor wire-format variance (e.g. mixed quote styles).
  * - `prettyPrint = false` — minimize over-the-wire bytes.
  *
- * **Current use:** contract round-trip tests in `commonTest` and the kotlinx.rpc serialization
- * layer use this instance to guarantee that every DTO survives a full encode → decode cycle
- * against the same configuration both sides will eventually share.
- *
- * **Intended future use:** the server's Ktor `ContentNegotiation` install and any RPC exception
- * interceptor will reference this instance once the Kotlin server's transport layer is wired
- * (planned for a later migration phase). Nothing in the server module uses it yet.
+ * **Current use:** contract round-trip tests in `commonTest`, the kotlinx.rpc serialization
+ * layer, and the server's RPC exception guard all reference this instance to guarantee that every
+ * DTO and `AppError` subtype survives a full encode → decode cycle against the same configuration
+ * both sides share. The server's Ktor `ContentNegotiation` install also uses it directly.
  *
  * Lives in `api/` rather than `client/core/` because the contract layer must be the dependency
  * root — `client/` code may import from `api/`, but `api/` must never import from `client/`.
