@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -35,8 +36,9 @@ internal object SyncRoutes {
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
  *  - `GET /api/v1/sync/<domain>?since=<rev>&limit=<n>` — paginated catch-up
+ *  - `GET /api/v1/sync/<domain>/digest?cursor=<rev>` — drift detection
  *
- * SSE firehose and the digest/domain-list endpoints are added in Tasks 16-18.
+ * SSE firehose and domain-list endpoints are added in Tasks 17-18.
  */
 fun Route.syncRoutes() {
     get("/api/v1/sync/{domain}") {
@@ -62,5 +64,22 @@ fun Route.syncRoutes() {
         // infer the concrete element serializer from the type-erased Page<Any>.
         // encodePageAsJson uses the concrete KSerializer<T> each repository provides.
         call.respondText(typedRepo.encodePageAsJson(page), ContentType.Application.Json)
+    }
+
+    get("/api/v1/sync/{domain}/digest") {
+        val domainName =
+            call.parameters["domain"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
+        val cursor =
+            call.request.queryParameters["cursor"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "cursor must be a Long")
+        val repo =
+            SyncRoutes.lookup(domainName)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
+
+        @Suppress("UNCHECKED_CAST")
+        val typedRepo = repo as SyncableRepository<Any, Any>
+        val digest: DomainDigest = typedRepo.digest(cursor)
+        call.respond(digest)
     }
 }
