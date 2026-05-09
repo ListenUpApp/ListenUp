@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.scannerModule
+import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
@@ -59,6 +60,7 @@ fun Application.module() {
             modules += scannerModule(resolvedLibraryPath, applicationScope)
         }
         modules += embeddedmetaModule
+        modules += syncModule
         modules(modules)
     }
 
