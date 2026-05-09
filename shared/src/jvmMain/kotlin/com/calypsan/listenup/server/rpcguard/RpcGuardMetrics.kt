@@ -10,7 +10,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
  * scrape this as a Prometheus counter; consistent with the project's
  * Micrometer + Prometheus convention.
  */
-internal class RpcGuardMetrics(
+class RpcGuardMetrics(
     private val registry: MeterRegistry,
 ) {
     fun recordEscape(
@@ -42,6 +42,12 @@ internal class RpcGuardMetrics(
         var global: RpcGuardMetrics = RpcGuardMetrics(SimpleMeterRegistry())
             private set
 
+        /**
+         * Call this from the server bootstrap once a real [MeterRegistry] is available.
+         * Generated `<Service>Guarded` classes read [RpcGuardMetrics.global] per call site,
+         * so this swap-in retroactively redirects all counter increments without requiring
+         * re-init of generated code.
+         */
         fun installGlobal(registry: MeterRegistry) {
             global = RpcGuardMetrics(registry)
         }
