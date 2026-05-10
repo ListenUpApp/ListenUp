@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * Verifies [GenreDao.getIdsByNames] against a real in-memory [ListenUpDatabase].
  *
- * Covers the resolution primitive BookPuller and SSEEventProcessor use to map
+ * Covers the resolution primitive sync domain handlers use to map
  * server-sent genre names to local genre IDs. Case-insensitive via `COLLATE NOCASE`;
  * unknown names simply don't appear in the result set.
  */

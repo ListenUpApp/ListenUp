@@ -34,7 +34,7 @@ class AdminCategoriesViewModel(
 
     /**
      * Observe genres from local database.
-     * Updates are pushed via SSE events and processed by SSEEventProcessor.
+     * Live category updates return when this domain migrates to the renovated sync engine.
      */
     private fun observeGenres() {
         viewModelScope.launch {

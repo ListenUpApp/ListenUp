@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.currentHourOfDay
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.SyncState

@@ -112,7 +112,7 @@ interface AuthSession {
  * Contract for server URL configuration.
  *
  * Used by components that need to know the server URL
- * (SSEManager, DownloadWorker, ImageApi, API clients).
+ * (sync clients, DownloadWorker, ImageApi, API clients).
  */
 interface ServerConfig {
     suspend fun setServerUrl(url: ServerUrl)

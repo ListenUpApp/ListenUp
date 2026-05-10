@@ -5,13 +5,8 @@ import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SyncState
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.SeriesUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.SeriesUpdatePayload
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
 
@@ -51,10 +46,7 @@ interface SeriesEditRepositoryContract {
  * 2. Queue operation for server sync via PendingOperationRepository
  * 3. Return success immediately
  *
- * The PushSyncOrchestrator will later:
- * - Send changes to server
- * - Handle conflicts if server version is newer
- * - Mark entity as SYNCED on success
+ * Server propagation returns when the series sync domain migrates to the renovated engine.
  *
  * @property seriesDao Room DAO for series operations
  * @property pendingOperationRepository Repository for queuing sync operations
@@ -62,8 +54,6 @@ interface SeriesEditRepositoryContract {
  */
 class SeriesEditRepository(
     private val seriesDao: SeriesDao,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val seriesUpdateHandler: SeriesUpdateHandler,
 ) : SeriesEditRepositoryContract,
     com.calypsan.listenup.client.domain.repository.SeriesEditRepository {
     /**
@@ -100,21 +90,7 @@ class SeriesEditRepository(
                 )
             seriesDao.upsert(updated)
 
-            // Queue operation (coalesces if pending update exists for this series)
-            val payload =
-                SeriesUpdatePayload(
-                    name = name,
-                    description = description,
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.SERIES_UPDATE,
-                entityType = EntityType.SERIES,
-                entityId = seriesId,
-                payload = payload,
-                handler = seriesUpdateHandler,
-            )
-
-            logger.info { "Series update queued: $seriesId" }
+            logger.info { "Series updated locally: $seriesId" }
             Success(Unit)
         }
 }

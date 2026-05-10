@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.core.AppResult
@@ -10,6 +11,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 private const val FIRST_REVISION = 1L
@@ -17,6 +21,7 @@ private const val SECOND_REVISION = 2L
 private const val FIRST_UPDATED_AT = 100L
 private const val SECOND_UPDATED_AT = 200L
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SyncEngineLifecycleTest :
     FunSpec({
 
@@ -60,15 +65,25 @@ class SyncEngineLifecycleTest :
                     )
                 val fakeCatchUp = FakeCatchUp(items = items, store = store)
                 val fakeSse = FakeSse()
+                val state = SyncEngineState()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        queue = queue,
+                        state = state,
+                        cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                    )
 
                 val engine =
                     SyncEngine(
                         registry = registry,
                         queue = queue,
-                        state = SyncEngineState(),
+                        state = state,
                         store = store,
                         catchUp = fakeCatchUp,
                         sseClient = fakeSse,
+                        dispatcher = dispatcher,
+                        scope = backgroundScope,
                     )
 
                 engine.start(currentUserId = "u1")
@@ -92,18 +107,105 @@ class SyncEngineLifecycleTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                     )
                 val u1opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val state = SyncEngineState()
                 val engine =
                     SyncEngine(
                         registry = registry,
                         queue = queue,
-                        state = SyncEngineState(),
+                        state = state,
                         store = store,
                         catchUp = FakeCatchUp(emptyList(), store),
                         sseClient = FakeSse(),
+                        dispatcher =
+                            SyncEventDispatcher(
+                                registry = registry,
+                                queue = queue,
+                                state = state,
+                                cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                            ),
+                        scope = backgroundScope,
                     )
                 engine.start(currentUserId = "u2")
 
                 db.pendingOperationV2Dao().get(u1opId) shouldBe null
+
+                db.close()
+            }
+        }
+
+        test("start wires SSE frames into the dispatcher before connecting") {
+            runTest {
+                val sequence = mutableListOf<String>()
+                val handler =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = "tags"
+                        override val payloadSerializer = Tag.serializer()
+
+                        override suspend fun onEvent(
+                            event: SyncEvent<Tag>,
+                            isOwnEcho: Boolean,
+                        ): AppResult<Unit> {
+                            sequence += "sse:${event.id}:$isOwnEcho"
+                            return AppResult.Success(Unit)
+                        }
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+                    }
+                val registry = ClientSyncDomainRegistry()
+                registry.register(handler)
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val state = SyncEngineState()
+                val fakeSse = FakeSse()
+                val engine =
+                    SyncEngine(
+                        registry = registry,
+                        queue = queue,
+                        state = state,
+                        store = store,
+                        catchUp = FakeCatchUp(emptyList(), store),
+                        sseClient = fakeSse,
+                        dispatcher =
+                            SyncEventDispatcher(
+                                registry = registry,
+                                queue = queue,
+                                state = state,
+                                cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                            ),
+                        scope = backgroundScope,
+                    )
+
+                engine.start(currentUserId = "u1")
+                fakeSse.awaitCollector()
+                fakeSse.emit(
+                    ParsedSseFrame(
+                        id = 3L,
+                        event = "tags",
+                        data =
+                            contractJson.encodeToString(
+                                SyncEvent.serializer(Tag.serializer()),
+                                SyncEvent.Created(
+                                    id = "t3",
+                                    revision = 3L,
+                                    occurredAt = 300L,
+                                    clientOpId = null,
+                                    payload = Tag(id = "t3", name = "z", revision = 3L, updatedAt = 300L),
+                                ),
+                            ),
+                    ),
+                )
+                advanceUntilIdle()
+
+                sequence shouldContainExactly listOf("sse:t3:false")
+                store.highestCursor() shouldBe 3L
 
                 db.close()
             }
@@ -155,5 +257,13 @@ private class FakeSse : SseClient {
 
     override fun disconnect() {
         connected = false
+    }
+
+    suspend fun emit(frame: ParsedSseFrame) {
+        flow.emit(frame)
+    }
+
+    suspend fun awaitCollector() {
+        flow.subscriptionCount.first { it > 0 }
     }
 }

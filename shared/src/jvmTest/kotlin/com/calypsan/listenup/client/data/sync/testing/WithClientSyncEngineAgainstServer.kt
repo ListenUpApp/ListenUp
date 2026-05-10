@@ -28,10 +28,8 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -152,14 +150,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     store = store,
                     catchUp = catchUp,
                     sseClient = sseClient,
+                    dispatcher = dispatcher,
+                    scope = clientScope,
                 )
-
-            // Frame collection coroutine — D1's job in production, but the fixture
-            // does it inline so dispatcher routes frames to the recording handler.
-            val frameJob: Job =
-                clientScope.launch {
-                    sseClient.frames.collect { frame -> dispatcher.handle(frame) }
-                }
 
             try {
                 ClientEngineScope(
@@ -171,7 +164,6 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     queue = queue,
                 ).block()
             } finally {
-                frameJob.cancel()
                 engine.stop()
             }
         } finally {

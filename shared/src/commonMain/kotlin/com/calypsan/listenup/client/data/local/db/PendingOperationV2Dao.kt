@@ -51,4 +51,7 @@ interface PendingOperationV2Dao {
 
     @Query("DELETE FROM pending_operation WHERE ownerUserId != :keepUserId")
     suspend fun deleteAllExcept(keepUserId: String)
+
+    @Query("DELETE FROM pending_operation")
+    suspend fun deleteAll()
 }

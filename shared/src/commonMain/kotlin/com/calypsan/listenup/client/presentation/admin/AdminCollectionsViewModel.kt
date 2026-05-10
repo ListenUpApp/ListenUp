@@ -43,7 +43,7 @@ class AdminCollectionsViewModel(
 
     /**
      * Observe collections from local database.
-     * Updates are pushed via SSE events and processed by SSEEventProcessor.
+     * Live collection updates return when this domain migrates to the renovated sync engine.
      */
     private fun observeCollections() {
         viewModelScope.launch {

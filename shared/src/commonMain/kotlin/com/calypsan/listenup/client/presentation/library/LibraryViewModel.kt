@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount

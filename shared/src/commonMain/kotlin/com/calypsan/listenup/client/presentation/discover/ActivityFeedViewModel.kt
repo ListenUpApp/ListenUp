@@ -30,7 +30,7 @@ private const val MAX_ACTIVITIES = 100
  * Offline-first architecture:
  * - On first launch, fetches initial activities from API and stores in Room
  * - UI observes Room Flow and automatically updates
- * - SSE events are processed by SSEEventProcessor which stores new activities in Room
+ * - Activity sync will be restored when its domain migrates to the renovated sync engine.
  * - After initial fetch, works completely offline
  *
  * @property activityRepository Repository for activity feed operations

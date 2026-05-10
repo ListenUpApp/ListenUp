@@ -78,7 +78,7 @@ interface PlaybackPositionRepository {
      *
      * Local position row is reset (position=0, isFinished=false) and a
      * DISCARD_PROGRESS pending-op is queued for the server. The pending-op
-     * is processed asynchronously by [com.calypsan.listenup.client.data.sync.push.OperationExecutor].
+     * is persisted locally; server propagation returns with the playback sync domain.
      *
      * @param bookId The book to discard progress for
      * @return [AppResult.Success] when the local write + queue commit;
@@ -91,7 +91,7 @@ interface PlaybackPositionRepository {
      *
      * Local position row is reset (position=0, isFinished=false, fresh startedAt)
      * and a RESTART_BOOK pending-op is queued for the server. The pending-op
-     * is processed asynchronously by [com.calypsan.listenup.client.data.sync.push.OperationExecutor].
+     * is persisted locally; server propagation returns with the playback sync domain.
      *
      * @param bookId The book to restart
      * @return [AppResult.Success] when the local write + queue commit;

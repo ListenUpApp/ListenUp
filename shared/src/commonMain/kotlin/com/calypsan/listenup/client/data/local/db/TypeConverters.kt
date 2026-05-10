@@ -135,29 +135,6 @@ enum class DownloadState {
 }
 
 /**
- * Room type converters for pending operation enums.
- */
-class PendingOperationConverters {
-    @TypeConverter
-    fun fromOperationType(value: OperationType): String = value.name
-
-    @TypeConverter
-    fun toOperationType(value: String): OperationType = OperationType.valueOf(value)
-
-    @TypeConverter
-    fun fromNullableEntityType(value: EntityType?): String? = value?.name
-
-    @TypeConverter
-    fun toNullableEntityType(value: String?): EntityType? = value?.let { EntityType.valueOf(it) }
-
-    @TypeConverter
-    fun fromOperationStatus(value: OperationStatus): String = value.name
-
-    @TypeConverter
-    fun toOperationStatus(value: String): OperationStatus = OperationStatus.valueOf(value)
-}
-
-/**
  * Room type converter for [CoverDownloadStatus] enum.
  * Uses string names (not ordinals) for readable queries and forward compatibility.
  */

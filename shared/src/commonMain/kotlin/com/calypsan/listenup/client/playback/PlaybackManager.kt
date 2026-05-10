@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.data.sync.sse.PlaybackStateProvider
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
  * - Trigger background downloads for offline availability
  * - Negotiate audio format with server for transcoding support
  *
- * Inherits [PlaybackStateProvider] (read seam used by SSE) and
+ * Inherits [PlaybackStateProvider] (read seam used by logout/session cleanup) and
  * [PlaybackStateWriter] (write seam used by Android's MediaControllerHolder
  * Player.Listener).
  */

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import kotlinx.coroutines.flow.StateFlow
 

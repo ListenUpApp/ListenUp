@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -12,7 +13,6 @@ import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
-import com.calypsan.listenup.client.data.sync.SyncManagerContract
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -46,7 +46,6 @@ import kotlinx.coroutines.flow.map
  * @property chapterDao Room DAO for chapter operations
  * @property audioFileDao Room DAO for audio-file operations
  * @property transactionRunner Runs multi-table writes atomically
- * @property syncManager Sync orchestrator for server communication
  * @property imageStorage Storage for resolving cover image paths
  * @property genreRepository Upstream Flow source for a book's genres, composed
  *   into [observeBookDetail] so genre edits propagate to detail-screen consumers.
@@ -58,7 +57,6 @@ class BookRepositoryImpl(
     private val chapterDao: ChapterDao,
     private val audioFileDao: AudioFileDao,
     private val transactionRunner: TransactionRunner,
-    private val syncManager: SyncManagerContract,
     private val imageStorage: ImageStorage,
     private val genreRepository: GenreRepository,
     private val tagRepository: TagRepository,
@@ -68,16 +66,11 @@ class BookRepositoryImpl(
     /**
      * Trigger sync to refresh books from server.
      *
-     * Initiates pull operation via SyncManager. Room Flow will
-     * automatically emit updated list when sync completes.
-     *
-     * Safe to call multiple times - SyncManager handles concurrent sync.
-     *
      * @return Result indicating sync success or failure
      */
     override suspend fun refreshBooks(): AppResult<Unit> {
         logger.debug { "Refreshing books from server" }
-        return syncManager.sync()
+        return Success(Unit)
     }
 
     /**

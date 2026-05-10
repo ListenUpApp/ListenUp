@@ -27,12 +27,8 @@ import org.koin.dsl.module
  * with the [ClientSyncDomainRegistry] before [SyncEngine] is started by app
  * bootstrap.
  *
- * Note: frame collection (piping `SyncSseClient.frames` through
- * [SyncEventDispatcher.handle]) is intentionally NOT wired here. [SyncEngine]
- * does not own the dispatcher in its lifecycle composition — D2's cutover (or
- * a follow-up task) wires the frame-collection coroutine at app start time.
- * For D1 the dispatcher is registered as a singleton so it can be resolved,
- * but no-one collects frames into it yet.
+ * [SyncEngine] owns frame collection so catch-up, cursor seeding, dispatch, and
+ * SSE connect ordering stay in one lifecycle component.
  */
 val clientSyncRenovationModule =
     module {
@@ -98,6 +94,8 @@ val clientSyncRenovationModule =
                 store = get(),
                 catchUp = get(),
                 sseClient = get(),
+                dispatcher = get(),
+                scope = get(qualifier = named("appScope")),
             )
         }
     }

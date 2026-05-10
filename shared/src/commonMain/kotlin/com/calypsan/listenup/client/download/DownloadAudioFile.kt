@@ -106,7 +106,7 @@ internal suspend fun downloadAudioFile(
 
                     is ResolveResult.WaitForServer -> {
                         // Bug 4 fix: server is transcoding. Write WAITING_FOR_SERVER and exit cleanly.
-                        // SSE transcode.complete handler (SSEEventProcessor.handleTranscodeComplete) will
+                        // The future transcode sync domain will
                         // re-enqueue the worker via repository.resumeForAudioFile when ready.
                         repository.markWaitingForServer(audioFileId, resolved.transcodeJobId)
                         return@withContext
@@ -236,7 +236,7 @@ private suspend fun resolveDownloadUrl(
     val response = result.data
 
     // Bug 4 fix: if transcode is in progress, write WAITING_FOR_SERVER and exit. SSE handler
-    // (SSEEventProcessor.handleTranscodeComplete) will re-enqueue via repository.resumeForAudioFile.
+    // will re-enqueue via repository.resumeForAudioFile once its sync domain migrates.
     if (!response.ready && response.transcodeJobId != null) {
         logger.info {
             "Transcoding in progress for $audioFileId (jobId=${response.transcodeJobId}); " +

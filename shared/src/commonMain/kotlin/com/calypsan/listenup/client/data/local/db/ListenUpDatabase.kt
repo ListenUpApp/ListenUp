@@ -25,7 +25,6 @@ import androidx.room.TypeConverters
         UserProfileEntity::class,
         BookEntity::class,
         BookReadersSummaryEntity::class, // Phase E
-        SyncMetadataEntity::class,
         ChapterEntity::class,
         SeriesEntity::class,
         ContributorEntity::class,
@@ -33,7 +32,6 @@ import androidx.room.TypeConverters
         ContributorAliasCrossRef::class,
         BookSeriesCrossRef::class,
         PlaybackPositionEntity::class,
-        PendingOperationEntity::class,
         DownloadEntity::class,
         ServerEntity::class,
         CollectionEntity::class,
@@ -54,13 +52,12 @@ import androidx.room.TypeConverters
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 @TypeConverters(
     ValueClassConverters::class,
     Converters::class,
-    PendingOperationConverters::class,
     CoverDownloadStatusConverter::class,
     StringListJsonConverter::class,
 )
@@ -72,8 +69,6 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
 
     abstract fun bookDao(): BookDao
-
-    abstract fun syncDao(): SyncDao
 
     abstract fun chapterDao(): ChapterDao
 
@@ -88,8 +83,6 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookSeriesDao(): BookSeriesDao
 
     abstract fun playbackPositionDao(): PlaybackPositionDao
-
-    abstract fun pendingOperationDao(): PendingOperationDao
 
     abstract fun downloadDao(): DownloadDao
 

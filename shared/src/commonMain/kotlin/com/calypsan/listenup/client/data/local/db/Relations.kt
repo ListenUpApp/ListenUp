@@ -272,8 +272,8 @@ data class BookTagCrossRef(
 /**
  * Junction table for book-genre many-to-many relationship.
  *
- * Genres are synced during book sync (via BookPuller) and when
- * manually setting genres on a book (via GenreApi).
+ * Genres are attached during book writes and when manually setting genres on a
+ * book via GenreApi.
  */
 @Entity(
     tableName = "book_genres",

@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.data.sync
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
 /**
  * Lifecycle composer for the client sync engine.
  *
@@ -15,8 +21,8 @@ package com.calypsan.listenup.client.data.sync
  *
  * On sign-out the SSE connection closes; the queue is paused (not cleared).
  *
- * Frame collection (piping `sseClient.frames` through the dispatcher) is wired
- * by the Koin module at app start time, NOT here.
+ * The engine owns the frame collector so every connection has exactly one path
+ * from [SseClient.frames] into [SyncEventDispatcher].
  */
 class SyncEngine(
     private val registry: ClientSyncDomainRegistry,
@@ -25,7 +31,11 @@ class SyncEngine(
     private val store: SyncCursorStore,
     private val catchUp: CatchUp,
     private val sseClient: SseClient,
+    private val dispatcher: SyncEventDispatcher,
+    private val scope: CoroutineScope,
 ) {
+    private var frameCollectorJob: Job? = null
+
     /**
      * Start the engine for [currentUserId]. Re-calling re-runs catch-up;
      * proper idempotency arrives in D1 when frame collection is wired in.
@@ -37,11 +47,25 @@ class SyncEngine(
         catchUp.catchUpAll(registry)
         // Step 3: seed SSE resume cursor.
         sseClient.seedLastEventId(store.highestCursor())
-        // Step 4: connect SSE.
+        // Step 4: collect frames before connecting so immediate frames are not dropped.
+        ensureFrameCollector()
+        // Step 5: connect SSE.
         sseClient.connect()
     }
 
     fun stop() {
+        frameCollectorJob?.cancel()
+        frameCollectorJob = null
         sseClient.disconnect()
+    }
+
+    private fun ensureFrameCollector() {
+        if (frameCollectorJob?.isActive == true) return
+        frameCollectorJob =
+            scope.launch {
+                sseClient.frames.collect { frame ->
+                    dispatcher.handle(frame)
+                }
+            }
     }
 }

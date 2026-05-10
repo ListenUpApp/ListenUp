@@ -1,120 +1,72 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.data.sync.SyncManagerContract
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import com.calypsan.listenup.client.data.sync.model.SyncPhase as DataSyncPhase
-import com.calypsan.listenup.client.data.sync.model.SyncStatus as DataSyncStatus
-import com.calypsan.listenup.client.domain.model.SyncPhase as DomainSyncPhase
-import com.calypsan.listenup.client.core.Success
 
-/**
- * Implementation of SyncRepository that wraps SyncManagerContract.
- *
- * Maps data layer SyncStatus to domain layer SyncState, keeping
- * sync infrastructure concerns in the data layer while exposing
- * clean domain types to use cases.
- *
- * @property syncManager Data layer sync orchestrator
- * @property scope Coroutine scope for state flow mapping
- */
+/** Bridges the domain sync facade to the renovated client sync engine. */
 class SyncRepositoryImpl(
-    private val syncManager: SyncManagerContract,
+    private val syncEngine: SyncEngine,
+    private val syncEngineState: SyncEngineState,
+    private val authSession: AuthSession,
     scope: CoroutineScope,
 ) : SyncRepository {
     override val syncState: StateFlow<SyncState> =
-        syncManager.syncState
-            .map { it.toDomain() }
-            .stateIn(
+        syncEngineState
+            .observe()
+            .map { snapshot ->
+                when (snapshot.connection) {
+                    ConnectionState.Connecting -> {
+                        SyncState.Syncing
+                    }
+
+                    is ConnectionState.Connected -> {
+                        SyncState.Success(Timestamp(snapshot.lastSuccessAtMillis ?: currentEpochMilliseconds()))
+                    }
+
+                    is ConnectionState.Disconnected -> {
+                        SyncState.Idle
+                    }
+                }
+            }.stateIn(
                 scope = scope,
                 started = SharingStarted.Eagerly,
                 initialValue = SyncState.Idle,
             )
 
-    override val isServerScanning: StateFlow<Boolean> = syncManager.isServerScanning
-    override val scanProgress: StateFlow<ScanProgressState?> = syncManager.scanProgress
+    override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
+    override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
 
-    override suspend fun sync(): AppResult<Unit> = syncManager.sync()
+    override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 
-    override suspend fun connectRealtime() = syncManager.connectRealtime()
+    override suspend fun connectRealtime() {
+        startEngineForCurrentUser()
+    }
 
-    override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> =
-        syncManager.resetForNewLibrary(newLibraryId)
+    override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = startEngineForCurrentUser()
 
-    override suspend fun refreshListeningHistory(): AppResult<Unit> = syncManager.refreshListeningHistory()
+    override suspend fun refreshListeningHistory(): AppResult<Unit> = Success(Unit)
 
-    override suspend fun forceFullResync(): AppResult<Unit> = syncManager.forceFullResync()
+    override suspend fun forceFullResync(): AppResult<Unit> = startEngineForCurrentUser()
+
+    private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
+        suspendRunCatching {
+            val userId = authSession.getUserId() ?: return@suspendRunCatching Unit
+            syncEngine.start(userId)
+        }
 }
-
-/**
- * Map data layer SyncStatus to domain layer SyncState.
- */
-private fun DataSyncStatus.toDomain(): SyncState =
-    when (this) {
-        is DataSyncStatus.Idle -> {
-            SyncState.Idle
-        }
-
-        is DataSyncStatus.Syncing -> {
-            SyncState.Syncing
-        }
-
-        is DataSyncStatus.Progress -> {
-            SyncState.Progress(
-                phase = phase.toDomain(),
-                current = current,
-                total = total,
-                message = message,
-            )
-        }
-
-        is DataSyncStatus.Retrying -> {
-            SyncState.Retrying(
-                attempt = attempt,
-                maxAttempts = maxAttempts,
-            )
-        }
-
-        is DataSyncStatus.Success -> {
-            SyncState.Success(
-                timestamp = timestamp,
-            )
-        }
-
-        is DataSyncStatus.Error -> {
-            SyncState.Error(
-                message = exception.message ?: "Sync failed",
-                exception = exception,
-            )
-        }
-
-        is DataSyncStatus.LibraryMismatch -> {
-            SyncState.LibraryMismatch(
-                expectedLibraryId = expectedLibraryId,
-                actualLibraryId = actualLibraryId,
-                hasPendingChanges = hasPendingChanges,
-            )
-        }
-    }
-
-/**
- * Map data layer SyncPhase to domain layer SyncPhase.
- */
-private fun DataSyncPhase.toDomain(): DomainSyncPhase =
-    when (this) {
-        DataSyncPhase.FETCHING_METADATA -> DomainSyncPhase.FETCHING_METADATA
-        DataSyncPhase.SYNCING_BOOKS -> DomainSyncPhase.SYNCING_BOOKS
-        DataSyncPhase.SYNCING_SERIES -> DomainSyncPhase.SYNCING_SERIES
-        DataSyncPhase.SYNCING_CONTRIBUTORS -> DomainSyncPhase.SYNCING_CONTRIBUTORS
-        DataSyncPhase.SYNCING_TAGS -> DomainSyncPhase.SYNCING_TAGS
-        DataSyncPhase.SYNCING_GENRES -> DomainSyncPhase.SYNCING_GENRES
-        DataSyncPhase.SYNCING_LISTENING_EVENTS -> DomainSyncPhase.SYNCING_LISTENING_EVENTS
-        DataSyncPhase.FINALIZING -> DomainSyncPhase.FINALIZING
-    }

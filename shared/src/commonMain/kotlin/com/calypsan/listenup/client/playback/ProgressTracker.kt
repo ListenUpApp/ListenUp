@@ -5,21 +5,14 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.PlaybackProgressResponse
-import com.calypsan.listenup.client.data.sync.ProgressPayload
-import com.calypsan.listenup.client.data.sync.SSEEvent
-import com.calypsan.listenup.client.data.sync.push.EndPlaybackSessionHandler
-import com.calypsan.listenup.client.data.sync.push.EndPlaybackSessionPayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.PushSyncOrchestratorContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
+import com.calypsan.listenup.client.domain.repository.CrossDevicePlaybackProgress
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,10 +49,7 @@ open class ProgressTracker(
     private val downloadRepository: DownloadRepository,
     private val listeningEventRepository: ListeningEventRepository,
     private val syncApi: SyncApiContract,
-    private val pushSyncOrchestrator: PushSyncOrchestratorContract,
     private val positionRepository: PlaybackPositionRepository,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val endPlaybackSessionHandler: EndPlaybackSessionHandler,
     private val scope: CoroutineScope,
 ) {
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.Idle)
@@ -157,30 +147,9 @@ open class ProgressTracker(
                         endedAt = now,
                         playbackSpeed = priorState.speed,
                     )
-                    trySyncEvents()
                 }
             }
 
-            // CONCERN 3: Activity feed — full playback session
-            if (priorState is SessionState.Active && priorState.bookId == bookId) {
-                val totalDurationMs = positionMs - priorState.playbackStartPositionMs
-                if (totalDurationMs >= 30_000) {
-                    try {
-                        pendingOperationRepository.queue(
-                            type = OperationType.END_PLAYBACK_SESSION,
-                            entityType = EntityType.BOOK,
-                            entityId = bookId.value,
-                            payload = EndPlaybackSessionPayload(bookId = bookId.value, durationMs = totalDurationMs),
-                            handler = endPlaybackSessionHandler,
-                        )
-                        logger.info { "🎧 ACTIVITY QUEUED: ${totalDurationMs / 1000}s of ${bookId.value}" }
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn { "🎧 Failed to queue END_PLAYBACK_SESSION for ${bookId.value}: ${e.message}" }
-                    }
-                }
-            }
         }
     }
 
@@ -250,7 +219,6 @@ open class ProgressTracker(
                             current
                         }
                     }
-                    trySyncEvents()
                 }
             }
         }
@@ -448,7 +416,7 @@ open class ProgressTracker(
                     val r =
                         positionRepository.savePlaybackState(
                             bookId = bookId,
-                            update = PlaybackUpdate.CrossDeviceSync(server.toSseProgressUpdated()),
+                            update = PlaybackUpdate.CrossDeviceSync(server.toCrossDeviceProgress()),
                         )
                 ) {
                     is AppResult.Success -> {}
@@ -482,7 +450,7 @@ open class ProgressTracker(
                         val r =
                             positionRepository.savePlaybackState(
                                 bookId = bookId,
-                                update = PlaybackUpdate.CrossDeviceSync(server.toSseProgressUpdated()),
+                                update = PlaybackUpdate.CrossDeviceSync(server.toCrossDeviceProgress()),
                             )
                     ) {
                         is AppResult.Success -> {}
@@ -509,28 +477,21 @@ open class ProgressTracker(
         }
 
     /**
-     * Build a synthetic [SSEEvent.ProgressUpdated] from a REST progress response.
+     * Build a cross-device progress update from a REST progress response.
      * Used by [mergePositions] to route cross-device saves through the canonical
      * [PlaybackUpdate.CrossDeviceSync] write path.
      *
      * Field mapping mirrors [PlaybackProgressResponse.toEntity] for consistency.
      * [PlaybackProgressResponse.startedAt] is non-nullable on the REST model but
-     * nullable on [ProgressPayload]; passed through directly.
+     * nullable on [CrossDevicePlaybackProgress]; passed through directly.
      */
-    private fun PlaybackProgressResponse.toSseProgressUpdated(): SSEEvent.ProgressUpdated =
-        SSEEvent.ProgressUpdated(
-            timestamp = lastPlayedAt,
-            data =
-                ProgressPayload(
-                    bookId = bookId,
-                    currentPositionMs = currentPositionMs,
-                    progress = progress,
-                    totalListenTimeMs = totalListenTimeMs,
-                    isFinished = isFinished,
-                    lastPlayedAt = lastPlayedAt,
-                    startedAt = startedAt,
-                    finishedAt = null, // REST progress response has no finishedAt field
-                ),
+    private fun PlaybackProgressResponse.toCrossDeviceProgress(): CrossDevicePlaybackProgress =
+        CrossDevicePlaybackProgress(
+            currentPositionMs = currentPositionMs,
+            isFinished = isFinished,
+            lastPlayedAt = lastPlayedAt,
+            startedAt = startedAt,
+            finishedAt = null, // REST progress response has no finishedAt field
         )
 
     /**
@@ -559,27 +520,6 @@ open class ProgressTracker(
                     endedAt = Clock.System.now().toEpochMilliseconds(),
                     playbackSpeed = priorState.speed,
                 )
-            }
-
-            // Activity feed — full playback session (book finished)
-            if (priorState is SessionState.Active && priorState.bookId == bookId) {
-                val totalDurationMs = finalPositionMs - priorState.playbackStartPositionMs
-                if (totalDurationMs >= 30_000) {
-                    try {
-                        pendingOperationRepository.queue(
-                            type = OperationType.END_PLAYBACK_SESSION,
-                            entityType = EntityType.BOOK,
-                            entityId = bookId.value,
-                            payload = EndPlaybackSessionPayload(bookId = bookId.value, durationMs = totalDurationMs),
-                            handler = endPlaybackSessionHandler,
-                        )
-                        logger.info { "🎧 ACTIVITY QUEUED (book finished): ${totalDurationMs / 1000}s of ${bookId.value}" }
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn { "🎧 Failed to queue END_PLAYBACK_SESSION for ${bookId.value}: ${e.message}" }
-                    }
-                }
             }
 
             // Clear any DELETED download records so future playback will auto-download again
@@ -690,20 +630,4 @@ open class ProgressTracker(
         }
     }
 
-    /**
-     * Fire-and-forget sync attempt via the push sync orchestrator.
-     */
-    private fun trySyncEvents() {
-        logger.info { "🎧 TRIGGERING SYNC FLUSH..." }
-        scope.launch {
-            try {
-                pushSyncOrchestrator.flush()
-                logger.info { "🎧 SYNC FLUSH COMPLETED" }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(e) { "🎧 SYNC FLUSH FAILED" }
-            }
-        }
-    }
 }

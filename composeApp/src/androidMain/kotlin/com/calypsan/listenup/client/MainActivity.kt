@@ -33,7 +33,6 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
-import com.calypsan.listenup.client.data.sync.SSEManager
 import com.calypsan.listenup.client.deeplink.DeepLinkParser
 import com.calypsan.listenup.client.deeplink.BookDeepLink
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -43,6 +42,8 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
@@ -60,9 +61,9 @@ import com.calypsan.listenup.client.core.Failure
 /**
  * Main activity for the ListenUp app.
  *
- * Manages SSE connection lifecycle:
- * - Connects SSE when app comes to foreground (if authenticated)
- * - Disconnects SSE when app goes to background (saves battery)
+ * Manages realtime sync lifecycle:
+ * - Connects realtime sync when app comes to foreground (if authenticated)
+ * - Disconnects realtime sync when app goes to background (saves battery)
  * - Auto-reconnects on app resume
  *
  * Handles deep links for invite URLs:
@@ -72,8 +73,9 @@ import com.calypsan.listenup.client.core.Failure
  * while preserving battery life in the background.
  */
 class MainActivity : ComponentActivity() {
-    private val sseManager: SSEManager by inject()
     private val authSession: AuthSession by inject()
+    private val syncRepository: SyncRepository by inject()
+    private val syncEngine: SyncEngine by inject()
     private val localPreferences: LocalPreferences by inject()
     private val serverConfig: ServerConfig by inject()
     private val deepLinkManager: DeepLinkManager by inject()
@@ -183,14 +185,14 @@ class MainActivity : ComponentActivity() {
             serverConfig.preferLocalUrl()
         }
 
-        // Connect SSE when app comes to foreground (if authenticated)
+        // Connect realtime sync when app comes to foreground (if authenticated)
         lifecycleScope.launch {
             val isAuthenticated = authSession.getAccessToken() != null
             if (isAuthenticated) {
-                println("MainActivity: App resumed and user authenticated, connecting SSE...")
-                sseManager.connect()
+                println("MainActivity: App resumed and user authenticated, connecting realtime sync...")
+                syncRepository.connectRealtime()
             } else {
-                println("MainActivity: App resumed but user not authenticated, skipping SSE")
+                println("MainActivity: App resumed but user not authenticated, skipping realtime sync")
             }
         }
     }
@@ -202,9 +204,9 @@ class MainActivity : ComponentActivity() {
         // whether a library-setup re-check is needed on the next resume.
         appStartupViewModel.onAppBackgrounded()
 
-        // Disconnect SSE when app goes to background to save battery
-        println("MainActivity: App paused, disconnecting SSE to save battery...")
-        sseManager.disconnect()
+        // Disconnect realtime sync when app goes to background to save battery
+        println("MainActivity: App paused, disconnecting realtime sync to save battery...")
+        syncEngine.stop()
     }
 }
 

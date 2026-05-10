@@ -13,12 +13,10 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
-import com.calypsan.listenup.client.data.local.db.PendingOperationDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.ServerDao
-import com.calypsan.listenup.client.data.local.db.SyncDao
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.BookReadersSummaryDao
@@ -29,10 +27,6 @@ import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserReadingSessionDao
-import com.calypsan.listenup.client.data.sync.SessionDaos
-import com.calypsan.listenup.client.data.sync.UserDaos
-import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos
-import com.calypsan.listenup.client.data.sync.sse.SSEExternalServices
 import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.local.db.UserStatsDao
 import com.calypsan.listenup.client.data.local.images.CoverColorExtractor
@@ -47,8 +41,7 @@ import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.TagApiContract
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
-import com.calypsan.listenup.client.data.sync.push.OperationHandler
-import com.calypsan.listenup.client.data.sync.sse.PlaybackStateProvider
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -87,9 +80,6 @@ import kotlin.test.Test
 class KoinModuleVerifyTest {
     /**
      * Verify syncModule definitions.
-     *
-     * This module contains the sync infrastructure (PushSyncOrchestrator, handlers, etc.)
-     * which was the source of the OperationExecutorContract binding issue.
      */
     @Test
     fun verifySyncModule() {
@@ -100,16 +90,10 @@ class KoinModuleVerifyTest {
                     CoroutineScope::class,
                     ListenUpDatabase::class,
                     TransactionRunner::class,
-                    BookRelationshipDaos::class,
-                    UserDaos::class,
-                    SessionDaos::class,
-                    SSEExternalServices::class,
                     SecureStorage::class,
                     ImageStorage::class,
                     CoverColorExtractor::class,
                     NetworkMonitor::class,
-                    Map::class, // For OperationExecutor constructor (uses factory method in reality)
-                    OperationHandler::class,
                     // DAOs from database module
                     ActiveSessionDao::class,
                     ActivityDao::class,
@@ -125,7 +109,6 @@ class KoinModuleVerifyTest {
                     DownloadDao::class,
                     GenreDao::class,
                     ListeningEventDao::class,
-                    PendingOperationDao::class,
                     PlaybackPositionDao::class,
                     ReaderSessionCacheDao::class,
                     SearchDao::class,
@@ -133,7 +116,6 @@ class KoinModuleVerifyTest {
                     ServerDao::class,
                     ShelfBookDao::class,
                     ShelfDao::class,
-                    SyncDao::class,
                     TagDao::class,
                     UserDao::class,
                     UserProfileDao::class,

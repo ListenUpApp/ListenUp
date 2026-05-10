@@ -42,7 +42,7 @@ private const val RESUME_PROGRESS_REQUEST_TIMEOUT_MS = 3_000L
  * Handles communication with server sync infrastructure:
  * - Manifest fetching (library overview)
  * - Paginated book syncing
- * - SSE connection (in SSEManager, separate from HTTP calls)
+ * - Realtime connection (separate from HTTP calls)
  *
  * Uses ApiClientFactory to obtain authenticated HttpClient at call time,
  * avoiding runBlocking during dependency injection initialization.

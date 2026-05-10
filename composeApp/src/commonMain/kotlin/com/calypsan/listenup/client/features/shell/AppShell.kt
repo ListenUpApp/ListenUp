@@ -34,7 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -57,7 +57,6 @@ import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.client.data.sync.SSEManagerContract
 import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackbar
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.launch
@@ -122,7 +121,6 @@ fun AppShell(
     val syncRepository: SyncRepository = koinInject()
     val userRepository: UserRepository = koinInject()
     val syncStatusRepository: SyncStatusRepository = koinInject()
-    val sseManager: SSEManagerContract = koinInject()
     val authSession: AuthSession = koinInject()
     val downloadService: DownloadService = koinInject()
     val searchViewModel: SearchViewModel = koinViewModel()
@@ -225,7 +223,9 @@ fun AppShell(
     GlobalErrorSnackbar(
         snackbarHostState = snackbarHostState,
         onRetry = { error ->
-            if (error is SyncError.RealtimeDisconnected) sseManager.connect()
+            if (error is SyncError.RealtimeDisconnected) {
+                scope.launch { syncRepository.connectRealtime() }
+            }
         },
     )
 
