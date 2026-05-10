@@ -3,21 +3,19 @@ package com.calypsan.listenup.client.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.calypsan.listenup.client.data.sync.SyncManager
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.calypsan.listenup.client.core.AppResult as CoreResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Failure
 
 private val logger = KotlinLogging.logger {}
 
 /**
  * Android WorkManager worker for background sync operations.
  *
- * Executes sync via [SyncManager] when triggered by WorkManager.
+ * Executes sync via [SyncRepository] when triggered by WorkManager.
  * Scheduling is handled by [AndroidBackgroundSyncScheduler].
  *
  * Retry policy: Exponential backoff with 3 max retries.
@@ -27,14 +25,14 @@ class SyncWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(context, params),
     KoinComponent {
-    private val syncManager: SyncManager by inject()
+    private val syncRepository: SyncRepository by inject()
     private val serverConfig: ServerConfig by inject()
 
     /**
      * Perform background sync operation.
      *
      * Called by WorkManager on background thread. Triggers full sync
-     * via SyncManager and returns success/failure/retry result.
+     * via SyncRepository and returns success/failure/retry result.
      */
     override suspend fun doWork(): Result {
         logger.debug { "Starting background sync (attempt ${runAttemptCount + 1})" }
@@ -45,8 +43,8 @@ class SyncWorker(
             return Result.success()
         }
 
-        return when (val result = syncManager.sync()) {
-            is CoreResult.Success -> {
+        return when (val result = syncRepository.sync()) {
+            is CoreResult.Success<*> -> {
                 logger.info { "Background sync completed successfully" }
                 Result.success()
             }

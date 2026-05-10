@@ -1,6 +1,13 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.data.sync.SSEEvent
+/** Server progress payload used to reconcile playback position across devices. */
+data class CrossDevicePlaybackProgress(
+    val currentPositionMs: Long,
+    val isFinished: Boolean,
+    val lastPlayedAt: String,
+    val startedAt: String?,
+    val finishedAt: String?,
+)
 
 /**
  * Sealed hierarchy describing every distinct write pattern that can mutate a
@@ -62,9 +69,9 @@ sealed interface PlaybackUpdate {
         val finalPositionMs: Long,
     ) : PlaybackUpdate
 
-    /** Cross-device sync merge from SSE event. Reconciles with stored state. */
+    /** Cross-device sync merge from server progress. Reconciles with stored state. */
     data class CrossDeviceSync(
-        val event: SSEEvent.ProgressUpdated,
+        val progress: CrossDevicePlaybackProgress,
     ) : PlaybackUpdate
 
     /** User command: mark complete from BookDetail menu. */

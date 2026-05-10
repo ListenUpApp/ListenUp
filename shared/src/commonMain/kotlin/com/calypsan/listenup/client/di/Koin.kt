@@ -89,61 +89,6 @@ import com.calypsan.listenup.client.data.sync.ImageDownloader
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.data.sync.LibraryResetHelper
 import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
-import com.calypsan.listenup.client.data.sync.SSEManager
-import com.calypsan.listenup.client.data.sync.SSEManagerContract
-import com.calypsan.listenup.client.data.sync.SyncCoordinator
-import com.calypsan.listenup.client.data.sync.SyncManager
-import com.calypsan.listenup.client.data.sync.SyncManagerContract
-import com.calypsan.listenup.client.data.sync.SyncMutex
-import com.calypsan.listenup.client.data.sync.conflict.ConflictDetector
-import com.calypsan.listenup.client.data.sync.conflict.ConflictDetectorContract
-import com.calypsan.listenup.client.data.sync.pull.ActiveSessionsPuller
-import com.calypsan.listenup.client.data.sync.pull.BookPuller
-import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos
-import com.calypsan.listenup.client.data.sync.pull.BookRelationshipWriter
-import com.calypsan.listenup.client.data.sync.pull.ContributorPuller
-import com.calypsan.listenup.client.data.sync.pull.GenrePuller
-import com.calypsan.listenup.client.data.sync.pull.ShelfPuller
-import com.calypsan.listenup.client.data.sync.pull.ListeningEventPuller
-import com.calypsan.listenup.client.data.sync.pull.ListeningEventPullerContract
-import com.calypsan.listenup.client.data.sync.pull.ProgressPuller
-import com.calypsan.listenup.client.data.sync.pull.ReadingSessionPuller
-import com.calypsan.listenup.client.data.sync.pull.PullSyncOrchestrator
-import com.calypsan.listenup.client.data.sync.pull.Puller
-import com.calypsan.listenup.client.data.sync.pull.SeriesPuller
-import com.calypsan.listenup.client.data.sync.pull.TagPuller
-import com.calypsan.listenup.client.data.sync.push.AddBooksToShelfHandler
-import com.calypsan.listenup.client.data.sync.push.BookUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.ContributorUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.CreateShelfHandler
-import com.calypsan.listenup.client.data.sync.push.DeleteShelfHandler
-import com.calypsan.listenup.client.data.sync.push.ListeningEventHandler
-import com.calypsan.listenup.client.data.sync.push.MergeContributorHandler
-import com.calypsan.listenup.client.data.sync.push.OperationExecutor
-import com.calypsan.listenup.client.data.sync.push.OperationExecutorContract
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepository
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.DiscardProgressHandler
-import com.calypsan.listenup.client.data.sync.push.EndPlaybackSessionHandler
-import com.calypsan.listenup.client.data.sync.push.MarkCompleteHandler
-import com.calypsan.listenup.client.data.sync.push.PlaybackPositionHandler
-import com.calypsan.listenup.client.data.sync.push.PreferencesSyncObserver
-import com.calypsan.listenup.client.data.sync.push.ProfileAvatarHandler
-import com.calypsan.listenup.client.data.sync.push.ProfileUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.PushSyncOrchestrator
-import com.calypsan.listenup.client.data.sync.push.PushSyncOrchestratorContract
-import com.calypsan.listenup.client.data.sync.push.RemoveBookFromShelfHandler
-import com.calypsan.listenup.client.data.sync.push.RestartBookHandler
-import com.calypsan.listenup.client.data.sync.push.SeriesUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.SetBookContributorsHandler
-import com.calypsan.listenup.client.data.sync.push.SetBookSeriesHandler
-import com.calypsan.listenup.client.data.sync.push.UnmergeContributorHandler
-import com.calypsan.listenup.client.data.sync.push.UpdateShelfHandler
-import com.calypsan.listenup.client.data.sync.push.UserPreferencesHandler
-import com.calypsan.listenup.client.data.sync.SessionDaos
-import com.calypsan.listenup.client.data.sync.UserDaos
-import com.calypsan.listenup.client.data.sync.sse.SSEEventProcessor
-import com.calypsan.listenup.client.data.sync.sse.SSEExternalServices
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
@@ -219,7 +164,6 @@ import com.calypsan.listenup.client.domain.usecase.library.SearchBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
-import com.calypsan.listenup.client.playback.PlaybackManager
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
@@ -378,7 +322,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().userDao() }
         single { get<ListenUpDatabase>().userProfileDao() }
         single { get<ListenUpDatabase>().bookDao() }
-        single { get<ListenUpDatabase>().syncDao() }
         single { get<ListenUpDatabase>().chapterDao() }
         single { get<ListenUpDatabase>().seriesDao() }
         single { get<ListenUpDatabase>().contributorDao() }
@@ -386,7 +329,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().bookContributorDao() }
         single { get<ListenUpDatabase>().bookSeriesDao() }
         single { get<ListenUpDatabase>().playbackPositionDao() }
-        single { get<ListenUpDatabase>().pendingOperationDao() }
         single { get<ListenUpDatabase>().downloadDao() }
         single { get<ListenUpDatabase>().coverDownloadDao() }
         single { get<ListenUpDatabase>().searchDao() }
@@ -713,7 +655,7 @@ val useCaseModule =
 val syncModule =
     module {
         // Application-scoped CoroutineScope for long-lived background operations.
-        // Used by SSEManager and SyncManager for tasks that span the app's lifetime.
+        // Used by sync and playback tasks that span the app's lifetime.
         // SupervisorJob ensures child failures don't cancel siblings.
         single<kotlinx.coroutines.CoroutineScope>(
             qualifier =
@@ -743,22 +685,6 @@ val syncModule =
                 imageStorage = get(),
             )
         } bind ImageDownloaderContract::class
-
-        // SSE Manager for real-time updates
-        single {
-            SSEManager(
-                clientFactory = get(),
-                serverConfig = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("appScope"),
-                    ),
-                downloadRepository = get(),
-                errorBus = get(),
-            )
-        } bind SSEManagerContract::class
 
         // SearchApi for server-side search
         single<SearchApiContract> {
@@ -853,9 +779,7 @@ val syncModule =
 
         // EventStreamRepository for real-time events (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.EventStreamRepository> {
-            EventStreamRepositoryImpl(
-                sseManager = get(),
-            )
+            EventStreamRepositoryImpl()
         }
 
         // AdminCollectionApi for admin collection operations
@@ -893,20 +817,6 @@ val syncModule =
             )
         } bind FtsPopulatorContract::class
 
-        // Sync infrastructure - decomposed components
-
-        // SyncCoordinator - retry logic and error classification
-        single { SyncCoordinator() }
-
-        // ConflictDetector - timestamp-based conflict detection
-        single {
-            ConflictDetector(
-                bookDao = get(),
-                contributorDao = get(),
-                seriesDao = get(),
-            )
-        } bind ConflictDetectorContract::class
-
         // CoverDownloadRepository - owns scope for fire-and-forget cover downloads
         single<CoverDownloadRepository> {
             CoverDownloadRepositoryImpl(
@@ -934,386 +844,6 @@ val syncModule =
             )
         }
 
-        // SSEEventProcessor - processes real-time SSE events
-        single {
-            SSEEventProcessor(
-                transactionRunner = get(),
-                bookDao = get(),
-                bookRelationshipDaos =
-                    BookRelationshipDaos(
-                        bookContributorDao = get(),
-                        bookSeriesDao = get(),
-                        tagDao = get(),
-                        genreDao = get(),
-                        audioFileDao = get(),
-                    ),
-                collectionDao = get(),
-                shelfDao = get(),
-                userDaos =
-                    UserDaos(
-                        userDao = get(),
-                        userProfileDao = get(),
-                        userStatsDao = get(),
-                    ),
-                sessionDaos =
-                    SessionDaos(
-                        activeSessionDao = get(),
-                        listeningEventDao = get(),
-                        playbackPositionDao = get(),
-                    ),
-                sseExternalServices =
-                    SSEExternalServices(
-                        sessionRepository = get(),
-                        imageDownloader = get(),
-                        playbackStateProvider = get<PlaybackManager>(),
-                        downloadService = get(),
-                        downloadRepository = get(),
-                    ),
-                activityDao = get(),
-                coverDownloadRepository = get(),
-                avatarDownloadRepository = get(),
-            )
-        }
-
-        // BookRelationshipWriter — owns per-book junction-table DELETE+INSERT for BookPuller.
-        // MUST be called inside TransactionRunner.atomically { ... }; contributes no wrapping.
-        single {
-            BookRelationshipWriter(
-                bookContributorDao = get(),
-                bookSeriesDao = get(),
-                tagDao = get(),
-                genreDao = get(),
-                audioFileDao = get(),
-            )
-        }
-
-        // Entity pullers - fetch data from server with pagination
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("bookPuller"),
-        ) {
-            BookPuller(
-                transactionRunner = get(),
-                syncApi = get<SyncApiContract>(),
-                bookDao = get(),
-                chapterDao = get(),
-                genreDao = get(),
-                bookRelationshipWriter = get(),
-                imageDownloader = get(),
-                conflictDetector = get(),
-                coverDownloadDao = get(),
-            )
-        }
-
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("seriesPuller"),
-        ) {
-            SeriesPuller(
-                syncApi = get<SyncApiContract>(),
-                seriesDao = get(),
-                imageDownloader = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("appScope"),
-                    ),
-            )
-        }
-
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("contributorPuller"),
-        ) {
-            ContributorPuller(
-                transactionRunner = get(),
-                syncApi = get<SyncApiContract>(),
-                contributorDao = get(),
-                contributorAliasDao = get(),
-                imageDownloader = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("appScope"),
-                    ),
-            )
-        }
-
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("tagPuller"),
-        ) {
-            TagPuller(
-                tagApi = get(),
-                tagDao = get(),
-            )
-        }
-
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("genrePuller"),
-        ) {
-            GenrePuller(
-                genreApi = get(),
-                genreDao = get(),
-            )
-        }
-
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("shelfPuller"),
-        ) {
-            ShelfPuller(
-                transactionRunner = get(),
-                shelfApi = get(),
-                shelfDao = get(),
-                shelfBookDao = get(),
-                imageStorage = get(),
-            )
-        }
-
-        // ListeningEventPuller - registered as ListeningEventPullerContract because
-        // PullSyncOrchestrator needs to call pullAll() for refreshListeningHistory()
-        single<ListeningEventPullerContract> {
-            ListeningEventPuller(
-                syncApi = get<SyncApiContract>(),
-                listeningEventDao = get(),
-                playbackPositionDao = get(),
-            )
-        }
-
-        // ActiveSessionsPuller - syncs active reading sessions for discovery page
-        // Also syncs user profiles and downloads avatars for offline display
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("activeSessionsPuller"),
-        ) {
-            ActiveSessionsPuller(
-                syncApi = get<SyncApiContract>(),
-                activeSessionDao = get(),
-                userProfileDao = get(),
-                imageDownloader = get(),
-            )
-        }
-
-        // ReadingSessionPuller - syncs book reader summaries for offline-first Readers section
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("readingSessionsPuller"),
-        ) {
-            ReadingSessionPuller(
-                syncApi = get<SyncApiContract>(),
-                userReadingSessionDao = get(),
-                readerSessionCacheDao = get(),
-                transactionRunner = get(),
-                authSession = get(),
-            )
-        }
-
-        // ProgressPuller - syncs all playback progress including isFinished status
-        // Essential for cross-device sync, fresh installs, and ABS import
-        single<Puller>(
-            qualifier =
-                org.koin.core.qualifier
-                    .named("progressPuller"),
-        ) {
-            ProgressPuller(
-                syncApi = get<SyncApiContract>(),
-                playbackPositionDao = get(),
-                pendingOperationDao = get(),
-                transactionRunner = get(),
-            )
-        }
-
-        // PullSyncOrchestrator - coordinates parallel entity pulls
-        single {
-            PullSyncOrchestrator(
-                bookPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("bookPuller"),
-                    ),
-                seriesPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("seriesPuller"),
-                    ),
-                contributorPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("contributorPuller"),
-                    ),
-                tagPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("tagPuller"),
-                    ),
-                genrePuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("genrePuller"),
-                    ),
-                shelfPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("shelfPuller"),
-                    ),
-                listeningEventPuller = get(),
-                progressPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("progressPuller"),
-                    ),
-                activeSessionsPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("activeSessionsPuller"),
-                    ),
-                readingSessionsPuller =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("readingSessionsPuller"),
-                    ),
-                coordinator = get(),
-                syncApi = get<SyncApiContract>(),
-                syncDao = get(),
-                bookDao = get(),
-                seriesDao = get(),
-                contributorDao = get(),
-            )
-        }
-
-        // Push sync handlers
-        single { BookUpdateHandler(api = get()) }
-        single { ContributorUpdateHandler(api = get()) }
-        single { SeriesUpdateHandler(api = get()) }
-        single { SetBookContributorsHandler(api = get()) }
-        single { SetBookSeriesHandler(api = get()) }
-        single { MergeContributorHandler(api = get()) }
-        single { UnmergeContributorHandler(api = get()) }
-        single { ListeningEventHandler(api = get(), positionDao = get()) }
-        single { PlaybackPositionHandler(api = get()) }
-        single { UserPreferencesHandler(api = get()) }
-        single { ProfileUpdateHandler(transactionRunner = get(), api = get(), userDao = get()) }
-        single { ProfileAvatarHandler(api = get(), userDao = get(), imageDownloader = get()) }
-        single { MarkCompleteHandler(api = get()) }
-        single { DiscardProgressHandler(api = get()) }
-        single { RestartBookHandler(api = get()) }
-        single { EndPlaybackSessionHandler(api = get()) }
-        single { CreateShelfHandler(api = get()) }
-        single { UpdateShelfHandler(api = get()) }
-        single { DeleteShelfHandler(api = get()) }
-        single { AddBooksToShelfHandler(api = get()) }
-        single { RemoveBookFromShelfHandler(api = get()) }
-
-        // PreferencesSyncObserver - observes SettingsRepository.preferenceChanges and queues sync operations.
-        // This breaks the circular dependency between SettingsRepository and the sync layer.
-        // Started automatically on creation via the appScope.
-        single {
-            PreferencesSyncObserver(
-                playbackPreferences = get(),
-                pendingOperationRepository = get(),
-                userPreferencesHandler = get(),
-            ).also { observer ->
-                observer.start(
-                    scope =
-                        get(
-                            qualifier =
-                                org.koin.core.qualifier
-                                    .named("appScope"),
-                        ),
-                )
-            }
-        }
-
-        // OperationExecutor - dispatches to handlers
-        single {
-            OperationExecutor.create(
-                bookUpdateHandler = get(),
-                contributorUpdateHandler = get(),
-                seriesUpdateHandler = get(),
-                setBookContributorsHandler = get(),
-                setBookSeriesHandler = get(),
-                mergeContributorHandler = get(),
-                unmergeContributorHandler = get(),
-                listeningEventHandler = get(),
-                playbackPositionHandler = get(),
-                userPreferencesHandler = get(),
-                profileUpdateHandler = get(),
-                profileAvatarHandler = get(),
-                markCompleteHandler = get(),
-                discardProgressHandler = get(),
-                restartBookHandler = get(),
-                endPlaybackSessionHandler = get(),
-                createShelfHandler = get(),
-                updateShelfHandler = get(),
-                deleteShelfHandler = get(),
-                addBooksToShelfHandler = get(),
-                removeBookFromShelfHandler = get(),
-            )
-        } bind OperationExecutorContract::class
-
-        // PendingOperationRepository - queue and coalesce operations
-        single {
-            PendingOperationRepository(
-                transactionRunner = get(),
-                dao = get(),
-                bookDao = get(),
-                contributorDao = get(),
-                seriesDao = get(),
-                shelfDao = get(),
-            )
-        } bind PendingOperationRepositoryContract::class
-
-        // SyncMutex - coordinates exclusive access during sync operations
-        // Prevents race conditions between SSE events and push sync
-        single { SyncMutex() }
-
-        // PushSyncOrchestrator - flush pending operations (last-write-wins, no conflict blocking)
-        single {
-            PushSyncOrchestrator(
-                repository = get(),
-                executor = get(),
-                networkMonitor = get(),
-                syncMutex = get(),
-                errorBus = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("appScope"),
-                    ),
-            )
-        } bind PushSyncOrchestratorContract::class
-
-        // LibraryResetHelper - clears local data on library mismatch or server switch
-        single {
-            LibraryResetHelper(
-                database = get(),
-                transactionRunner = get(),
-                librarySyncContract = get(),
-            )
-        } bind LibraryResetHelperContract::class
-
         // Cover Download Worker — processes the persistent cover download queue
         single {
             com.calypsan.listenup.client.data.sync.CoverDownloadWorker(
@@ -1322,37 +852,13 @@ val syncModule =
             )
         }
 
-        // SyncManager - thin orchestrator coordinating sync phases
         single {
-            SyncManager(
-                pullOrchestrator = get(),
-                pushOrchestrator = get(),
-                sseEventProcessor = get(),
-                coordinator = get(),
-                sseManager = get(),
-                setupApi = get(),
-                userPreferencesApi = get(),
-                authSession = get(),
-                playbackPreferences = get(),
-                librarySync = get(),
-                instanceRepository = get(),
-                serverConfig = get(),
-                pendingOperationDao = get(),
-                libraryResetHelper = get(),
-                syncDao = get(),
-                bookDao = get(),
-                coverDownloadWorker = get(),
-                ftsPopulator = get(),
-                syncMutex = get(),
-                errorBus = get(),
-                scope =
-                    get(
-                        qualifier =
-                            org.koin.core.qualifier
-                                .named("appScope"),
-                    ),
+            LibraryResetHelper(
+                database = get(),
+                transactionRunner = get(),
+                librarySyncContract = get(),
             )
-        } bind SyncManagerContract::class
+        } bind LibraryResetHelperContract::class
 
         // SearchRepository for offline-first search
         single<SearchRepository> {
@@ -1370,7 +876,6 @@ val syncModule =
                 chapterDao = get(),
                 audioFileDao = get(),
                 transactionRunner = get(),
-                syncManager = get(),
                 imageStorage = get(),
                 genreRepository = get(),
                 tagRepository = get(),
@@ -1410,8 +915,6 @@ val syncModule =
         single<ListeningEventRepository> {
             ListeningEventRepositoryImpl(
                 listeningEventDao = get(),
-                pendingOperationRepository = get(),
-                listeningEventHandler = get(),
                 transactionRunner = get(),
                 deviceId = get(qualifier = named("deviceId")),
             )
@@ -1421,10 +924,6 @@ val syncModule =
         single<com.calypsan.listenup.client.domain.repository.BookEditRepository> {
             BookEditRepositoryImpl(
                 bookDao = get(),
-                pendingOperationRepository = get(),
-                bookUpdateHandler = get(),
-                setBookContributorsHandler = get(),
-                setBookSeriesHandler = get(),
             )
         }
 
@@ -1432,8 +931,6 @@ val syncModule =
         single<SeriesEditRepository> {
             SeriesEditRepositoryImpl(
                 seriesDao = get(),
-                pendingOperationRepository = get(),
-                seriesUpdateHandler = get(),
             )
         }
 
@@ -1444,10 +941,6 @@ val syncModule =
                 contributorDao = get(),
                 contributorAliasDao = get(),
                 bookContributorDao = get(),
-                pendingOperationRepository = get(),
-                contributorUpdateHandler = get(),
-                mergeContributorHandler = get(),
-                unmergeContributorHandler = get(),
             )
         }
 
@@ -1455,9 +948,6 @@ val syncModule =
         single<com.calypsan.listenup.client.domain.repository.ProfileEditRepository> {
             ProfileEditRepositoryImpl(
                 userDao = get(),
-                pendingOperationRepository = get(),
-                profileUpdateHandler = get(),
-                profileAvatarHandler = get(),
                 profileApi = get(),
             )
         }
@@ -1477,7 +967,9 @@ val syncModule =
         // SyncRepository for library sync operations (SOLID: interface in domain, impl in data)
         single<SyncRepository> {
             SyncRepositoryImpl(
-                syncManager = get(),
+                syncEngine = get(),
+                syncEngineState = get(),
+                authSession = get(),
                 scope =
                     get(
                         qualifier =
@@ -1491,10 +983,6 @@ val syncModule =
         single<PlaybackPositionRepository> {
             PlaybackPositionRepositoryImpl(
                 dao = get(),
-                pendingOps = get(),
-                markCompleteHandler = get(),
-                discardProgressHandler = get(),
-                restartBookHandler = get(),
                 transactionRunner = get(),
             )
         }
@@ -1516,13 +1004,7 @@ val syncModule =
                 shelfBookDao = get(),
                 userDao = get(),
                 shelfApi = get(),
-                pendingOperationRepository = get(),
                 transactionRunner = get(),
-                createShelfHandler = get(),
-                updateShelfHandler = get(),
-                deleteShelfHandler = get(),
-                addBooksToShelfHandler = get(),
-                removeBookFromShelfHandler = get(),
             )
         }
 
@@ -1599,15 +1081,14 @@ val syncModule =
         // SyncStatusRepository for sync timestamp tracking (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.SyncStatusRepository> {
             com.calypsan.listenup.client.data.repository
-                .SyncStatusRepositoryImpl(syncDao = get())
+                .SyncStatusRepositoryImpl()
         }
 
         // PendingOperationRepository (domain) for UI observation of sync status
         // Wraps the data layer contract to provide domain models to ViewModels
         single<com.calypsan.listenup.client.domain.repository.PendingOperationRepository> {
-            com.calypsan.listenup.client.data.repository.PendingOperationRepositoryImpl(
-                dataRepository = get(),
-            )
+            com.calypsan.listenup.client.data.repository
+                .PendingOperationRepositoryImpl()
         }
     }
 
@@ -1625,6 +1106,7 @@ val sharedModules =
         repositoryModule,
         useCaseModule,
         syncModule,
+        clientSyncRenovationModule,
         clientAuthModule,
         voiceModule,
     ) + allPresentationModules

@@ -2,10 +2,10 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
-import com.calypsan.listenup.client.data.sync.sse.PlaybackStateProvider
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}

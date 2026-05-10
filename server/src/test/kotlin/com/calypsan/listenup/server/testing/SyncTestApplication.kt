@@ -40,7 +40,10 @@ data class SyncTestScope(
  * Used by Tasks 15-18. Additional domain repositories can be added to the
  * Koin module when later tasks introduce them.
  */
-internal fun withTestApplication(block: suspend SyncTestScope.() -> Unit) {
+internal fun withTestApplication(
+    heartbeatIntervalMillis: Long? = null,
+    block: suspend SyncTestScope.() -> Unit,
+) {
     testApplication {
         val tmp =
             Files.createTempFile("listenup-sync-test-", ".db").toFile().apply { deleteOnExit() }
@@ -61,7 +64,13 @@ internal fun withTestApplication(block: suspend SyncTestScope.() -> Unit) {
                     },
                 )
             }
-            routing { syncRoutes() }
+            routing {
+                if (heartbeatIntervalMillis != null) {
+                    syncRoutes(heartbeatIntervalMillis = heartbeatIntervalMillis)
+                } else {
+                    syncRoutes()
+                }
+            }
         }
 
         val jsonClient =

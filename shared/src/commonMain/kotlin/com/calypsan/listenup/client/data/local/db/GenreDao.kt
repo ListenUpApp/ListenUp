@@ -240,7 +240,7 @@ interface GenreDao {
  *
  * Server responses ([BookResponse.genres]) carry genre names only; the client
  * maintains genre IDs via [GenreEntity]. This projection is the minimal shape
- * BookPuller and SSEEventProcessor need to build [BookGenreCrossRef] rows.
+ * Sync domain handlers need to build [BookGenreCrossRef] rows.
  */
 data class GenreIdName(
     val id: String,

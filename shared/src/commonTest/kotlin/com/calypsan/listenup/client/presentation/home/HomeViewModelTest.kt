@@ -62,7 +62,7 @@ class HomeViewModelTest {
         val userFlow = MutableStateFlow<User?>(null)
         val continueListeningFlow = MutableStateFlow<List<ContinueListeningBook>>(emptyList())
         val scanProgressFlow =
-            MutableStateFlow<com.calypsan.listenup.client.data.sync.sse.ScanProgressState?>(null)
+            MutableStateFlow<com.calypsan.listenup.client.domain.model.ScanProgressState?>(null)
         val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
         var currentHour: Int = 10 // Default to morning
 

@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
-import com.calypsan.listenup.client.data.sync.sse.ScanProgressState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth

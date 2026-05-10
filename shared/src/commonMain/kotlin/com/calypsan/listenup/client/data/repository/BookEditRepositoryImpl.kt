@@ -9,23 +9,12 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.SyncState
-import com.calypsan.listenup.client.data.sync.push.BookUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.BookUpdatePayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.SetBookContributorsHandler
-import com.calypsan.listenup.client.data.sync.push.SetBookContributorsPayload
-import com.calypsan.listenup.client.data.sync.push.SetBookSeriesHandler
-import com.calypsan.listenup.client.data.sync.push.SetBookSeriesPayload
 import com.calypsan.listenup.client.domain.repository.BookContributorInput
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookSeriesInput
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
-import com.calypsan.listenup.client.data.sync.push.ContributorInput as PayloadContributorInput
-import com.calypsan.listenup.client.data.sync.push.SeriesInput as PayloadSeriesInput
 
 private val logger = KotlinLogging.logger {}
 
@@ -37,10 +26,7 @@ private val logger = KotlinLogging.logger {}
  * 2. Queue operation for server sync via PendingOperationRepository
  * 3. Return success immediately
  *
- * The PushSyncOrchestrator will later:
- * - Send changes to server
- * - Handle conflicts if server version is newer
- * - Mark entity as SYNCED on success
+ * Server propagation returns when the book sync domain migrates to the renovated engine.
  *
  * @property bookDao Room DAO for book operations
  * @property pendingOperationRepository Repository for queuing sync operations
@@ -50,10 +36,6 @@ private val logger = KotlinLogging.logger {}
  */
 class BookEditRepositoryImpl(
     private val bookDao: BookDao,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val bookUpdateHandler: BookUpdateHandler,
-    private val setBookContributorsHandler: SetBookContributorsHandler,
-    private val setBookSeriesHandler: SetBookSeriesHandler,
 ) : BookEditRepository {
     /**
      * Update book metadata.
@@ -105,30 +87,7 @@ class BookEditRepositoryImpl(
                 )
             bookDao.upsert(updated)
 
-            // Queue operation (coalesces if pending update exists for this book)
-            val payload =
-                BookUpdatePayload(
-                    title = title,
-                    sortTitle = sortTitle,
-                    subtitle = subtitle,
-                    description = description,
-                    publisher = publisher,
-                    publishYear = publishYear,
-                    language = language,
-                    isbn = isbn,
-                    asin = asin,
-                    abridged = abridged,
-                    createdAt = null,
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.BOOK_UPDATE,
-                entityType = EntityType.BOOK,
-                entityId = bookId,
-                payload = payload,
-                handler = bookUpdateHandler,
-            )
-
-            logger.info { "Book update queued: $bookId" }
+            logger.info { "Book updated locally: $bookId" }
             Success(Unit)
         }
 
@@ -164,26 +123,7 @@ class BookEditRepositoryImpl(
                 )
             bookDao.upsert(updated)
 
-            // Queue operation
-            val payload =
-                SetBookContributorsPayload(
-                    contributors =
-                        contributors.map { c ->
-                            PayloadContributorInput(
-                                name = c.name,
-                                roles = c.roles,
-                            )
-                        },
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.SET_BOOK_CONTRIBUTORS,
-                entityType = EntityType.BOOK,
-                entityId = bookId,
-                payload = payload,
-                handler = setBookContributorsHandler,
-            )
-
-            logger.info { "Set book contributors queued: $bookId, ${contributors.size} contributor(s)" }
+            logger.info { "Book contributors marked for local refresh: $bookId, ${contributors.size} contributor(s)" }
             Success(Unit)
         }
 
@@ -219,26 +159,7 @@ class BookEditRepositoryImpl(
                 )
             bookDao.upsert(updated)
 
-            // Queue operation
-            val payload =
-                SetBookSeriesPayload(
-                    series =
-                        series.map { s ->
-                            PayloadSeriesInput(
-                                name = s.name,
-                                sequence = s.sequence?.toString(),
-                            )
-                        },
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.SET_BOOK_SERIES,
-                entityType = EntityType.BOOK,
-                entityId = bookId,
-                payload = payload,
-                handler = setBookSeriesHandler,
-            )
-
-            logger.info { "Set book series queued: $bookId, ${series.size} series" }
+            logger.info { "Book series marked for local refresh: $bookId, ${series.size} series" }
             Success(Unit)
         }
 }

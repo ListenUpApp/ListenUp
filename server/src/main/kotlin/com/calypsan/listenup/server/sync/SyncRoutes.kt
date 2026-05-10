@@ -13,11 +13,15 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.sse.sse
+import io.ktor.sse.ServerSentEvent
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 
 /**
@@ -51,8 +55,12 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
  *  - `GET /api/v1/sync/<domain>?since=<rev>&limit=<n>` — paginated catch-up
  *  - `GET /api/v1/sync/<domain>/digest?cursor=<rev>` — drift detection
  *  - `GET /api/v1/sync/domains` — registered domain list
+ *
+ * The firehose emits a comment-line keepalive every [heartbeatIntervalMillis]
+ * milliseconds (25s by default) to prevent NAT/load-balancer drops on idle
+ * connections. Tests pass a much shorter interval to keep the suite fast.
  */
-fun Route.syncRoutes() {
+fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val bus by inject<ChangeBus>()
 
     // SSE firehose — streams every domain's BusEvents in real time.
@@ -79,6 +87,25 @@ fun Route.syncRoutes() {
             )
             return@sse
         }
+
+        // Comment-line keepalive every [heartbeatIntervalMillis] ms. The frames
+        // (`:keepalive\r\n`) are ignored by the EventSource spec on the client
+        // but keep the TCP connection alive across NATs and load balancers,
+        // which otherwise drop idle streams. The side-job is cancelled in the
+        // `finally` below so it never leaks across requests.
+        //
+        // Note: Ktor's built-in `heartbeat { }` extension was tried first but
+        // its frames don't reach the client through `testApplication`'s SSE
+        // transport — likely because `launch(heartbeatJob + ...)` reparents
+        // outside the session's structured-concurrency tree. A manual launch
+        // on the session's own scope is observable end-to-end.
+        val heartbeatJob =
+            launch {
+                while (isActive) {
+                    delay(heartbeatIntervalMillis)
+                    send(ServerSentEvent(comments = "keepalive"))
+                }
+            }
 
         try {
             bus
@@ -118,6 +145,8 @@ fun Route.syncRoutes() {
                     ),
                 event = "control",
             )
+        } finally {
+            heartbeatJob.cancel()
         }
     }
 

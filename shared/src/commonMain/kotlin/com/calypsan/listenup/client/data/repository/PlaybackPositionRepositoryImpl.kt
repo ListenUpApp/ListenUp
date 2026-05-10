@@ -4,18 +4,9 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.sync.push.DiscardProgressHandler
-import com.calypsan.listenup.client.data.sync.push.DiscardProgressPayload
-import com.calypsan.listenup.client.data.sync.push.MarkCompleteHandler
-import com.calypsan.listenup.client.data.sync.push.MarkCompletePayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.RestartBookHandler
-import com.calypsan.listenup.client.data.sync.push.RestartBookPayload
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -52,10 +43,6 @@ import kotlin.time.Instant
  */
 class PlaybackPositionRepositoryImpl(
     private val dao: PlaybackPositionDao,
-    private val pendingOps: PendingOperationRepositoryContract,
-    private val markCompleteHandler: MarkCompleteHandler,
-    private val discardProgressHandler: DiscardProgressHandler,
-    private val restartBookHandler: RestartBookHandler,
     private val transactionRunner: TransactionRunner,
 ) : PlaybackPositionRepository {
     // ----- Per-book Mutex map ---------------------------------------------------------------
@@ -282,33 +269,17 @@ class PlaybackPositionRepositoryImpl(
                 startedAt = startedAt,
             )
         dao.save(merged)
-        // Queue MARK_COMPLETE for server sync. Mirrors the existing markComplete
-        // facade's failure-path queueing semantics so both write paths converge on
-        // the same pending-op shape.
-        pendingOps.queue(
-            type = OperationType.MARK_COMPLETE,
-            entityType = EntityType.BOOK,
-            entityId = bookId.value,
-            payload =
-                MarkCompletePayload(
-                    bookId = bookId.value,
-                    startedAt = epochMillisToIso8601(startedAt),
-                    finishedAt = epochMillisToIso8601(finishedAt),
-                ),
-            handler = markCompleteHandler,
-        )
     }
 
     private suspend fun handleCrossDeviceSync(
         bookId: BookId,
         u: PlaybackUpdate.CrossDeviceSync,
     ) {
-        // Reconcile-with-stored: only apply if event is newer than stored.
-        // Mirrors `SSEEventProcessor.handleProgressUpdated` lifecycle; ported here
-        // so the canonical merge lives in the repository (Phase B's single-writer
-        // goal). The handler's caller is responsible for "is this book locally
+        // Reconcile-with-stored: only apply if server progress is newer than stored.
+        // Canonical cross-device merge lives in the repository (Phase B's
+        // single-writer goal). The handler's caller is responsible for "is this book locally
         // playing? skip" — that's a higher-level policy, not a per-row write rule.
-        val payload = u.event.data
+        val payload = u.progress
         val lastPlayedAtMs = parseIsoOrNull(payload.lastPlayedAt) ?: return
         val finishedAtMs = payload.finishedAt?.let { parseIsoOrNull(it) }
         val startedAtMs = payload.startedAt?.let { parseIsoOrNull(it) }
@@ -372,18 +343,6 @@ class PlaybackPositionRepositoryImpl(
                 startedAt = effectiveStartedAt,
             )
         dao.save(merged)
-        pendingOps.queue(
-            type = OperationType.MARK_COMPLETE,
-            entityType = EntityType.BOOK,
-            entityId = bookId.value,
-            payload =
-                MarkCompletePayload(
-                    bookId = bookId.value,
-                    startedAt = epochMillisToIso8601(effectiveStartedAt),
-                    finishedAt = epochMillisToIso8601(effectiveFinishedAt),
-                ),
-            handler = markCompleteHandler,
-        )
     }
 
     private suspend fun handleDiscardProgress(bookId: BookId) {
@@ -401,13 +360,6 @@ class PlaybackPositionRepositoryImpl(
                 lastPlayedAt = now,
                 syncedAt = null,
             ),
-        )
-        pendingOps.queue(
-            type = OperationType.DISCARD_PROGRESS,
-            entityType = EntityType.BOOK,
-            entityId = bookId.value,
-            payload = DiscardProgressPayload(bookId = bookId.value),
-            handler = discardProgressHandler,
         )
     }
 
@@ -427,13 +379,6 @@ class PlaybackPositionRepositoryImpl(
                 lastPlayedAt = now,
                 syncedAt = null,
             ),
-        )
-        pendingOps.queue(
-            type = OperationType.RESTART_BOOK,
-            entityType = EntityType.BOOK,
-            entityId = bookId.value,
-            payload = RestartBookPayload(bookId = bookId.value),
-            handler = restartBookHandler,
         )
     }
 
@@ -477,15 +422,10 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
     )
 
 /**
- * Convert epoch milliseconds to ISO 8601 string for API communication.
- */
-private fun epochMillisToIso8601(millis: Long): String = Instant.fromEpochMilliseconds(millis).toString()
-
-/**
  * Parse ISO 8601 to epoch ms; returns null on malformed input.
  *
- * Mirrors `SSEEventProcessor.parseLastPlayedOrNull` — used by [PlaybackUpdate.CrossDeviceSync]
- * to skip rows whose timestamps the server malformed, leaving the next sync to reconcile.
+ * Used by [PlaybackUpdate.CrossDeviceSync] to skip rows whose timestamps the
+ * server malformed, leaving the next sync to reconcile.
  */
 @Suppress("SwallowedException", "TooGenericExceptionCaught")
 private fun parseIsoOrNull(iso: String): Long? =

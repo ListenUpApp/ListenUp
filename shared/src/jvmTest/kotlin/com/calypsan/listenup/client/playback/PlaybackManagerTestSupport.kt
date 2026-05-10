@@ -3,14 +3,10 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.sync.push.EndPlaybackSessionHandler
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.PushSyncOrchestratorContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
-import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -36,10 +32,7 @@ fun buildProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
         listeningEventRepository = mock<ListeningEventRepository>(),
         syncApi = stubSyncApi,
-        pushSyncOrchestrator = mock<PushSyncOrchestratorContract>(),
         positionRepository = positionRepository,
-        pendingOperationRepository = mock<PendingOperationRepositoryContract>(MockMode.autoUnit),
-        endPlaybackSessionHandler = EndPlaybackSessionHandler(stubSyncApi),
         scope = scope,
     )
 }
@@ -58,10 +51,7 @@ fun buildFakeProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
         listeningEventRepository = mock<ListeningEventRepository>(),
         syncApi = stubSyncApi,
-        pushSyncOrchestrator = mock<PushSyncOrchestratorContract>(),
         positionRepository = positionRepository,
-        pendingOperationRepository = mock<PendingOperationRepositoryContract>(MockMode.autoUnit),
-        endPlaybackSessionHandler = EndPlaybackSessionHandler(stubSyncApi),
         scope = scope,
     )
 }

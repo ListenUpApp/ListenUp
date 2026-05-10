@@ -183,7 +183,6 @@ class PlaybackManagerFallbackFetchTest {
                 chapterDao = db.chapterDao(),
                 audioFileDao = db.audioFileDao(),
                 transactionRunner = txRunner,
-                syncManager = mock(),
                 imageStorage = imageStorage,
                 genreRepository = mock(),
                 tagRepository = mock(),

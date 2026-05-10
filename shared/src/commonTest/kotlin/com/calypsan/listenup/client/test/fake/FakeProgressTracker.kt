@@ -3,9 +3,6 @@ package com.calypsan.listenup.client.test.fake
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.sync.push.EndPlaybackSessionHandler
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.PushSyncOrchestratorContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -29,19 +26,13 @@ class FakeProgressTracker(
     downloadRepository: DownloadRepository,
     listeningEventRepository: ListeningEventRepository,
     syncApi: SyncApiContract,
-    pushSyncOrchestrator: PushSyncOrchestratorContract,
     positionRepository: PlaybackPositionRepository,
-    pendingOperationRepository: PendingOperationRepositoryContract,
-    endPlaybackSessionHandler: EndPlaybackSessionHandler,
     scope: CoroutineScope,
 ) : ProgressTracker(
         downloadRepository = downloadRepository,
         listeningEventRepository = listeningEventRepository,
         syncApi = syncApi,
-        pushSyncOrchestrator = pushSyncOrchestrator,
         positionRepository = positionRepository,
-        pendingOperationRepository = pendingOperationRepository,
-        endPlaybackSessionHandler = endPlaybackSessionHandler,
         scope = scope,
     ) {
     private val _onPlaybackStartedCalls: MutableList<Triple<BookId, Long, Float>> = mutableListOf()

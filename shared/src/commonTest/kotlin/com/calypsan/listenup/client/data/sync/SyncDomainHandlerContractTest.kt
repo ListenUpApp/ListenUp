@@ -1,0 +1,72 @@
+package com.calypsan.listenup.client.data.sync
+
+import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.core.AppResult
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.runTest
+
+class SyncDomainHandlerContractTest :
+    FunSpec({
+
+        test("a SyncDomainHandler returns AppResult.Success on a valid event") {
+            runTest {
+                val handler: SyncDomainHandler<Tag> =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = "tags"
+                        override val payloadSerializer = Tag.serializer()
+
+                        override suspend fun onEvent(
+                            event: SyncEvent<Tag>,
+                            isOwnEcho: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+                    }
+
+                val event =
+                    SyncEvent.Created(
+                        id = "t1",
+                        revision = 1L,
+                        occurredAt = 100L,
+                        clientOpId = null,
+                        payload = Tag(id = "t1", name = "alpha", revision = 1L, updatedAt = 100L),
+                    )
+                val result = handler.onEvent(event, isOwnEcho = false)
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("onCatchUpItem distinguishes tombstones from live items via the boolean") {
+            runTest {
+                var tombstoneSeen = false
+                val handler: SyncDomainHandler<Tag> =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = "tags"
+                        override val payloadSerializer = Tag.serializer()
+
+                        override suspend fun onEvent(
+                            event: SyncEvent<Tag>,
+                            isOwnEcho: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> {
+                            if (isTombstone) tombstoneSeen = true
+                            return AppResult.Success(Unit)
+                        }
+                    }
+
+                val tombstone = Tag(id = "t1", name = "alpha", revision = 5L, updatedAt = 100L, deletedAt = 100L)
+                handler.onCatchUpItem(tombstone, isTombstone = true)
+                tombstoneSeen shouldBe true
+            }
+        }
+    })

@@ -306,7 +306,7 @@ data class ContributorResponse(
 )
 
 /**
- * User data embedded in SSE user event payloads (see `SSEEvent.UserPayload`).
+ * User data embedded in realtime user event payloads.
  */
 @Serializable
 data class SSEUserData(

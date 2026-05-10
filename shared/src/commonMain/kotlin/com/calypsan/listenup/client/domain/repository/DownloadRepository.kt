@@ -112,7 +112,7 @@ interface DownloadRepository {
 
     /**
      * Re-enqueue a single audio file's download. Called by the SSE `transcode.complete` handler
-     * (via [com.calypsan.listenup.client.data.sync.sse.SSEEventProcessor]). Silently drops if the
+     * by the future download sync domain. Silently drops if the
      * row is CANCELLED or COMPLETED (late event tolerance).
      */
     suspend fun resumeForAudioFile(audioFileId: String): AppResult<Unit>

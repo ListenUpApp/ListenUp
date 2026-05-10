@@ -14,17 +14,8 @@ import com.calypsan.listenup.client.data.local.db.ContributorAliasCrossRef
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.sync.push.ContributorUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.ContributorUpdatePayload
-import com.calypsan.listenup.client.data.sync.push.MergeContributorHandler
-import com.calypsan.listenup.client.data.sync.push.MergeContributorPayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.UnmergeContributorHandler
-import com.calypsan.listenup.client.data.sync.push.UnmergeContributorPayload
 import com.calypsan.listenup.client.util.NanoId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
@@ -126,10 +117,6 @@ class ContributorEditRepository(
     private val contributorDao: ContributorDao,
     private val contributorAliasDao: ContributorAliasDao,
     private val bookContributorDao: BookContributorDao,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val contributorUpdateHandler: ContributorUpdateHandler,
-    private val mergeContributorHandler: MergeContributorHandler,
-    private val unmergeContributorHandler: UnmergeContributorHandler,
 ) : ContributorEditRepositoryContract,
     com.calypsan.listenup.client.domain.repository.ContributorEditRepository {
     // ========== Domain Interface Implementation ==========
@@ -188,16 +175,6 @@ class ContributorEditRepository(
                     lastModified = Timestamp.now(),
                 )
 
-            val payload =
-                ContributorUpdatePayload(
-                    name = update.name,
-                    biography = update.biography,
-                    website = update.website,
-                    birthDate = update.birthDate,
-                    deathDate = update.deathDate,
-                    aliases = update.aliases,
-                )
-
             val newAliasRows =
                 update.aliases
                     ?.distinctBy { it.lowercase() }
@@ -211,16 +188,9 @@ class ContributorEditRepository(
                         contributorAliasDao.insertAll(newAliasRows)
                     }
                 }
-                pendingOperationRepository.queue(
-                    type = OperationType.CONTRIBUTOR_UPDATE,
-                    entityType = EntityType.CONTRIBUTOR,
-                    entityId = contributorId,
-                    payload = payload,
-                    handler = contributorUpdateHandler,
-                )
             }
 
-            logger.info { "Contributor update queued: $contributorId" }
+            logger.info { "Contributor updated locally: $contributorId" }
             Success(Unit)
         }
 
@@ -263,12 +233,6 @@ class ContributorEditRepository(
                     lastModified = Timestamp.now(),
                 )
 
-            val payload =
-                MergeContributorPayload(
-                    targetId = targetId,
-                    sourceId = sourceId,
-                )
-
             transactionRunner.atomically {
                 for (relation in sourceRelations) {
                     val existingTarget =
@@ -296,17 +260,9 @@ class ContributorEditRepository(
                     contributorAliasDao.insertAll(newAliasRows)
                 }
                 contributorDao.deleteById(sourceId)
-
-                pendingOperationRepository.queue(
-                    type = OperationType.MERGE_CONTRIBUTOR,
-                    entityType = EntityType.CONTRIBUTOR,
-                    entityId = targetId,
-                    payload = payload,
-                    handler = mergeContributorHandler,
-                )
             }
 
-            logger.info { "Contributor merge queued: $sourceId -> $targetId" }
+            logger.info { "Contributor merge applied locally: $sourceId -> $targetId" }
             Success(Unit)
         }
 
@@ -362,12 +318,6 @@ class ContributorEditRepository(
                     lastModified = Timestamp.now(),
                 )
 
-            val payload =
-                UnmergeContributorPayload(
-                    contributorId = contributorId,
-                    aliasName = aliasName,
-                )
-
             transactionRunner.atomically {
                 contributorDao.upsert(newContributor)
 
@@ -390,17 +340,9 @@ class ContributorEditRepository(
                 if (updatedAliasRows.isNotEmpty()) {
                     contributorAliasDao.insertAll(updatedAliasRows)
                 }
-
-                pendingOperationRepository.queue(
-                    type = OperationType.UNMERGE_CONTRIBUTOR,
-                    entityType = EntityType.CONTRIBUTOR,
-                    entityId = contributorId,
-                    payload = payload,
-                    handler = unmergeContributorHandler,
-                )
             }
 
-            logger.info { "Contributor unmerge queued: '$aliasName' from $contributorId (temp ID: $tempId)" }
+            logger.info { "Contributor unmerge applied locally: '$aliasName' from $contributorId (temp ID: $tempId)" }
             Success(Unit)
         }
 }

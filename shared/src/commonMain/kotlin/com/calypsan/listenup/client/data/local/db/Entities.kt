@@ -222,21 +222,6 @@ data class ContributorEntity(
 ) : Syncable
 
 /**
- * Key-value store for sync metadata.
- *
- * Tracks sync state like last successful sync timestamp, library checkpoint,
- * and other sync-related configuration.
- *
- * Uses string values for flexibility - timestamps stored as Unix epoch milliseconds
- * converted to string.
- */
-@Entity(tableName = "sync_metadata")
-data class SyncMetadataEntity(
-    @PrimaryKey val key: String,
-    val value: String,
-)
-
-/**
  * Local playback position persistence.
  *
  * Stores the user's current position in each book for instant resume.

@@ -114,10 +114,7 @@ val playbackModule =
                 downloadRepository = get(),
                 listeningEventRepository = get(),
                 syncApi = get(),
-                pushSyncOrchestrator = get(),
                 positionRepository = get(),
-                pendingOperationRepository = get(),
-                endPlaybackSessionHandler = get(),
                 scope = get(),
             )
         }
@@ -323,8 +320,8 @@ class ListenUp :
                 "AuthSession" to {
                     get<com.calypsan.listenup.client.domain.repository.AuthSession>()
                 },
-                "SyncManager" to {
-                    get<com.calypsan.listenup.client.data.sync.SyncManagerContract>()
+                "SyncEngine" to {
+                    get<com.calypsan.listenup.client.data.sync.SyncEngine>()
                 },
                 "ProgressTracker" to {
                     get<ProgressTracker>()
@@ -332,10 +329,6 @@ class ListenUp :
                 "PlaybackManager" to {
                     get<PlaybackManager>()
                 },
-                "PushSyncOrchestrator" to
-                    {
-                        get<com.calypsan.listenup.client.data.sync.push.PushSyncOrchestratorContract>()
-                    },
             )
 
         criticalTypes.forEach { (name, resolver) ->

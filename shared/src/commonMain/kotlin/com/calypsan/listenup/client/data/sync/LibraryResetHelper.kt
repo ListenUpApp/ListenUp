@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.local.db.clearLastSyncTime
 import com.calypsan.listenup.client.domain.repository.LibrarySync
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -79,10 +78,8 @@ class LibraryResetHelper(
             database.userDao().clear()
 
             if (discardPendingOperations) {
-                database.pendingOperationDao().deleteAll()
+                database.pendingOperationV2Dao().deleteAll()
             }
-
-            database.syncDao().clearLastSyncTime()
         }
 
         logger.info { "Library data cleared successfully" }

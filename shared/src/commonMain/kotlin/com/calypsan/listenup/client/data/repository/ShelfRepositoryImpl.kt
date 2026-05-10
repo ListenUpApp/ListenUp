@@ -4,8 +4,6 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.map
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.ShelfBookCrossRef
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao
@@ -16,17 +14,6 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
 import com.calypsan.listenup.client.data.remote.ShelfDetailResponse
 import com.calypsan.listenup.client.data.remote.ShelfResponse
-import com.calypsan.listenup.client.data.sync.push.AddBooksToShelfPayload
-import com.calypsan.listenup.client.data.sync.push.CreateShelfHandler
-import com.calypsan.listenup.client.data.sync.push.CreateShelfPayload
-import com.calypsan.listenup.client.data.sync.push.DeleteShelfHandler
-import com.calypsan.listenup.client.data.sync.push.DeleteShelfPayload
-import com.calypsan.listenup.client.data.sync.push.AddBooksToShelfHandler
-import com.calypsan.listenup.client.data.sync.push.RemoveBookFromShelfHandler
-import com.calypsan.listenup.client.data.sync.push.RemoveBookFromShelfPayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.UpdateShelfHandler
-import com.calypsan.listenup.client.data.sync.push.UpdateShelfPayload
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
@@ -65,13 +52,7 @@ class ShelfRepositoryImpl(
     private val shelfBookDao: ShelfBookDao,
     private val userDao: UserDao,
     private val shelfApi: ShelfApiContract,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
     private val transactionRunner: TransactionRunner,
-    private val createShelfHandler: CreateShelfHandler,
-    private val updateShelfHandler: UpdateShelfHandler,
-    private val deleteShelfHandler: DeleteShelfHandler,
-    private val addBooksToShelfHandler: AddBooksToShelfHandler,
-    private val removeBookFromShelfHandler: RemoveBookFromShelfHandler,
 ) : ShelfRepository {
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
         dao.observeMyShelves(userId).map { entities ->
@@ -172,19 +153,11 @@ class ShelfRepositoryImpl(
                 syncState = SyncState.NOT_SYNCED,
             )
 
-        val payload = CreateShelfPayload(localId = localId, name = name, description = description)
         transactionRunner.atomically {
             dao.upsert(entity)
-            pendingOperationRepository.queue(
-                type = OperationType.CREATE_SHELF,
-                entityType = EntityType.SHELF,
-                entityId = localId,
-                payload = payload,
-                handler = createShelfHandler,
-            )
         }
 
-        logger.info { "Shelf create queued: $localId" }
+        logger.info { "Shelf created locally: $localId" }
         return entity.toDomain()
     }
 
@@ -209,19 +182,11 @@ class ShelfRepositoryImpl(
                 syncState = SyncState.NOT_SYNCED,
             )
 
-        val payload = UpdateShelfPayload(shelfId = shelfId, name = name, description = description)
         transactionRunner.atomically {
             dao.upsert(updated)
-            pendingOperationRepository.queue(
-                type = OperationType.UPDATE_SHELF,
-                entityType = EntityType.SHELF,
-                entityId = shelfId,
-                payload = payload,
-                handler = updateShelfHandler,
-            )
         }
 
-        logger.info { "Shelf update queued: $shelfId" }
+        logger.info { "Shelf updated locally: $shelfId" }
         return updated.toDomain()
     }
 
@@ -232,18 +197,10 @@ class ShelfRepositoryImpl(
      */
     override suspend fun deleteShelf(shelfId: String) {
         logger.info { "Deleting shelf (offline-first): $shelfId" }
-        val payload = DeleteShelfPayload(shelfId = shelfId)
         transactionRunner.atomically {
             dao.deleteById(shelfId)
-            pendingOperationRepository.queue(
-                type = OperationType.DELETE_SHELF,
-                entityType = EntityType.SHELF,
-                entityId = shelfId,
-                payload = payload,
-                handler = deleteShelfHandler,
-            )
         }
-        logger.info { "Shelf delete queued: $shelfId" }
+        logger.info { "Shelf deleted locally: $shelfId" }
     }
 
     /**
@@ -266,18 +223,10 @@ class ShelfRepositoryImpl(
                 )
             }
 
-        val payload = AddBooksToShelfPayload(shelfId = shelfId, bookIds = bookIds)
         transactionRunner.atomically {
             shelfBookDao.upsertAll(crossRefs)
-            pendingOperationRepository.queue(
-                type = OperationType.ADD_BOOKS_TO_SHELF,
-                entityType = EntityType.SHELF,
-                entityId = shelfId,
-                payload = payload,
-                handler = addBooksToShelfHandler,
-            )
         }
-        logger.info { "AddBooksToShelf queued: $shelfId (${bookIds.size} books)" }
+        logger.info { "Books added to shelf locally: $shelfId (${bookIds.size} books)" }
     }
 
     /**
@@ -288,18 +237,10 @@ class ShelfRepositoryImpl(
         bookId: String,
     ) {
         logger.info { "Removing book $bookId from shelf $shelfId (offline-first)" }
-        val payload = RemoveBookFromShelfPayload(shelfId = shelfId, bookId = bookId)
         transactionRunner.atomically {
             shelfBookDao.deleteShelfBook(shelfId, bookId)
-            pendingOperationRepository.queue(
-                type = OperationType.REMOVE_BOOK_FROM_SHELF,
-                entityType = EntityType.SHELF,
-                entityId = shelfId,
-                payload = payload,
-                handler = removeBookFromShelfHandler,
-            )
         }
-        logger.info { "RemoveBookFromShelf queued: shelfId=$shelfId, bookId=$bookId" }
+        logger.info { "Book removed from shelf locally: shelfId=$shelfId, bookId=$bookId" }
     }
 }
 

@@ -5,20 +5,11 @@ import com.calypsan.listenup.client.core.IODispatcher
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.data.local.db.EntityType
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
-import com.calypsan.listenup.client.data.sync.push.ProfileAvatarHandler
-import com.calypsan.listenup.client.data.sync.push.ProfileAvatarPayload
-import com.calypsan.listenup.client.data.sync.push.ProfileUpdateHandler
-import com.calypsan.listenup.client.data.sync.push.ProfileUpdatePayload
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val NO_CURRENT_USER_MESSAGE = "No current user"
 private const val NO_CURRENT_USER_FOUND_MESSAGE = "No current user found"
@@ -33,15 +24,10 @@ private val logger = KotlinLogging.logger {}
  * 2. Queue operation for server sync via PendingOperationRepository
  * 3. Return success immediately
  *
- * The PushSyncOrchestrator will later:
- * - Send changes to server
- * - Handle conflicts if server version is newer
+ * Server propagation returns when the profile sync domain migrates to the renovated engine.
  */
 class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val profileUpdateHandler: ProfileUpdateHandler,
-    private val profileAvatarHandler: ProfileAvatarHandler,
     private val profileApi: ProfileApiContract,
 ) : ProfileEditRepository {
     /**
@@ -65,17 +51,7 @@ class ProfileEditRepositoryImpl(
                 updatedAt = currentEpochMilliseconds(),
             )
 
-            // Queue operation (coalesces with any pending tagline update)
-            val payload = ProfileUpdatePayload(tagline = tagline)
-            pendingOperationRepository.queue(
-                type = OperationType.PROFILE_UPDATE,
-                entityType = EntityType.USER,
-                entityId = user.id.value,
-                payload = payload,
-                handler = profileUpdateHandler,
-            )
-
-            logger.info { "Tagline update queued" }
+            logger.info { "Tagline updated locally" }
             Success(Unit)
         }
 
@@ -87,7 +63,6 @@ class ProfileEditRepositoryImpl(
      * The current avatar continues to display until sync completes and the
      * ProfileAvatarHandler updates UserEntity with the server response.
      */
-    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun uploadAvatar(
         imageData: ByteArray,
         contentType: String,
@@ -107,24 +82,7 @@ class ProfileEditRepositoryImpl(
             // 1. ProfileAvatarHandler successfully uploads the image
             // 2. Handler updates UserEntity with the server's response (including the new path)
 
-            // Encode image as Base64 for storage in pending operation
-            val imageDataBase64 = Base64.encode(imageData)
-
-            // Queue operation (replaces any pending avatar upload)
-            val payload =
-                ProfileAvatarPayload(
-                    imageDataBase64 = imageDataBase64,
-                    contentType = contentType,
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.PROFILE_AVATAR,
-                entityType = EntityType.USER,
-                entityId = user.id.value,
-                payload = payload,
-                handler = profileAvatarHandler,
-            )
-
-            logger.info { "Avatar upload queued" }
+            logger.info { "Avatar upload skipped until profile sync domain migrates" }
             Success(Unit)
         }
 
@@ -151,17 +109,7 @@ class ProfileEditRepositoryImpl(
                 updatedAt = currentEpochMilliseconds(),
             )
 
-            // Queue operation - use profile update with avatarType = AUTO_VALUE
-            val payload = ProfileUpdatePayload(avatarType = AUTO_VALUE)
-            pendingOperationRepository.queue(
-                type = OperationType.PROFILE_UPDATE,
-                entityType = EntityType.USER,
-                entityId = user.id.value,
-                payload = payload,
-                handler = profileUpdateHandler,
-            )
-
-            logger.info { "Revert to auto avatar queued" }
+            logger.info { "Reverted to auto avatar locally" }
             Success(Unit)
         }
 
@@ -194,21 +142,7 @@ class ProfileEditRepositoryImpl(
                 updatedAt = currentEpochMilliseconds(),
             )
 
-            // Queue operation (coalesces with any pending name update)
-            val payload =
-                ProfileUpdatePayload(
-                    firstName = firstName,
-                    lastName = lastName,
-                )
-            pendingOperationRepository.queue(
-                type = OperationType.PROFILE_UPDATE,
-                entityType = EntityType.USER,
-                entityId = user.id.value,
-                payload = payload,
-                handler = profileUpdateHandler,
-            )
-
-            logger.info { "Name update queued" }
+            logger.info { "Name updated locally" }
             Success(Unit)
         }
 

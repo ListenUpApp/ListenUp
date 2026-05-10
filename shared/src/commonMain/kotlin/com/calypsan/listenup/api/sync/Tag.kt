@@ -19,5 +19,5 @@ data class Tag(
     val name: String,
     val revision: Long,
     val updatedAt: Long,
-    val deletedAt: Long? = null,
-)
+    override val deletedAt: Long? = null,
+) : Tombstoned

@@ -8,12 +8,8 @@ import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
-import com.calypsan.listenup.client.data.local.db.OperationType
 import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.sync.push.ListeningEventHandler
-import com.calypsan.listenup.client.data.sync.push.ListeningEventPayload
-import com.calypsan.listenup.client.data.sync.push.PendingOperationRepositoryContract
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.util.NanoId
 import kotlinx.coroutines.flow.Flow
@@ -39,8 +35,6 @@ import kotlin.time.ExperimentalTime
  */
 class ListeningEventRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
-    private val pendingOperationRepository: PendingOperationRepositoryContract,
-    private val listeningEventHandler: ListeningEventHandler,
     private val transactionRunner: TransactionRunner,
     private val deviceId: String,
 ) : ListeningEventRepository {
@@ -71,27 +65,8 @@ class ListeningEventRepositoryImpl(
                     source = "playback",
                 )
 
-            val payload =
-                ListeningEventPayload(
-                    id = eventId,
-                    bookId = bookId.value,
-                    startPositionMs = startPositionMs,
-                    endPositionMs = endPositionMs,
-                    startedAt = startedAt,
-                    endedAt = endedAt,
-                    playbackSpeed = playbackSpeed,
-                    deviceId = deviceId,
-                )
-
             transactionRunner.atomically {
                 listeningEventDao.upsert(entity)
-                pendingOperationRepository.queue(
-                    type = OperationType.LISTENING_EVENT,
-                    entityType = null,
-                    entityId = null,
-                    payload = payload,
-                    handler = listeningEventHandler,
-                )
             }
         }
 
