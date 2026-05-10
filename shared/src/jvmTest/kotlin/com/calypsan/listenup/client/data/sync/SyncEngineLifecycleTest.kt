@@ -13,8 +13,12 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.seconds
 
 private const val FIRST_REVISION = 1L
 private const val SECOND_REVISION = 2L
@@ -207,6 +211,90 @@ class SyncEngineLifecycleTest :
                 sequence shouldContainExactly listOf("sse:t3:false")
                 store.highestCursor() shouldBe 3L
 
+                db.close()
+            }
+        }
+
+        test("stopAndJoin waits for in-flight frame dispatch before returning") {
+            runTest {
+                val dispatchStarted = CompletableDeferred<Unit>()
+                val dispatchFinished = CompletableDeferred<Unit>()
+                val registry = ClientSyncDomainRegistry()
+                registry.register(
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = "tags"
+                        override val payloadSerializer = Tag.serializer()
+
+                        override suspend fun onEvent(
+                            event: SyncEvent<Tag>,
+                            isOwnEcho: Boolean,
+                        ): AppResult<Unit> {
+                            dispatchStarted.complete(Unit)
+                            kotlinx.coroutines.awaitCancellation()
+                            dispatchFinished.complete(Unit)
+                            return AppResult.Success(Unit)
+                        }
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+                    },
+                )
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val state = SyncEngineState()
+                val fakeSse = FakeSse()
+                val engine =
+                    SyncEngine(
+                        registry = registry,
+                        queue = queue,
+                        state = state,
+                        store = store,
+                        catchUp = FakeCatchUp(emptyList(), store),
+                        sseClient = fakeSse,
+                        dispatcher =
+                            SyncEventDispatcher(
+                                registry = registry,
+                                queue = queue,
+                                state = state,
+                                cursorAdvance = { _, _ -> },
+                            ),
+                        scope = backgroundScope,
+                    )
+
+                engine.start(currentUserId = "u1")
+                fakeSse.awaitCollector()
+                val emitJob =
+                    backgroundScope.launch {
+                        fakeSse.emit(
+                            ParsedSseFrame(
+                                id = 1L,
+                                event = "tags",
+                                data =
+                                    contractJson.encodeToString(
+                                        SyncEvent.serializer(Tag.serializer()),
+                                        SyncEvent.Created(
+                                            id = "t1",
+                                            revision = 1L,
+                                            occurredAt = 100L,
+                                            clientOpId = null,
+                                            payload = Tag(id = "t1", name = "alpha", revision = 1L, updatedAt = 100L),
+                                        ),
+                                    ),
+                            ),
+                        )
+                    }
+                dispatchStarted.await()
+
+                withTimeout(1.seconds) { engine.stopAndJoin() }
+                dispatchFinished.isCompleted shouldBe false
+                emitJob.cancel()
                 db.close()
             }
         }

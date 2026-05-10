@@ -164,7 +164,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     queue = queue,
                 ).block()
             } finally {
-                engine.stop()
+                engine.stopAndJoin()
             }
         } finally {
             clientScope.cancel()

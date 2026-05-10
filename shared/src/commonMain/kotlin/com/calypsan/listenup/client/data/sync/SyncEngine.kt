@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -56,6 +57,14 @@ class SyncEngine(
     fun stop() {
         frameCollectorJob?.cancel()
         frameCollectorJob = null
+        sseClient.disconnect()
+    }
+
+    /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
+    suspend fun stopAndJoin() {
+        val collector = frameCollectorJob
+        frameCollectorJob = null
+        collector?.cancelAndJoin()
         sseClient.disconnect()
     }
 
