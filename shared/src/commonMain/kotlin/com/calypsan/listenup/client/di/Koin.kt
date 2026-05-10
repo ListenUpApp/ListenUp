@@ -1625,6 +1625,7 @@ val sharedModules =
         repositoryModule,
         useCaseModule,
         syncModule,
+        clientSyncRenovationModule,
         clientAuthModule,
         voiceModule,
     ) + allPresentationModules

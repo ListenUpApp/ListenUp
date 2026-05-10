@@ -108,9 +108,9 @@ class SyncCatchUpClientTest :
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClient = httpClient,
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
                         store = store,
-                        baseUrl = "http://test",
                     )
 
                 val result = catchUp.catchUp(handler)
@@ -144,9 +144,9 @@ class SyncCatchUpClientTest :
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClient = httpClient,
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
                         store = store,
-                        baseUrl = "http://test",
                     )
 
                 catchUp.catchUp(handler).shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -166,9 +166,9 @@ class SyncCatchUpClientTest :
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClient = httpClient,
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
                         store = SyncCursorStore(InMemorySyncCursorDao()),
-                        baseUrl = "http://test",
                     )
 
                 val result = catchUp.domains()
@@ -226,9 +226,9 @@ class SyncCatchUpClientTest :
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClient = httpClient,
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
                         store = SyncCursorStore(InMemorySyncCursorDao()),
-                        baseUrl = "http://test",
                     )
 
                 catchUp.catchUpAll(registry).shouldBeInstanceOf<AppResult.Success<Unit>>()

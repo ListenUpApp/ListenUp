@@ -122,9 +122,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             // testApplication routes relative URLs in-process — empty baseUrl is correct.
             val catchUp =
                 SyncCatchUpClient(
-                    httpClient = testClient,
+                    httpClientProvider = { testClient },
+                    serverUrlProvider = { "" },
                     store = store,
-                    baseUrl = "",
                 )
 
             val sseClient =

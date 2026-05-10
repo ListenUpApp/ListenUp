@@ -29,15 +29,21 @@ private const val PAGE_LIMIT = 500
  * Wire shape: `body<JsonElement>()` then manual decode via
  * [contractJson.decodeFromJsonElement] with the handler's payload serializer —
  * Ktor's reified `body<Page<T>>()` cannot carry the generic through type erasure.
+ *
+ * Constructor takes two suspend lambdas instead of concrete `HttpClient` /
+ * base URL so production wiring (D1) passes method references and tests pass
+ * any [HttpClient] + base URL — mirrors [SyncSseClient]'s shape.
  */
 class SyncCatchUpClient(
-    private val httpClient: HttpClient,
+    private val httpClientProvider: suspend () -> HttpClient,
+    private val serverUrlProvider: suspend () -> String?,
     private val store: SyncCursorStore,
-    private val baseUrl: String,
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
         suspendRunCatching {
+            val baseUrl = serverUrlProvider() ?: error("Server URL not configured")
+            val httpClient = httpClientProvider()
             var since = store.getCursor(handler.domainName) ?: 0L
             while (true) {
                 val element: JsonElement =
@@ -83,6 +89,8 @@ class SyncCatchUpClient(
     /** Server-side domain discovery via `GET /api/v1/sync/domains`. */
     override suspend fun domains(): AppResult<List<String>> =
         suspendRunCatching {
+            val baseUrl = serverUrlProvider() ?: error("Server URL not configured")
+            val httpClient = httpClientProvider()
             httpClient.get("$baseUrl/api/v1/sync/domains").body<DomainList>().domains
         }
 }
