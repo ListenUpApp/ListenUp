@@ -166,6 +166,16 @@ kotlin {
             // `:server` testApplication in-process. Test-classpath only — production
             // jvmMain has no server dep.
             implementation(project(":server"))
+            // Ktor server + Exposed are `implementation` deps of `:server`, so consuming
+            // server symbols from `:shared:jvmTest` requires them on the test classpath
+            // explicitly. Confined to jvmTest — production is unaffected.
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.test.host)
+            implementation(libs.ktor.server.content.negotiation)
+            implementation(libs.ktor.server.sse)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.exposed.jdbc)
+            implementation(libs.koin.ktor)
         }
 
         commonTest.dependencies {

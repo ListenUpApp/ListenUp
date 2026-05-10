@@ -3,9 +3,8 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.HttpClient
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
@@ -95,10 +94,15 @@ internal fun parseSseStream(lines: Sequence<String>): List<ParsedSseFrame> {
  *
  * Emits a hot [SharedFlow] of parsed frames; consumers (dispatcher) collect.
  * State changes go to [SyncEngineState] so UI ambient indicators can react.
+ *
+ * Constructor takes two suspend lambdas instead of concrete `ApiClientFactory`
+ * / `ServerConfig` so production wiring (D1) passes method references and
+ * tests (Tier 3 e2e) pass any [HttpClient] + base URL. Avoids dragging full
+ * auth wiring into the test fixture.
  */
 class SyncSseClient(
-    private val clientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
+    private val serverUrlProvider: suspend () -> String?,
+    private val streamingClientProvider: suspend () -> HttpClient,
     private val state: SyncEngineState,
     private val scope: CoroutineScope,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
@@ -168,9 +172,9 @@ class SyncSseClient(
 
     @Suppress("ReturnCount", "TooGenericExceptionCaught")
     private suspend fun runOnce(): ConnectAttempt {
-        val serverUrl = serverConfig.getServerUrl() ?: return ConnectAttempt.GracefulClose
+        val serverUrl = serverUrlProvider() ?: return ConnectAttempt.GracefulClose
         return try {
-            val httpClient = clientFactory.getStreamingClient()
+            val httpClient = streamingClientProvider()
             httpClient
                 .prepareGet("$serverUrl$SSE_ENDPOINT") {
                     lastEventId?.let { header(HttpHeaders.LastEventID, it.toString()) }
