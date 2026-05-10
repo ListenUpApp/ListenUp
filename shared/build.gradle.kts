@@ -162,6 +162,10 @@ kotlin {
             // G1: Konsist — architectural assertions on the contract boundary.
             // Rules scan the entire repo from a single test source set on JVM.
             implementation(libs.konsist)
+            // Tier 3 e2e fixture wires `:shared`'s client engine against the real
+            // `:server` testApplication in-process. Test-classpath only — production
+            // jvmMain has no server dep.
+            implementation(project(":server"))
         }
 
         commonTest.dependencies {
