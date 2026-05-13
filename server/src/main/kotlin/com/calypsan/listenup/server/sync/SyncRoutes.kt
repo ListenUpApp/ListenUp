@@ -15,7 +15,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -23,29 +22,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
-
-/**
- * Per-domain registry populated by [SyncableRepository] init blocks.
- * REST + digest + domain-list routes look up repositories by name here.
- *
- * This is the static-registry style used in the RPC Exception Guard's
- * `RpcGuard.dispatch()` — small startup wart, but explicit: every
- * repository announces itself.
- */
-internal object SyncRoutes {
-    private val registry = ConcurrentHashMap<String, SyncableRepository<*, *>>()
-
-    fun register(
-        domainName: String,
-        repository: SyncableRepository<*, *>,
-    ) {
-        registry[domainName] = repository
-    }
-
-    fun lookup(domainName: String): SyncableRepository<*, *>? = registry[domainName]
-
-    fun knownDomains(): List<String> = registry.keys.sorted()
-}
 
 private val log = KotlinLogging.logger("rpc.SyncFirehose")
 
@@ -62,6 +38,7 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
  */
 fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val bus by inject<ChangeBus>()
+    val registry by inject<SyncRegistry>()
 
     // SSE firehose — streams every domain's BusEvents in real time.
     // event: line carries the domain name; id: line carries the revision (for Last-Event-Id).
@@ -161,7 +138,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                 ?.coerceIn(1, 5000) ?: 500
 
         val repo =
-            SyncRoutes.lookup(domainName)
+            registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
         @Suppress("UNCHECKED_CAST")
@@ -181,7 +158,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             call.request.queryParameters["cursor"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "cursor must be a Long")
         val repo =
-            SyncRoutes.lookup(domainName)
+            registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
         @Suppress("UNCHECKED_CAST")
@@ -191,6 +168,6 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     }
 
     get("/api/v1/sync/domains") {
-        call.respond(DomainList(domains = SyncRoutes.knownDomains()))
+        call.respond(DomainList(domains = registry.knownDomains()))
     }
 }

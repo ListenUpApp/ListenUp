@@ -37,18 +37,20 @@ import org.jetbrains.exposed.v1.jdbc.update
  *
  * The base provides `upsert`, `softDelete`, `pullSince`, `digest` operating
  * on the global revision counter and publishing to [ChangeBus] on every write.
- * Self-registers with [SyncRoutes] in its `init` block — Koin must use
- * `createdAtStart = true` so registration happens at application bootstrap.
+ * Self-registers with the injected [SyncRegistry] in its `init` block — Koin
+ * must use `createdAtStart = true` so registration happens at application
+ * bootstrap.
  */
 abstract class SyncableRepository<T : Any, ID : Any>(
     protected val db: Database,
     protected val table: SyncableTable,
     protected val bus: ChangeBus,
+    registry: SyncRegistry,
     val domainName: String,
     protected val clock: Clock = Clock.System,
 ) {
     init {
-        SyncRoutes.register(domainName, this)
+        registry.register(this)
     }
 
     protected abstract fun ResultRow.toDto(): T

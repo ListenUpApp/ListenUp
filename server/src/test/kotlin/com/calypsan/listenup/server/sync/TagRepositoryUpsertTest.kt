@@ -28,6 +28,7 @@ class TagRepositoryUpsertTest :
                     TagRepository(
                         db = this,
                         bus = bus,
+                        registry = SyncRegistry(),
                         clock =
                             object : Clock {
                                 override fun now() = fixedTime
@@ -63,7 +64,7 @@ class TagRepositoryUpsertTest :
         test("upsert of an existing row publishes Updated") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val initial = Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0)
@@ -88,7 +89,7 @@ class TagRepositoryUpsertTest :
         test("upsert with null clientOpId publishes event with null clientOpId") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val deferredBusEvent = async { bus.subscribe().first() }
@@ -105,7 +106,7 @@ class TagRepositoryUpsertTest :
         test("revisions are strictly monotonic across writes") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val r1 = (repo.upsert(Tag("a", "n1", 0, 0)) as AppResult.Success).data.revision

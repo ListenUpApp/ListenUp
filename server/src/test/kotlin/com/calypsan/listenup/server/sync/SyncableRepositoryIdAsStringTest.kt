@@ -47,7 +47,7 @@ class SyncableRepositoryIdAsStringTest :
             withInMemoryDatabase {
                 val db = this
                 val bus = ChangeBus()
-                val repo = FixtureRepository(db, bus)
+                val repo = FixtureRepository(db, bus, SyncRegistry())
 
                 runTest {
                     suspendTransaction(db) { SchemaUtils.create(FixtureTestTable) }
@@ -134,7 +134,8 @@ internal object FixtureTestTable : SyncableTable("fixture_idAsString_test") {
 internal class FixtureRepository(
     db: Database,
     bus: ChangeBus,
-) : SyncableRepository<FixturePayload, FixtureId>(db, FixtureTestTable, bus, "fixtures") {
+    registry: SyncRegistry,
+) : SyncableRepository<FixturePayload, FixtureId>(db, FixtureTestTable, bus, registry, "fixtures") {
     override val elementSerializer: KSerializer<FixturePayload> = FixturePayload.serializer()
 
     override fun ResultRow.toDto(): FixturePayload =

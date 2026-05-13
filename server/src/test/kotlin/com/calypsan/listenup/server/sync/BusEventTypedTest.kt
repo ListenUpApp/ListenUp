@@ -24,7 +24,7 @@ class BusEventTypedTest :
         test("BusEvent.repo provides the serializer needed to encode the event payload") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
                     val deferredBusEvent = async { bus.subscribe().first() }

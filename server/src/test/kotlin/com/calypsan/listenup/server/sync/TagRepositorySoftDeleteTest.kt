@@ -23,7 +23,7 @@ class TagRepositorySoftDeleteTest :
             withInMemoryDatabase {
                 val db = this
                 val bus = ChangeBus()
-                val repo = TagRepository(db, bus)
+                val repo = TagRepository(db, bus, SyncRegistry())
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
                     // With replay=256, the subscriber sees the cached Created event first.
@@ -48,7 +48,7 @@ class TagRepositorySoftDeleteTest :
         test("softDelete of non-existent id returns SyncError.NotFound") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     val result = repo.softDelete("does-not-exist")
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -64,7 +64,7 @@ class TagRepositorySoftDeleteTest :
             withInMemoryDatabase {
                 val db = this
                 val bus = ChangeBus()
-                val repo = TagRepository(db, bus)
+                val repo = TagRepository(db, bus, SyncRegistry())
                 runTest {
                     repo.upsert(Tag("t1", "sci-fi", 0, 0))
                     repo.softDelete("t1")

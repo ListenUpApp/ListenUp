@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
@@ -50,7 +51,8 @@ internal fun withTestApplication(
         val db =
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val bus = ChangeBus()
-        val tagRepo = TagRepository(db, bus)
+        val registry = SyncRegistry()
+        val tagRepo = TagRepository(db, bus, registry)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -60,6 +62,7 @@ internal fun withTestApplication(
                     module {
                         single { db }
                         single { bus }
+                        single { registry }
                         single(createdAtStart = true) { tagRepo }
                     },
                 )

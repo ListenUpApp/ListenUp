@@ -14,7 +14,7 @@ private const val LIVE_TAIL_BUFFER = 256
  * using the repository's own serializer — no static-registry lookup required.
  *
  * The previous untyped shape (`BusEvent(domainName, event)`) relied on a
- * static [SyncRoutes] registry to look up the right serializer at consumption
+ * static registry to look up the right serializer at consumption
  * time. That coupling allowed a misrouted publish (wrong domain string, or
  * reflective misuse) to silently encode a payload through the wrong serializer,
  * producing malformed SSE frames and reconnect storms. The typed shape makes

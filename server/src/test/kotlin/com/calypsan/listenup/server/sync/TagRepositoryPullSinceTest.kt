@@ -14,7 +14,7 @@ class TagRepositoryPullSinceTest :
         test("pullSince(0) returns all rows ordered by revision asc") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.upsert(Tag("b", "beta", 0, 0))
@@ -31,7 +31,7 @@ class TagRepositoryPullSinceTest :
         test("pullSince filters by cursor strictly greater than") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0)) // revision 1
                     repo.upsert(Tag("b", "beta", 0, 0)) // revision 2
@@ -45,7 +45,7 @@ class TagRepositoryPullSinceTest :
         test("pullSince paginates with hasMore = true when limit reached") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     (1..5).forEach { repo.upsert(Tag(id = "id-$it", name = "n$it", revision = 0, updatedAt = 0)) }
                     val first = repo.pullSince(cursor = 0L, limit = 2)
@@ -67,7 +67,7 @@ class TagRepositoryPullSinceTest :
         test("pullSince includes soft-deleted rows with deletedAt populated") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.softDelete("a")
@@ -81,7 +81,7 @@ class TagRepositoryPullSinceTest :
         test("empty pullSince returns Page(items=[], cursor=null, hasMore=false)") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     val page = repo.pullSince(cursor = 0L, limit = 100)
                     page.items shouldHaveSize 0

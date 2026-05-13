@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
@@ -80,7 +81,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         val serverDb =
             DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val bus = ChangeBus()
-        val tagRepo = TagRepository(serverDb, bus)
+        val registry = SyncRegistry()
+        val tagRepo = TagRepository(serverDb, bus, registry)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -90,6 +92,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     module {
                         single { serverDb }
                         single { bus }
+                        single { registry }
                         single(createdAtStart = true) { tagRepo }
                     },
                 )
@@ -169,10 +172,10 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         } finally {
             clientScope.cancel()
             clientDb.close()
-            // Stop Koin so the next test starts fresh. (`SyncRoutes` is a
-            // process-global registry but each test's `TagRepository` init replaces
-            // the "tags" entry, so cross-test leakage is bounded to `tags` and
-            // harmless for this fixture.)
+            // Stop Koin so the next test starts fresh. Each test creates its own
+            // `SyncRegistry` instance (passed into the per-test `TagRepository`),
+            // so there's no process-wide state to clean up — `GlobalContext` is
+            // only stopped because Ktor's Koin plugin starts it eagerly.
             if (GlobalContext.getKoinApplicationOrNull() != null) {
                 GlobalContext.stopKoin()
             }

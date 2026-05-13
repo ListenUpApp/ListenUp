@@ -26,7 +26,7 @@ class ChangeBusTest :
         test("publish then subscribe receives the event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -41,7 +41,7 @@ class ChangeBusTest :
         test("multiple subscribers each receive every event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
                 runTest {
                     val sub1 = async { bus.subscribe().take(2).toList() }
                     val sub2 = async { bus.subscribe().take(2).toList() }
@@ -62,7 +62,7 @@ class ChangeBusTest :
         test("oldestRetainedRevision tracks the lowest in-buffer event") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
                 runTest {
                     bus.oldestRetainedRevision() shouldBe null
                     repo.upsert(Tag(id = "a", name = "x", revision = 0, updatedAt = 0))
@@ -75,7 +75,7 @@ class ChangeBusTest :
         test("BusEvent is type-bound to its source repository") {
             withInMemoryDatabase {
                 val bus = ChangeBus()
-                val repo = TagRepository(db = this, bus = bus)
+                val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
