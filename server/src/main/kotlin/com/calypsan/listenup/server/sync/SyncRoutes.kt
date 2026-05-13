@@ -25,6 +25,10 @@ import org.koin.ktor.ext.inject
 
 private val log = KotlinLogging.logger("rpc.SyncFirehose")
 
+// SSE `event:` line for out-of-band SyncControl frames (CursorStale, StreamError).
+// Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
+private const val SSE_EVENT_CONTROL = "control"
+
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
  *  - `GET /api/v1/sync/events` — SSE firehose with `Last-Event-Id` resume
@@ -45,7 +49,25 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     // Cursor-stale detection: if the client provides a Last-Event-Id newer than anything in
     // the bus's live-tail buffer, emit SyncControl.CursorStale and close.
     sse("/api/v1/sync/events") {
-        val lastEventId = call.request.headers["Last-Event-ID"]?.toLongOrNull()
+        // Malformed cursor (non-numeric) is treated identically to a stale cursor:
+        // a corrupted Room cell or client-side bug must force REST catch-up rather
+        // than silently subscribe to the live tail and diverge from server state.
+        val lastEventId: Long? =
+            call.request.headers["Last-Event-ID"]?.let { raw ->
+                raw.toLongOrNull() ?: run {
+                    send(
+                        data =
+                            contractJson.encodeToString(
+                                SyncControl.serializer(),
+                                SyncControl.CursorStale(
+                                    lastKnownRevision = bus.oldestRetainedRevision() ?: 0L,
+                                ),
+                            ),
+                        event = SSE_EVENT_CONTROL,
+                    )
+                    return@sse
+                }
+            }
         val oldestRetained = bus.oldestRetainedRevision()
 
         // Stale if client cursor is older than the bus's replay-buffer floor:
@@ -60,7 +82,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                         SyncControl.serializer(),
                         SyncControl.CursorStale(lastKnownRevision = oldestRetained),
                     ),
-                event = "control",
+                event = SSE_EVENT_CONTROL,
             )
             return@sse
         }
@@ -118,7 +140,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                                 ),
                         ),
                     ),
-                event = "control",
+                event = SSE_EVENT_CONTROL,
             )
         } finally {
             heartbeatJob.cancel()
