@@ -21,10 +21,12 @@ class SyncRegistry {
 
     fun register(repo: SyncableRepository<*, *>) {
         val existing = byDomain.putIfAbsent(repo.domainName, repo)
-        require(existing == null) {
-            "domainName '${repo.domainName}' already registered with " +
-                "${existing!!::class.simpleName}; registering ${repo::class.simpleName} " +
-                "would overwrite (per-Koin registry should be 1:1)"
+        if (existing != null) {
+            error(
+                "domainName '${repo.domainName}' already registered with " +
+                    "${existing::class.simpleName}; registering ${repo::class.simpleName} " +
+                    "would overwrite (per-Koin registry should be 1:1)",
+            )
         }
     }
 

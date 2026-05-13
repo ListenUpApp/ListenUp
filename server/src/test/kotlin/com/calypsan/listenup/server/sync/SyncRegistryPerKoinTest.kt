@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
@@ -74,6 +75,17 @@ class SyncRegistryPerKoinTest :
                     registry.knownDomains() shouldBe listOf("tags")
                 } finally {
                     koin.close()
+                }
+            }
+        }
+
+        test("registering two repositories with the same domainName throws IllegalStateException") {
+            withInMemoryDatabase {
+                val db = this
+                val registry = SyncRegistry()
+                TagRepository(db, ChangeBus(), registry) // first registration succeeds
+                shouldThrow<IllegalStateException> {
+                    TagRepository(db, ChangeBus(), registry) // duplicate domainName → throws
                 }
             }
         }
