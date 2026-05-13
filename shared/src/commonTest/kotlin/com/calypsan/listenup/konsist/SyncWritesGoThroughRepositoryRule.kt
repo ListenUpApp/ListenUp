@@ -15,9 +15,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * directory itself) for any of the Exposed write operators invoked on a token
  * that matches a `*Table` object known to extend `SyncableTable`.
  *
- * Detected write operators: `.upsert(`, `.update(`, `.insert(`, `.deleteWhere(`,
- * `.batchInsert(`, `.replace(`. Read-only operators (`.selectAll(`, `.select(`,
- * `.exists(`) are deliberately excluded.
+ * Detected write operators are listed in [WRITE_OPERATORS]. Read-only operators
+ * (`.selectAll(`, `.select(`, `.exists(`) are deliberately excluded.
  *
  * This is the load-bearing Konsist rule for the sync substrate — it structurally
  * guarantees that the bus sees every write rather than relying on discipline alone.
@@ -40,23 +39,13 @@ class SyncWritesGoThroughRepositoryRule :
             // empty codebase, but returns early rather than lying with an empty offender list).
             if (syncableTableNames.isEmpty()) return@test
 
-            val writeOperators =
-                listOf(
-                    ".upsert(",
-                    ".update(",
-                    ".insert(",
-                    ".deleteWhere(",
-                    ".batchInsert(",
-                    ".replace(",
-                )
-
             val offenders =
                 scope.files
                     .filter { it.path.contains("/server/") }
                     .filterNot { it.path.contains("/server/sync/") }
                     .flatMap { file ->
                         val stripped = stripComments(file.text)
-                        writeOperators.flatMap { op ->
+                        WRITE_OPERATORS.flatMap { op ->
                             syncableTableNames.mapNotNull { tableName ->
                                 if (stripped.contains("$tableName$op")) {
                                     "$tableName$op in ${file.path}"
@@ -69,7 +58,33 @@ class SyncWritesGoThroughRepositoryRule :
 
             offenders.shouldBeEmpty()
         }
-    })
+    }) {
+    companion object {
+        /**
+         * Every Exposed write operator that touches a `SyncableTable` outside the
+         * repository layer must appear here. Missing operators are silent-corruption
+         * risk — the rule will not catch a bypass that uses an operator absent from
+         * this set.
+         */
+        val WRITE_OPERATORS =
+            setOf(
+                ".upsert(",
+                ".update(",
+                ".insert(",
+                ".deleteWhere(",
+                ".batchInsert(",
+                ".replace(",
+                ".insertIgnore(",
+                ".deleteAll(",
+                ".deleteIgnoreWhere(",
+                ".batchReplace(",
+                ".upsertReturning(",
+                ".insertAndGetId(",
+                ".replaceFromQuery(",
+                ".updateReturning(",
+            )
+    }
+}
 
 private fun stripComments(source: String): String =
     source
