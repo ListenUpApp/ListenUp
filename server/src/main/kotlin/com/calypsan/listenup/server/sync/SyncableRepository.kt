@@ -114,7 +114,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            val idStr = value.id.toString()
+            val idStr = idAsString(value.id)
 
             val existed =
                 table
@@ -183,6 +183,22 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         }
 
     /**
+     * Serializes a domain id to its raw string representation for WHERE clauses,
+     * UPDATE statements, and [SyncEvent] entity ids. Defaults to `id.toString()`,
+     * which is correct for `String` ids (e.g., Tags).
+     *
+     * **MUST be overridden for `@JvmInline value class` ids.** Kotlin's default
+     * `toString()` on a value class returns `"WrapperName(value=foo)"`, which would
+     * corrupt every column the id is written to (primary key, WHERE clauses,
+     * `SyncEvent.id`). Override to return the raw underlying string — e.g.,
+     * `override fun idAsString(id: BookId) = id.value`.
+     *
+     * The Konsist rule `IdAsStringRequiredForValueClassIdsRule` enforces this
+     * override at build time.
+     */
+    protected open fun idAsString(id: ID): String = id.toString()
+
+    /**
      * Exposes the table's primary-key column for use in WHERE clauses.
      * Default assumes a `text("id")` column — the canonical syncable-table
      * convention. Domains using a non-`id` PK column override this.
@@ -208,8 +224,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
+            val idStr = idAsString(id)
             val rowsAffected =
-                table.update({ idColumn() eq id.toString() }) { stmt ->
+                table.update({ idColumn() eq idStr }) { stmt ->
                     stmt[table.revision] = rev
                     stmt[table.updatedAt] = now
                     stmt[table.deletedAt] = now
@@ -219,7 +236,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 AppResult.Failure(
                     SyncError.NotFound(
                         domain = domainName,
-                        entityId = id.toString(),
+                        entityId = idStr,
                     ),
                 )
             } else {
@@ -228,7 +245,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                         domainName = domainName,
                         event =
                             SyncEvent.Deleted(
-                                id = id.toString(),
+                                id = idStr,
                                 revision = rev,
                                 occurredAt = now,
                                 clientOpId = clientOpId,
