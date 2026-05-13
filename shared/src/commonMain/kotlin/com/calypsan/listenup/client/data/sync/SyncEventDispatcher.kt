@@ -20,7 +20,7 @@ class SyncEventDispatcher(
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
-    private val onCursorStale: suspend () -> Unit = {},
+    private val onCursorStale: suspend (lastKnown: Long?) -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -43,8 +43,10 @@ class SyncEventDispatcher(
             }
         when (control) {
             is SyncControl.CursorStale -> {
-                logger.info { "Cursor stale; falling back to REST catch-up" }
-                onCursorStale()
+                logger.info {
+                    "Cursor stale; signalling engine to orchestrate recovery (lastKnown=${control.lastKnownRevision})"
+                }
+                onCursorStale(control.lastKnownRevision)
             }
 
             is SyncControl.StreamError -> {

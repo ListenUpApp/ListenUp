@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.client.core.AppResult
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Lifecycle composer for the client sync engine.
@@ -58,6 +62,41 @@ class SyncEngine(
         frameCollectorJob?.cancel()
         frameCollectorJob = null
         sseClient.disconnect()
+    }
+
+    /**
+     * Recover from a server-issued `SyncControl.CursorStale`. The dispatcher
+     * invokes this when the SSE firehose announces that the client's
+     * `Last-Event-Id` precedes the bus's live-tail replay floor.
+     *
+     * The recovery sequence is intentionally explicit at this layer so the
+     * ordering is auditable in one place:
+     *  1. Disconnect SSE so the catch-up REST pass cannot interleave with
+     *     a live-tail frame whose revision the cursor store hasn't recorded yet.
+     *  2. Run catch-up across every registered domain. Each domain's catch-up
+     *     advances [store] as it drains; per-domain failures are logged but do
+     *     not abort the loop — one slow domain shouldn't strand the rest.
+     *  3. Reseed the SSE client's `lastEventId` from the new high-water cursor.
+     *     Without this, the reconnect would re-issue the request with the
+     *     stale `Last-Event-Id`, the server would emit `CursorStale` again,
+     *     and the loop would spin forever (the H1 bug).
+     *  4. Reconnect SSE. Live tail resumes from the new cursor.
+     */
+    internal suspend fun handleCursorStale(lastKnown: Long?) {
+        logger.info { "CursorStale received; lastKnown=$lastKnown — disconnect → catchUp → reseed → reconnect" }
+        sseClient.disconnect()
+        when (val result = catchUp.catchUpAll(registry)) {
+            is AppResult.Success -> {}
+
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Catch-up failed during CursorStale recovery: ${result.error.code}; continuing to reconnect"
+                }
+            }
+        }
+        val newCursor = store.highestCursor()
+        sseClient.reseed(newCursor)
+        sseClient.connect()
     }
 
     /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */

@@ -80,7 +80,12 @@ val clientSyncRenovationModule =
                 queue = get(),
                 state = get(),
                 cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
-                onCursorStale = { get<CatchUp>().catchUpAll(get()) },
+                // Route stale-cursor recovery through the engine so the full
+                // disconnect → catchUp → reseed → reconnect lifecycle stays in
+                // one place. Resolving SyncEngine lazily breaks the Koin
+                // construction cycle (engine depends on dispatcher; dispatcher
+                // only needs engine at runtime, not at construction).
+                onCursorStale = { lastKnown -> get<SyncEngine>().handleCursorStale(lastKnown) },
             )
         }
 

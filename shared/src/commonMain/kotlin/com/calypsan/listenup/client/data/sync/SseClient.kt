@@ -14,4 +14,19 @@ interface SseClient {
     fun connect()
 
     fun disconnect()
+
+    /**
+     * Current `Last-Event-Id` the SSE client will resume from on the next
+     * reconnect. Read-only; visibility lets [SyncEngine.handleCursorStale]
+     * observe the cursor and tests assert reconnect behavior.
+     */
+    fun currentLastEventId(): Long?
+
+    /**
+     * Drop any active connection and reseed `lastEventId` from [newLastEventId].
+     * Called by [SyncEngine.handleCursorStale] after a recovery catch-up to
+     * ensure the next [connect] resumes from the new authoritative cursor
+     * rather than looping forever with the pre-stale value.
+     */
+    suspend fun reseed(newLastEventId: Long?)
 }

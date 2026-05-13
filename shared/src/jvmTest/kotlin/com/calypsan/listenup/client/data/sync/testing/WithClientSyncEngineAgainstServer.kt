@@ -55,6 +55,7 @@ data class ClientEngineScope(
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
+    val sseClient: SyncSseClient,
 )
 
 /**
@@ -136,13 +137,21 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     scope = clientScope,
                 )
 
+            // Forward reference: dispatcher's onCursorStale callback needs to
+            // call engine.handleCursorStale, but the engine takes the dispatcher
+            // as a constructor dep. Production uses Koin's lazy `get<SyncEngine>()`
+            // for this; here a single-slot holder serves the same role.
+            var engineRef: SyncEngine? = null
             val dispatcher =
                 SyncEventDispatcher(
                     registry = registry,
                     queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-                    onCursorStale = { catchUp.catchUpAll(registry) },
+                    onCursorStale = { lastKnown ->
+                        checkNotNull(engineRef) { "SyncEngine not yet constructed" }
+                            .handleCursorStale(lastKnown)
+                    },
                 )
 
             val engine =
@@ -156,6 +165,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     dispatcher = dispatcher,
                     scope = clientScope,
                 )
+            engineRef = engine
 
             try {
                 ClientEngineScope(
@@ -165,6 +175,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     state = state,
                     dispatcher = dispatcher,
                     queue = queue,
+                    sseClient = sseClient,
                 ).block()
             } finally {
                 engine.stopAndJoin()
