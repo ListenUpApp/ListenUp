@@ -49,7 +49,7 @@ class TagRepositoryUpsertTest :
                     saved.updatedAt shouldBe 1_730_000_000_000L
 
                     val busEvent = deferredBusEvent.await()
-                    busEvent.domainName shouldBe "tags"
+                    busEvent.repo.domainName shouldBe "tags"
                     val event = busEvent.event
                     event.shouldBeInstanceOf<SyncEvent.Created<Tag>>()
                     event.id shouldBe "t1"
@@ -78,7 +78,7 @@ class TagRepositoryUpsertTest :
                     repo.upsert(updated, clientOpId = "op-2")
 
                     val busEvent = sub.await()
-                    busEvent.domainName shouldBe "tags"
+                    busEvent.repo.domainName shouldBe "tags"
                     busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<Tag>>()
                     busEvent.event.clientOpId shouldBe "op-2"
                 }

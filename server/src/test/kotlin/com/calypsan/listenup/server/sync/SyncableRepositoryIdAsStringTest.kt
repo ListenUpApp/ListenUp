@@ -79,7 +79,7 @@ class SyncableRepositoryIdAsStringTest :
 
                     // Assertion 3: emitted SyncEvent.Created carries the raw id "abc".
                     val busEvent = deferredCreated.await()
-                    busEvent.domainName shouldBe "fixtures"
+                    busEvent.repo.domainName shouldBe "fixtures"
                     val createdEvent = busEvent.event
                     createdEvent.shouldBeInstanceOf<SyncEvent.Created<FixturePayload>>()
                     createdEvent.id shouldBe "abc"

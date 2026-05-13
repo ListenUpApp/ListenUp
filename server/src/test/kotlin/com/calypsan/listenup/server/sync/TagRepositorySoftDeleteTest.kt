@@ -35,7 +35,7 @@ class TagRepositorySoftDeleteTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val busEvent = deferredBusEvent.await()
-                    busEvent.domainName shouldBe "tags"
+                    busEvent.repo.domainName shouldBe "tags"
                     val event = busEvent.event
                     event.shouldBeInstanceOf<SyncEvent.Deleted>()
                     event.id shouldBe "t1"

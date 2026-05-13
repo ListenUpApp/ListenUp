@@ -115,14 +115,12 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                 // processed in a previous session.
                 .filter { it.event.revision > (lastEventId ?: 0L) }
                 .collect { busEvent ->
-                    val repo = SyncRoutes.lookup(busEvent.domainName) ?: return@collect
-
-                    @Suppress("UNCHECKED_CAST")
-                    val typedRepo = repo as SyncableRepository<Any, Any>
+                    // Type-bound: repo and event match by construction, so the repo's
+                    // serializer is guaranteed to fit the event's payload type.
                     send(
                         id = busEvent.event.revision.toString(),
-                        event = busEvent.domainName,
-                        data = typedRepo.encodeSyncEventAsJson(busEvent.event),
+                        event = busEvent.repo.domainName,
+                        data = busEvent.repo.encodeSyncEventAsJson(busEvent.event),
                     )
                 }
         } catch (e: CancellationException) {

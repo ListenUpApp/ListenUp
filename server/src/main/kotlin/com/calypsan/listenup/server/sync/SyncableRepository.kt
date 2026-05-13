@@ -151,31 +151,27 @@ abstract class SyncableRepository<T : Any, ID : Any>(
 
             if (existed) {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Updated(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                                payload = saved,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        ),
                 )
             } else {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Created(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                                payload = saved,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Created(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        ),
                 )
             }
 
@@ -241,16 +237,14 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 )
             } else {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Deleted(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Deleted(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                        ),
                 )
                 AppResult.Success(Unit)
             }
