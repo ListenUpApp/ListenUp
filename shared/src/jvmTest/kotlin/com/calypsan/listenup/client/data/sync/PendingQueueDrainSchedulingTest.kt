@@ -138,6 +138,67 @@ class PendingQueueDrainSchedulingTest :
             }
         }
 
+        test("drain fires once per Connected transition, not per Connected re-emission with different lastEventId") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    // Wrap the DAO so we can count `nextDispatchable()` calls —
+                    // each call corresponds 1:1 with a `runDrain()` wave inside
+                    // the engine. Counting sends doesn't distinguish the bug
+                    // (re-emissions only walk an empty queue and produce zero
+                    // sends), so we count drain waves directly.
+                    val dispatchCalls = AtomicInteger(0)
+                    val dao = CountingDao(db.pendingOperationV2Dao(), dispatchCalls)
+                    val sender = PendingOperationSender { AppResult.Success(Unit) }
+                    val queue = PendingOperationQueue(dao = dao, sender = sender)
+                    val state = SyncEngineState()
+                    val sse = FakeSseClient(state)
+                    val engine = buildEngine(db, queue, state, sse, scope)
+
+                    engine.start(currentUserId = "u1")
+
+                    // Wait until the engine is observably Connected and the
+                    // first connection-up drain wave has executed. After this,
+                    // dispatchCalls == 1.
+                    withTimeout(TIMEOUT_SECONDS.seconds) {
+                        state.observe().first { it.connection is ConnectionState.Connected }
+                        while (dispatchCalls.get() < 1) {
+                            delay(POLL_DELAY_MILLIS)
+                        }
+                    }
+                    val baseline = dispatchCalls.get()
+
+                    // Emit two more `Connected(lastEventId=X)` snapshots with
+                    // different lastEventId values — simulating SSE frame arrivals
+                    // that bump the cursor. Data-class equality treats these as
+                    // distinct from the previous `Connected`, so a naive
+                    // distinctUntilChanged on the raw connection lets them
+                    // through and the engine schedules a drain per frame —
+                    // a DB query per SSE frame on a busy firehose.
+                    state.setConnection(ConnectionState.Connected(lastEventId = 1L))
+                    state.setConnection(ConnectionState.Connected(lastEventId = 2L))
+
+                    // Give the engine plenty of time to (incorrectly) re-fire drain.
+                    delay(POLL_DELAY_MILLIS * 10)
+
+                    // The two re-emissions must NOT trigger additional drain
+                    // waves: the trigger fires once per transition into
+                    // Connected, not per Connected snapshot.
+                    dispatchCalls.get() shouldBe baseline
+                } finally {
+                    // Order matters: cancel-and-join the scope BEFORE closing
+                    // the DB. Closing the DB while a runDrain is mid-transaction
+                    // crashes the native SQLite driver (SIGSEGV inside
+                    // sqlite3Close).
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
+
         test("drain is rescheduled after retry backoff when a send fails retryably") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -251,6 +312,37 @@ private object NoopTagHandler : SyncDomainHandler<Tag> {
         item: Tag,
         isTombstone: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
+}
+
+/**
+ * DAO decorator that counts calls to [nextDispatchable] so a test can assert
+ * how many drain waves the engine fired — each `runDrain()` invocation calls
+ * `nextDispatchable()` exactly once.
+ */
+private class CountingDao(
+    private val delegate: com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao,
+    private val dispatchCalls: AtomicInteger,
+) : com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao {
+    override suspend fun insert(op: com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity) = delegate.insert(op)
+
+    override suspend fun get(clientOpId: String) = delegate.get(clientOpId)
+
+    override suspend fun delete(clientOpId: String) = delegate.delete(clientOpId)
+
+    override suspend fun update(op: com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity) = delegate.update(op)
+
+    override suspend fun nextDispatchable(maxAttempts: Int): List<com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity> {
+        dispatchCalls.incrementAndGet()
+        return delegate.nextDispatchable(maxAttempts)
+    }
+
+    override fun observeQueueDepth() = delegate.observeQueueDepth()
+
+    override fun observeFailureCount(maxAttempts: Int) = delegate.observeFailureCount(maxAttempts)
+
+    override suspend fun deleteAllExcept(keepUserId: String) = delegate.deleteAllExcept(keepUserId)
+
+    override suspend fun deleteAll() = delegate.deleteAll()
 }
 
 /**

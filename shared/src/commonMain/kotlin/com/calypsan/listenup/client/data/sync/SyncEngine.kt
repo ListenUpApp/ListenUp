@@ -185,13 +185,17 @@ class SyncEngine(
                     state
                         .observe()
                         .onSubscription { ready.complete(Unit) }
-                        .map { it.connection }
+                        // Collapse to a Boolean transition before distinctUntilChanged.
+                        // Each parsed SSE frame produces a fresh `Connected(lastEventId=X)`
+                        // value; data-class equality treats `Connected(1)` and
+                        // `Connected(2)` as distinct, so `distinctUntilChanged` on the
+                        // raw connection would let every frame through and schedule a
+                        // drain per frame — a DB walk per SSE event. We only want to
+                        // fire on the Disconnected/Connecting → Connected edge.
+                        .map { it.connection is ConnectionState.Connected }
                         .distinctUntilChanged()
-                        .collect { connection ->
-                            if (connection is ConnectionState.Connected) {
-                                runDrain()
-                            }
-                        }
+                        .filter { it }
+                        .collect { runDrain() }
                 }
             ready.await()
         }
