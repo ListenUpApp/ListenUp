@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -52,6 +53,8 @@ class SyncEngine(
     private var frameCollectorJob: Job? = null
     private var connectionUpDrainJob: Job? = null
     private var enqueueDrainJob: Job? = null
+    private var queueDepthJob: Job? = null
+    private var failureCountJob: Job? = null
 
     // Serializes drain waves so concurrent triggers (connection-up + enqueue +
     // retry) coalesce into one wave at a time. drain() reads from the DAO and
@@ -80,7 +83,12 @@ class SyncEngine(
         // replayed value at subscribe time gets dropped, and there's nothing
         // after it).
         ensureDrainScheduling()
-        // Step 6: connect SSE.
+        // Step 6: forward queue-depth and failure-count observers into
+        // SyncEngineState so the diagnostics surface reflects reality. Without
+        // this wire-up `pendingQueueDepth` / `pendingFailureCount` stay stuck
+        // at 0 forever even though the queue is doing work.
+        ensureStateObservers()
+        // Step 7: connect SSE.
         sseClient.connect()
     }
 
@@ -91,6 +99,10 @@ class SyncEngine(
         connectionUpDrainJob = null
         enqueueDrainJob?.cancel()
         enqueueDrainJob = null
+        queueDepthJob?.cancel()
+        queueDepthJob = null
+        failureCountJob?.cancel()
+        failureCountJob = null
         sseClient.disconnect()
     }
 
@@ -134,12 +146,18 @@ class SyncEngine(
         val collector = frameCollectorJob
         val connectionUp = connectionUpDrainJob
         val enqueue = enqueueDrainJob
+        val depth = queueDepthJob
+        val failure = failureCountJob
         frameCollectorJob = null
         connectionUpDrainJob = null
         enqueueDrainJob = null
+        queueDepthJob = null
+        failureCountJob = null
         collector?.cancelAndJoin()
         connectionUp?.cancelAndJoin()
         enqueue?.cancelAndJoin()
+        depth?.cancelAndJoin()
+        failure?.cancelAndJoin()
         sseClient.disconnect()
     }
 
@@ -209,6 +227,44 @@ class SyncEngine(
                         .drop(1) // ignore the StateFlow's replayed current value
                         .filter { state.value.connection is ConnectionState.Connected }
                         .collect { runDrain() }
+                }
+            ready.await()
+        }
+    }
+
+    /**
+     * Forward the queue's depth and failure-count flows into [SyncEngineState]
+     * so the diagnostics surface (Renovation §2.10) reflects reality. Without
+     * this wire-up, [SyncEngineState.setQueueDepth] and
+     * [SyncEngineState.setFailureCount] are dead writers — nothing invokes
+     * them, and the snapshot fields stay at 0 forever.
+     *
+     * Suspends until both collectors have begun collecting via [onStart] so
+     * callers observing state immediately after `start()` returns see the
+     * live values, not the initial zeros. Room's `Flow<Int>` is a cold flow,
+     * so `onStart` (not `onSubscription`, which is StateFlow/SharedFlow-only)
+     * is the right hook to signal "we're collecting now."
+     */
+    private suspend fun ensureStateObservers() {
+        if (queueDepthJob?.isActive != true) {
+            val ready = CompletableDeferred<Unit>()
+            queueDepthJob =
+                scope.launch {
+                    queue
+                        .observeQueueDepth()
+                        .onStart { ready.complete(Unit) }
+                        .collect { depth -> state.setQueueDepth(depth) }
+                }
+            ready.await()
+        }
+        if (failureCountJob?.isActive != true) {
+            val ready = CompletableDeferred<Unit>()
+            failureCountJob =
+                scope.launch {
+                    queue
+                        .observeFailureCount()
+                        .onStart { ready.complete(Unit) }
+                        .collect { count -> state.setFailureCount(count) }
                 }
             ready.await()
         }
