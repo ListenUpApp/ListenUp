@@ -51,8 +51,11 @@ private val logger = KotlinLogging.logger {}
  * All command-side operations route through [PlaybackController].
  *
  * Lifecycle: Bound as a Koin `single` (per W7 Phase E2.2.2) — survives recomposition
- * and lives for the process lifetime. `onCleared` will never fire and acquire/release
- * is unneeded; PlaybackController is itself a `single` with matching lifecycle.
+ * and lives for the process lifetime. `init { playbackController.acquire() }` establishes
+ * the MediaController connection on first resolution and holds it for the process;
+ * `onCleared` never fires, so a matching `release()` would be dead code. The
+ * PlaybackController object's Koin singleton lifetime does **not** establish the
+ * connection — only `acquire()` does.
  */
 class NowPlayingViewModel(
     private val playbackManager: PlaybackManager,
@@ -65,6 +68,10 @@ class NowPlayingViewModel(
     private companion object {
         const val FADE_DURATION_MS = 3000L
         const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+    }
+
+    init {
+        playbackController.acquire()
     }
 
     private val overlayFlow = MutableStateFlow<NowPlayingOverlay>(NowPlayingOverlay.None)

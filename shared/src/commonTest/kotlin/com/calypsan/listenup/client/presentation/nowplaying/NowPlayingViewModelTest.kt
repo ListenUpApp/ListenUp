@@ -76,6 +76,10 @@ class NowPlayingViewModelTest {
             // Default: bookRepository.getBookListItem returns null (no metadata).
             // bookFlow tolerates null; pure mapToNowPlayingState handles it.
             everySuspend { bookRepository.getBookListItem(any()) } returns null
+            // NowPlayingViewModel's init block calls playbackController.acquire() to
+            // establish the MediaController connection. Mokkery is strict by default
+            // and would raise CallNotMockedException without this stub.
+            every { playbackController.acquire() } returns Unit
         }
 
         fun newVm(): NowPlayingViewModel =
