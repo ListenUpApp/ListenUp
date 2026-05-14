@@ -63,11 +63,63 @@ class SyncEngine(
     // queue's SQL filter responsibility.
     private val drainMutex = Mutex()
 
+    // Serializes the start/stop handshake so concurrent re-entries (e.g.
+    // MainActivity.onResume firing twice in quick succession → two
+    // syncRepository.connectRealtime() → two engine.start()) can't race two
+    // catch-up loops or two SSE connect()s. The mutex protects only the
+    // bookkeeping (currentUser + engineJob assignment); the engineJob itself
+    // runs the long-lived startup body outside the mutex so a different-user
+    // start can cancel an in-flight startup without holding the lock across
+    // catch-up.
+    private val startMutex = Mutex()
+    private var currentUser: String? = null
+    private var engineJob: Job? = null
+
     /**
-     * Start the engine for [currentUserId]. Re-calling re-runs catch-up;
-     * proper idempotency arrives in D1 when frame collection is wired in.
+     * Start the engine for [currentUserId]. Idempotent under re-entry:
+     *
+     *  - Concurrent or sequential calls for the *same* user share a single
+     *    startup; the second caller observes "already starting/started" and
+     *    returns without re-running catch-up or re-connecting SSE.
+     *  - A call for a *different* user cancels the prior engine job (which
+     *    propagates cancellation into in-flight catch-up + frame collector +
+     *    drain schedulers) and rebuilds fresh for the new user.
+     *
+     * The caller is still suspended until the launched startup completes (or
+     * is cancelled) — the existing contract that `start()` returns *after*
+     * catch-up has run and SSE is connected is preserved. External
+     * cancellability comes from the engine job being a child of [scope].
      */
     suspend fun start(currentUserId: String) {
+        val job =
+            startMutex.withLock {
+                if (currentUser == currentUserId) {
+                    // Same user — either fully started or startup is in flight.
+                    // Either way: nothing for this caller to do.
+                    logger.debug { "start($currentUserId) — already active for this user; no-op" }
+                    return
+                }
+                // Different user (or first start): cancel any prior engine
+                // job so its in-flight catch-up / SSE work tears down before
+                // we claim ownership for the new user.
+                engineJob?.cancelAndJoin()
+                currentUser = currentUserId
+                scope.launch { runStart(currentUserId) }.also { engineJob = it }
+            }
+        // Wait for the launched startup to complete (or be cancelled by a
+        // subsequent different-user start). `join()` returns normally on
+        // cancellation, so the caller never observes a `CancellationException`
+        // from a different-user pre-emption — that's the new user's concern.
+        job.join()
+    }
+
+    /**
+     * The actual startup sequence, run inside the engine job so it's
+     * cancellable as a unit. Order matters and is documented in the class
+     * KDoc: queue ownership → catch-up → seed SSE cursor → collectors →
+     * drain scheduling → state observers → SSE connect.
+     */
+    private suspend fun runStart(currentUserId: String) {
         // Step 1: queue ownership.
         queue.clearForUserChange(currentUserId)
         // Step 2: catch-up across all registered domains.
@@ -93,6 +145,14 @@ class SyncEngine(
     }
 
     fun stop() {
+        // stop() is non-suspend so it can't take the startMutex — that's
+        // fine: cancellation is safe to race with a concurrent start(). The
+        // canceled engineJob will tear down its launched collectors; clearing
+        // currentUser means a subsequent start() for the same user will
+        // rebuild rather than no-op.
+        engineJob?.cancel()
+        engineJob = null
+        currentUser = null
         frameCollectorJob?.cancel()
         frameCollectorJob = null
         connectionUpDrainJob?.cancel()
@@ -143,22 +203,28 @@ class SyncEngine(
 
     /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
     suspend fun stopAndJoin() {
-        val collector = frameCollectorJob
-        val connectionUp = connectionUpDrainJob
-        val enqueue = enqueueDrainJob
-        val depth = queueDepthJob
-        val failure = failureCountJob
-        frameCollectorJob = null
-        connectionUpDrainJob = null
-        enqueueDrainJob = null
-        queueDepthJob = null
-        failureCountJob = null
-        collector?.cancelAndJoin()
-        connectionUp?.cancelAndJoin()
-        enqueue?.cancelAndJoin()
-        depth?.cancelAndJoin()
-        failure?.cancelAndJoin()
-        sseClient.disconnect()
+        startMutex.withLock {
+            val engine = engineJob
+            val collector = frameCollectorJob
+            val connectionUp = connectionUpDrainJob
+            val enqueue = enqueueDrainJob
+            val depth = queueDepthJob
+            val failure = failureCountJob
+            engineJob = null
+            currentUser = null
+            frameCollectorJob = null
+            connectionUpDrainJob = null
+            enqueueDrainJob = null
+            queueDepthJob = null
+            failureCountJob = null
+            engine?.cancelAndJoin()
+            collector?.cancelAndJoin()
+            connectionUp?.cancelAndJoin()
+            enqueue?.cancelAndJoin()
+            depth?.cancelAndJoin()
+            failure?.cancelAndJoin()
+            sseClient.disconnect()
+        }
     }
 
     private fun ensureFrameCollector() {
