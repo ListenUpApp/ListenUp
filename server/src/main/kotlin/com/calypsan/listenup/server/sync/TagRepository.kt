@@ -4,9 +4,11 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.db.TagTable
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Validation-domain repository. Tags has no public write API in this phase;
@@ -20,21 +22,50 @@ class TagRepository(
 ) : SyncableRepository<Tag, String>(db, TagTable, bus, registry, "tags", clock) {
     override val elementSerializer: KSerializer<Tag> = Tag.serializer()
 
-    override fun ResultRow.toDto(): Tag =
-        Tag(
-            id = this[TagTable.id],
-            name = this[TagTable.name],
-            revision = this[TagTable.revision],
-            updatedAt = this[TagTable.updatedAt],
-            deletedAt = this[TagTable.deletedAt],
-        )
-
-    override fun Tag.writeTo(stmt: UpdateBuilder<*>) {
-        stmt[TagTable.id] = id
-        stmt[TagTable.name] = name
-    }
-
     override val Tag.id: String get() = this.id
 
     override fun Tag.revisionOf(): Long = revision
+
+    override suspend fun readPayload(idStr: String): Tag? =
+        TagTable
+            .selectAll()
+            .where { TagTable.id eq idStr }
+            .firstOrNull()
+            ?.let { row ->
+                Tag(
+                    id = row[TagTable.id],
+                    name = row[TagTable.name],
+                    revision = row[TagTable.revision],
+                    updatedAt = row[TagTable.updatedAt],
+                    deletedAt = row[TagTable.deletedAt],
+                )
+            }
+
+    override suspend fun writePayload(
+        value: Tag,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        existed: Boolean,
+    ) {
+        if (existed) {
+            TagTable.update({ TagTable.id eq value.id }) { stmt ->
+                stmt[TagTable.name] = value.name
+                stmt[TagTable.revision] = rev
+                stmt[TagTable.updatedAt] = now
+                stmt[TagTable.deletedAt] = null
+                stmt[TagTable.clientOpId] = clientOpId
+            }
+        } else {
+            TagTable.insert { stmt ->
+                stmt[TagTable.id] = value.id
+                stmt[TagTable.name] = value.name
+                stmt[TagTable.revision] = rev
+                stmt[TagTable.createdAt] = now
+                stmt[TagTable.updatedAt] = now
+                stmt[TagTable.deletedAt] = null
+                stmt[TagTable.clientOpId] = clientOpId
+            }
+        }
+    }
 }
