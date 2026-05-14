@@ -128,7 +128,9 @@ class SyncEngineStartIdempotencyTest :
                 // via the JVM's default handler. The test only cares about the
                 // retry behavior; the exception itself is intentional.
                 val swallow =
-                    CoroutineExceptionHandler { _, _ -> /* expected — simulated failure */ }
+                    CoroutineExceptionHandler { _, _ ->
+                        // expected — simulated failure
+                    }
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + swallow)
                 val db = createInMemoryTestDatabase()
                 try {
