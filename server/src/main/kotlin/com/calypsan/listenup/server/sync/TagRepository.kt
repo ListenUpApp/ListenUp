@@ -15,8 +15,9 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class TagRepository(
     db: Database,
     bus: ChangeBus,
+    registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SyncableRepository<Tag, String>(db, TagTable, bus, "tags", clock) {
+) : SyncableRepository<Tag, String>(db, TagTable, bus, registry, "tags", clock) {
     override val elementSerializer: KSerializer<Tag> = Tag.serializer()
 
     override fun ResultRow.toDto(): Tag =

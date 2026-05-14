@@ -8,10 +8,35 @@ import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
 internal const val MAX_RETRYABLE_ATTEMPTS = 5
+
+/**
+ * What a single [PendingOperationQueue.drain] wave produced. The engine reads
+ * [retryableFailures] to decide whether to reschedule another drain on a
+ * backoff timer — `drain()` is one-wave-only and never loops internally, so
+ * recurring retry is the engine's responsibility.
+ *
+ * @property sent count of ops successfully ack'd by the server in this wave
+ * @property retryableFailures count of ops that failed retryably (still in queue,
+ *   `failureCount` incremented, will be picked up by a future drain)
+ * @property terminalFailures count of ops that failed non-retryably (flagged
+ *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
+ */
+data class DrainOutcome(
+    val sent: Int,
+    val retryableFailures: Int,
+    val terminalFailures: Int,
+) {
+    /** True when this wave produced at least one retryable failure that the engine should reschedule. */
+    val hasRetryableFailures: Boolean get() = retryableFailures > 0
+}
 
 /**
  * Per-entity FIFO queue of local-first writes awaiting server replay.
@@ -28,8 +53,10 @@ internal const val MAX_RETRYABLE_ATTEMPTS = 5
  *   it leaps past [MAX_RETRYABLE_ATTEMPTS] so it never retries.
  *
  * Drain is invoked by the engine on a coroutine — *not* a self-running loop.
- * The engine schedules drain on enqueue, on connection-up, and on retry
- * backoff timers.
+ * The engine schedules drain on three signals: [observeEnqueueSignal] (a new
+ * op landed), connection state transitioning to [ConnectionState.Connected],
+ * and a backoff timer it owns after a drain wave reports retryable failures
+ * via [DrainOutcome].
  */
 @OptIn(ExperimentalUuidApi::class)
 class PendingOperationQueue(
@@ -37,6 +64,24 @@ class PendingOperationQueue(
     private val sender: PendingOperationSender,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
+    // The engine subscribes to this counter to schedule a drain whenever a new
+    // op lands. A monotonic-counter StateFlow rather than a unit SharedFlow
+    // because StateFlow's "new subscriber sees current value" semantics avoid
+    // the subscriber-race window that loses signals on a fresh subscription —
+    // the engine drops the initial value and reacts only to subsequent
+    // increments, which the engine treats as "an op was enqueued since you
+    // started listening."
+    private val enqueueCounter = MutableStateFlow(0L)
+
+    /**
+     * Monotonically increasing counter that ticks each time an op is enqueued.
+     * The engine collects increments to schedule a drain so local-first writes
+     * propagate without waiting for the next connection event. The initial
+     * value is unspecified; collectors should react to *changes* from whatever
+     * they observe on first attach.
+     */
+    fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
+
     /** Enqueue a new op. Returns its generated `clientOpId`. */
     suspend fun enqueue(
         domainName: String,
@@ -60,6 +105,7 @@ class PendingOperationQueue(
                 ownerUserId = ownerUserId,
             ),
         )
+        enqueueCounter.update { it + 1 }
         return opId
     }
 
@@ -90,16 +136,21 @@ class PendingOperationQueue(
      * concurrent drain() calls do not contend on the same entity.
      *
      * One call = one wave. Caller schedules subsequent waves; drain() does not
-     * loop.
+     * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
+     * backoff is warranted.
      */
-    suspend fun drain() {
+    suspend fun drain(): DrainOutcome {
         val ops = dao.nextDispatchable()
+        var sent = 0
+        var retryableFailures = 0
+        var terminalFailures = 0
         for (entity in ops) {
             val op = entity.toDomain()
             val result = sender.send(op)
             when (result) {
                 is AppResult.Success -> {
                     dao.delete(op.clientOpId)
+                    sent++
                 }
 
                 is AppResult.Failure -> {
@@ -118,6 +169,7 @@ class PendingOperationQueue(
                             lastError = result.error.code,
                         ),
                     )
+                    if (retryable) retryableFailures++ else terminalFailures++
                     logger.warn {
                         "Pending op ${op.clientOpId} failed: ${result.error.code} " +
                             "(retryable=$retryable, count=$newCount)"
@@ -125,6 +177,11 @@ class PendingOperationQueue(
                 }
             }
         }
+        return DrainOutcome(
+            sent = sent,
+            retryableFailures = retryableFailures,
+            terminalFailures = terminalFailures,
+        )
     }
 
     /** Live count of all queued ops. Engine forwards this to `SyncEngineState`. */

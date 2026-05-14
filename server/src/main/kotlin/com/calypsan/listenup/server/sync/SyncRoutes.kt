@@ -15,7 +15,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -24,30 +23,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 
-/**
- * Per-domain registry populated by [SyncableRepository] init blocks.
- * REST + digest + domain-list routes look up repositories by name here.
- *
- * This is the static-registry style used in the RPC Exception Guard's
- * `RpcGuard.dispatch()` — small startup wart, but explicit: every
- * repository announces itself.
- */
-internal object SyncRoutes {
-    private val registry = ConcurrentHashMap<String, SyncableRepository<*, *>>()
-
-    fun register(
-        domainName: String,
-        repository: SyncableRepository<*, *>,
-    ) {
-        registry[domainName] = repository
-    }
-
-    fun lookup(domainName: String): SyncableRepository<*, *>? = registry[domainName]
-
-    fun knownDomains(): List<String> = registry.keys.sorted()
-}
-
 private val log = KotlinLogging.logger("rpc.SyncFirehose")
+
+// SSE `event:` line for out-of-band SyncControl frames (CursorStale, StreamError).
+// Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
+private const val SSE_EVENT_CONTROL = "control"
 
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
@@ -62,13 +42,32 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
  */
 fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val bus by inject<ChangeBus>()
+    val registry by inject<SyncRegistry>()
 
     // SSE firehose — streams every domain's BusEvents in real time.
     // event: line carries the domain name; id: line carries the revision (for Last-Event-Id).
     // Cursor-stale detection: if the client provides a Last-Event-Id newer than anything in
     // the bus's live-tail buffer, emit SyncControl.CursorStale and close.
     sse("/api/v1/sync/events") {
-        val lastEventId = call.request.headers["Last-Event-ID"]?.toLongOrNull()
+        // Malformed cursor (non-numeric) is treated identically to a stale cursor:
+        // a corrupted Room cell or client-side bug must force REST catch-up rather
+        // than silently subscribe to the live tail and diverge from server state.
+        val lastEventId: Long? =
+            call.request.headers["Last-Event-ID"]?.let { raw ->
+                raw.toLongOrNull() ?: run {
+                    send(
+                        data =
+                            contractJson.encodeToString(
+                                SyncControl.serializer(),
+                                SyncControl.CursorStale(
+                                    lastKnownRevision = bus.oldestRetainedRevision() ?: 0L,
+                                ),
+                            ),
+                        event = SSE_EVENT_CONTROL,
+                    )
+                    return@sse
+                }
+            }
         val oldestRetained = bus.oldestRetainedRevision()
 
         // Stale if client cursor is older than the bus's replay-buffer floor:
@@ -83,7 +82,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                         SyncControl.serializer(),
                         SyncControl.CursorStale(lastKnownRevision = oldestRetained),
                     ),
-                event = "control",
+                event = SSE_EVENT_CONTROL,
             )
             return@sse
         }
@@ -115,14 +114,12 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                 // processed in a previous session.
                 .filter { it.event.revision > (lastEventId ?: 0L) }
                 .collect { busEvent ->
-                    val repo = SyncRoutes.lookup(busEvent.domainName) ?: return@collect
-
-                    @Suppress("UNCHECKED_CAST")
-                    val typedRepo = repo as SyncableRepository<Any, Any>
+                    // Type-bound: repo and event match by construction, so the repo's
+                    // serializer is guaranteed to fit the event's payload type.
                     send(
                         id = busEvent.event.revision.toString(),
-                        event = busEvent.domainName,
-                        data = typedRepo.encodeSyncEventAsJson(busEvent.event),
+                        event = busEvent.repo.domainName,
+                        data = busEvent.repo.encodeSyncEventAsJson(busEvent.event),
                     )
                 }
         } catch (e: CancellationException) {
@@ -143,7 +140,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                                 ),
                         ),
                     ),
-                event = "control",
+                event = SSE_EVENT_CONTROL,
             )
         } finally {
             heartbeatJob.cancel()
@@ -163,7 +160,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                 ?.coerceIn(1, 5000) ?: 500
 
         val repo =
-            SyncRoutes.lookup(domainName)
+            registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
         @Suppress("UNCHECKED_CAST")
@@ -183,7 +180,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             call.request.queryParameters["cursor"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "cursor must be a Long")
         val repo =
-            SyncRoutes.lookup(domainName)
+            registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
         @Suppress("UNCHECKED_CAST")
@@ -193,6 +190,6 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     }
 
     get("/api/v1/sync/domains") {
-        call.respond(DomainList(domains = SyncRoutes.knownDomains()))
+        call.respond(DomainList(domains = registry.knownDomains()))
     }
 }

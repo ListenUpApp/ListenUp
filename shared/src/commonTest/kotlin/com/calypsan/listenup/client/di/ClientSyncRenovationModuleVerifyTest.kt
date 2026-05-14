@@ -20,9 +20,11 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `dataModule` (segregated interface bound to
  *    SettingsRepositoryImpl). SSE + catch-up clients use it for current-URL reads.
  *  - [CoroutineScope] (named `appScope`) — owned by `syncModule` until D2 cutover.
- *  - [Function1], [Function3] — Koin's verify treats constructor lambda params
- *    (`SyncEventDispatcher.cursorAdvance` / `onCursorStale`) as resolvable deps.
- *    They're satisfied at construction time by the module's `single { }` block.
+ *  - [Function2], [Function3] — Koin's verify treats constructor lambda params
+ *    (`SyncEventDispatcher.onCursorStale` is `suspend (Long?) -> Unit` =
+ *    Function2; `cursorAdvance` is `suspend (String, Long) -> Unit` = Function3)
+ *    as resolvable deps. They're satisfied at construction time by the
+ *    module's `single { }` block.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncRenovationModuleVerifyTest :
@@ -36,7 +38,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         ApiClientFactory::class,
                         ServerConfig::class,
                         CoroutineScope::class,
-                        Function1::class,
+                        Function2::class,
                         Function3::class,
                     ),
             )

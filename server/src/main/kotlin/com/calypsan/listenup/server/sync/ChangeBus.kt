@@ -9,12 +9,21 @@ import kotlinx.coroutines.flow.asSharedFlow
 private const val LIVE_TAIL_BUFFER = 256
 
 /**
- * Bus payload pairing the originating domain name with the typed event.
- * The domain name is used by the SSE endpoint to set the correct `event:` line.
+ * Type-bound bus entry. The source repository travels alongside the event so
+ * the consumer (SSE firehose, REST catch-up listener) can encode the event
+ * using the repository's own serializer — no static-registry lookup required.
+ *
+ * The previous untyped shape (`BusEvent(domainName, event)`) relied on a
+ * static registry to look up the right serializer at consumption
+ * time. That coupling allowed a misrouted publish (wrong domain string, or
+ * reflective misuse) to silently encode a payload through the wrong serializer,
+ * producing malformed SSE frames and reconnect storms. The typed shape makes
+ * the binding compile-checked: a `BusEvent<Tag>` literally cannot carry a
+ * `Book` payload.
  */
-data class BusEvent(
-    val domainName: String,
-    val event: SyncEvent<*>,
+data class BusEvent<T : Any>(
+    val repo: SyncableRepository<T, *>,
+    val event: SyncEvent<T>,
 )
 
 /**
@@ -34,17 +43,26 @@ data class BusEvent(
  */
 class ChangeBus {
     private val flow =
-        MutableSharedFlow<BusEvent>(
+        MutableSharedFlow<BusEvent<*>>(
             replay = LIVE_TAIL_BUFFER,
             extraBufferCapacity = 0,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
-    suspend fun publish(busEvent: BusEvent) {
-        flow.emit(busEvent)
+    /**
+     * Publishes [event] onto the bus, paired with the source [repo] so consumers
+     * can encode the payload through the repo's own serializer. The `<T>` binding
+     * statically prevents publishing an event whose payload type doesn't match
+     * the repo's element type.
+     */
+    suspend fun <T : Any> publish(
+        repo: SyncableRepository<T, *>,
+        event: SyncEvent<T>,
+    ) {
+        flow.emit(BusEvent(repo, event))
     }
 
-    fun subscribe(): SharedFlow<BusEvent> = flow.asSharedFlow()
+    fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
 
     /**
      * Best-effort lower bound on the oldest revision still in the live-tail

@@ -13,7 +13,7 @@ class TagRepositoryDigestTest :
         test("empty domain digest is count=0, hash=empty") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     val d = repo.digest(cursor = Long.MAX_VALUE)
                     d.cursor shouldBe Long.MAX_VALUE
@@ -26,7 +26,7 @@ class TagRepositoryDigestTest :
         test("digest is deterministic and sha256-prefixed") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.upsert(Tag("b", "beta", 0, 0))
@@ -43,7 +43,7 @@ class TagRepositoryDigestTest :
         test("digest changes when a row is updated") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     val before = repo.digest(cursor = Long.MAX_VALUE)
@@ -58,7 +58,7 @@ class TagRepositoryDigestTest :
         test("digest scopes by cursor") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0)) // rev 1
                     repo.upsert(Tag("b", "beta", 0, 0)) // rev 2
@@ -72,7 +72,7 @@ class TagRepositoryDigestTest :
         test("digest includes soft-deleted rows") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.softDelete("a")
@@ -85,7 +85,7 @@ class TagRepositoryDigestTest :
         test("digest byte format is the canonical wire contract") {
             withInMemoryDatabase {
                 val db = this
-                val repo = TagRepository(db, ChangeBus())
+                val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0)) // revision 1
                     repo.upsert(Tag("b", "beta", 0, 0)) // revision 2

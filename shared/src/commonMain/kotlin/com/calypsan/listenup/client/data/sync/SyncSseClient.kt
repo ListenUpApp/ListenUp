@@ -127,6 +127,20 @@ class SyncSseClient(
         if (initial != null) lastEventId = initial
     }
 
+    /** Read-only accessor for [SyncEngine.handleCursorStale] and tests. */
+    override fun currentLastEventId(): Long? = lastEventId
+
+    /**
+     * Drop the current connection and reseed [lastEventId] from [newLastEventId].
+     * Caller is responsible for invoking [connect] afterwards once the new cursor
+     * is in place — keeps the disconnect/reseed/reconnect ordering visible at
+     * the orchestration site rather than hidden inside the SSE client.
+     */
+    override suspend fun reseed(newLastEventId: Long?) {
+        disconnect()
+        lastEventId = newLastEventId
+    }
+
     /** Open an SSE connection (or no-op if one is already active). */
     override fun connect() {
         if (connectionJob?.isActive == true) return
@@ -141,8 +155,19 @@ class SyncSseClient(
                         }
 
                         ConnectAttempt.AuthFailed -> {
-                            state.setConnection(ConnectionState.Disconnected("auth"))
-                            return@launch
+                            // Treat 401/403 as transient: the Bearer Auth plugin refreshes
+                            // the token on the next outbound request, but it only gets to
+                            // try if we issue one. The pre-fix branch (return@launch) left
+                            // production users stranded every 15min (access-token TTL)
+                            // until app restart. Surface the disconnect with a distinct
+                            // reason so logs/state reflect what happened, then fall
+                            // through to the same backoff+retry as Reconnect.
+                            state.setConnection(ConnectionState.Disconnected("auth-transient"))
+                            state.recordError(SyncError.RealtimeDisconnected())
+                            val delayMs = reconnectDelayMillis(attempt)
+                            logger.debug { "SSE reconnect after auth-transient in ${delayMs}ms (attempt $attempt)" }
+                            attempt++
+                            delay(delayMs)
                         }
 
                         ConnectAttempt.Reconnect -> {

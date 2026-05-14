@@ -63,7 +63,7 @@ fun Application.module() {
             modules += scannerModule(resolvedLibraryPath, applicationScope)
         }
         modules += embeddedmetaModule
-        modules += syncModule
+        modules += syncModule()
         modules(modules)
     }
 

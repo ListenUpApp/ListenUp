@@ -149,10 +149,10 @@ class SyncEventDispatcherTest :
             }
         }
 
-        test("control: SyncControl.CursorStale sets state and triggers callback") {
+        test("control: SyncControl.CursorStale sets state and triggers callback with lastKnown") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                var staleSeen = false
+                var seenLastKnown: Long? = null
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
@@ -163,7 +163,7 @@ class SyncEventDispatcherTest :
                             ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
-                        onCursorStale = { staleSeen = true },
+                        onCursorStale = { lastKnown -> seenLastKnown = lastKnown },
                     )
                 val lastKnownRevision = 1_000L
                 val control = SyncControl.CursorStale(lastKnownRevision = lastKnownRevision)
@@ -174,7 +174,7 @@ class SyncEventDispatcherTest :
                         data = contractJson.encodeToString(SyncControl.serializer(), control),
                     )
                 dispatcher.handle(frame)
-                staleSeen shouldBe true
+                seenLastKnown shouldBe lastKnownRevision
                 db.close()
             }
         }

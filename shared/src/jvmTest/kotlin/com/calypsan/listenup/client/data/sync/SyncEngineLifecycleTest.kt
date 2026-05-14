@@ -347,6 +347,13 @@ private class FakeSse : SseClient {
         connected = false
     }
 
+    override fun currentLastEventId(): Long? = seededLastEventId
+
+    override suspend fun reseed(newLastEventId: Long?) {
+        disconnect()
+        seededLastEventId = newLastEventId
+    }
+
     suspend fun emit(frame: ParsedSseFrame) {
         flow.emit(frame)
     }

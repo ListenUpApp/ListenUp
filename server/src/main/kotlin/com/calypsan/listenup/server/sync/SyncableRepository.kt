@@ -37,18 +37,20 @@ import org.jetbrains.exposed.v1.jdbc.update
  *
  * The base provides `upsert`, `softDelete`, `pullSince`, `digest` operating
  * on the global revision counter and publishing to [ChangeBus] on every write.
- * Self-registers with [SyncRoutes] in its `init` block — Koin must use
- * `createdAtStart = true` so registration happens at application bootstrap.
+ * Self-registers with the injected [SyncRegistry] in its `init` block — Koin
+ * must use `createdAtStart = true` so registration happens at application
+ * bootstrap.
  */
 abstract class SyncableRepository<T : Any, ID : Any>(
     protected val db: Database,
     protected val table: SyncableTable,
     protected val bus: ChangeBus,
+    registry: SyncRegistry,
     val domainName: String,
     protected val clock: Clock = Clock.System,
 ) {
     init {
-        SyncRoutes.register(domainName, this)
+        registry.register(this)
     }
 
     protected abstract fun ResultRow.toDto(): T
@@ -114,7 +116,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
-            val idStr = value.id.toString()
+            val idStr = idAsString(value.id)
 
             val existed =
                 table
@@ -151,36 +153,48 @@ abstract class SyncableRepository<T : Any, ID : Any>(
 
             if (existed) {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Updated(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                                payload = saved,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        ),
                 )
             } else {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Created(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                                payload = saved,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Created(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        ),
                 )
             }
 
             AppResult.Success(saved)
         }
+
+    /**
+     * Serializes a domain id to its raw string representation for WHERE clauses,
+     * UPDATE statements, and [SyncEvent] entity ids. Defaults to `id.toString()`,
+     * which is correct for `String` ids (e.g., Tags).
+     *
+     * **MUST be overridden for `@JvmInline value class` ids.** Kotlin's default
+     * `toString()` on a value class returns `"WrapperName(value=foo)"`, which would
+     * corrupt every column the id is written to (primary key, WHERE clauses,
+     * `SyncEvent.id`). Override to return the raw underlying string — e.g.,
+     * `override fun idAsString(id: BookId) = id.value`.
+     *
+     * The Konsist rule `IdAsStringRequiredForValueClassIdsRule` enforces this
+     * override at build time.
+     */
+    protected open fun idAsString(id: ID): String = id.toString()
 
     /**
      * Exposes the table's primary-key column for use in WHERE clauses.
@@ -208,8 +222,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
+            val idStr = idAsString(id)
             val rowsAffected =
-                table.update({ idColumn() eq id.toString() }) { stmt ->
+                table.update({ idColumn() eq idStr }) { stmt ->
                     stmt[table.revision] = rev
                     stmt[table.updatedAt] = now
                     stmt[table.deletedAt] = now
@@ -219,21 +234,19 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 AppResult.Failure(
                     SyncError.NotFound(
                         domain = domainName,
-                        entityId = id.toString(),
+                        entityId = idStr,
                     ),
                 )
             } else {
                 bus.publish(
-                    BusEvent(
-                        domainName = domainName,
-                        event =
-                            SyncEvent.Deleted(
-                                id = id.toString(),
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                            ),
-                    ),
+                    repo = this@SyncableRepository,
+                    event =
+                        SyncEvent.Deleted(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                        ),
                 )
                 AppResult.Success(Unit)
             }
