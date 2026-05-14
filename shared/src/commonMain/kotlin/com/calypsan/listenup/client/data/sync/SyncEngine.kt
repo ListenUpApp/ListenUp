@@ -75,15 +75,35 @@ class SyncEngine(
     private var currentUser: String? = null
     private var engineJob: Job? = null
 
+    // Flips to true on the last line of [runStart] for the active user. If
+    // [runStart] throws before that line, the flag stays false even though
+    // engineJob has completed — that's the signal start() uses to retry
+    // instead of silently no-op'ing on a failed prior attempt. Reset to
+    // false at the top of every fresh start (different user OR retry).
+    private var currentUserStarted: Boolean = false
+
     /**
      * Start the engine for [currentUserId]. Idempotent under re-entry:
      *
      *  - Concurrent or sequential calls for the *same* user share a single
      *    startup; the second caller observes "already starting/started" and
-     *    returns without re-running catch-up or re-connecting SSE.
-     *  - A call for a *different* user cancels the prior engine job (which
-     *    propagates cancellation into in-flight catch-up + frame collector +
-     *    drain schedulers) and rebuilds fresh for the new user.
+     *    returns without re-running catch-up or re-connecting SSE — provided
+     *    the prior attempt is either still in flight (`engineJob.isActive`)
+     *    or has completed successfully (`currentUserStarted`). If it threw
+     *    before reaching the end of [runStart] the call retries the startup.
+     *  - A call for a *different* user cancels the prior engine job, which
+     *    propagates `CancellationException` through whatever step of
+     *    [runStart] is in flight (catch-up, suspended `ready.await()` inside
+     *    `ensure*` setup, `sseClient.connect()`). It does NOT tear down the
+     *    long-running collectors — `frameCollectorJob`, `connectionUpDrainJob`,
+     *    `enqueueDrainJob`, `queueDepthJob`, `failureCountJob` are launched
+     *    into [scope], not as children of `engineJob`, so they survive the
+     *    cancellation. That's intentional: they're user-agnostic (the queue
+     *    is wiped on user change via `clearForUserChange`, dispatcher and
+     *    sseClient are singletons), so leaving them in place avoids a
+     *    re-subscription stampede on every user switch. Hard shutdown that
+     *    must tear them down (tests, sign-out flows) goes through
+     *    [stopAndJoin], which cancels each collector job explicitly.
      *
      * The caller is still suspended until the launched startup completes (or
      * is cancelled) — the existing contract that `start()` returns *after*
@@ -93,17 +113,33 @@ class SyncEngine(
     suspend fun start(currentUserId: String) {
         val job =
             startMutex.withLock {
-                if (currentUser == currentUserId) {
-                    // Same user — either fully started or startup is in flight.
-                    // Either way: nothing for this caller to do.
+                if (currentUser == currentUserId &&
+                    (engineJob?.isActive == true || currentUserStarted)
+                ) {
+                    // Same user AND the prior startup is either still in flight
+                    // (engineJob.isActive) or has completed successfully
+                    // (currentUserStarted). Nothing for this caller to do.
+                    //
+                    // The currentUserStarted check is load-bearing: if the prior
+                    // runStart() threw (DB error in clearForUserChange, IO error in
+                    // sseClient.connect(), unexpected exception in any step), the
+                    // launched job completed exceptionally — isActive is false AND
+                    // currentUserStarted is false (because the flag-flip is the
+                    // last line of runStart, which never ran). currentUser is still
+                    // set, so without the currentUserStarted clause every subsequent
+                    // start() would silently no-op forever — the recovery path
+                    // SyncRepositoryImpl.forceFullResync() (which calls engine.start())
+                    // would be dead. With the clause, a failed start is retryable.
                     logger.debug { "start($currentUserId) — already active for this user; no-op" }
                     return
                 }
-                // Different user (or first start): cancel any prior engine
-                // job so its in-flight catch-up / SSE work tears down before
-                // we claim ownership for the new user.
+                // Different user (or first start, or retry-after-failure): cancel
+                // any prior engine job so its in-flight catch-up / SSE work (or
+                // its already-completed exceptional state) tears down before we
+                // claim ownership.
                 engineJob?.cancelAndJoin()
                 currentUser = currentUserId
+                currentUserStarted = false
                 scope.launch { runStart(currentUserId) }.also { engineJob = it }
             }
         // Wait for the launched startup to complete (or be cancelled by a
@@ -142,17 +178,38 @@ class SyncEngine(
         ensureStateObservers()
         // Step 7: connect SSE.
         sseClient.connect()
+        // All steps succeeded — flag the user's setup complete so a subsequent
+        // start() for the same user is a no-op. If any step above threw, this
+        // line is never reached, the flag stays false, and start() retries.
+        currentUserStarted = true
     }
 
     fun stop() {
-        // stop() is non-suspend so it can't take the startMutex — that's
-        // fine: cancellation is safe to race with a concurrent start(). The
-        // canceled engineJob will tear down its launched collectors; clearing
-        // currentUser means a subsequent start() for the same user will
-        // rebuild rather than no-op.
+        // stop() is non-suspend so it can't take the startMutex. That means
+        // the engineJob/currentUser writes below can race a concurrent start()
+        // and lose: if start() is inside withLock between assigning currentUser
+        // and assigning engineJob when stop() runs, stop's nulls land first and
+        // start's writes overwrite them — net result is engine continues running
+        // as if stop() never happened. This is acceptable because:
+        //
+        //   1. The dominant caller is MainActivity.onPause() racing onResume() →
+        //      start(). Android's lifecycle FSM serializes pause/resume per
+        //      Activity, so the race is structurally impossible at the call site.
+        //   2. Any caller that needs hard-shutdown semantics uses [stopAndJoin],
+        //      which takes startMutex and join()s every collector.
+        //
+        // If a non-Android caller is added later that depends on stop()'s race
+        // semantics, promote this to `suspend` + `startMutex.withLock { ... }`.
+        //
+        // Note: cancelling engineJob propagates CancellationException through
+        // an in-flight runStart() (catch-up, ensure* setup, sseClient.connect),
+        // but does NOT cancel the long-running collectors below — they're
+        // launched into [scope], not as children of engineJob. We cancel them
+        // explicitly here.
         engineJob?.cancel()
         engineJob = null
         currentUser = null
+        currentUserStarted = false
         frameCollectorJob?.cancel()
         frameCollectorJob = null
         connectionUpDrainJob?.cancel()
@@ -212,6 +269,7 @@ class SyncEngine(
             val failure = failureCountJob
             engineJob = null
             currentUser = null
+            currentUserStarted = false
             frameCollectorJob = null
             connectionUpDrainJob = null
             enqueueDrainJob = null

@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +34,8 @@ import kotlinx.coroutines.runBlocking
  *  2. A sequential second call for the same user is a no-op (no second catch-up).
  *  3. A call with a different user cancels the prior engine and rebuilds — two
  *     catch-up invocations, the new user is the live one.
+ *  4. A call after a previous failed runStart() retries — not a silent no-op,
+ *     so the documented recovery path (forceFullResync) actually works.
  */
 class SyncEngineStartIdempotencyTest :
     FunSpec({
@@ -110,6 +113,47 @@ class SyncEngineStartIdempotencyTest :
                 }
             }
         }
+
+        test("start() after a failed runStart() retries — not a silent no-op forever") {
+            // Regression guard for the same-user no-op recovery gap:
+            // if the prior runStart() threw, engineJob completed exceptionally
+            // and currentUserStarted is false, but currentUser is still set.
+            // Without the `currentUserStarted` clause in start()'s no-op check,
+            // every subsequent start("user-a") would be a silent no-op forever,
+            // stranding SyncRepositoryImpl.forceFullResync(). With the guard,
+            // the second start retries.
+            runBlocking {
+                // Swallow the simulated catch-up failure at the scope level so
+                // it doesn't surface as an "uncaught exception before next test"
+                // via the JVM's default handler. The test only cares about the
+                // retry behavior; the exception itself is intentional.
+                val swallow =
+                    CoroutineExceptionHandler { _, _ -> /* expected — simulated failure */ }
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + swallow)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val catchUp = FailingThenSucceedingCatchUp()
+                    val state = SyncEngineState()
+                    val sse = FakeIdempotencySseClient(state)
+                    val engine = buildEngine(db, state, catchUp, sse, scope)
+
+                    // First start: runStart throws inside the launched job.
+                    // engineJob completes exceptionally; start() itself returns
+                    // normally because job.join() doesn't rethrow.
+                    engine.start(currentUserId = "user-a")
+                    catchUp.invocations.get() shouldBe 1
+
+                    // Second start for the same user: must retry, not no-op.
+                    engine.start(currentUserId = "user-a")
+                    catchUp.invocations.get() shouldBe 2
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
     })
 
 private fun buildEngine(
@@ -163,6 +207,28 @@ private class CountingCatchUp : CatchUp {
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         invocations.incrementAndGet()
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
+}
+
+/**
+ * Fake that throws on its first `catchUpAll` invocation and succeeds afterwards.
+ * Drives the "engineJob completes exceptionally → retry must work" path —
+ * runStart() doesn't catch, so the throw propagates out of the launched job
+ * and into engineJob's failure state.
+ */
+private class FailingThenSucceedingCatchUp : CatchUp {
+    val invocations = AtomicInteger(0)
+
+    override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
+        val attempt = invocations.incrementAndGet()
+        if (attempt == 1) {
+            error("simulated catch-up failure on first attempt")
+        }
         return AppResult.Success(Unit)
     }
 
