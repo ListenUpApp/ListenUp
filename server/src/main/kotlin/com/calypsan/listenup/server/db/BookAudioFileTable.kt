@@ -11,13 +11,13 @@ import org.jetbrains.exposed.v1.core.Table
  * per-file UUID surface for clients to address.
  */
 internal object BookAudioFileTable : Table("book_audio_files") {
-    val bookId   = reference("book_id", BookTable.id, onDelete = ReferenceOption.CASCADE)
-    val ordinal  = integer("ordinal")
-    val id       = varchar("id", 36)
+    val bookId = reference("book_id", BookTable.id, onDelete = ReferenceOption.CASCADE)
+    val ordinal = integer("ordinal")
+    val id = varchar("id", 36)
     val filename = varchar("filename", 1024)
-    val format   = varchar("format", 32)
-    val codec    = varchar("codec", 32)
+    val format = varchar("format", 32)
+    val codec = varchar("codec", 32)
     val duration = long("duration")
-    val size     = long("size")
+    val size = long("size")
     override val primaryKey = PrimaryKey(bookId, ordinal)
 }

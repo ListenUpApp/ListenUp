@@ -12,11 +12,11 @@ import org.jetbrains.exposed.v1.core.Table
  * `id` is a stable per-chapter UUID surface for clients to address.
  */
 internal object BookChapterTable : Table("book_chapters") {
-    val bookId    = reference("book_id", BookTable.id, onDelete = ReferenceOption.CASCADE)
-    val ordinal   = integer("ordinal")
-    val id        = varchar("id", 36)
-    val title     = varchar("title", 1024)
-    val duration  = long("duration")
+    val bookId = reference("book_id", BookTable.id, onDelete = ReferenceOption.CASCADE)
+    val ordinal = integer("ordinal")
+    val id = varchar("id", 36)
+    val title = varchar("title", 1024)
+    val duration = long("duration")
     val startTime = long("start_time")
     override val primaryKey = PrimaryKey(bookId, ordinal)
 }
