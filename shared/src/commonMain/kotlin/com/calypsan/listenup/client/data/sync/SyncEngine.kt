@@ -2,12 +2,21 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.core.AppResult
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -32,14 +41,24 @@ private val logger = KotlinLogging.logger {}
 class SyncEngine(
     private val registry: ClientSyncDomainRegistry,
     private val queue: PendingOperationQueue,
-    @Suppress("UnusedPrivateProperty") private val state: SyncEngineState,
+    private val state: SyncEngineState,
     private val store: SyncCursorStore,
     private val catchUp: CatchUp,
     private val sseClient: SseClient,
     private val dispatcher: SyncEventDispatcher,
     private val scope: CoroutineScope,
+    private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
 ) {
     private var frameCollectorJob: Job? = null
+    private var connectionUpDrainJob: Job? = null
+    private var enqueueDrainJob: Job? = null
+
+    // Serializes drain waves so concurrent triggers (connection-up + enqueue +
+    // retry) coalesce into one wave at a time. drain() reads from the DAO and
+    // mutates rows; without a Mutex two concurrent drains would dispatch the
+    // same op twice. The Mutex is per-engine, not per-op — per-op FIFO is the
+    // queue's SQL filter responsibility.
+    private val drainMutex = Mutex()
 
     /**
      * Start the engine for [currentUserId]. Re-calling re-runs catch-up;
@@ -54,13 +73,24 @@ class SyncEngine(
         sseClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
         ensureFrameCollector()
-        // Step 5: connect SSE.
+        // Step 5: schedule pending-queue drains before connecting so the
+        // connection-up transition is observed and any already-queued ops
+        // drain promptly. Suspend until both collectors are actively subscribed
+        // — otherwise an enqueue racing the launch would be lost (StateFlow's
+        // replayed value at subscribe time gets dropped, and there's nothing
+        // after it).
+        ensureDrainScheduling()
+        // Step 6: connect SSE.
         sseClient.connect()
     }
 
     fun stop() {
         frameCollectorJob?.cancel()
         frameCollectorJob = null
+        connectionUpDrainJob?.cancel()
+        connectionUpDrainJob = null
+        enqueueDrainJob?.cancel()
+        enqueueDrainJob = null
         sseClient.disconnect()
     }
 
@@ -102,8 +132,14 @@ class SyncEngine(
     /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
     suspend fun stopAndJoin() {
         val collector = frameCollectorJob
+        val connectionUp = connectionUpDrainJob
+        val enqueue = enqueueDrainJob
         frameCollectorJob = null
+        connectionUpDrainJob = null
+        enqueueDrainJob = null
         collector?.cancelAndJoin()
+        connectionUp?.cancelAndJoin()
+        enqueue?.cancelAndJoin()
         sseClient.disconnect()
     }
 
@@ -115,5 +151,100 @@ class SyncEngine(
                     dispatcher.handle(frame)
                 }
             }
+    }
+
+    /**
+     * Wire the two reactive triggers for [PendingOperationQueue.drain]:
+     *
+     *  1. Connection state transitions to [ConnectionState.Connected]. The
+     *     queue may hold ops that landed while offline (or before sign-in
+     *     completed). Draining on connect is what makes "local-first writes
+     *     reach the server" actually work.
+     *  2. New op enqueued. If we're already connected, drain immediately;
+     *     otherwise the connection-up trigger will pick it up.
+     *
+     * The third trigger — backoff after retryable failure — lives inside
+     * [runDrain] itself, scheduled per wave.
+     *
+     * The enqueue trigger uses [PendingOperationQueue.observeEnqueueSignal]'s
+     * monotonic counter and `drop(1)` to ignore the replayed current value at
+     * subscription time — we only care about *new* enqueues from this point
+     * forward. The connection-up trigger uses [SyncEngineState.observe]'s
+     * StateFlow directly because the current connection state is itself the
+     * signal we want to react to.
+     *
+     * Suspends until both collectors are actively subscribed via
+     * [onSubscription] — so a caller that enqueues immediately after
+     * `start()` returns will reliably trigger a drain.
+     */
+    private suspend fun ensureDrainScheduling() {
+        if (connectionUpDrainJob?.isActive != true) {
+            val ready = CompletableDeferred<Unit>()
+            connectionUpDrainJob =
+                scope.launch {
+                    state
+                        .observe()
+                        .onSubscription { ready.complete(Unit) }
+                        .map { it.connection }
+                        .distinctUntilChanged()
+                        .collect { connection ->
+                            if (connection is ConnectionState.Connected) {
+                                runDrain()
+                            }
+                        }
+                }
+            ready.await()
+        }
+        if (enqueueDrainJob?.isActive != true) {
+            val ready = CompletableDeferred<Unit>()
+            enqueueDrainJob =
+                scope.launch {
+                    queue
+                        .observeEnqueueSignal()
+                        .onSubscription { ready.complete(Unit) }
+                        .drop(1) // ignore the StateFlow's replayed current value
+                        .filter { state.value.connection is ConnectionState.Connected }
+                        .collect { runDrain() }
+                }
+            ready.await()
+        }
+    }
+
+    /**
+     * Run one drain wave under [drainMutex] so concurrent triggers (connect-up,
+     * enqueue, retry) coalesce. If the wave produced retryable failures,
+     * schedule a backoff-delayed re-drain — that's the engine's retry timer.
+     * Non-retryable failures stay flagged past `MAX_RETRYABLE_ATTEMPTS` and
+     * are silently skipped on subsequent waves.
+     */
+    private suspend fun runDrain() {
+        val outcome =
+            drainMutex.withLock {
+                try {
+                    queue.drain()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Re-throwing here would tear down the trigger collector
+                    // and silently stop all future drains. Log and continue —
+                    // a future trigger will re-attempt.
+                    logger.warn(e) { "Drain wave failed unexpectedly; will retry on next trigger" }
+                    return
+                }
+            }
+        if (outcome.hasRetryableFailures) {
+            scope.launch {
+                delay(retryBackoffMillis)
+                runDrain()
+            }
+        }
+    }
+
+    private companion object {
+        // Default retry backoff. Production wiring can override via constructor
+        // if the threat model changes; this value pairs with the queue's
+        // MAX_RETRYABLE_ATTEMPTS = 5 to bound total retry time to ~5s on
+        // transient failures without hammering the server.
+        const val DEFAULT_RETRY_BACKOFF_MILLIS = 1_000L
     }
 }
