@@ -4,6 +4,8 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
+import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
@@ -183,11 +185,46 @@ class ScannerTest :
                 }
             }
         }
+
+        test("runFullScan emits ScanResult with scope=Full to scanResultBus") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val bus = MutableSharedFlow<ScanResult>(replay = 1)
+                    val (scanner, _) = newScanner(fixture, scanResultBus = bus)
+
+                    scanner.runFullScan()
+
+                    val result = bus.replayCache.first()
+                    result.scope shouldBe ScanScope.Full
+                }
+            }
+        }
+
+        test("runIncremental emits ScanResult with scope=Subtree to scanResultBus") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val bus = MutableSharedFlow<ScanResult>(replay = 1)
+                    val (scanner, _) = newScanner(fixture, scanResultBus = bus)
+                    scanner.runFullScan() // populate lastResult
+
+                    scanner.runIncremental(fixture.root.resolve("Author/Title"))
+
+                    val result = bus.replayCache.last()
+                    (result.scope is ScanScope.Subtree) shouldBe true
+                    (result.scope as ScanScope.Subtree).rootRelPath shouldBe "Author/Title"
+                }
+            }
+        }
     })
 
 private fun newScanner(
     fixture: AudioLibraryFixture,
     correlationIdFactory: () -> String = { "test-correlation-id" },
+    scanResultBus: MutableSharedFlow<ScanResult> = MutableSharedFlow(replay = 1),
 ): Pair<Scanner, MutableSharedFlow<ScanEvent>> {
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)
     val scanner =
@@ -196,6 +233,7 @@ private fun newScanner(
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser = noOpEmbeddedParser(),
             eventBus = eventBus,
+            scanResultBus = scanResultBus,
             correlationIdFactory = correlationIdFactory,
         )
     return scanner to eventBus

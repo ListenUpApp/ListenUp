@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.UnsupportedFormatCount
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
@@ -56,6 +57,7 @@ internal class Scanner(
     private val metadataReader: AbsMetadataReader,
     private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val eventBus: MutableSharedFlow<ScanEvent>,
+    private val scanResultBus: MutableSharedFlow<ScanResult>,
     private val parseSubtitle: Boolean = false,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
@@ -87,8 +89,10 @@ internal class Scanner(
                 durationMs = clock() - started,
                 filesWalked = filesWalked,
                 filesSkipped = 0,
+                scope = ScanScope.Full,
             )
         lastResult = result
+        scanResultBus.emit(result)
         val summary = result.toSummary()
         eventBus.emit(ScanEvent.Completed(correlationId, summary))
         logger.info { "scan complete: ${formatScanCompleteLog(summary)}" }
@@ -118,6 +122,10 @@ internal class Scanner(
 
         val patched = previousUntouched + books
         val durationMs = clock() - started
+        // Subtree path relative to the library root — mirrors the prefix
+        // computation in analyzeSubtree so the persister can scope its diff.
+        val rootRelPath = rootPath.relativize(bookRoot).toString().replace('\\', '/')
+        val subtreeScope = ScanScope.Subtree(rootRelPath)
         lastResult =
             lastResult?.copy(
                 books = patched,
@@ -125,6 +133,7 @@ internal class Scanner(
                 errors = errors,
                 durationMs = durationMs,
                 filesWalked = filesWalked,
+                scope = subtreeScope,
             ) ?: ScanResult(
                 correlationId = correlationId,
                 rootPath = rootPath.toString(),
@@ -134,7 +143,9 @@ internal class Scanner(
                 durationMs = durationMs,
                 filesWalked = filesWalked,
                 filesSkipped = 0,
+                scope = subtreeScope,
             )
+        scanResultBus.emit(lastResult!!)
         eventBus.emit(ScanEvent.Completed(correlationId, lastResult!!.toSummary()))
     }
 

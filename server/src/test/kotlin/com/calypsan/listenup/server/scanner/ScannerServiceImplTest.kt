@@ -79,6 +79,7 @@ private fun newService(
                     parsers = emptyList(),
                 ),
             eventBus = eventBus,
+            scanResultBus = MutableSharedFlow(replay = 1),
         )
     val coordinator =
         ScanCoordinator(
