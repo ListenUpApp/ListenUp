@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.di.authModule
+import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
@@ -24,6 +25,7 @@ import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
+import com.calypsan.listenup.server.services.BookPersister
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -61,6 +63,7 @@ fun Application.module() {
         val modules = mutableListOf(authModule(environment.config))
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope)
+            modules += booksModule(resolvedLibraryPath)
         }
         modules += embeddedmetaModule
         modules += syncModule()
@@ -125,9 +128,15 @@ private fun Application.resolveLibraryPath(): Path? {
 }
 
 /**
- * Kicks off the initial scan and starts the [FolderWatcher]. Runs on the
- * supplied [scope] so cancellation flows through structured concurrency
- * when the application shuts down.
+ * Kicks off the initial scan and starts the [FolderWatcher] and
+ * [BookPersister]. Runs on the supplied [scope] so cancellation flows through
+ * structured concurrency when the application shuts down.
+ *
+ * The [BookPersister] collector is started *before* the initial full scan is
+ * launched so the persister has subscribed to the `scanResultBus` by the time
+ * the first [com.calypsan.listenup.api.dto.scanner.ScanResult] is emitted. The
+ * bus replays its last value, so a late subscriber would still catch up — but
+ * starting first avoids relying on replay timing.
  *
  * The initial scan failures don't bubble — we log and continue. The user
  * can re-trigger via the scanner RPC surface.
@@ -135,6 +144,9 @@ private fun Application.resolveLibraryPath(): Path? {
 private fun Application.bootstrapScannerOnStartup(scope: CoroutineScope) {
     val scanner by inject<Scanner>()
     val watcher by inject<FolderWatcher>()
+    val bookPersister by inject<BookPersister>()
+
+    bookPersister.start()
 
     scope.launch {
         runCatching { scanner.runFullScan() }

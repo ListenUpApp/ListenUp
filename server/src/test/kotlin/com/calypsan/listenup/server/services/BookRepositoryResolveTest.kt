@@ -13,8 +13,6 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -25,8 +23,6 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.slf4j.LoggerFactory
 
 class BookRepositoryResolveTest :
@@ -35,12 +31,12 @@ class BookRepositoryResolveTest :
         test("same path → existing UUID") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val firstId = repo.resolveOrInsert(LibraryId("lib1"), analyzed).resolved()
-                    val secondId = repo.resolveOrInsert(LibraryId("lib1"), analyzed).resolved()
+                    val firstId = repo.resolveOrInsert(libId, analyzed).resolved()
+                    val secondId = repo.resolveOrInsert(libId, analyzed).resolved()
                     secondId shouldBe firstId
                 }
             }
@@ -49,17 +45,17 @@ class BookRepositoryResolveTest :
         test("path miss, same inode → existing UUID + path update") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val original = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val originalId = repo.resolveOrInsert(LibraryId("lib1"), original).resolved()
+                    val originalId = repo.resolveOrInsert(libId, original).resolved()
 
                     val moved =
                         original.copy(
                             candidate = original.candidate.copy(rootRelPath = "Sanderson/WayOfKings"),
                         )
-                    val movedId = repo.resolveOrInsert(LibraryId("lib1"), moved).resolved()
+                    val movedId = repo.resolveOrInsert(libId, moved).resolved()
 
                     movedId shouldBe originalId
                     repo.findById(originalId)?.rootRelPath shouldBe "Sanderson/WayOfKings"
@@ -70,13 +66,13 @@ class BookRepositoryResolveTest :
         test("path miss, no inode match → new UUID") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = 1L)
                     val b = analyzedFor(rootRelPath = "b", inode = 2L)
-                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a).resolved()
-                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b).resolved()
+                    val idA = repo.resolveOrInsert(libId, a).resolved()
+                    val idB = repo.resolveOrInsert(libId, b).resolved()
                     idA shouldNotBe idB
                 }
             }
@@ -85,13 +81,13 @@ class BookRepositoryResolveTest :
         test("null inode falls through to new UUID") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = null)
                     val b = analyzedFor(rootRelPath = "b", inode = null)
-                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a).resolved()
-                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b).resolved()
+                    val idA = repo.resolveOrInsert(libId, a).resolved()
+                    val idB = repo.resolveOrInsert(libId, b).resolved()
                     idA shouldNotBe idB
                 }
             }
@@ -100,11 +96,11 @@ class BookRepositoryResolveTest :
         test("resolveOrInsert returns AppResult.Success when the write lands") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Mistborn", inode = 5005L)
-                    val result = repo.resolveOrInsert(LibraryId("lib1"), analyzed)
+                    val result = repo.resolveOrInsert(libId, analyzed)
                     result.shouldBeInstanceOf<AppResult.Success<BookId>>()
                 }
             }
@@ -113,19 +109,19 @@ class BookRepositoryResolveTest :
         test("inode match logs the move at INFO") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db)
+                val (repo, registry) = repository(db)
                 runTest {
+                    val libId = registry.currentLibrary()
                     val appender = attachRootAppender()
                     try {
                         val original = analyzedFor(rootRelPath = "old/path", inode = 7777L)
-                        repo.resolveOrInsert(LibraryId("lib1"), original)
+                        repo.resolveOrInsert(libId, original)
 
                         val moved =
                             original.copy(
                                 candidate = original.candidate.copy(rootRelPath = "new/path"),
                             )
-                        repo.resolveOrInsert(LibraryId("lib1"), moved)
+                        repo.resolveOrInsert(libId, moved)
 
                         val moveEvent =
                             appender.list
@@ -175,22 +171,26 @@ private fun AppResult<BookId>.resolved(): BookId =
 
 // --- Fixtures ---------------------------------------------------------------
 
-private fun repository(db: Database): BookRepository =
-    BookRepository(
-        db = db,
-        bus = ChangeBus(),
-        registry = SyncRegistry(),
-        libraryId = LibraryId("lib1"),
-    )
+/**
+ * A [BookRepository] paired with the [LibraryRegistry] backing it. Tests pass
+ * `registry.currentLibrary()` to `resolveOrInsert` so the resolved id matches
+ * the one `writePayload`'s INSERT branch stamps onto new book rows.
+ */
+private data class ResolveRepoFixture(
+    val repo: BookRepository,
+    val registry: LibraryRegistry,
+)
 
-private fun seedLibrary(db: Database) {
-    transaction(db) {
-        LibraryTable.insert {
-            it[id] = "lib1"
-            it[name] = "Default"
-            it[rootPath] = "/lib"
-        }
-    }
+private fun repository(db: Database): ResolveRepoFixture {
+    val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+    val repo =
+        BookRepository(
+            db = db,
+            bus = ChangeBus(),
+            registry = SyncRegistry(),
+            libraryRegistry = registry,
+        )
+    return ResolveRepoFixture(repo, registry)
 }
 
 /**

@@ -3,7 +3,6 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
@@ -11,7 +10,6 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -36,7 +34,7 @@ class BookRepositoryReadTest :
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     suspendTransaction(db = db) {
@@ -49,99 +47,98 @@ class BookRepositoryReadTest :
         test("readPayload assembles the full aggregate: book + contributors + series + chapters + audio files") {
             withInMemoryDatabase {
                 val db = this
-                transaction(db) {
-                    LibraryTable.insert {
-                        it[id] = "lib1"
-                        it[name] = "Default"
-                        it[rootPath] = "/lib"
-                    }
-                    BookTable.insert {
-                        it[id] = "b1"
-                        it[libraryId] = "lib1"
-                        it[title] = "Way of Kings"
-                        it[sortTitle] = "Way of Kings"
-                        it[totalDuration] = 162_000_000L
-                        it[rootRelPath] = "Sanderson/Way of Kings"
-                        it[scannedAt] = 1_730_000_000_000L
-                        it[revision] = 1L
-                        it[createdAt] = 1_730_000_000_000L
-                        it[updatedAt] = 1_730_000_000_000L
-                        it[coverSource] = "filesystem"
-                        it[coverHash] = "deadbeef"
-                    }
-                    ContributorTable.insert {
-                        it[id] = "c1"
-                        it[normalizedName] = "brandon sanderson"
-                        it[name] = "Brandon Sanderson"
-                        it[sortName] = "Sanderson, Brandon"
-                    }
-                    ContributorTable.insert {
-                        it[id] = "c2"
-                        it[normalizedName] = "michael kramer"
-                        it[name] = "Michael Kramer"
-                        it[sortName] = null
-                    }
-                    BookContributorTable.insert {
-                        it[bookId] = "b1"
-                        it[contributorId] = "c1"
-                        it[role] = "author"
-                        it[creditedAs] = null
-                        it[ordinal] = 0
-                    }
-                    BookContributorTable.insert {
-                        it[bookId] = "b1"
-                        it[contributorId] = "c2"
-                        it[role] = "narrator"
-                        it[creditedAs] = null
-                        it[ordinal] = 1
-                    }
-                    BookSeriesTable.insert {
-                        it[id] = "s1"
-                        it[name] = "Stormlight Archive"
-                        it[sortName] = null
-                    }
-                    BookSeriesMembershipTable.insert {
-                        it[bookId] = "b1"
-                        it[seriesId] = "s1"
-                        it[sequence] = "1"
-                        it[ordinal] = 0
-                    }
-                    BookChapterTable.insert {
-                        it[bookId] = "b1"
-                        it[ordinal] = 0
-                        it[id] = "ch1"
-                        it[title] = "Prologue"
-                        it[duration] = 1_200_000L
-                        it[startTime] = 0L
-                    }
-                    BookChapterTable.insert {
-                        it[bookId] = "b1"
-                        it[ordinal] = 1
-                        it[id] = "ch2"
-                        it[title] = "Chapter 1"
-                        it[duration] = 1_800_000L
-                        it[startTime] = 1_200_000L
-                    }
-                    BookAudioFileTable.insert {
-                        it[bookId] = "b1"
-                        it[ordinal] = 0
-                        it[id] = "af1"
-                        it[filename] = "01.m4b"
-                        it[format] = "m4b"
-                        it[codec] = "aac"
-                        it[duration] = 162_000_000L
-                        it[size] = 200_000_000L
-                    }
-                }
-
+                val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = registry,
                     )
                 runTest {
+                    // Resolve the library id first — this bootstraps the `libraries`
+                    // row, satisfying the seeded book's library_id FK.
+                    val libId = registry.currentLibrary().value
+                    transaction(db) {
+                        BookTable.insert {
+                            it[id] = "b1"
+                            it[libraryId] = libId
+                            it[title] = "Way of Kings"
+                            it[sortTitle] = "Way of Kings"
+                            it[totalDuration] = 162_000_000L
+                            it[rootRelPath] = "Sanderson/Way of Kings"
+                            it[scannedAt] = 1_730_000_000_000L
+                            it[revision] = 1L
+                            it[createdAt] = 1_730_000_000_000L
+                            it[updatedAt] = 1_730_000_000_000L
+                            it[coverSource] = "filesystem"
+                            it[coverHash] = "deadbeef"
+                        }
+                        ContributorTable.insert {
+                            it[id] = "c1"
+                            it[normalizedName] = "brandon sanderson"
+                            it[name] = "Brandon Sanderson"
+                            it[sortName] = "Sanderson, Brandon"
+                        }
+                        ContributorTable.insert {
+                            it[id] = "c2"
+                            it[normalizedName] = "michael kramer"
+                            it[name] = "Michael Kramer"
+                            it[sortName] = null
+                        }
+                        BookContributorTable.insert {
+                            it[bookId] = "b1"
+                            it[contributorId] = "c1"
+                            it[role] = "author"
+                            it[creditedAs] = null
+                            it[ordinal] = 0
+                        }
+                        BookContributorTable.insert {
+                            it[bookId] = "b1"
+                            it[contributorId] = "c2"
+                            it[role] = "narrator"
+                            it[creditedAs] = null
+                            it[ordinal] = 1
+                        }
+                        BookSeriesTable.insert {
+                            it[id] = "s1"
+                            it[name] = "Stormlight Archive"
+                            it[sortName] = null
+                        }
+                        BookSeriesMembershipTable.insert {
+                            it[bookId] = "b1"
+                            it[seriesId] = "s1"
+                            it[sequence] = "1"
+                            it[ordinal] = 0
+                        }
+                        BookChapterTable.insert {
+                            it[bookId] = "b1"
+                            it[ordinal] = 0
+                            it[id] = "ch1"
+                            it[title] = "Prologue"
+                            it[duration] = 1_200_000L
+                            it[startTime] = 0L
+                        }
+                        BookChapterTable.insert {
+                            it[bookId] = "b1"
+                            it[ordinal] = 1
+                            it[id] = "ch2"
+                            it[title] = "Chapter 1"
+                            it[duration] = 1_800_000L
+                            it[startTime] = 1_200_000L
+                        }
+                        BookAudioFileTable.insert {
+                            it[bookId] = "b1"
+                            it[ordinal] = 0
+                            it[id] = "af1"
+                            it[filename] = "01.m4b"
+                            it[format] = "m4b"
+                            it[codec] = "aac"
+                            it[duration] = 162_000_000L
+                            it[size] = 200_000_000L
+                        }
+                    }
+
                     suspendTransaction(db = db) {
                         val payload = repo.readPayloadForTest("b1").shouldNotBeNull()
 
@@ -180,32 +177,29 @@ class BookRepositoryReadTest :
         test("readPayload returns cover = null when coverHash is absent") {
             withInMemoryDatabase {
                 val db = this
-                transaction(db) {
-                    LibraryTable.insert {
-                        it[id] = "lib1"
-                        it[name] = "Default"
-                        it[rootPath] = "/lib"
-                    }
-                    BookTable.insert {
-                        it[id] = "b2"
-                        it[libraryId] = "lib1"
-                        it[title] = "No Cover"
-                        it[totalDuration] = 0L
-                        it[rootRelPath] = "no-cover"
-                        it[scannedAt] = 0L
-                        it[revision] = 1L
-                        it[createdAt] = 0L
-                        it[updatedAt] = 0L
-                    }
-                }
+                val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = registry,
                     )
                 runTest {
+                    val libId = registry.currentLibrary().value
+                    transaction(db) {
+                        BookTable.insert {
+                            it[id] = "b2"
+                            it[libraryId] = libId
+                            it[title] = "No Cover"
+                            it[totalDuration] = 0L
+                            it[rootRelPath] = "no-cover"
+                            it[scannedAt] = 0L
+                            it[revision] = 1L
+                            it[createdAt] = 0L
+                            it[updatedAt] = 0L
+                        }
+                    }
                     suspendTransaction(db = db) {
                         val payload = repo.readPayloadForTest("b2").shouldNotBeNull()
                         payload.cover.shouldBeNull()

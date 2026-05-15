@@ -57,17 +57,22 @@ private val log = KotlinLogging.logger {}
  * corrupt every column the id is written to. The Konsist rule
  * `IdAsStringRequiredForValueClassIdsRule` enforces this override at build time.
  *
- * The repository is bound to a single [libraryId] at construction time. Books-A
- * is single-library; Task 13's `LibraryRegistry` supplies the resolved id when
- * the repository is wired into Koin. `writePayload`'s signature is dictated by
- * the substrate (`value, rev, now, clientOpId, existed`) and cannot carry a
- * library id, so the binding lives as constructor state instead.
+ * Books-A is single-library. The repository takes a [libraryRegistry] rather
+ * than a resolved [LibraryId] because the only source of that id —
+ * `LibraryRegistry.currentLibrary()` — is a `suspend` function (it does a DB
+ * read), and Koin `single { }` definitions cannot suspend. The library id is
+ * therefore resolved lazily inside the `suspend` write path; the registry
+ * caches the result after the first call, so the per-write cost is negligible.
+ *
+ * @param libraryRegistry resolves the single library id for this process; the
+ *   INSERT branch of [writePayload] reads it to stamp a fresh book's
+ *   `library_id` column.
  */
 class BookRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val libraryId: LibraryId,
+    private val libraryRegistry: LibraryRegistry,
     clock: Clock = Clock.System,
 ) : SyncableRepository<BookSyncPayload, BookId>(
         db = db,
@@ -236,12 +241,13 @@ class BookRepository(
                 stmt[BookTable.clientOpId] = clientOpId
             }
         } else {
+            // Resolved before the insert block — Exposed's `insert { }` lambda is
+            // not a suspend context, so `currentLibrary()` (suspend) cannot be
+            // called inside it. The registry caches after first call.
+            val resolvedLibraryId = libraryRegistry.currentLibrary().value
             BookTable.insert { stmt ->
                 stmt[BookTable.id] = value.id
-                // Qualified: inside the table-receiver lambda, bare `libraryId`
-                // would resolve to BookTable.libraryId (the column), not the
-                // constructor property.
-                stmt[BookTable.libraryId] = this@BookRepository.libraryId.value
+                stmt[BookTable.libraryId] = resolvedLibraryId
                 applyBookFields(stmt, value)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now

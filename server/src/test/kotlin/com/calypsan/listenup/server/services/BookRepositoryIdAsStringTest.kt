@@ -3,7 +3,6 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -19,7 +18,7 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
             }
@@ -32,7 +31,7 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 repo.domainName shouldBe "books"
             }

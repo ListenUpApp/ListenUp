@@ -10,8 +10,6 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.BusEvent
@@ -24,8 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class BookRepositorySoftDeleteAbsentTest :
     FunSpec({
@@ -33,14 +29,14 @@ class BookRepositorySoftDeleteAbsentTest :
         test("softDeleteAbsent soft-deletes books not in seenIds, leaves seen books alone") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
-                val repo = repository(db, ChangeBus())
+                val (repo, registry) = repository(db, ChangeBus())
                 runTest {
-                    val a = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("a", inode = 1L)).resolved()
-                    val b = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("b", inode = 2L)).resolved()
-                    val c = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("c", inode = 3L)).resolved()
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
+                    val c = repo.resolveOrInsert(libId, analyzedFor("c", inode = 3L)).resolved()
 
-                    repo.softDeleteAbsent(LibraryId("lib1"), seenIds = setOf(a, c))
+                    repo.softDeleteAbsent(libId, seenIds = setOf(a, c))
 
                     repo.findById(a)?.deletedAt shouldBe null
                     repo.findById(b)?.deletedAt shouldNotBe null
@@ -52,19 +48,19 @@ class BookRepositorySoftDeleteAbsentTest :
         test("softDeleteAbsent emits SyncEvent.Deleted on ChangeBus per swept book") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val bus = ChangeBus()
-                val repo = repository(db, bus)
+                val (repo, registry) = repository(db, bus)
                 runTest {
-                    val a = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("a", inode = 1L)).resolved()
-                    repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("b", inode = 2L)).resolved()
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
+                    repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
 
                     val received = mutableListOf<BusEvent<*>>()
                     val collector = launch { bus.subscribe().collect { received += it } }
                     advanceUntilIdle()
                     received.clear() // drop the two replayed Created events
 
-                    repo.softDeleteAbsent(LibraryId("lib1"), seenIds = setOf(a))
+                    repo.softDeleteAbsent(libId, seenIds = setOf(a))
                     advanceUntilIdle()
                     collector.cancel()
 
@@ -77,14 +73,14 @@ class BookRepositorySoftDeleteAbsentTest :
         test("softDeleteAbsent does not re-sweep already-deleted books") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val bus = ChangeBus()
-                val repo = repository(db, bus)
+                val (repo, registry) = repository(db, bus)
                 runTest {
-                    val a = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("a", inode = 1L)).resolved()
-                    val b = repo.resolveOrInsert(LibraryId("lib1"), analyzedFor("b", inode = 2L)).resolved()
+                    val libId = registry.currentLibrary()
+                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
 
-                    repo.softDeleteAbsent(LibraryId("lib1"), seenIds = setOf(a))
+                    repo.softDeleteAbsent(libId, seenIds = setOf(a))
                     val firstRevision = repo.findById(b)?.revision
 
                     // Second sweep with the same seenIds: b is already tombstoned and must
@@ -94,7 +90,7 @@ class BookRepositorySoftDeleteAbsentTest :
                     advanceUntilIdle()
                     received.clear()
 
-                    repo.softDeleteAbsent(LibraryId("lib1"), seenIds = setOf(a))
+                    repo.softDeleteAbsent(libId, seenIds = setOf(a))
                     advanceUntilIdle()
                     collector.cancel()
 
@@ -119,25 +115,29 @@ private fun AppResult<BookId>.resolved(): BookId =
 
 // --- Fixtures ---------------------------------------------------------------
 
+/**
+ * A [BookRepository] paired with the [LibraryRegistry] backing it. Tests pass
+ * `registry.currentLibrary()` to `resolveOrInsert` / `softDeleteAbsent` so the
+ * resolved id matches the one `writePayload`'s INSERT branch stamps onto rows.
+ */
+private data class SoftDeleteRepoFixture(
+    val repo: BookRepository,
+    val registry: LibraryRegistry,
+)
+
 private fun repository(
     db: Database,
     bus: ChangeBus,
-): BookRepository =
-    BookRepository(
-        db = db,
-        bus = bus,
-        registry = SyncRegistry(),
-        libraryId = LibraryId("lib1"),
-    )
-
-private fun seedLibrary(db: Database) {
-    transaction(db) {
-        LibraryTable.insert {
-            it[id] = "lib1"
-            it[name] = "Default"
-            it[rootPath] = "/lib"
-        }
-    }
+): SoftDeleteRepoFixture {
+    val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+    val repo =
+        BookRepository(
+            db = db,
+            bus = bus,
+            registry = SyncRegistry(),
+            libraryRegistry = registry,
+        )
+    return SoftDeleteRepoFixture(repo, registry)
 }
 
 /**

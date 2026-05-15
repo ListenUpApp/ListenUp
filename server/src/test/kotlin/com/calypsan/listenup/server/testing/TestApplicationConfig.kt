@@ -14,8 +14,15 @@ import java.nio.file.Files
  *
  * @param registrationPolicy override the registration policy bucket (`OPEN`,
  *   `APPROVAL_QUEUE`, `CLOSED`). Tests covering policy branching pass it here.
+ * @param libraryPath when set, adds `scanner.libraryPath` so `module()` wires
+ *   the scanner and books slices. Must point at an existing directory — the
+ *   server skips scanner wiring for a missing/blank path. Tests that need the
+ *   books domain (or a scanner) pass a fresh temp directory here.
  */
-fun ApplicationTestBuilder.useIsolatedTestConfig(registrationPolicy: String = "OPEN") {
+fun ApplicationTestBuilder.useIsolatedTestConfig(
+    registrationPolicy: String = "OPEN",
+    libraryPath: String? = null,
+) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
         config =
@@ -26,6 +33,8 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(registrationPolicy: String = "O
                 "jwt.issuer" to "listenup",
                 "jwt.audience" to "listenup-client",
                 "registration.policy" to registrationPolicy,
-            )
+            ).apply {
+                if (libraryPath != null) put("scanner.libraryPath", libraryPath)
+            }
     }
 }

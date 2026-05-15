@@ -1,0 +1,69 @@
+package com.calypsan.listenup.server.di
+
+import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.server.services.BookIngestPort
+import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.BookPersisterMetrics
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import kotlinx.coroutines.flow.MutableSharedFlow
+import org.koin.core.module.Module
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
+import java.nio.file.Path
+
+/**
+ * Koin module for the books slice. Wires:
+ *
+ *  - [MeterRegistry] — a [SimpleMeterRegistry] backing [BookPersisterMetrics].
+ *    There's no Prometheus scrape today; the counter is a countable diagnostic
+ *    signal in logs, not a metrics pipeline (project "no premature
+ *    observability" stance). [BookPersisterMetrics] is its only consumer.
+ *  - [LibraryRegistry] — single-library bootstrap keyed off `LISTENUP_LIBRARY_PATH`.
+ *  - [BookRepository] — the books aggregate's [SyncableRepository][com.calypsan.listenup.server.sync.SyncableRepository].
+ *    `createdAtStart = true` so its `init` block registers with `SyncRegistry`
+ *    at bootstrap, making `/api/v1/sync/domains` list `"books"` on the first request.
+ *  - [BookIngestPort] — bound to the same [BookRepository] instance.
+ *  - [BookPersister] — consumes the scanner's [ScanResult] stream.
+ *
+ * Exposed as a **function** rather than a top-level `val` for the same reason
+ * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
+ * `SingleInstanceFactory` per binding), so instances never leak across containers.
+ *
+ * Installed only alongside [scannerModule] (i.e. when a library path is
+ * configured): [BookPersister] depends on the scanner's `scanResultBus` and
+ * the application [CoroutineScope][kotlinx.coroutines.CoroutineScope], both of
+ * which only exist when the scanner slice is wired. With no library configured
+ * there is no books domain — `/api/v1/sync/domains` correctly omits `"books"`.
+ *
+ * @param libraryPath the resolved library root — the same [Path] passed to
+ *   [scannerModule]. [LibraryRegistry] keys the single `libraries` row off it.
+ *   Passing the resolved path (rather than re-reading `System.getenv()`) keeps
+ *   the books slice consistent with the scanner slice: both are driven by the
+ *   one path `Application.module()` already resolved from configuration, so a
+ *   config override of `scanner.libraryPath` reaches both.
+ */
+fun booksModule(libraryPath: Path): Module =
+    module {
+        single<MeterRegistry> { SimpleMeterRegistry() }
+        single { BookPersisterMetrics(get()) }
+
+        single {
+            LibraryRegistry(db = get(), env = mapOf("LISTENUP_LIBRARY_PATH" to libraryPath.toString()))
+        }
+
+        single(createdAtStart = true) { BookRepository(get(), get(), get(), get()) }
+        single<BookIngestPort> { get<BookRepository>() }
+
+        single {
+            BookPersister(
+                ingest = get(),
+                libraryRegistry = get(),
+                scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
+                scope = get(),
+                metrics = get(),
+            )
+        }
+    }

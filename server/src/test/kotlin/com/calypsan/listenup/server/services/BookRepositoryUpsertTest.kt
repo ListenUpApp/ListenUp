@@ -11,10 +11,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -26,8 +24,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -38,14 +34,13 @@ class BookRepositoryUpsertTest :
         test("upsert of fresh book inserts row + all children atomically; emits SyncEvent.Created") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val bus = ChangeBus()
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     val deferred = async { bus.subscribe().first() }
@@ -96,13 +91,12 @@ class BookRepositoryUpsertTest :
         test("upsert replaces child rows wholesale on second call") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     val v1 =
@@ -156,13 +150,12 @@ class BookRepositoryUpsertTest :
         test("contributor dedup: same normalized name across books resolves to one row") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     repo.upsert(
@@ -193,13 +186,12 @@ class BookRepositoryUpsertTest :
         test("series dedup preserves display casing of first writer") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     // First book writes "Stormlight Archive".
@@ -236,13 +228,12 @@ class BookRepositoryUpsertTest :
         test("FTS row is upserted in book_search and mapped via book_search_map") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     repo.upsert(
@@ -285,13 +276,12 @@ class BookRepositoryUpsertTest :
         test("update re-uses existing rowid; book_search has exactly one row per book") {
             withInMemoryDatabase {
                 val db = this
-                seedLibrary(db)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        libraryId = LibraryId("lib1"),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                     )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))
@@ -330,16 +320,6 @@ class BookRepositoryUpsertTest :
     })
 
 // --- Fixtures ---------------------------------------------------------------
-
-private fun seedLibrary(db: Database) {
-    transaction(db) {
-        LibraryTable.insert {
-            it[id] = "lib1"
-            it[name] = "Default"
-            it[rootPath] = "/lib"
-        }
-    }
-}
 
 private fun bookPayloadFixture(
     id: String,
