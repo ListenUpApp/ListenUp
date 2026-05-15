@@ -53,6 +53,8 @@ internal class NfoParser : SidecarParser {
                         root.allActors().forEach { add(SidecarContributor(it, "narrator")) }
                     },
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // A malformed .nfo is not an error — just an absent enrichment source.
             logger.debug(e) { "Unparseable .nfo: $file — skipping" }
