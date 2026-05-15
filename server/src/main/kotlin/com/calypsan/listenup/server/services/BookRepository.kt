@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -280,17 +281,20 @@ class BookRepository(
      * is single-writer, so the consecutive transactions serialize cleanly with
      * no risk of a lost-update race within a single scan pass.
      *
-     * @return the stable [BookId] for this book — newly minted or pre-existing.
+     * @return [AppResult.Success] carrying the stable [BookId] for this book —
+     *   newly minted or pre-existing — only when the aggregate write landed.
+     *   An [AppResult.Failure] means [upsertFromAnalyzed] did not persist the
+     *   book; callers must not treat the failure as a persisted aggregate, and
+     *   for a new book the minted UUID points at nothing.
      */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
         analyzed: AnalyzedBook,
-    ): BookId {
+    ): AppResult<BookId> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            upsertFromAnalyzed(existing, analyzed)
-            return existing
+            return upsertFromAnalyzed(existing, analyzed).map { existing }
         }
 
         analyzed.candidate.files
@@ -300,14 +304,12 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    upsertFromAnalyzed(existing, analyzed)
-                    return existing
+                    return upsertFromAnalyzed(existing, analyzed).map { existing }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        upsertFromAnalyzed(newId, analyzed)
-        return newId
+        return upsertFromAnalyzed(newId, analyzed).map { newId }
     }
 
     /**

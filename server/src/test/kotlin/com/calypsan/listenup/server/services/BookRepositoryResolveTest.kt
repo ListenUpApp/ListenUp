@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -20,6 +22,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -36,8 +39,8 @@ class BookRepositoryResolveTest :
                 val repo = repository(db)
                 runTest {
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val firstId = repo.resolveOrInsert(LibraryId("lib1"), analyzed)
-                    val secondId = repo.resolveOrInsert(LibraryId("lib1"), analyzed)
+                    val firstId = repo.resolveOrInsert(LibraryId("lib1"), analyzed).resolved()
+                    val secondId = repo.resolveOrInsert(LibraryId("lib1"), analyzed).resolved()
                     secondId shouldBe firstId
                 }
             }
@@ -50,13 +53,13 @@ class BookRepositoryResolveTest :
                 val repo = repository(db)
                 runTest {
                     val original = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val originalId = repo.resolveOrInsert(LibraryId("lib1"), original)
+                    val originalId = repo.resolveOrInsert(LibraryId("lib1"), original).resolved()
 
                     val moved =
                         original.copy(
                             candidate = original.candidate.copy(rootRelPath = "Sanderson/WayOfKings"),
                         )
-                    val movedId = repo.resolveOrInsert(LibraryId("lib1"), moved)
+                    val movedId = repo.resolveOrInsert(LibraryId("lib1"), moved).resolved()
 
                     movedId shouldBe originalId
                     repo.findById(originalId)?.rootRelPath shouldBe "Sanderson/WayOfKings"
@@ -72,8 +75,8 @@ class BookRepositoryResolveTest :
                 runTest {
                     val a = analyzedFor(rootRelPath = "a", inode = 1L)
                     val b = analyzedFor(rootRelPath = "b", inode = 2L)
-                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a)
-                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b)
+                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a).resolved()
+                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b).resolved()
                     idA shouldNotBe idB
                 }
             }
@@ -87,9 +90,22 @@ class BookRepositoryResolveTest :
                 runTest {
                     val a = analyzedFor(rootRelPath = "a", inode = null)
                     val b = analyzedFor(rootRelPath = "b", inode = null)
-                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a)
-                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b)
+                    val idA = repo.resolveOrInsert(LibraryId("lib1"), a).resolved()
+                    val idB = repo.resolveOrInsert(LibraryId("lib1"), b).resolved()
                     idA shouldNotBe idB
+                }
+            }
+        }
+
+        test("resolveOrInsert returns AppResult.Success when the write lands") {
+            withInMemoryDatabase {
+                val db = this
+                seedLibrary(db)
+                val repo = repository(db)
+                runTest {
+                    val analyzed = analyzedFor(rootRelPath = "Sanderson/Mistborn", inode = 5005L)
+                    val result = repo.resolveOrInsert(LibraryId("lib1"), analyzed)
+                    result.shouldBeInstanceOf<AppResult.Success<BookId>>()
                 }
             }
         }
@@ -144,6 +160,18 @@ private fun detachRootAppender(appender: ListAppender<ILoggingEvent>) {
     root.detachAppender(appender)
     appender.stop()
 }
+
+// --- Result unwrapping ------------------------------------------------------
+
+/**
+ * Asserts the [resolveOrInsert] result landed and returns the resolved [BookId].
+ * Fails the test loudly with the typed error if the aggregate write did not land.
+ */
+private fun AppResult<BookId>.resolved(): BookId =
+    when (this) {
+        is AppResult.Success -> data
+        is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
+    }
 
 // --- Fixtures ---------------------------------------------------------------
 
