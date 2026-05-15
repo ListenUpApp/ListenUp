@@ -263,18 +263,20 @@ class ListenUp :
         }
 
         // Configure WorkManager with custom factory for dependency injection.
-        // Must be done before verifyCriticalKoinBindings() because DownloadManager needs WorkManager.
+        // Dependencies are wrapped in lazy { get() } so constructing the factory does not
+        // resolve DownloadRepository → DownloadEnqueuer → WorkManager.getInstance() before
+        // WorkManager.initialize() is called below.
         val workerFactory =
             ListenUpWorkerFactory(
-                downloadRepository = get(),
-                fileManager = get(),
-                apiClientFactory = get(),
-                playbackPreferences = get(),
-                playbackApi = get(),
-                capabilityDetector = get(),
-                backupApi = get(),
-                absImportApi = get(),
-                errorBus = get(),
+                downloadRepository = lazy { get() },
+                fileManager = lazy { get() },
+                apiClientFactory = lazy { get() },
+                playbackPreferences = lazy { get() },
+                playbackApi = lazy { get() },
+                capabilityDetector = lazy { get() },
+                backupApi = lazy { get() },
+                absImportApi = lazy { get() },
+                errorBus = lazy { get() },
             )
 
         val workManagerConfig =

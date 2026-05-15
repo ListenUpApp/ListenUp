@@ -142,7 +142,7 @@ private class FakeAuthSession : AuthSession {
         email: String,
     ) = Unit
 
-    override suspend fun getPendingRegistration(): Pair<String, String>? = null
+    override suspend fun getPendingRegistration(): com.calypsan.listenup.client.domain.repository.PendingRegistration? = null
 
     override suspend fun clearPendingRegistration() = Unit
 }
