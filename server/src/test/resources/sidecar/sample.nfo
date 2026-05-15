@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<musicvideo>
+    <title>Way of Kings</title>
+    <plot>An epic fantasy: the first volume of the Stormlight Archive.</plot>
+    <year>2010</year>
+    <publisher>Tor Books</publisher>
+    <language>en</language>
+    <author>Brandon Sanderson</author>
+    <actor>
+        <name>Michael Kramer</name>
+        <role>Narrator</role>
+    </actor>
+    <actor>
+        <name>Kate Reading</name>
+        <role>Narrator</role>
+    </actor>
+</musicvideo>
