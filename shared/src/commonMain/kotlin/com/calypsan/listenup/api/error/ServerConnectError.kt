@@ -93,9 +93,9 @@ sealed interface ServerConnectError : AppError {
      * permission for any mDNS / multicast traffic; without it discovery is
      * silently dropped by the platform.
      *
-     * Recovery: the UI auto-navigates to manual URL entry. Granting the
-     * permission later (via system settings) re-enables discovery on next
-     * scan.
+     * The UI auto-navigates to manual URL entry on denial. To retry
+     * discovery, grant the permission in system settings and open a fresh
+     * server-select flow.
      */
     @Serializable
     @SerialName("ServerConnectError.LocalNetworkPermissionDenied")

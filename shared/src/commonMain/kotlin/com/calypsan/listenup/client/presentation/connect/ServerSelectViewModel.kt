@@ -54,6 +54,10 @@ class ServerSelectViewModel(
     private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
+    // Starts true even though discovery hasn't begun yet. The permission dialog
+    // is modal and covers this pre-discovery window; flipping to false here
+    // would falsely report Ready before any servers are known. The denial
+    // handler resets it to false explicitly.
     private val isDiscovering = MutableStateFlow(true)
     private val overlay = MutableStateFlow<Overlay>(Overlay.None)
     private var discoveryJob: Job? = null
@@ -167,6 +171,7 @@ class ServerSelectViewModel(
         logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
         errorBus.emit(ServerConnectError.LocalNetworkPermissionDenied())
         isDiscovering.value = false
+        overlay.value = Overlay.None
         _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
     }
 

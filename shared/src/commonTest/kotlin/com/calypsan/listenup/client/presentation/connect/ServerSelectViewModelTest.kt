@@ -16,6 +16,7 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -161,6 +162,9 @@ class ServerSelectViewModelTest {
                 // Navigation event was already trySend'd synchronously, should be buffered
                 assertEquals(ServerSelectViewModel.NavigationEvent.GoToManualEntry, awaitItem())
             }
+
+            // Discovery must never start on the denial path.
+            verify(VerifyMode.not) { serverRepository.startDiscovery() }
         }
 
     @Test
