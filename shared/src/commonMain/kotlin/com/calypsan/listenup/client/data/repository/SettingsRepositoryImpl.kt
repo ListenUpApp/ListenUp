@@ -30,16 +30,25 @@ private val logger = KotlinLogging.logger {}
  * `AuthSessionStore` — Settings calls into it for the cross-system seams
  * (set/clear server URL must update auth state).
  *
+ * `authSession` is injected as `Lazy<AuthSession>` to break the
+ * construction-time cycle: `SettingsRepositoryImpl` → `AuthSession` →
+ * `AuthSessionStore(serverConfig)` → `ServerConfig` → `SettingsRepositoryImpl`.
+ * `authSession` is only dereferenced inside suspend methods, never at
+ * construction or in `init`, so the lazy wrapper is safe.
+ *
  * All sensitive values are stored via `SecureStorage` (encrypted at rest).
  */
 class SettingsRepositoryImpl(
     private val secureStorage: SecureStorage,
-    private val authSession: AuthSession,
+    authSession: Lazy<AuthSession>,
 ) : com.calypsan.listenup.client.domain.repository.ServerConfig,
     com.calypsan.listenup.client.domain.repository.LibrarySync,
     com.calypsan.listenup.client.domain.repository.LibraryPreferences,
     com.calypsan.listenup.client.domain.repository.PlaybackPreferences,
     com.calypsan.listenup.client.domain.repository.LocalPreferences {
+    // Deferred to first suspend-method use; never read at construction time.
+    private val authSession by authSession
+
     // Buffer of 1 ensures emit() doesn't suspend when no collectors are active.
     // This is appropriate for preference sync since we don't want settings changes
     // to block waiting for the sync layer.

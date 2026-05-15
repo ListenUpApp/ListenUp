@@ -51,9 +51,10 @@ val clientAuthModule: Module
             // Token storage + AuthState derivation. AuthSessionStore depends on
             // ServerConfig (to read the URL during state derivation); the settings
             // impl in `dataModule` depends back on AuthSession (set-URL/disconnect
-            // updates auth state). The cycle is real and resolved by Koin's lazy
-            // single mechanism — see the comments at the SettingsRepositoryImpl
-            // binding in Koin.kt.
+            // updates auth state). The cycle is broken by injecting AuthSession as
+            // Lazy<AuthSession> in the SettingsRepositoryImpl constructor, so the
+            // AuthSession reference is deferred until first suspend-method use.
+            // See the SettingsRepositoryImpl binding comment in Koin.kt.
             singleOf(::AuthSessionStore) bind AuthSession::class
 
             // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.

@@ -39,7 +39,7 @@ class SettingsRepositoryTest {
     private fun createRepository(
         storage: SecureStorage = createMockStorage(),
         authSession: AuthSession = createMockAuthSession(),
-    ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, authSession)
+    ): SettingsRepositoryImpl = SettingsRepositoryImpl(storage, lazyOf(authSession))
 
     @Test
     fun `setServerUrl persists the URL and triggers offline derive when already authenticated`() =

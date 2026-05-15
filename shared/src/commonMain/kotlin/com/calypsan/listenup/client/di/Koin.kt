@@ -93,6 +93,7 @@ import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -212,16 +213,21 @@ val dataModule =
         single { ShortcutActionManager() }
 
         // AuthSession (tokens + AuthState flow) is provided by clientAuthModule.
-        // SettingsRepositoryImpl below depends on AuthSession; the cycle is resolved
-        // by Koin's lazy single mechanism.
+        // SettingsRepositoryImpl depends on AuthSession, but AuthSessionStore (the
+        // AuthSession impl) depends on ServerConfig, which resolves back to
+        // SettingsRepositoryImpl — a construction-time cycle. The cycle is broken by
+        // injecting AuthSession as Lazy<AuthSession>: the lambda body runs only on
+        // first suspend-method use, by which time SettingsRepositoryImpl is fully
+        // constructed and registered in the Koin graph.
 
         // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
         // library + playback preferences, device-local UI preferences. Emits preference change
         // events for PreferencesSyncObserver (in syncModule) to consume without circular deps.
         single {
+            val scope = this
             SettingsRepositoryImpl(
                 secureStorage = get(),
-                authSession = get(),
+                authSession = lazy { scope.get<AuthSession>() },
             )
         }
 
