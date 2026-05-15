@@ -76,7 +76,8 @@ class BookRepository(
         registry = registry,
         domainName = "books",
         clock = clock,
-    ) {
+    ),
+    BookIngestPort {
     override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 
     override fun idAsString(id: BookId): String = id.value
@@ -288,7 +289,7 @@ class BookRepository(
      *   book; callers must not treat the failure as a persisted aggregate, and
      *   for a new book the minted UUID points at nothing.
      */
-    suspend fun resolveOrInsert(
+    override suspend fun resolveOrInsert(
         libraryId: LibraryId,
         analyzed: AnalyzedBook,
     ): AppResult<BookId> {
@@ -334,7 +335,7 @@ class BookRepository(
      * then opens its own transaction. `softDelete` is not wrapped in an outer
      * transaction here — doing so would nest transactions needlessly.
      */
-    suspend fun softDeleteAbsent(
+    override suspend fun softDeleteAbsent(
         libraryId: LibraryId,
         seenIds: Set<BookId>,
     ) {
