@@ -200,9 +200,17 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
 private fun ServerConnectError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ServerConnectError.InvalidUrl -> HttpStatusCode.BadRequest
+
         is ServerConnectError.NotListenUpServer -> HttpStatusCode.BadGateway
+
         is ServerConnectError.ServerNotReachable -> HttpStatusCode.ServiceUnavailable
+
         is ServerConnectError.VerificationFailed -> HttpStatusCode.ServiceUnavailable
+
+        // Client-local: the wire never carries this variant. Branch exists for
+        // exhaustiveness only; if it ever reaches the server, treat it as a
+        // malformed client request.
+        is ServerConnectError.LocalNetworkPermissionDenied -> HttpStatusCode.BadRequest
     }
 
 private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =
@@ -211,6 +219,7 @@ private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectErro
         is ServerConnectError.NotListenUpServer -> copy(correlationId = id)
         is ServerConnectError.ServerNotReachable -> copy(correlationId = id)
         is ServerConnectError.VerificationFailed -> copy(correlationId = id)
+        is ServerConnectError.LocalNetworkPermissionDenied -> copy(correlationId = id)
     }
 
 private fun AudioMetadataError.toHttpStatus(): HttpStatusCode =
