@@ -18,22 +18,26 @@ import kotlinx.coroutines.runBlocking
 /**
  * WorkerFactory for injecting dependencies into all ListenUp workers.
  *
+ * All dependencies are [Lazy] so that constructing the factory does not resolve the
+ * download/WorkManager graph. Resolution is deferred until [createWorker] is called at
+ * job-dispatch time — long after [WorkManager.initialize] has run during app startup.
+ *
  * Handles creation of:
  * - [DownloadWorker] — offline audiobook downloads
  * - [ABSUploadWorker] — Audiobookshelf backup upload and import
  */
 class ListenUpWorkerFactory(
-    private val downloadRepository: DownloadRepository,
-    private val fileManager: DownloadFileManager,
+    private val downloadRepository: Lazy<DownloadRepository>,
+    private val fileManager: Lazy<DownloadFileManager>,
     // Deferred to worker-creation time so getClient() is never called before onboarding
     // completes (i.e. before serverConfig.getActiveUrl() returns non-null).
-    private val apiClientFactory: ApiClientFactory,
-    private val playbackPreferences: PlaybackPreferences,
-    private val playbackApi: PlaybackApiContract,
-    private val capabilityDetector: AudioCapabilityDetector,
-    private val backupApi: BackupApiContract,
-    private val absImportApi: ABSImportApiContract,
-    private val errorBus: ErrorBus,
+    private val apiClientFactory: Lazy<ApiClientFactory>,
+    private val playbackPreferences: Lazy<PlaybackPreferences>,
+    private val playbackApi: Lazy<PlaybackApiContract>,
+    private val capabilityDetector: Lazy<AudioCapabilityDetector>,
+    private val backupApi: Lazy<BackupApiContract>,
+    private val absImportApi: Lazy<ABSImportApiContract>,
+    private val errorBus: Lazy<ErrorBus>,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
@@ -45,17 +49,17 @@ class ListenUpWorkerFactory(
                 // WorkerFactory.createWorker is non-suspending; runBlocking is required.
                 // By the time WorkManager dispatches a download, onboarding has completed
                 // and serverConfig.getActiveUrl() is non-null — no cold-start crash risk.
-                val httpClient = runBlocking { apiClientFactory.getClient() }
+                val httpClient = runBlocking { apiClientFactory.value.getClient() }
                 DownloadWorker(
                     appContext,
                     workerParameters,
-                    downloadRepository,
-                    fileManager,
+                    downloadRepository.value,
+                    fileManager.value,
                     httpClient,
-                    playbackPreferences,
-                    playbackApi,
-                    capabilityDetector,
-                    errorBus,
+                    playbackPreferences.value,
+                    playbackApi.value,
+                    capabilityDetector.value,
+                    errorBus.value,
                 )
             }
 
@@ -63,8 +67,8 @@ class ListenUpWorkerFactory(
                 ABSUploadWorker(
                     appContext,
                     workerParameters,
-                    backupApi,
-                    absImportApi,
+                    backupApi.value,
+                    absImportApi.value,
                 )
             }
 
