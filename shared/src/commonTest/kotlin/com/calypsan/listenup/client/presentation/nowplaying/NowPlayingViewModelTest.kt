@@ -76,6 +76,10 @@ class NowPlayingViewModelTest {
             // Default: bookRepository.getBookListItem returns null (no metadata).
             // bookFlow tolerates null; pure mapToNowPlayingState handles it.
             everySuspend { bookRepository.getBookListItem(any()) } returns null
+            // NowPlayingViewModel's init block calls playbackController.acquire() to
+            // establish the MediaController connection. Mokkery is strict by default
+            // and would raise CallNotMockedException without this stub.
+            every { playbackController.acquire() } returns Unit
         }
 
         fun newVm(): NowPlayingViewModel =
@@ -97,6 +101,21 @@ class NowPlayingViewModelTest {
     @AfterTest
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    // ========== lifecycle (W7 Phase E2.2.2 regression) ==========
+
+    @Test
+    fun `init acquires the PlaybackController so MediaController connects`() {
+        val fixture = TestFixture()
+
+        fixture.newVm()
+
+        // The W7 Phase E2.2.2 refactor mistakenly removed acquire/release from the
+        // VM under the assumption that Koin-singleton lifetime obviated the call.
+        // It does not — only acquire() triggers MediaControllerHolder.connect().
+        // Without this call, every in-app playback command is a silent no-op.
+        verify(VerifyMode.exactly(1)) { fixture.playbackController.acquire() }
     }
 
     // ========== playBook ==========
