@@ -60,4 +60,17 @@ sealed interface ServerSelectUiEvent {
 
     /** Error was dismissed. */
     data object ErrorDismissed : ServerSelectUiEvent
+
+    /**
+     * The platform granted [android.permission.ACCESS_LOCAL_NETWORK] (or the
+     * platform doesn't require it). Discovery can now start.
+     */
+    data object LocalNetworkPermissionGranted : ServerSelectUiEvent
+
+    /**
+     * The user denied [android.permission.ACCESS_LOCAL_NETWORK].
+     * The VM will emit [ServerConnectError.LocalNetworkPermissionDenied] and
+     * navigate to manual entry.
+     */
+    data object LocalNetworkPermissionDenied : ServerSelectUiEvent
 }

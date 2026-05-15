@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.presentation.connect
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Server
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -30,7 +32,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import com.calypsan.listenup.client.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServerSelectViewModelTest {
@@ -80,12 +81,8 @@ class ServerSelectViewModelTest {
             val serverRepository: ServerRepository = mock()
             val serverConfig: ServerConfig = mock()
             val instanceRepository: InstanceRepository = mock()
-            // Never-emitting flow so we observe the pre-emission Discovering state
             every { serverRepository.observeServers() } returns
-                MutableStateFlow<List<ServerWithStatus>>(emptyList()).let {
-                    kotlinx.coroutines.flow.flow { /* never emits */ }
-                }
-            every { serverRepository.startDiscovery() } returns Unit
+                kotlinx.coroutines.flow.flow { /* never emits */ }
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
@@ -97,7 +94,7 @@ class ServerSelectViewModelTest {
         }
 
     @Test
-    fun `init starts server discovery`() =
+    fun `LocalNetworkPermissionGranted starts server discovery`() =
         runTest {
             val serverRepository: ServerRepository = mock()
             val serverConfig: ServerConfig = mock()
@@ -108,11 +105,14 @@ class ServerSelectViewModelTest {
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
 
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+            advanceUntilIdle()
+
             verify { serverRepository.startDiscovery() }
         }
 
     @Test
-    fun `observeServers emission transitions Discovering to Ready`() =
+    fun `LocalNetworkPermissionGranted then observeServers emission transitions Discovering to Ready`() =
         runTest {
             val serverRepository: ServerRepository = mock()
             val serverConfig: ServerConfig = mock()
@@ -123,6 +123,8 @@ class ServerSelectViewModelTest {
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
+
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
             advanceUntilIdle()
 
             // Initial emission (empty) flips to Ready
@@ -134,6 +136,31 @@ class ServerSelectViewModelTest {
 
             val ready = assertIs<ServerSelectUiState.Ready>(viewModel.state.value)
             assertEquals(1, ready.servers.size)
+        }
+
+    @Test
+    fun `LocalNetworkPermissionDenied emits error and navigates to manual entry`() =
+        runTest {
+            val serverRepository: ServerRepository = mock()
+            val serverConfig: ServerConfig = mock()
+            val instanceRepository: InstanceRepository = mock()
+            every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+            val errorBus = ErrorBus()
+
+            val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = errorBus)
+            keepStateHot(viewModel)
+            advanceUntilIdle()
+
+            errorBus.errors.test {
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
+                advanceUntilIdle()
+                assertIs<ServerConnectError.LocalNetworkPermissionDenied>(awaitItem())
+            }
+
+            viewModel.navigationEvents.test {
+                // Navigation event was already trySend'd synchronously, should be buffered
+                assertEquals(ServerSelectViewModel.NavigationEvent.GoToManualEntry, awaitItem())
+            }
         }
 
     @Test
@@ -168,6 +195,7 @@ class ServerSelectViewModelTest {
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
             advanceUntilIdle()
 
             viewModel.onEvent(ServerSelectUiEvent.RefreshClicked)
@@ -190,6 +218,7 @@ class ServerSelectViewModelTest {
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
             advanceUntilIdle()
 
             viewModel.navigationEvents.test {
@@ -218,6 +247,7 @@ class ServerSelectViewModelTest {
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
             advanceUntilIdle()
 
             viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
@@ -240,6 +270,7 @@ class ServerSelectViewModelTest {
 
             val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus())
             keepStateHot(viewModel)
+            viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
             advanceUntilIdle()
             viewModel.onEvent(ServerSelectUiEvent.ServerSelected(createServerWithStatus(server)))
             advanceUntilIdle()

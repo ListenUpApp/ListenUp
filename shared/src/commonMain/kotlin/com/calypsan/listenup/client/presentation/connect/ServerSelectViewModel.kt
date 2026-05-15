@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.connect
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.client.core.ServerUrl
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
@@ -31,7 +32,7 @@ private val logger = KotlinLogging.logger {}
  * ViewModel for the server selection screen.
  *
  * Responsibilities:
- * - Start/stop mDNS discovery
+ * - Start/stop mDNS discovery (after platform permission is confirmed)
  * - Observe discovered and persisted servers
  * - Handle server selection and activation
  *
@@ -39,6 +40,13 @@ private val logger = KotlinLogging.logger {}
  * the server list comes from [ServerRepository.observeServers], overlaid
  * with transient UI concerns (selection, connection, error) tracked in a
  * private [Overlay] StateFlow.
+ *
+ * Discovery does **not** start automatically on construction. The screen
+ * requests [android.permission.ACCESS_LOCAL_NETWORK] on first composition
+ * and fires [ServerSelectUiEvent.LocalNetworkPermissionGranted] or
+ * [ServerSelectUiEvent.LocalNetworkPermissionDenied] to the VM. On denial
+ * the VM emits [ServerConnectError.LocalNetworkPermissionDenied] to the
+ * global error bus and navigates to manual entry (Never Stranded).
  */
 class ServerSelectViewModel(
     private val serverRepository: ServerRepository,
@@ -105,10 +113,6 @@ class ServerSelectViewModel(
         data object ServerActivated : NavigationEvent
     }
 
-    init {
-        beginDiscovery()
-    }
-
     /**
      * Start mDNS scanning and flip [isDiscovering] to false on the first
      * emission from the repository. Cancels any in-flight discovery watcher
@@ -148,7 +152,22 @@ class ServerSelectViewModel(
             ServerSelectUiEvent.ErrorDismissed -> {
                 overlay.update { if (it is Overlay.Failed) Overlay.None else it }
             }
+
+            ServerSelectUiEvent.LocalNetworkPermissionGranted -> {
+                beginDiscovery()
+            }
+
+            ServerSelectUiEvent.LocalNetworkPermissionDenied -> {
+                handleLocalNetworkPermissionDenied()
+            }
         }
+    }
+
+    private fun handleLocalNetworkPermissionDenied() {
+        logger.warn { "ACCESS_LOCAL_NETWORK permission denied — navigating to manual entry" }
+        errorBus.emit(ServerConnectError.LocalNetworkPermissionDenied())
+        isDiscovering.value = false
+        _navigationEvents.trySend(NavigationEvent.GoToManualEntry)
     }
 
     private fun handleServerSelected(serverWithStatus: ServerWithStatus) {
