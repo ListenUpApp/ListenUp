@@ -35,6 +35,14 @@ class LibraryRegistry(
     /**
      * The library id for this process. Find-or-bootstrap on first call, cached after.
      *
+     * Safe to call from inside an already-open Exposed transaction on the same
+     * [Database]: the `suspendTransaction` below joins the enclosing transaction
+     * (Exposed reuses the connection in the coroutine context) rather than opening
+     * a second connection — so callers like `BookRepository.writePayload`, which run
+     * inside the sync substrate's open transaction, can resolve the library id
+     * inline without nesting hazards. The first call does one SELECT (+ optional
+     * INSERT); every call after is a pure cache read with no DB access at all.
+     *
      * @throws IllegalStateException if `LISTENUP_LIBRARY_PATH` is unset — the server
      *   cannot operate without a configured library root.
      */

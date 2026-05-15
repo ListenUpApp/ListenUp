@@ -243,7 +243,9 @@ class BookRepository(
         } else {
             // Resolved before the insert block — Exposed's `insert { }` lambda is
             // not a suspend context, so `currentLibrary()` (suspend) cannot be
-            // called inside it. The registry caches after first call.
+            // called inside it. The registry caches after first call; its first-call
+            // `suspendTransaction` joins this writePayload's open transaction (same
+            // Database, Exposed reuses the connection) — no nested-connection hazard.
             val resolvedLibraryId = libraryRegistry.currentLibrary().value
             BookTable.insert { stmt ->
                 stmt[BookTable.id] = value.id
