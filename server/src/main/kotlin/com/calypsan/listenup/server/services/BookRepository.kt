@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.sync.SyncableRepository
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.VarCharColumnType
+import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
@@ -346,13 +346,14 @@ class BookRepository(
         val existing =
             BookSeriesTable
                 .selectAll()
-                .where { BookSeriesTable.name eq normalized }
+                .where { BookSeriesTable.normalizedName eq normalized }
                 .firstOrNull()
         if (existing != null) return existing[BookSeriesTable.id]
         val newId = s.id.ifBlank { UUID.randomUUID().toString() }
         BookSeriesTable.insert {
             it[BookSeriesTable.id] = newId
-            it[BookSeriesTable.name] = normalized
+            it[BookSeriesTable.normalizedName] = normalized
+            it[BookSeriesTable.name] = s.name
             it[BookSeriesTable.sortName] = null
         }
         return newId
@@ -420,11 +421,11 @@ class BookRepository(
                     "VALUES ($rowid, ?, ?, ?, ?, ?)",
             args =
                 listOf(
-                    VarCharColumnType() to payload.title,
-                    VarCharColumnType() to (payload.subtitle ?: ""),
-                    VarCharColumnType() to (payload.description ?: ""),
-                    VarCharColumnType() to contributorNames,
-                    VarCharColumnType() to seriesNames,
+                    TextColumnType() to payload.title,
+                    TextColumnType() to (payload.subtitle ?: ""),
+                    TextColumnType() to (payload.description ?: ""),
+                    TextColumnType() to contributorNames,
+                    TextColumnType() to seriesNames,
                 ),
         )
     }

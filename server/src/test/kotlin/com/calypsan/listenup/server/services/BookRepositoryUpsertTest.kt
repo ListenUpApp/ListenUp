@@ -28,6 +28,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class BookRepositoryUpsertTest :
@@ -165,6 +166,43 @@ class BookRepositoryUpsertTest :
 
                     transaction(db) {
                         ContributorTable.selectAll().count() shouldBe 1L
+                    }
+                }
+            }
+        }
+
+        test("series dedup preserves display casing of first writer") {
+            withInMemoryDatabase {
+                val db = this
+                seedLibrary(db)
+                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    // First book writes "Stormlight Archive".
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b1",
+                            title = "Way of Kings",
+                            series = listOf(series("s1", "Stormlight Archive", "1")),
+                        ),
+                    )
+                    // Second book writes "  STORMLIGHT  archive " (whitespace + case variance).
+                    repo.upsert(
+                        bookPayloadFixture(
+                            id = "b2",
+                            title = "Words of Radiance",
+                            rootRelPath = "books/b2",
+                            series = listOf(series("s2", "  STORMLIGHT  archive ", "2")),
+                        ),
+                    )
+
+                    // Both books should resolve to the SAME series row,
+                    // with the first writer's casing preserved.
+                    suspendTransaction(db = db) {
+                        val readback1 = repo.readPayloadForTest("b1")!!.series.single()
+                        val readback2 = repo.readPayloadForTest("b2")!!.series.single()
+                        readback1.id shouldBe readback2.id
+                        readback1.name shouldBe "Stormlight Archive"
+                        readback2.name shouldBe "Stormlight Archive"
                     }
                 }
             }
