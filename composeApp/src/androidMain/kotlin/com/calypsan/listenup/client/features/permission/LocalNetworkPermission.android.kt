@@ -10,15 +10,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
-/** First API level that requires [Manifest.permission.ACCESS_LOCAL_NETWORK]. */
-private const val API_LEVEL_ACCESS_LOCAL_NETWORK_REQUIRED = 36
+/**
+ * API level at which [Manifest.permission.ACCESS_LOCAL_NETWORK] was introduced
+ * (API 36, Android 16 "Baklava"). The permission becomes mandatory for mDNS /
+ * multicast traffic once the app targets SDK 37 (Android 17).
+ */
+private const val ACCESS_LOCAL_NETWORK_MIN_API = 36
 
 /**
  * Android actual for [RequestLocalNetworkPermission].
  *
- * On API 36+ (Android 17), [Manifest.permission.ACCESS_LOCAL_NETWORK] is
- * required for mDNS / multicast traffic. This composable requests it once
- * on first composition and delivers the result to [onResult].
+ * [Manifest.permission.ACCESS_LOCAL_NETWORK] exists from API 36 (Android 16)
+ * onward and is enforced for mDNS / multicast traffic once the app targets
+ * SDK 37 (Android 17). This composable requests it once on first composition
+ * and delivers the result to [onResult].
  *
  * On API 35 and below the permission does not exist and [onResult] is called
  * immediately with `true`.
@@ -27,10 +32,9 @@ private const val API_LEVEL_ACCESS_LOCAL_NETWORK_REQUIRED = 36
 actual fun RequestLocalNetworkPermission(onResult: (granted: Boolean) -> Unit) {
     val context = LocalContext.current
 
-    // ACCESS_LOCAL_NETWORK was introduced in Android 17 (API 36).
-    // On earlier API levels the permission doesn't exist and discovery
-    // works without it.
-    if (Build.VERSION.SDK_INT < API_LEVEL_ACCESS_LOCAL_NETWORK_REQUIRED) {
+    // ACCESS_LOCAL_NETWORK was introduced in API 36 (Android 16). On earlier
+    // API levels the permission doesn't exist and discovery works without it.
+    if (Build.VERSION.SDK_INT < ACCESS_LOCAL_NETWORK_MIN_API) {
         LaunchedEffect(Unit) { onResult(true) }
         return
     }
