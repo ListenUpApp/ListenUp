@@ -4,8 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import java.nio.file.Path
-import javax.xml.XMLConstants
-import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.io.path.inputStream
 
 private val logger = KotlinLogging.logger {}
@@ -60,37 +58,6 @@ internal class NfoParser : SidecarParser {
             logger.debug(e) { "Unparseable .nfo: $file — skipping" }
             null
         }
-}
-
-/**
- * A non-validating, XXE-hardened [DocumentBuilderFactory]. `.nfo` files are
- * untrusted library content, so external DTD/entity resolution is disabled.
- * Each feature toggle is applied defensively — a JDK parser that rejects a
- * given feature must not abort the parse — and the parse-level catch is the
- * final safety net regardless.
- */
-private fun hardenedDocumentBuilderFactory(): DocumentBuilderFactory =
-    DocumentBuilderFactory.newInstance().apply {
-        isNamespaceAware = false
-        isValidating = false
-        isExpandEntityReferences = false
-        trySetFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-        trySetFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        trySetFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        trySetFeature("http://xml.org/sax/features/external-general-entities", false)
-        trySetFeature("http://xml.org/sax/features/external-parameter-entities", false)
-    }
-
-/** Sets [feature], swallowing parsers that don't recognise it — hardening must never crash the parse. */
-private fun DocumentBuilderFactory.trySetFeature(
-    feature: String,
-    value: Boolean,
-) {
-    try {
-        setFeature(feature, value)
-    } catch (e: Exception) {
-        logger.debug(e) { "XML parser does not support feature '$feature' — continuing" }
-    }
 }
 
 /** Trimmed text of the first `<tag>` descendant, or null when absent or blank. */

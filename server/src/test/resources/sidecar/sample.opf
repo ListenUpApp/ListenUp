@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+    <metadata xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>Words of Radiance</dc:title>
+        <dc:creator opf:role="aut">Brandon Sanderson</dc:creator>
+        <dc:creator opf:role="nrt">Michael Kramer</dc:creator>
+        <dc:date>2014-03-04</dc:date>
+        <dc:description>The second volume of the Stormlight Archive.</dc:description>
+        <dc:publisher>Tor Books</dc:publisher>
+        <dc:language>en</dc:language>
+        <dc:identifier opf:scheme="ISBN">978-0765326362</dc:identifier>
+    </metadata>
+</package>
