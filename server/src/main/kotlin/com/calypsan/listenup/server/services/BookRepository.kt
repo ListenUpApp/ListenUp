@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -8,6 +10,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
@@ -16,14 +19,15 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.TextColumnType
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
@@ -33,7 +37,10 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
+
+private val log = KotlinLogging.logger {}
 
 /**
  * Server-side repository for the books aggregate.
@@ -47,11 +54,18 @@ import org.jetbrains.exposed.v1.jdbc.update
  * `toString()` on a value class returns `"BookId(value=foo)"`, which would
  * corrupt every column the id is written to. The Konsist rule
  * `IdAsStringRequiredForValueClassIdsRule` enforces this override at build time.
+ *
+ * The repository is bound to a single [libraryId] at construction time. Books-A
+ * is single-library; Task 13's `LibraryRegistry` supplies the resolved id when
+ * the repository is wired into Koin. `writePayload`'s signature is dictated by
+ * the substrate (`value, rev, now, clientOpId, existed`) and cannot carry a
+ * library id, so the binding lives as constructor state instead.
  */
 class BookRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val libraryId: LibraryId,
     clock: Clock = Clock.System,
 ) : SyncableRepository<BookSyncPayload, BookId>(
         db = db,
@@ -221,7 +235,10 @@ class BookRepository(
         } else {
             BookTable.insert { stmt ->
                 stmt[BookTable.id] = value.id
-                stmt[BookTable.libraryId] = libraryIdFor(value)
+                // Qualified: inside the table-receiver lambda, bare `libraryId`
+                // would resolve to BookTable.libraryId (the column), not the
+                // constructor property.
+                stmt[BookTable.libraryId] = this@BookRepository.libraryId.value
                 applyBookFields(stmt, value)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
@@ -238,27 +255,219 @@ class BookRepository(
         upsertFtsRow(value)
     }
 
+    // --- Identity resolution -------------------------------------------------
+
     /**
-     * Resolves the library id for a fresh book insert.
+     * Resolves an [AnalyzedBook] from the scanner to a stable [BookId] and writes
+     * its aggregate, using the three-key identity model (spec §5.1):
      *
-     * Books-A bootstraps with a single library row keyed off `LISTENUP_LIBRARY_PATH`
-     * (see `LibraryTable`). Until Task 13 wires a `LibraryRegistry` that injects
-     * the resolved id, the repository reads the lone library row directly. The
-     * fail-fast `error` is a deliberate floor — the scanner and ingest tests
-     * always seed a library row before exercising book writes.
+     *  1. **Natural key** `(library_id, root_rel_path)` — the path the scanner
+     *     produces. A hit means a plain rescan; the existing UUID is reused and
+     *     the aggregate is refreshed in place.
+     *  2. **Move-detection hint** `(library_id, inode)` — checked only when the
+     *     natural-key lookup misses. A hit means the book's directory was
+     *     renamed/moved; the existing UUID is preserved, `root_rel_path` is
+     *     updated to the new value, and the move is logged at INFO so operators
+     *     can audit it. The book-level inode is the first audio file's inode
+     *     ([CandidateBook.files]`.first().inode`); a null inode skips this
+     *     branch entirely (filesystems without stable file keys).
+     *  3. **No match** — a genuinely new book; a fresh UUID is allocated.
+     *
+     * In every branch the write goes through [upsertFromAnalyzed], which builds
+     * a [BookSyncPayload] and hands it to the substrate's `upsert` — so revision
+     * bumping and `SyncEvent` publication happen uniformly. Each lookup opens
+     * its own short read transaction; the subsequent write opens its own. SQLite
+     * is single-writer, so the consecutive transactions serialize cleanly with
+     * no risk of a lost-update race within a single scan pass.
+     *
+     * @return the stable [BookId] for this book — newly minted or pre-existing.
      */
-    private fun libraryIdFor(
-        @Suppress("UNUSED_PARAMETER") value: BookSyncPayload,
-    ): String =
-        LibraryTable
-            .selectAll()
-            .limit(1)
+    suspend fun resolveOrInsert(
+        libraryId: LibraryId,
+        analyzed: AnalyzedBook,
+    ): BookId {
+        val rootRelPath = analyzed.candidate.rootRelPath
+
+        findByPath(libraryId, rootRelPath)?.let { existing ->
+            upsertFromAnalyzed(existing, analyzed)
+            return existing
+        }
+
+        analyzed.candidate.files
             .firstOrNull()
-            ?.get(LibraryTable.id)
-            ?: error(
-                "No library bootstrapped — Task 13 (LibraryRegistry) wires this properly; " +
-                    "for now, ensure a row in 'libraries' before upserting books.",
+            ?.inode
+            ?.let { inode ->
+                findByInode(libraryId, inode)?.let { existing ->
+                    val previousPath = findById(existing)?.rootRelPath
+                    log.info { "Book moved: $previousPath → $rootRelPath" }
+                    upsertFromAnalyzed(existing, analyzed)
+                    return existing
+                }
+            }
+
+        val newId = BookId(UUID.randomUUID().toString())
+        upsertFromAnalyzed(newId, analyzed)
+        return newId
+    }
+
+    /**
+     * Builds a [BookSyncPayload] from [analyzed] under the supplied [bookId] and
+     * writes the full aggregate through the substrate's `upsert`.
+     *
+     * The mapping flattens the scanner's resolved view onto the wire shape:
+     *  - `authors` + `narrators` become contributor rows (`role = "author"` /
+     *    `"narrator"`); blank ids trigger `ensureContributor` to allocate fresh
+     *    catalogue UUIDs by normalized name.
+     *  - `series` entries map one-to-one to series memberships.
+     *  - `tracks` map to audio files; `filename`/`format`/`size` come from the
+     *    track's [com.calypsan.listenup.api.dto.scanner.FileEntry].
+     *  - `chapters` map to chapter rows (`duration = endMs - startMs`).
+     *
+     * **Duration caveat.** The Scanner's `AnalyzedBook` carries no per-track
+     * duration — `TrackEntry` wraps only a `FileEntry` (path/size/inode), and
+     * `codec` is not surfaced anywhere. The single authoritative duration is
+     * `embedded.durationMs`, produced by the parser for the *primary* audio
+     * file only (spec §3 non-goal: multi-file books parse the first file).
+     * So `totalDuration` and the first audio file's `duration` carry that
+     * value; non-primary files get `0L`; `codec` is left blank. Phase 2's
+     * per-file duration backfill (or Books-B) is the natural home for richer
+     * audio-file metadata — flagged for the Task 11/15 implementers.
+     *
+     * `cover` is left null — cover hashing is a later task; the substrate-owned
+     * `revision`/`updatedAt`/`createdAt` placeholders are overwritten by `upsert`.
+     */
+    suspend fun upsertFromAnalyzed(
+        bookId: BookId,
+        analyzed: AnalyzedBook,
+    ): AppResult<BookSyncPayload> {
+        val candidate = analyzed.candidate
+        val inode = candidate.files.firstOrNull()?.inode
+        val totalDuration = analyzed.embedded?.durationMs ?: 0L
+        val payload =
+            BookSyncPayload(
+                id = bookId.value,
+                title = analyzed.title,
+                sortTitle = null,
+                subtitle = analyzed.subtitle,
+                description = analyzed.description,
+                publishYear = analyzed.publishedYear,
+                publisher = analyzed.publisher,
+                language = analyzed.language,
+                isbn = analyzed.isbn,
+                asin = analyzed.asin,
+                abridged = analyzed.abridged ?: false,
+                explicit = analyzed.explicit ?: false,
+                totalDuration = totalDuration,
+                cover = null,
+                rootRelPath = candidate.rootRelPath,
+                inode = inode,
+                scannedAt = clock.now().toEpochMilliseconds(),
+                contributors = buildContributors(analyzed),
+                series = buildSeries(analyzed),
+                audioFiles = buildAudioFiles(analyzed),
+                chapters = buildChapters(analyzed),
+                revision = 0L,
+                updatedAt = 0L,
+                createdAt = 0L,
+                deletedAt = null,
             )
+        return upsert(payload, clientOpId = null)
+    }
+
+    /**
+     * Reads the full book aggregate for [id], or null when absent. Opens its own
+     * read transaction — usable outside the substrate's `upsert`/`pullSince`
+     * orchestration (the scanner reads a book's current `rootRelPath` before
+     * logging a move; tests assert post-write state).
+     */
+    suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
+
+    /** Resolves the natural key `(library_id, root_rel_path)` to a [BookId], or null. */
+    private suspend fun findByPath(
+        libraryId: LibraryId,
+        rootRelPath: String,
+    ): BookId? =
+        suspendTransaction(db) {
+            BookTable
+                .selectAll()
+                .where {
+                    (BookTable.libraryId eq libraryId.value) and (BookTable.rootRelPath eq rootRelPath)
+                }.firstOrNull()
+                ?.get(BookTable.id)
+                ?.let { BookId(it) }
+        }
+
+    /**
+     * Resolves the move-detection key `(library_id, inode)` to a [BookId], or null.
+     *
+     * When two books share an inode (hardlinks), the first match by insertion
+     * order is returned deterministically and a warning is logged — spec §5.3.
+     */
+    private suspend fun findByInode(
+        libraryId: LibraryId,
+        inode: Long,
+    ): BookId? =
+        suspendTransaction(db) {
+            val matches =
+                BookTable
+                    .selectAll()
+                    .where { (BookTable.libraryId eq libraryId.value) and (BookTable.inode eq inode) }
+                    .map { it[BookTable.id] }
+            if (matches.size > 1) {
+                log.warn { "Multiple books share inode $inode in library ${libraryId.value}; picking first" }
+            }
+            matches.firstOrNull()?.let { BookId(it) }
+        }
+
+    // --- AnalyzedBook → BookSyncPayload mapping ------------------------------
+
+    private fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> =
+        analyzed.authors.map { contributorPayload(it, role = "author") } +
+            analyzed.narrators.map { contributorPayload(it, role = "narrator") }
+
+    private fun contributorPayload(
+        name: String,
+        role: String,
+    ): BookContributorPayload =
+        BookContributorPayload(
+            id = "",
+            name = name,
+            sortName = null,
+            role = role,
+            creditedAs = null,
+        )
+
+    private fun buildSeries(analyzed: AnalyzedBook): List<BookSeriesPayload> =
+        analyzed.series.map { entry ->
+            BookSeriesPayload(id = "", name = entry.name, sequence = entry.sequence)
+        }
+
+    private fun buildAudioFiles(analyzed: AnalyzedBook): List<BookAudioFilePayload> {
+        // Only the primary (first) audio file has an authoritative duration —
+        // see the duration caveat on `upsertFromAnalyzed`.
+        val primaryDuration = analyzed.embedded?.durationMs ?: 0L
+        return analyzed.tracks.mapIndexed { index, track ->
+            BookAudioFilePayload(
+                id = "",
+                index = index,
+                filename = track.file.name,
+                format = track.file.ext,
+                codec = "",
+                duration = if (index == 0) primaryDuration else 0L,
+                size = track.file.size,
+            )
+        }
+    }
+
+    private fun buildChapters(analyzed: AnalyzedBook): List<BookChapterPayload> =
+        analyzed.chapters.map { chapter ->
+            BookChapterPayload(
+                id = "",
+                title = chapter.title,
+                duration = chapter.endMs - chapter.startMs,
+                startTime = chapter.startMs,
+            )
+        }
 
     private fun applyBookFields(
         stmt: UpdateBuilder<*>,

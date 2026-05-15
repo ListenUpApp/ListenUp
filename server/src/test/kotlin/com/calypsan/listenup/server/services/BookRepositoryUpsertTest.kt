@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.db.LibraryTable
@@ -39,7 +40,13 @@ class BookRepositoryUpsertTest :
                 val db = this
                 seedLibrary(db)
                 val bus = ChangeBus()
-                val repo = BookRepository(db = db, bus = bus, registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -90,7 +97,13 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 seedLibrary(db)
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     val v1 =
                         bookPayloadFixture(
@@ -144,7 +157,13 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 seedLibrary(db)
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     repo.upsert(
                         bookPayloadFixture(
@@ -175,7 +194,13 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 seedLibrary(db)
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     // First book writes "Stormlight Archive".
                     repo.upsert(
@@ -212,7 +237,13 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 seedLibrary(db)
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     repo.upsert(
                         bookPayloadFixture(
@@ -255,7 +286,13 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 seedLibrary(db)
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))
                     val firstRowid =

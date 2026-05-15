@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.client.core.LibraryId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
@@ -30,7 +31,13 @@ class BookRepositoryReadTest :
         test("readPayload returns null for absent book") {
             withInMemoryDatabase {
                 val db = this
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     suspendTransaction(db = db) {
                         repo.readPayloadForTest("missing").shouldBeNull()
@@ -127,7 +134,13 @@ class BookRepositoryReadTest :
                     }
                 }
 
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     suspendTransaction(db = db) {
                         val payload = repo.readPayloadForTest("b1").shouldNotBeNull()
@@ -185,7 +198,13 @@ class BookRepositoryReadTest :
                         it[updatedAt] = 0L
                     }
                 }
-                val repo = BookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryId = LibraryId("lib1"),
+                    )
                 runTest {
                     suspendTransaction(db = db) {
                         val payload = repo.readPayloadForTest("b2").shouldNotBeNull()
