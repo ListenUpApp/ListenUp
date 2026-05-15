@@ -11,9 +11,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * the [ChangeBus][com.calypsan.listenup.server.sync.ChangeBus] sees the event.
  *
  * Heuristic: strip line and block comments (so doc-string code samples don't
- * false-trigger), then scan `:server/.../` files (excluding the `sync/`
- * directory itself) for any of the Exposed write operators invoked on a token
- * that matches a `*Table` object known to extend `SyncableTable`.
+ * false-trigger), then scan `:server/.../` files (excluding `sync/` — the
+ * substrate itself — and `services/` — where Books-A's per-domain repositories
+ * live) for any of the Exposed write operators invoked on a token that matches
+ * a `*Table` object known to extend `SyncableTable`.
  *
  * Detected write operators are listed in [WRITE_OPERATORS]. Read-only operators
  * (`.selectAll(`, `.select(`, `.exists(`) are deliberately excluded.
@@ -43,6 +44,7 @@ class SyncWritesGoThroughRepositoryRule :
                 scope.files
                     .filter { it.path.contains("/server/") }
                     .filterNot { it.path.contains("/server/sync/") }
+                    .filterNot { it.path.contains("/server/services/") }
                     .flatMap { file ->
                         val stripped = stripComments(file.text)
                         WRITE_OPERATORS.flatMap { op ->
