@@ -13,9 +13,6 @@ enum class MetadataSource {
     FOLDER_STRUCTURE,
     FILENAME,
     ABS_METADATA,
-    OPF_FILE,
-    NFO_FILE,
-    TXT_FILES,
     SIDECAR,
     AUDIO_METATAGS,
 }
