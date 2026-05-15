@@ -55,8 +55,12 @@ class LibraryRegistry(
                     ?: bootstrapLibrary(rootPath)
             }
 
-        // compareAndSet so a concurrent first-caller doesn't lose its result;
-        // both resolve to the same row, so either cached value is correct.
+        // compareAndSet guards the *cache* slot against a concurrent first-caller
+        // overwriting it — not the DB read-then-bootstrap above. That find-or-insert
+        // is not atomic: two concurrent first-callers could both miss the SELECT and
+        // both INSERT, with the second hitting `idx_libraries_root_path` and throwing.
+        // Benign in practice — `currentLibrary()` is called once at startup wiring on
+        // a single thread. If that assumption ever breaks, wrap the resolve in a Mutex.
         cachedId.compareAndSet(null, id)
         return LibraryId(cachedId.get()!!)
     }
