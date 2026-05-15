@@ -16,5 +16,6 @@ enum class MetadataSource {
     OPF_FILE,
     NFO_FILE,
     TXT_FILES,
+    SIDECAR,
     AUDIO_METATAGS,
 }
