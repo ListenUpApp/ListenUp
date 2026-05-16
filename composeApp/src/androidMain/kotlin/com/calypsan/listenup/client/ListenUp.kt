@@ -1,8 +1,14 @@
 package com.calypsan.listenup.client
 
+import android.app.ActivityManager
 import android.app.Application
+import android.app.ApplicationExitInfo
 import android.content.Context
+import android.os.Build
+import android.os.ProfilingManager
+import android.os.ProfilingResult
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import coil3.ImageLoader
@@ -39,6 +45,7 @@ import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +61,11 @@ import org.koin.core.logger.Level
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+
+private val logger = KotlinLogging.logger {}
+
+/** Maximum number of historical exit records to inspect for memory-related causes. */
+private const val HISTORICAL_EXIT_LIMIT = 5
 
 /**
  * Android-specific dependencies module.
@@ -291,6 +303,18 @@ class ListenUp :
         // This catches DI misconfigurations before UI loads, providing clear error messages.
         verifyCriticalKoinBindings()
 
+        // Register ProfilingManager callback to surface system-driven OOM/anomaly results.
+        // Android 17+ (API 37) only — no-op on earlier releases.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            registerProfilingTriggers()
+        }
+
+        // Log memory-related historical exit reasons so operators can diagnose OOM crashes
+        // from logs alone, without requiring ADB or on-device tooling. API 30+.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            logHistoricalMemoryExits()
+        }
+
         // Schedule periodic background sync only after user authenticates
         get<CoroutineScope>().launch {
             val authSession = get<com.calypsan.listenup.client.domain.repository.AuthSession>()
@@ -306,6 +330,66 @@ class ListenUp :
      * Configured to load book covers from local file storage.
      */
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoaderFactory.create(context = this)
+
+    /**
+     * Registers a [ProfilingManager] callback that logs the outcome of every system-driven
+     * profiling request (heap dumps, stack samples, system traces) at INFO level.
+     *
+     * This gives self-hosting operators a passive view into OOM and anomaly events without
+     * requiring ADB or on-device tooling. Any registration failure is caught and logged at
+     * WARN so that a diagnostics setup problem can never crash app startup.
+     *
+     * API gate: Android 17+ ([Build.VERSION_CODES.CINNAMON_BUN], API 37).
+     */
+    @RequiresApi(Build.VERSION_CODES.CINNAMON_BUN)
+    private fun registerProfilingTriggers() {
+        runCatching {
+            val profilingManager =
+                getSystemService(ProfilingManager::class.java) ?: return@runCatching
+            profilingManager.registerForAllProfilingResults(mainExecutor) { result: ProfilingResult ->
+                logger.info {
+                    "ProfilingManager result: errorCode=${result.errorCode} " +
+                        "triggerType=${result.triggerType} " +
+                        "tag=${result.tag} " +
+                        "resultFilePath=${result.resultFilePath}"
+                }
+            }
+        }.onFailure { t ->
+            logger.warn(t) { "ProfilingManager registration failed" }
+        }
+    }
+
+    /**
+     * Reads up to [HISTORICAL_EXIT_LIMIT] historical process exit records and logs any that
+     * are memory-related (description contains "memory" or reason is [REASON_LOW_MEMORY]).
+     *
+     * Operators can correlate these log lines with OOM reports or crash analytics without
+     * needing ADB access. Any failure is caught and logged at WARN.
+     *
+     * API gate: Android 11+ ([Build.VERSION_CODES.R], API 30).
+     */
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun logHistoricalMemoryExits() {
+        runCatching {
+            val activityManager =
+                getSystemService(ActivityManager::class.java) ?: return@runCatching
+            val records = activityManager.getHistoricalProcessExitReasons(packageName, 0, HISTORICAL_EXIT_LIMIT)
+            records.forEach { record ->
+                val description = record.description
+                val isMemoryRelated =
+                    record.reason == ApplicationExitInfo.REASON_LOW_MEMORY ||
+                        description?.contains("memory", ignoreCase = true) == true
+                if (isMemoryRelated) {
+                    logger.info {
+                        "Historical exit: reason=${record.reason} description=$description " +
+                            "pss=${record.pss}kB rss=${record.rss}kB"
+                    }
+                }
+            }
+        }.onFailure { t ->
+            logger.warn(t) { "Failed to read historical exit reasons" }
+        }
+    }
 
     /**
      * Verify that all critical Koin singletons can be resolved.
