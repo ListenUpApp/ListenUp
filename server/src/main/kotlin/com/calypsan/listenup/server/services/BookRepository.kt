@@ -27,6 +27,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
+import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -433,6 +434,38 @@ class BookRepository(
      * logging a move; tests assert post-write state).
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
+
+    /**
+     * Runs an FTS5 full-text search against `book_search` and returns matching
+     * [BookId]s in rank order (best match first), capped at [limit] results.
+     *
+     * Joins `book_search_map` to translate FTS5 integer rowids back to the
+     * string book ids this application uses. The search query is parameterised
+     * so user-supplied strings never touch the SQL text. [limit] is clamped
+     * by the caller ([BookServiceImpl]) before this method is invoked.
+     */
+    suspend fun searchFts(
+        query: String,
+        limit: Int,
+    ): List<BookId> =
+        suspendTransaction(db) {
+            val results = mutableListOf<BookId>()
+            val stmt =
+                "SELECT m.book_id FROM book_search s " +
+                    "JOIN book_search_map m ON s.rowid = m.rowid " +
+                    "WHERE book_search MATCH ? ORDER BY rank LIMIT ?"
+            TransactionManager.current().exec(
+                stmt = stmt,
+                args =
+                    listOf(
+                        TextColumnType() to query,
+                        IntegerColumnType() to limit,
+                    ),
+            ) { rs ->
+                while (rs.next()) results += BookId(rs.getString(1))
+            }
+            results
+        }
 
     /** Resolves the natural key `(library_id, root_rel_path)` to a [BookId], or null. */
     private suspend fun findByPath(
