@@ -17,6 +17,7 @@ import coil3.SingletonImageLoader
 import com.calypsan.listenup.client.core.ImageLoaderFactory
 import com.calypsan.listenup.client.data.remote.PlaybackApi
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.di.playbackPresentationModule
 import com.calypsan.listenup.client.di.sharedModules
 import com.calypsan.listenup.client.download.AndroidDownloadEnqueuer
@@ -261,6 +262,10 @@ class ListenUp :
     KoinComponent {
     override fun onCreate() {
         super.onCreate()
+
+        // Register all notification channels before any service or worker can post a notification.
+        // Idempotent — safe to call on every startup.
+        NotificationChannels.registerAll(this)
 
         // Initialize Koin dependency injection
         startKoin {

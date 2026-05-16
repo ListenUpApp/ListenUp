@@ -2,10 +2,7 @@
 
 package com.calypsan.listenup.client.playback
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
@@ -17,6 +14,7 @@ import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
+import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.google.common.collect.ImmutableList
 
 /**
@@ -35,7 +33,7 @@ class AudiobookNotificationProvider(
 ) : MediaNotification.Provider {
     companion object {
         const val NOTIFICATION_ID = 1
-        const val CHANNEL_ID = "listenup_playback"
+        const val CHANNEL_ID = NotificationChannels.PLAYBACK
 
         // Custom commands
         const val COMMAND_SKIP_BACK_30 = "listenup.SKIP_BACK_30"
@@ -61,7 +59,6 @@ class AudiobookNotificationProvider(
     }
 
     init {
-        createNotificationChannel()
         loadResourceIds()
     }
 
@@ -71,22 +68,6 @@ class AudiobookNotificationProvider(
         icNotification = resources.getIdentifier("ic_notification", "drawable", packageName)
         icPlay = resources.getIdentifier("ic_play", "drawable", packageName)
         icPause = resources.getIdentifier("ic_pause", "drawable", packageName)
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel =
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "Playback",
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply {
-                    description = "Audio playback controls"
-                    setShowBadge(false)
-                }
-            val notificationManager = context.getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-        }
     }
 
     override fun createNotification(
@@ -220,7 +201,7 @@ class AudiobookNotificationProvider(
     override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo =
         MediaNotification.Provider.NotificationChannelInfo(
             CHANNEL_ID,
-            "Playback",
+            NotificationChannels.PLAYBACK_NAME,
         )
 
     override fun handleCustomCommand(
