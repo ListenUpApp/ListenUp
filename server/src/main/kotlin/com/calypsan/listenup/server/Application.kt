@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.scannerModule
@@ -85,6 +86,7 @@ fun Application.module() {
     val scannerService: ScannerService? = resolvedLibraryPath?.let { inject<ScannerService>().value }
     val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
+    val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
 
     routing {
         healthRoutes()
@@ -94,7 +96,7 @@ fun Application.module() {
         rpcRoutes(authService, scannerService)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
-            if (bookService != null) bookRoutes(bookService)
+            if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

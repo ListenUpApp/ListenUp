@@ -20,12 +20,18 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.UUID
 import kotlin.time.Clock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
@@ -436,6 +442,112 @@ class BookRepository(
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
 
     /**
+     * Resolves where [id]'s cover image lives, as an absolute filesystem path,
+     * for the cover-serving route. Returns null when the book is absent **or**
+     * has no cover (a null `coverSource`) — both are a plain 404 to the caller,
+     * not an error.
+     *
+     * The persisted `cover_path` column is always null — the wire DTO carries
+     * no path — so the path is *derived* here from the library root and the
+     * book's `root_rel_path`:
+     *
+     *  - [CoverSource.FILESYSTEM] → the book directory is scanned for a cover
+     *    image, mirroring the scanner's `Analyzer.resolveCover` precedence:
+     *    a `cover.*` file (case-insensitive) wins, else the first image file
+     *    by name. A [CoverInfo.Filesystem] is returned only when such a file
+     *    actually exists on disk; otherwise null (the image was deleted since
+     *    the scan — a 404, not a 500).
+     *  - [CoverSource.EMBEDDED] → the book's primary audio file (lowest
+     *    `ordinal`) resolves to `<root>/<rootRelPath>/<filename>`, returned as
+     *    [CoverInfo.Embedded] for serve-time artwork extraction.
+     *
+     * Opens its own short read transaction — the route calls it outside any
+     * substrate orchestration.
+     */
+    suspend fun coverInfo(id: BookId): CoverInfo? {
+        val resolved =
+            suspendTransaction(db) {
+                val bookRow =
+                    BookTable
+                        .selectAll()
+                        .where { BookTable.id eq id.value }
+                        .firstOrNull() ?: return@suspendTransaction null
+                val source = bookRow[BookTable.coverSource] ?: return@suspendTransaction null
+                val rootRelPath = bookRow[BookTable.rootRelPath]
+                val libraryRoot =
+                    LibraryTable
+                        .selectAll()
+                        .where { LibraryTable.id eq bookRow[BookTable.libraryId] }
+                        .first()[LibraryTable.rootPath]
+                val primaryFilename =
+                    BookAudioFileTable
+                        .selectAll()
+                        .where { BookAudioFileTable.bookId eq id.value }
+                        .orderBy(BookAudioFileTable.ordinal)
+                        .firstOrNull()
+                        ?.get(BookAudioFileTable.filename)
+                ResolvedCover(source, libraryRoot, rootRelPath, primaryFilename)
+            } ?: return null
+
+        val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)
+        val source =
+            CoverSource.entries.firstOrNull { it.name.equals(resolved.source, ignoreCase = true) }
+                ?: return null
+        return when (source) {
+            CoverSource.FILESYSTEM -> {
+                resolveFilesystemCover(bookDir)?.let(CoverInfo::Filesystem)
+            }
+
+            CoverSource.EMBEDDED -> {
+                resolved.primaryFilename
+                    ?.let { bookDir.resolve(it) }
+                    ?.takeIf { withContext(Dispatchers.IO) { Files.isRegularFile(it) } }
+                    ?.let(CoverInfo::Embedded)
+            }
+        }
+    }
+
+    /**
+     * Finds the filesystem cover image in [bookDir], mirroring the scanner's
+     * `Analyzer.resolveCover` precedence: a file whose stem is `cover`
+     * (case-insensitive) wins, else the first image file by name. Returns null
+     * when the directory holds no image — or has vanished since the scan.
+     */
+    private suspend fun resolveFilesystemCover(bookDir: Path): Path? =
+        withContext(Dispatchers.IO) {
+            if (!Files.isDirectory(bookDir)) return@withContext null
+            val images =
+                Files
+                    .list(bookDir)
+                    .use { stream ->
+                        stream
+                            .filter { Files.isRegularFile(it) }
+                            .filter {
+                                it.fileName
+                                    .toString()
+                                    .substringAfterLast('.', "")
+                                    .lowercase() in IMAGE_EXTENSIONS
+                            }.sorted(compareBy { it.fileName.toString() })
+                            .toList()
+                    }
+            images.firstOrNull {
+                it.fileName
+                    .toString()
+                    .substringBeforeLast('.')
+                    .equals("cover", ignoreCase = true)
+            }
+                ?: images.firstOrNull()
+        }
+
+    /** Intermediate carrier for the columns [coverInfo] reads inside its transaction. */
+    private data class ResolvedCover(
+        val source: String,
+        val libraryRoot: String,
+        val rootRelPath: String,
+        val primaryFilename: String?,
+    )
+
+    /**
      * Runs an FTS5 full-text search against `book_search` and returns matching
      * [BookId]s in rank order (best match first), capped at [limit] results.
      *
@@ -761,4 +873,9 @@ class BookRepository(
      * outside the substrate's `upsert` / `pullSince` orchestration.
      */
     internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
+
+    private companion object {
+        /** Image file extensions the scanner recognises — see `FileTypeRules.imageExt`. */
+        val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
+    }
 }

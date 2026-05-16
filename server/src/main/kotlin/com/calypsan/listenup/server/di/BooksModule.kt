@@ -3,6 +3,9 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.server.api.BookServiceImpl
+import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.cover.EmbeddedCoverCache
+import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
@@ -29,6 +32,10 @@ import java.nio.file.Path
  *    at bootstrap, making `/api/v1/sync/domains` list `"books"` on the first request.
  *  - [BookIngestPort] — bound to the same [BookRepository] instance.
  *  - [BookPersister] — consumes the scanner's [ScanResult] stream.
+ *  - [EmbeddedCoverCache] — LRU cache for extracted embedded artwork.
+ *  - [CoverResponder] — serves cover bytes for `GET /api/v1/books/{id}/cover`;
+ *    pulls [EmbeddedMetadataParser] from the separately-installed
+ *    `embeddedmetaModule`.
  *
  * Exposed as a **function** rather than a top-level `val` for the same reason
  * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
@@ -59,6 +66,15 @@ fun booksModule(libraryPath: Path): Module =
         single(createdAtStart = true) { BookRepository(get(), get(), get(), get()) }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
+
+        single { EmbeddedCoverCache() }
+        single {
+            CoverResponder(
+                repository = get<BookRepository>(),
+                cache = get(),
+                parser = get<EmbeddedMetadataParser>(),
+            )
+        }
 
         single {
             BookPersister(

@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -17,7 +18,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
 /**
- * REST surface for [BookService]. Two endpoints:
+ * REST surface for [BookService]. Three endpoints:
  *
  *  - `GET /api/v1/books/{id}` — returns the full [BookSyncPayload] for the
  *    given id. HTTP 200 on success; HTTP 404 when no book with that id exists.
@@ -26,18 +27,26 @@ import io.ktor.server.routing.Route
  *  - `GET /api/v1/books?q=&limit=` — runs a server-side FTS5 query and returns
  *    a [List]<[com.calypsan.listenup.client.core.BookId]> in rank order.
  *    Rate-limited to 60 req/min per host.
+ *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
+ *    (filesystem image or embedded artwork). HTTP 200 with the image on
+ *    success, HTTP 404 when the book is absent or has no servable cover.
  *
- * Both endpoints require JWT authentication (mounted inside the authenticate
- * block in Application.kt).
- *
- * Cover route is added in Task 24.
+ * All endpoints require JWT authentication (mounted inside the authenticate
+ * block in Application.kt). Cover serving is delegated to [coverResponder].
  */
-fun Route.bookRoutes(bookService: BookService) {
+fun Route.bookRoutes(
+    bookService: BookService,
+    coverResponder: CoverResponder,
+) {
     get<BookResources.Detail> { res ->
         when (val result = bookService.getBook(res.id)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
+    }
+
+    get<BookResources.Cover> { res ->
+        coverResponder.respondCover(call, res.id)
     }
 
     rateLimit(RateLimitBuckets.BooksSearch) {

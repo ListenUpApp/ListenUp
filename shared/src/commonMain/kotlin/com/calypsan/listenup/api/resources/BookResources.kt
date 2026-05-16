@@ -28,4 +28,20 @@ class BookResources(
         val parent: BookResources = BookResources(),
         val id: BookId,
     )
+
+    /**
+     * `GET /api/v1/books/{id}/cover` — serves a book's cover image bytes. The
+     * cover is either a filesystem image in the library or artwork embedded in
+     * the book's audio file; the route resolves and serves whichever applies.
+     * Responds 200 with the image bytes on success, 404 when the book is
+     * absent or has no cover. The optional [v] query parameter is a cache
+     * buster — clients pass the cover hash so a changed cover bypasses any
+     * intermediary cache. Requires JWT authentication.
+     */
+    @Resource("{id}/cover")
+    class Cover(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+        val v: String? = null,
+    )
 }
