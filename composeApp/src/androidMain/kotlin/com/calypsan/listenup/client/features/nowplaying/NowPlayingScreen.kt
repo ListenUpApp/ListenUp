@@ -3,7 +3,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import android.graphics.Bitmap
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
@@ -98,15 +97,21 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.design.components.AuroraBackground
+import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration
 
 private val logger = KotlinLogging.logger {}
+
+// Predictive back gesture animation: scale shrinks 10%, alpha fades 50% at full progress
+private const val PREDICTIVE_BACK_SCALE_REDUCTION = 0.1f
+private const val PREDICTIVE_BACK_ALPHA_REDUCTION = 0.5f
 
 /**
  * Full screen Now Playing view.
@@ -140,9 +145,19 @@ fun NowPlayingScreen(
     isTv: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // Handle back gesture/button - collapse instead of backgrounding the app
-    BackHandler(enabled = true) {
-        onCollapse()
+    // Predictive back: track gesture progress to animate dismissal (scale + alpha)
+    val backProgress = remember { Animatable(0f) }
+    PlatformPredictiveBackHandler(enabled = true) { progressFlow ->
+        try {
+            progressFlow.collect { progress -> backProgress.snapTo(progress) }
+            onCollapse()
+        } catch (cancellation: CancellationException) {
+            // Gesture abandoned — rewind the dismissal animation. On commit the
+            // screen is already exiting, so progress is intentionally left as-is
+            // to avoid a scale/alpha pop mid exit-transition.
+            backProgress.snapTo(0f)
+            throw cancellation
+        }
     }
 
     // Extract dominant color from cover
@@ -208,6 +223,10 @@ fun NowPlayingScreen(
                     false // don't consume
                 }.graphicsLayer {
                     translationY = dragOffset.value
+                    val backScale = 1f - backProgress.value * PREDICTIVE_BACK_SCALE_REDUCTION
+                    scaleX = backScale
+                    scaleY = backScale
+                    alpha = 1f - backProgress.value * PREDICTIVE_BACK_ALPHA_REDUCTION
                 }.pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = {
