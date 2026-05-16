@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.notifications
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 /**
  * Unit tests for [NotificationChannels].
@@ -12,27 +12,21 @@ import kotlin.test.assertEquals
  * A rename here would orphan the existing channel and create a ghost in the user's notification
  * settings.
  */
-class NotificationChannelsTest {
-    @Test
-    fun `PLAYBACK channel id is listenup_playback`() {
-        assertEquals("listenup_playback", NotificationChannels.PLAYBACK)
-    }
+class NotificationChannelsTest :
+    FunSpec({
+        test("PLAYBACK channel id is listenup_playback") {
+            NotificationChannels.PLAYBACK shouldBe "listenup_playback"
+        }
 
-    @Test
-    fun `SYNC channel id is listenup_sync`() {
-        assertEquals("listenup_sync", NotificationChannels.SYNC)
-    }
+        test("SYNC channel id is listenup_sync") {
+            NotificationChannels.SYNC shouldBe "listenup_sync"
+        }
 
-    @Test
-    fun `DOWNLOAD channel id is listenup_download`() {
-        assertEquals("listenup_download", NotificationChannels.DOWNLOAD)
-    }
+        test("DOWNLOAD channel id is listenup_download") {
+            NotificationChannels.DOWNLOAD shouldBe "listenup_download"
+        }
 
-    @Test
-    fun `allIds returns all three channel ids in order`() {
-        assertEquals(
-            listOf("listenup_playback", "listenup_sync", "listenup_download"),
-            NotificationChannels.allIds(),
-        )
-    }
-}
+        test("allIds returns all three channel ids in order") {
+            NotificationChannels.allIds() shouldBe listOf("listenup_playback", "listenup_sync", "listenup_download")
+        }
+    })

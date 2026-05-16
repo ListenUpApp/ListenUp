@@ -193,6 +193,14 @@ kotlin {
                 implementation(libs.kotlin.test)
                 implementation(libs.kotlinx.coroutines.test)
 
+                // Kotest — canonical FunSpec framework for new androidHostTest tests.
+                // The runner is the JUnit5 platform engine; junit-vintage-engine keeps
+                // the pre-existing JUnit4 tests (Robolectric, Compose UI) discoverable
+                // once testAndroidHostTest switches to useJUnitPlatform().
+                implementation(libs.kotest.runner.junit5)
+                implementation(libs.kotest.assertions.core)
+                runtimeOnly(libs.junit.vintage.engine)
+
                 // Phase A NavDisplay test harness
                 implementation(libs.robolectric)
                 implementation(libs.androidx.compose.ui.test.junit4)
@@ -209,6 +217,17 @@ kotlin {
                 implementation(libs.mokkery.runtime)
             }
         }
+    }
+}
+
+// Kotest's runner is the JUnit5 platform engine, so the Android host-test task must
+// run on the JUnit Platform. junit-vintage-engine (added to androidHostTest) keeps the
+// pre-existing JUnit4 tests — Robolectric and Compose UI — discoverable on that platform.
+// The AGP KMP plugin registers testAndroidHostTest lazily, so match it by name rather
+// than resolving it eagerly.
+tasks.withType<Test>().configureEach {
+    if (name == "testAndroidHostTest") {
+        useJUnitPlatform()
     }
 }
 

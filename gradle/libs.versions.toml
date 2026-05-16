@@ -21,6 +21,7 @@ mokkery = "3.3.0"
 ktor = "3.4.3"
 kotlinx-rpc = "0.10.2"
 kotest = "6.1.11"
+junit-vintage = "5.13.4" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
@@ -174,6 +175,8 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+# JUnit Platform vintage engine — lets the JUnit Platform discover and run pre-existing JUnit4 tests
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage" }
 # Logging
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version.ref = "kotlin-logging" }
 slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4j-android" }
