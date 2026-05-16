@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,8 +84,12 @@ class MainActivity : ComponentActivity() {
     private val appStartupViewModel: AppStartupViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Keep the splash on screen while AppStartupViewModel is still performing its
+        // cold-start library-setup check. The lambda is polled each frame.
+        splash.setKeepOnScreenCondition { appStartupViewModel.state.value.isChecking }
 
         // Handle deep link from initial launch
         handleIntent(intent)

@@ -3,4 +3,11 @@
     <style name="Theme.ListenUp" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#FFFBFF</item>
     </style>
+
+    <style name="Theme.ListenUp.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_round</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.ListenUp</item>
+    </style>
 </resources>

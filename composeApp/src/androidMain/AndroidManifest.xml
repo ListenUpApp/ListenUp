@@ -35,6 +35,7 @@
         <activity
             android:exported="true"
             android:name="com.calypsan.listenup.client.MainActivity"
+            android:theme="@style/Theme.ListenUp.SplashScreen"
             android:colorMode="wideColorGamut"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
