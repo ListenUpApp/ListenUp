@@ -17,7 +17,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
@@ -166,9 +165,9 @@ class PlaybackService : MediaLibraryService() {
             DefaultMediaSourceFactory(this)
                 .setDataSourceFactory(dataSourceFactory)
 
-        // Create renderers factory with decoder fallback for better compatibility
+        // Create renderers factory with AAC DRC for consistent loudness + decoder fallback
         val renderersFactory =
-            DefaultRenderersFactory(this)
+            AacDrcRenderersFactory(this)
                 .setEnableDecoderFallback(true)
 
         // Build ExoPlayer with audiobook-optimized settings
