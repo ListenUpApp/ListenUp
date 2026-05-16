@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -60,9 +59,6 @@ class SeriesRepositoryImplTest {
         id: String = "series-1",
         name: String = "The Stormlight Archive",
         description: String? = null,
-        syncState: SyncState = SyncState.SYNCED,
-        lastModified: Long = 1000L,
-        serverVersion: Long = 1000L,
         createdAt: Long = 1000L,
         updatedAt: Long = 1000L,
     ): SeriesEntity =
@@ -72,9 +68,6 @@ class SeriesRepositoryImplTest {
                     .SeriesId(id),
             name = name,
             description = description,
-            syncState = syncState,
-            lastModified = Timestamp(lastModified),
-            serverVersion = Timestamp(serverVersion),
             createdAt = Timestamp(createdAt),
             updatedAt = Timestamp(updatedAt),
         )
@@ -692,7 +685,7 @@ class SeriesRepositoryImplTest {
             title = title,
             sortTitle = title,
             subtitle = null,
-            coverUrl = null,
+            coverHash = null,
             coverBlurHash = null,
             dominantColor = null,
             darkMutedColor = null,
@@ -705,9 +698,6 @@ class SeriesRepositoryImplTest {
             isbn = null,
             asin = null,
             abridged = false,
-            syncState = SyncState.SYNCED,
-            lastModified = Timestamp(1_000L),
-            serverVersion = Timestamp(1_000L),
             createdAt = Timestamp(1_000L),
             updatedAt = Timestamp(1_000L),
         )

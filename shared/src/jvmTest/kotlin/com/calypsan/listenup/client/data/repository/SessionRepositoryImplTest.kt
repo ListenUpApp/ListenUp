@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookReadersSummaryDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.BookReadersResponse
 import com.calypsan.listenup.client.data.remote.ReaderSummary
@@ -91,7 +90,7 @@ class SessionRepositoryImplTest {
                     id = BookId(bookId),
                     title = "Test Book",
                     subtitle = null,
-                    coverUrl = null,
+                    coverHash = null,
                     totalDuration = 3_600_000L,
                     description = null,
                     publishYear = null,
@@ -100,9 +99,6 @@ class SessionRepositoryImplTest {
                     vibrantColor = null,
                     createdAt = Timestamp(1_700_000_000_000L),
                     updatedAt = Timestamp(1_700_000_000_000L),
-                    syncState = SyncState.SYNCED,
-                    lastModified = Timestamp(1_700_000_000_000L),
-                    serverVersion = Timestamp(1_700_000_000_000L),
                 ),
             ),
         )

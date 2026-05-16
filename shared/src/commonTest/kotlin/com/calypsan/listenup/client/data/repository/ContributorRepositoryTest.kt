@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.ContributorSearchResult
 import com.calypsan.listenup.client.data.remote.MetadataApiContract
@@ -61,9 +60,6 @@ class ContributorRepositoryTest {
             name = name,
             description = null,
             imagePath = null,
-            syncState = SyncState.SYNCED,
-            lastModified = Timestamp(0),
-            serverVersion = Timestamp(1),
             createdAt = Timestamp(0),
             updatedAt = Timestamp(0),
         )

@@ -36,11 +36,11 @@ interface ShelfBookDao {
      */
     @Query(
         """
-        SELECT b.coverUrl, b.coverBlurHash 
-        FROM shelf_books lb 
-        JOIN books b ON lb.bookId = b.id 
-        WHERE lb.shelfId = :shelfId 
-        ORDER BY lb.addedAt DESC 
+        SELECT b.coverHash, b.coverBlurHash
+        FROM shelf_books lb
+        JOIN books b ON lb.bookId = b.id
+        WHERE lb.shelfId = :shelfId
+        ORDER BY lb.addedAt DESC
         LIMIT 4
     """,
     )
@@ -108,6 +108,6 @@ interface ShelfBookDao {
  * Used by [ShelfBookDao.getShelfCoverInfo] to return cover data.
  */
 data class CoverInfo(
-    val coverUrl: String?,
+    val coverHash: String?,
     val coverBlurHash: String?,
 )

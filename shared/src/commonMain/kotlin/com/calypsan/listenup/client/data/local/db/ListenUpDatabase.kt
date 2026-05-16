@@ -11,13 +11,12 @@ import androidx.room.TypeConverters
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v10 after the W4.4 restoration (reset from legacy to v1 baseline,
- * then bumped through v2-v10 as each junction split landed). Pre-launch policy:
- * `fallbackToDestructiveMigration(true)` is set on each `DatabaseModule` and
- * [Migrations] is a no-op stub. Before launch, flip the fallback to `false` and
- * populate a real migration chain in [Migrations]; the `@Database.exportSchema`
- * on-disk JSON for every version (v1-v10 prior to the cleanups) is the authoritative
- * source for writing those migrations.
+ * Schema is at v15. Migrations live in the `data/local/migrations/` package
+ * (e.g. `Migration14To15`) and are registered via `.addMigrations(...)` in each
+ * platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
+ * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
+ * verify the full migration chain is registered. The `@Database.exportSchema`
+ * on-disk JSON for each version is the authoritative source for writing migrations.
  */
 @Database(
     entities = [
@@ -52,7 +51,7 @@ import androidx.room.TypeConverters
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 @TypeConverters(

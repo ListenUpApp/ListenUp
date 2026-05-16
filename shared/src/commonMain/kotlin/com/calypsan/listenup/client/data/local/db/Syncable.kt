@@ -66,22 +66,4 @@ enum class SyncState {
      * Marked for user review in future versions.
      */
     CONFLICT,
-
-    ;
-
-    companion object {
-        /**
-         * Name constants for Room @Query annotations.
-         *
-         * Room requires compile-time constants in query strings, so these
-         * constants ensure single source of truth while enabling type-safe
-         * queries. Stored values now match [Enum.name] so the SQL literals are
-         * quoted strings rather than integer ordinals — e.g.
-         * `UPDATE books SET syncState = ${SyncState.SYNCED_NAME} WHERE id = :id`.
-         */
-        const val SYNCED_NAME = "'SYNCED'"
-        const val NOT_SYNCED_NAME = "'NOT_SYNCED'"
-        const val SYNCING_NAME = "'SYNCING'"
-        const val CONFLICT_NAME = "'CONFLICT'"
-    }
 }

@@ -363,10 +363,6 @@ private fun Contributor.toEntity(): ContributorEntity {
         website = website,
         birthDate = birthDate,
         deathDate = deathDate,
-        // SYNCED because this entity was just received from the server (via metadata API)
-        syncState = com.calypsan.listenup.client.data.local.db.SyncState.SYNCED,
-        lastModified = now,
-        serverVersion = now,
         createdAt = now,
         updatedAt = now,
     )

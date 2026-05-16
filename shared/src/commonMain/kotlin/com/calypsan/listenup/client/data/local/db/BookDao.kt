@@ -135,69 +135,6 @@ interface BookDao {
     suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors>
 
     /**
-     * Get all books with pending local changes that need to be synced.
-     *
-     * Returns books in NOT_SYNCED state (local modifications) and
-     * CONFLICT state (needs resolution).
-     *
-     * Used by SyncManager during push phase.
-     *
-     * @return List of books requiring sync
-     */
-    @Query("SELECT * FROM books WHERE syncState IN (:states)")
-    suspend fun getByStates(states: List<SyncState>): List<BookEntity>
-
-    /**
-     * Get books with pending changes (NOT_SYNCED or CONFLICT states).
-     * Convenience method wrapping getByStates.
-     */
-    suspend fun getPendingChanges(): List<BookEntity> = getByStates(listOf(SyncState.NOT_SYNCED, SyncState.CONFLICT))
-
-    /**
-     * Mark a book as successfully synced with server.
-     *
-     * Updates syncState to SYNCED and stores server version timestamp.
-     * Called after successful upload to server.
-     *
-     * @param id Type-safe book ID
-     * @param serverVersion Server's updated_at timestamp
-     */
-    @Query(
-        """
-        UPDATE books
-        SET syncState = ${SyncState.SYNCED_NAME},
-            serverVersion = :serverVersion
-        WHERE id = :id
-    """,
-    )
-    suspend fun markSynced(
-        id: BookId,
-        serverVersion: Timestamp,
-    )
-
-    /**
-     * Mark a book as having a sync conflict.
-     *
-     * Sets syncState to CONFLICT when server has a newer version
-     * than our local modifications.
-     *
-     * @param id Type-safe book ID
-     * @param serverVersion Server's newer updated_at timestamp
-     */
-    @Query(
-        """
-        UPDATE books
-        SET syncState = ${SyncState.CONFLICT_NAME},
-            serverVersion = :serverVersion
-        WHERE id = :id
-    """,
-    )
-    suspend fun markConflict(
-        id: BookId,
-        serverVersion: Timestamp,
-    )
-
-    /**
      * Delete a book by ID.
      *
      * Hard delete from local database. Soft deletes from server

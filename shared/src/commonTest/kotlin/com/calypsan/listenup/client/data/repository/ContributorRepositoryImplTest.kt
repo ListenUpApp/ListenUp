@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.MetadataApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -62,9 +61,6 @@ class ContributorRepositoryImplTest {
         website: String? = null,
         birthDate: String? = null,
         deathDate: String? = null,
-        syncState: SyncState = SyncState.SYNCED,
-        lastModified: Long = 1000L,
-        serverVersion: Long = 1000L,
         createdAt: Long = 1000L,
         updatedAt: Long = 1000L,
     ): ContributorEntity =
@@ -79,9 +75,6 @@ class ContributorRepositoryImplTest {
             website = website,
             birthDate = birthDate,
             deathDate = deathDate,
-            syncState = syncState,
-            lastModified = Timestamp(lastModified),
-            serverVersion = Timestamp(serverVersion),
             createdAt = Timestamp(createdAt),
             updatedAt = Timestamp(updatedAt),
         )

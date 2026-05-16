@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.domain.repository.BookContributorInput
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookSeriesInput
@@ -82,8 +81,7 @@ class BookEditRepositoryImpl(
                     isbn = isbn ?: existing.isbn,
                     asin = asin ?: existing.asin,
                     abridged = abridged ?: existing.abridged,
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
+                    updatedAt = Timestamp.now(),
                 )
             bookDao.upsert(updated)
 
@@ -116,11 +114,7 @@ class BookEditRepositoryImpl(
                 return@withContext Failure(Exception("Book not found: $bookId"))
             }
 
-            val updated =
-                existing.copy(
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
-                )
+            val updated = existing.copy(updatedAt = Timestamp.now())
             bookDao.upsert(updated)
 
             logger.info { "Book contributors marked for local refresh: $bookId, ${contributors.size} contributor(s)" }
@@ -152,11 +146,7 @@ class BookEditRepositoryImpl(
                 return@withContext Failure(Exception("Book not found: $bookId"))
             }
 
-            val updated =
-                existing.copy(
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
-                )
+            val updated = existing.copy(updatedAt = Timestamp.now())
             bookDao.upsert(updated)
 
             logger.info { "Book series marked for local refresh: $bookId, ${series.size} series" }

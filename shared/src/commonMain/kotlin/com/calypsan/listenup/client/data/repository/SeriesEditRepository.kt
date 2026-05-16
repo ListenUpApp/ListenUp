@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.SeriesDao
-import com.calypsan.listenup.client.data.local.db.SyncState
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
 
@@ -85,8 +84,7 @@ class SeriesEditRepository(
                 existing.copy(
                     name = name ?: existing.name,
                     description = description ?: existing.description,
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
+                    updatedAt = Timestamp.now(),
                 )
             seriesDao.upsert(updated)
 

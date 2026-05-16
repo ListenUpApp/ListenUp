@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -257,7 +256,7 @@ class PlaybackManagerSpeedTest {
                 title = "Test Book",
                 sortTitle = "Test Book",
                 subtitle = null,
-                coverUrl = null,
+                coverHash = null,
                 coverBlurHash = null,
                 dominantColor = null,
                 darkMutedColor = null,
@@ -270,9 +269,6 @@ class PlaybackManagerSpeedTest {
                 isbn = null,
                 asin = null,
                 abridged = false,
-                syncState = SyncState.SYNCED,
-                lastModified = Timestamp(1L),
-                serverVersion = Timestamp(1L),
                 createdAt = Timestamp(1L),
                 updatedAt = Timestamp(1L),
             ),

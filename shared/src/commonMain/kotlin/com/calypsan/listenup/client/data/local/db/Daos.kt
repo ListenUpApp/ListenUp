@@ -7,7 +7,6 @@ import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.calypsan.listenup.client.core.Timestamp
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -77,18 +76,6 @@ interface SeriesDao {
 
     @Upsert
     suspend fun upsertAll(series: List<SeriesEntity>)
-
-    @Query("UPDATE series SET syncState = ${SyncState.SYNCED_NAME}, serverVersion = :version WHERE id = :id")
-    suspend fun markSynced(
-        id: String,
-        version: Timestamp,
-    )
-
-    @Query("UPDATE series SET syncState = ${SyncState.CONFLICT_NAME}, serverVersion = :serverVersion WHERE id = :id")
-    suspend fun markConflict(
-        id: String,
-        serverVersion: Timestamp,
-    )
 
     @Query("DELETE FROM series WHERE id = :id")
     suspend fun deleteById(id: String)
@@ -181,20 +168,6 @@ interface ContributorDao {
 
     @Upsert
     suspend fun upsertAll(contributors: List<ContributorEntity>)
-
-    @Query("UPDATE contributors SET syncState = ${SyncState.SYNCED_NAME}, serverVersion = :version WHERE id = :id")
-    suspend fun markSynced(
-        id: String,
-        version: Timestamp,
-    )
-
-    @Query(
-        "UPDATE contributors SET syncState = ${SyncState.CONFLICT_NAME}, serverVersion = :serverVersion WHERE id = :id",
-    )
-    suspend fun markConflict(
-        id: String,
-        serverVersion: Timestamp,
-    )
 
     @Query("DELETE FROM contributors WHERE id = :id")
     suspend fun deleteById(id: String)

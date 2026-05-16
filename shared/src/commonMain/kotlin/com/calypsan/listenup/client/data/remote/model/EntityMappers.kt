@@ -2,14 +2,11 @@ package com.calypsan.listenup.client.data.remote.model
 
 import com.calypsan.listenup.client.core.ContributorId
 import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.util.parseToTimestampOrNow
 
 fun SeriesResponse.toEntity(): SeriesEntity {
-    val now = Timestamp.now()
     val serverUpdatedAt = updatedAt.parseToTimestampOrNow()
     val serverCreatedAt = createdAt.parseToTimestampOrNow()
 
@@ -18,18 +15,14 @@ fun SeriesResponse.toEntity(): SeriesEntity {
         name = name,
         description = description,
         asin = asin,
-        coverImagePath = coverImage?.path,
+        coverPath = coverImage?.path,
         coverBlurHash = coverImage?.blurHash,
-        syncState = SyncState.SYNCED,
-        lastModified = now,
-        serverVersion = serverUpdatedAt,
         createdAt = serverCreatedAt,
         updatedAt = serverUpdatedAt,
     )
 }
 
 fun ContributorResponse.toEntity(): ContributorEntity {
-    val now = Timestamp.now()
     val serverUpdatedAt = updatedAt.parseToTimestampOrNow()
     val serverCreatedAt = createdAt.parseToTimestampOrNow()
 
@@ -48,9 +41,6 @@ fun ContributorResponse.toEntity(): ContributorEntity {
         website = website,
         birthDate = birthDate,
         deathDate = deathDate,
-        syncState = SyncState.SYNCED,
-        lastModified = now,
-        serverVersion = serverUpdatedAt,
         createdAt = serverCreatedAt,
         updatedAt = serverUpdatedAt,
     )
