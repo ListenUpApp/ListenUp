@@ -124,6 +124,6 @@ data class PlaybackDynamics(
 data class SurfaceMetadata(
     val currentChapter: PlaybackManager.ChapterInfo?,
     val prepareProgress: PlaybackManager.PrepareProgress?,
-    val error: PlaybackManager.PlaybackError?,
+    val error: PlaybackManager.PlaybackErrorUiState?,
     val defaultPlaybackSpeed: Float,
 )

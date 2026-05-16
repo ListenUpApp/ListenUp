@@ -17,7 +17,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
@@ -26,12 +25,14 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.core.getOrNull
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -89,6 +90,7 @@ class PlaybackService : MediaLibraryService() {
     private val progressTracker: ProgressTracker by inject()
     private val positionRepository: PlaybackPositionRepository by inject()
     private val errorHandler: PlaybackErrorHandler by inject()
+    private val errorBus: ErrorBus by inject()
     private val tokenProvider: AndroidAudioTokenProvider by inject()
     private val sleepTimerManager: SleepTimerManager by inject()
     private val browseTreeProvider: BrowseTreeProvider by inject()
@@ -163,9 +165,9 @@ class PlaybackService : MediaLibraryService() {
             DefaultMediaSourceFactory(this)
                 .setDataSourceFactory(dataSourceFactory)
 
-        // Create renderers factory with decoder fallback for better compatibility
+        // Create renderers factory with AAC DRC for consistent loudness + decoder fallback
         val renderersFactory =
-            DefaultRenderersFactory(this)
+            AacDrcRenderersFactory(this)
                 .setEnableDecoderFallback(true)
 
         // Build ExoPlayer with audiobook-optimized settings
@@ -499,6 +501,12 @@ class PlaybackService : MediaLibraryService() {
 
         override fun onPlayerError(error: PlaybackException) {
             logger.error(error) { "Playback error: ${error.message}" }
+
+            // Surface stuck-player as a typed PlaybackError.Stalled so the global
+            // error bus and UI can offer a retry affordance.
+            if (error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT) {
+                errorBus.emit(PlaybackError.Stalled(debugInfo = error.message))
+            }
 
             serviceScope.launch {
                 val classified = errorHandler.classify(error)

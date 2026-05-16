@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.SyncError
@@ -73,6 +74,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         // TransportError is client-local — it should never originate on the server.
         // If one escapes here it's a server bug; surface it as 500.
         is TransportError -> HttpStatusCode.InternalServerError
+
+        // PlaybackError is client-local — it should never originate on the server.
+        // If one escapes here it's a server bug; surface it as 500.
+        is PlaybackError -> HttpStatusCode.InternalServerError
     }
 
 /** Stamp the request's correlation id onto a typed wire error. */
@@ -88,6 +93,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
+        is PlaybackError -> withCorrelationId(id)
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -200,9 +206,17 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
 private fun ServerConnectError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ServerConnectError.InvalidUrl -> HttpStatusCode.BadRequest
+
         is ServerConnectError.NotListenUpServer -> HttpStatusCode.BadGateway
+
         is ServerConnectError.ServerNotReachable -> HttpStatusCode.ServiceUnavailable
+
         is ServerConnectError.VerificationFailed -> HttpStatusCode.ServiceUnavailable
+
+        // Client-local: the wire never carries this variant. Branch exists for
+        // exhaustiveness only; if it ever reaches the server, treat it as a
+        // malformed client request.
+        is ServerConnectError.LocalNetworkPermissionDenied -> HttpStatusCode.BadRequest
     }
 
 private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectError =
@@ -211,6 +225,7 @@ private fun ServerConnectError.withCorrelationId(id: String?): ServerConnectErro
         is ServerConnectError.NotListenUpServer -> copy(correlationId = id)
         is ServerConnectError.ServerNotReachable -> copy(correlationId = id)
         is ServerConnectError.VerificationFailed -> copy(correlationId = id)
+        is ServerConnectError.LocalNetworkPermissionDenied -> copy(correlationId = id)
     }
 
 private fun AudioMetadataError.toHttpStatus(): HttpStatusCode =
@@ -235,4 +250,9 @@ private fun AudioMetadataError.withCorrelationId(id: String?): AudioMetadataErro
         is AudioMetadataError.CorruptHeader -> copy(correlationId = id)
         is AudioMetadataError.TruncatedStream -> copy(correlationId = id)
         is AudioMetadataError.IoError -> copy(correlationId = id)
+    }
+
+private fun PlaybackError.withCorrelationId(id: String?): PlaybackError =
+    when (this) {
+        is PlaybackError.Stalled -> copy(correlationId = id)
     }

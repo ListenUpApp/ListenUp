@@ -1,12 +1,14 @@
 package com.calypsan.listenup.client.download
 
 import android.content.Context
+import android.os.Build
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.calypsan.listenup.client.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.diagnostics.JobReasonLogger
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
@@ -43,8 +45,15 @@ class ListenUpWorkerFactory(
         appContext: Context,
         workerClassName: String,
         workerParameters: WorkerParameters,
-    ): ListenableWorker? =
-        when (workerClassName) {
+    ): ListenableWorker? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            JobReasonLogger.logPendingReasonsFor(
+                context = appContext,
+                workSpecId = workerParameters.id.toString(),
+                correlationId = workerParameters.id.toString(),
+            )
+        }
+        return when (workerClassName) {
             DownloadWorker::class.java.name -> {
                 // WorkerFactory.createWorker is non-suspending; runBlocking is required.
                 // By the time WorkManager dispatches a download, onboarding has completed
@@ -76,4 +85,5 @@ class ListenUpWorkerFactory(
                 null
             }
         }
+    }
 }

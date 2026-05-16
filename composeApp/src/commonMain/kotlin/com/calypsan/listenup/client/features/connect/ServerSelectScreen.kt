@@ -36,9 +36,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BrandLogo
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
+import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermission
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
@@ -83,6 +87,27 @@ fun ServerSelectScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Guard: forward the permission result exactly once per ViewModel lifetime.
+    // rememberSaveable (not remember) survives configuration changes — the same
+    // ViewModel instance continues after rotation, so without this guard a
+    // recomposition would fire a second permission callback and double-start
+    // discovery (or worse, trigger a spurious denial → navigate-to-manual-entry).
+    var permissionResolved by rememberSaveable { mutableStateOf(false) }
+    if (!permissionResolved) {
+        // Request ACCESS_LOCAL_NETWORK before starting mDNS discovery.
+        // On Android 17+ the platform requires this permission for any multicast
+        // traffic; on older Android and desktop the actual implementation grants
+        // immediately without a dialog.
+        RequestLocalNetworkPermission { granted ->
+            permissionResolved = true
+            if (granted) {
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionGranted)
+            } else {
+                viewModel.onEvent(ServerSelectUiEvent.LocalNetworkPermissionDenied)
+            }
+        }
+    }
 
     // Handle navigation events
     LaunchedEffect(viewModel) {

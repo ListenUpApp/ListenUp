@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackError
+import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareProgress
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -65,8 +65,8 @@ class FakePlaybackManager : PlaybackManager {
     val prepareProgressFlow = MutableStateFlow<PrepareProgress?>(null)
     override val prepareProgress: StateFlow<PrepareProgress?> = prepareProgressFlow.asStateFlow()
 
-    val playbackErrorFlow = MutableStateFlow<PlaybackError?>(null)
-    override val playbackError: StateFlow<PlaybackError?> = playbackErrorFlow.asStateFlow()
+    val playbackErrorFlow = MutableStateFlow<PlaybackErrorUiState?>(null)
+    override val playbackError: StateFlow<PlaybackErrorUiState?> = playbackErrorFlow.asStateFlow()
 
     // === Notification callback hook ===
 
@@ -80,7 +80,7 @@ class FakePlaybackManager : PlaybackManager {
     val activatedBookIds: MutableList<BookId> = mutableListOf()
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
-    val reportedErrors: MutableList<PlaybackError> = mutableListOf()
+    val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
     var clearPlaybackCalls: Int = 0
     val setPlayingCalls: MutableList<Boolean> = mutableListOf()
     val setBufferingCalls: MutableList<Boolean> = mutableListOf()
@@ -167,6 +167,6 @@ class FakePlaybackManager : PlaybackManager {
         message: String,
         isRecoverable: Boolean,
     ) {
-        reportedErrors += PlaybackError(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+        reportedErrors += PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
     }
 }

@@ -86,4 +86,25 @@ sealed interface ServerConnectError : AppError {
         override val code: String = "SERVER_CONNECT_VERIFICATION_FAILED"
         override val isRetryable: Boolean = true
     }
+
+    /**
+     * Discovery cannot proceed because the user denied
+     * [android.permission.ACCESS_LOCAL_NETWORK]. Android 17 requires this
+     * permission for any mDNS / multicast traffic; without it discovery is
+     * silently dropped by the platform.
+     *
+     * The UI auto-navigates to manual URL entry on denial. To retry
+     * discovery, grant the permission in system settings and open a fresh
+     * server-select flow.
+     */
+    @Serializable
+    @SerialName("ServerConnectError.LocalNetworkPermissionDenied")
+    data class LocalNetworkPermissionDenied(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ServerConnectError {
+        override val message: String = "Local network access is required to discover servers on your network."
+        override val code: String = "SERVER_CONNECT_LOCAL_NETWORK_PERMISSION_DENIED"
+        override val isRetryable: Boolean = false
+    }
 }
