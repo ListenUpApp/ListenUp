@@ -45,6 +45,7 @@ value class ServerUrl(
  *
  * @property value The underlying book ID string (e.g., "book-abc123")
  */
+@Serializable
 @JvmInline
 value class BookId(
     val value: String,

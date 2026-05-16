@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
@@ -56,6 +58,7 @@ fun booksModule(libraryPath: Path): Module =
 
         single(createdAtStart = true) { BookRepository(get(), get(), get(), get()) }
         single<BookIngestPort> { get<BookRepository>() }
+        single<BookService> { BookServiceImpl(get<BookRepository>()) }
 
         single {
             BookPersister(
