@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
+import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asFlow
@@ -59,6 +60,7 @@ internal class Scanner(
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val scanResultBus: MutableSharedFlow<ScanResult>,
     private val parseSubtitle: Boolean = false,
+    private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -156,7 +158,7 @@ internal class Scanner(
         val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
         val grouper = Grouper()
-        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle)
+        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle, sidecarParsers)
 
         emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
         val rebasedFiles =

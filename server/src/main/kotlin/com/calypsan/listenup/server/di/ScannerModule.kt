@@ -8,6 +8,10 @@ import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
+import com.calypsan.listenup.server.scanner.sidecar.NfoParser
+import com.calypsan.listenup.server.scanner.sidecar.OpfParser
+import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.scanner.watcher.StableSizeDebouncer
 import kotlinx.coroutines.CoroutineScope
@@ -71,6 +75,7 @@ fun scannerModule(
                 embeddedMetadataParser = get(),
                 eventBus = get<MutableSharedFlow<ScanEvent>>(),
                 scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
+                sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
             )
         }
 
