@@ -92,7 +92,6 @@ import listenup.composeapp.generated.resources.common_email
 import listenup.composeapp.generated.resources.common_inbox
 import listenup.composeapp.generated.resources.admin_inbox_workflow
 import listenup.composeapp.generated.resources.admin_invite_someone
-import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.connect_listenup_server
 import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.admin_no_pending_registrations

@@ -58,7 +58,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.admin_collection_created
 import listenup.composeapp.generated.resources.admin_collection_name
 import listenup.composeapp.generated.resources.common_collections
 import listenup.composeapp.generated.resources.common_create
