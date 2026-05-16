@@ -58,7 +58,7 @@ interface PlaybackManager :
     val prepareProgress: StateFlow<PrepareProgress?>
 
     /** Current playback error for display to the user (null when no error). */
-    val playbackError: StateFlow<PlaybackError?>
+    val playbackError: StateFlow<PlaybackErrorUiState?>
 
     /** Chapter list for the current book. */
     val chapters: StateFlow<List<Chapter>>
@@ -122,7 +122,7 @@ interface PlaybackManager :
     // Nested types
     //
     // Kept nested (not promoted to top-level) because consumer code references
-    // them as `PlaybackManager.PrepareResult`, `PlaybackManager.PlaybackError`,
+    // them as `PlaybackManager.PrepareResult`, `PlaybackManager.PlaybackErrorUiState`,
     // `PlaybackManager.PrepareProgress`, `PlaybackManager.ChapterInfo` across
     // shared, composeApp/{android,desktop}Main, and tests. Promoting to
     // top-level would cause an avoidable churn through every reference site.
@@ -148,7 +148,7 @@ interface PlaybackManager :
     )
 
     /** Playback error for display to the user. */
-    data class PlaybackError(
+    data class PlaybackErrorUiState(
         val message: String,
         val isRecoverable: Boolean,
         val timestampMs: Long,

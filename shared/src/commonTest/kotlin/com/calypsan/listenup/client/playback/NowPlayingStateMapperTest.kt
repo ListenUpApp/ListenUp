@@ -56,7 +56,7 @@ class NowPlayingStateMapperTest {
         val metadata =
             emptyMetadata.copy(
                 error =
-                    PlaybackManager.PlaybackError(
+                    PlaybackManager.PlaybackErrorUiState(
                         message = "Network failure",
                         isRecoverable = true,
                         timestampMs = 1_000L,
@@ -76,7 +76,7 @@ class NowPlayingStateMapperTest {
         val metadata =
             emptyMetadata.copy(
                 error =
-                    PlaybackManager.PlaybackError(
+                    PlaybackManager.PlaybackErrorUiState(
                         message = "Codec error",
                         isRecoverable = false,
                         timestampMs = 1_000L,

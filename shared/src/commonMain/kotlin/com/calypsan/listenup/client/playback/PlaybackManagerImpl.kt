@@ -94,8 +94,8 @@ class PlaybackManagerImpl(
 
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
-    private val _playbackError = MutableStateFlow<PlaybackManager.PlaybackError?>(null)
-    override val playbackError: StateFlow<PlaybackManager.PlaybackError?> = _playbackError
+    private val _playbackError = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
+    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = _playbackError
 
     private val _isBuffering = MutableStateFlow(false)
     override val isBuffering: StateFlow<Boolean> = _isBuffering
@@ -415,7 +415,7 @@ class PlaybackManagerImpl(
                         // MediaControllerHolder.Player.Listener) flow through one path.
                         if (playbackState is PlaybackState.Error) {
                             _playbackError.value =
-                                PlaybackManager.PlaybackError(
+                                PlaybackManager.PlaybackErrorUiState(
                                     message = playbackState.message ?: "Playback failed.",
                                     isRecoverable = playbackState.isRecoverable,
                                     timestampMs =
@@ -617,7 +617,7 @@ class PlaybackManagerImpl(
         isRecoverable: Boolean,
     ) {
         _playbackError.value =
-            PlaybackManager.PlaybackError(
+            PlaybackManager.PlaybackErrorUiState(
                 message = message,
                 isRecoverable = isRecoverable,
                 timestampMs =

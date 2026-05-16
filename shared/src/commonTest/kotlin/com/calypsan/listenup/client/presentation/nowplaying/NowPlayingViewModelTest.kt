@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackError
+import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -501,7 +501,7 @@ class NowPlayingViewModelTest {
 
             // Drive an error.
             fixture.fakePm.playbackErrorFlow.value =
-                PlaybackError(
+                PlaybackErrorUiState(
                     message = "Network unavailable",
                     isRecoverable = true,
                     timestampMs = 1_000L,
