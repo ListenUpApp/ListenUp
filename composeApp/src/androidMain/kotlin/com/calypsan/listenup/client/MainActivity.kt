@@ -58,6 +58,7 @@ import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.foldable.PostureProvider
 
 /**
  * Main activity for the ListenUp app.
@@ -100,7 +101,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            ListenUpApp()
+            PostureProvider {
+                ListenUpApp()
+            }
         }
     }
 

@@ -120,6 +120,9 @@ kotlin {
             // Palette for dynamic color extraction from cover art
             implementation(libs.androidx.palette.ktx)
 
+            // Window (foldable posture awareness)
+            implementation(libs.androidx.window)
+
             // BlurHash for image placeholders
         }
         commonMain.dependencies {

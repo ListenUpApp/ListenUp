@@ -5,6 +5,7 @@ android-minSdk = "33"
 android-targetSdk = "37"
 androidx-activity = "1.13.0"
 androidx-lifecycle = "2.10.0"
+androidx-window = "1.4.0"
 androidx-lifecycle-viewmodel-navigation3 = "2.10.0"
 androidx-navigation3 = "1.1.1"
 androidx-palette = "1.0.0"
@@ -103,6 +104,8 @@ material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive
 material3-adaptive-navigation = { module = "org.jetbrains.compose.material3.adaptive:adaptive-navigation", version.ref = "material3-adaptive-multiplatform" }
 # Palette (dynamic color extraction from images)
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "androidx-palette" }
+# Window (foldable posture awareness via WindowInfoTracker)
+androidx-window = { module = "androidx.window:window", version.ref = "androidx-window" }
 # Ktor
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
