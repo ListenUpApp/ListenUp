@@ -20,9 +20,9 @@ sealed interface PlaybackError : AppError {
      * Media3 detected the player stuck in `STATE_BUFFERING` past the watchdog threshold
      * (default 10 minutes in Media3 1.9.0+).
      *
-     * Surfaces via [androidx.media3.common.PlaybackException.ERROR_CODE_TIMEOUT].
-     * Recovery: re-prepare the player. First retry is automatic; a second stall within
-     * 30 seconds surfaces as a permanent error.
+     * Surfaces via Media3's `PlaybackException.ERROR_CODE_TIMEOUT`.
+     * Recovery: the error handler re-prepares the player automatically; the
+     * accompanying snackbar lets the user retry manually if playback does not resume.
      */
     @Serializable
     @SerialName("PlaybackError.Stalled")
