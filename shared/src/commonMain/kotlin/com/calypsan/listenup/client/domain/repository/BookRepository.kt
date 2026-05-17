@@ -109,6 +109,21 @@ interface BookRepository {
     suspend fun getBookDetail(id: String): BookDetail?
 
     /**
+     * Search books with an offline-first, never-stranded strategy.
+     *
+     * When online, runs server-side FTS5 search via [com.calypsan.listenup.api.BookService.searchBooks],
+     * hydrating the ranked result ids from Room and preserving the server's rank
+     * order. When offline — or when the server call fails — falls back to local
+     * Room FTS5 so search always works.
+     *
+     * Emits exactly once: this is a query, not a live subscription.
+     *
+     * @param query The raw search query. A blank query yields an empty list.
+     * @return Flow emitting the ranked [BookListItem] matches a single time.
+     */
+    fun search(query: String): Flow<List<BookListItem>>
+
+    /**
      * Atomically upsert a book row and replace its audio-file rows.
      *
      * Deletes existing audio-file rows for the book and inserts the new

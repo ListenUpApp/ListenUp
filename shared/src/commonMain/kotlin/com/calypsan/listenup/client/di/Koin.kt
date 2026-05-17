@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.data.remote.AdminCollectionApi
 import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
@@ -869,16 +871,30 @@ val syncModule =
             )
         }
 
+        // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
+        // Mirrors AuthRpcFactory; the client proxy is fully wired, but end-to-end
+        // calls await the separately-tracked server-side registerService<BookService>.
+        single<BookRpcFactory> {
+            KtorBookRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // BookRepository for UI data access
         single<BookRepository> {
             BookRepositoryImpl(
                 bookDao = get(),
                 chapterDao = get(),
                 audioFileDao = get(),
+                searchDao = get(),
                 transactionRunner = get(),
                 imageStorage = get(),
                 genreRepository = get(),
                 tagRepository = get(),
+                networkMonitor = get(),
+                bookRpcFactory = get(),
+                bookSyncDomainHandler = get(),
             )
         }
 

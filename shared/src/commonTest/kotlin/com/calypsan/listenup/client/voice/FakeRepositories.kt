@@ -142,6 +142,8 @@ class FakeBookRepository : BookRepository {
 
     override fun observeBookDetail(id: String): Flow<BookDetail?> = flowOf(null)
 
+    override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
+
     override suspend fun getBookDetail(id: String): BookDetail? = null
 
     override suspend fun upsertWithAudioFiles(
