@@ -149,7 +149,13 @@ fun NowPlayingScreen(
 ) {
     // Predictive back: track gesture progress to animate dismissal (scale + alpha)
     val backProgress = remember { Animatable(0f) }
-    PlatformPredictiveBackHandler(enabled = true) { progressFlow ->
+    // Gate the handler until the screen has fully entered composition. The composable is
+    // reachable during the AnimatedVisibility enter-transition, so enabling immediately would
+    // let a back gesture fire before the screen is presented, creating a jarring mid-slide
+    // dismiss. Flipping `presented` on the first composition frame is the lightest safe guard.
+    var presented by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { presented = true }
+    PlatformPredictiveBackHandler(enabled = presented) { progressFlow ->
         try {
             progressFlow.collect { progress -> backProgress.snapTo(progress) }
             onCollapse()
