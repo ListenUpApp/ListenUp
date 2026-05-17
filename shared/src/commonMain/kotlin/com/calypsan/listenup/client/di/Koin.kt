@@ -160,9 +160,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.library.GetContinueListeningUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
-import com.calypsan.listenup.client.domain.usecase.library.SearchBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
@@ -403,18 +401,8 @@ val useCaseModule =
 
         // Library use cases (using domain layer interfaces only)
         factory {
-            SearchBooksUseCase(
-                searchRepository = get(),
-            )
-        }
-        factory {
             RefreshLibraryUseCase(
                 syncRepository = get(),
-            )
-        }
-        factory {
-            GetContinueListeningUseCase(
-                homeRepository = get(),
             )
         }
 
