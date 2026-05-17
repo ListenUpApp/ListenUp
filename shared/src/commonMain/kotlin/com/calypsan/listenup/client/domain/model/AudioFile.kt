@@ -4,8 +4,8 @@ package com.calypsan.listenup.client.domain.model
  * Domain model for an audio file in a book.
  *
  * Used by PlaybackTimeline to build playback coordinates.
- * This is the domain representation - data layer mappers convert
- * from API responses to this type.
+ * This is the domain representation — data layer mappers convert
+ * from Room entities to this type.
  */
 data class AudioFile(
     /** Unique identifier for the audio file */
