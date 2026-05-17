@@ -10,6 +10,8 @@ package com.calypsan.listenup.client.domain.model
 data class AudioFile(
     /** Unique identifier for the audio file */
     val id: String,
+    /** Zero-based play-order index within the book, from the on-disk track order. */
+    val index: Int,
     /** Original filename */
     val filename: String,
     /** Audio format (e.g., "mp3", "m4b", "opus") */

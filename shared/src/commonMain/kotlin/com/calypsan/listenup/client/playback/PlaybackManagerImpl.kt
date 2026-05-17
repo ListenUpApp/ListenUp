@@ -224,7 +224,7 @@ class PlaybackManagerImpl(
         }
 
         // 5. Build PlaybackTimeline with codec negotiation (if available) or local path resolution
-        val domainAudioFiles = audioFiles.map { it.toDomain() }
+        val domainAudioFiles = audioFileEntities.map { it.toDomain() }
         val timeline =
             if (playbackApi != null && capabilityDetector != null) {
                 // Use transcode-aware timeline building
@@ -859,11 +859,13 @@ class PlaybackManagerImpl(
 // ========== Type Conversions ==========
 
 /**
- * Convert data layer AudioFileResponse to domain AudioFile.
+ * Convert an [AudioFileEntity] to the domain [AudioFile], carrying the
+ * [AudioFileEntity.index] ordering field so callers have an explicit play-order signal.
  */
-private fun AudioFileResponse.toDomain(): AudioFile =
+private fun AudioFileEntity.toDomain(): AudioFile =
     AudioFile(
         id = id,
+        index = index,
         filename = filename,
         format = format,
         codec = codec,
@@ -873,11 +875,8 @@ private fun AudioFileResponse.toDomain(): AudioFile =
 
 /**
  * Convert an [AudioFileEntity] to the API-shaped [AudioFileResponse] that
- * downstream playback code (timeline building, codec negotiation) consumes.
- *
- * This mapper exists because the domain `AudioFile` conversion downstream
- * still operates on `AudioFileResponse`. W6 or later can migrate the whole
- * pipeline to operate on entities or a domain type directly.
+ * the diagnostic logging path consumes. The domain mapping path now goes
+ * directly via [toDomain], which carries the [AudioFileEntity.index] field.
  */
 private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =
     AudioFileResponse(
