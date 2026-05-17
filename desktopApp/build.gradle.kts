@@ -26,8 +26,8 @@ kotlin {
             implementation(project(":composeApp"))
 
             implementation(compose.desktop.currentOs)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
+            implementation(libs.compose.material3)
+            implementation(libs.androidx.material.icons.extended)
 
             // Lifecycle (needed for ViewModel supertype from composeApp)
             implementation(libs.androidx.lifecycle.viewmodelCompose)

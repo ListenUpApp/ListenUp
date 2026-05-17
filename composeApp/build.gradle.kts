@@ -104,9 +104,6 @@ kotlin {
             // WorkManager for background sync
             implementation(libs.androidx.work.runtime.ktx)
 
-            // Material Icons Extended
-            implementation(libs.androidx.material.icons.extended)
-
             // Media3 for audio playback
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.exoplayer.hls)
@@ -197,8 +194,7 @@ kotlin {
                 // The runner is the JUnit5 platform engine; junit-vintage-engine keeps
                 // the pre-existing JUnit4 tests (Robolectric, Compose UI) discoverable
                 // once testAndroidHostTest switches to useJUnitPlatform().
-                implementation(libs.kotest.runner.junit5)
-                implementation(libs.kotest.assertions.core)
+                implementation(libs.bundles.kotest)
                 runtimeOnly(libs.junit.vintage.engine)
 
                 // Phase A NavDisplay test harness
@@ -224,8 +220,7 @@ kotlin {
                 // The runner is the JUnit5 platform engine; desktopTest switches to
                 // useJUnitPlatform() below. No vintage engine needed here — there are
                 // no JUnit4 tests in desktopTest.
-                implementation(libs.kotest.runner.junit5)
-                implementation(libs.kotest.assertions.core)
+                implementation(libs.bundles.kotest)
             }
         }
     }
