@@ -217,8 +217,10 @@ class AudiobookNotificationProvider(
      * - Named chapter: "Chapter 14: The Chandrian • 8m left"
      * - Generic chapter: "Chapter 14 of 92 • 8m left"
      * - No chapter info: "Playing..."
+     *
+     * Visible for testing.
      */
-    private fun buildChapterSubtitle(chapterInfo: PlaybackManager.ChapterInfo?): String {
+    internal fun buildChapterSubtitle(chapterInfo: PlaybackManager.ChapterInfo?): String {
         if (chapterInfo == null) return "Playing..."
 
         val chapterText =
@@ -234,8 +236,10 @@ class AudiobookNotificationProvider(
 
     /**
      * Format duration in human-readable form.
+     *
+     * Visible for testing.
      */
-    private fun formatDuration(ms: Long): String {
+    internal fun formatDuration(ms: Long): String {
         val totalMinutes = ms / 60_000
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60
