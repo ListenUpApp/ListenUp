@@ -222,6 +222,13 @@ fun NowPlayingScreen(
 
     val dragOffset = remember { Animatable(0f) }
 
+    // When a predictive-back gesture begins, immediately clear any in-flight drag offset so the
+    // two transforms (translationY from drag + scale/alpha from back) never compound. snapTo is
+    // intentional — an animated clear would itself compound with the back animation.
+    LaunchedEffect(backProgress.value != 0f) {
+        if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
+    }
+
     Surface(
         modifier =
             modifier
