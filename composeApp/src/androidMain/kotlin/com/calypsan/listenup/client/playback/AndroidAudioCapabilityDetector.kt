@@ -59,8 +59,10 @@ class AndroidAudioCapabilityDetector : AudioCapabilityDetector {
      *
      * MIME type reference:
      * https://developer.android.com/reference/android/media/MediaFormat
+     *
+     * Visible for testing.
      */
-    private fun mimeTypeToCodec(mimeType: String): String? =
+    internal fun mimeTypeToCodec(mimeType: String): String? =
         when (mimeType.lowercase()) {
             // AAC variants
             MediaFormat.MIMETYPE_AUDIO_AAC,
