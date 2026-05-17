@@ -1154,6 +1154,7 @@ private fun ChapterSeekBar(
             onSeek = onSeek,
             modifier = Modifier.fillMaxWidth(),
             isPlaying = isPlaying,
+            stateDescription = "${currentTime.formatPlaybackTime()} of ${totalTime.formatPlaybackTime()}",
         )
 
         Row(

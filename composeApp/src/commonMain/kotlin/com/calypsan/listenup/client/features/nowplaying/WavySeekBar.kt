@@ -26,6 +26,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -47,6 +52,8 @@ import kotlin.math.roundToInt
  * @param enabled Whether seeking is enabled
  * @param color The color of the filled track (defaults to primary)
  * @param trackColor The color of the unfilled track (defaults to surfaceVariant)
+ * @param stateDescription Human-readable description of the current position for TalkBack,
+ *   e.g. "3:30 of 42:00". Provide this from the call site where Duration values are available.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -58,6 +65,7 @@ fun WavySeekBar(
     enabled: Boolean = true,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    stateDescription: String = "",
 ) {
     val density = LocalDensity.current
 
@@ -80,7 +88,12 @@ fun WavySeekBar(
             modifier
                 .fillMaxWidth()
                 .height(48.dp) // Touch target height
-                .onSizeChanged { size ->
+                .seekBarSemantics(
+                    progress = progress,
+                    stateDescription = stateDescription,
+                    enabled = enabled,
+                    onSeek = onSeek,
+                ).onSizeChanged { size ->
                     trackWidth = size.width.toFloat()
                 }.pointerInput(enabled) {
                     if (!enabled) return@pointerInput
@@ -147,3 +160,34 @@ fun WavySeekBar(
         )
     }
 }
+
+/**
+ * Attaches screen-reader semantics to the seek bar:
+ * - [ProgressBarRangeInfo] exposes the current position; TalkBack uses this to announce
+ *   the widget class as a seekbar and read the current value aloud.
+ * - [stateDescription] surfaces the human-readable "3:30 of 42:00" string supplied by
+ *   the call site (which has Duration context).
+ * - [setProgress] lets TalkBack and Switch Access move the thumb programmatically.
+ */
+private fun Modifier.seekBarSemantics(
+    progress: Float,
+    stateDescription: String,
+    enabled: Boolean,
+    onSeek: (Float) -> Unit,
+): Modifier =
+    semantics {
+        progressBarRangeInfo =
+            ProgressBarRangeInfo(
+                current = progress.coerceIn(0f, 1f),
+                range = 0f..1f,
+            )
+        if (stateDescription.isNotEmpty()) {
+            this.stateDescription = stateDescription
+        }
+        if (enabled) {
+            setProgress(label = "Seek") { targetValue ->
+                onSeek(targetValue.coerceIn(0f, 1f))
+                true
+            }
+        }
+    }
