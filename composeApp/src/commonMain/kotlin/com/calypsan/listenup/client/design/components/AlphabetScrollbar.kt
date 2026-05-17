@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -336,6 +337,10 @@ fun AlphabetScrollbar(
         Column(
             modifier =
                 Modifier
+                    // Enforce 48dp min-width so the touch target meets the a11y minimum
+                    // even on short letter lists. Visual appearance unchanged — the
+                    // letters are centred inside the wider clip area.
+                    .defaultMinSize(minWidth = 48.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isInteracting) {
