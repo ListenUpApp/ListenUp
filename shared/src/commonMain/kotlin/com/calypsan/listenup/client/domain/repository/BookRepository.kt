@@ -18,7 +18,12 @@ import kotlinx.coroutines.flow.Flow
  */
 interface BookRepository {
     /**
-     * Trigger sync to refresh books from server.
+     * No-op affordance for pull-to-refresh gestures.
+     *
+     * Book refresh is now driven entirely by the SSE event stream — there is no
+     * client-initiated pull path. This method exists so that pull-to-refresh UI
+     * surfaces have a call target; the implementation deliberately does nothing.
+     * Removal of the pull-to-refresh affordance from the UI is deferred to Books-C.
      */
     suspend fun refreshBooks(): AppResult<Unit>
 

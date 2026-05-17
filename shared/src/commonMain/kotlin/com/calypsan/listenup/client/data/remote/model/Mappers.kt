@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.data.remote.model
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ChapterId
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.SeriesId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import kotlin.time.ExperimentalTime
@@ -45,37 +42,6 @@ fun BookResponse.toEntity(): BookEntity =
         // Timestamps from server
         createdAt = createdAt.toTimestamp(),
         updatedAt = updatedAt.toTimestamp(),
-    )
-
-fun ChapterResponse.toEntity(
-    bookId: BookId,
-    index: Int,
-): com.calypsan.listenup.client.data.local.db.ChapterEntity =
-    com.calypsan.listenup.client.data.local.db.ChapterEntity(
-        // ID is composite of bookId and index since server doesn't provide stable chapter IDs yet
-        id = ChapterId("${bookId.value}_$index"),
-        bookId = bookId,
-        title = title,
-        duration = endTime - startTime,
-        startTime = startTime,
-    )
-
-fun BookContributorResponse.toEntity(
-    bookId: BookId,
-    role: String,
-): com.calypsan.listenup.client.data.local.db.BookContributorCrossRef =
-    com.calypsan.listenup.client.data.local.db.BookContributorCrossRef(
-        bookId = bookId,
-        contributorId = ContributorId(contributorId),
-        role = role,
-        creditedAs = creditedAs,
-    )
-
-fun BookSeriesInfoResponse.toEntity(bookId: BookId): com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef =
-    com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef(
-        bookId = bookId,
-        seriesId = SeriesId(seriesId),
-        sequence = sequence,
     )
 
 /**

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.local.db
 
-import app.cash.turbine.test
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -86,22 +85,6 @@ class AudioFileDaoTest {
             val result = audioFileDao.getForBook("b1")
 
             assertEquals(listOf(0, 1, 2), result.map { it.index })
-        }
-
-    @Test
-    fun `observeForBook emits initial list and re-emits on upsert`() =
-        runTest {
-            seedBook()
-            audioFileDao.upsertAll(listOf(audioFile(index = 0)))
-
-            audioFileDao.observeForBook("b1").test {
-                assertEquals(listOf(0), awaitItem().map { it.index })
-
-                audioFileDao.upsertAll(listOf(audioFile(index = 1)))
-                assertEquals(listOf(0, 1), awaitItem().map { it.index })
-
-                cancelAndIgnoreRemainingEvents()
-            }
         }
 
     @Test

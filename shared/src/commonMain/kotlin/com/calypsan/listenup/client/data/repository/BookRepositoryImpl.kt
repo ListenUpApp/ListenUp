@@ -88,14 +88,13 @@ class BookRepositoryImpl(
     private val logger = KotlinLogging.logger {}
 
     /**
-     * Trigger sync to refresh books from server.
+     * No-op affordance for pull-to-refresh gestures.
      *
-     * @return Result indicating sync success or failure
+     * Book refresh is driven entirely by the SSE event stream. This method is a
+     * deliberate no-op retained for the pull-to-refresh UI affordance in
+     * [LibraryViewModel] until that surface is revisited in Books-C.
      */
-    override suspend fun refreshBooks(): AppResult<Unit> {
-        logger.debug { "Refreshing books from server" }
-        return Success(Unit)
-    }
+    override suspend fun refreshBooks(): AppResult<Unit> = Success(Unit)
 
     /**
      * Get chapters for a book from the local database.
