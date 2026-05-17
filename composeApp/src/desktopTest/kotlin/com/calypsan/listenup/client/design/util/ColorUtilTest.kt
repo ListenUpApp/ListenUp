@@ -23,23 +23,23 @@ class ColorUtilTest :
         test("6-char hex with hash produces correct RGB and full alpha") {
             val color = parseHexColor("#FF0000")
             color.red.shouldBeWithinPercentageOf(1f, 0.5)
-            color.green.shouldBeWithinPercentageOf(0f, 0.5)
-            color.blue.shouldBeWithinPercentageOf(0f, 0.5)
+            color.green shouldBe 0f
+            color.blue shouldBe 0f
             color.alpha.shouldBeWithinPercentageOf(1f, 0.5)
         }
 
         test("6-char hex without hash produces correct RGB and full alpha") {
             val color = parseHexColor("00FF00")
-            color.red.shouldBeWithinPercentageOf(0f, 0.5)
+            color.red shouldBe 0f
             color.green.shouldBeWithinPercentageOf(1f, 0.5)
-            color.blue.shouldBeWithinPercentageOf(0f, 0.5)
+            color.blue shouldBe 0f
             color.alpha.shouldBeWithinPercentageOf(1f, 0.5)
         }
 
         test("6-char pure blue hex parses correctly") {
             val color = parseHexColor("#0000FF")
-            color.red.shouldBeWithinPercentageOf(0f, 0.5)
-            color.green.shouldBeWithinPercentageOf(0f, 0.5)
+            color.red shouldBe 0f
+            color.green shouldBe 0f
             color.blue.shouldBeWithinPercentageOf(1f, 0.5)
             color.alpha.shouldBeWithinPercentageOf(1f, 0.5)
         }
