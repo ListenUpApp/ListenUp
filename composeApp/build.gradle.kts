@@ -208,6 +208,10 @@ kotlin {
                 implementation(libs.androidx.navigation3.ui.android)
                 implementation(libs.androidx.lifecycle.viewmodel.navigation3)
                 implementation(libs.koin.test)
+
+                // WorkManager test helpers — TestListenableWorkerBuilder provides valid
+                // WorkerParameters for worker-routing tests in ListenUpWorkerFactory.
+                implementation(libs.androidx.work.testing)
             }
         }
         val desktopTest by getting {

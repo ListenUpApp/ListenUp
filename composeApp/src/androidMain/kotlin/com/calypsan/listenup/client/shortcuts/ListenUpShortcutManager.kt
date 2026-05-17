@@ -187,8 +187,10 @@ class ListenUpShortcutManager(
 
     /**
      * Calculates sample size for bitmap decoding.
+     *
+     * Visible for testing.
      */
-    private fun calculateSampleSize(
+    internal fun calculateSampleSize(
         options: BitmapFactory.Options,
         targetWidth: Int,
         targetHeight: Int,
@@ -213,8 +215,10 @@ class ListenUpShortcutManager(
 
     /**
      * Creates a square bitmap from the center of the source.
+     *
+     * Visible for testing.
      */
-    private fun createSquareBitmap(
+    internal fun createSquareBitmap(
         source: Bitmap,
         targetSize: Int,
     ): Bitmap {
