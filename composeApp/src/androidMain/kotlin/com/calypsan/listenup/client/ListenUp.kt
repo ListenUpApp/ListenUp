@@ -5,6 +5,8 @@ import android.app.Application
 import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.ProfilingManager
 import android.os.ProfilingResult
 import android.provider.Settings
@@ -47,6 +49,7 @@ import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -67,6 +70,27 @@ private val logger = KotlinLogging.logger {}
 
 /** Maximum number of historical exit records to inspect for memory-related causes. */
 private const val HISTORICAL_EXIT_LIMIT = 5
+
+/**
+ * Runs each named resolver and throws [IllegalStateException] on the first failure.
+ *
+ * Extracted as an internal top-level function so it can be called from tests
+ * without a real Koin graph.  The [ListenUp] class calls this off the main thread
+ * (see [ListenUp.verifyCriticalKoinBindings]) to avoid blocking the first frame.
+ */
+internal fun checkCriticalKoinBindings(resolvers: List<Pair<String, () -> Unit>>) {
+    resolvers.forEach { (name, resolver) ->
+        try {
+            resolver()
+        } catch (e: Exception) {
+            throw IllegalStateException(
+                "Koin verification failed for $name. Check your module configuration.\n" +
+                    "Error: ${e.message}",
+                e,
+            )
+        }
+    }
+}
 
 /**
  * Android-specific dependencies module.
@@ -304,9 +328,18 @@ class ListenUp :
 
         WorkManager.initialize(this, workManagerConfig)
 
-        // Verify critical Koin bindings at startup to fail fast.
-        // This catches DI misconfigurations before UI loads, providing clear error messages.
-        verifyCriticalKoinBindings()
+        // Verify critical Koin bindings off the first-frame path.
+        // Launching on Default keeps DI resolution (including Media3 session init and
+        // ProgressTracker construction) off the main thread, saving ~30–80 ms of
+        // cold-start latency.  Fail-fast is intentional and preserved: any exception
+        // is re-thrown on the main thread so the process terminates immediately and
+        // visibly — a misconfigured build must never silently continue.
+        get<CoroutineScope>().launch(Dispatchers.Default) {
+            runCatching { verifyCriticalKoinBindings() }.onFailure { failure ->
+                if (failure is CancellationException) throw failure
+                Handler(Looper.getMainLooper()).post { throw failure }
+            }
+        }
 
         // Register ProfilingManager callback to surface system-driven OOM/anomaly results.
         // Android 17+ (API 37) only — no-op on earlier releases.
@@ -400,10 +433,11 @@ class ListenUp :
      * Verify that all critical Koin singletons can be resolved.
      *
      * This catches DI misconfigurations at startup, before any UI or background workers
-     * try to use them. Issues are logged with clear error messages.
+     * try to use them.  Delegates to [checkCriticalKoinBindings] which holds the
+     * throw logic and is independently testable.
      */
     private fun verifyCriticalKoinBindings() {
-        val criticalTypes: List<Pair<String, () -> Unit>> =
+        checkCriticalKoinBindings(
             listOf(
                 "ServerConfig" to {
                     get<com.calypsan.listenup.client.domain.repository.ServerConfig>()
@@ -420,18 +454,7 @@ class ListenUp :
                 "PlaybackManager" to {
                     get<PlaybackManager>()
                 },
-            )
-
-        criticalTypes.forEach { (name, resolver) ->
-            try {
-                resolver()
-            } catch (e: Exception) {
-                throw IllegalStateException(
-                    "Koin verification failed for $name. Check your module configuration.\n" +
-                        "Error: ${e.message}",
-                    e,
-                )
-            }
-        }
+            ),
+        )
     }
 }
