@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
@@ -44,6 +45,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.shell_close_search
 import listenup.composeapp.generated.resources.shell_search_audiobooks
+import listenup.composeapp.generated.resources.shell_sync_details_action
 import listenup.composeapp.generated.resources.shell_sync_error
 import org.jetbrains.compose.resources.stringResource
 
@@ -254,8 +256,11 @@ private fun SyncIndicator(
                 ListenUpLoadingIndicatorSmall(
                     modifier =
                         Modifier
-                            .clickable(onClick = onClick)
-                            .padding(end = 4.dp),
+                            .clickable(
+                                onClickLabel = stringResource(Res.string.shell_sync_details_action),
+                                role = Role.Button,
+                                onClick = onClick,
+                            ).padding(end = 4.dp),
                 )
             }
 
@@ -266,8 +271,11 @@ private fun SyncIndicator(
                     tint = MaterialTheme.colorScheme.error,
                     modifier =
                         Modifier
-                            .clickable(onClick = onClick)
-                            .padding(end = 4.dp),
+                            .clickable(
+                                onClickLabel = stringResource(Res.string.shell_sync_details_action),
+                                role = Role.Button,
+                                onClick = onClick,
+                            ).padding(end = 4.dp),
                 )
             }
 
