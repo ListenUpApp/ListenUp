@@ -94,6 +94,9 @@ dependencies {
 
     // Turbine — Flow assertions for the watcher tests.
     testImplementation(libs.turbine)
+
+    // Konsist — architectural assertions for :server production code.
+    testImplementation(libs.konsist)
 }
 
 kotlin {
