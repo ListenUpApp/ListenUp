@@ -81,7 +81,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
+            // Use the release signing config when available (CI), otherwise fall back to
+            // debug signing so the nonMinifiedRelease variant (used for Baseline Profile
+            // generation) can be packaged locally without a keystore.
+            val releaseSigningConfig = signingConfigs.getByName("release")
+            signingConfig =
+                if (releaseSigningConfig.storeFile != null) {
+                    releaseSigningConfig
+                } else {
+                    signingConfigs.getByName("debug")
+                }
         }
     }
 
