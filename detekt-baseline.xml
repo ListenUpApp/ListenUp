@@ -434,35 +434,16 @@
     <ID>UnnecessaryParentheses:Mp4Parser.kt$Mp4Parser$(durationUnits * 1000L)</ID>
     <ID>UnnecessaryParentheses:Mp4ParserPropertyTest.kt$Mp4ParserPropertyTest$(du * 1000L)</ID>
     <ID>UnnecessaryParentheses:MpegDurationCalculator.kt$MpegDurationCalculator$(bytes[i + 1].toInt() and 0xE0)</ID>
-    <ID>UnusedImports:AdminCollectionsScreen.kt$import listenup.composeapp.generated.resources.admin_collection_created</ID>
-    <ID>UnusedImports:AdminScreen.kt$import listenup.composeapp.generated.resources.admin_link_copied</ID>
-    <ID>UnusedImports:BookCard.kt$import androidx.compose.material.icons.filled.Book</ID>
-    <ID>UnusedImports:BookCard.kt$import androidx.compose.ui.graphics.Brush</ID>
-    <ID>UnusedImports:BookCoverImage.kt$import org.koin.compose.koinInject</ID>
-    <ID>UnusedImports:ContributorBooksScreen.kt$import androidx.compose.foundation.layout.width</ID>
-    <ID>UnusedImports:ContributorDetailScreen.kt$import androidx.compose.foundation.layout.heightIn</ID>
     <ID>UnusedImports:ContributorEditRepositoryAtomicityTest.kt$import dev.mokkery.answering.returns</ID>
     <ID>UnusedImports:ContributorEditRepositoryAtomicityTest.kt$import kotlin.test.assertNull</ID>
-    <ID>UnusedImports:CreateInviteScreen.kt$import listenup.composeapp.generated.resources.admin_invite_created_link_copied_to</ID>
-    <ID>UnusedImports:CreateInviteScreen.kt$import listenup.composeapp.generated.resources.admin_link_copied</ID>
     <ID>UnusedImports:DownloadWorkerLogicTest.kt$import kotlin.test.assertFails</ID>
     <ID>UnusedImports:InstanceRepositoryImpl.kt$import io.ktor.client.plugins.timeout</ID>
     <ID>UnusedImports:JvmSecureStorageTest.kt$import kotlin.test.assertNotEquals</ID>
     <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.client.core.ServerUrl</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
-    <ID>UnusedImports:MainActivity.kt$import com.calypsan.listenup.client.deeplink.BookDeepLink</ID>
-    <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.foundation.background</ID>
-    <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.foundation.layout.offset</ID>
-    <ID>UnusedImports:NowPlayingScreen.kt$import androidx.compose.ui.graphics.Brush</ID>
     <ID>UnusedImports:SSEEventProcessorAtomicityTest.kt$import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos</ID>
     <ID>UnusedImports:SSEEventProcessorProgressMergeTest.kt$import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.WindowInsets</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.statusBars</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.layout.windowInsetsPadding</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import androidx.compose.foundation.shape.CircleShape</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import com.calypsan.listenup.client.design.components.CoverColors</ID>
-    <ID>UnusedImports:WideBookDetail.kt$import com.calypsan.listenup.client.design.components.GenreChipRow</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content1 = file1.readText()</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content2 = file2.readText()</ID>
     <ID>UnusedPrivateProperty:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$j</ID>

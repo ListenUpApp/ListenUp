@@ -15,6 +15,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -23,48 +25,41 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Verifies the Android wrapper preserves the [CachedAudioTokenProvider] fast-path:
  * when init's refresh succeeds and the rotated token is good for >2 minutes,
  * `prepareForPlayback` returns without triggering another refresh.
  */
-class AndroidAudioTokenProviderTest {
-    @Test
-    fun `prepareForPlayback skips refresh when cached token is still valid`() {
-        val refreshCalls = AtomicInteger(0)
+class AndroidAudioTokenProviderTest :
+    FunSpec({
+        test("prepareForPlayback skips refresh when cached token is still valid") {
+            val refreshCalls = AtomicInteger(0)
 
-        val session = FakeAuthSession()
-        val repo = FakeAuthRepository(refreshCalls)
+            val session = FakeAuthSession()
+            val repo = FakeAuthRepository(refreshCalls)
 
-        val scope = CoroutineScope(Job())
-        try {
-            val core = CachedAudioTokenProvider(session, repo, scope)
-            val provider = AndroidAudioTokenProvider(core)
+            val scope = CoroutineScope(Job())
+            try {
+                val core = CachedAudioTokenProvider(session, repo, scope)
+                val provider = AndroidAudioTokenProvider(core)
 
-            // Let init's refreshToken() complete
-            runBlocking { delay(200) }
+                // Let init's refreshToken() complete
+                runBlocking { delay(200) }
 
-            val callsAfterInit = refreshCalls.get()
-            assertTrue(callsAfterInit >= 1, "Init should have called refreshAccessToken at least once")
+                val callsAfterInit = refreshCalls.get()
+                (callsAfterInit >= 1) shouldBe true
 
-            // prepareForPlayback should NOT call refresh again — the rotated
-            // session was issued with an expiry hours in the future.
-            runBlocking { provider.prepareForPlayback() }
+                // prepareForPlayback should NOT call refresh again — the rotated
+                // session was issued with an expiry hours in the future.
+                runBlocking { provider.prepareForPlayback() }
 
-            assertEquals(
-                callsAfterInit,
-                refreshCalls.get(),
-                "prepareForPlayback should skip refresh when cached token is still valid",
-            )
-        } finally {
-            scope.cancel()
+                refreshCalls.get() shouldBe callsAfterInit
+            } finally {
+                scope.cancel()
+            }
         }
-    }
-}
+    })
 
 private class FakeAuthRepository(
     private val refreshCalls: AtomicInteger,

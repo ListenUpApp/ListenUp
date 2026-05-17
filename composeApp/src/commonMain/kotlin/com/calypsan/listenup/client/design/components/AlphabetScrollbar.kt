@@ -91,7 +91,8 @@ data class AlphabetIndex(
 // Adaptive Sizing Configuration
 // =============================================================================
 
-private object AdaptiveScrollbarConfig {
+/** Visible for testing. */
+internal object AdaptiveScrollbarConfig {
     // Font size bounds (sp)
     const val MIN_FONT_SIZE_SP = 8f
     const val MAX_FONT_SIZE_SP = 14f
@@ -118,8 +119,10 @@ private object AdaptiveScrollbarConfig {
 /**
  * Calculates the weight for a letter based on its distance from the selected letter.
  * Weights determine how much vertical space each letter gets.
+ *
+ * Visible for testing.
  */
-private fun calculateWeight(
+internal fun calculateWeight(
     index: Int,
     selectedIndex: Int?,
 ): Float {

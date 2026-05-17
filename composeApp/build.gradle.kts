@@ -208,6 +208,10 @@ kotlin {
                 implementation(libs.androidx.navigation3.ui.android)
                 implementation(libs.androidx.lifecycle.viewmodel.navigation3)
                 implementation(libs.koin.test)
+
+                // WorkManager test helpers — TestListenableWorkerBuilder provides valid
+                // WorkerParameters for worker-routing tests in ListenUpWorkerFactory.
+                implementation(libs.androidx.work.testing)
             }
         }
         val desktopTest by getting {
@@ -215,18 +219,28 @@ kotlin {
                 implementation(libs.kotlin.test)
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.mokkery.runtime)
+
+                // Kotest — canonical FunSpec framework for new desktopTest tests.
+                // The runner is the JUnit5 platform engine; desktopTest switches to
+                // useJUnitPlatform() below. No vintage engine needed here — there are
+                // no JUnit4 tests in desktopTest.
+                implementation(libs.kotest.runner.junit5)
+                implementation(libs.kotest.assertions.core)
             }
         }
     }
 }
 
-// Kotest's runner is the JUnit5 platform engine, so the Android host-test task must
-// run on the JUnit Platform. junit-vintage-engine (added to androidHostTest) keeps the
+// Kotest's runner is the JUnit5 platform engine, so both JVM test tasks must run on the
+// JUnit Platform.
+//
+// testAndroidHostTest: junit-vintage-engine (added to androidHostTest) keeps the
 // pre-existing JUnit4 tests — Robolectric and Compose UI — discoverable on that platform.
-// The AGP KMP plugin registers testAndroidHostTest lazily, so match it by name rather
-// than resolving it eagerly.
+// The AGP KMP plugin registers testAndroidHostTest lazily, so match it by name.
+//
+// desktopTest: no JUnit4 tests exist here, so no vintage engine is needed.
 tasks.withType<Test>().configureEach {
-    if (name == "testAndroidHostTest") {
+    if (name == "testAndroidHostTest" || name == "desktopTest") {
         useJUnitPlatform()
     }
 }

@@ -27,7 +27,6 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
 import androidx.compose.runtime.produceState
 import com.calypsan.listenup.client.core.Success
 

@@ -71,8 +71,6 @@ import listenup.composeapp.generated.resources.admin_create_invite
 import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.admin_expires_in
 import listenup.composeapp.generated.resources.admin_invite_created
-import listenup.composeapp.generated.resources.admin_invite_created_link_copied_to
-import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_role
 import listenup.composeapp.generated.resources.admin_share_this_link_with_invitename
