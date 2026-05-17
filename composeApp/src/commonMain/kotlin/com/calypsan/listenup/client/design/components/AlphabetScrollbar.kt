@@ -41,6 +41,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -289,7 +292,12 @@ fun AlphabetScrollbar(
                 .fillMaxHeight()
                 .offset(x = slideOffset)
                 .alpha(alpha)
-                .onSizeChanged { size ->
+                .semantics {
+                    contentDescription = "Alphabet scrollbar"
+                    selectedLetter?.let { letter ->
+                        stateDescription = "Letter $letter"
+                    }
+                }.onSizeChanged { size ->
                     containerHeightPx = size.height.toFloat()
                 },
     ) {
