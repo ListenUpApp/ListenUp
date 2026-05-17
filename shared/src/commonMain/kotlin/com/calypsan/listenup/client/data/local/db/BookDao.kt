@@ -164,6 +164,44 @@ interface BookDao {
     suspend fun deleteAll()
 
     /**
+     * Apply an own-echo: bump only the sync substrate fields on the book row.
+     *
+     * When a sync event echoes the client's own write, the visible fields are already
+     * correct locally — repainting them would flicker the UI. This advances
+     * [BookEntity.revision] and [BookEntity.updatedAt] only, leaving everything else
+     * (title, cover, palette) untouched.
+     *
+     * @param id Type-safe book ID
+     * @param revision New server revision
+     * @param updatedAt New server update timestamp
+     */
+    @Query("UPDATE books SET revision = :revision, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateRevisionAndTimestamp(
+        id: BookId,
+        revision: Long,
+        updatedAt: Timestamp,
+    )
+
+    /**
+     * Soft-delete a book by stamping its tombstone, advancing its revision, and recording
+     * the modification time.
+     *
+     * The row is retained — the UI filters on `deletedAt IS NULL`. Used when a
+     * sync tombstone arrives for a book. `updatedAt` advances alongside `deletedAt`
+     * because a soft-delete is a modification — consistent with [updateRevisionAndTimestamp].
+     *
+     * @param id Type-safe book ID
+     * @param deletedAt Epoch-ms tombstone time (also used as `updatedAt`)
+     * @param revision New server revision
+     */
+    @Query("UPDATE books SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
+    suspend fun softDelete(
+        id: BookId,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /**
      * Touch a book's updatedAt timestamp to trigger Flow re-emission.
      *
      * Used after cover downloads to force UI updates when cover files
