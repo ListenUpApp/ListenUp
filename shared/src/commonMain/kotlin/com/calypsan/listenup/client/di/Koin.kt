@@ -860,8 +860,8 @@ val syncModule =
         }
 
         // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
-        // Mirrors AuthRpcFactory; the client proxy is fully wired, but end-to-end
-        // calls await the separately-tracked server-side registerService<BookService>.
+        // Mirrors AuthRpcFactory; fully functional end-to-end — the server registers
+        // BookService on its bearer-gated /api/rpc/authed surface (landed in T28.5).
         single<BookRpcFactory> {
             KtorBookRpcFactory(
                 apiClientFactory = get(),

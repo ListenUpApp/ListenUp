@@ -18,9 +18,9 @@ import kotlinx.rpc.withService
  * An interface so repositories depend on a seam that fakes/mocks in tests —
  * [KtorBookRpcFactory] is the production implementation over WebSocket RPC.
  *
- * **Wiring status:** the client proxy is fully formed, but the `:server`
- * module does not yet `registerService<BookService>` on its RPC surface, so
- * end-to-end calls will not function until that separately-tracked task lands.
+ * **Wiring status:** fully functional end-to-end. The `:server` module
+ * registers `BookService` on its bearer-gated `/api/rpc/authed` surface
+ * (landed in T28.5), so the client proxy connects and calls succeed.
  */
 interface BookRpcFactory {
     /** Returns the cached [BookService] proxy, connecting on first use. */

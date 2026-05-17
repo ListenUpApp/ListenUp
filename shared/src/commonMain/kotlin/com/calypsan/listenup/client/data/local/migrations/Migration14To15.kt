@@ -22,9 +22,11 @@ import androidx.sqlite.execSQL
  * Each table is rebuilt via the create-new → copy → drop → rename pattern
  * because SQLite cannot drop columns in older versions and Room's bundled
  * driver targets the lowest common denominator. Primary keys (TEXT `id`) are
- * preserved, so foreign keys and `ON DELETE CASCADE` relationships from the
- * junction tables survive untouched. The non-`syncState` index
- * `index_chapters_bookId` is recreated on the rebuilt `chapters` table.
+ * preserved; the junction tables (`book_contributors`, `book_series`, etc.)
+ * declare `ON DELETE CASCADE` FKs referencing these `id` columns, and those
+ * constraints survive untouched since the primary-key values and column name
+ * carry across. The non-`syncState` index `index_chapters_bookId` is
+ * recreated on the rebuilt `chapters` table.
  */
 val MIGRATION_14_15: Migration =
     object : Migration(14, 15) {
