@@ -28,48 +28,48 @@ class PlaybackErrorHandler(
     /**
      * Classifies errors into actionable categories.
      */
-    sealed class PlaybackError {
+    sealed class ClassifiedError {
         // Retryable - ExoPlayer handles internally, we just wait
         data class Network(
             val message: String,
-        ) : PlaybackError()
+        ) : ClassifiedError()
 
         // Retryable once - refresh token, retry request
         data class AuthExpired(
             val message: String,
-        ) : PlaybackError()
+        ) : ClassifiedError()
 
         // Not retryable - user action required
         data class NotFound(
             val message: String,
-        ) : PlaybackError()
+        ) : ClassifiedError()
 
         data class Codec(
             val message: String,
-        ) : PlaybackError()
+        ) : ClassifiedError()
 
         // Stuck player - Media3 1.9.0 detects when playback is stuck
         // Triggers after 10 min buffering, 10s ready with no progress, etc.
         data class Stuck(
             val message: String,
-        ) : PlaybackError()
+        ) : ClassifiedError()
 
         data class Unknown(
             val cause: Throwable,
-        ) : PlaybackError()
+        ) : ClassifiedError()
     }
 
     /**
      * Maps ExoPlayer exceptions to our error types.
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    fun classify(error: PlaybackException): PlaybackError =
+    fun classify(error: PlaybackException): ClassifiedError =
         when (error.errorCode) {
             // Network errors - ExoPlayer will retry, we just observe
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
             -> {
-                PlaybackError.Network("Network connection lost")
+                ClassifiedError.Network("Network connection lost")
             }
 
             // HTTP errors - check status code
@@ -78,11 +78,11 @@ class PlaybackErrorHandler(
                 val statusCode = (cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
 
                 when (statusCode) {
-                    401 -> PlaybackError.AuthExpired("Session expired")
-                    403 -> PlaybackError.AuthExpired("Access denied")
-                    404 -> PlaybackError.NotFound("Audio file not found")
-                    in 500..599 -> PlaybackError.Network("Server error, retrying...")
-                    else -> PlaybackError.Unknown(error)
+                    401 -> ClassifiedError.AuthExpired("Session expired")
+                    403 -> ClassifiedError.AuthExpired("Access denied")
+                    404 -> ClassifiedError.NotFound("Audio file not found")
+                    in 500..599 -> ClassifiedError.Network("Server error, retrying...")
+                    else -> ClassifiedError.Unknown(error)
                 }
             }
 
@@ -91,17 +91,17 @@ class PlaybackErrorHandler(
             PlaybackException.ERROR_CODE_DECODING_FAILED,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
             -> {
-                PlaybackError.Codec("Cannot play this audio format")
+                ClassifiedError.Codec("Cannot play this audio format")
             }
 
             // Stuck player detection (Media3 1.9.0)
             // Fires after 10 min buffering, 10s ready with no progress, etc.
             PlaybackException.ERROR_CODE_TIMEOUT -> {
-                PlaybackError.Stuck("Playback appears to be stuck")
+                ClassifiedError.Stuck("Playback appears to be stuck")
             }
 
             else -> {
-                PlaybackError.Unknown(error)
+                ClassifiedError.Unknown(error)
             }
         }
 
@@ -111,7 +111,7 @@ class PlaybackErrorHandler(
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     suspend fun handle(
-        error: PlaybackError,
+        error: ClassifiedError,
         player: ExoPlayer,
         currentBookId: BookId?,
         onShowError: (String) -> Unit,
@@ -123,14 +123,14 @@ class PlaybackErrorHandler(
         }
 
         return when (error) {
-            is PlaybackError.Network -> {
+            is ClassifiedError.Network -> {
                 // ExoPlayer handles retry internally
                 // Just log and let it buffer
                 logger.info { "Network error, ExoPlayer buffering: ${error.message}" }
                 true // Continue, ExoPlayer is handling it
             }
 
-            is PlaybackError.AuthExpired -> {
+            is ClassifiedError.AuthExpired -> {
                 logger.warn { "Auth expired during playback" }
 
                 // Try token refresh
@@ -152,21 +152,21 @@ class PlaybackErrorHandler(
                 }
             }
 
-            is PlaybackError.NotFound -> {
+            is ClassifiedError.NotFound -> {
                 logger.error { "Audio file not found: ${error.message}" }
                 onShowError("This audio file is no longer available.")
                 player.pause()
                 false
             }
 
-            is PlaybackError.Codec -> {
+            is ClassifiedError.Codec -> {
                 logger.error { "Codec error: ${error.message}" }
                 onShowError("Cannot play this audio file. Format may be unsupported.")
                 player.pause()
                 false
             }
 
-            is PlaybackError.Stuck -> {
+            is ClassifiedError.Stuck -> {
                 // Media3 1.9.0 stuck player detection
                 // Player was buffering or ready but not making progress
                 logger.warn { "Stuck player detected: ${error.message}" }
@@ -189,7 +189,7 @@ class PlaybackErrorHandler(
                 true // Continue, we're attempting recovery
             }
 
-            is PlaybackError.Unknown -> {
+            is ClassifiedError.Unknown -> {
                 logger.error(error.cause) { "Unknown playback error" }
                 onShowError("Playback error. Please try again.")
                 player.pause()
@@ -201,13 +201,13 @@ class PlaybackErrorHandler(
     /**
      * Get a user-friendly message for an error.
      */
-    fun getErrorMessage(error: PlaybackError): String =
+    fun getErrorMessage(error: ClassifiedError): String =
         when (error) {
-            is PlaybackError.Network -> "Connection lost. Retrying..."
-            is PlaybackError.AuthExpired -> "Session expired. Please sign in."
-            is PlaybackError.NotFound -> "File not available."
-            is PlaybackError.Codec -> "Cannot play this format."
-            is PlaybackError.Stuck -> "Playback stuck. Retrying..."
-            is PlaybackError.Unknown -> "Playback error."
+            is ClassifiedError.Network -> "Connection lost. Retrying..."
+            is ClassifiedError.AuthExpired -> "Session expired. Please sign in."
+            is ClassifiedError.NotFound -> "File not available."
+            is ClassifiedError.Codec -> "Cannot play this format."
+            is ClassifiedError.Stuck -> "Playback stuck. Retrying..."
+            is ClassifiedError.Unknown -> "Playback error."
         }
 }
