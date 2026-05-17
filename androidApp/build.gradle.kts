@@ -31,6 +31,7 @@ fun gitVersionCode(): Int =
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -103,4 +104,12 @@ dependencies {
     implementation(project(":composeApp"))
     // SLF4J Android backend - routes kotlin-logging to Logcat
     implementation(libs.slf4j.android)
+
+    // ProfileInstaller — allows the Baseline Profile to be installed at app startup
+    // on Android 7+ (Nougat) without requiring a full Play Store delivery pass.
+    implementation(libs.androidx.profileinstaller)
+
+    // Baseline Profile — wires the :baselineprofile generator so the release build
+    // embeds the generated baseline-prof.txt. The AGP plugin handles merging.
+    baselineProfile(project(":baselineprofile"))
 }
