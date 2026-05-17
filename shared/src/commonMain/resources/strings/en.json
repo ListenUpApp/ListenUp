@@ -386,6 +386,7 @@
     "pendingcount_pending": "%1$s pending",
     "retry_all": "Retry all",
     "search_audiobooks": "Search audiobooks...",
+    "sync_details_action": "Show sync details",
     "sync_error": "Sync error",
     "sync_status": "Sync Status",
     "syncing": "Syncing...",

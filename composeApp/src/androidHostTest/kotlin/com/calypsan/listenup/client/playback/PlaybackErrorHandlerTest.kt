@@ -102,13 +102,13 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Network for ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`() {
         val error = PlaybackException("net", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-        assertIs<PlaybackErrorHandler.PlaybackError.Network>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Network for ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`() {
         val error = PlaybackException("timeout", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
-        assertIs<PlaybackErrorHandler.PlaybackError.Network>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
     }
 
     // ── classify — HTTP status codes ─────────────────────────────────────────
@@ -116,37 +116,37 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns AuthExpired for HTTP 401`() {
         val error = makeHttpStatusException(401)
-        assertIs<PlaybackErrorHandler.PlaybackError.AuthExpired>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.AuthExpired>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns AuthExpired for HTTP 403`() {
         val error = makeHttpStatusException(403)
-        assertIs<PlaybackErrorHandler.PlaybackError.AuthExpired>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.AuthExpired>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns NotFound for HTTP 404`() {
         val error = makeHttpStatusException(404)
-        assertIs<PlaybackErrorHandler.PlaybackError.NotFound>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.NotFound>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Network for HTTP 500`() {
         val error = makeHttpStatusException(500)
-        assertIs<PlaybackErrorHandler.PlaybackError.Network>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Network for HTTP 599`() {
         val error = makeHttpStatusException(599)
-        assertIs<PlaybackErrorHandler.PlaybackError.Network>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Network>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Unknown for HTTP 400 (unclassified)`() {
         val error = makeHttpStatusException(400)
-        assertIs<PlaybackErrorHandler.PlaybackError.Unknown>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
     }
 
     /**
@@ -161,7 +161,7 @@ class PlaybackErrorHandlerTest {
                 RuntimeException("wrong cause type"),
                 PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
             )
-        assertIs<PlaybackErrorHandler.PlaybackError.Unknown>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
     }
 
     /**
@@ -170,7 +170,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify does not crash when cause is null for IO_BAD_HTTP_STATUS`() {
         val error = PlaybackException("bad http null cause", null, PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
-        assertIs<PlaybackErrorHandler.PlaybackError.Unknown>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
     }
 
     // ── classify — Codec ──────────────────────────────────────────────────────
@@ -178,19 +178,19 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Codec for ERROR_CODE_DECODER_INIT_FAILED`() {
         val error = PlaybackException("decoder init", null, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED)
-        assertIs<PlaybackErrorHandler.PlaybackError.Codec>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Codec for ERROR_CODE_DECODING_FAILED`() {
         val error = PlaybackException("decoding", null, PlaybackException.ERROR_CODE_DECODING_FAILED)
-        assertIs<PlaybackErrorHandler.PlaybackError.Codec>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
     }
 
     @Test
     fun `classify returns Codec for ERROR_CODE_AUDIO_TRACK_INIT_FAILED`() {
         val error = PlaybackException("audio track", null, PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED)
-        assertIs<PlaybackErrorHandler.PlaybackError.Codec>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Codec>(makeHandler().classify(error))
     }
 
     // ── classify — Stuck ──────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Stuck for ERROR_CODE_TIMEOUT`() {
         val error = PlaybackException("timeout", null, PlaybackException.ERROR_CODE_TIMEOUT)
-        assertIs<PlaybackErrorHandler.PlaybackError.Stuck>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Stuck>(makeHandler().classify(error))
     }
 
     // ── classify — Unknown ────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ class PlaybackErrorHandlerTest {
     @Test
     fun `classify returns Unknown for unrecognised error code`() {
         val error = PlaybackException("other", null, PlaybackException.ERROR_CODE_UNSPECIFIED)
-        assertIs<PlaybackErrorHandler.PlaybackError.Unknown>(makeHandler().classify(error))
+        assertIs<PlaybackErrorHandler.ClassifiedError.Unknown>(makeHandler().classify(error))
     }
 
     // ── handle — Network ──────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ class PlaybackErrorHandlerTest {
 
             val result =
                 makeHandler(tracker = tracker).handle(
-                    error = PlaybackErrorHandler.PlaybackError.Network("net"),
+                    error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                     player = player,
                     currentBookId = BookId("book1"),
                     onShowError = { errors += it },
@@ -239,7 +239,7 @@ class PlaybackErrorHandlerTest {
             val tracker = FakeProgressTracker()
 
             makeHandler(tracker = tracker).handle(
-                error = PlaybackErrorHandler.PlaybackError.Network("net"),
+                error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                 player = FakeExoPlayer(),
                 currentBookId = null,
                 onShowError = {},
@@ -259,7 +259,7 @@ class PlaybackErrorHandlerTest {
 
             val result =
                 makeHandler(tracker = tracker).handle(
-                    error = PlaybackErrorHandler.PlaybackError.NotFound("404"),
+                    error = PlaybackErrorHandler.ClassifiedError.NotFound("404"),
                     player = player,
                     currentBookId = BookId("book2"),
                     onShowError = { errors += it },
@@ -283,7 +283,7 @@ class PlaybackErrorHandlerTest {
 
             val result =
                 makeHandler().handle(
-                    error = PlaybackErrorHandler.PlaybackError.Codec("codec"),
+                    error = PlaybackErrorHandler.ClassifiedError.Codec("codec"),
                     player = player,
                     currentBookId = null,
                     onShowError = { errors += it },
@@ -305,7 +305,7 @@ class PlaybackErrorHandlerTest {
 
             val result =
                 makeHandler(tracker = tracker).handle(
-                    error = PlaybackErrorHandler.PlaybackError.Stuck("stuck"),
+                    error = PlaybackErrorHandler.ClassifiedError.Stuck("stuck"),
                     player = player,
                     currentBookId = BookId("book3"),
                     onShowError = { errors += it },
@@ -328,7 +328,7 @@ class PlaybackErrorHandlerTest {
             val player = FakeExoPlayer(stubbedPosition = 0L, stubbedMediaItemIndex = 0)
 
             makeHandler().handle(
-                error = PlaybackErrorHandler.PlaybackError.Stuck("stuck at zero"),
+                error = PlaybackErrorHandler.ClassifiedError.Stuck("stuck at zero"),
                 player = player,
                 currentBookId = null,
                 onShowError = {},
@@ -348,7 +348,7 @@ class PlaybackErrorHandlerTest {
 
             val result =
                 makeHandler(tracker = tracker).handle(
-                    error = PlaybackErrorHandler.PlaybackError.Unknown(RuntimeException("unexpected")),
+                    error = PlaybackErrorHandler.ClassifiedError.Unknown(RuntimeException("unexpected")),
                     player = player,
                     currentBookId = BookId("book4"),
                     onShowError = { errors += it },
@@ -368,12 +368,12 @@ class PlaybackErrorHandlerTest {
         val handler = makeHandler()
         val messages =
             listOf(
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.Network("n")),
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.AuthExpired("a")),
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.NotFound("nf")),
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.Codec("c")),
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.Stuck("s")),
-                handler.getErrorMessage(PlaybackErrorHandler.PlaybackError.Unknown(RuntimeException())),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.Network("n")),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.AuthExpired("a")),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.NotFound("nf")),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.Codec("c")),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.Stuck("s")),
+                handler.getErrorMessage(PlaybackErrorHandler.ClassifiedError.Unknown(RuntimeException())),
             )
 
         assertTrue(messages.all { it.isNotBlank() }, "All messages must be non-blank")

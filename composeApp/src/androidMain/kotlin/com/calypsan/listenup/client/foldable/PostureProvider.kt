@@ -42,11 +42,27 @@ fun PostureProvider(content: @Composable () -> Unit) {
 }
 
 private fun posture(features: List<DisplayFeature>): Posture {
-    val folding =
-        features.filterIsInstance<FoldingFeature>().firstOrNull()
-            ?: return Posture.NORMAL
-    if (folding.state != FoldingFeature.State.HALF_OPENED) return Posture.NORMAL
-    return when (folding.orientation) {
+    val folding = features.filterIsInstance<FoldingFeature>().firstOrNull()
+    return classifyPosture(folding?.state, folding?.orientation)
+}
+
+/**
+ * Pure mapping from extracted [FoldingFeature] properties to a [Posture] value.
+ *
+ * Visible for testing — callers outside the `foldable` package should use [LocalPosture]
+ * rather than this helper directly.
+ *
+ * Rules:
+ * - [FoldingFeature.State.HALF_OPENED] + [FoldingFeature.Orientation.HORIZONTAL] → [Posture.TABLETOP]
+ * - [FoldingFeature.State.HALF_OPENED] + [FoldingFeature.Orientation.VERTICAL] → [Posture.BOOK]
+ * - Any other combination, or `null` inputs (no folding feature present) → [Posture.NORMAL]
+ */
+internal fun classifyPosture(
+    state: FoldingFeature.State?,
+    orientation: FoldingFeature.Orientation?,
+): Posture {
+    if (state != FoldingFeature.State.HALF_OPENED) return Posture.NORMAL
+    return when (orientation) {
         FoldingFeature.Orientation.HORIZONTAL -> Posture.TABLETOP
         FoldingFeature.Orientation.VERTICAL -> Posture.BOOK
         else -> Posture.NORMAL

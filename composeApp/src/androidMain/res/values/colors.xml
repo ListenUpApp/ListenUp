@@ -2,4 +2,6 @@
 <resources>
     <!-- Splash screen background — matches the light theme surface (#FFFBFF) for a seamless cold-start transition -->
     <color name="splash_background">#FFFBFF</color>
+    <!-- Splash icon background disc — ListenUp brand orange, consistent in light and dark modes -->
+    <color name="splash_icon_background">#F05A3B</color>
 </resources>

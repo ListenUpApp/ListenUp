@@ -71,6 +71,33 @@ private val logger = KotlinLogging.logger {}
 /** Maximum number of historical exit records to inspect for memory-related causes. */
 private const val HISTORICAL_EXIT_LIMIT = 5
 
+/** Maps [ApplicationExitInfo.REASON_*] codes to human-readable names for log output. */
+@RequiresApi(Build.VERSION_CODES.R)
+private val exitReasonNames: Map<Int, String> =
+    mapOf(
+        ApplicationExitInfo.REASON_UNKNOWN to "UNKNOWN",
+        ApplicationExitInfo.REASON_EXIT_SELF to "EXIT_SELF",
+        ApplicationExitInfo.REASON_SIGNALED to "SIGNALED",
+        ApplicationExitInfo.REASON_LOW_MEMORY to "LOW_MEMORY",
+        ApplicationExitInfo.REASON_CRASH to "CRASH",
+        ApplicationExitInfo.REASON_CRASH_NATIVE to "CRASH_NATIVE",
+        ApplicationExitInfo.REASON_ANR to "ANR",
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE to "INITIALIZATION_FAILURE",
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE to "PERMISSION_CHANGE",
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE to "EXCESSIVE_RESOURCE_USAGE",
+        ApplicationExitInfo.REASON_USER_REQUESTED to "USER_REQUESTED",
+        ApplicationExitInfo.REASON_USER_STOPPED to "USER_STOPPED",
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED to "DEPENDENCY_DIED",
+        ApplicationExitInfo.REASON_OTHER to "OTHER",
+        ApplicationExitInfo.REASON_FREEZER to "FREEZER",
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE to "PACKAGE_STATE_CHANGE",
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED to "PACKAGE_UPDATED",
+    )
+
+/** Returns a readable name for [code] in the form `NAME(int)`, e.g. `LOW_MEMORY(3)`. */
+@RequiresApi(Build.VERSION_CODES.R)
+private fun exitReasonName(code: Int): String = "${exitReasonNames[code] ?: "UNKNOWN"}($code)"
+
 /**
  * Runs each named resolver and throws [IllegalStateException] on the first failure.
  *
@@ -419,7 +446,7 @@ class ListenUp :
                         description?.contains("memory", ignoreCase = true) == true
                 if (isMemoryRelated) {
                     logger.info {
-                        "Historical exit: reason=${record.reason} description=$description " +
+                        "Historical exit: reason=${exitReasonName(record.reason)} description=$description " +
                             "pss=${record.pss}kB rss=${record.rss}kB"
                     }
                 }

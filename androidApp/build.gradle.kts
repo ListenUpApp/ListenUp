@@ -81,16 +81,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Use the release signing config when available (CI), otherwise fall back to
-            // debug signing so the nonMinifiedRelease variant (used for Baseline Profile
-            // generation) can be packaged locally without a keystore.
-            val releaseSigningConfig = signingConfigs.getByName("release")
-            signingConfig =
-                if (releaseSigningConfig.storeFile != null) {
-                    releaseSigningConfig
-                } else {
-                    signingConfigs.getByName("debug")
-                }
+            // Always require the real release signing config. If KEYSTORE_FILE is not set the
+            // storeFile is null and AGP will fail loud during packaging — which is the correct
+            // behaviour for a production release build.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -106,6 +100,22 @@ android {
         htmlReport = true
         xmlReport = true
         sarifReport = true
+    }
+}
+
+// The Baseline Profile plugin generates an APK for the nonMinifiedRelease and benchmarkRelease
+// variants. These variants derive from "release" so they inherit the release signingConfig, but
+// they only run locally — there is no CI keystore available for them. Reassign those two variants
+// to the debug signing config so local profile generation works keyless, while the shippable
+// "release" variant (above) keeps the real config and fails loud if the keystore is absent.
+@Suppress("UnstableApiUsage")
+androidComponents {
+    val debugConfig = android.signingConfigs.getByName("debug")
+    onVariants(selector().withBuildType("nonMinifiedRelease")) { variant ->
+        variant.signingConfig?.setConfig(debugConfig)
+    }
+    onVariants(selector().withBuildType("benchmarkRelease")) { variant ->
+        variant.signingConfig?.setConfig(debugConfig)
     }
 }
 

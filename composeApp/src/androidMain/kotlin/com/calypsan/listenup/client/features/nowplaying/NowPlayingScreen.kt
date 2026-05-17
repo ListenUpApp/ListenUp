@@ -149,7 +149,13 @@ fun NowPlayingScreen(
 ) {
     // Predictive back: track gesture progress to animate dismissal (scale + alpha)
     val backProgress = remember { Animatable(0f) }
-    PlatformPredictiveBackHandler(enabled = true) { progressFlow ->
+    // Gate the handler until the screen has fully entered composition. The composable is
+    // reachable during the AnimatedVisibility enter-transition, so enabling immediately would
+    // let a back gesture fire before the screen is presented, creating a jarring mid-slide
+    // dismiss. Flipping `presented` on the first composition frame is the lightest safe guard.
+    var presented by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { presented = true }
+    PlatformPredictiveBackHandler(enabled = presented) { progressFlow ->
         try {
             progressFlow.collect { progress -> backProgress.snapTo(progress) }
             onCollapse()
@@ -215,6 +221,13 @@ fun NowPlayingScreen(
     val dismissThreshold = screenHeightPx * 0.33f
 
     val dragOffset = remember { Animatable(0f) }
+
+    // When a predictive-back gesture begins, immediately clear any in-flight drag offset so the
+    // two transforms (translationY from drag + scale/alpha from back) never compound. snapTo is
+    // intentional — an animated clear would itself compound with the back animation.
+    LaunchedEffect(backProgress.value != 0f) {
+        if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
+    }
 
     Surface(
         modifier =
