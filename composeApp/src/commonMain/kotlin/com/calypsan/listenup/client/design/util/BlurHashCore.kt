@@ -37,7 +37,7 @@ object BlurHashCore {
         val numY = (sizeFlag / 9) + 1
         val numX = (sizeFlag % 9) + 1
 
-        val expectedLength = 4 + 2 * numX * numY - 2
+        val expectedLength = 4 + 2 * numX * numY
         if (blurHash.length != expectedLength) return null
 
         val quantisedMaximumValue = decode83(blurHash, 1, 2)
