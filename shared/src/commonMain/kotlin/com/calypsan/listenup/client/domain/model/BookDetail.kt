@@ -9,16 +9,19 @@ import com.calypsan.listenup.client.core.Timestamp
  * Carries the full set of fields including [allContributors], [genres], and
  * [tags] — the three fields that always live empty on list-surface read paths.
  * Convert to [BookListItem] via [toListItem] when handing off to a list consumer.
+ *
+ * Deliberately kept separate from [BookListItem] (see [BookSummaryFields] for the rationale).
+ * Computed properties and [formatDuration] are supplied once via [BookSummaryFields].
  */
 data class BookDetail(
     val id: BookId,
     val title: String,
     val sortTitle: String? = null,
     val subtitle: String? = null,
-    val authors: List<BookContributor>,
-    val narrators: List<BookContributor>,
-    val duration: Long,
-    val coverPath: String?,
+    override val authors: List<BookContributor>,
+    override val narrators: List<BookContributor>,
+    override val duration: Long,
+    override val coverPath: String?,
     val coverBlurHash: String? = null,
     val dominantColor: Int? = null,
     val darkMutedColor: Int? = null,
@@ -26,7 +29,7 @@ data class BookDetail(
     val addedAt: Timestamp,
     val updatedAt: Timestamp,
     val description: String? = null,
-    val series: List<BookSeries> = emptyList(),
+    override val series: List<BookSeries> = emptyList(),
     val publishYear: Int? = null,
     val publisher: String? = null,
     val language: String? = null,
@@ -37,31 +40,7 @@ data class BookDetail(
     val allContributors: List<BookContributor> = emptyList(),
     val genres: List<Genre> = emptyList(),
     val tags: List<Tag> = emptyList(),
-) {
-    val seriesId: String? get() = series.firstOrNull()?.seriesId
-    val seriesName: String? get() = series.firstOrNull()?.seriesName
-    val seriesSequence: String? get() = series.firstOrNull()?.sequence
-
-    val hasCover: Boolean get() = coverPath != null
-
-    val fullSeriesTitle: String?
-        get() {
-            val firstSeries = series.firstOrNull() ?: return null
-            val name = firstSeries.seriesName
-            val seq = firstSeries.sequence
-            return if (seq != null && seq.isNotBlank()) "$name #$seq" else name
-        }
-
-    val authorNames: String get() = authors.joinToString(", ") { it.name }
-    val narratorNames: String get() = narrators.joinToString(", ") { it.name }
-
-    fun formatDuration(): String {
-        val totalMinutes = duration / 60_000
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-    }
-
+) : BookSummaryFields {
     fun toListItem(): BookListItem =
         BookListItem(
             id = id,

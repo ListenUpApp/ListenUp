@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import kotlinx.coroutines.flow.Flow
 
 /**
  * DAO for [AudioFileEntity] — per-book audio files used by playback and downloads.
@@ -22,15 +21,9 @@ interface AudioFileDao {
     @Query("SELECT * FROM audio_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getForBook(bookId: String): List<AudioFileEntity>
 
-    @Query("SELECT * FROM audio_files WHERE bookId = :bookId ORDER BY `index` ASC")
-    fun observeForBook(bookId: String): Flow<List<AudioFileEntity>>
-
     @Upsert
     suspend fun upsertAll(entities: List<AudioFileEntity>)
 
     @Query("DELETE FROM audio_files WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
-
-    @Query("DELETE FROM audio_files")
-    suspend fun deleteAll()
 }

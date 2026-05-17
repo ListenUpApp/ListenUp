@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -82,13 +81,10 @@ class FtsPopulatorTest {
             id = BookId(id),
             title = title,
             subtitle = subtitle,
-            coverUrl = null,
+            coverHash = null,
             totalDuration = 3_600_000L,
             description = description,
             publishYear = 2024,
-            syncState = SyncState.SYNCED,
-            lastModified = Timestamp(1704067200000L),
-            serverVersion = Timestamp(1704067200000L),
             createdAt = Timestamp(1704067200000L),
             updatedAt = Timestamp(1704067200000L),
         )
@@ -105,9 +101,6 @@ class FtsPopulatorTest {
             name = name,
             description = description,
             imagePath = null,
-            syncState = SyncState.SYNCED,
-            lastModified = Timestamp(1704067200000L),
-            serverVersion = Timestamp(1704067200000L),
             createdAt = Timestamp(1704067200000L),
             updatedAt = Timestamp(1704067200000L),
         )
@@ -123,9 +116,6 @@ class FtsPopulatorTest {
                     .SeriesId(id),
             name = name,
             description = description,
-            syncState = SyncState.SYNCED,
-            lastModified = Timestamp(1704067200000L),
-            serverVersion = Timestamp(1704067200000L),
             createdAt = Timestamp(1704067200000L),
             updatedAt = Timestamp(1704067200000L),
         )

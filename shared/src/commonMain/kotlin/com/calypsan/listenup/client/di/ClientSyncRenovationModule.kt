@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.CatchUp
@@ -15,6 +16,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -89,7 +91,17 @@ val clientSyncRenovationModule =
             )
         }
 
+        single { BookEntityMapper() }
+
         single(createdAtStart = true) { TagSyncDomainHandler(registry = get()) }
+        single(createdAtStart = true) {
+            BookSyncDomainHandler(
+                database = get(),
+                mapper = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
 
         single {
             SyncEngine(

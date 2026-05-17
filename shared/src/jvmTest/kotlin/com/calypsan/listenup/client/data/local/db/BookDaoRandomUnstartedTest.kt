@@ -8,29 +8,22 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
  * Regression coverage for the Discover "Random Unstarted" silent-filter bug (W6 Phase F, Drift #1).
  *
- * Prior to this test suite three DAO methods silently applied a
+ * Prior to this test suite, three DAO methods silently applied a
  * `bs.sequence IN ('1', '0', '0.5')` filter, hiding every mid-series book from
  * Discover. The method names did not advertise this filter.
  *
  * The fix (per the rubric rule "Query-shaping lives in the repository, not the DAO;
  * DAO methods are named for exactly what they return"):
- *  - [BookDao.observeRandomUnstartedBooks], [BookDao.getRandomUnstartedBooks], and
- *    [BookDao.observeRandomUnstartedBooksWithAuthor] are now neutral queries (no series filter).
- *  - [BookDao.observeRandomUnstartedBooksFirstInSeriesOnly],
- *    [BookDao.getRandomUnstartedBooksFirstInSeriesOnly], and
- *    [BookDao.observeRandomUnstartedBooksFirstInSeriesWithAuthor] carry the original
- *    filter under names that tell the truth.
+ *  - [BookDao.observeRandomUnstartedBooks] and [BookDao.observeRandomUnstartedBooksWithAuthor]
+ *    are neutral queries (no series filter).
  *
  * These tests seed a mid-series book (sequence "3") alongside a standalone and a
- * first-in-series book, then assert:
- *  - neutral methods include the mid-series book
- *  - filtered methods exclude the mid-series book
+ * first-in-series book, then assert that neutral methods include the mid-series book.
  */
 class BookDaoRandomUnstartedTest {
     private val db: ListenUpDatabase = createInMemoryTestDatabase()
@@ -50,7 +43,7 @@ class BookDaoRandomUnstartedTest {
                 title = "Book $id",
                 sortTitle = "Book $id",
                 subtitle = null,
-                coverUrl = null,
+                coverHash = null,
                 coverBlurHash = null,
                 dominantColor = null,
                 darkMutedColor = null,
@@ -63,9 +56,6 @@ class BookDaoRandomUnstartedTest {
                 isbn = null,
                 asin = null,
                 abridged = false,
-                syncState = SyncState.SYNCED,
-                lastModified = Timestamp(1L),
-                serverVersion = Timestamp(1L),
                 createdAt = Timestamp(1L),
                 updatedAt = Timestamp(1L),
             ),
@@ -81,9 +71,6 @@ class BookDaoRandomUnstartedTest {
                 id = SeriesId(id),
                 name = name,
                 description = null,
-                syncState = SyncState.SYNCED,
-                lastModified = Timestamp(1L),
-                serverVersion = Timestamp(1L),
                 createdAt = Timestamp(1L),
                 updatedAt = Timestamp(1L),
             ),
@@ -134,50 +121,6 @@ class BookDaoRandomUnstartedTest {
             }
         }
 
-    @Test
-    fun `observeRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`() =
-        runTest {
-            seedThreeBooks()
-
-            bookDao.observeRandomUnstartedBooksFirstInSeriesOnly(limit = 10).test {
-                val emitted = awaitItem().map { it.id.value }.toSet()
-                assertEquals(
-                    setOf("standalone", "first-in-series"),
-                    emitted,
-                    "filtered query must drop mid-series book (sequence NOT IN '1','0','0.5')",
-                )
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    // ── getRandomUnstartedBooks ──────────────────────────────────────────────────
-
-    @Test
-    fun `getRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)`() =
-        runTest {
-            seedThreeBooks()
-
-            val emitted = bookDao.getRandomUnstartedBooks(limit = 10).map { it.id.value }.toSet()
-            assertTrue(
-                "mid-series" in emitted,
-                "neutral query must include mid-series book; DAO name must not lie",
-            )
-        }
-
-    @Test
-    fun `getRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`() =
-        runTest {
-            seedThreeBooks()
-
-            val emitted =
-                bookDao.getRandomUnstartedBooksFirstInSeriesOnly(limit = 10).map { it.id.value }.toSet()
-            assertEquals(
-                setOf("standalone", "first-in-series"),
-                emitted,
-                "filtered query must drop mid-series book (sequence NOT IN '1','0','0.5')",
-            )
-        }
-
     // ── observeRandomUnstartedBooksWithAuthor ────────────────────────────────────
 
     @Test
@@ -190,22 +133,6 @@ class BookDaoRandomUnstartedTest {
                 assertTrue(
                     "mid-series" in emitted,
                     "neutral query must include mid-series book; DAO name must not lie",
-                )
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `observeRandomUnstartedBooksFirstInSeriesWithAuthor excludes mid-series books`() =
-        runTest {
-            seedThreeBooks()
-
-            bookDao.observeRandomUnstartedBooksFirstInSeriesWithAuthor(limit = 10).test {
-                val emitted = awaitItem().map { it.id.value }.toSet()
-                assertEquals(
-                    setOf("standalone", "first-in-series"),
-                    emitted,
-                    "filtered query must drop mid-series book (sequence NOT IN '1','0','0.5')",
                 )
                 cancelAndIgnoreRemainingEvents()
             }

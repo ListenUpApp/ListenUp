@@ -2,18 +2,25 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
+import com.calypsan.listenup.server.scanner.sidecar.NfoParser
+import com.calypsan.listenup.server.scanner.sidecar.OpfParser
+import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.scanner.watcher.StableSizeDebouncer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.nio.file.Path
 
@@ -50,6 +57,15 @@ fun scannerModule(
         }
         single<SharedFlow<ScanEvent>> { get<MutableSharedFlow<ScanEvent>>().asSharedFlow() }
 
+        // Scan-result bus: the BookPersister consumes the most recent ScanResult.
+        // replay = 1 lets a late subscriber pick up the last scan; DROP_OLDEST
+        // keeps a fast scan stream from ever blocking the Scanner. Qualified by
+        // name because Koin keys on the erased KClass — an unqualified
+        // MutableSharedFlow<ScanResult> would collide with the ScanEvent bus.
+        single<MutableSharedFlow<ScanResult>>(named("scanResultBus")) {
+            MutableSharedFlow(replay = 1, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+        }
+
         single { AbsMetadataReader(contractJson) }
 
         single {
@@ -58,6 +74,8 @@ fun scannerModule(
                 metadataReader = get(),
                 embeddedMetadataParser = get(),
                 eventBus = get<MutableSharedFlow<ScanEvent>>(),
+                scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
+                sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
             )
         }
 

@@ -158,24 +158,4 @@ class ValueClassesTest {
         val ts = Timestamp(0L)
         assertEquals("1970-01-01T00:00:00Z", ts.toIsoString())
     }
-
-    // ========== SyncState Tests ==========
-
-    @Test
-    fun `SyncState name constants are quoted for SQL embedding`() {
-        // Room requires compile-time constants in @Query strings. The _NAME
-        // constants must be pre-quoted so they embed as SQL string literals.
-        assertEquals("'SYNCED'", SyncState.SYNCED_NAME)
-        assertEquals("'NOT_SYNCED'", SyncState.NOT_SYNCED_NAME)
-        assertEquals("'SYNCING'", SyncState.SYNCING_NAME)
-        assertEquals("'CONFLICT'", SyncState.CONFLICT_NAME)
-    }
-
-    @Test
-    fun `SyncState name constants match enum name values`() {
-        assertEquals("'${SyncState.SYNCED.name}'", SyncState.SYNCED_NAME)
-        assertEquals("'${SyncState.NOT_SYNCED.name}'", SyncState.NOT_SYNCED_NAME)
-        assertEquals("'${SyncState.SYNCING.name}'", SyncState.SYNCING_NAME)
-        assertEquals("'${SyncState.CONFLICT.name}'", SyncState.CONFLICT_NAME)
-    }
 }

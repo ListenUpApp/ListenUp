@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+    <metadata xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>Oathbringer</dc:title>
+        <dc:creator opf:role="aut">Brandon Sanderson</dc:creator>
+        <dc:creator opf:role="nrt">Michael Kramer</dc:creator>
+        <dc:creator opf:role="nrt">Kate Reading</dc:creator>
+        <dc:creator>Peter Ahlstrom</dc:creator>
+    </metadata>
+</package>

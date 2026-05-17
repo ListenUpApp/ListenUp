@@ -1,12 +1,8 @@
 package com.calypsan.listenup.client.data.remote.model
 
 import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ChapterId
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.SeriesId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -20,9 +16,6 @@ import kotlin.time.Instant
 /**
  * Convert BookResponse from server to BookEntity for local storage.
  *
- * Newly synced books are marked as SYNCED. The serverVersion is set to
- * the server's updatedAt timestamp for future conflict detection.
- *
  * Maps raw String ID to type-safe BookId and ISO 8601 timestamps to
  * type-safe Timestamp value classes.
  *
@@ -35,7 +28,9 @@ fun BookResponse.toEntity(): BookEntity =
         title = title,
         sortTitle = sortTitle,
         subtitle = subtitle,
-        coverUrl = coverImage?.path,
+        // coverHash intentionally null here: the legacy BookResponse path is superseded by the
+        // BookService RPC fetch — see the Books-A audit §5.1 (cover-pipeline unification, Books-C).
+        coverHash = null,
         coverBlurHash = coverImage?.blurHash,
         totalDuration = totalDuration,
         description = description,
@@ -46,49 +41,9 @@ fun BookResponse.toEntity(): BookEntity =
         isbn = isbn,
         asin = asin,
         abridged = abridged,
-        // Sync fields - newly synced book is clean
-        syncState = SyncState.SYNCED,
-        lastModified = updatedAt.toTimestamp(),
-        serverVersion = updatedAt.toTimestamp(),
         // Timestamps from server
         createdAt = createdAt.toTimestamp(),
         updatedAt = updatedAt.toTimestamp(),
-    )
-
-fun ChapterResponse.toEntity(
-    bookId: BookId,
-    index: Int,
-): com.calypsan.listenup.client.data.local.db.ChapterEntity {
-    val now = Timestamp.now()
-    return com.calypsan.listenup.client.data.local.db.ChapterEntity(
-        // ID is composite of bookId and index since server doesn't provide stable chapter IDs yet
-        id = ChapterId("${bookId.value}_$index"),
-        bookId = bookId,
-        title = title,
-        duration = endTime - startTime,
-        startTime = startTime,
-        syncState = SyncState.SYNCED,
-        lastModified = now,
-        serverVersion = now, // Chapters don't have individual timestamps yet, assume synced with book
-    )
-}
-
-fun BookContributorResponse.toEntity(
-    bookId: BookId,
-    role: String,
-): com.calypsan.listenup.client.data.local.db.BookContributorCrossRef =
-    com.calypsan.listenup.client.data.local.db.BookContributorCrossRef(
-        bookId = bookId,
-        contributorId = ContributorId(contributorId),
-        role = role,
-        creditedAs = creditedAs,
-    )
-
-fun BookSeriesInfoResponse.toEntity(bookId: BookId): com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef =
-    com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef(
-        bookId = bookId,
-        seriesId = SeriesId(seriesId),
-        sequence = sequence,
     )
 
 /**

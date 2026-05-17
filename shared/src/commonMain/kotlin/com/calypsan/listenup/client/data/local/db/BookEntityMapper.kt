@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.ContributorId
+import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -8,6 +11,72 @@ import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+
+/**
+ * Maps the Books-A sync wire payload to a Room [BookEntity], merging server-authoritative
+ * fields from [BookSyncPayload] with client-computed fields preserved from an [existing] row.
+ *
+ * ## Preservation semantics
+ *
+ * Palette colors ([BookEntity.dominantColor], [BookEntity.darkMutedColor],
+ * [BookEntity.vibrantColor]) and [BookEntity.coverBlurHash] are computed client-side
+ * by extracting them from the cover image after download. They are never on the wire.
+ * Overwriting them with `null` on every sync update would erase already-computed palette
+ * data and cause the gradient UI behind book covers to flicker back to its default state
+ * until the cover is re-analysed. This mapper preserves those fields from [existing] so
+ * sync updates are visually transparent.
+ *
+ * ## Children
+ *
+ * This mapper handles the book root row only. Chapter, contributor, and series rows are
+ * the responsibility of `BookSyncDomainHandler` (Task 27).
+ */
+class BookEntityMapper {
+    /**
+     * Produce a [BookEntity] by combining server-authoritative fields from [payload] with
+     * client-computed palette/blur-hash fields taken from [existing].
+     *
+     * @param payload The wire snapshot delivered by the sync substrate.
+     * @param existing The current [BookEntity] in Room for this book ID, or `null` if this
+     *   is the first time the book is being seen on this client. When `null`, all
+     *   client-computed fields default to `null` (they will be populated once the cover image
+     *   is downloaded and analysed).
+     */
+    fun toBookEntity(
+        payload: BookSyncPayload,
+        existing: BookEntity?,
+    ): BookEntity =
+        BookEntity(
+            id = BookId(payload.id),
+            // Wire-authoritative fields — always taken from the payload.
+            title = payload.title,
+            sortTitle = payload.sortTitle,
+            subtitle = payload.subtitle,
+            description = payload.description,
+            publishYear = payload.publishYear,
+            publisher = payload.publisher,
+            language = payload.language,
+            isbn = payload.isbn,
+            asin = payload.asin,
+            abridged = payload.abridged,
+            totalDuration = payload.totalDuration,
+            coverHash = payload.cover?.hash,
+            // Client-computed fields — preserved from the existing row so that a sync update
+            // never discards palette data already extracted from the cover image on this device.
+            // When existing is null (first-seen book) these are all null and will be populated
+            // after the cover image is downloaded and analysed.
+            dominantColor = existing?.dominantColor,
+            darkMutedColor = existing?.darkMutedColor,
+            vibrantColor = existing?.vibrantColor,
+            coverBlurHash = existing?.coverBlurHash,
+            // Sync substrate fields.
+            revision = payload.revision,
+            deletedAt = payload.deletedAt,
+            // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
+            createdAt = Timestamp(payload.createdAt),
+            updatedAt = Timestamp(payload.updatedAt),
+        )
+}
 
 private const val ROLE_AUTHOR = "author"
 private const val ROLE_NARRATOR = "narrator"

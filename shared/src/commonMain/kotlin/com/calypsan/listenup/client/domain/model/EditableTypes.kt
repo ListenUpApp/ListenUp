@@ -2,10 +2,9 @@ package com.calypsan.listenup.client.domain.model
 
 /**
  * Role types for contributors.
- * Matches server-side roles in domain/contributor.go
  *
- * This is a domain concept representing the different roles
- * a contributor can have in creating an audiobook.
+ * Mirrors the server's contributor role set. This is a domain concept representing
+ * the different roles a contributor can have in creating an audiobook.
  */
 enum class ContributorRole(
     val apiValue: String,

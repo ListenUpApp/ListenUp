@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
@@ -27,7 +28,8 @@ private class PingServiceImpl : PingService {
  *  - `/api/rpc/public` — anonymous; routes [AuthServicePublic] (login/register/
  *    setupRoot/refresh) and [PingService].
  *  - `/api/rpc/authed` — gated behind [JWT_PROVIDER]; routes [AuthServiceAuthed]
- *    (logout/logoutAll/currentUser/listSessions/decide).
+ *    (logout/logoutAll/currentUser/listSessions/decide) and [BookService]
+ *    (getBook/searchBooks).
  *
  * The split mirrors the contract's trust boundary structurally — the URL
  * reflects which methods need a session, no fallback hacks needed.
@@ -41,6 +43,7 @@ private class PingServiceImpl : PingService {
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     scannerService: ScannerService? = null,
+    bookService: BookService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -59,6 +62,9 @@ fun Route.rpcRoutes(
                     call.userPrincipalOrNull()
                         ?: error("authed RPC mount reached without a principal — auth wall regression")
                 guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
+            }
+            if (bookService != null) {
+                registerService<BookService> { guard(bookService) }
             }
         }
     }

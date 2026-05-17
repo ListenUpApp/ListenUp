@@ -1,0 +1,258 @@
+package com.calypsan.listenup.server.routes
+
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
+import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsBytes
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.testing.testApplication
+import org.koin.ktor.ext.inject
+import java.nio.file.Files
+
+/**
+ * Integration tests for `GET /api/v1/books/{id}/cover`.
+ *
+ * Boots the full `Application.module()` with a real SQLite DB and a temp
+ * library directory so the books slice is installed. Filesystem covers are
+ * seeded by writing a real image file under the book's `rootRelPath`; embedded
+ * covers by writing a real MP3 with an `APIC` artwork frame. JWT is minted by
+ * walking the real auth REST surface.
+ */
+class BookCoverRouteTest :
+    FunSpec({
+
+        suspend fun HttpClient.mintAccessToken(): String {
+            post("/api/v1/auth/setup") {
+                contentType(ContentType.Application.Json)
+                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
+            }
+            return post("/api/v1/auth/login") {
+                contentType(ContentType.Application.Json)
+                setBody(LoginRequest("root@x", "x".repeat(8)))
+            }.body<AppResult<AuthSession>>()
+                .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                .data
+                .accessToken
+                .value
+        }
+
+        test("GET /api/v1/books/{id}/cover serves a filesystem cover image with the right content type") {
+            // The cover file is written *after* module() so the scanner's
+            // startup scan (which runs on the then-empty library) does not
+            // ingest a competing book row; the watcher's 2 s settle window
+            // is far longer than this test's runtime, so it stays inert.
+            val libraryRoot = Files.createTempDirectory("listenup-cover-fs-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val jpegBytes = fakeJpeg()
+                    Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    val response = client.get("/api/v1/books/b1/cover") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.ContentType].shouldStartWith("image/jpeg")
+                    response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover serves embedded artwork extracted from the audio file") {
+            // Audio file written after module() — see the filesystem test's note.
+            val libraryRoot = Files.createTempDirectory("listenup-cover-embedded-")
+            try {
+                val artworkBytes = fakeJpeg()
+                val mp3 =
+                    buildMp3File {
+                        id3v2(version = 4) {
+                            textFrame("TIT2", "Embedded Cover Book")
+                            apicFrame(
+                                mime = "image/jpeg",
+                                pictureType = 3,
+                                description = "Cover",
+                                imageBytes = artworkBytes,
+                            )
+                        }
+                        mpegFrames(durationSeconds = 1)
+                    }
+
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b2"))
+                    Files.write(bookDir.resolve("01.mp3"), mp3)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(
+                        coverFixture(
+                            id = "b2",
+                            source = CoverSource.EMBEDDED,
+                            audioFilename = "01.mp3",
+                        ),
+                    )
+
+                    val response = client.get("/api/v1/books/b2/cover") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.ContentType].shouldStartWith("image/jpeg")
+                    response.bodyAsBytes().toList() shouldBe artworkBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover returns 404 for a missing book") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-missing-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+
+                    val response = client.get("/api/v1/books/nonexistent/cover") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover returns 404 for a book with no cover") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-none-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b3", source = null))
+
+                    val response = client.get("/api/v1/books/b3/cover") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover returns 401 without a bearer token") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-unauth-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    val response = client.get("/api/v1/books/b1/cover")
+
+                    response.status shouldBe HttpStatusCode.Unauthorized
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+    })
+
+private fun fakeJpeg(): ByteArray =
+    byteArrayOf(
+        0xFF.toByte(),
+        0xD8.toByte(),
+        0xFF.toByte(),
+        0xE0.toByte(),
+        0x00,
+        0x10,
+        'J'.code.toByte(),
+        'F'.code.toByte(),
+    )
+
+/**
+ * Builds a [BookSyncPayload] with an explicit [cover][CoverPayload]. A null
+ * [source] yields a cover-less book.
+ */
+private fun coverFixture(
+    id: String,
+    source: CoverSource?,
+    audioFilename: String = "01.m4b",
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        title = "Book $id",
+        sortTitle = "Book $id",
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        totalDuration = 3_600_000L,
+        cover = source?.let { CoverPayload(source = it, hash = "hash-$id") },
+        rootRelPath = "books/$id",
+        inode = null,
+        scannedAt = 1_730_000_000_000L,
+        contributors = emptyList(),
+        series = emptyList(),
+        audioFiles =
+            listOf(
+                BookAudioFilePayload(
+                    id = "af-$id",
+                    index = 0,
+                    filename = audioFilename,
+                    format = audioFilename.substringAfterLast('.'),
+                    codec = "",
+                    duration = 3_600_000L,
+                    size = 500_000_000L,
+                ),
+            ),
+        chapters = emptyList(),
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )

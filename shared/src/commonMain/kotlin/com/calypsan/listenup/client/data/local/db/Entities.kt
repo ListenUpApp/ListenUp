@@ -97,24 +97,21 @@ data class UserProfileEntity(
 /**
  * Local database entity for audiobooks.
  *
- * Implements [Syncable] to support offline-first delta synchronization
- * with the ListenUp server. Changes are tracked locally and synced
- * when network is available.
+ * Carries the Books-A sync substrate ([revision], [deletedAt]) that the
+ * catch-up and digest sync routes depend on. Server commits arrive as wire
+ * events and are applied into this projection; the UI reads Room exclusively.
  *
  * Uses type-safe value classes (BookId, Timestamp) for compile-time safety
  * with zero runtime overhead via inline classes.
  */
-@Entity(
-    tableName = "books",
-    indices = [Index(value = ["syncState"])],
-)
+@Entity(tableName = "books")
 data class BookEntity(
     @PrimaryKey val id: BookId,
     // Core book metadata
     val title: String,
     val sortTitle: String? = null, // Title used for sorting (e.g., "Lord of the Rings, The")
     val subtitle: String? = null, // Book subtitle
-    val coverUrl: String?, // URL to cover image (local or remote)
+    val coverHash: String? = null, // Content hash of the cover image, supplied by the sync wire event
     val coverBlurHash: String? = null, // BlurHash for cover placeholder
     // Cached palette colors extracted from cover (ARGB ints for instant gradient rendering)
     val dominantColor: Int? = null,
@@ -129,23 +126,24 @@ data class BookEntity(
     val isbn: String? = null, // ISBN for metadata lookup
     val asin: String? = null, // Amazon ASIN for metadata lookup
     val abridged: Boolean = false, // Whether this is an abridged version
-    // Sync fields (implements Syncable)
-    override val syncState: SyncState,
-    override val lastModified: Timestamp,
-    override val serverVersion: Timestamp?,
-    // Timestamps matching server Syncable pattern
+    // Books-A sync substrate
+    val revision: Long = 0, // Monotonic server revision, advanced on every committed change
+    val deletedAt: Long? = null, // Epoch ms tombstone; null when the book is live
+    // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
-) : Syncable
+)
 
 /**
  * Local database entity for book chapters.
+ *
+ * Chapters do not sync independently — they ride along with their parent
+ * [BookEntity] and inherit its revision lifecycle.
  */
 @Entity(
     tableName = "chapters",
     indices = [
         Index(value = ["bookId"]),
-        Index(value = ["syncState"]),
     ],
 )
 data class ChapterEntity(
@@ -154,33 +152,25 @@ data class ChapterEntity(
     val title: String,
     val duration: Long, // Milliseconds
     val startTime: Long, // Milliseconds from start of book
-    // Sync fields
-    override val syncState: SyncState,
-    override val lastModified: Timestamp,
-    override val serverVersion: Timestamp?,
-) : Syncable
+)
 
 /**
  * Local database entity for series.
+ *
+ * Series do not sync independently — they ride along with the books that
+ * reference them.
  */
-@Entity(
-    tableName = "series",
-    indices = [Index(value = ["syncState"])],
-)
+@Entity(tableName = "series")
 data class SeriesEntity(
     @PrimaryKey val id: SeriesId,
     val name: String,
     val description: String?,
     val asin: String? = null,
-    val coverImagePath: String? = null,
+    val coverPath: String? = null,
     val coverBlurHash: String? = null,
-    // Sync fields
-    override val syncState: SyncState,
-    override val lastModified: Timestamp,
-    override val serverVersion: Timestamp?,
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
-) : Syncable
+)
 
 /**
  * Local database entity for contributors (authors, narrators, etc.).
@@ -192,15 +182,10 @@ data class SeriesEntity(
  * - The Richard Bachman contributor row is deleted
  * - "Richard Bachman" lands in `contributor_aliases` as a row under Stephen King
  *
- * Future sync: when a book arrives with author "Richard Bachman", the system
- * looks up the junction and links to the canonical contributor instead.
+ * Alias-resolution on sync (linking an incoming book to a canonical contributor
+ * via the junction) is planned for a later phase.
  */
-@Entity(
-    tableName = "contributors",
-    indices = [
-        Index(value = ["syncState"]),
-    ],
-)
+@Entity(tableName = "contributors")
 data class ContributorEntity(
     @PrimaryKey val id: ContributorId,
     val name: String,
@@ -209,17 +194,12 @@ data class ContributorEntity(
     val description: String?,
     val imagePath: String?,
     val imageBlurHash: String? = null, // BlurHash placeholder for image
-    // Optional fields - will sync when server supports them
     val website: String? = null,
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")
-    // Sync fields
-    override val syncState: SyncState,
-    override val lastModified: Timestamp,
-    override val serverVersion: Timestamp?,
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
-) : Syncable
+)
 
 /**
  * Local playback position persistence.

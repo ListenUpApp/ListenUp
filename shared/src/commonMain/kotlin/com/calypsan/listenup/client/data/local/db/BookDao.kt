@@ -11,14 +11,11 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Room DAO for [BookEntity] operations.
  *
- * Provides both reactive (Flow-based) and one-shot queries for books,
- * with special support for sync operations (pending changes, state updates).
- *
- * All queries respect soft deletes from the server (deletedAt field will be
- * added in future version when full Book model is implemented).
- *
- * Note: Room @Query annotations require compile-time constants, so we use
- * ordinal values with comments instead of ${SyncState.SYNCED.ordinal} templates.
+ * Provides both reactive (Flow-based) and one-shot queries for books.
+ * All queries that return live data respect soft deletes — rows with a non-null
+ * [BookEntity.deletedAt] are treated as tombstones and filtered out.
+ * Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
+ * for local-only cleanup scenarios.
  */
 @Dao
 @Suppress("TooManyFunctions")
@@ -135,73 +132,10 @@ interface BookDao {
     suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors>
 
     /**
-     * Get all books with pending local changes that need to be synced.
+     * Hard-delete a book row by ID.
      *
-     * Returns books in NOT_SYNCED state (local modifications) and
-     * CONFLICT state (needs resolution).
-     *
-     * Used by SyncManager during push phase.
-     *
-     * @return List of books requiring sync
-     */
-    @Query("SELECT * FROM books WHERE syncState IN (:states)")
-    suspend fun getByStates(states: List<SyncState>): List<BookEntity>
-
-    /**
-     * Get books with pending changes (NOT_SYNCED or CONFLICT states).
-     * Convenience method wrapping getByStates.
-     */
-    suspend fun getPendingChanges(): List<BookEntity> = getByStates(listOf(SyncState.NOT_SYNCED, SyncState.CONFLICT))
-
-    /**
-     * Mark a book as successfully synced with server.
-     *
-     * Updates syncState to SYNCED and stores server version timestamp.
-     * Called after successful upload to server.
-     *
-     * @param id Type-safe book ID
-     * @param serverVersion Server's updated_at timestamp
-     */
-    @Query(
-        """
-        UPDATE books
-        SET syncState = ${SyncState.SYNCED_NAME},
-            serverVersion = :serverVersion
-        WHERE id = :id
-    """,
-    )
-    suspend fun markSynced(
-        id: BookId,
-        serverVersion: Timestamp,
-    )
-
-    /**
-     * Mark a book as having a sync conflict.
-     *
-     * Sets syncState to CONFLICT when server has a newer version
-     * than our local modifications.
-     *
-     * @param id Type-safe book ID
-     * @param serverVersion Server's newer updated_at timestamp
-     */
-    @Query(
-        """
-        UPDATE books
-        SET syncState = ${SyncState.CONFLICT_NAME},
-            serverVersion = :serverVersion
-        WHERE id = :id
-    """,
-    )
-    suspend fun markConflict(
-        id: BookId,
-        serverVersion: Timestamp,
-    )
-
-    /**
-     * Delete a book by ID.
-     *
-     * Hard delete from local database. Soft deletes from server
-     * (deletedAt field) will be handled differently in future version.
+     * Removes the row entirely. Use [softDelete] for server-originated tombstones,
+     * which retain the row so the sync engine can track deletion state.
      *
      * @param id Type-safe book ID to delete
      */
@@ -227,6 +161,44 @@ interface BookDao {
     suspend fun deleteAll()
 
     /**
+     * Apply an own-echo: bump only the sync substrate fields on the book row.
+     *
+     * When a sync event echoes the client's own write, the visible fields are already
+     * correct locally — repainting them would flicker the UI. This advances
+     * [BookEntity.revision] and [BookEntity.updatedAt] only, leaving everything else
+     * (title, cover, palette) untouched.
+     *
+     * @param id Type-safe book ID
+     * @param revision New server revision
+     * @param updatedAt New server update timestamp
+     */
+    @Query("UPDATE books SET revision = :revision, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateRevisionAndTimestamp(
+        id: BookId,
+        revision: Long,
+        updatedAt: Timestamp,
+    )
+
+    /**
+     * Soft-delete a book by stamping its tombstone, advancing its revision, and recording
+     * the modification time.
+     *
+     * The row is retained — the UI filters on `deletedAt IS NULL`. Used when a
+     * sync tombstone arrives for a book. `updatedAt` advances alongside `deletedAt`
+     * because a soft-delete is a modification — consistent with [updateRevisionAndTimestamp].
+     *
+     * @param id Type-safe book ID
+     * @param deletedAt Epoch-ms tombstone time (also used as `updatedAt`)
+     * @param revision New server revision
+     */
+    @Query("UPDATE books SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
+    suspend fun softDelete(
+        id: BookId,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /**
      * Touch a book's updatedAt timestamp to trigger Flow re-emission.
      *
      * Used after cover downloads to force UI updates when cover files
@@ -237,36 +209,6 @@ interface BookDao {
     @Query("UPDATE books SET updatedAt = :timestamp WHERE id = :id")
     suspend fun touchUpdatedAt(
         id: BookId,
-        timestamp: Timestamp,
-    )
-
-    /**
-     * Update cached cover colors for a book.
-     *
-     * Called after downloading a cover image and extracting its color palette.
-     * Also touches updatedAt to trigger UI refresh.
-     *
-     * @param id Type-safe book ID
-     * @param dominantColor Dominant color as ARGB int
-     * @param darkMutedColor Dark muted color for gradients
-     * @param vibrantColor Vibrant accent color
-     * @param timestamp Current timestamp to touch updatedAt
-     */
-    @Query(
-        """
-        UPDATE books SET
-            dominantColor = :dominantColor,
-            darkMutedColor = :darkMutedColor,
-            vibrantColor = :vibrantColor,
-            updatedAt = :timestamp
-        WHERE id = :id
-    """,
-    )
-    suspend fun updateCoverColors(
-        id: BookId,
-        dominantColor: Int?,
-        darkMutedColor: Int?,
-        vibrantColor: Int?,
         timestamp: Timestamp,
     )
 
@@ -353,41 +295,9 @@ interface BookDao {
     fun observeRecentlyAdded(limit: Int = 10): Flow<List<BookEntity>>
 
     /**
-     * Observe random unstarted books that are either standalone or the first entry
-     * of a series.
-     *
-     * Applies a product-level filter: a book is included only if it has no
-     * `book_series` rows, or at least one of its rows has
-     * `sequence IN ('1', '0', '0.5')`. Mid-series entries are silently excluded —
-     * use [observeRandomUnstartedBooks] when you want the unfiltered set.
-     *
-     * @param limit Maximum number of books to return
-     * @return Flow emitting list of random unstarted standalone/first-in-series books
-     */
-    @Query(
-        """
-        SELECT b.* FROM books b
-        LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
-        AND (
-            NOT EXISTS (SELECT 1 FROM book_series bs WHERE bs.bookId = b.id)
-            OR EXISTS (
-                SELECT 1 FROM book_series bs WHERE bs.bookId = b.id
-                AND bs.sequence IN ('1', '0', '0.5')
-            )
-        )
-        ORDER BY RANDOM()
-        LIMIT :limit
-    """,
-    )
-    fun observeRandomUnstartedBooksFirstInSeriesOnly(limit: Int = 10): Flow<List<BookEntity>>
-
-    /**
      * Observe random unstarted books with no series-sequence filter.
      *
      * Neutral query: returns every unstarted book regardless of series position.
-     * Callers that specifically want the "first-in-series or standalone" product
-     * filter should use [observeRandomUnstartedBooksFirstInSeriesOnly] instead.
      *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of random unstarted books
@@ -403,63 +313,13 @@ interface BookDao {
     )
     fun observeRandomUnstartedBooks(limit: Int = 10): Flow<List<BookEntity>>
 
-    /**
-     * Get a snapshot of random unstarted books that are either standalone or the first
-     * entry of a series (non-reactive).
-     *
-     * Applies a product-level filter: only standalone or first-in-series books are
-     * returned. Use [getRandomUnstartedBooks] for the unfiltered set.
-     *
-     * @param limit Maximum number of books to return
-     * @return List of random unstarted standalone/first-in-series books
-     */
-    @Query(
-        """
-        SELECT b.* FROM books b
-        LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
-        AND (
-            NOT EXISTS (SELECT 1 FROM book_series bs WHERE bs.bookId = b.id)
-            OR EXISTS (
-                SELECT 1 FROM book_series bs WHERE bs.bookId = b.id
-                AND bs.sequence IN ('1', '0', '0.5')
-            )
-        )
-        ORDER BY RANDOM()
-        LIMIT :limit
-    """,
-    )
-    suspend fun getRandomUnstartedBooksFirstInSeriesOnly(limit: Int = 10): List<BookEntity>
-
-    /**
-     * Get a snapshot of random unstarted books with no series-sequence filter (non-reactive).
-     *
-     * Neutral query: returns every unstarted book regardless of series position.
-     * Callers that specifically want the "first-in-series or standalone" product
-     * filter should use [getRandomUnstartedBooksFirstInSeriesOnly] instead.
-     *
-     * @param limit Maximum number of books to return
-     * @return List of random unstarted books
-     */
-    @Query(
-        """
-        SELECT b.* FROM books b
-        LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
-        ORDER BY RANDOM()
-        LIMIT :limit
-    """,
-    )
-    suspend fun getRandomUnstartedBooks(limit: Int = 10): List<BookEntity>
-
     // ========== Discovery Queries with Author ==========
 
     /**
      * Observe recently added books with primary author, newest first.
      *
-     * Neutral query: returns every book ordered by `createdAt` DESC, with no series-sequence
-     * filter. Callers that specifically want the "first-in-series or standalone" product
-     * filter should use [observeRecentlyAddedFirstInSeriesWithAuthor] instead.
+     * Neutral query: returns every book ordered by `createdAt` DESC with no series-sequence
+     * filter.
      *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of recently added books with author
@@ -482,86 +342,9 @@ interface BookDao {
     fun observeRecentlyAddedWithAuthor(limit: Int = 10): Flow<List<DiscoveryBookWithAuthor>>
 
     /**
-     * Observe recently added books that are either standalone or the first entry
-     * of a series, with primary author, newest first.
-     *
-     * Applies a product-level filter: a book is included only if it has no
-     * `book_series` rows, or at least one of its rows has
-     * `sequence IN ('1', '0', '0.5')` (i.e. a prologue, series-zero, or first book).
-     * Mid-series entries are silently excluded — use [observeRecentlyAddedWithAuthor]
-     * when you want the unfiltered recency list.
-     *
-     * @param limit Maximum number of books to return
-     * @return Flow emitting list of standalone / first-in-series recently added books with author
-     */
-    @Query(
-        """
-        SELECT
-            b.id, b.title, b.coverBlurHash, b.createdAt,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName
-        FROM books b
-        WHERE (
-            NOT EXISTS (SELECT 1 FROM book_series bs WHERE bs.bookId = b.id)
-            OR EXISTS (
-                SELECT 1 FROM book_series bs WHERE bs.bookId = b.id
-                AND bs.sequence IN ('1', '0', '0.5')
-            )
-        )
-        ORDER BY b.createdAt DESC
-        LIMIT :limit
-    """,
-    )
-    fun observeRecentlyAddedFirstInSeriesWithAuthor(limit: Int = 10): Flow<List<DiscoveryBookWithAuthor>>
-
-    /**
-     * Observe random unstarted books with primary author, restricted to standalone or
-     * first-in-series books.
-     *
-     * Applies a product-level filter: only books with no `book_series` rows, or at
-     * least one row with `sequence IN ('1', '0', '0.5')`, are included. Mid-series
-     * entries are silently excluded — use [observeRandomUnstartedBooksWithAuthor] for
-     * the unfiltered set.
-     *
-     * @param limit Maximum number of books to return
-     * @return Flow emitting list of random unstarted standalone/first-in-series books with author
-     */
-    @Query(
-        """
-        SELECT
-            b.id, b.title, b.coverBlurHash, b.createdAt,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName
-        FROM books b
-        LEFT JOIN playback_positions p ON b.id = p.bookId
-        WHERE (p.bookId IS NULL OR p.positionMs = 0)
-        AND (
-            NOT EXISTS (SELECT 1 FROM book_series bs WHERE bs.bookId = b.id)
-            OR EXISTS (
-                SELECT 1 FROM book_series bs WHERE bs.bookId = b.id
-                AND bs.sequence IN ('1', '0', '0.5')
-            )
-        )
-        ORDER BY RANDOM()
-        LIMIT :limit
-    """,
-    )
-    fun observeRandomUnstartedBooksFirstInSeriesWithAuthor(limit: Int = 10): Flow<List<DiscoveryBookWithAuthor>>
-
-    /**
      * Observe random unstarted books with primary author, with no series-sequence filter.
      *
      * Neutral query: returns every unstarted book regardless of series position.
-     * Callers that specifically want the "first-in-series or standalone" product
-     * filter should use [observeRandomUnstartedBooksFirstInSeriesWithAuthor] instead.
      *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of random unstarted books with author

@@ -186,6 +186,7 @@ private fun newScanner(fixture: AudioLibraryFixture): Pair<Scanner, MutableShare
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser = parser,
             eventBus = eventBus,
+            scanResultBus = MutableSharedFlow(replay = 1),
             correlationIdFactory = { "test-correlation-id" },
         )
     return scanner to eventBus

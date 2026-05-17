@@ -16,27 +16,31 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.lessEq
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Abstract base for syncable-domain repositories. Subclasses provide:
- *  - The Exposed table (a [SyncableTable] subtype)
- *  - `ResultRow.toDto()` to render a row into the wire-shape DTO
- *  - `T.writeTo(stmt)` to render a DTO into an UpdateBuilder for write
+ *  - The Exposed table (a [SyncableTable] subtype) for the aggregate root
+ *  - `readPayload(idStr)` — aggregate read (row + children) by id
+ *  - `writePayload(value, rev, now, clientOpId, existed)` — aggregate write inside the open transaction
  *  - The `T.id` projection
+ *  - The `T.revisionOf()` projection
  *
  * The base provides `upsert`, `softDelete`, `pullSince`, `digest` operating
  * on the global revision counter and publishing to [ChangeBus] on every write.
+ * It owns transaction orchestration, revision bumping, timestamping, and the
+ * existed/created/updated discrimination — subclasses focus purely on the
+ * aggregate's read/write shape. Single-table domains write one row;
+ * aggregate domains (e.g., book + contributors + chapters) write the full
+ * aggregate inside the same open transaction.
+ *
  * Self-registers with the injected [SyncRegistry] in its `init` block — Koin
  * must use `createdAtStart = true` so registration happens at application
  * bootstrap.
@@ -53,9 +57,38 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         registry.register(this)
     }
 
-    protected abstract fun ResultRow.toDto(): T
+    /**
+     * Read the full aggregate (root row + children) for [idStr], or null if absent.
+     *
+     * **Called only from inside an active Exposed transaction** (opened by base
+     * methods like `upsert`, `pullSince`, `softDelete`). Implementations issue
+     * DSL queries directly — those bind to the open transaction.
+     */
+    protected abstract suspend fun readPayload(idStr: String): T?
 
-    protected abstract fun T.writeTo(stmt: UpdateBuilder<*>)
+    /**
+     * Write the full aggregate (root row + children) inside the open transaction.
+     *
+     * The base class has already determined [rev] (next revision) and [now]
+     * (timestamp), and resolved whether the root row [existed]. The
+     * implementation MUST:
+     *   - INSERT the root row if `!existed`, with `rev`, `createdAt = now`,
+     *     `updatedAt = now`, `deletedAt = null`
+     *   - UPDATE the root row if `existed`, with `rev`, `updatedAt = now`,
+     *     `deletedAt = null`
+     *   - Replace child rows wholesale (delete-then-insert), if any
+     *   - Set `clientOpId` on the root row
+     *
+     * Atomicity is the contract: the base opens one `suspendTransaction`; this
+     * method writes everything inside it.
+     */
+    protected abstract suspend fun writePayload(
+        value: T,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        existed: Boolean,
+    )
 
     /**
      * kotlinx.serialization serializer for the concrete DTO type [T].
@@ -102,9 +135,10 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * Insert or update [value], bumping the global revision counter and publishing
      * a [SyncEvent.Created] or [SyncEvent.Updated] to [ChangeBus].
      *
-     * Created/Updated discrimination is based on whether the row exists before the
-     * write — existence is determined inside the transaction, so the decision is
-     * atomic with the write.
+     * Created/Updated discrimination is based on whether the root row exists before
+     * the write — existence is determined inside the transaction, so the decision
+     * is atomic with the write. The full aggregate (root + children) is written
+     * inside the same transaction via [writePayload].
      *
      * @param clientOpId originating client operation id for SSE echo matching; null
      *   for server-initiated writes (scanner, admin, etc.).
@@ -125,57 +159,31 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                     .empty()
                     .not()
 
-            if (existed) {
-                table.update({ idColumn() eq idStr }) { stmt ->
-                    value.writeTo(stmt)
-                    stmt[table.revision] = rev
-                    stmt[table.updatedAt] = now
-                    stmt[table.deletedAt] = null
-                    stmt[table.clientOpId] = clientOpId
-                }
-            } else {
-                table.insert { stmt ->
-                    value.writeTo(stmt)
-                    stmt[table.revision] = rev
-                    stmt[table.createdAt] = now
-                    stmt[table.updatedAt] = now
-                    stmt[table.deletedAt] = null
-                    stmt[table.clientOpId] = clientOpId
-                }
-            }
+            writePayload(value, rev, now, clientOpId, existed)
 
             val saved =
-                table
-                    .selectAll()
-                    .where { idColumn() eq idStr }
-                    .single()
-                    .toDto()
+                readPayload(idStr)
+                    ?: error("readPayload returned null immediately after writePayload for $idStr")
 
-            if (existed) {
-                bus.publish(
-                    repo = this@SyncableRepository,
-                    event =
-                        SyncEvent.Updated(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                            payload = saved,
-                        ),
-                )
-            } else {
-                bus.publish(
-                    repo = this@SyncableRepository,
-                    event =
-                        SyncEvent.Created(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                            payload = saved,
-                        ),
-                )
-            }
+            val event =
+                if (existed) {
+                    SyncEvent.Updated(
+                        id = idStr,
+                        revision = rev,
+                        occurredAt = now,
+                        clientOpId = clientOpId,
+                        payload = saved,
+                    )
+                } else {
+                    SyncEvent.Created(
+                        id = idStr,
+                        revision = rev,
+                        occurredAt = now,
+                        clientOpId = clientOpId,
+                        payload = saved,
+                    )
+                }
+            bus.publish(repo = this@SyncableRepository, event = event)
 
             AppResult.Success(saved)
         }
@@ -253,27 +261,36 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         }
 
     /**
-     * Returns up to [limit] rows with `revision > cursor`, ordered by revision
-     * ascending. Includes soft-deleted rows so clients can apply tombstones.
-     * [Page.hasMore] is true when the result set hit the limit, signalling more
-     * pages remain.
+     * Returns up to [limit] aggregates whose root row has `revision > cursor`,
+     * ordered by revision ascending. Each aggregate is hydrated via [readPayload]
+     * so child rows are included. Soft-deleted aggregates are returned so clients
+     * can apply tombstones. [Page.hasMore] is true when the result set hit the
+     * limit, signalling more pages remain.
+     *
+     * `nextCursor` advances using the queried revision rather than
+     * `items.last().revisionOf()` — a hard delete between the id-query and the
+     * payload-read could theoretically null a row, and the queried revision is
+     * the canonical cursor advance regardless.
      */
     suspend fun pullSince(
         cursor: Long,
         limit: Int,
     ): Page<T> =
         suspendTransaction(db) {
-            val rows =
+            val idsWithRev =
                 table
                     .selectAll()
                     .where { table.revision greater cursor }
                     .orderBy(table.revision, SortOrder.ASC)
                     .limit(limit)
-                    .map { it.toDto() }
+                    .map { it[idColumn()] to it[table.revision] }
+
+            val items = idsWithRev.mapNotNull { (idStr, _) -> readPayload(idStr) }
+
             Page(
-                items = rows,
-                nextCursor = if (rows.isEmpty()) null else rows.last().revisionOf(),
-                hasMore = rows.size == limit,
+                items = items,
+                nextCursor = idsWithRev.lastOrNull()?.second,
+                hasMore = idsWithRev.size == limit,
             )
         }
 

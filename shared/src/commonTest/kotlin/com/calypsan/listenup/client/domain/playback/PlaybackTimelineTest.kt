@@ -13,6 +13,7 @@ class PlaybackTimelineTest {
 
     private fun audioFile(
         id: String = "af-001",
+        index: Int = 0,
         filename: String = "chapter1.mp3",
         format: String = "mp3",
         codec: String = "mp3",
@@ -21,6 +22,7 @@ class PlaybackTimelineTest {
     ): AudioFile =
         AudioFile(
             id = id,
+            index = index,
             filename = filename,
             format = format,
             codec = codec,

@@ -17,13 +17,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Inline-fixture test that pins the `idAsString` template-hook contract:
@@ -138,23 +138,52 @@ internal class FixtureRepository(
 ) : SyncableRepository<FixturePayload, FixtureId>(db, FixtureTestTable, bus, registry, "fixtures") {
     override val elementSerializer: KSerializer<FixturePayload> = FixturePayload.serializer()
 
-    override fun ResultRow.toDto(): FixturePayload =
-        FixturePayload(
-            id = FixtureId(this[FixtureTestTable.id]),
-            label = this[FixtureTestTable.label],
-            revision = this[FixtureTestTable.revision],
-            updatedAt = this[FixtureTestTable.updatedAt],
-            deletedAt = this[FixtureTestTable.deletedAt],
-        )
-
-    override fun FixturePayload.writeTo(stmt: UpdateBuilder<*>) {
-        stmt[FixtureTestTable.id] = id.value
-        stmt[FixtureTestTable.label] = label
-    }
-
     override val FixturePayload.id: FixtureId get() = this.id
 
     override fun FixturePayload.revisionOf(): Long = revision
 
     override fun idAsString(id: FixtureId): String = id.value
+
+    override suspend fun readPayload(idStr: String): FixturePayload? =
+        FixtureTestTable
+            .selectAll()
+            .where { FixtureTestTable.id eq idStr }
+            .firstOrNull()
+            ?.let { row ->
+                FixturePayload(
+                    id = FixtureId(row[FixtureTestTable.id]),
+                    label = row[FixtureTestTable.label],
+                    revision = row[FixtureTestTable.revision],
+                    updatedAt = row[FixtureTestTable.updatedAt],
+                    deletedAt = row[FixtureTestTable.deletedAt],
+                )
+            }
+
+    override suspend fun writePayload(
+        value: FixturePayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        existed: Boolean,
+    ) {
+        if (existed) {
+            FixtureTestTable.update({ FixtureTestTable.id eq value.id.value }) { stmt ->
+                stmt[FixtureTestTable.label] = value.label
+                stmt[FixtureTestTable.revision] = rev
+                stmt[FixtureTestTable.updatedAt] = now
+                stmt[FixtureTestTable.deletedAt] = null
+                stmt[FixtureTestTable.clientOpId] = clientOpId
+            }
+        } else {
+            FixtureTestTable.insert { stmt ->
+                stmt[FixtureTestTable.id] = value.id.value
+                stmt[FixtureTestTable.label] = value.label
+                stmt[FixtureTestTable.revision] = rev
+                stmt[FixtureTestTable.createdAt] = now
+                stmt[FixtureTestTable.updatedAt] = now
+                stmt[FixtureTestTable.deletedAt] = null
+                stmt[FixtureTestTable.clientOpId] = clientOpId
+            }
+        }
+    }
 }

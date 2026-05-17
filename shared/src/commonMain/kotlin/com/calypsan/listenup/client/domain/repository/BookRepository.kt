@@ -18,7 +18,12 @@ import kotlinx.coroutines.flow.Flow
  */
 interface BookRepository {
     /**
-     * Trigger sync to refresh books from server.
+     * No-op affordance for pull-to-refresh gestures.
+     *
+     * Book refresh is now driven entirely by the SSE event stream — there is no
+     * client-initiated pull path. This method exists so that pull-to-refresh UI
+     * surfaces have a call target; the implementation deliberately does nothing.
+     * Removal of the pull-to-refresh affordance from the UI is deferred to Books-C.
      */
     suspend fun refreshBooks(): AppResult<Unit>
 
@@ -107,6 +112,21 @@ interface BookRepository {
      * @return Detail shape, or null if the book doesn't exist.
      */
     suspend fun getBookDetail(id: String): BookDetail?
+
+    /**
+     * Search books with an offline-first, never-stranded strategy.
+     *
+     * When online, runs server-side FTS5 search via [com.calypsan.listenup.api.BookService.searchBooks],
+     * hydrating the ranked result ids from Room and preserving the server's rank
+     * order. When offline — or when the server call fails — falls back to local
+     * Room FTS5 so search always works.
+     *
+     * Emits exactly once: this is a query, not a live subscription.
+     *
+     * @param query The raw search query. A blank query yields an empty list.
+     * @return Flow emitting the ranked [BookListItem] matches a single time.
+     */
+    fun search(query: String): Flow<List<BookListItem>>
 
     /**
      * Atomically upsert a book row and replace its audio-file rows.

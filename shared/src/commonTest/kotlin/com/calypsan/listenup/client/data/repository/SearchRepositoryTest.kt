@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.SearchException
 import com.calypsan.listenup.client.data.remote.SearchFacetsResponse
@@ -56,13 +55,10 @@ class SearchRepositoryTest {
                     id = BookId(id),
                     title = title,
                     subtitle = null,
-                    coverUrl = null,
+                    coverHash = null,
                     totalDuration = 3600000,
                     description = null,
                     publishYear = null,
-                    syncState = SyncState.SYNCED,
-                    lastModified = Timestamp(0),
-                    serverVersion = Timestamp(1),
                     createdAt = Timestamp(0),
                     updatedAt = Timestamp(0),
                 ),
@@ -437,9 +433,6 @@ class SearchRepositoryTest {
                         name = "Author",
                         description = null,
                         imagePath = null,
-                        syncState = SyncState.SYNCED,
-                        lastModified = Timestamp(0),
-                        serverVersion = Timestamp(1),
                         createdAt = Timestamp(0),
                         updatedAt = Timestamp(0),
                     ),
@@ -452,9 +445,6 @@ class SearchRepositoryTest {
                                 .SeriesId("s1"),
                         name = "Series",
                         description = null,
-                        syncState = SyncState.SYNCED,
-                        lastModified = Timestamp(0),
-                        serverVersion = Timestamp(1),
                         createdAt = Timestamp(0),
                         updatedAt = Timestamp(0),
                     ),

@@ -45,6 +45,7 @@ value class ServerUrl(
  *
  * @property value The underlying book ID string (e.g., "book-abc123")
  */
+@Serializable
 @JvmInline
 value class BookId(
     val value: String,
@@ -62,6 +63,30 @@ value class BookId(
          */
         fun fromString(value: String): BookId = BookId(value)
     }
+}
+
+/**
+ * Type-safe wrapper for Library IDs.
+ *
+ * A library is the root path the scanner walks; every book belongs to exactly
+ * one. Wrapping the id prevents it being confused with a [BookId] or any other
+ * string id at call sites that thread both — notably the scanner's
+ * `resolveOrInsert(libraryId, analyzed)`.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying library ID string.
+ */
+@JvmInline
+value class LibraryId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Library ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
 }
 
 /**

@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.data.remote.AdminCollectionApi
 import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
@@ -159,9 +161,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
-import com.calypsan.listenup.client.domain.usecase.library.GetContinueListeningUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
-import com.calypsan.listenup.client.domain.usecase.library.SearchBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
@@ -407,18 +407,8 @@ val useCaseModule =
 
         // Library use cases (using domain layer interfaces only)
         factory {
-            SearchBooksUseCase(
-                searchRepository = get(),
-            )
-        }
-        factory {
             RefreshLibraryUseCase(
                 syncRepository = get(),
-            )
-        }
-        factory {
-            GetContinueListeningUseCase(
-                homeRepository = get(),
             )
         }
 
@@ -875,16 +865,30 @@ val syncModule =
             )
         }
 
+        // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
+        // Mirrors AuthRpcFactory; fully functional end-to-end — the server registers
+        // BookService on its bearer-gated /api/rpc/authed surface (landed in T28.5).
+        single<BookRpcFactory> {
+            KtorBookRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // BookRepository for UI data access
         single<BookRepository> {
             BookRepositoryImpl(
                 bookDao = get(),
                 chapterDao = get(),
                 audioFileDao = get(),
+                searchDao = get(),
                 transactionRunner = get(),
                 imageStorage = get(),
                 genreRepository = get(),
                 tagRepository = get(),
+                networkMonitor = get(),
+                bookRpcFactory = get(),
+                bookSyncDomainHandler = get(),
             )
         }
 

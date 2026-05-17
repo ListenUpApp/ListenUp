@@ -28,11 +28,13 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import org.jetbrains.exposed.v1.core.ResultRow
-import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.update
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
@@ -191,19 +193,47 @@ private class ThrowingRepository(
 ) : SyncableRepository<ThrowingPayload, String>(db, ThrowingTable, bus, registry, "throwing") {
     override val elementSerializer: KSerializer<ThrowingPayload> = ThrowingPayloadSerializer
 
-    override fun ResultRow.toDto(): ThrowingPayload =
-        ThrowingPayload(
-            id = this[ThrowingTable.id],
-            revision = this[ThrowingTable.revision],
-            updatedAt = this[ThrowingTable.updatedAt],
-            deletedAt = this[ThrowingTable.deletedAt],
-        )
-
-    override fun ThrowingPayload.writeTo(stmt: UpdateBuilder<*>) {
-        stmt[ThrowingTable.id] = id
-    }
-
     override val ThrowingPayload.id: String get() = id
 
     override fun ThrowingPayload.revisionOf(): Long = revision
+
+    override suspend fun readPayload(idStr: String): ThrowingPayload? =
+        ThrowingTable
+            .selectAll()
+            .where { ThrowingTable.id eq idStr }
+            .firstOrNull()
+            ?.let { row ->
+                ThrowingPayload(
+                    id = row[ThrowingTable.id],
+                    revision = row[ThrowingTable.revision],
+                    updatedAt = row[ThrowingTable.updatedAt],
+                    deletedAt = row[ThrowingTable.deletedAt],
+                )
+            }
+
+    override suspend fun writePayload(
+        value: ThrowingPayload,
+        rev: Long,
+        now: Long,
+        clientOpId: String?,
+        existed: Boolean,
+    ) {
+        if (existed) {
+            ThrowingTable.update({ ThrowingTable.id eq value.id }) { stmt ->
+                stmt[ThrowingTable.revision] = rev
+                stmt[ThrowingTable.updatedAt] = now
+                stmt[ThrowingTable.deletedAt] = null
+                stmt[ThrowingTable.clientOpId] = clientOpId
+            }
+        } else {
+            ThrowingTable.insert { stmt ->
+                stmt[ThrowingTable.id] = value.id
+                stmt[ThrowingTable.revision] = rev
+                stmt[ThrowingTable.createdAt] = now
+                stmt[ThrowingTable.updatedAt] = now
+                stmt[ThrowingTable.deletedAt] = null
+                stmt[ThrowingTable.clientOpId] = clientOpId
+            }
+        }
+    }
 }

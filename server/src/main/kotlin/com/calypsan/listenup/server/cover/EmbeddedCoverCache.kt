@@ -1,0 +1,86 @@
+package com.calypsan.listenup.server.cover
+
+import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+/**
+ * Thread-safe in-memory LRU cache for embedded-artwork covers.
+ *
+ * Extracting embedded artwork means parsing the audio file — an I/O-bound
+ * operation we never want to repeat for a hot cover. The cache stores the full
+ * [EmbeddedArtwork] (mime + bytes), so the cover route gets the `Content-Type`
+ * for free alongside the bytes.
+ *
+ * **Eviction.** A bounded access-order [LinkedHashMap] keeps the [maxSize]
+ * most-recently-used entries and discards the rest. ~1000 covers at a few KB
+ * each is a negligible heap footprint while comfortably covering a browsing
+ * session's working set.
+ *
+ * **Single-flight loading.** [getOrCompute] runs its [loader] **exactly once**
+ * per key even under concurrent access: a per-key [Mutex] serialises callers
+ * racing for the same cover, so the second arrival sees the first arrival's
+ * cached result rather than re-parsing. Distinct keys never contend.
+ *
+ * **Staleness caveat.** Entries are keyed by [BookId]. If a book's embedded
+ * artwork changes after a rescan, the stale bytes remain cached until evicted.
+ * Acceptable for Books-A — covers rarely change, and a server restart clears
+ * the cache. Keying by cover hash would close the gap but would require the
+ * route to thread the hash through; revisit if cover churn becomes a concern.
+ *
+ * @param maxSize the maximum number of cached covers; the least-recently-used
+ *   entry is evicted once the cache would exceed it.
+ */
+class EmbeddedCoverCache(
+    private val maxSize: Int = DEFAULT_MAX_SIZE,
+) {
+    private val mapLock = Mutex()
+    private val keyLocks = HashMap<BookId, Mutex>()
+
+    // accessOrder = true makes get() reorder entries by recency, so the eldest
+    // entry removeEldestEntry sees is the genuine LRU victim.
+    private val entries =
+        object : LinkedHashMap<BookId, EmbeddedArtwork>(INITIAL_CAPACITY, LOAD_FACTOR, true) {
+            override fun removeEldestEntry(eldest: Map.Entry<BookId, EmbeddedArtwork>): Boolean = size > maxSize
+        }
+
+    /**
+     * Returns the cached artwork for [key], or computes and caches it via
+     * [loader].
+     *
+     * [loader] is invoked at most once per key: concurrent callers for the same
+     * key serialise on a per-key lock, so only the first runs [loader] and the
+     * rest observe its cached result. A `null` [loader] result (no artwork, or
+     * extraction failed) is **not** cached — a later call retries the loader.
+     *
+     * @return the artwork, or `null` when [loader] yields `null`.
+     */
+    suspend fun getOrCompute(
+        key: BookId,
+        loader: suspend () -> EmbeddedArtwork?,
+    ): EmbeddedArtwork? {
+        read(key)?.let { return it }
+
+        return keyLockFor(key).withLock {
+            // Re-check under the per-key lock — a racing caller may have populated it.
+            read(key)?.let { return@withLock it }
+            loader()?.also { write(key, it) }
+        }
+    }
+
+    private suspend fun read(key: BookId): EmbeddedArtwork? = mapLock.withLock { entries[key] }
+
+    private suspend fun write(
+        key: BookId,
+        value: EmbeddedArtwork,
+    ) = mapLock.withLock { entries[key] = value }
+
+    private suspend fun keyLockFor(key: BookId): Mutex = mapLock.withLock { keyLocks.getOrPut(key) { Mutex() } }
+
+    private companion object {
+        const val DEFAULT_MAX_SIZE = 1000
+        const val INITIAL_CAPACITY = 16
+        const val LOAD_FACTOR = 0.75f
+    }
+}

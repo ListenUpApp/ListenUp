@@ -7,12 +7,13 @@ import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import kotlin.time.Duration.Companion.minutes
 
-/** Named buckets for the auth surface — referenced by route handlers. */
+/** Named buckets for the auth surface and books search — referenced by route handlers. */
 object RateLimitBuckets {
     val Login = RateLimitName("auth-login")
     val Register = RateLimitName("auth-register")
     val Refresh = RateLimitName("auth-refresh")
     val Setup = RateLimitName("auth-setup")
+    val BooksSearch = RateLimitName("books_search")
 }
 
 /**
@@ -38,6 +39,10 @@ fun Application.installRateLimiting() {
             rateLimiter(limit = SETUP_LIMIT, refillPeriod = 1.minutes)
             requestKey { call -> call.request.origin.remoteHost }
         }
+        register(RateLimitBuckets.BooksSearch) {
+            rateLimiter(limit = BOOKS_SEARCH_LIMIT, refillPeriod = 1.minutes)
+            requestKey { call -> call.request.origin.remoteHost }
+        }
     }
 }
 
@@ -45,3 +50,4 @@ private const val LOGIN_LIMIT = 10
 private const val REGISTER_LIMIT = 5
 private const val REFRESH_LIMIT = 30
 private const val SETUP_LIMIT = 3
+private const val BOOKS_SEARCH_LIMIT = 60

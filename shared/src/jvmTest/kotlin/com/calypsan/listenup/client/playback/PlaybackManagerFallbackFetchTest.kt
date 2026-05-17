@@ -6,8 +6,10 @@ import com.calypsan.listenup.client.core.Success
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.local.db.SyncState
+import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.remote.model.BookResponse
@@ -101,7 +103,7 @@ class PlaybackManagerFallbackFetchTest {
                 title = "Test Book",
                 sortTitle = "Test Book",
                 subtitle = null,
-                coverUrl = null,
+                coverHash = null,
                 coverBlurHash = null,
                 dominantColor = null,
                 darkMutedColor = null,
@@ -114,9 +116,6 @@ class PlaybackManagerFallbackFetchTest {
                 isbn = null,
                 asin = null,
                 abridged = false,
-                syncState = SyncState.SYNCED,
-                lastModified = Timestamp(1L),
-                serverVersion = Timestamp(1L),
                 createdAt = Timestamp(1L),
                 updatedAt = Timestamp(1L),
             ),
@@ -182,10 +181,20 @@ class PlaybackManagerFallbackFetchTest {
                 bookDao = db.bookDao(),
                 chapterDao = db.chapterDao(),
                 audioFileDao = db.audioFileDao(),
+                searchDao = db.searchDao(),
                 transactionRunner = txRunner,
                 imageStorage = imageStorage,
                 genreRepository = mock(),
                 tagRepository = mock(),
+                networkMonitor = mock(), // intentionally unstubbed — this test exercises upsertWithAudioFiles, not the RPC fallback paths
+                bookRpcFactory = mock(),
+                bookSyncDomainHandler =
+                    BookSyncDomainHandler(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        transactionRunner = txRunner,
+                        registry = ClientSyncDomainRegistry(),
+                    ),
             )
 
         return PlaybackManagerImpl(

@@ -23,6 +23,8 @@ import com.calypsan.listenup.server.scanner.inference.FolderShape
 import com.calypsan.listenup.server.scanner.inference.ParsedTitle
 import com.calypsan.listenup.server.scanner.inference.TrackInference
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
+import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -40,14 +42,17 @@ private val logger = KotlinLogging.logger {}
  *     `<author>/<series>/<title>`.
  *  2. **Title-folder regex** — strips `[ASIN]`, `{Narrator}`, year prefix,
  *     volume/sequence prefix, optional subtitle. See [AbsTitleParser].
- *  3. **Embedded audio tags** — ID3v2/ID3v1 (MP3), MP4 `ilst` atoms, etc.
+ *  3. **Sidecar files** — `.nfo`/`.opf`/`reader.txt`/`desc.txt` read-only
+ *     enrichment files, parsed by [SidecarParser]s. Slot between filename
+ *     and embedded tiers.
+ *  4. **Embedded audio tags** — ID3v2/ID3v1 (MP3), MP4 `ilst` atoms, etc.
  *     Read from the primary audio file (first by stable track order) via
  *     [EmbeddedMetadataParser]. The parser is the only authoritative source
  *     for `durationMs`, `chapters`, and embedded `artwork` bytes — those
  *     fields survive on [AnalyzedBook.embedded] verbatim, while textual
  *     fields participate in the resolved view.
- *  4. **`metadata.json` overlay** — fields in a sidecar override
- *     embedded-, filename-, and folder-derived values when present.
+ *  5. **`metadata.json` overlay** — fields in a sidecar override
+ *     embedded-, sidecar-, filename-, and folder-derived values when present.
  *
  * Cover-image precedence is its own rule, separate from the textual chain:
  * filesystem `cover.*` → first sibling image → embedded artwork. The
@@ -66,6 +71,7 @@ internal class Analyzer(
     private val metadataReader: AbsMetadataReader,
     private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val parseSubtitle: Boolean = false,
+    private val sidecarParsers: List<SidecarParser> = emptyList(),
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
@@ -86,13 +92,25 @@ internal class Analyzer(
             val (embedded, embeddedStatus) = parseEmbedded(primaryAudio)
             val cover = resolveCover(candidate.files, embedded)
             val metadata = readMetadata(candidate)
+            val sidecar = parseSidecars(candidate)
             val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?> =
                 if (shouldSynthesizeChapters(metadata, embedded, tracks)) {
                     parseAllTrackDurations(tracks)
                 } else {
                     emptyMap()
                 }
-            compose(candidate, shape, parsed, tracks, cover, embedded, embeddedStatus, metadata, perTrackMetadata)
+            compose(
+                candidate,
+                shape,
+                parsed,
+                tracks,
+                cover,
+                embedded,
+                embeddedStatus,
+                metadata,
+                sidecar,
+                perTrackMetadata,
+            )
         }
 
     private fun buildTracks(candidate: CandidateBook): List<TrackEntry> =
@@ -225,6 +243,46 @@ internal class Analyzer(
         return metadataReader.read(rootPath.resolve(sidecar.relPath))
     }
 
+    /**
+     * Routes each candidate file to a matching [SidecarParser] and merges the
+     * parsed [SidecarMetadata]s into one.
+     *
+     * Returns `null` when no file matched any parser. A parser that returns
+     * `null` (unparseable file) or throws (a defect — the contract says return
+     * `null`) is treated as contributing nothing; the scan continues.
+     * `CancellationException` is always re-raised.
+     *
+     * **Merge rule:** files are processed in [CandidateBook.files] order;
+     * for each field the first non-null value wins. Order is deterministic
+     * because the Walker emits files in a stable order.
+     */
+    private suspend fun parseSidecars(candidate: CandidateBook): SidecarMetadata? {
+        var merged: SidecarMetadata? = null
+        for (file in candidate.files) {
+            val parser =
+                sidecarParsers.firstOrNull { p ->
+                    p.supportedFilenames.any { it.equals(file.name, ignoreCase = true) } ||
+                        p.supportedExtensions.any { it.equals(file.ext, ignoreCase = true) }
+                } ?: continue
+            val parsed = runParserSafely(parser, file) ?: continue
+            merged = merged?.mergedWith(parsed) ?: parsed
+        }
+        return merged
+    }
+
+    private suspend fun runParserSafely(
+        parser: SidecarParser,
+        file: FileEntry,
+    ): SidecarMetadata? =
+        try {
+            parser.parse(rootPath.resolve(file.relPath))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "sidecar parser ${parser::class.simpleName} threw on ${file.relPath}; treating as null" }
+            null
+        }
+
     @Suppress("LongParameterList") // Composing the merged view honestly takes every source.
     private fun compose(
         candidate: CandidateBook,
@@ -235,23 +293,29 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         embeddedStatus: MetadataStatus?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val title = pickTitle(candidate, shape, parsed, embedded, metadata)
+        val title = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
         return AnalyzedBook(
             candidate = candidate,
             title = title,
+            // SidecarMetadata carries no subtitle field — the chain is unchanged.
             subtitle = metadata?.subtitle ?: embedded?.tags?.subtitle ?: parsed.subtitle,
-            authors = pickAuthors(shape, embedded, metadata),
-            narrators = pickNarrators(parsed, embedded, metadata),
+            authors = pickAuthors(shape, embedded, metadata, sidecar),
+            narrators = pickNarrators(parsed, embedded, metadata, sidecar),
             series = pickSeries(shape, parsed, embedded, metadata),
-            publishedYear = metadata?.publishedYear ?: embedded?.tags?.publishedYear ?: parsed.publishedYear,
+            publishedYear =
+                metadata?.publishedYear
+                    ?: embedded?.tags?.publishedYear
+                    ?: sidecar?.publishYear
+                    ?: parsed.publishedYear,
             asin = metadata?.asin ?: embedded?.tags?.asin ?: parsed.asin,
             isbn = metadata?.isbn ?: embedded?.tags?.isbn,
-            description = metadata?.description ?: embedded?.tags?.description,
-            publisher = metadata?.publisher ?: embedded?.tags?.publisher,
-            language = metadata?.language ?: embedded?.tags?.language,
+            description = metadata?.description ?: embedded?.tags?.description ?: sidecar?.description,
+            publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
+            language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
             genres = pickGenres(embedded, metadata),
             tags = metadata?.tags.orEmpty(),
             abridged = metadata?.abridged,
@@ -262,7 +326,7 @@ internal class Analyzer(
             chaptersSource = chaptersSource,
             embedded = embedded,
             embeddedStatus = embeddedStatus,
-            sources = collectSources(shape, parsed, embedded, metadata),
+            sources = collectSources(shape, parsed, embedded, metadata, sidecar),
         )
     }
 
@@ -320,9 +384,11 @@ internal class Analyzer(
         parsed: ParsedTitle,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): String =
         metadata?.title?.takeUnless { it.isBlank() }
             ?: embedded?.tags?.title?.takeUnless { it.isBlank() }
+            ?: sidecar?.title?.takeUnless { it.isBlank() }
             ?: parsed.title.takeUnless { it.isBlank() }
             ?: shape.titleFolder.takeUnless { it.isBlank() }
             ?: candidate.rootRelPath
@@ -331,9 +397,11 @@ internal class Analyzer(
         shape: FolderShape,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): List<String> =
         metadata?.authors?.takeIf { it.isNotEmpty() }
             ?: embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
+            ?: sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
             ?: shape.authorFolder?.let { listOf(it) }
             ?: emptyList()
 
@@ -341,9 +409,11 @@ internal class Analyzer(
         parsed: ParsedTitle,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): List<String> =
         metadata?.narrators?.takeIf { it.isNotEmpty() }
             ?: embedded?.tags?.narrators?.takeIf { it.isNotEmpty() }
+            ?: sidecar.contributorNames(role = "narrator").takeIf { it.isNotEmpty() }
             ?: parsed.narrators
 
     private fun pickSeries(
@@ -378,15 +448,36 @@ internal class Analyzer(
         parsed: ParsedTitle,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): Set<MetadataSource> {
         val sources = mutableSetOf<MetadataSource>()
         if (shape.contributesAnything()) sources += MetadataSource.FOLDER_STRUCTURE
         if (parsed.hasAnyFilenameAnnotation()) sources += MetadataSource.FILENAME
+        if (sidecar != null) sources += MetadataSource.SIDECAR
         if (embedded != null) sources += MetadataSource.AUDIO_METATAGS
         if (metadata != null) sources += MetadataSource.ABS_METADATA
         return sources
     }
 }
+
+/** Field-by-field merge: the receiver's non-null values win; [other] fills the gaps. */
+private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata =
+    SidecarMetadata(
+        title = title ?: other.title,
+        description = description ?: other.description,
+        publishYear = publishYear ?: other.publishYear,
+        publisher = publisher ?: other.publisher,
+        language = language ?: other.language,
+        contributors = contributors + other.contributors,
+    )
+
+/** Names of sidecar contributors with the given [role] (case-insensitive). */
+private fun SidecarMetadata?.contributorNames(role: String): List<String> =
+    this
+        ?.contributors
+        .orEmpty()
+        .filter { it.role.equals(role, ignoreCase = true) }
+        .map { it.name }
 
 private fun EmbeddedSeriesEntry.toContract(): SeriesEntry = SeriesEntry(name = name, sequence = sequence)
 

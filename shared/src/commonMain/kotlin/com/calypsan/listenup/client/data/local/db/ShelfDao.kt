@@ -123,11 +123,11 @@ interface ShelfDao {
      */
     @Query(
         """
-        SELECT b.coverUrl 
-        FROM shelf_books lb 
-        JOIN books b ON lb.bookId = b.id 
-        WHERE lb.shelfId = :shelfId AND b.coverUrl IS NOT NULL
-        ORDER BY lb.addedAt DESC 
+        SELECT b.coverHash
+        FROM shelf_books lb
+        JOIN books b ON lb.bookId = b.id
+        WHERE lb.shelfId = :shelfId AND b.coverHash IS NOT NULL
+        ORDER BY lb.addedAt DESC
         LIMIT 4
     """,
     )

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
@@ -15,6 +16,8 @@ import org.koin.test.verify.verify
  * module's bindings pull in but other modules own:
  *
  *  - [ListenUpDatabase] — owned by `platformDatabaseModule` (provides DAOs).
+ *  - [TransactionRunner] — owned by `repositoryModule` (bound to `RoomTransactionRunner`).
+ *    [BookSyncDomainHandler] routes all multi-DAO writes through this seam.
  *  - [ApiClientFactory] — owned by `networkModule` (the bearer-equipped HttpClient
  *    factory; SSE + catch-up clients use it).
  *  - [ServerConfig] — owned by `dataModule` (segregated interface bound to
@@ -35,6 +38,7 @@ class ClientSyncRenovationModuleVerifyTest :
                 extraTypes =
                     listOf(
                         ListenUpDatabase::class,
+                        TransactionRunner::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
                         CoroutineScope::class,

@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.local.db.ContributorAliasCrossRef
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.util.NanoId
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -171,8 +170,6 @@ class ContributorEditRepository(
                     birthDate = update.birthDate ?: existing.birthDate,
                     deathDate = update.deathDate ?: existing.deathDate,
                     imagePath = update.imagePath ?: existing.imagePath,
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
                 )
 
             val newAliasRows =
@@ -227,11 +224,7 @@ class ContributorEditRepository(
             val newAliasRows =
                 newAliases.map { ContributorAliasCrossRef(ContributorId(targetId), it) }
 
-            val updatedTarget =
-                target.copy(
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
-                )
+            val updatedTarget = target.copy(updatedAt = Timestamp.now())
 
             transactionRunner.atomically {
                 for (relation in sourceRelations) {
@@ -295,9 +288,6 @@ class ContributorEditRepository(
                     name = aliasName,
                     description = null,
                     imagePath = null,
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
-                    serverVersion = null,
                     createdAt = Timestamp.now(),
                     updatedAt = Timestamp.now(),
                     website = null,
@@ -312,11 +302,7 @@ class ContributorEditRepository(
             val updatedAliasRows =
                 updatedAliases.map { ContributorAliasCrossRef(ContributorId(contributorId), it) }
 
-            val updatedContributor =
-                contributor.copy(
-                    syncState = SyncState.NOT_SYNCED,
-                    lastModified = Timestamp.now(),
-                )
+            val updatedContributor = contributor.copy(updatedAt = Timestamp.now())
 
             transactionRunner.atomically {
                 contributorDao.upsert(newContributor)
