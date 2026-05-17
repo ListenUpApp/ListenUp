@@ -30,6 +30,11 @@ mokkery {
     stubs.allowConcreteClassInstantiation.set(true)
 }
 
+composeCompiler {
+    metricsDestination = layout.buildDirectory.dir("compose-metrics")
+    reportsDestination = layout.buildDirectory.dir("compose-reports")
+}
+
 kotlin {
     // Android target using new AGP 9.0-compatible plugin
     androidLibrary {
