@@ -182,8 +182,8 @@ data class SeriesEntity(
  * - The Richard Bachman contributor row is deleted
  * - "Richard Bachman" lands in `contributor_aliases` as a row under Stephen King
  *
- * Future sync: when a book arrives with author "Richard Bachman", the system
- * looks up the junction and links to the canonical contributor instead.
+ * Alias-resolution on sync (linking an incoming book to a canonical contributor
+ * via the junction) is planned for a later phase.
  */
 @Entity(tableName = "contributors")
 data class ContributorEntity(
@@ -194,7 +194,6 @@ data class ContributorEntity(
     val description: String?,
     val imagePath: String?,
     val imageBlurHash: String? = null, // BlurHash placeholder for image
-    // Optional fields - will sync when server supports them
     val website: String? = null,
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")

@@ -28,7 +28,9 @@ fun BookResponse.toEntity(): BookEntity =
         title = title,
         sortTitle = sortTitle,
         subtitle = subtitle,
-        coverHash = null, // TODO(T26): repopulate coverHash from the Books-A sync wire event
+        // coverHash intentionally null here: the legacy BookResponse path is superseded by the
+        // BookService RPC fetch — see the Books-A audit §5.1 (cover-pipeline unification, Books-C).
+        coverHash = null,
         coverBlurHash = coverImage?.blurHash,
         totalDuration = totalDuration,
         description = description,

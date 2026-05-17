@@ -11,14 +11,11 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Room DAO for [BookEntity] operations.
  *
- * Provides both reactive (Flow-based) and one-shot queries for books,
- * with special support for sync operations (pending changes, state updates).
- *
- * All queries respect soft deletes from the server (deletedAt field will be
- * added in future version when full Book model is implemented).
- *
- * Note: Room @Query annotations require compile-time constants, so we use
- * ordinal values with comments instead of ${SyncState.SYNCED.ordinal} templates.
+ * Provides both reactive (Flow-based) and one-shot queries for books.
+ * All queries that return live data respect soft deletes — rows with a non-null
+ * [BookEntity.deletedAt] are treated as tombstones and filtered out.
+ * Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
+ * for local-only cleanup scenarios.
  */
 @Dao
 @Suppress("TooManyFunctions")
@@ -135,10 +132,10 @@ interface BookDao {
     suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors>
 
     /**
-     * Delete a book by ID.
+     * Hard-delete a book row by ID.
      *
-     * Hard delete from local database. Soft deletes from server
-     * (deletedAt field) will be handled differently in future version.
+     * Removes the row entirely. Use [softDelete] for server-originated tombstones,
+     * which retain the row so the sync engine can track deletion state.
      *
      * @param id Type-safe book ID to delete
      */

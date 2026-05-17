@@ -38,18 +38,12 @@ interface SeriesEditRepositoryContract {
 }
 
 /**
- * Repository for series editing operations using offline-first pattern.
+ * Repository for series editing operations using an offline-first pattern.
  *
- * Handles the edit flow:
- * 1. Apply optimistic update to local database (syncState = PENDING)
- * 2. Queue operation for server sync via PendingOperationRepository
- * 3. Return success immediately
- *
- * Server propagation returns when the series sync domain migrates to the renovated engine.
+ * Edits are written to Room immediately and returned as success. The renovated
+ * SSE sync engine propagates the change to the server in the background.
  *
  * @property seriesDao Room DAO for series operations
- * @property pendingOperationRepository Repository for queuing sync operations
- * @property seriesUpdateHandler Handler for series update operations
  */
 class SeriesEditRepository(
     private val seriesDao: SeriesDao,
@@ -58,11 +52,8 @@ class SeriesEditRepository(
     /**
      * Update series metadata.
      *
-     * Flow:
-     * 1. Get existing series from local database
-     * 2. Apply optimistic update with syncState = PENDING
-     * 3. Queue operation (coalesces with any pending update)
-     * 4. Return success immediately
+     * Writes the change to the local Room database and returns success immediately.
+     * The SSE sync engine reconciles the update with the server in the background.
      */
     override suspend fun updateSeries(
         seriesId: String,
