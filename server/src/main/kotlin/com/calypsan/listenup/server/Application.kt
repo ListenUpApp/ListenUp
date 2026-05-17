@@ -93,7 +93,7 @@ fun Application.module() {
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService)
+        rpcRoutes(authService, scannerService, bookService)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
