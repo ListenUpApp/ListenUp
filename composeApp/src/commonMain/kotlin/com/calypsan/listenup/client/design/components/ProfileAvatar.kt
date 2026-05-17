@@ -16,13 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import coil3.compose.LocalPlatformContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -57,7 +56,6 @@ import listenup.composeapp.generated.resources.common_displayname_avatar
  * @param avatarType Optional avatar type ("auto" or "image") - if provided, skips DAO lookup
  * @param avatarValue Optional avatar URL path for image avatars
  * @param size Size of the avatar circle
- * @param fontSize Font size for initials
  * @param modifier Optional modifier
  */
 @Composable
@@ -69,7 +67,6 @@ fun ProfileAvatar(
     avatarType: String? = null,
     avatarValue: String? = null,
     size: Dp = 36.dp,
-    fontSize: TextUnit = 14.sp,
 ) {
     val context = LocalPlatformContext.current
     val userProfileRepository: UserProfileRepository = koinInject()
@@ -146,10 +143,10 @@ fun ProfileAvatar(
         } else if (effectiveAvatarType == "image") {
             // Avatar type is image but file not yet downloaded - show placeholder
             // This handles the race condition where profile is updated before download completes
-            InitialsAvatar(initials = initials, color = color, size = size, fontSize = fontSize)
+            InitialsAvatar(initials = initials, color = color, size = size)
         } else {
             // Auto-generated avatar with initials
-            InitialsAvatar(initials = initials, color = color, size = size, fontSize = fontSize)
+            InitialsAvatar(initials = initials, color = color, size = size)
         }
     }
 }
@@ -175,15 +172,23 @@ private fun parseAvatarColor(hexColor: String): Color =
 
 /**
  * Simple initials avatar.
+ *
+ * Font size is derived from the physical circle size (dp → px → sp) so that it
+ * stays proportional to the circle at any user font-scale setting.  A raw `sp`
+ * value would scale with font scale and overflow the fixed-size circle at 200%.
  */
 @Composable
 private fun InitialsAvatar(
     initials: String,
     color: Color,
     size: Dp,
-    fontSize: TextUnit,
     modifier: Modifier = Modifier,
 ) {
+    // Derive font size from physical pixels so it stays inside the circle regardless
+    // of the user's font scale setting.  ~38% of the circle diameter is a good fit
+    // for two-character initials at all sizes.
+    val derivedFontSize = with(LocalDensity.current) { (size.toPx() * 0.38f).toSp() }
+
     Box(
         modifier =
             modifier
@@ -194,7 +199,7 @@ private fun InitialsAvatar(
         Text(
             text = initials,
             color = Color.White,
-            fontSize = fontSize,
+            fontSize = derivedFontSize,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )

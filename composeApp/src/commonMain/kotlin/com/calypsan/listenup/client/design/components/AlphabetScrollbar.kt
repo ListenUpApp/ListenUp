@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -289,7 +293,12 @@ fun AlphabetScrollbar(
                 .fillMaxHeight()
                 .offset(x = slideOffset)
                 .alpha(alpha)
-                .onSizeChanged { size ->
+                .semantics {
+                    contentDescription = "Alphabet scrollbar"
+                    selectedLetter?.let { letter ->
+                        stateDescription = "Letter $letter"
+                    }
+                }.onSizeChanged { size ->
                     containerHeightPx = size.height.toFloat()
                 },
     ) {
@@ -328,6 +337,10 @@ fun AlphabetScrollbar(
         Column(
             modifier =
                 Modifier
+                    // Enforce 48dp min-width so the touch target meets the a11y minimum
+                    // even on short letter lists. Visual appearance unchanged — the
+                    // letters are centred inside the wider clip area.
+                    .defaultMinSize(minWidth = 48.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isInteracting) {
