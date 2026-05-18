@@ -1,15 +1,8 @@
 import SwiftUI
-import Shared
 
-/// Coordinates the authentication flow using state-driven navigation.
-///
-/// Flow: Login ↔ Register (bidirectional)
-///
-/// When login/register succeeds, the Kotlin layer updates AuthState to .authenticated,
-/// which automatically transitions the app to the main view.
-/// **No onLoginSuccess callback needed.**
+/// Coordinates the auth flow: Login ↔ Register. On success the KMP layer moves
+/// `AuthState` to `.authenticated`, which transitions the app — no success callback.
 struct AuthFlowCoordinator: View {
-
     let openRegistration: Bool
 
     @State private var showingRegister = false
@@ -20,20 +13,14 @@ struct AuthFlowCoordinator: View {
                 .navigationDestination(isPresented: $showingRegister) {
                     RegisterView()
                 }
-                .environment(\.navigateToRegister) {
-                    showingRegister = true
-                }
-                .environment(\.navigateBack) {
-                    showingRegister = false
-                }
+                .environment(\.navigateToRegister) { showingRegister = true }
+                .environment(\.navigateBack) { showingRegister = false }
         }
     }
 }
 
-// MARK: - Navigation Environment Keys
+// MARK: - Navigation environment keys
 
-/// Environment key for navigating to register screen.
-/// Cleaner than passing closures through init.
 private struct NavigateToRegisterKey: EnvironmentKey {
     static let defaultValue: () -> Void = {}
 }
@@ -47,7 +34,6 @@ extension EnvironmentValues {
         get { self[NavigateToRegisterKey.self] }
         set { self[NavigateToRegisterKey.self] = newValue }
     }
-
     var navigateBack: () -> Void {
         get { self[NavigateBackKey.self] }
         set { self[NavigateBackKey.self] = newValue }
