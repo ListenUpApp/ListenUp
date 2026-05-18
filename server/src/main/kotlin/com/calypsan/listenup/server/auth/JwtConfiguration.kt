@@ -18,8 +18,7 @@ import kotlin.time.ExperimentalTime
 /** Adapts the injected kotlin.time.Clock to the java.time.Clock that com.auth0:java-jwt requires. */
 private fun Clock.asJavaClock(): java.time.Clock =
     object : java.time.Clock() {
-        override fun instant(): java.time.Instant =
-            java.time.Instant.ofEpochMilli(now().toEpochMilliseconds())
+        override fun instant(): java.time.Instant = java.time.Instant.ofEpochMilli(now().toEpochMilliseconds())
 
         override fun getZone(): java.time.ZoneId = java.time.ZoneOffset.UTC
 

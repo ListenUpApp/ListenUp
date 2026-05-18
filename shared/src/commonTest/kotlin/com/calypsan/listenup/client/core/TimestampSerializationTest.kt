@@ -29,4 +29,6 @@ class TimestampSerializationTest :
     })
 
 @Serializable
-private data class TimestampHolder(val at: Timestamp)
+private data class TimestampHolder(
+    val at: Timestamp,
+)

@@ -483,7 +483,8 @@ private fun BackupCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             val localDateTime =
-                Instant.fromEpochMilliseconds(backup.createdAt.epochMillis)
+                Instant
+                    .fromEpochMilliseconds(backup.createdAt.epochMillis)
                     .toLocalDateTime(TimeZone.currentSystemDefault())
             val timeStr = "${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')}"
             Text(
