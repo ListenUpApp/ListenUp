@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 
 /**
  * Domain model for a backup file.
@@ -9,7 +9,7 @@ data class BackupInfo(
     val id: String,
     val path: String,
     val size: Long,
-    val createdAt: Instant,
+    val createdAt: Timestamp,
     val checksum: String? = null,
 ) {
     /**

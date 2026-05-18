@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.calypsan.listenup.client.core.Timestamp
 import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
@@ -233,14 +234,14 @@ class AdminBackupViewModel(
             size = size,
             createdAt =
                 try {
-                    Instant.parse(createdAt)
+                    Timestamp(Instant.parse(createdAt).toEpochMilliseconds())
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     // Date parsing is not an API call — keep try/catch for this non-API failure.
-                    // Use DISTANT_PAST as graceful fallback so the backup still appears in list.
-                    logger.warn(e) { "Failed to parse backup date '$createdAt', using DISTANT_PAST" }
-                    Instant.DISTANT_PAST
+                    // Use epoch as graceful fallback so the backup still appears in list.
+                    logger.warn(e) { "Failed to parse backup date '$createdAt', using epoch" }
+                    Timestamp(0L)
                 },
             checksum = checksum,
         )
