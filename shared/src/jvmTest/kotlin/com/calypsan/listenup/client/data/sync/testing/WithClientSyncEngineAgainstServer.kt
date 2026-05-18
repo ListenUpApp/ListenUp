@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
+import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
@@ -210,6 +211,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     catchUp = catchUp,
                     sseClient = sseClient,
                     dispatcher = dispatcher,
+                    downloadRepository = FakeDownloadRepository(),
                     scope = clientScope,
                 )
             engineRef = engine

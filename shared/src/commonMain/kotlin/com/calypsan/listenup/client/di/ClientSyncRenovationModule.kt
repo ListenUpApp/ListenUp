@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -112,6 +113,7 @@ val clientSyncRenovationModule =
                 catchUp = get(),
                 sseClient = get(),
                 dispatcher = get(),
+                downloadRepository = get<DownloadRepository>(),
                 scope = get(qualifier = named("appScope")),
             )
         }

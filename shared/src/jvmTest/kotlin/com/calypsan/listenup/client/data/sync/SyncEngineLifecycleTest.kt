@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -87,6 +88,7 @@ class SyncEngineLifecycleTest :
                         catchUp = fakeCatchUp,
                         sseClient = fakeSse,
                         dispatcher = dispatcher,
+                        downloadRepository = FakeDownloadRepository(),
                         scope = backgroundScope,
                     )
 
@@ -127,6 +129,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
+                        downloadRepository = FakeDownloadRepository(),
                         scope = backgroundScope,
                     )
                 engine.start(currentUserId = "u2")
@@ -184,6 +187,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
+                        downloadRepository = FakeDownloadRepository(),
                         scope = backgroundScope,
                     )
 
@@ -265,6 +269,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { _, _ -> },
                             ),
+                        downloadRepository = FakeDownloadRepository(),
                         scope = backgroundScope,
                     )
 
