@@ -25,8 +25,7 @@ class UserDomainSeeder(
     override val domainName: String = "user"
     override val order: Int = 0
 
-    override suspend fun isAlreadySeeded(): Boolean =
-        suspendTransaction(db) { !UserEntity.all().limit(1).empty() }
+    override suspend fun isAlreadySeeded(): Boolean = suspendTransaction(db) { !UserEntity.all().limit(1).empty() }
 
     override suspend fun seed() {
         val result =
@@ -38,9 +37,13 @@ class UserDomainSeeder(
                 ),
             )
         when (result) {
-            is AppResult.Success -> logger.info { "seed: demo user '$DEMO_EMAIL' created" }
-            is AppResult.Failure ->
+            is AppResult.Success -> {
+                logger.info { "seed: demo user '$DEMO_EMAIL' created" }
+            }
+
+            is AppResult.Failure -> {
                 logger.warn { "seed: demo user not created — ${result.error.code}" }
+            }
         }
     }
 
