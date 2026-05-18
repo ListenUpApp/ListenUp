@@ -15,12 +15,11 @@ import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Tests for LoadBookForEditUseCase.
@@ -34,525 +33,527 @@ import kotlin.test.assertTrue
  * - Tag loading (all and for book)
  * - Error handling for genre/tag loading failures
  */
-class LoadBookForEditUseCaseTest {
-    // ========== Test Fixtures ==========
+class LoadBookForEditUseCaseTest :
+    FunSpec({
 
-    private class TestFixture {
-        val bookRepository: BookRepository = mock()
-        val genreRepository: GenreRepository = mock()
-        val tagRepository: TagRepository = mock()
+        // ========== Test Fixtures ==========
 
-        fun build(): LoadBookForEditUseCase =
-            LoadBookForEditUseCase(
-                bookRepository = bookRepository,
-                genreRepository = genreRepository,
-                tagRepository = tagRepository,
-            )
-    }
+        class TestFixture {
+            val bookRepository: BookRepository = mock()
+            val genreRepository: GenreRepository = mock()
+            val tagRepository: TagRepository = mock()
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-
-        // Default stubs for successful operations
-        everySuspend { fixture.genreRepository.getAll() } returns emptyList()
-        everySuspend { fixture.genreRepository.getGenresForBook(any()) } returns emptyList()
-        everySuspend { fixture.tagRepository.getAll() } returns emptyList()
-        everySuspend { fixture.tagRepository.getTagsForBook(any()) } returns emptyList()
-
-        return fixture
-    }
-
-    // ========== Book Not Found Tests ==========
-
-    @Test
-    fun `returns not found error when book does not exist`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("nonexistent") } returns null
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase("nonexistent")
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
-            assertTrue(failure.message.contains("not found", ignoreCase = true))
-        }
-
-    // ========== Metadata Transformation Tests ==========
-
-    @Test
-    fun `transforms book metadata correctly`() =
-        runTest {
-            // Given
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    title = "The Great Gatsby",
-                    subtitle = "A Novel",
-                    description = "Jazz Age story",
-                    publishYear = 1925,
-                    publisher = "Scribner",
-                    language = "en",
-                    isbn = "978-0743273565",
-                    asin = "B000FC0PDA",
-                    abridged = false,
+            fun build(): LoadBookForEditUseCase =
+                LoadBookForEditUseCase(
+                    bookRepository = bookRepository,
+                    genreRepository = genreRepository,
+                    tagRepository = tagRepository,
                 )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase("book-1")
-
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            assertEquals("book-1", editData.bookId)
-            assertEquals("The Great Gatsby", editData.metadata.title)
-            assertEquals("A Novel", editData.metadata.subtitle)
-            assertEquals("Jazz Age story", editData.metadata.description)
-            assertEquals("1925", editData.metadata.publishYear)
-            assertEquals("Scribner", editData.metadata.publisher)
-            assertEquals("en", editData.metadata.language)
-            assertEquals("978-0743273565", editData.metadata.isbn)
-            assertEquals("B000FC0PDA", editData.metadata.asin)
-            assertEquals(false, editData.metadata.abridged)
         }
 
-    @Test
-    fun `handles null optional fields with empty strings`() =
-        runTest {
-            // Given
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    title = "Minimal Book",
-                    subtitle = null,
-                    description = null,
-                    publishYear = null,
-                    publisher = null,
-                    language = null,
-                    isbn = null,
-                    asin = null,
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        fun createFixture(): TestFixture {
+            val fixture = TestFixture()
 
-            // When
-            val result = useCase("book-1")
+            // Default stubs for successful operations
+            everySuspend { fixture.genreRepository.getAll() } returns emptyList()
+            everySuspend { fixture.genreRepository.getGenresForBook(any()) } returns emptyList()
+            everySuspend { fixture.tagRepository.getAll() } returns emptyList()
+            everySuspend { fixture.tagRepository.getTagsForBook(any()) } returns emptyList()
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            assertEquals("", editData.metadata.subtitle)
-            assertEquals("", editData.metadata.description)
-            assertEquals("", editData.metadata.publishYear)
-            assertEquals("", editData.metadata.publisher)
-            assertEquals(null, editData.metadata.language)
-            assertEquals("", editData.metadata.isbn)
-            assertEquals("", editData.metadata.asin)
+            return fixture
         }
 
-    // ========== Contributor Transformation Tests ==========
+        // ========== Book Not Found Tests ==========
 
-    @Test
-    fun `transforms contributors to editable format with roles`() =
-        runTest {
-            // Given
-            val author = TestData.contributor(id = "c1", name = "Jane Austen", roles = listOf("Author"))
-            val narrator = TestData.contributor(id = "c2", name = "Rosamund Pike", roles = listOf("Narrator"))
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    allContributors = listOf(author, narrator),
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        test("returns not found error when book does not exist") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("nonexistent") } returns null
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("nonexistent")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            assertEquals(2, editData.contributors.size)
-
-            val editableAuthor = editData.contributors.find { it.id == "c1" }
-            assertNotNull(editableAuthor)
-            assertEquals("Jane Austen", editableAuthor.name)
-            assertTrue(editableAuthor.roles.contains(ContributorRole.AUTHOR))
-
-            val editableNarrator = editData.contributors.find { it.id == "c2" }
-            assertNotNull(editableNarrator)
-            assertEquals("Rosamund Pike", editableNarrator.name)
-            assertTrue(editableNarrator.roles.contains(ContributorRole.NARRATOR))
+                // Then
+                val failure = result.shouldBeInstanceOf<Failure>()
+                failure.error.shouldBeInstanceOf<com.calypsan.listenup.api.error.ValidationError>()
+                (failure.message.contains("not found", ignoreCase = true)) shouldBe true
+            }
         }
 
-    @Test
-    fun `handles contributors with multiple roles`() =
-        runTest {
-            // Given
-            val multiRoleContributor =
-                TestData.contributor(
-                    id = "c1",
-                    name = "Neil Gaiman",
-                    roles = listOf("Author", "Narrator"),
-                )
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    allContributors = listOf(multiRoleContributor),
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        // ========== Metadata Transformation Tests ==========
 
-            // When
-            val result = useCase("book-1")
+        test("transforms book metadata correctly") {
+            runTest {
+                // Given
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        title = "The Great Gatsby",
+                        subtitle = "A Novel",
+                        description = "Jazz Age story",
+                        publishYear = 1925,
+                        publisher = "Scribner",
+                        language = "en",
+                        isbn = "978-0743273565",
+                        asin = "B000FC0PDA",
+                        abridged = false,
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // When
+                val result = useCase("book-1")
 
-            assertEquals(1, editData.contributors.size)
-            val contributor = editData.contributors.first()
-            assertEquals(2, contributor.roles.size)
-            assertTrue(contributor.roles.contains(ContributorRole.AUTHOR))
-            assertTrue(contributor.roles.contains(ContributorRole.NARRATOR))
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.bookId shouldBe "book-1"
+                editData.metadata.title shouldBe "The Great Gatsby"
+                editData.metadata.subtitle shouldBe "A Novel"
+                editData.metadata.description shouldBe "Jazz Age story"
+                editData.metadata.publishYear shouldBe "1925"
+                editData.metadata.publisher shouldBe "Scribner"
+                editData.metadata.language shouldBe "en"
+                editData.metadata.isbn shouldBe "978-0743273565"
+                editData.metadata.asin shouldBe "B000FC0PDA"
+                editData.metadata.abridged shouldBe false
+            }
         }
 
-    // ========== Series Transformation Tests ==========
+        test("handles null optional fields with empty strings") {
+            runTest {
+                // Given
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        title = "Minimal Book",
+                        subtitle = null,
+                        description = null,
+                        publishYear = null,
+                        publisher = null,
+                        language = null,
+                        isbn = null,
+                        asin = null,
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-    @Test
-    fun `transforms series to editable format`() =
-        runTest {
-            // Given
-            val book =
-                TestData.bookInSeries(
-                    id = "book-1",
-                    title = "The Fellowship of the Ring",
-                    seriesId = "lotr-series",
-                    seriesName = "The Lord of the Rings",
-                    seriesSequence = "1",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+                // When
+                val result = useCase("book-1")
 
-            // When
-            val result = useCase("book-1")
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            assertEquals(1, editData.series.size)
-            val series = editData.series.first()
-            assertEquals("lotr-series", series.id)
-            assertEquals("The Lord of the Rings", series.name)
-            assertEquals("1", series.sequence)
+                editData.metadata.subtitle shouldBe ""
+                editData.metadata.description shouldBe ""
+                editData.metadata.publishYear shouldBe ""
+                editData.metadata.publisher shouldBe ""
+                editData.metadata.language shouldBe null
+                editData.metadata.isbn shouldBe ""
+                editData.metadata.asin shouldBe ""
+            }
         }
 
-    @Test
-    fun `handles book with no series`() =
-        runTest {
-            // Given
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        // ========== Contributor Transformation Tests ==========
 
-            // When
-            val result = useCase("book-1")
+        test("transforms contributors to editable format with roles") {
+            runTest {
+                // Given
+                val author = TestData.contributor(id = "c1", name = "Jane Austen", roles = listOf("Author"))
+                val narrator = TestData.contributor(id = "c2", name = "Rosamund Pike", roles = listOf("Narrator"))
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        allContributors = listOf(author, narrator),
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // When
+                val result = useCase("book-1")
 
-            assertTrue(editData.series.isEmpty())
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.contributors.size shouldBe 2
+
+                val editableAuthor = editData.contributors.find { it.id == "c1" }
+                editableAuthor.shouldNotBeNull()
+                editableAuthor.name shouldBe "Jane Austen"
+                (editableAuthor.roles.contains(ContributorRole.AUTHOR)) shouldBe true
+
+                val editableNarrator = editData.contributors.find { it.id == "c2" }
+                editableNarrator.shouldNotBeNull()
+                editableNarrator.name shouldBe "Rosamund Pike"
+                (editableNarrator.roles.contains(ContributorRole.NARRATOR)) shouldBe true
+            }
         }
 
-    // ========== Genre Loading Tests ==========
+        test("handles contributors with multiple roles") {
+            runTest {
+                // Given
+                val multiRoleContributor =
+                    TestData.contributor(
+                        id = "c1",
+                        name = "Neil Gaiman",
+                        roles = listOf("Author", "Narrator"),
+                    )
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        allContributors = listOf(multiRoleContributor),
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-    @Test
-    fun `loads all genres for picker`() =
-        runTest {
-            // Given
-            val allGenres =
-                listOf(
-                    TestData.genre(id = "g1", name = "Fiction", path = "/fiction"),
-                    TestData.genre(id = "g2", name = "Mystery", path = "/mystery"),
-                    TestData.genre(id = "g3", name = "Romance", path = "/romance"),
-                )
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.genreRepository.getAll() } returns allGenres
-            val useCase = fixture.build()
+                // When
+                val result = useCase("book-1")
 
-            // When
-            val result = useCase("book-1")
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            assertEquals(3, editData.allGenres.size)
-            assertTrue(editData.allGenres.any { it.id == "g1" && it.name == "Fiction" })
-            assertTrue(editData.allGenres.any { it.id == "g2" && it.name == "Mystery" })
-            assertTrue(editData.allGenres.any { it.id == "g3" && it.name == "Romance" })
+                editData.contributors.size shouldBe 1
+                val contributor = editData.contributors.first()
+                contributor.roles.size shouldBe 2
+                (contributor.roles.contains(ContributorRole.AUTHOR)) shouldBe true
+                (contributor.roles.contains(ContributorRole.NARRATOR)) shouldBe true
+            }
         }
 
-    @Test
-    fun `loads genres assigned to book`() =
-        runTest {
-            // Given
-            val bookGenres =
-                listOf(
-                    TestData.genre(id = "g1", name = "Fiction", path = "/fiction"),
-                )
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.genreRepository.getGenresForBook("book-1") } returns bookGenres
-            val useCase = fixture.build()
+        // ========== Series Transformation Tests ==========
 
-            // When
-            val result = useCase("book-1")
+        test("transforms series to editable format") {
+            runTest {
+                // Given
+                val book =
+                    TestData.bookInSeries(
+                        id = "book-1",
+                        title = "The Fellowship of the Ring",
+                        seriesId = "lotr-series",
+                        seriesName = "The Lord of the Rings",
+                        seriesSequence = "1",
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // When
+                val result = useCase("book-1")
 
-            assertEquals(1, editData.genres.size)
-            assertEquals("g1", editData.genres.first().id)
-            assertEquals("Fiction", editData.genres.first().name)
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.series.size shouldBe 1
+                val series = editData.series.first()
+                series.id shouldBe "lotr-series"
+                series.name shouldBe "The Lord of the Rings"
+                series.sequence shouldBe "1"
+            }
         }
 
-    @Test
-    fun `returns empty genres when genre loading fails`() =
-        runTest {
-            // Given
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.genreRepository.getAll() } throws Exception("Network error")
-            everySuspend { fixture.genreRepository.getGenresForBook(any()) } throws Exception("Network error")
-            val useCase = fixture.build()
+        test("handles book with no series") {
+            runTest {
+                // Given
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then - should still succeed, just with empty genres
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertTrue(editData.allGenres.isEmpty())
-            assertTrue(editData.genres.isEmpty())
+                editData.series.isEmpty() shouldBe true
+            }
         }
 
-    // ========== Tag Loading Tests ==========
+        // ========== Genre Loading Tests ==========
 
-    @Test
-    fun `loads all tags for picker`() =
-        runTest {
-            // Given
-            val allTags =
-                listOf(
-                    TestData.tag(id = "t1", slug = "favorites"),
-                    TestData.tag(id = "t2", slug = "to-read"),
-                    TestData.tag(id = "t3", slug = "completed"),
-                )
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.tagRepository.getAll() } returns allTags
-            val useCase = fixture.build()
+        test("loads all genres for picker") {
+            runTest {
+                // Given
+                val allGenres =
+                    listOf(
+                        TestData.genre(id = "g1", name = "Fiction", path = "/fiction"),
+                        TestData.genre(id = "g2", name = "Mystery", path = "/mystery"),
+                        TestData.genre(id = "g3", name = "Romance", path = "/romance"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.genreRepository.getAll() } returns allGenres
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertEquals(3, editData.allTags.size)
-            assertTrue(editData.allTags.any { it.id == "t1" && it.slug == "favorites" })
-            assertTrue(editData.allTags.any { it.id == "t2" && it.slug == "to-read" })
-            assertTrue(editData.allTags.any { it.id == "t3" && it.slug == "completed" })
+                editData.allGenres.size shouldBe 3
+                (editData.allGenres.any { it.id == "g1" && it.name == "Fiction" }) shouldBe true
+                (editData.allGenres.any { it.id == "g2" && it.name == "Mystery" }) shouldBe true
+                (editData.allGenres.any { it.id == "g3" && it.name == "Romance" }) shouldBe true
+            }
         }
 
-    @Test
-    fun `loads tags assigned to book`() =
-        runTest {
-            // Given
-            val bookTags =
-                listOf(
-                    TestData.tag(id = "t1", slug = "favorites"),
-                )
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.tagRepository.getTagsForBook("book-1") } returns bookTags
-            val useCase = fixture.build()
+        test("loads genres assigned to book") {
+            runTest {
+                // Given
+                val bookGenres =
+                    listOf(
+                        TestData.genre(id = "g1", name = "Fiction", path = "/fiction"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.genreRepository.getGenresForBook("book-1") } returns bookGenres
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertEquals(1, editData.tags.size)
-            assertEquals("t1", editData.tags.first().id)
-            assertEquals("favorites", editData.tags.first().slug)
+                editData.genres.size shouldBe 1
+                editData.genres.first().id shouldBe "g1"
+                editData.genres.first().name shouldBe "Fiction"
+            }
         }
 
-    @Test
-    fun `returns empty tags when tag loading fails`() =
-        runTest {
-            // Given
-            val book = TestData.bookDetail(id = "book-1")
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            everySuspend { fixture.tagRepository.getAll() } throws Exception("Network error")
-            everySuspend { fixture.tagRepository.getTagsForBook(any()) } throws Exception("Network error")
-            val useCase = fixture.build()
+        test("returns empty genres when genre loading fails") {
+            runTest {
+                // Given
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.genreRepository.getAll() } throws Exception("Network error")
+                everySuspend { fixture.genreRepository.getGenresForBook(any()) } throws Exception("Network error")
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then - should still succeed, just with empty tags
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then - should still succeed, just with empty genres
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertTrue(editData.allTags.isEmpty())
-            assertTrue(editData.tags.isEmpty())
+                editData.allGenres.isEmpty() shouldBe true
+                editData.genres.isEmpty() shouldBe true
+            }
         }
 
-    // ========== Cover Path Tests ==========
+        // ========== Tag Loading Tests ==========
 
-    @Test
-    fun `includes cover path from book`() =
-        runTest {
-            // Given
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    coverPath = "/covers/great-gatsby.jpg",
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        test("loads all tags for picker") {
+            runTest {
+                // Given
+                val allTags =
+                    listOf(
+                        TestData.tag(id = "t1", slug = "favorites"),
+                        TestData.tag(id = "t2", slug = "to-read"),
+                        TestData.tag(id = "t3", slug = "completed"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.tagRepository.getAll() } returns allTags
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertEquals("/covers/great-gatsby.jpg", editData.coverPath)
+                editData.allTags.size shouldBe 3
+                (editData.allTags.any { it.id == "t1" && it.slug == "favorites" }) shouldBe true
+                (editData.allTags.any { it.id == "t2" && it.slug == "to-read" }) shouldBe true
+                (editData.allTags.any { it.id == "t3" && it.slug == "completed" }) shouldBe true
+            }
         }
 
-    @Test
-    fun `handles null cover path`() =
-        runTest {
-            // Given
-            val book =
-                TestData.bookDetail(
-                    id = "book-1",
-                    coverPath = null,
-                )
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-            val useCase = fixture.build()
+        test("loads tags assigned to book") {
+            runTest {
+                // Given
+                val bookTags =
+                    listOf(
+                        TestData.tag(id = "t1", slug = "favorites"),
+                    )
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.tagRepository.getTagsForBook("book-1") } returns bookTags
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase("book-1")
+                // When
+                val result = useCase("book-1")
 
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            assertEquals(null, editData.coverPath)
+                editData.tags.size shouldBe 1
+                editData.tags.first().id shouldBe "t1"
+                editData.tags.first().slug shouldBe "favorites"
+            }
         }
 
-    // ========== Full Integration Test ==========
+        test("returns empty tags when tag loading fails") {
+            runTest {
+                // Given
+                val book = TestData.bookDetail(id = "book-1")
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                everySuspend { fixture.tagRepository.getAll() } throws Exception("Network error")
+                everySuspend { fixture.tagRepository.getTagsForBook(any()) } throws Exception("Network error")
+                val useCase = fixture.build()
 
-    @Test
-    fun `loads complete book edit data`() =
-        runTest {
-            // Given - a fully populated book with all data
-            val author = TestData.contributor(id = "c1", name = "Brandon Sanderson", roles = listOf("Author"))
-            val narrator = TestData.contributor(id = "c2", name = "Michael Kramer", roles = listOf("Narrator"))
-            val book =
-                TestData.bookDetail(
-                    id = "stormlight-1",
-                    title = "The Way of Kings",
-                    subtitle = "Book One of The Stormlight Archive",
-                    description = "Epic fantasy at its finest",
-                    publishYear = 2010,
-                    publisher = "Tor Books",
-                    language = "en",
-                    isbn = "978-0765326355",
-                    asin = "B003P2WO5E",
-                    abridged = false,
-                    seriesId = "stormlight",
-                    seriesName = "The Stormlight Archive",
-                    seriesSequence = "1",
-                    allContributors = listOf(author, narrator),
-                    coverPath = "/covers/way-of-kings.jpg",
-                )
-            val allGenres =
-                listOf(
-                    TestData.genre(id = "g1", name = "Fantasy", path = "/fantasy"),
-                    TestData.genre(id = "g2", name = "Epic Fantasy", path = "/fantasy/epic"),
-                )
-            val bookGenres = listOf(allGenres[1])
-            val allTags =
-                listOf(
-                    TestData.tag(id = "t1", slug = "favorites"),
-                    TestData.tag(id = "t2", slug = "to-read"),
-                )
-            val bookTags = listOf(allTags[0])
+                // When
+                val result = useCase("book-1")
 
-            val fixture = createFixture()
-            everySuspend { fixture.bookRepository.getBookDetail("stormlight-1") } returns book
-            everySuspend { fixture.genreRepository.getAll() } returns allGenres
-            everySuspend { fixture.genreRepository.getGenresForBook("stormlight-1") } returns bookGenres
-            everySuspend { fixture.tagRepository.getAll() } returns allTags
-            everySuspend { fixture.tagRepository.getTagsForBook("stormlight-1") } returns bookTags
-            val useCase = fixture.build()
+                // Then - should still succeed, just with empty tags
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
-            // When
-            val result = useCase("stormlight-1")
-
-            // Then
-            val success = assertIs<Success<*>>(result)
-            val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
-
-            // Verify all data is present
-            assertEquals("stormlight-1", editData.bookId)
-            assertEquals("The Way of Kings", editData.metadata.title)
-            assertEquals("Book One of The Stormlight Archive", editData.metadata.subtitle)
-            assertEquals(2, editData.contributors.size)
-            assertEquals(1, editData.series.size)
-            assertEquals("The Stormlight Archive", editData.series.first().name)
-            assertEquals(2, editData.allGenres.size)
-            assertEquals(1, editData.genres.size)
-            assertEquals("Epic Fantasy", editData.genres.first().name)
-            assertEquals(2, editData.allTags.size)
-            assertEquals(1, editData.tags.size)
-            assertEquals("favorites", editData.tags.first().slug)
-            assertEquals("/covers/way-of-kings.jpg", editData.coverPath)
+                editData.allTags.isEmpty() shouldBe true
+                editData.tags.isEmpty() shouldBe true
+            }
         }
-}
+
+        // ========== Cover Path Tests ==========
+
+        test("includes cover path from book") {
+            runTest {
+                // Given
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        coverPath = "/covers/great-gatsby.jpg",
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("book-1")
+
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.coverPath shouldBe "/covers/great-gatsby.jpg"
+            }
+        }
+
+        test("handles null cover path") {
+            runTest {
+                // Given
+                val book =
+                    TestData.bookDetail(
+                        id = "book-1",
+                        coverPath = null,
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("book-1")
+
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                editData.coverPath shouldBe null
+            }
+        }
+
+        // ========== Full Integration Test ==========
+
+        test("loads complete book edit data") {
+            runTest {
+                // Given - a fully populated book with all data
+                val author = TestData.contributor(id = "c1", name = "Brandon Sanderson", roles = listOf("Author"))
+                val narrator = TestData.contributor(id = "c2", name = "Michael Kramer", roles = listOf("Narrator"))
+                val book =
+                    TestData.bookDetail(
+                        id = "stormlight-1",
+                        title = "The Way of Kings",
+                        subtitle = "Book One of The Stormlight Archive",
+                        description = "Epic fantasy at its finest",
+                        publishYear = 2010,
+                        publisher = "Tor Books",
+                        language = "en",
+                        isbn = "978-0765326355",
+                        asin = "B003P2WO5E",
+                        abridged = false,
+                        seriesId = "stormlight",
+                        seriesName = "The Stormlight Archive",
+                        seriesSequence = "1",
+                        allContributors = listOf(author, narrator),
+                        coverPath = "/covers/way-of-kings.jpg",
+                    )
+                val allGenres =
+                    listOf(
+                        TestData.genre(id = "g1", name = "Fantasy", path = "/fantasy"),
+                        TestData.genre(id = "g2", name = "Epic Fantasy", path = "/fantasy/epic"),
+                    )
+                val bookGenres = listOf(allGenres[1])
+                val allTags =
+                    listOf(
+                        TestData.tag(id = "t1", slug = "favorites"),
+                        TestData.tag(id = "t2", slug = "to-read"),
+                    )
+                val bookTags = listOf(allTags[0])
+
+                val fixture = createFixture()
+                everySuspend { fixture.bookRepository.getBookDetail("stormlight-1") } returns book
+                everySuspend { fixture.genreRepository.getAll() } returns allGenres
+                everySuspend { fixture.genreRepository.getGenresForBook("stormlight-1") } returns bookGenres
+                everySuspend { fixture.tagRepository.getAll() } returns allTags
+                everySuspend { fixture.tagRepository.getTagsForBook("stormlight-1") } returns bookTags
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase("stormlight-1")
+
+                // Then
+                val success = result.shouldBeInstanceOf<Success<*>>()
+                val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
+
+                // Verify all data is present
+                editData.bookId shouldBe "stormlight-1"
+                editData.metadata.title shouldBe "The Way of Kings"
+                editData.metadata.subtitle shouldBe "Book One of The Stormlight Archive"
+                editData.contributors.size shouldBe 2
+                editData.series.size shouldBe 1
+                editData.series.first().name shouldBe "The Stormlight Archive"
+                editData.allGenres.size shouldBe 2
+                editData.genres.size shouldBe 1
+                editData.genres.first().name shouldBe "Epic Fantasy"
+                editData.allTags.size shouldBe 2
+                editData.tags.size shouldBe 1
+                editData.tags.first().slug shouldBe "favorites"
+                editData.coverPath shouldBe "/covers/way-of-kings.jpg"
+            }
+        }
+    })

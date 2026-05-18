@@ -20,6 +20,9 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,12 +31,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
 
 /**
  * Tests for LibraryActionsViewModel.
@@ -51,435 +48,435 @@ import kotlin.test.assertIs
  * Uses Mokkery for mocking dependencies.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class LibraryActionsViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class LibraryActionsViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixtures ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val selectionManager = LibrarySelectionManager()
-        val userRepository: UserRepository = mock()
-        val collectionRepository: CollectionRepository = mock()
-        val shelfRepository: ShelfRepository = mock()
-        val addBooksToCollectionUseCase: AddBooksToCollectionUseCase = mock()
-        val refreshCollectionsUseCase: RefreshCollectionsUseCase = mock()
-        val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
-        val createShelfUseCase: CreateShelfUseCase = mock()
+        // ========== Test Fixtures ==========
 
-        val userFlow = MutableStateFlow<User?>(null)
-        val collectionsFlow = MutableStateFlow<List<Collection>>(emptyList())
-        val shelvesFlow = MutableStateFlow<List<Shelf>>(emptyList())
+        class TestFixture {
+            val selectionManager = LibrarySelectionManager()
+            val userRepository: UserRepository = mock()
+            val collectionRepository: CollectionRepository = mock()
+            val shelfRepository: ShelfRepository = mock()
+            val addBooksToCollectionUseCase: AddBooksToCollectionUseCase = mock()
+            val refreshCollectionsUseCase: RefreshCollectionsUseCase = mock()
+            val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
+            val createShelfUseCase: CreateShelfUseCase = mock()
 
-        fun build(): LibraryActionsViewModel =
-            LibraryActionsViewModel(
-                selectionManager = selectionManager,
-                userRepository = userRepository,
-                collectionRepository = collectionRepository,
-                shelfRepository = shelfRepository,
-                addBooksToCollectionUseCase = addBooksToCollectionUseCase,
-                refreshCollectionsUseCase = refreshCollectionsUseCase,
-                addBooksToShelfUseCase = addBooksToShelfUseCase,
-                createShelfUseCase = createShelfUseCase,
+            val userFlow = MutableStateFlow<User?>(null)
+            val collectionsFlow = MutableStateFlow<List<Collection>>(emptyList())
+            val shelvesFlow = MutableStateFlow<List<Shelf>>(emptyList())
+
+            fun build(): LibraryActionsViewModel =
+                LibraryActionsViewModel(
+                    selectionManager = selectionManager,
+                    userRepository = userRepository,
+                    collectionRepository = collectionRepository,
+                    shelfRepository = shelfRepository,
+                    addBooksToCollectionUseCase = addBooksToCollectionUseCase,
+                    refreshCollectionsUseCase = refreshCollectionsUseCase,
+                    addBooksToShelfUseCase = addBooksToShelfUseCase,
+                    createShelfUseCase = createShelfUseCase,
+                )
+        }
+
+        fun createFixture(): TestFixture {
+            val fixture = TestFixture()
+
+            // Default stubs for reactive observation
+            every { fixture.userRepository.observeCurrentUser() } returns fixture.userFlow
+            every { fixture.collectionRepository.observeAll() } returns fixture.collectionsFlow
+            every { fixture.shelfRepository.observeMyShelves(any()) } returns fixture.shelvesFlow
+
+            return fixture
+        }
+
+        // ========== Test Data Factories ==========
+
+        fun createUser(
+            id: String = "user-1",
+            email: String = "test@example.com",
+            displayName: String = "Test User",
+            isAdmin: Boolean = false,
+        ): User =
+            User(
+                id =
+                    UserId(id),
+                email = email,
+                displayName = displayName,
+                isAdmin = isAdmin,
+                createdAtMs = 1704067200000L,
+                updatedAtMs = 1704067200000L,
             )
-    }
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
+        fun createCollection(
+            id: String = "collection-1",
+            name: String = "Test Collection",
+            bookCount: Int = 0,
+        ): Collection =
+            Collection(
+                id = id,
+                name = name,
+                bookCount = bookCount,
+                createdAtMs = 1704067200000L,
+                updatedAtMs = 1704067200000L,
+            )
 
-        // Default stubs for reactive observation
-        every { fixture.userRepository.observeCurrentUser() } returns fixture.userFlow
-        every { fixture.collectionRepository.observeAll() } returns fixture.collectionsFlow
-        every { fixture.shelfRepository.observeMyShelves(any()) } returns fixture.shelvesFlow
+        fun createShelf(
+            id: String = "shelf-1",
+            name: String = "My Shelf",
+            ownerId: String = "user-1",
+        ): Shelf =
+            Shelf(
+                id = id,
+                name = name,
+                description = "",
+                ownerId = ownerId,
+                ownerDisplayName = "Test User",
+                ownerAvatarColor = "#6B7280",
+                bookCount = 0,
+                totalDurationSeconds = 0,
+                createdAtMs = 1704067200000L,
+                updatedAtMs = 1704067200000L,
+            )
 
-        return fixture
-    }
-
-    // ========== Test Data Factories ==========
-
-    private fun createUser(
-        id: String = "user-1",
-        email: String = "test@example.com",
-        displayName: String = "Test User",
-        isAdmin: Boolean = false,
-    ): User =
-        User(
-            id =
-                UserId(id),
-            email = email,
-            displayName = displayName,
-            isAdmin = isAdmin,
-            createdAtMs = 1704067200000L,
-            updatedAtMs = 1704067200000L,
-        )
-
-    private fun createCollection(
-        id: String = "collection-1",
-        name: String = "Test Collection",
-        bookCount: Int = 0,
-    ): Collection =
-        Collection(
-            id = id,
-            name = name,
-            bookCount = bookCount,
-            createdAtMs = 1704067200000L,
-            updatedAtMs = 1704067200000L,
-        )
-
-    private fun createShelf(
-        id: String = "shelf-1",
-        name: String = "My Shelf",
-        ownerId: String = "user-1",
-    ): Shelf =
-        Shelf(
-            id = id,
-            name = name,
-            description = "",
-            ownerId = ownerId,
-            ownerDisplayName = "Test User",
-            ownerAvatarColor = "#6B7280",
-            bookCount = 0,
-            totalDurationSeconds = 0,
-            createdAtMs = 1704067200000L,
-            updatedAtMs = 1704067200000L,
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Selection Mode Tests ==========
-
-    @Test
-    fun `selectionMode is None initially`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            // Then
-            assertEquals(SelectionMode.None, viewModel.selectionMode.value)
+        beforeTest {
+            Dispatchers.setMain(testDispatcher)
         }
 
-    @Test
-    fun `selectionMode reflects selection manager state`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            // Then
-            val mode = assertIs<SelectionMode.Active>(viewModel.selectionMode.value)
-            assertEquals(setOf("book-1"), mode.selectedIds)
+        afterTest {
+            Dispatchers.resetMain()
         }
 
-    @Test
-    fun `selectionMode updates when manager changes`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-            assertEquals(SelectionMode.None, viewModel.selectionMode.value)
+        // ========== Selection Mode Tests ==========
 
-            // When
-            fixture.selectionManager.enterSelectionMode("book-1")
-            advanceUntilIdle()
+        test("selectionMode is None initially") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            checkIs<SelectionMode.Active>(viewModel.selectionMode.value)
+                // Then
+                viewModel.selectionMode.value shouldBe SelectionMode.None
+            }
         }
 
-    // ========== addSelectedToCollection Tests ==========
+        test("selectionMode reflects selection manager state") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-    @Test
-    fun `addSelectedToCollection does nothing when no books selected`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            // When
-            viewModel.addSelectedToCollection("collection-1")
-            advanceUntilIdle()
-
-            // Then - use case should not be called, loading should be false
-            assertFalse(viewModel.isAddingToCollection.value)
+                // Then
+                val mode = viewModel.selectionMode.value.shouldBeInstanceOf<SelectionMode.Active>()
+                mode.selectedIds shouldBe setOf("book-1")
+            }
         }
 
-    @Test
-    fun `addSelectedToCollection calls use case with selected book IDs`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            fixture.selectionManager.toggleSelection("book-2")
-            everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("selectionMode updates when manager changes") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.selectionMode.value shouldBe SelectionMode.None
 
-            // When
-            viewModel.addSelectedToCollection("collection-1")
-            advanceUntilIdle()
+                // When
+                fixture.selectionManager.enterSelectionMode("book-1")
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.addBooksToCollectionUseCase("collection-1", any()) }
+                // Then
+                checkIs<SelectionMode.Active>(viewModel.selectionMode.value)
+            }
         }
 
-    @Test
-    fun `addSelectedToCollection clears selection on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-            checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+        // ========== addSelectedToCollection Tests ==========
 
-            // When
-            viewModel.addSelectedToCollection("collection-1")
-            advanceUntilIdle()
+        test("addSelectedToCollection does nothing when no books selected") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            assertEquals(SelectionMode.None, fixture.selectionManager.selectionMode.value)
+                // When
+                viewModel.addSelectedToCollection("collection-1")
+                advanceUntilIdle()
+
+                // Then - use case should not be called, loading should be false
+                (viewModel.isAddingToCollection.value) shouldBe false
+            }
         }
 
-    @Test
-    fun `addSelectedToCollection does not clear selection on failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns
-                Failure(RuntimeException("Network error"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("addSelectedToCollection calls use case with selected book IDs") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                fixture.selectionManager.toggleSelection("book-2")
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.addSelectedToCollection("collection-1")
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToCollection("collection-1")
+                advanceUntilIdle()
 
-            // Then - selection should still be active
-            checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+                // Then
+                verifySuspend { fixture.addBooksToCollectionUseCase("collection-1", any()) }
+            }
         }
 
-    @Test
-    fun `addSelectedToCollection sets and clears loading state`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("addSelectedToCollection clears selection on success") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
 
-            // When
-            viewModel.addSelectedToCollection("collection-1")
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToCollection("collection-1")
+                advanceUntilIdle()
 
-            // Then - loading should be false after completion
-            assertFalse(viewModel.isAddingToCollection.value)
+                // Then
+                fixture.selectionManager.selectionMode.value shouldBe SelectionMode.None
+            }
         }
 
-    // ========== addSelectedToShelf Tests ==========
+        test("addSelectedToCollection does not clear selection on failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns
+                    Failure(RuntimeException("Network error"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-    @Test
-    fun `addSelectedToShelf does nothing when no books selected`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToCollection("collection-1")
+                advanceUntilIdle()
 
-            // When
-            viewModel.addSelectedToShelf("shelf-1")
-            advanceUntilIdle()
-
-            // Then - use case should not be called
-            assertFalse(viewModel.isAddingToShelf.value)
+                // Then - selection should still be active
+                checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+            }
         }
 
-    @Test
-    fun `addSelectedToShelf calls use case with selected book IDs`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("addSelectedToCollection sets and clears loading state") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.addSelectedToShelf("shelf-1")
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToCollection("collection-1")
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.addBooksToShelfUseCase("shelf-1", any()) }
+                // Then - loading should be false after completion
+                (viewModel.isAddingToCollection.value) shouldBe false
+            }
         }
 
-    @Test
-    fun `addSelectedToShelf clears selection on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== addSelectedToShelf Tests ==========
 
-            // When
-            viewModel.addSelectedToShelf("shelf-1")
-            advanceUntilIdle()
+        test("addSelectedToShelf does nothing when no books selected") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            assertEquals(SelectionMode.None, fixture.selectionManager.selectionMode.value)
+                // When
+                viewModel.addSelectedToShelf("shelf-1")
+                advanceUntilIdle()
+
+                // Then - use case should not be called
+                (viewModel.isAddingToShelf.value) shouldBe false
+            }
         }
 
-    @Test
-    fun `addSelectedToShelf does not clear selection on failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns
-                Failure(RuntimeException("Server error"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("addSelectedToShelf calls use case with selected book IDs") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.addSelectedToShelf("shelf-1")
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToShelf("shelf-1")
+                advanceUntilIdle()
 
-            // Then - selection should still be active
-            checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+                // Then
+                verifySuspend { fixture.addBooksToShelfUseCase("shelf-1", any()) }
+            }
         }
 
-    // ========== createShelfAndAddBooks Tests ==========
+        test("addSelectedToShelf clears selection on success") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-    @Test
-    fun `createShelfAndAddBooks does nothing when no books selected`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToShelf("shelf-1")
+                advanceUntilIdle()
 
-            // When
-            viewModel.createShelfAndAddBooks("New Shelf")
-            advanceUntilIdle()
-
-            // Then - use case should not be called
-            assertFalse(viewModel.isAddingToShelf.value)
+                // Then
+                fixture.selectionManager.selectionMode.value shouldBe SelectionMode.None
+            }
         }
 
-    @Test
-    fun `createShelfAndAddBooks creates shelf then adds books`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            val newShelf = createShelf(id = "new-shelf", name = "My New Shelf")
-            everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("addSelectedToShelf does not clear selection on failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns
+                    Failure(RuntimeException("Server error"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createShelfAndAddBooks("My New Shelf")
-            advanceUntilIdle()
+                // When
+                viewModel.addSelectedToShelf("shelf-1")
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.createShelfUseCase("My New Shelf", null) }
-            verifySuspend { fixture.addBooksToShelfUseCase("new-shelf", any()) }
+                // Then - selection should still be active
+                checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+            }
         }
 
-    @Test
-    fun `createShelfAndAddBooks clears selection on success`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            val newShelf = createShelf()
-            everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        // ========== createShelfAndAddBooks Tests ==========
 
-            // When
-            viewModel.createShelfAndAddBooks("New Shelf")
-            advanceUntilIdle()
+        test("createShelfAndAddBooks does nothing when no books selected") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // Then
-            assertEquals(SelectionMode.None, fixture.selectionManager.selectionMode.value)
+                // When
+                viewModel.createShelfAndAddBooks("New Shelf")
+                advanceUntilIdle()
+
+                // Then - use case should not be called
+                (viewModel.isAddingToShelf.value) shouldBe false
+            }
         }
 
-    @Test
-    fun `createShelfAndAddBooks does not clear selection on shelf creation failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            everySuspend { fixture.createShelfUseCase(any(), any()) } returns
-                Failure(RuntimeException("Failed to create shelf"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("createShelfAndAddBooks creates shelf then adds books") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                val newShelf = createShelf(id = "new-shelf", name = "My New Shelf")
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createShelfAndAddBooks("New Shelf")
-            advanceUntilIdle()
+                // When
+                viewModel.createShelfAndAddBooks("My New Shelf")
+                advanceUntilIdle()
 
-            // Then - selection should still be active
-            checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+                // Then
+                verifySuspend { fixture.createShelfUseCase("My New Shelf", null) }
+                verifySuspend { fixture.addBooksToShelfUseCase("new-shelf", any()) }
+            }
         }
 
-    @Test
-    fun `createShelfAndAddBooks does not clear selection on addBooks failure`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            val newShelf = createShelf()
-            everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns
-                Failure(RuntimeException("Failed to add books"))
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("createShelfAndAddBooks clears selection on success") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                val newShelf = createShelf()
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createShelfAndAddBooks("New Shelf")
-            advanceUntilIdle()
+                // When
+                viewModel.createShelfAndAddBooks("New Shelf")
+                advanceUntilIdle()
 
-            // Then - selection should still be active
-            checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+                // Then
+                fixture.selectionManager.selectionMode.value shouldBe SelectionMode.None
+            }
         }
 
-    @Test
-    fun `createShelfAndAddBooks sets and clears loading state`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.selectionManager.enterSelectionMode("book-1")
-            val newShelf = createShelf()
-            everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-            everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
-            val viewModel = fixture.build()
-            advanceUntilIdle()
+        test("createShelfAndAddBooks does not clear selection on shelf creation failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns
+                    Failure(RuntimeException("Failed to create shelf"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
 
-            // When
-            viewModel.createShelfAndAddBooks("New Shelf")
-            advanceUntilIdle()
+                // When
+                viewModel.createShelfAndAddBooks("New Shelf")
+                advanceUntilIdle()
 
-            // Then - loading should be false after completion
-            assertFalse(viewModel.isAddingToShelf.value)
+                // Then - selection should still be active
+                checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+            }
         }
-}
+
+        test("createShelfAndAddBooks does not clear selection on addBooks failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                val newShelf = createShelf()
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns
+                    Failure(RuntimeException("Failed to add books"))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // When
+                viewModel.createShelfAndAddBooks("New Shelf")
+                advanceUntilIdle()
+
+                // Then - selection should still be active
+                checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
+            }
+        }
+
+        test("createShelfAndAddBooks sets and clears loading state") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.selectionManager.enterSelectionMode("book-1")
+                val newShelf = createShelf()
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // When
+                viewModel.createShelfAndAddBooks("New Shelf")
+                advanceUntilIdle()
+
+                // Then - loading should be false after completion
+                (viewModel.isAddingToShelf.value) shouldBe false
+            }
+        }
+    })

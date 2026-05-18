@@ -2,11 +2,9 @@ package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.Timestamp
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldBeNull
 
 /**
  * Tests for [BookListItem] convenience properties.
@@ -20,167 +18,150 @@ import kotlin.test.assertTrue
  * [BookDetail] exposes the same convenience properties; if their behavior diverges
  * in the future, mirror these tests on [BookDetail].
  */
-class BookListItemTest {
-    private fun createTestBook(
-        duration: Long = 3600000L, // 1 hour
-        coverPath: String? = null,
-        authors: List<BookContributor> = emptyList(),
-        narrators: List<BookContributor> = emptyList(),
-        series: List<BookSeries> = emptyList(),
-    ): BookListItem =
-        BookListItem(
-            id = BookId("book-1"),
-            title = "Test Book",
-            subtitle = null,
-            authors = authors,
-            narrators = narrators,
-            duration = duration,
-            coverPath = coverPath,
-            addedAt = Timestamp.now(),
-            updatedAt = Timestamp.now(),
-            series = series,
-        )
+class BookListItemTest :
+    FunSpec({
 
-    // ========== Duration Formatting Tests ==========
-
-    @Test
-    fun `formatDuration returns hours and minutes for long duration`() {
-        val book = createTestBook(duration = 9_000_000L) // 2.5 hours (150 minutes)
-        assertEquals("2h 30m", book.formatDuration())
-    }
-
-    @Test
-    fun `formatDuration returns only minutes for short duration`() {
-        val book = createTestBook(duration = 2_700_000L) // 45 minutes
-        assertEquals("45m", book.formatDuration())
-    }
-
-    @Test
-    fun `formatDuration handles exactly one hour`() {
-        val book = createTestBook(duration = 3_600_000L) // 60 minutes
-        assertEquals("1h 0m", book.formatDuration())
-    }
-
-    @Test
-    fun `formatDuration handles zero duration`() {
-        val book = createTestBook(duration = 0L)
-        assertEquals("0m", book.formatDuration())
-    }
-
-    @Test
-    fun `formatDuration handles very long duration`() {
-        val book = createTestBook(duration = 86_400_000L) // 24 hours
-        assertEquals("24h 0m", book.formatDuration())
-    }
-
-    @Test
-    fun `formatDuration truncates partial minutes`() {
-        // 1 hour 30 minutes 45 seconds - should show 1h 30m (ignoring seconds)
-        val book = createTestBook(duration = 5_445_000L)
-        assertEquals("1h 30m", book.formatDuration())
-    }
-
-    // ========== Cover Path Tests ==========
-
-    @Test
-    fun `hasCover returns true when cover path is set`() {
-        val book = createTestBook(coverPath = "/path/to/cover.jpg")
-        assertTrue(book.hasCover)
-    }
-
-    @Test
-    fun `hasCover returns false when cover path is null`() {
-        val book = createTestBook(coverPath = null)
-        assertFalse(book.hasCover)
-    }
-
-    // ========== Series Title Tests ==========
-
-    @Test
-    fun `fullSeriesTitle returns name and sequence when both present`() {
-        val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Mistborn", sequence = "1")))
-        assertEquals("Mistborn #1", book.fullSeriesTitle)
-    }
-
-    @Test
-    fun `fullSeriesTitle handles decimal sequence numbers`() {
-        val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Stormlight Archive", sequence = "2.5")))
-        assertEquals("Stormlight Archive #2.5", book.fullSeriesTitle)
-    }
-
-    @Test
-    fun `fullSeriesTitle returns only name when sequence is null`() {
-        val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = null)))
-        assertEquals("Wheel of Time", book.fullSeriesTitle)
-    }
-
-    @Test
-    fun `fullSeriesTitle returns only name when sequence is blank`() {
-        val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = "  ")))
-        assertEquals("Wheel of Time", book.fullSeriesTitle)
-    }
-
-    @Test
-    fun `fullSeriesTitle returns null when no series`() {
-        val book = createTestBook(series = emptyList())
-        assertNull(book.fullSeriesTitle)
-    }
-
-    // ========== Contributor Names Tests ==========
-
-    @Test
-    fun `authorNames joins multiple authors with commas`() {
-        val book =
-            createTestBook(
-                authors =
-                    listOf(
-                        BookContributor("1", "Brandon Sanderson"),
-                        BookContributor("2", "Robert Jordan"),
-                    ),
+        fun createTestBook(
+            duration: Long = 3600000L, // 1 hour
+            coverPath: String? = null,
+            authors: List<BookContributor> = emptyList(),
+            narrators: List<BookContributor> = emptyList(),
+            series: List<BookSeries> = emptyList(),
+        ): BookListItem =
+            BookListItem(
+                id = BookId("book-1"),
+                title = "Test Book",
+                subtitle = null,
+                authors = authors,
+                narrators = narrators,
+                duration = duration,
+                coverPath = coverPath,
+                addedAt = Timestamp.now(),
+                updatedAt = Timestamp.now(),
+                series = series,
             )
-        assertEquals("Brandon Sanderson, Robert Jordan", book.authorNames)
-    }
 
-    @Test
-    fun `authorNames returns single author name`() {
-        val book =
-            createTestBook(
-                authors = listOf(BookContributor("1", "Brandon Sanderson")),
-            )
-        assertEquals("Brandon Sanderson", book.authorNames)
-    }
+        // ========== Duration Formatting Tests ==========
 
-    @Test
-    fun `authorNames returns empty string when no authors`() {
-        val book = createTestBook(authors = emptyList())
-        assertEquals("", book.authorNames)
-    }
+        test("formatDuration returns hours and minutes for long duration") {
+            val book = createTestBook(duration = 9_000_000L) // 2.5 hours (150 minutes)
+            book.formatDuration() shouldBe "2h 30m"
+        }
 
-    @Test
-    fun `narratorNames joins multiple narrators with commas`() {
-        val book =
-            createTestBook(
-                narrators =
-                    listOf(
-                        BookContributor("1", "Michael Kramer"),
-                        BookContributor("2", "Kate Reading"),
-                    ),
-            )
-        assertEquals("Michael Kramer, Kate Reading", book.narratorNames)
-    }
+        test("formatDuration returns only minutes for short duration") {
+            val book = createTestBook(duration = 2_700_000L) // 45 minutes
+            book.formatDuration() shouldBe "45m"
+        }
 
-    @Test
-    fun `narratorNames returns single narrator name`() {
-        val book =
-            createTestBook(
-                narrators = listOf(BookContributor("1", "Michael Kramer")),
-            )
-        assertEquals("Michael Kramer", book.narratorNames)
-    }
+        test("formatDuration handles exactly one hour") {
+            val book = createTestBook(duration = 3_600_000L) // 60 minutes
+            book.formatDuration() shouldBe "1h 0m"
+        }
 
-    @Test
-    fun `narratorNames returns empty string when no narrators`() {
-        val book = createTestBook(narrators = emptyList())
-        assertEquals("", book.narratorNames)
-    }
-}
+        test("formatDuration handles zero duration") {
+            val book = createTestBook(duration = 0L)
+            book.formatDuration() shouldBe "0m"
+        }
+
+        test("formatDuration handles very long duration") {
+            val book = createTestBook(duration = 86_400_000L) // 24 hours
+            book.formatDuration() shouldBe "24h 0m"
+        }
+
+        test("formatDuration truncates partial minutes") {
+            // 1 hour 30 minutes 45 seconds - should show 1h 30m (ignoring seconds)
+            val book = createTestBook(duration = 5_445_000L)
+            book.formatDuration() shouldBe "1h 30m"
+        }
+
+        // ========== Cover Path Tests ==========
+
+        test("hasCover returns true when cover path is set") {
+            val book = createTestBook(coverPath = "/path/to/cover.jpg")
+            book.hasCover shouldBe true
+        }
+
+        test("hasCover returns false when cover path is null") {
+            val book = createTestBook(coverPath = null)
+            book.hasCover shouldBe false
+        }
+
+        // ========== Series Title Tests ==========
+
+        test("fullSeriesTitle returns name and sequence when both present") {
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Mistborn", sequence = "1")))
+            book.fullSeriesTitle shouldBe "Mistborn #1"
+        }
+
+        test("fullSeriesTitle handles decimal sequence numbers") {
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Stormlight Archive", sequence = "2.5")))
+            book.fullSeriesTitle shouldBe "Stormlight Archive #2.5"
+        }
+
+        test("fullSeriesTitle returns only name when sequence is null") {
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = null)))
+            book.fullSeriesTitle shouldBe "Wheel of Time"
+        }
+
+        test("fullSeriesTitle returns only name when sequence is blank") {
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = "  ")))
+            book.fullSeriesTitle shouldBe "Wheel of Time"
+        }
+
+        test("fullSeriesTitle returns null when no series") {
+            val book = createTestBook(series = emptyList())
+            book.fullSeriesTitle.shouldBeNull()
+        }
+
+        // ========== Contributor Names Tests ==========
+
+        test("authorNames joins multiple authors with commas") {
+            val book =
+                createTestBook(
+                    authors =
+                        listOf(
+                            BookContributor("1", "Brandon Sanderson"),
+                            BookContributor("2", "Robert Jordan"),
+                        ),
+                )
+            book.authorNames shouldBe "Brandon Sanderson, Robert Jordan"
+        }
+
+        test("authorNames returns single author name") {
+            val book =
+                createTestBook(
+                    authors = listOf(BookContributor("1", "Brandon Sanderson")),
+                )
+            book.authorNames shouldBe "Brandon Sanderson"
+        }
+
+        test("authorNames returns empty string when no authors") {
+            val book = createTestBook(authors = emptyList())
+            book.authorNames shouldBe ""
+        }
+
+        test("narratorNames joins multiple narrators with commas") {
+            val book =
+                createTestBook(
+                    narrators =
+                        listOf(
+                            BookContributor("1", "Michael Kramer"),
+                            BookContributor("2", "Kate Reading"),
+                        ),
+                )
+            book.narratorNames shouldBe "Michael Kramer, Kate Reading"
+        }
+
+        test("narratorNames returns single narrator name") {
+            val book =
+                createTestBook(
+                    narrators = listOf(BookContributor("1", "Michael Kramer")),
+                )
+            book.narratorNames shouldBe "Michael Kramer"
+        }
+
+        test("narratorNames returns empty string when no narrators") {
+            val book = createTestBook(narrators = emptyList())
+            book.narratorNames shouldBe ""
+        }
+    })

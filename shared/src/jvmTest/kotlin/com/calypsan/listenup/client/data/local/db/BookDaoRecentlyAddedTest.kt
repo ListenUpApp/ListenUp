@@ -5,10 +5,9 @@ import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.core.SeriesId
 import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import kotlin.test.AfterTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 /**
  * Regression coverage for the Discover "Recently Added" half-list bug (W6 Phase A, Bug 5).
@@ -25,98 +24,98 @@ import kotlin.test.assertEquals
  * These tests seed a standalone book, a first-in-series book and a mid-series book,
  * then assert that the neutral method returns all three.
  */
-class BookDaoRecentlyAddedTest {
-    private val db: ListenUpDatabase = createInMemoryTestDatabase()
-    private val bookDao = db.bookDao()
-    private val seriesDao = db.seriesDao()
-    private val bookSeriesDao = db.bookSeriesDao()
+class BookDaoRecentlyAddedTest :
+    FunSpec({
 
-    @AfterTest
-    fun tearDown() {
-        db.close()
-    }
+        test("observeRecentlyAddedWithAuthor returns all recently added books regardless of series sequence") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val seriesDao = db.seriesDao()
+                    val bookSeriesDao = db.bookSeriesDao()
 
-    private suspend fun seedBook(
-        id: String,
-        createdAt: Long,
-    ) {
-        bookDao.upsert(
-            BookEntity(
-                id = BookId(id),
-                title = "Book $id",
-                sortTitle = "Book $id",
-                subtitle = null,
-                coverHash = null,
-                coverBlurHash = null,
-                dominantColor = null,
-                darkMutedColor = null,
-                vibrantColor = null,
-                totalDuration = 0L,
-                description = null,
-                publishYear = null,
-                publisher = null,
-                language = null,
-                isbn = null,
-                asin = null,
-                abridged = false,
-                createdAt = Timestamp(createdAt),
-                updatedAt = Timestamp(createdAt),
-            ),
-        )
-    }
+                    // Three books across the full sequence spectrum. createdAt timestamps are
+                    // distinct so the ORDER BY is deterministic — newest first.
+                    recentlyAddedSeedBook(bookDao, id = "standalone", createdAt = 3_000L)
+                    recentlyAddedSeedBook(bookDao, id = "first-in-series", createdAt = 2_000L)
+                    recentlyAddedSeedBook(bookDao, id = "mid-series", createdAt = 1_000L)
 
-    private suspend fun seedSeries(
-        id: String,
-        name: String,
-    ) {
-        seriesDao.upsert(
-            SeriesEntity(
-                id = SeriesId(id),
-                name = name,
-                description = null,
-                createdAt = Timestamp(1L),
-                updatedAt = Timestamp(1L),
-            ),
-        )
-    }
+                    recentlyAddedSeedSeries(seriesDao, id = "s1", name = "Test Series")
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = "1")
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = "3")
 
-    private suspend fun linkBookToSeries(
-        bookId: String,
-        seriesId: String,
-        sequence: String?,
-    ) {
-        bookSeriesDao.insertAll(
-            listOf(
-                BookSeriesCrossRef(
-                    bookId = BookId(bookId),
-                    seriesId = SeriesId(seriesId),
-                    sequence = sequence,
-                ),
-            ),
-        )
-    }
-
-    @Test
-    fun `observeRecentlyAddedWithAuthor returns all recently added books regardless of series sequence`() =
-        runTest {
-            // Three books across the full sequence spectrum. createdAt timestamps are
-            // distinct so the ORDER BY is deterministic — newest first.
-            seedBook(id = "standalone", createdAt = 3_000L)
-            seedBook(id = "first-in-series", createdAt = 2_000L)
-            seedBook(id = "mid-series", createdAt = 1_000L)
-
-            seedSeries(id = "s1", name = "Test Series")
-            linkBookToSeries(bookId = "first-in-series", seriesId = "s1", sequence = "1")
-            linkBookToSeries(bookId = "mid-series", seriesId = "s1", sequence = "3")
-
-            bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
-                val emitted = awaitItem().map { it.id.value }
-                assertEquals(
-                    listOf("standalone", "first-in-series", "mid-series"),
-                    emitted,
-                    "neutral query must include mid-series books; DAO name must not lie",
-                )
-                cancelAndIgnoreRemainingEvents()
+                    bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
+                        val emitted = awaitItem().map { it.id.value }
+                        emitted shouldBe listOf("standalone", "first-in-series", "mid-series")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
+    })
+
+private suspend fun recentlyAddedSeedBook(
+    bookDao: BookDao,
+    id: String,
+    createdAt: Long,
+) {
+    bookDao.upsert(
+        BookEntity(
+            id = BookId(id),
+            title = "Book $id",
+            sortTitle = "Book $id",
+            subtitle = null,
+            coverHash = null,
+            coverBlurHash = null,
+            dominantColor = null,
+            darkMutedColor = null,
+            vibrantColor = null,
+            totalDuration = 0L,
+            description = null,
+            publishYear = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = false,
+            createdAt = Timestamp(createdAt),
+            updatedAt = Timestamp(createdAt),
+        ),
+    )
+}
+
+private suspend fun recentlyAddedSeedSeries(
+    seriesDao: SeriesDao,
+    id: String,
+    name: String,
+) {
+    seriesDao.upsert(
+        SeriesEntity(
+            id = SeriesId(id),
+            name = name,
+            description = null,
+            createdAt = Timestamp(1L),
+            updatedAt = Timestamp(1L),
+        ),
+    )
+}
+
+private suspend fun recentlyAddedLinkBookToSeries(
+    bookSeriesDao: BookSeriesDao,
+    bookId: String,
+    seriesId: String,
+    sequence: String?,
+) {
+    bookSeriesDao.insertAll(
+        listOf(
+            BookSeriesCrossRef(
+                bookId = BookId(bookId),
+                seriesId = SeriesId(seriesId),
+                sequence = sequence,
+            ),
+        ),
+    )
 }
