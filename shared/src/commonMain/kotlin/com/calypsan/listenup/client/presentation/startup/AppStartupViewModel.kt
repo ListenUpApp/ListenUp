@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.startup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.client.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -61,7 +62,7 @@ class AppStartupViewModel(
 
     /** Call from MainActivity.onPause to record when the app left the foreground. */
     fun onAppBackgrounded() {
-        _state.value = _state.value.copy(backgroundedAtMs = System.currentTimeMillis())
+        _state.value = _state.value.copy(backgroundedAtMs = currentEpochMilliseconds())
     }
 
     /**
@@ -73,7 +74,7 @@ class AppStartupViewModel(
      */
     fun onAppForegrounded() {
         val backgroundedAt = _state.value.backgroundedAtMs ?: return
-        val elapsed = System.currentTimeMillis() - backgroundedAt
+        val elapsed = currentEpochMilliseconds() - backgroundedAt
         if (elapsed >= BACKGROUND_THRESHOLD_MS) {
             logger.info { "App was backgrounded for ${elapsed}ms (>= threshold) — re-checking library setup" }
             _state.value = AppStartupState(isChecking = true)
