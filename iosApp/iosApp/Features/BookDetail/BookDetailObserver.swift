@@ -135,8 +135,9 @@ final class BookDetailObserver {
             isComplete = r.isComplete
             chapters = Array(r.chapters)
             genres = Array(r.genresList)
-            if let bookId = r.book.idString as String?, observingDownloadForBookId != bookId {
-                observeDownloadStatus(bookId: bookId)
+            if observingDownloadForBookId != r.book.idString {
+                observingDownloadForBookId = r.book.idString
+                observeDownloadStatus(bookId: r.book.id)
             }
         case .error(let e):
             isLoading = false
@@ -144,8 +145,7 @@ final class BookDetailObserver {
         }
     }
 
-    private func observeDownloadStatus(bookId: String) {
-        observingDownloadForBookId = bookId
+    private func observeDownloadStatus(bookId: BookId) {
         bridge.bind(downloadService.observeBookStatus(bookId: bookId)) { [weak self] status in
             self?.applyDownloadStatus(status)
         }
