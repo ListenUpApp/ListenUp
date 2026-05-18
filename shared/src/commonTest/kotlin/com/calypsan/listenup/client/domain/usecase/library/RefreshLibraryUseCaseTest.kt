@@ -11,12 +11,12 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 /**
  * Tests for RefreshLibraryUseCase.
@@ -28,158 +28,160 @@ import kotlin.test.assertIs
  * - Reset for new library flow
  * - SyncState exposure
  */
-class RefreshLibraryUseCaseTest {
-    // ========== Test Fixtures ==========
+class RefreshLibraryUseCaseTest :
+    FunSpec({
 
-    private class TestFixture {
-        val syncRepository: SyncRepository = mock()
-        val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
+        // ========== Test Fixtures ==========
 
-        init {
-            every { syncRepository.syncState } returns syncStateFlow
+        class TestFixture {
+            val syncRepository: SyncRepository = mock()
+            val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
+
+            init {
+                every { syncRepository.syncState } returns syncStateFlow
+            }
+
+            fun build(): RefreshLibraryUseCase =
+                RefreshLibraryUseCase(
+                    syncRepository = syncRepository,
+                )
         }
 
-        fun build(): RefreshLibraryUseCase =
-            RefreshLibraryUseCase(
-                syncRepository = syncRepository,
-            )
-    }
+        fun createFixture(): TestFixture = TestFixture()
 
-    private fun createFixture(): TestFixture = TestFixture()
+        // ========== Successful Sync Tests ==========
 
-    // ========== Successful Sync Tests ==========
+        test("successful sync returns success result") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
+                val useCase = fixture.build()
 
-    @Test
-    fun `successful sync returns success result`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
-            val useCase = fixture.build()
+                // When
+                val result = useCase()
 
-            // When
-            val result = useCase()
-
-            // Then
-            val success = assertIs<Success<RefreshLibraryResult>>(result)
-            assertEquals("Library refreshed successfully", success.data.message)
-        }
-
-    @Test
-    fun `sync updates state flow`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
-            val useCase = fixture.build()
-
-            // When
-            fixture.syncStateFlow.value = SyncState.Syncing
-            val result = useCase()
-            fixture.syncStateFlow.value = SyncState.Success(timestamp = Timestamp.now())
-
-            // Then
-            val success = assertIs<Success<RefreshLibraryResult>>(result)
-            // State flow accessible via useCase.syncState
-            assertEquals(fixture.syncStateFlow.value, useCase.syncState.value)
-        }
-
-    // ========== Error Handling Tests ==========
-
-    @Test
-    fun `sync failure propagates repository AppError unmodified`() =
-        runTest {
-            // The use case is a pure pass-through on failure — translation to
-            // user-facing copy happens in the presentation layer, not here.
-            val fixture = createFixture()
-            val repoFailure = Failure(Exception("Connection refused"))
-            everySuspend { fixture.syncRepository.sync() } returns repoFailure
-            val useCase = fixture.build()
-
-            val result = useCase()
-
-            val failure = assertIs<Failure>(result)
-            assertEquals(repoFailure.error, failure.error)
-        }
-
-    // ========== Reset for New Library Tests ==========
-
-    @Test
-    fun `resetForNewLibrary calls sync repository with library id`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
-            val useCase = fixture.build()
-
-            // When
-            useCase.resetForNewLibrary("new-library-id")
-
-            // Then
-            verifySuspend {
-                fixture.syncRepository.resetForNewLibrary("new-library-id")
+                // Then
+                val success = result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                success.data.message shouldBe "Library refreshed successfully"
             }
         }
 
-    @Test
-    fun `resetForNewLibrary success returns success result`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
-            val useCase = fixture.build()
+        test("sync updates state flow") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase.resetForNewLibrary("new-library-id")
+                // When
+                fixture.syncStateFlow.value = SyncState.Syncing
+                val result = useCase()
+                fixture.syncStateFlow.value = SyncState.Success(timestamp = Timestamp.now())
 
-            // Then
-            val success = assertIs<Success<RefreshLibraryResult>>(result)
-            assertEquals("Library synced with new server", success.data.message)
+                // Then
+                result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                // State flow accessible via useCase.syncState
+                useCase.syncState.value shouldBe fixture.syncStateFlow.value
+            }
         }
 
-    @Test
-    fun `resetForNewLibrary failure propagates repository AppError unmodified`() =
-        runTest {
-            val fixture = createFixture()
-            val repoFailure = Failure(Exception("Reset failed"))
-            everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns repoFailure
-            val useCase = fixture.build()
+        // ========== Error Handling Tests ==========
 
-            val result = useCase.resetForNewLibrary("new-library-id")
+        test("sync failure propagates repository AppError unmodified") {
+            runTest {
+                // The use case is a pure pass-through on failure — translation to
+                // user-facing copy happens in the presentation layer, not here.
+                val fixture = createFixture()
+                val repoFailure = Failure(Exception("Connection refused"))
+                everySuspend { fixture.syncRepository.sync() } returns repoFailure
+                val useCase = fixture.build()
 
-            val failure = assertIs<Failure>(result)
-            assertEquals(repoFailure.error, failure.error)
+                val result = useCase()
+
+                val failure = result.shouldBeInstanceOf<Failure>()
+                failure.error shouldBe repoFailure.error
+            }
         }
 
-    // ========== SyncState Access Tests ==========
+        // ========== Reset for New Library Tests ==========
 
-    @Test
-    fun `syncState exposes sync repository state flow`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("resetForNewLibrary calls sync repository with library id") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
+                val useCase = fixture.build()
 
-            // When
-            fixture.syncStateFlow.value = SyncState.Syncing
+                // When
+                useCase.resetForNewLibrary("new-library-id")
 
-            // Then
-            assertEquals(SyncState.Syncing, useCase.syncState.value)
+                // Then
+                verifySuspend {
+                    fixture.syncRepository.resetForNewLibrary("new-library-id")
+                }
+            }
         }
 
-    @Test
-    fun `syncState reflects success status after sync`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val timestamp = Timestamp.now()
-            val useCase = fixture.build()
+        test("resetForNewLibrary success returns success result") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
+                val useCase = fixture.build()
 
-            // When
-            fixture.syncStateFlow.value = SyncState.Success(timestamp = timestamp)
+                // When
+                val result = useCase.resetForNewLibrary("new-library-id")
 
-            // Then
-            val state = assertIs<SyncState.Success>(useCase.syncState.value)
-            assertEquals(timestamp, state.timestamp)
+                // Then
+                val success = result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                success.data.message shouldBe "Library synced with new server"
+            }
         }
-}
+
+        test("resetForNewLibrary failure propagates repository AppError unmodified") {
+            runTest {
+                val fixture = createFixture()
+                val repoFailure = Failure(Exception("Reset failed"))
+                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns repoFailure
+                val useCase = fixture.build()
+
+                val result = useCase.resetForNewLibrary("new-library-id")
+
+                val failure = result.shouldBeInstanceOf<Failure>()
+                failure.error shouldBe repoFailure.error
+            }
+        }
+
+        // ========== SyncState Access Tests ==========
+
+        test("syncState exposes sync repository state flow") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                fixture.syncStateFlow.value = SyncState.Syncing
+
+                // Then
+                useCase.syncState.value shouldBe SyncState.Syncing
+            }
+        }
+
+        test("syncState reflects success status after sync") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val timestamp = Timestamp.now()
+                val useCase = fixture.build()
+
+                // When
+                fixture.syncStateFlow.value = SyncState.Success(timestamp = timestamp)
+
+                // Then
+                val state = useCase.syncState.value.shouldBeInstanceOf<SyncState.Success>()
+                state.timestamp shouldBe timestamp
+            }
+        }
+    })

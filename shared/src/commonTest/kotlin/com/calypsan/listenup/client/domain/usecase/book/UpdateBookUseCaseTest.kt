@@ -29,10 +29,10 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import com.calypsan.listenup.client.core.failureOf
 
 /**
@@ -49,701 +49,703 @@ import com.calypsan.listenup.client.core.failureOf
  * - Error propagation and fail-fast behavior
  * - Multiple changes in single call
  */
-class UpdateBookUseCaseTest {
-    // ========== Test Fixtures ==========
+class UpdateBookUseCaseTest :
+    FunSpec({
 
-    private class TestFixture {
-        val bookEditRepository: BookEditRepository = mock()
-        val genreRepository: GenreRepository = mock()
-        val tagRepository: TagRepository = mock()
-        val imageRepository: ImageRepository = mock()
-        val imageStagingRepository: ImageStagingRepository = mock()
+        // ========== Test Fixtures ==========
 
-        fun build(): UpdateBookUseCase =
-            UpdateBookUseCase(
-                bookEditRepository = bookEditRepository,
-                genreRepository = genreRepository,
-                tagRepository = tagRepository,
-                imageRepository = imageRepository,
-                imageStagingRepository = imageStagingRepository,
+        class TestFixture {
+            val bookEditRepository: BookEditRepository = mock()
+            val genreRepository: GenreRepository = mock()
+            val tagRepository: TagRepository = mock()
+            val imageRepository: ImageRepository = mock()
+            val imageStagingRepository: ImageStagingRepository = mock()
+
+            fun build(): UpdateBookUseCase =
+                UpdateBookUseCase(
+                    bookEditRepository = bookEditRepository,
+                    genreRepository = genreRepository,
+                    tagRepository = tagRepository,
+                    imageRepository = imageRepository,
+                    imageStagingRepository = imageStagingRepository,
+                )
+        }
+
+        fun createFixture(): TestFixture {
+            val fixture = TestFixture()
+
+            // Default stubs for successful operations
+            everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
+            everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Success(Unit)
+            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
+            everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
+            everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns Success(Unit)
+            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns Success("https://example.com/cover.jpg")
+
+            return fixture
+        }
+
+        // ========== Test Data Factories ==========
+
+        fun createMetadata(
+            title: String = "Test Book",
+            sortTitle: String = "",
+            subtitle: String = "",
+            description: String = "",
+            publishYear: String = "",
+            publisher: String = "",
+            language: String? = null,
+            isbn: String = "",
+            asin: String = "",
+            abridged: Boolean = false,
+            addedAt: Long? = null,
+        ): BookMetadata =
+            BookMetadata(
+                title = title,
+                sortTitle = sortTitle,
+                subtitle = subtitle,
+                description = description,
+                publishYear = publishYear,
+                publisher = publisher,
+                language = language,
+                isbn = isbn,
+                asin = asin,
+                abridged = abridged,
+                addedAt = addedAt,
             )
-    }
 
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
+        fun createOriginalState(
+            bookId: String = "book-1",
+            metadata: BookMetadata = createMetadata(),
+            contributors: List<EditableContributor> = emptyList(),
+            series: List<EditableSeries> = emptyList(),
+            genres: List<EditableGenre> = emptyList(),
+            tags: List<EditableTag> = emptyList(),
+            allGenres: List<EditableGenre> = emptyList(),
+            allTags: List<EditableTag> = emptyList(),
+            coverPath: String? = null,
+        ): BookEditData =
+            BookEditData(
+                bookId = bookId,
+                metadata = metadata,
+                contributors = contributors,
+                series = series,
+                genres = genres,
+                tags = tags,
+                allGenres = allGenres,
+                allTags = allTags,
+                coverPath = coverPath,
+            )
 
-        // Default stubs for successful operations
-        everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns Success(Unit)
-        everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
-        everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
-        everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Success(Unit)
-        everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
-        everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
-        everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns Success(Unit)
-        everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns Success("https://example.com/cover.jpg")
+        fun createUpdateRequest(
+            bookId: String = "book-1",
+            metadata: BookMetadata = createMetadata(),
+            contributors: List<EditableContributor> = emptyList(),
+            series: List<EditableSeries> = emptyList(),
+            genres: List<EditableGenre> = emptyList(),
+            tags: List<EditableTag> = emptyList(),
+            pendingCover: PendingCover? = null,
+        ): BookUpdateRequest =
+            BookUpdateRequest(
+                bookId = bookId,
+                metadata = metadata,
+                contributors = contributors,
+                series = series,
+                genres = genres,
+                tags = tags,
+                pendingCover = pendingCover,
+            )
 
-        return fixture
-    }
+        fun createEditableContributor(
+            id: String = "c1",
+            name: String = "Author Name",
+            roles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR),
+        ): EditableContributor =
+            EditableContributor(
+                id = id,
+                name = name,
+                roles = roles,
+            )
 
-    // ========== Test Data Factories ==========
+        fun createEditableSeries(
+            id: String = "s1",
+            name: String = "Series Name",
+            sequence: String? = "1",
+        ): EditableSeries =
+            EditableSeries(
+                id = id,
+                name = name,
+                sequence = sequence,
+            )
 
-    private fun createMetadata(
-        title: String = "Test Book",
-        sortTitle: String = "",
-        subtitle: String = "",
-        description: String = "",
-        publishYear: String = "",
-        publisher: String = "",
-        language: String? = null,
-        isbn: String = "",
-        asin: String = "",
-        abridged: Boolean = false,
-        addedAt: Long? = null,
-    ): BookMetadata =
-        BookMetadata(
-            title = title,
-            sortTitle = sortTitle,
-            subtitle = subtitle,
-            description = description,
-            publishYear = publishYear,
-            publisher = publisher,
-            language = language,
-            isbn = isbn,
-            asin = asin,
-            abridged = abridged,
-            addedAt = addedAt,
-        )
+        fun createEditableGenre(
+            id: String = "g1",
+            name: String = "Fiction",
+            path: String = "/fiction",
+        ): EditableGenre =
+            EditableGenre(
+                id = id,
+                name = name,
+                path = path,
+            )
 
-    private fun createOriginalState(
-        bookId: String = "book-1",
-        metadata: BookMetadata = createMetadata(),
-        contributors: List<EditableContributor> = emptyList(),
-        series: List<EditableSeries> = emptyList(),
-        genres: List<EditableGenre> = emptyList(),
-        tags: List<EditableTag> = emptyList(),
-        allGenres: List<EditableGenre> = emptyList(),
-        allTags: List<EditableTag> = emptyList(),
-        coverPath: String? = null,
-    ): BookEditData =
-        BookEditData(
-            bookId = bookId,
-            metadata = metadata,
-            contributors = contributors,
-            series = series,
-            genres = genres,
-            tags = tags,
-            allGenres = allGenres,
-            allTags = allTags,
-            coverPath = coverPath,
-        )
+        fun createEditableTag(
+            id: String = "t1",
+            slug: String = "favorites",
+        ): EditableTag =
+            EditableTag(
+                id = id,
+                slug = slug,
+            )
 
-    private fun createUpdateRequest(
-        bookId: String = "book-1",
-        metadata: BookMetadata = createMetadata(),
-        contributors: List<EditableContributor> = emptyList(),
-        series: List<EditableSeries> = emptyList(),
-        genres: List<EditableGenre> = emptyList(),
-        tags: List<EditableTag> = emptyList(),
-        pendingCover: PendingCover? = null,
-    ): BookUpdateRequest =
-        BookUpdateRequest(
-            bookId = bookId,
-            metadata = metadata,
-            contributors = contributors,
-            series = series,
-            genres = genres,
-            tags = tags,
-            pendingCover = pendingCover,
-        )
+        // ========== No Changes Tests ==========
 
-    private fun createEditableContributor(
-        id: String = "c1",
-        name: String = "Author Name",
-        roles: Set<ContributorRole> = setOf(ContributorRole.AUTHOR),
-    ): EditableContributor =
-        EditableContributor(
-            id = id,
-            name = name,
-            roles = roles,
-        )
+        test("returns success without calling repos when no changes") {
+            runTest {
+                // Given - identical current and original state
+                val metadata = createMetadata(title = "Same Title")
+                val original = createOriginalState(metadata = metadata)
+                val current = createUpdateRequest(metadata = metadata)
 
-    private fun createEditableSeries(
-        id: String = "s1",
-        name: String = "Series Name",
-        sequence: String? = "1",
-    ): EditableSeries =
-        EditableSeries(
-            id = id,
-            name = name,
-            sequence = sequence,
-        )
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-    private fun createEditableGenre(
-        id: String = "g1",
-        name: String = "Fiction",
-        path: String = "/fiction",
-    ): EditableGenre =
-        EditableGenre(
-            id = id,
-            name = name,
-            path = path,
-        )
+                // When
+                val result = useCase(current, original)
 
-    private fun createEditableTag(
-        id: String = "t1",
-        slug: String = "favorites",
-    ): EditableTag =
-        EditableTag(
-            id = id,
-            slug = slug,
-        )
+                // Then
+                checkIs<Success<Unit>>(result)
 
-    // ========== No Changes Tests ==========
-
-    @Test
-    fun `returns success without calling repos when no changes`() =
-        runTest {
-            // Given - identical current and original state
-            val metadata = createMetadata(title = "Same Title")
-            val original = createOriginalState(metadata = metadata)
-            val current = createUpdateRequest(metadata = metadata)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-
-            // Verify no repository calls were made
-            verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
-            verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
-            verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookSeries(any(), any()) }
-            verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
-        }
-
-    // ========== Metadata Change Tests ==========
-
-    @Test
-    fun `updates metadata when title changes`() =
-        runTest {
-            // Given
-            val originalMetadata = createMetadata(title = "Original Title")
-            val currentMetadata = createMetadata(title = "New Title")
-            val original = createOriginalState(metadata = originalMetadata)
-            val current = createUpdateRequest(metadata = currentMetadata)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.bookEditRepository.updateBook(bookId = "book-1", title = "New Title", any(), any(), any(), any(), any(), any(), any(), any(), any()) }
-        }
-
-    @Test
-    fun `updates metadata when any field changes`() =
-        runTest {
-            // Given
-            val originalMetadata = createMetadata()
-            val currentMetadata =
-                createMetadata(
-                    subtitle = "New Subtitle",
-                    description = "New Description",
-                    publishYear = "2024",
-                    publisher = "New Publisher",
-                    language = "en",
-                    isbn = "1234567890",
-                    asin = "ASIN123",
-                    abridged = true,
-                )
-            val original = createOriginalState(metadata = originalMetadata)
-            val current = createUpdateRequest(metadata = currentMetadata)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend {
-                fixture.bookEditRepository.updateBook(
-                    bookId = "book-1",
-                    title = any(),
-                    subtitle = "New Subtitle",
-                    description = "New Description",
-                    publishYear = "2024",
-                    publisher = "New Publisher",
-                    language = "en",
-                    isbn = "1234567890",
-                    asin = "ASIN123",
-                    abridged = true,
-                )
+                // Verify no repository calls were made
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookSeries(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
             }
         }
 
-    // ========== Contributor Change Tests ==========
+        // ========== Metadata Change Tests ==========
 
-    @Test
-    fun `updates contributors when list changes`() =
-        runTest {
-            // Given
-            val originalContributors =
-                listOf(
-                    createEditableContributor(id = "c1", name = "Author 1"),
-                )
-            val currentContributors =
-                listOf(
-                    createEditableContributor(id = "c1", name = "Author 1"),
-                    createEditableContributor(id = "c2", name = "Author 2"),
-                )
-            val original = createOriginalState(contributors = originalContributors)
-            val current = createUpdateRequest(contributors = currentContributors)
+        test("updates metadata when title changes") {
+            runTest {
+                // Given
+                val originalMetadata = createMetadata(title = "Original Title")
+                val currentMetadata = createMetadata(title = "New Title")
+                val original = createOriginalState(metadata = originalMetadata)
+                val current = createUpdateRequest(metadata = currentMetadata)
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase(current, original)
+                // When
+                val result = useCase(current, original)
 
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.bookEditRepository.setBookContributors("book-1", any()) }
-        }
-
-    @Test
-    fun `does not update contributors when list unchanged`() =
-        runTest {
-            // Given
-            val contributors =
-                listOf(
-                    createEditableContributor(id = "c1", name = "Author 1"),
-                )
-            val original = createOriginalState(contributors = contributors)
-            val current = createUpdateRequest(contributors = contributors)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            useCase(current, original)
-
-            // Then
-            verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
-        }
-
-    // ========== Series Change Tests ==========
-
-    @Test
-    fun `updates series when list changes`() =
-        runTest {
-            // Given
-            val originalSeries = emptyList<EditableSeries>()
-            val currentSeries =
-                listOf(
-                    createEditableSeries(id = "s1", name = "New Series", sequence = "1"),
-                )
-            val original = createOriginalState(series = originalSeries)
-            val current = createUpdateRequest(series = currentSeries)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.bookEditRepository.setBookSeries("book-1", any()) }
-        }
-
-    @Test
-    fun `converts series sequence to float`() =
-        runTest {
-            // Given
-            val currentSeries =
-                listOf(
-                    createEditableSeries(id = "s1", name = "Series", sequence = "2.5"),
-                )
-            val original = createOriginalState()
-            val current = createUpdateRequest(series = currentSeries)
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            useCase(current, original)
-
-            // Then
-            verifySuspend {
-                fixture.bookEditRepository.setBookSeries(
-                    "book-1",
-                    listOf(BookSeriesInput(name = "Series", sequence = 2.5f)),
-                )
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.bookEditRepository.updateBook(bookId = "book-1", title = "New Title", any(), any(), any(), any(), any(), any(), any(), any(), any()) }
             }
         }
 
-    // ========== Genre Change Tests ==========
+        test("updates metadata when any field changes") {
+            runTest {
+                // Given
+                val originalMetadata = createMetadata()
+                val currentMetadata =
+                    createMetadata(
+                        subtitle = "New Subtitle",
+                        description = "New Description",
+                        publishYear = "2024",
+                        publisher = "New Publisher",
+                        language = "en",
+                        isbn = "1234567890",
+                        asin = "ASIN123",
+                        abridged = true,
+                    )
+                val original = createOriginalState(metadata = originalMetadata)
+                val current = createUpdateRequest(metadata = currentMetadata)
 
-    @Test
-    fun `updates genres when list changes`() =
-        runTest {
-            // Given
-            val originalGenres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
-            val currentGenres =
-                listOf(
-                    createEditableGenre(id = "g1", name = "Fiction"),
-                    createEditableGenre(id = "g2", name = "Mystery"),
-                )
-            val original = createOriginalState(genres = originalGenres)
-            val current = createUpdateRequest(genres = currentGenres)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+                // When
+                val result = useCase(current, original)
 
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.genreRepository.setGenresForBook("book-1", listOf("g1", "g2")) }
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend {
+                    fixture.bookEditRepository.updateBook(
+                        bookId = "book-1",
+                        title = any(),
+                        subtitle = "New Subtitle",
+                        description = "New Description",
+                        publishYear = "2024",
+                        publisher = "New Publisher",
+                        language = "en",
+                        isbn = "1234567890",
+                        asin = "ASIN123",
+                        abridged = true,
+                    )
+                }
+            }
         }
 
-    @Test
-    fun `does not update genres when list unchanged`() =
-        runTest {
-            // Given
-            val genres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
-            val original = createOriginalState(genres = genres)
-            val current = createUpdateRequest(genres = genres)
+        // ========== Contributor Change Tests ==========
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("updates contributors when list changes") {
+            runTest {
+                // Given
+                val originalContributors =
+                    listOf(
+                        createEditableContributor(id = "c1", name = "Author 1"),
+                    )
+                val currentContributors =
+                    listOf(
+                        createEditableContributor(id = "c1", name = "Author 1"),
+                        createEditableContributor(id = "c2", name = "Author 2"),
+                    )
+                val original = createOriginalState(contributors = originalContributors)
+                val current = createUpdateRequest(contributors = currentContributors)
 
-            // When
-            useCase(current, original)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // Then
-            verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.bookEditRepository.setBookContributors("book-1", any()) }
+            }
         }
 
-    // ========== Tag Change Tests ==========
+        test("does not update contributors when list unchanged") {
+            runTest {
+                // Given
+                val contributors =
+                    listOf(
+                        createEditableContributor(id = "c1", name = "Author 1"),
+                    )
+                val original = createOriginalState(contributors = contributors)
+                val current = createUpdateRequest(contributors = contributors)
 
-    @Test
-    fun `adds new tags`() =
-        runTest {
-            // Given
-            val originalTags = listOf(createEditableTag(id = "t1", slug = "favorites"))
-            val currentTags =
-                listOf(
-                    createEditableTag(id = "t1", slug = "favorites"),
-                    createEditableTag(id = "t2", slug = "to-read"),
-                )
-            val original = createOriginalState(tags = originalTags)
-            val current = createUpdateRequest(tags = currentTags)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+                // When
+                useCase(current, original)
 
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.tagRepository.addTagToBook("book-1", "to-read") }
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
+            }
         }
 
-    @Test
-    fun `removes deleted tags`() =
-        runTest {
-            // Given
-            val originalTags =
-                listOf(
-                    createEditableTag(id = "t1", slug = "favorites"),
-                    createEditableTag(id = "t2", slug = "to-read"),
-                )
-            val currentTags = listOf(createEditableTag(id = "t1", slug = "favorites"))
-            val original = createOriginalState(tags = originalTags)
-            val current = createUpdateRequest(tags = currentTags)
+        // ========== Series Change Tests ==========
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("updates series when list changes") {
+            runTest {
+                // Given
+                val originalSeries = emptyList<EditableSeries>()
+                val currentSeries =
+                    listOf(
+                        createEditableSeries(id = "s1", name = "New Series", sequence = "1"),
+                    )
+                val original = createOriginalState(series = originalSeries)
+                val current = createUpdateRequest(series = currentSeries)
 
-            // When
-            val result = useCase(current, original)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.bookEditRepository.setBookSeries("book-1", any()) }
+            }
         }
 
-    @Test
-    fun `adds and removes tags in single operation`() =
-        runTest {
-            // Given
-            val originalTags =
-                listOf(
-                    createEditableTag(id = "t1", slug = "favorites"),
-                    createEditableTag(id = "t2", slug = "to-read"),
-                )
-            val currentTags =
-                listOf(
-                    createEditableTag(id = "t1", slug = "favorites"),
-                    createEditableTag(id = "t3", slug = "completed"),
-                )
-            val original = createOriginalState(tags = originalTags)
-            val current = createUpdateRequest(tags = currentTags)
+        test("converts series sequence to float") {
+            runTest {
+                // Given
+                val currentSeries =
+                    listOf(
+                        createEditableSeries(id = "s1", name = "Series", sequence = "2.5"),
+                    )
+                val original = createOriginalState()
+                val current = createUpdateRequest(series = currentSeries)
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase(current, original)
+                // When
+                useCase(current, original)
 
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
-            verifySuspend { fixture.tagRepository.addTagToBook("book-1", "completed") }
+                // Then
+                verifySuspend {
+                    fixture.bookEditRepository.setBookSeries(
+                        "book-1",
+                        listOf(BookSeriesInput(name = "Series", sequence = 2.5f)),
+                    )
+                }
+            }
         }
 
-    @Test
-    fun `does not update tags when unchanged`() =
-        runTest {
-            // Given
-            val tags = listOf(createEditableTag(id = "t1", slug = "favorites"))
-            val original = createOriginalState(tags = tags)
-            val current = createUpdateRequest(tags = tags)
+        // ========== Genre Change Tests ==========
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("updates genres when list changes") {
+            runTest {
+                // Given
+                val originalGenres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
+                val currentGenres =
+                    listOf(
+                        createEditableGenre(id = "g1", name = "Fiction"),
+                        createEditableGenre(id = "g2", name = "Mystery"),
+                    )
+                val original = createOriginalState(genres = originalGenres)
+                val current = createUpdateRequest(genres = currentGenres)
 
-            // When
-            useCase(current, original)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // Then
-            verifySuspend(VerifyMode.not) { fixture.tagRepository.addTagToBook(any(), any()) }
-            verifySuspend(VerifyMode.not) { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.genreRepository.setGenresForBook("book-1", listOf("g1", "g2")) }
+            }
         }
 
-    // ========== Cover Upload Tests ==========
+        test("does not update genres when list unchanged") {
+            runTest {
+                // Given
+                val genres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
+                val original = createOriginalState(genres = genres)
+                val current = createUpdateRequest(genres = genres)
 
-    @Test
-    fun `commits and uploads cover when pending`() =
-        runTest {
-            // Given
-            val pendingCover =
-                PendingCover(
-                    data = byteArrayOf(1, 2, 3),
-                    filename = "cover.jpg",
-                )
-            val original = createOriginalState()
-            val current = createUpdateRequest(pendingCover = pendingCover)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+                // When
+                useCase(current, original)
 
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(BookId("book-1")) }
-            verifySuspend { fixture.imageRepository.uploadBookCover("book-1", any(), "cover.jpg") }
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
+            }
         }
 
-    @Test
-    fun `does not upload cover when no pending cover`() =
-        runTest {
-            // Given
-            val original = createOriginalState()
-            val current = createUpdateRequest(pendingCover = null)
+        // ========== Tag Change Tests ==========
 
-            val fixture = createFixture()
-            val useCase = fixture.build()
+        test("adds new tags") {
+            runTest {
+                // Given
+                val originalTags = listOf(createEditableTag(id = "t1", slug = "favorites"))
+                val currentTags =
+                    listOf(
+                        createEditableTag(id = "t1", slug = "favorites"),
+                        createEditableTag(id = "t2", slug = "to-read"),
+                    )
+                val original = createOriginalState(tags = originalTags)
+                val current = createUpdateRequest(tags = currentTags)
 
-            // When
-            useCase(current, original)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // Then
-            verifySuspend(VerifyMode.not) { fixture.imageStagingRepository.commitBookCoverStaging(any()) }
-            verifySuspend(VerifyMode.not) { fixture.imageRepository.uploadBookCover(any(), any(), any()) }
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.tagRepository.addTagToBook("book-1", "to-read") }
+            }
         }
 
-    @Test
-    fun `continues save even if cover upload fails`() =
-        runTest {
-            // Given - cover upload will fail
-            val pendingCover =
-                PendingCover(
-                    data = byteArrayOf(1, 2, 3),
-                    filename = "cover.jpg",
-                )
-            val original = createOriginalState()
-            val current = createUpdateRequest(pendingCover = pendingCover)
+        test("removes deleted tags") {
+            runTest {
+                // Given
+                val originalTags =
+                    listOf(
+                        createEditableTag(id = "t1", slug = "favorites"),
+                        createEditableTag(id = "t2", slug = "to-read"),
+                    )
+                val currentTags = listOf(createEditableTag(id = "t1", slug = "favorites"))
+                val original = createOriginalState(tags = originalTags)
+                val current = createUpdateRequest(tags = currentTags)
 
-            val fixture = createFixture()
-            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns failureOf("Upload failed")
-            val useCase = fixture.build()
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase(current, original)
+                // When
+                val result = useCase(current, original)
 
-            // Then - should still succeed (cover upload is best-effort)
-            checkIs<Success<Unit>>(result)
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
+            }
         }
 
-    // ========== Error Handling Tests ==========
+        test("adds and removes tags in single operation") {
+            runTest {
+                // Given
+                val originalTags =
+                    listOf(
+                        createEditableTag(id = "t1", slug = "favorites"),
+                        createEditableTag(id = "t2", slug = "to-read"),
+                    )
+                val currentTags =
+                    listOf(
+                        createEditableTag(id = "t1", slug = "favorites"),
+                        createEditableTag(id = "t3", slug = "completed"),
+                    )
+                val original = createOriginalState(tags = originalTags)
+                val current = createUpdateRequest(tags = currentTags)
 
-    @Test
-    fun `returns failure when metadata update fails`() =
-        runTest {
-            // Given
-            val originalMetadata = createMetadata(title = "Original")
-            val currentMetadata = createMetadata(title = "New")
-            val original = createOriginalState(metadata = originalMetadata)
-            val current = createUpdateRequest(metadata = currentMetadata)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val fixture = createFixture()
-            everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Update failed")
-            val useCase = fixture.build()
+                // When
+                val result = useCase(current, original)
 
-            // When
-            val result = useCase(current, original)
-
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("Update failed"))
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
+                verifySuspend { fixture.tagRepository.addTagToBook("book-1", "completed") }
+            }
         }
 
-    @Test
-    fun `stops execution on first error`() =
-        runTest {
-            // Given - metadata will fail, contributors also changed
-            val originalMetadata = createMetadata(title = "Original")
-            val currentMetadata = createMetadata(title = "New")
-            val currentContributors = listOf(createEditableContributor())
+        test("does not update tags when unchanged") {
+            runTest {
+                // Given
+                val tags = listOf(createEditableTag(id = "t1", slug = "favorites"))
+                val original = createOriginalState(tags = tags)
+                val current = createUpdateRequest(tags = tags)
 
-            val original = createOriginalState(metadata = originalMetadata)
-            val current =
-                createUpdateRequest(
-                    metadata = currentMetadata,
-                    contributors = currentContributors,
-                )
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            val fixture = createFixture()
-            everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Metadata failed")
-            val useCase = fixture.build()
+                // When
+                useCase(current, original)
 
-            // When
-            useCase(current, original)
-
-            // Then - contributors should not be updated because metadata failed first
-            verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.tagRepository.addTagToBook(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
+            }
         }
 
-    @Test
-    fun `returns failure when contributor update fails`() =
-        runTest {
-            // Given
-            val currentContributors = listOf(createEditableContributor())
-            val original = createOriginalState()
-            val current = createUpdateRequest(contributors = currentContributors)
+        // ========== Cover Upload Tests ==========
 
-            val fixture = createFixture()
-            everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns failureOf("Contributor update failed")
-            val useCase = fixture.build()
+        test("commits and uploads cover when pending") {
+            runTest {
+                // Given
+                val pendingCover =
+                    PendingCover(
+                        data = byteArrayOf(1, 2, 3),
+                        filename = "cover.jpg",
+                    )
+                val original = createOriginalState()
+                val current = createUpdateRequest(pendingCover = pendingCover)
 
-            // When
-            val result = useCase(current, original)
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("Contributor update failed"))
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(BookId("book-1")) }
+                verifySuspend { fixture.imageRepository.uploadBookCover("book-1", any(), "cover.jpg") }
+            }
         }
 
-    @Test
-    fun `returns failure when series update fails`() =
-        runTest {
-            // Given
-            val currentSeries = listOf(createEditableSeries())
-            val original = createOriginalState()
-            val current = createUpdateRequest(series = currentSeries)
+        test("does not upload cover when no pending cover") {
+            runTest {
+                // Given
+                val original = createOriginalState()
+                val current = createUpdateRequest(pendingCover = null)
 
-            val fixture = createFixture()
-            everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns failureOf("Series update failed")
-            val useCase = fixture.build()
+                val fixture = createFixture()
+                val useCase = fixture.build()
 
-            // When
-            val result = useCase(current, original)
+                // When
+                useCase(current, original)
 
-            // Then
-            val failure = assertIs<Failure>(result)
-            assertTrue(failure.message.contains("Series update failed"))
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.imageStagingRepository.commitBookCoverStaging(any()) }
+                verifySuspend(VerifyMode.not) { fixture.imageRepository.uploadBookCover(any(), any(), any()) }
+            }
         }
 
-    // ========== Multiple Changes Test ==========
+        test("continues save even if cover upload fails") {
+            runTest {
+                // Given - cover upload will fail
+                val pendingCover =
+                    PendingCover(
+                        data = byteArrayOf(1, 2, 3),
+                        filename = "cover.jpg",
+                    )
+                val original = createOriginalState()
+                val current = createUpdateRequest(pendingCover = pendingCover)
 
-    @Test
-    fun `handles all changes in single call`() =
-        runTest {
-            // Given - everything changed
-            val originalMetadata = createMetadata(title = "Original Title")
-            val currentMetadata = createMetadata(title = "New Title")
+                val fixture = createFixture()
+                everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns failureOf("Upload failed")
+                val useCase = fixture.build()
 
-            val originalContributors = listOf(createEditableContributor(id = "c1", name = "Old Author"))
-            val currentContributors = listOf(createEditableContributor(id = "c2", name = "New Author"))
+                // When
+                val result = useCase(current, original)
 
-            val originalSeries = emptyList<EditableSeries>()
-            val currentSeries = listOf(createEditableSeries(id = "s1", name = "New Series"))
-
-            val originalGenres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
-            val currentGenres = listOf(createEditableGenre(id = "g2", name = "Mystery"))
-
-            val originalTags = listOf(createEditableTag(id = "t1", slug = "old-tag"))
-            val currentTags = listOf(createEditableTag(id = "t2", slug = "new-tag"))
-
-            val pendingCover = PendingCover(data = byteArrayOf(1), filename = "cover.jpg")
-
-            val original =
-                createOriginalState(
-                    metadata = originalMetadata,
-                    contributors = originalContributors,
-                    series = originalSeries,
-                    genres = originalGenres,
-                    tags = originalTags,
-                )
-            val current =
-                createUpdateRequest(
-                    metadata = currentMetadata,
-                    contributors = currentContributors,
-                    series = currentSeries,
-                    genres = currentGenres,
-                    tags = currentTags,
-                    pendingCover = pendingCover,
-                )
-
-            val fixture = createFixture()
-            val useCase = fixture.build()
-
-            // When
-            val result = useCase(current, original)
-
-            // Then - all operations should be called
-            checkIs<Success<Unit>>(result)
-            verifySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
-            verifySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) }
-            verifySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) }
-            verifySuspend { fixture.genreRepository.setGenresForBook(any(), any()) }
-            verifySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
-            verifySuspend { fixture.tagRepository.addTagToBook(any(), any()) }
-            verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) }
-            verifySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) }
+                // Then - should still succeed (cover upload is best-effort)
+                checkIs<Success<Unit>>(result)
+            }
         }
-}
+
+        // ========== Error Handling Tests ==========
+
+        test("returns failure when metadata update fails") {
+            runTest {
+                // Given
+                val originalMetadata = createMetadata(title = "Original")
+                val currentMetadata = createMetadata(title = "New")
+                val original = createOriginalState(metadata = originalMetadata)
+                val current = createUpdateRequest(metadata = currentMetadata)
+
+                val fixture = createFixture()
+                everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Update failed")
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                val failure = result.shouldBeInstanceOf<Failure>()
+                (failure.message.contains("Update failed")) shouldBe true
+            }
+        }
+
+        test("stops execution on first error") {
+            runTest {
+                // Given - metadata will fail, contributors also changed
+                val originalMetadata = createMetadata(title = "Original")
+                val currentMetadata = createMetadata(title = "New")
+                val currentContributors = listOf(createEditableContributor())
+
+                val original = createOriginalState(metadata = originalMetadata)
+                val current =
+                    createUpdateRequest(
+                        metadata = currentMetadata,
+                        contributors = currentContributors,
+                    )
+
+                val fixture = createFixture()
+                everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Metadata failed")
+                val useCase = fixture.build()
+
+                // When
+                useCase(current, original)
+
+                // Then - contributors should not be updated because metadata failed first
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
+            }
+        }
+
+        test("returns failure when contributor update fails") {
+            runTest {
+                // Given
+                val currentContributors = listOf(createEditableContributor())
+                val original = createOriginalState()
+                val current = createUpdateRequest(contributors = currentContributors)
+
+                val fixture = createFixture()
+                everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns failureOf("Contributor update failed")
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                val failure = result.shouldBeInstanceOf<Failure>()
+                (failure.message.contains("Contributor update failed")) shouldBe true
+            }
+        }
+
+        test("returns failure when series update fails") {
+            runTest {
+                // Given
+                val currentSeries = listOf(createEditableSeries())
+                val original = createOriginalState()
+                val current = createUpdateRequest(series = currentSeries)
+
+                val fixture = createFixture()
+                everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns failureOf("Series update failed")
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then
+                val failure = result.shouldBeInstanceOf<Failure>()
+                (failure.message.contains("Series update failed")) shouldBe true
+            }
+        }
+
+        // ========== Multiple Changes Test ==========
+
+        test("handles all changes in single call") {
+            runTest {
+                // Given - everything changed
+                val originalMetadata = createMetadata(title = "Original Title")
+                val currentMetadata = createMetadata(title = "New Title")
+
+                val originalContributors = listOf(createEditableContributor(id = "c1", name = "Old Author"))
+                val currentContributors = listOf(createEditableContributor(id = "c2", name = "New Author"))
+
+                val originalSeries = emptyList<EditableSeries>()
+                val currentSeries = listOf(createEditableSeries(id = "s1", name = "New Series"))
+
+                val originalGenres = listOf(createEditableGenre(id = "g1", name = "Fiction"))
+                val currentGenres = listOf(createEditableGenre(id = "g2", name = "Mystery"))
+
+                val originalTags = listOf(createEditableTag(id = "t1", slug = "old-tag"))
+                val currentTags = listOf(createEditableTag(id = "t2", slug = "new-tag"))
+
+                val pendingCover = PendingCover(data = byteArrayOf(1), filename = "cover.jpg")
+
+                val original =
+                    createOriginalState(
+                        metadata = originalMetadata,
+                        contributors = originalContributors,
+                        series = originalSeries,
+                        genres = originalGenres,
+                        tags = originalTags,
+                    )
+                val current =
+                    createUpdateRequest(
+                        metadata = currentMetadata,
+                        contributors = currentContributors,
+                        series = currentSeries,
+                        genres = currentGenres,
+                        tags = currentTags,
+                        pendingCover = pendingCover,
+                    )
+
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                // When
+                val result = useCase(current, original)
+
+                // Then - all operations should be called
+                checkIs<Success<Unit>>(result)
+                verifySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+                verifySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) }
+                verifySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) }
+                verifySuspend { fixture.genreRepository.setGenresForBook(any(), any()) }
+                verifySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
+                verifySuspend { fixture.tagRepository.addTagToBook(any(), any()) }
+                verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) }
+                verifySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) }
+            }
+        }
+    })
