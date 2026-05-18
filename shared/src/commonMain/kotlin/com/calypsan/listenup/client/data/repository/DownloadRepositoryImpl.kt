@@ -89,6 +89,9 @@ class DownloadRepositoryImpl(
 
     override suspend fun getLocalPath(audioFileId: String): String? = downloadDao.getLocalPath(audioFileId)
 
+    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? =
+        downloadDao.getByAudioFileId(audioFileId)?.state
+
     // --- State-transition writes ---
 
     override suspend fun markDownloading(

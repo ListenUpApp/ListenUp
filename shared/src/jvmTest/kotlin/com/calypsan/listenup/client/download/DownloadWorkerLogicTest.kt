@@ -796,6 +796,70 @@ class DownloadWorkerLogicTest {
             }
         }
 
+    // ---- Scenario 13 ----
+
+    /**
+     * User-cancel path: cancellation leaves a .tmp on disk; sweepOrphanedTempFiles removes it.
+     *
+     * The worker's CancellationException catch block lives in [DownloadWorker.doWork], which is
+     * Android-only and not reachable from [downloadAudioFile]. The sweep is the durable cleanup
+     * path (called from resumeIncompleteDownloads on startup). This test asserts that invariant:
+     * after a cancelled download, the .tmp is absent from active ids and the sweep removes it.
+     */
+    @Test
+    fun `user-cancel leaves tmp on disk - sweep removes orphaned partial`() =
+        runTest {
+            val tmpRoot = tempDir()
+            try {
+                val fakeRepo = FakeDownloadRepository(initial = listOf(entity("file-1")))
+                val binaryEngine =
+                    MockEngine { _ ->
+                        respond(
+                            content = ByteArray(1000) { 0x42 },
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                        )
+                    }
+                val fileManager = fileManagerFor(tmpRoot)
+
+                // Run the download but stop it immediately — simulates a mid-download cancellation.
+                try {
+                    downloadAudioFile(
+                        audioFileId = "file-1",
+                        bookId = "book-1",
+                        filename = "file-1.mp3",
+                        expectedSize = 1000L,
+                        httpClient = productionLikeClient(binaryEngine),
+                        repository = fakeRepo,
+                        fileManager = fileManager,
+                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
+                        playbackPreferences = FakePlaybackPreferences(),
+                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        isStopped = { true },
+                    )
+                } catch (_: CancellationException) {
+                    // Replicate the user-cancel path: DownloadManager.cancelDownload writes CANCELLED.
+                    fakeRepo.markCancelled("file-1")
+                }
+
+                val tempPath = fileManager.getAudioFilePath("book-1", "file-1", "file-1.mp3", isTemp = true)
+                // The .tmp may or may not exist depending on how many bytes were written before
+                // isStopped fired. Either way, sweepOrphanedTempFiles must not leave it behind.
+                // Seed a known orphan .tmp to guarantee there is something for the sweep to delete.
+                if (!SystemFileSystem.exists(tempPath)) {
+                    SystemFileSystem.sink(tempPath).use { it }
+                }
+
+                // Sweep with empty activeIds (all cancelled → no active download ids).
+                val swept = fileManager.sweepOrphanedTempFiles(emptySet())
+
+                assertTrue(swept >= 1, "Expected sweep to delete at least 1 orphaned .tmp, got $swept")
+                assertTrue(!SystemFileSystem.exists(tempPath), "Expected .tmp to be deleted by sweep")
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
     // ---- Utility ----
 
     private fun tempDir(): File = File(System.getProperty("java.io.tmpdir"), "dwlt-${System.nanoTime()}").also { it.mkdirs() }

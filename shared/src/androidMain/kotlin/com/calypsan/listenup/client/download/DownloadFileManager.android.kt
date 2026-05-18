@@ -90,4 +90,24 @@ actual class DownloadFileManager(
         }
 
     actual fun getAvailableSpace(): Long = context.filesDir.usableSpace
+
+    actual fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int {
+        // java.io.File is used here for walkTopDown — consistent with the existing recursive
+        // operations in this actual (deleteBookFiles, deleteAllFiles, calculateStorageUsed).
+        val dir = java.io.File(downloadDir.toString())
+        if (!dir.exists()) return 0
+
+        var deleted = 0
+        dir.walkTopDown()
+            .filter { it.isFile && it.name.endsWith(".tmp") }
+            .forEach { file ->
+                // Filename format: "${audioFileId}_${filename}.tmp"
+                // The audioFileId is everything before the first '_'.
+                val audioFileId = file.name.substringBefore('_')
+                if (audioFileId !in activeAudioFileIds) {
+                    if (file.delete()) deleted++
+                }
+            }
+        return deleted
+    }
 }

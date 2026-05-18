@@ -250,6 +250,15 @@ class DownloadManager(
      */
     override suspend fun resumeIncompleteDownloads() {
         val incomplete = downloadDao.getIncomplete()
+
+        // Sweep orphaned .tmp partials from prior runs: any .tmp whose audioFileId is not in the
+        // active (non-terminal) set is a leftover from a cancelled or crashed download.
+        val activeIds = incomplete.map { it.audioFileId }.toSet()
+        val swept = fileManager.sweepOrphanedTempFiles(activeIds)
+        if (swept > 0) {
+            logger.info { "Swept $swept orphaned .tmp file(s) on startup" }
+        }
+
         if (incomplete.isEmpty()) return
 
         logger.info { "Resuming ${incomplete.size} incomplete downloads" }
