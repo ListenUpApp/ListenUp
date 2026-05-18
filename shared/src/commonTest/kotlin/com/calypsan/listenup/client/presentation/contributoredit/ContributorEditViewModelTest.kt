@@ -16,6 +16,8 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -23,12 +25,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 /**
  * Tests for ContributorEditViewModel.
@@ -40,309 +36,303 @@ import kotlin.test.assertTrue
  * - Handling merge errors gracefully
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class ContributorEditViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class ContributorEditViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixture ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val contributorRepository: ContributorRepository = mock()
-        val contributorEditRepository: ContributorEditRepository = mock()
-        val updateContributorUseCase: UpdateContributorUseCase = mock()
-        val imageRepository: ImageRepository = mock()
+        // ========== Test Fixture ==========
 
-        fun build(): ContributorEditViewModel =
-            ContributorEditViewModel(
-                contributorRepository = contributorRepository,
-                contributorEditRepository = contributorEditRepository,
-                updateContributorUseCase = updateContributorUseCase,
-                imageRepository = imageRepository,
+        class TestFixture {
+            val contributorRepository: ContributorRepository = mock()
+            val contributorEditRepository: ContributorEditRepository = mock()
+            val updateContributorUseCase: UpdateContributorUseCase = mock()
+            val imageRepository: ImageRepository = mock()
+
+            fun build(): ContributorEditViewModel =
+                ContributorEditViewModel(
+                    contributorRepository = contributorRepository,
+                    contributorEditRepository = contributorEditRepository,
+                    updateContributorUseCase = updateContributorUseCase,
+                    imageRepository = imageRepository,
+                )
+        }
+
+        fun createFixture(): TestFixture = TestFixture()
+
+        // ========== Test Data Factories ==========
+
+        fun createContributor(
+            id: String = "contributor-1",
+            name: String = "Stephen King",
+            aliases: List<String> = emptyList(),
+        ): Contributor =
+            Contributor(
+                id =
+                    com.calypsan.listenup.client.core
+                        .ContributorId(id),
+                name = name,
+                description = null,
+                imagePath = null,
+                imageBlurHash = null,
+                website = null,
+                birthDate = null,
+                deathDate = null,
+                aliases = aliases,
             )
-    }
 
-    private fun createFixture(): TestFixture = TestFixture()
-
-    // ========== Test Data Factories ==========
-
-    private fun createContributor(
-        id: String = "contributor-1",
-        name: String = "Stephen King",
-        aliases: List<String> = emptyList(),
-    ): Contributor =
-        Contributor(
-            id =
-                com.calypsan.listenup.client.core
-                    .ContributorId(id),
-            name = name,
-            description = null,
-            imagePath = null,
-            imageBlurHash = null,
-            website = null,
-            birthDate = null,
-            deathDate = null,
-            aliases = aliases,
-        )
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Load Contributor Tests ==========
-
-    @Test
-    fun `loadContributor populates state with contributor data`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor =
-                createContributor(
-                    name = "Stephen King",
-                    aliases = listOf("Richard Bachman", "John Swithen"),
-                )
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
-
-            // Then
-            val state = viewModel.state.value
-            assertFalse(state.isLoading)
-            assertEquals("Stephen King", state.name)
-            assertEquals(2, state.aliases.size)
-            assertTrue(state.aliases.contains("Richard Bachman"))
-            assertTrue(state.aliases.contains("John Swithen"))
+        beforeTest {
+            Dispatchers.setMain(testDispatcher)
         }
 
-    @Test
-    fun `loadContributor handles contributor not found`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            everySuspend { fixture.contributorRepository.getById("nonexistent") } returns null
-
-            val viewModel = fixture.build()
-
-            // When
-            viewModel.loadContributor("nonexistent")
-            advanceUntilIdle()
-
-            // Then
-            val state = viewModel.state.value
-            assertFalse(state.isLoading)
-            assertEquals("Contributor not found", state.error)
+        afterTest {
+            Dispatchers.resetMain()
         }
 
-    // ========== Alias Selection Tests ==========
+        // ========== Load Contributor Tests ==========
 
-    @Test
-    fun `selecting alias from search adds to aliases list and marks for merge`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor()
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+        test("loadContributor populates state with contributor data") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor =
+                    createContributor(
+                        name = "Stephen King",
+                        aliases = listOf("Richard Bachman", "John Swithen"),
+                    )
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
 
-            val searchResult =
-                ContributorSearchResult(
-                    id = "contributor-2",
-                    name = "Richard Bachman",
-                    bookCount = 5,
-                )
-            everySuspend { fixture.contributorRepository.searchContributors(any(), any()) } returns
-                ContributorSearchResponse(
-                    contributors = listOf(searchResult),
-                    isOfflineResult = false,
-                    tookMs = 10L,
-                )
+                val viewModel = fixture.build()
 
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
+                // When
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
 
-            // When - select alias from autocomplete
-            viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
-
-            // Then
-            val state = viewModel.state.value
-            assertTrue(state.aliases.contains("Richard Bachman"))
-            assertTrue(state.hasChanges)
-        }
-
-    // ========== Save with Merge Tests ==========
-
-    @Test
-    fun `save calls use case for new aliases from autocomplete`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor()
-
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-            everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
-
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
-
-            // Add alias via autocomplete (which tracks for merge)
-            val searchResult =
-                ContributorSearchResult(
-                    id = "contributor-2",
-                    name = "Richard Bachman",
-                    bookCount = 5,
-                )
-            viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
-
-            // When
-            viewModel.onEvent(ContributorEditUiEvent.Save)
-            advanceUntilIdle()
-
-            // Then - verify use case was called
-            verifySuspend(VerifyMode.exactly(1)) {
-                fixture.updateContributorUseCase.invoke(any())
+                // Then
+                val state = viewModel.state.value
+                (state.isLoading) shouldBe false
+                state.name shouldBe "Stephen King"
+                state.aliases.size shouldBe 2
+                (state.aliases.contains("Richard Bachman")) shouldBe true
+                (state.aliases.contains("John Swithen")) shouldBe true
             }
         }
 
-    @Test
-    fun `save handles use case failure gracefully`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor()
+        test("loadContributor handles contributor not found") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("nonexistent") } returns null
 
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-            // Use case fails
-            // Body-level message convention: pass a typed AppError so the
-            // user-facing message survives delegation to the ViewModel.
-            everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
-                Failure(
-                    com.calypsan.listenup.api.error
-                        .ValidationError(message = "Network error"),
-                )
+                val viewModel = fixture.build()
 
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
+                // When
+                viewModel.loadContributor("nonexistent")
+                advanceUntilIdle()
 
-            // Add alias via autocomplete
-            val searchResult =
-                ContributorSearchResult(
-                    id = "contributor-2",
-                    name = "Richard Bachman",
-                    bookCount = 5,
-                )
-            viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
-
-            // When
-            viewModel.onEvent(ContributorEditUiEvent.Save)
-            advanceUntilIdle()
-
-            // Then - error should be shown (ViewModel prepends "Failed to save: ")
-            assertEquals("Failed to save: Network error", viewModel.state.value.error)
-        }
-
-    @Test
-    fun `manual alias entry calls use case`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor()
-
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-            everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
-
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
-
-            // Add alias via manual text entry (not autocomplete)
-            viewModel.onEvent(ContributorEditUiEvent.AliasEntered("New Pen Name"))
-
-            // When
-            viewModel.onEvent(ContributorEditUiEvent.Save)
-            advanceUntilIdle()
-
-            // Then - use case should be called
-            verifySuspend(VerifyMode.exactly(1)) {
-                fixture.updateContributorUseCase.invoke(any())
+                // Then
+                val state = viewModel.state.value
+                (state.isLoading) shouldBe false
+                state.error shouldBe "Contributor not found"
             }
         }
 
-    @Test
-    fun `removing alias calls repository unmerge`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor(aliases = listOf("Richard Bachman"))
+        // ========== Alias Selection Tests ==========
 
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-            everySuspend { fixture.contributorEditRepository.unmergeContributor(any(), any()) } returns
-                Success(Unit)
+        test("selecting alias from search adds to aliases list and marks for merge") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
 
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
+                val searchResult =
+                    ContributorSearchResult(
+                        id = "contributor-2",
+                        name = "Richard Bachman",
+                        bookCount = 5,
+                    )
+                everySuspend { fixture.contributorRepository.searchContributors(any(), any()) } returns
+                    ContributorSearchResponse(
+                        contributors = listOf(searchResult),
+                        isOfflineResult = false,
+                        tookMs = 10L,
+                    )
 
-            // Verify alias is present
-            assertTrue(
-                viewModel.state.value.aliases
-                    .contains("Richard Bachman"),
-            )
-            assertFalse(viewModel.state.value.hasChanges)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
 
-            // When - removing an original alias calls the repository unmerge
-            viewModel.onEvent(ContributorEditUiEvent.RemoveAlias("Richard Bachman"))
-            advanceUntilIdle()
+                // When - select alias from autocomplete
+                viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
 
-            // Then
-            assertFalse(
-                viewModel.state.value.aliases
-                    .contains("Richard Bachman"),
-            )
-            // Verify unmerge was called
-            verifySuspend(VerifyMode.exactly(1)) {
-                fixture.contributorEditRepository.unmergeContributor("contributor-1", "Richard Bachman")
+                // Then
+                val state = viewModel.state.value
+                (state.aliases.contains("Richard Bachman")) shouldBe true
+                (state.hasChanges) shouldBe true
             }
         }
 
-    @Test
-    fun `save calls use case with correct parameters`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val contributor = createContributor()
+        // ========== Save with Merge Tests ==========
 
-            everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-            everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
+        test("save calls use case for new aliases from autocomplete") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
 
-            val viewModel = fixture.build()
-            viewModel.loadContributor("contributor-1")
-            advanceUntilIdle()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
 
-            // Change name
-            viewModel.onEvent(ContributorEditUiEvent.NameChanged("Stephen Edwin King"))
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
 
-            // When / Then
-            viewModel.navActions.test {
+                // Add alias via autocomplete (which tracks for merge)
+                val searchResult =
+                    ContributorSearchResult(
+                        id = "contributor-2",
+                        name = "Richard Bachman",
+                        bookCount = 5,
+                    )
+                viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
+
+                // When
                 viewModel.onEvent(ContributorEditUiEvent.Save)
                 advanceUntilIdle()
 
-                // Verify use case was called
+                // Then - verify use case was called
                 verifySuspend(VerifyMode.exactly(1)) {
                     fixture.updateContributorUseCase.invoke(any())
                 }
-
-                // Verify navigation
-                assertEquals(ContributorEditNavAction.SaveSuccess, awaitItem())
             }
         }
-}
+
+        test("save handles use case failure gracefully") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                // Use case fails
+                // Body-level message convention: pass a typed AppError so the
+                // user-facing message survives delegation to the ViewModel.
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
+                    Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Network error"),
+                    )
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // Add alias via autocomplete
+                val searchResult =
+                    ContributorSearchResult(
+                        id = "contributor-2",
+                        name = "Richard Bachman",
+                        bookCount = 5,
+                    )
+                viewModel.onEvent(ContributorEditUiEvent.AliasSelected(searchResult))
+
+                // When
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then - error should be shown (ViewModel prepends "Failed to save: ")
+                viewModel.state.value.error shouldBe "Failed to save: Network error"
+            }
+        }
+
+        test("manual alias entry calls use case") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // Add alias via manual text entry (not autocomplete)
+                viewModel.onEvent(ContributorEditUiEvent.AliasEntered("New Pen Name"))
+
+                // When
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then - use case should be called
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.updateContributorUseCase.invoke(any())
+                }
+            }
+        }
+
+        test("removing alias calls repository unmerge") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor(aliases = listOf("Richard Bachman"))
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend { fixture.contributorEditRepository.unmergeContributor(any(), any()) } returns
+                    Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // Verify alias is present
+                (viewModel.state.value.aliases.contains("Richard Bachman")) shouldBe true
+                (viewModel.state.value.hasChanges) shouldBe false
+
+                // When - removing an original alias calls the repository unmerge
+                viewModel.onEvent(ContributorEditUiEvent.RemoveAlias("Richard Bachman"))
+                advanceUntilIdle()
+
+                // Then
+                (viewModel.state.value.aliases.contains("Richard Bachman")) shouldBe false
+                // Verify unmerge was called
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.contributorEditRepository.unmergeContributor("contributor-1", "Richard Bachman")
+                }
+            }
+        }
+
+        test("save calls use case with correct parameters") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // Change name
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("Stephen Edwin King"))
+
+                // When / Then
+                viewModel.navActions.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+
+                    // Verify use case was called
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        fixture.updateContributorUseCase.invoke(any())
+                    }
+
+                    // Verify navigation
+                    awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
+                }
+            }
+        }
+    })
