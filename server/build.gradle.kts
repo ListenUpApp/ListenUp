@@ -121,3 +121,14 @@ tasks.register<JavaExec>("generateSeedLibrary") {
     args(seedLibraryDir.get().asFile.absolutePath)
     outputs.dir(seedLibraryDir)
 }
+
+tasks.register<JavaExec>("runDemo") {
+    group = "demo"
+    description = "Runs the server as a seeded demo server (generates the synthetic library first)."
+    dependsOn("generateSeedLibrary")
+    mainClass.set("com.calypsan.listenup.server.ApplicationKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    environment("LISTENUP_SEED_PROFILE", "demo")
+    environment("LISTENUP_LIBRARY_PATH", seedLibraryDir.get().asFile.absolutePath)
+    environment("LISTENUP_DB_URL", "jdbc:sqlite:${layout.buildDirectory.get().asFile.absolutePath}/demo.db")
+}
