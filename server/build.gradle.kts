@@ -110,3 +110,14 @@ kotlin {
 tasks.test {
     useJUnitPlatform()
 }
+
+val seedLibraryDir = layout.buildDirectory.dir("seed-library")
+
+tasks.register<JavaExec>("generateSeedLibrary") {
+    group = "demo"
+    description = "Generates the synthetic audiobook library for the demo server (requires ffmpeg)."
+    mainClass.set("com.calypsan.listenup.server.seed.SeedLibraryGenerator")
+    classpath = sourceSets["main"].runtimeClasspath
+    args(seedLibraryDir.get().asFile.absolutePath)
+    outputs.dir(seedLibraryDir)
+}
