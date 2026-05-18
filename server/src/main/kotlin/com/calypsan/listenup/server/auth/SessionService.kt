@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.RefreshToken
@@ -12,9 +14,11 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
-import java.time.Clock
-import java.time.Duration
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.ExperimentalTime
 
 /** Result of creating a new session — the raw refresh token is only returned here. */
 data class IssuedSession(
@@ -44,7 +48,7 @@ class SessionService(
     private val tokenHasher: RefreshTokenHasher,
     private val tokenGenerator: RefreshTokenGenerator,
     private val refreshTtl: Duration = DEFAULT_REFRESH_TTL,
-    private val clock: Clock = Clock.systemUTC(),
+    private val clock: Clock = Clock.System,
 ) {
     suspend fun createSession(
         userId: UserId,
@@ -53,8 +57,8 @@ class SessionService(
     ): IssuedSession {
         val raw = tokenGenerator.generate()
         val hash = tokenHasher.hash(raw)
-        val now = clock.millis()
-        val expires = clock.instant().plus(refreshTtl).toEpochMilli()
+        val now = clock.now().toEpochMilliseconds()
+        val expires = (clock.now() + refreshTtl).toEpochMilliseconds()
         val sid = newSessionId()
         val familyId = newFamilyId()
         suspendTransaction(db) {
@@ -80,10 +84,10 @@ class SessionService(
      */
     suspend fun rotate(token: RefreshToken): RotatedSession? {
         val incomingHash = tokenHasher.hash(token.value)
-        val now = clock.millis()
+        val now = clock.now().toEpochMilliseconds()
         val newRaw = tokenGenerator.generate()
         val newHash = tokenHasher.hash(newRaw)
-        val newExpires = clock.instant().plus(refreshTtl).toEpochMilli()
+        val newExpires = (clock.now() + refreshTtl).toEpochMilliseconds()
 
         return suspendTransaction(db) {
             // Pass 1: live-token match → rotate. Indexed via UNIQUE INDEX
@@ -93,7 +97,7 @@ class SessionService(
                     .find {
                         (SessionTable.refreshTokenHash eq incomingHash) and
                             (SessionTable.revokedAt eq null) and
-                            (SessionTable.expiresAt greater clock.millis())
+                            (SessionTable.expiresAt greater clock.now().toEpochMilliseconds())
                     }.firstOrNull()
             if (live != null) {
                 live.previousHash = live.refreshTokenHash
@@ -132,7 +136,7 @@ class SessionService(
                     (SessionTable.userId eq ownerUserId.value) and
                     (SessionTable.revokedAt eq null)
             }) {
-                it[revokedAt] = clock.millis()
+                it[revokedAt] = clock.now().toEpochMilliseconds()
             }
         }
     }
@@ -142,7 +146,7 @@ class SessionService(
             SessionTable.update({
                 (SessionTable.userId eq userId.value) and (SessionTable.revokedAt eq null)
             }) {
-                it[revokedAt] = clock.millis()
+                it[revokedAt] = clock.now().toEpochMilliseconds()
             }
         }
     }
@@ -169,7 +173,7 @@ class SessionService(
     suspend fun isLive(sessionId: SessionId): Boolean =
         suspendTransaction(db) {
             val s = SessionEntity.findById(sessionId.value) ?: return@suspendTransaction false
-            s.revokedAt == null && s.expiresAt > clock.millis()
+            s.revokedAt == null && s.expiresAt > clock.now().toEpochMilliseconds()
         }
 
     suspend fun listActiveFor(userId: UserId): List<SessionEntity> =
@@ -178,7 +182,7 @@ class SessionService(
                 .find {
                     (SessionTable.userId eq userId.value) and
                         (SessionTable.revokedAt eq null) and
-                        (SessionTable.expiresAt greater clock.millis())
+                        (SessionTable.expiresAt greater clock.now().toEpochMilliseconds())
                 }.sortedByDescending { it.lastUsedAt }
                 .toList()
         }
@@ -188,6 +192,6 @@ class SessionService(
     private fun newFamilyId(): String = UUID.randomUUID().toString()
 
     companion object {
-        private val DEFAULT_REFRESH_TTL: Duration = Duration.ofDays(30)
+        private val DEFAULT_REFRESH_TTL: Duration = 30.days
     }
 }

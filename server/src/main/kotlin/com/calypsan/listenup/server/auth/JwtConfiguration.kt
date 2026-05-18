@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.auth
 
 import com.auth0.jwt.JWT
@@ -7,9 +9,22 @@ import com.auth0.jwt.exceptions.JWTVerificationException
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import java.time.Clock
-import java.time.Duration
 import java.util.Date
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
+
+/** Adapts the injected kotlin.time.Clock to the java.time.Clock that com.auth0:java-jwt requires. */
+private fun Clock.asJavaClock(): java.time.Clock =
+    object : java.time.Clock() {
+        override fun instant(): java.time.Instant =
+            java.time.Instant.ofEpochMilli(now().toEpochMilliseconds())
+
+        override fun getZone(): java.time.ZoneId = java.time.ZoneOffset.UTC
+
+        override fun withZone(zone: java.time.ZoneId): java.time.Clock = this
+    }
 
 data class AccessTokenClaims(
     val userId: UserId,
@@ -34,7 +49,7 @@ data class JwtConfiguration(
     val issuer: String,
     val audience: String,
     val accessTokenTtl: Duration = DEFAULT_ACCESS_TOKEN_TTL,
-    val clock: Clock = Clock.systemUTC(),
+    val clock: Clock = Clock.System,
 ) {
     init {
         require(secret.toByteArray(Charsets.UTF_8).size >= MIN_SECRET_BYTES) {
@@ -46,9 +61,10 @@ data class JwtConfiguration(
 
     /**
      * The auth0 verifier consults a [Clock] when checking `exp` / `nbf` / `iat`.
-     * Wire our injected [Clock] in so tests with [Clock.fixed] are deterministic
-     * — otherwise verification falls back to the system clock and any token
-     * issued in the test's fixed past is rejected as expired by the wall clock.
+     * Wire our injected [kotlin.time.Clock] in (via [asJavaClock]) so tests with
+     * [com.calypsan.listenup.server.testing.FixedClock] are deterministic — otherwise
+     * verification falls back to the system clock and any token issued in the test's
+     * fixed past is rejected as expired by the wall clock.
      *
      * The clock-aware `build(Clock)` overload only exists on the concrete
      * [JWTVerifier.BaseVerification], not on the `Verification` interface that
@@ -60,15 +76,15 @@ data class JwtConfiguration(
                 .require(algorithm)
                 .withIssuer(issuer)
                 .withAudience(audience) as JWTVerifier.BaseVerification
-        ).build(clock)
+        ).build(clock.asJavaClock())
 
     fun issue(
         userId: UserId,
         sessionId: SessionId,
         role: UserRole,
     ): String {
-        val now = clock.instant()
-        val exp = now.plus(accessTokenTtl)
+        val now = clock.now()
+        val exp = now + accessTokenTtl
         return JWT
             .create()
             .withIssuer(issuer)
@@ -76,9 +92,9 @@ data class JwtConfiguration(
             .withSubject(userId.value)
             .withJWTId(sessionId.value)
             .withClaim(CLAIM_ROLE, role.name)
-            .withIssuedAt(Date.from(now))
-            .withNotBefore(Date.from(now))
-            .withExpiresAt(Date.from(exp))
+            .withIssuedAt(Date(now.toEpochMilliseconds()))
+            .withNotBefore(Date(now.toEpochMilliseconds()))
+            .withExpiresAt(Date(exp.toEpochMilliseconds()))
             .sign(algorithm)
     }
 
@@ -107,6 +123,6 @@ data class JwtConfiguration(
     companion object {
         private const val MIN_SECRET_BYTES = 32
         private const val CLAIM_ROLE = "role"
-        private val DEFAULT_ACCESS_TOKEN_TTL: Duration = Duration.ofMinutes(15)
+        private val DEFAULT_ACCESS_TOKEN_TTL: Duration = 15.minutes
     }
 }
