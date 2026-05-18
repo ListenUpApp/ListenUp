@@ -2,35 +2,18 @@ import Foundation
 import SwiftUI
 import Shared
 
-/// Dependency container that wraps Koin for SwiftUI-native injection.
-///
-/// This container provides a clean Swift API for accessing dependencies
-/// from the shared Kotlin module while enabling:
-/// - SwiftUI Environment injection
-/// - Easy mocking for previews and tests
-/// - Single point of Koin access
-/// - Type-safe dependency resolution
-///
-/// Usage:
-/// ```swift
-/// @Environment(\.dependencies) private var deps
-/// let viewModel = deps.serverConnectViewModel
-/// ```
+/// Dependency container wrapping Koin for SwiftUI-native injection: a single,
+/// typed access point to shared-module dependencies, with environment injection.
 @Observable
 final class Dependencies {
-    /// Shared instance for production use
     static let shared = Dependencies()
 
-    private init() {
-        // Koin is initialized in iOSApp.swift via Koin_iosKt.initializeKoin
-    }
+    private init() {}
 
-    // MARK: - Cached Resolution
+    // MARK: - Cached resolution
 
-    /// Cache storage for singleton dependencies
     private var cache: [String: Any] = [:]
 
-    /// Resolve a dependency from Koin, caching for subsequent access
     private func resolve<T>(_ factory: () -> T) -> T {
         let key = String(describing: T.self)
         if let cached = cache[key] as? T { return cached }
@@ -39,7 +22,7 @@ final class Dependencies {
         return instance
     }
 
-    // MARK: - Use Cases
+    // MARK: - Use cases
 
     var getInstanceUseCase: GetInstanceUseCase { resolve { KoinHelper.shared.getInstanceUseCase() } }
 
@@ -49,17 +32,14 @@ final class Dependencies {
     var loginViewModel: LoginViewModel { resolve { KoinHelper.shared.getLoginViewModel() } }
     var registerViewModel: RegisterViewModel { resolve { KoinHelper.shared.getRegisterViewModel() } }
     var serverSelectViewModel: ServerSelectViewModel { resolve { KoinHelper.shared.getServerSelectViewModel() } }
+    var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
 
     // MARK: - Settings
 
-    var authSession: AuthSession { resolve { KoinHelper.shared.getAuthSession() } }
+    var authSession: any AuthSession_ { resolve { KoinHelper.shared.getAuthSession() } }
     var serverConfig: ServerConfig { resolve { KoinHelper.shared.getServerConfig() } }
 
-    // MARK: - Library
-
-    var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
-
-    // MARK: - Playback
+    // MARK: - Playback / library services
 
     var playbackManager: PlaybackManager { resolve { KoinHelper.shared.getPlaybackManager() } }
     var audioPlayer: AudioPlayer { resolve { KoinHelper.shared.getAudioPlayer() } }
@@ -67,25 +47,15 @@ final class Dependencies {
     var imageStorage: ImageStorage { resolve { KoinHelper.shared.getImageStorage() } }
     var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
-    // MARK: - Detail ViewModels (factory - new instance each time)
 
-    /// Creates a new BookDetailViewModel instance (not cached - each screen gets its own)
-    func createBookDetailViewModel() -> BookDetailViewModel {
-        KoinHelper.shared.getBookDetailViewModel()
-    }
+    // MARK: - Detail ViewModels (fresh instance per screen)
 
-    /// Creates a new SeriesDetailViewModel instance (not cached - each screen gets its own)
-    func createSeriesDetailViewModel() -> SeriesDetailViewModel {
-        KoinHelper.shared.getSeriesDetailViewModel()
-    }
-
-    /// Creates a new ContributorDetailViewModel instance (not cached - each screen gets its own)
-    func createContributorDetailViewModel() -> ContributorDetailViewModel {
-        KoinHelper.shared.getContributorDetailViewModel()
-    }
+    func createBookDetailViewModel() -> BookDetailViewModel { KoinHelper.shared.getBookDetailViewModel() }
+    func createSeriesDetailViewModel() -> SeriesDetailViewModel { KoinHelper.shared.getSeriesDetailViewModel() }
+    func createContributorDetailViewModel() -> ContributorDetailViewModel { KoinHelper.shared.getContributorDetailViewModel() }
 }
 
-// MARK: - SwiftUI Environment
+// MARK: - SwiftUI environment
 
 private struct DependenciesKey: EnvironmentKey {
     static let defaultValue = Dependencies.shared
@@ -95,39 +65,5 @@ extension EnvironmentValues {
     var dependencies: Dependencies {
         get { self[DependenciesKey.self] }
         set { self[DependenciesKey.self] = newValue }
-    }
-}
-
-// MARK: - Mock Support
-
-extension Dependencies {
-    /// Create a mock Dependencies container for previews and tests
-    ///
-    /// Example:
-    /// ```swift
-    /// let mock = Dependencies.mock(
-    ///     serverConnectVM: MockServerConnectViewModel()
-    /// )
-    /// ```
-    static func mock(
-        getInstanceUC: GetInstanceUseCase? = nil,
-        serverConnectVM: ServerConnectViewModel? = nil,
-        loginVM: LoginViewModel? = nil,
-        registerVM: RegisterViewModel? = nil,
-        serverSelectVM: ServerSelectViewModel? = nil,
-        authSession: AuthSession? = nil,
-        serverConfig: ServerConfig? = nil,
-        libraryVM: LibraryViewModel? = nil
-    ) -> Dependencies {
-        let mock = Dependencies()
-        if let v = getInstanceUC { mock.cache[String(describing: GetInstanceUseCase.self)] = v }
-        if let v = serverConnectVM { mock.cache[String(describing: ServerConnectViewModel.self)] = v }
-        if let v = loginVM { mock.cache[String(describing: LoginViewModel.self)] = v }
-        if let v = registerVM { mock.cache[String(describing: RegisterViewModel.self)] = v }
-        if let v = serverSelectVM { mock.cache[String(describing: ServerSelectViewModel.self)] = v }
-        if let v = authSession { mock.cache[String(describing: AuthSession.self)] = v }
-        if let v = serverConfig { mock.cache[String(describing: ServerConfig.self)] = v }
-        if let v = libraryVM { mock.cache[String(describing: LibraryViewModel.self)] = v }
-        return mock
     }
 }
