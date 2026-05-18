@@ -3,9 +3,8 @@ import Shared
 
 @main
 struct ListenUpApp: App {
-
     init() {
-        // Initialize Koin before any UI renders
+        // Koin must be initialised before any UI (or observer) accesses it.
         Koin_iosKt.initializeKoin(additionalModules: [])
         Log.info("ListenUp iOS app initialized")
     }
@@ -18,11 +17,7 @@ struct ListenUpApp: App {
     }
 }
 
-// MARK: - Root View
-
-/// The actual root view that creates observers after Koin is initialized.
-/// We use a separate struct because App.init() runs before @State property initializers
-/// would access Koin, but View.init() runs after the App is fully constructed.
+/// Root view — created after `App.init()` so observers resolve Koin safely.
 private struct RootView: View {
     @State private var auth = AuthStateObserver()
     @State private var currentUser = CurrentUserObserver()
@@ -38,35 +33,23 @@ private struct RootView: View {
         switch auth.state {
         case .initializing, .checkingServer:
             LaunchScreen()
-
-        case .needsServerUrl:
+        case .needsServerUrl, .needsSetup:
             ServerFlowCoordinator()
-
-        case .needsSetup:
-            ServerFlowCoordinator()
-
         case .needsLogin:
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
-
         case .pendingApproval:
             PendingApprovalView()
-
         case .authenticated:
-            MainAppView()
+            MainTabView()
         }
     }
 }
 
-// MARK: - Launch Screen
-
-/// Shown during app initialization.
-/// Keep it simple. Keep it fast.
+/// Shown during app initialisation.
 private struct LaunchScreen: View {
     var body: some View {
         ZStack {
-            Color.brandGradient
-                .ignoresSafeArea()
-
+            Color.brandGradient.ignoresSafeArea()
             Image("listenup_logo_white")
                 .resizable()
                 .scaledToFit()
@@ -75,30 +58,18 @@ private struct LaunchScreen: View {
     }
 }
 
-// MARK: - Pending Approval (Placeholder)
-
 private struct PendingApprovalView: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "clock.badge.checkmark")
                 .font(.system(size: 64))
                 .foregroundStyle(Color.listenUpOrange)
-
             Text(String(localized: "auth.waiting_for_approval"))
                 .font(.title.bold())
-
             Text(String(localized: "auth.pending_approval_message"))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
-    }
-}
-
-// MARK: - Main App
-
-private struct MainAppView: View {
-    var body: some View {
-        MainTabView()
     }
 }
