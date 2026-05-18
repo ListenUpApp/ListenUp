@@ -194,7 +194,12 @@ class PlaybackPreparer(
                     resolveLocalPath = { audioFileId -> downloadService.getLocalPath(audioFileId) },
                     prepareStream = { audioFileId, codec ->
                         prepareStreamForFile(
-                            bookId.value, audioFileId, codec, capabilities, serverUrl, onPrepareProgress,
+                            bookId.value,
+                            audioFileId,
+                            codec,
+                            capabilities,
+                            serverUrl,
+                            onPrepareProgress,
                         )
                     },
                 )
