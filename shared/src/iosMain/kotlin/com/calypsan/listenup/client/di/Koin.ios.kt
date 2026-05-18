@@ -11,9 +11,10 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -144,6 +145,11 @@ object KoinHelper : KoinComponent {
 
     fun getSleepTimerManager(): SleepTimerManager {
         val instance: SleepTimerManager by inject()
+        return instance
+    }
+
+    fun getPlaybackPreparer(): PlaybackPreparer {
+        val instance: PlaybackPreparer by inject()
         return instance
     }
 }
