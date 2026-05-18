@@ -61,6 +61,9 @@ actor AudioEngine {
         let startIndex = SegmentMath.segmentIndex(forPositionMs: startPositionMs, in: segments) ?? 0
         let withinSegmentMs = startPositionMs - segments[startIndex].offsetMs
         pendingSeekWithinSegmentMs = withinSegmentMs > 0 ? withinSegmentMs : nil
+        // Order matters: `rebuildQueue` must populate the queue before
+        // `observeCurrentItemTransitions` registers its `.initial` KVO, so the
+        // first item gets its status observers (and thus the deferred resume seek).
         rebuildQueue(fromSegment: startIndex)
         installTimeObserver()
         observeEnd()
@@ -181,15 +184,17 @@ actor AudioEngine {
             queue: .main
         ) { [weak self] notification in
             guard let self else { return }
-            let endedItem = notification.object as? AVPlayerItem
-            Task { await self.handleItemEnded(endedItem) }
+            guard let endedItem = notification.object as? AVPlayerItem else { return }
+            // Pass the identity, not the non-`Sendable` `AVPlayerItem`, across the hop.
+            let endedItemId = ObjectIdentifier(endedItem)
+            Task { await self.handleItemEnded(endedItemId) }
         }
     }
 
-    private func handleItemEnded(_ item: AVPlayerItem?) {
-        guard let item, let last = queue.last else { return }
+    private func handleItemEnded(_ itemId: ObjectIdentifier) {
+        guard let last = queue.last else { return }
         // The whole book has ended only when the *final* segment's item finishes.
-        if item === last.item, last.segmentIndex == segments.count - 1 {
+        if ObjectIdentifier(last.item) == itemId, last.segmentIndex == segments.count - 1 {
             continuation.yield(.ended)
         }
     }
@@ -217,10 +222,15 @@ actor AudioEngine {
             let errorMessage = item.error?.localizedDescription
             Task { await self.handleItemStatus(status, errorMessage: errorMessage) }
         }
-        let continuation = self.continuation
-        keepUpObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { item, _ in
-            continuation.yield(.statusChanged(item.isPlaybackLikelyToKeepUp ? .ready : .buffering))
+        keepUpObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
+            guard let self else { return }
+            let likelyToKeepUp = item.isPlaybackLikelyToKeepUp
+            Task { await self.handleKeepUp(likelyToKeepUp) }
         }
+    }
+
+    private func handleKeepUp(_ likelyToKeepUp: Bool) {
+        continuation.yield(.statusChanged(likelyToKeepUp ? .ready : .buffering))
     }
 
     private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?) {
