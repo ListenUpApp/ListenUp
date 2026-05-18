@@ -23,10 +23,11 @@ interface DownloadDao {
     suspend fun getByAudioFileId(audioFileId: String): DownloadEntity?
 
     /**
-     * Get all downloads not in COMPLETED or DELETED state.
-     * Used to find stalled/interrupted downloads for resume.
+     * Get all downloads not in COMPLETED, DELETED, or CANCELLED state.
+     * Used to find stalled/interrupted downloads for resume. CANCELLED is excluded so that
+     * resumeIncompleteDownloads does not silently restart a user-cancelled download on app start.
      */
-    @Query("SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED') ORDER BY bookId, fileIndex")
+    @Query("SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') ORDER BY bookId, fileIndex")
     suspend fun getIncomplete(): List<DownloadEntity>
 
     /**

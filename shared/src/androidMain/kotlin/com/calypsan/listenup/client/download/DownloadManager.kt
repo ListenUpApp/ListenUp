@@ -195,7 +195,7 @@ class DownloadManager(
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the state update fires (Finding 08 D10).
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
-        downloadDao.updateStateForBook(bookId.value, DownloadState.PAUSED)
+        downloadRepository.cancelForBook(bookId)
         logger.info { "Cancelled download: ${bookId.value}" }
     }
 
