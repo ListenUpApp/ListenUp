@@ -13,8 +13,6 @@ import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.runTest
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * End-to-end scanner tests — real `Application.module()` over a CIO embedded
@@ -36,77 +34,80 @@ import kotlin.time.Duration.Companion.seconds
  * timing against the bootstrap scan, so we don't bother — the wire-level
  * concern (`AppResult.Failure(ScanError.AlreadyRunning)` round-trips
  * through serialization) is covered by the contract tests in `:shared`.
+ *
+ * These cases run in Kotest's plain test scope — NOT `runTest`. They make
+ * real socket I/O against a real embedded server, so virtual time is the
+ * wrong tool: Ktor 3.5.0's `HttpTimeout` plugin launches its timeout coroutine
+ * in the *caller's* context (KTOR issue #4720 fix), so under `runTest` the
+ * request-timeout's `delay` rides the auto-advancing virtual clock and fires
+ * instantly — before the real network round-trip can complete. Real I/O tests
+ * use real time; `AuthEndToEndTest` is the reference. The polling helper
+ * bounds itself with a wall-clock deadline.
  */
 class ScannerEndToEndTest :
     FunSpec({
 
         test("initial scan picks up books and lastScanResult returns them") {
-            runTest(timeout = 30.seconds) {
-                val fix =
-                    autoClose(
-                        ScannerEndToEndFixture.start {
-                            book("Sanderson/Stormlight/The Way of Kings") {
-                                tracks(count = 2)
-                                cover()
-                            }
-                            book("Sanderson/Mistborn/The Final Empire") { tracks(count = 1) }
-                        },
-                    )
+            val fix =
+                autoClose(
+                    ScannerEndToEndFixture.start {
+                        book("Sanderson/Stormlight/The Way of Kings") {
+                            tracks(count = 2)
+                            cover()
+                        }
+                        book("Sanderson/Mistborn/The Final Empire") { tracks(count = 1) }
+                    },
+                )
 
-                val result = waitForLastScanResult(fix)
+            val result = waitForLastScanResult(fix)
 
-                result.books.size shouldBe 2
-                val titles = result.books.map { it.title }
-                titles.contains("The Way of Kings") shouldBe true
-                titles.contains("The Final Empire") shouldBe true
-            }
+            result.books.size shouldBe 2
+            val titles = result.books.map { it.title }
+            titles.contains("The Way of Kings") shouldBe true
+            titles.contains("The Final Empire") shouldBe true
         }
 
         test("metadata.json overrides folder-derived fields end-to-end") {
-            runTest(timeout = 30.seconds) {
-                val fix =
-                    autoClose(
-                        ScannerEndToEndFixture.start {
-                            book("Author/Folder Title") {
-                                tracks(count = 1)
-                                metadataJson(
-                                    """
-                                    {
-                                      "title": "Override Title",
-                                      "authors": ["Brandon Sanderson"]
-                                    }
-                                    """.trimIndent(),
-                                )
-                            }
-                        },
-                    )
+            val fix =
+                autoClose(
+                    ScannerEndToEndFixture.start {
+                        book("Author/Folder Title") {
+                            tracks(count = 1)
+                            metadataJson(
+                                """
+                                {
+                                  "title": "Override Title",
+                                  "authors": ["Brandon Sanderson"]
+                                }
+                                """.trimIndent(),
+                            )
+                        }
+                    },
+                )
 
-                val result = waitForLastScanResult(fix)
-                val book = result.books.single()
+            val result = waitForLastScanResult(fix)
+            val book = result.books.single()
 
-                book.title shouldBe "Override Title"
-                book.authors shouldBe listOf("Brandon Sanderson")
-            }
+            book.title shouldBe "Override Title"
+            book.authors shouldBe listOf("Brandon Sanderson")
         }
 
         test("triggering a manual scan after bootstrap completes returns Success") {
-            runTest(timeout = 30.seconds) {
-                val fix =
-                    autoClose(
-                        ScannerEndToEndFixture.start {
-                            book("Author/Title") { tracks(count = 1) }
-                        },
-                    )
+            val fix =
+                autoClose(
+                    ScannerEndToEndFixture.start {
+                        book("Author/Title") { tracks(count = 1) }
+                    },
+                )
 
-                // Wait for bootstrap to finish so we have a stable state.
-                waitForLastScanResult(fix)
+            // Wait for bootstrap to finish so we have a stable state.
+            waitForLastScanResult(fix)
 
-                val response = fix.client.post("${fix.baseUrl}/api/v1/scan")
-                response.status shouldBe HttpStatusCode.OK
-                val body = response.bodyAsAppResult<ScanResultSummary>()
-                val success = body.shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
-                success.data.totalBooks shouldBe 1
-            }
+            val response = fix.client.post("${fix.baseUrl}/api/v1/scan")
+            response.status shouldBe HttpStatusCode.OK
+            val body = response.bodyAsAppResult<ScanResultSummary>()
+            val success = body.shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
+            success.data.totalBooks shouldBe 1
         }
     })
 
