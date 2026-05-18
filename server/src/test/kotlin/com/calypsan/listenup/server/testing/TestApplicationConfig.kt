@@ -18,10 +18,14 @@ import java.nio.file.Files
  *   the scanner and books slices. Must point at an existing directory — the
  *   server skips scanner wiring for a missing/blank path. Tests that need the
  *   books domain (or a scanner) pass a fresh temp directory here.
+ * @param seedProfile when set, adds `seed.profile` so `module()` installs
+ *   the seed module and runs the [com.calypsan.listenup.server.seed.SeedRunner]
+ *   at startup. Pass `"demo"` to exercise the demo-seed boot path.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
     registrationPolicy: String = "OPEN",
     libraryPath: String? = null,
+    seedProfile: String? = null,
 ) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
@@ -35,6 +39,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 "registration.policy" to registrationPolicy,
             ).apply {
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
+                if (seedProfile != null) put("seed.profile", seedProfile)
             }
     }
 }

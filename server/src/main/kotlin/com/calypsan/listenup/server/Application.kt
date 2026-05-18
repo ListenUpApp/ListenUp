@@ -11,8 +11,10 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.scannerModule
+import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
+import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
@@ -51,6 +53,8 @@ import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
 
+private const val SEED_PROFILE_DEMO = "demo"
+
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
@@ -59,8 +63,9 @@ fun Application.module() {
     install(SSE)
     install(Krpc)
 
-    val resolvedLibraryPath = resolveLibraryPath()
+    val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
+    val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
 
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
@@ -70,7 +75,19 @@ fun Application.module() {
         }
         modules += embeddedmetaModule
         modules += syncModule()
+        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule()
         modules(modules)
+    }
+
+    if (seedProfile == SEED_PROFILE_DEMO) {
+        val seedRunner by inject<SeedRunner>()
+        applicationScope.launch {
+            runCatching { seedRunner.run() }
+                .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    logger.error(e) { "demo seeding failed — server keeps running" }
+                }
+        }
     }
 
     installCallIdAndLogging()
@@ -131,6 +148,46 @@ private fun Application.resolveLibraryPath(): Path? {
         return null
     }
     return path
+}
+
+/**
+ * Reads `seed.profile` from configuration. Returns the trimmed value, or null when
+ * unset/blank. Only `"demo"` is recognized today; an unrecognized non-blank value is
+ * returned as null and logged as ignored.
+ */
+private fun Application.resolveSeedProfile(): String? {
+    val raw =
+        environment.config
+            .propertyOrNull("seed.profile")
+            ?.getString()
+            ?.trim()
+            .orEmpty()
+    if (raw.isBlank()) return null
+    if (raw != SEED_PROFILE_DEMO) {
+        logger.warn { "seed.profile '$raw' is not a recognized profile — ignoring" }
+        return null
+    }
+    return raw
+}
+
+/**
+ * When the demo seed profile is active and no explicit `scanner.libraryPath` is set, fall back to
+ * the generated synthetic library at `build/seed-library` (produced by `:server:generateSeedLibrary`).
+ * Returns null — with a guiding log line — if that directory does not exist yet.
+ */
+private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? {
+    if (seedProfile != SEED_PROFILE_DEMO) return null
+    val candidate = Path.of("build", "seed-library")
+    if (!Files.isDirectory(candidate)) {
+        logger.warn {
+            "seed.profile=demo but no synthetic library at '$candidate' — run " +
+                "':server:generateSeedLibrary' (or use ':server:runDemo'). The demo user is still " +
+                "seeded; the library will be empty until then."
+        }
+        return null
+    }
+    logger.info { "seed.profile=demo — scanning the generated synthetic library at '$candidate'" }
+    return candidate
 }
 
 /**
