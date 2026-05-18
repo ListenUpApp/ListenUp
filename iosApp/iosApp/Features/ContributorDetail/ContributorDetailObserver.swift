@@ -1,135 +1,92 @@
 import SwiftUI
 import Shared
 
-/// Observes ContributorDetailViewModel's state StateFlow for SwiftUI consumption.
-///
-/// Maps Kotlin's ContributorDetailUiState to Swift-native properties that drive
-/// the contributor detail UI including loading, error, and content states.
+/// Observes `ContributorDetailViewModel` — flattens the sealed
+/// `ContributorDetailUiState` into flat `@Observable` properties, plus a
+/// `navActions` secondary flow. Thin over `FlowBridge`.
 @Observable
 @MainActor
 final class ContributorDetailObserver {
+    // MARK: - Flattened state
 
-    // MARK: - Observed State
+    private(set) var isLoading: Bool = true
+    private(set) var error: String?
+    private(set) var contributor: Contributor?
+    private(set) var roleSections: [RoleSection] = []
+    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var isDeleting: Bool = false
 
-    /// Current UI state from the ViewModel
-    private(set) var uiState: ContributorDetailUiState?
+    // MARK: - Derived from `contributor`
 
-    // MARK: - Computed Properties
-
-    /// Whether the screen is loading
-    var isLoading: Bool { uiState?.isLoading ?? true }
-
-    /// Error message if any
-    var error: String? { uiState?.error }
-
-    /// The contributor being displayed
-    var contributor: Contributor? { uiState?.contributor }
-
-    /// Contributor name
     var name: String { contributor?.name ?? "" }
-
-    /// Contributor description/biography
     var bio: String? { contributor?.description_ }
-
-    /// Contributor image path
     var imagePath: String? { contributor?.imagePath }
-
-    /// Contributor image blur hash
     var imageBlurHash: String? { contributor?.imageBlurHash }
-
-    /// Contributor aliases (a.k.a. names)
-    var aliases: [String] {
-        guard let list = contributor?.aliases else { return [] }
-        return Array(list)
-    }
-
-    /// Birth date (ISO 8601 format)
+    var aliases: [String] { contributor.map { Array($0.aliases) } ?? [] }
     var birthDate: String? { contributor?.birthDate }
-
-    /// Death date (ISO 8601 format)
     var deathDate: String? { contributor?.deathDate }
-
-    /// Website URL
     var website: String? { contributor?.website }
+    var totalBookCount: Int { roleSections.reduce(0) { $0 + Int($1.bookCount) } }
 
-    /// Role sections (Author, Narrator, etc.)
-    var roleSections: [RoleSection] {
-        guard let list = uiState?.roleSections else { return [] }
-        return Array(list)
-    }
-
-    /// Progress map for books (bookId -> progress 0.0-1.0)
-    var bookProgress: [String: Float] {
-        guard let progress = uiState?.bookProgress as? [String: KotlinFloat] else { return [:] }
-        return progress.mapValues { $0.floatValue }
-    }
-
-    /// Total book count across all roles
-    var totalBookCount: Int {
-        roleSections.reduce(0) { $0 + Int($1.bookCount) }
-    }
-
-    /// Whether delete confirmation dialog should show
-    var showDeleteConfirmation: Bool { uiState?.showDeleteConfirmation ?? false }
-
-    /// Whether deletion is in progress
-    var isDeleting: Bool { uiState?.isDeleting ?? false }
-
-    // MARK: - Private
+    /// Called when the contributor is deleted — set by the view to pop back.
+    var onDeleted: (() -> Void)?
 
     private let viewModel: ContributorDetailViewModel
-    private var observationTask: Task<Void, Never>?
-
-    // MARK: - Initialization
+    private let bridge = FlowBridge()
 
     init(viewModel: ContributorDetailViewModel) {
         self.viewModel = viewModel
-        startObserving()
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.navActions) { [weak self] in self?.applyNavAction($0) }
     }
 
-    /// Call this to stop observation when done.
     func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
+        bridge.cancelAll()
     }
 
     // MARK: - Actions
 
-    /// Load a contributor by ID
     func loadContributor(contributorId: String) {
         viewModel.loadContributor(contributorId: contributorId)
     }
 
-    /// Request deletion (shows confirmation)
-    func onDeleteContributor() {
-        viewModel.onDeleteContributor()
+    func confirmDelete() {
+        viewModel.confirmDelete()
     }
 
-    /// Confirm deletion
-    func onConfirmDelete(onDeleted: @escaping () -> Void) {
-        viewModel.onConfirmDelete(onDeleted: onDeleted)
+    func dismissDeleteError() {
+        viewModel.dismissDeleteError()
     }
 
-    /// Dismiss delete confirmation
-    func onDismissDelete() {
-        viewModel.onDismissDelete()
-    }
+    // MARK: - State mapping
 
-    /// Clear error
-    func onClearError() {
-        viewModel.onClearError()
-    }
-
-    // MARK: - Private
-
-    private func startObserving() {
-        observationTask = Task { [weak self] in
-            guard let self else { return }
-
-            for await state in self.viewModel.state {
-                guard !Task.isCancelled else { break }
-                self.uiState = state
-            }
+    private func apply(_ state: ContributorDetailUiState) {
+        switch onEnum(of: state) {
+        case .idle, .loading:
+            isLoading = true
+            error = nil
+        case .ready(let r):
+            isLoading = false
+            error = nil
+            contributor = r.contributor
+            roleSections = Array(r.roleSections)
+            bookProgress = mapProgress(r.bookProgress)
+            isDeleting = r.isDeleting
+        case .error(let e):
+            isLoading = false
+            error = e.message
         }
+    }
+
+    private func applyNavAction(_ action: ContributorDetailNavAction) {
+        switch onEnum(of: action) {
+        case .deleted:
+            onDeleted?()
+        }
+    }
+
+    /// `Map<BookId, Float>` arrives as `[String: KotlinFloat]` over the SKIE boundary.
+    private func mapProgress(_ raw: [String: KotlinFloat]) -> [String: Float] {
+        raw.mapValues { $0.floatValue }
     }
 }
