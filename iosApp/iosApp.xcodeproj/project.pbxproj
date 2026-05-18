@@ -13,6 +13,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1FC182189D1B49E1BF6EBFD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7BAAD05E534B00C963664416;
+			remoteInfo = iosApp;
+		};
 		F4A6DB532F3EC7F200F9C38D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
@@ -37,6 +44,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E757F5D28662E4BCC0992649 /* listenup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = listenup.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = listenUpWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4A6DB412F3EC7F200F9C38D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -51,6 +59,7 @@
 			);
 			target = 7BAAD05E534B00C963664416 /* iosApp */;
 		};
+
 		F4A6DB592F3EC7F200F9C38D /* Exceptions for "listenUpWidgets" folder in "listenUpWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -74,6 +83,11 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		D6FB2F3845C34DB4A3FCAD45 /* iosAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iosAppTests;
+			sourceTree = "<group>";
+		};
 		F4A6DB452F3EC7F200F9C38D /* listenUpWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -85,6 +99,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		02553F58E40F4222B88FCF61 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		083A2EE4FAD19A01E87C0BDC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -109,6 +130,7 @@
 			children = (
 				B486AB56B99FB470D7294198 /* Configuration */,
 				C8EF4017F06459C992EEE7AF /* iosApp */,
+				D6FB2F3845C34DB4A3FCAD45 /* iosAppTests */,
 				F4A6DB452F3EC7F200F9C38D /* listenUpWidgets */,
 				F4A6DB402F3EC7F200F9C38D /* Frameworks */,
 				EEAD733FF191DDE1E49EE100 /* Products */,
@@ -119,6 +141,7 @@
 			isa = PBXGroup;
 			children = (
 				E757F5D28662E4BCC0992649 /* listenup.app */,
+				8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */,
 				F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */,
 			);
 			name = Products;
@@ -184,6 +207,28 @@
 			productReference = F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		71B3A3B2BCCD4F9EB2617E6C /* iosAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7DCD8BFD274341658930A83F /* Build configuration list for PBXNativeTarget "iosAppTests" */;
+			buildPhases = (
+				54CFCCCDC3BC4B6EAFC22A52 /* Sources */,
+				02553F58E40F4222B88FCF61 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				59583B5AE1A94F6CA077A352 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D6FB2F3845C34DB4A3FCAD45 /* iosAppTests */,
+			);
+			name = iosAppTests;
+			packageProductDependencies = (
+			);
+			productName = iosAppTests;
+			productReference = 8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -194,6 +239,10 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					71B3A3B2BCCD4F9EB2617E6C = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 7BAAD05E534B00C963664416;
+					};
 					7BAAD05E534B00C963664416 = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -217,6 +266,7 @@
 			projectRoot = "";
 			targets = (
 				7BAAD05E534B00C963664416 /* iosApp */,
+				71B3A3B2BCCD4F9EB2617E6C /* iosAppTests */,
 				F4A6DB3E2F3EC7F200F9C38D /* listenUpWidgetsExtension */,
 			);
 		};
@@ -289,6 +339,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		54CFCCCDC3BC4B6EAFC22A52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4A6DB3B2F3EC7F200F9C38D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -299,6 +356,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		59583B5AE1A94F6CA077A352 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7BAAD05E534B00C963664416 /* iosApp */;
+			targetProxy = 1FC182189D1B49E1BF6EBFD8 /* PBXContainerItemProxy */;
+		};
 		F4A6DB542F3EC7F200F9C38D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F4A6DB3E2F3EC7F200F9C38D /* listenUpWidgetsExtension */;
@@ -570,6 +632,34 @@
 			};
 			name = Release;
 		};
+		0B1F6494EE16460C9F8332E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
+			};
+			name = Debug;
+		};
+		FBD290AA4EE64918A59B51D9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -596,6 +686,15 @@
 			buildConfigurations = (
 				F4A6DB572F3EC7F200F9C38D /* Debug */,
 				F4A6DB582F3EC7F200F9C38D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7DCD8BFD274341658930A83F /* Build configuration list for PBXNativeTarget "iosAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B1F6494EE16460C9F8332E6 /* Debug */,
+				FBD290AA4EE64918A59B51D9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
