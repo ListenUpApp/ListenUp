@@ -58,7 +58,7 @@ class BookReadersViewModelTest :
 
         // ========== Test Data Factories ==========
 
-        val BOOK_ID = "book-1"
+        val testBookId = "book-1"
 
         fun createUser(
             id: String = "user-1",
@@ -123,14 +123,15 @@ class BookReadersViewModelTest :
             val sessionRepository: SessionRepository = mock()
             val eventStreamRepository: EventStreamRepository = mock()
             val userRepository: UserRepository = mock()
-            val readersFlow = MutableStateFlow(
-                BookReadersResult(
-                    yourSessions = emptyList(),
-                    otherReaders = emptyList(),
-                    totalReaders = 0,
-                    totalCompletions = 0,
+            val readersFlow =
+                MutableStateFlow(
+                    BookReadersResult(
+                        yourSessions = emptyList(),
+                        otherReaders = emptyList(),
+                        totalReaders = 0,
+                        totalCompletions = 0,
+                    ),
                 )
-            )
             val bookEvents = MutableSharedFlow<BookEvent>()
 
             fun build(): BookReadersViewModel =
@@ -203,7 +204,7 @@ class BookReadersViewModelTest :
                     states.awaitItem() // initial Loading
 
                     // When
-                    viewModel.observeReaders(BOOK_ID)
+                    viewModel.observeReaders(testBookId)
                     advanceUntilIdle()
 
                     // Then
@@ -234,7 +235,7 @@ class BookReadersViewModelTest :
                     states.awaitItem() // initial Loading
 
                     // When
-                    viewModel.observeReaders(BOOK_ID)
+                    viewModel.observeReaders(testBookId)
                     advanceUntilIdle()
 
                     // Then
@@ -267,7 +268,7 @@ class BookReadersViewModelTest :
                     states.awaitItem() // initial Loading
 
                     // When
-                    viewModel.observeReaders(BOOK_ID)
+                    viewModel.observeReaders(testBookId)
                     advanceUntilIdle()
 
                     // Then
@@ -291,13 +292,13 @@ class BookReadersViewModelTest :
                     states.awaitItem() // initial Loading
 
                     // When - call twice with the same book id
-                    viewModel.observeReaders(BOOK_ID)
+                    viewModel.observeReaders(testBookId)
                     advanceUntilIdle()
-                    viewModel.observeReaders(BOOK_ID)
+                    viewModel.observeReaders(testBookId)
                     advanceUntilIdle()
 
                     // Then - repository observed only once (MutableStateFlow idempotency)
-                    verify(VerifyMode.exactly(1)) { fixture.sessionRepository.observeBookReaders(BOOK_ID) }
+                    verify(VerifyMode.exactly(1)) { fixture.sessionRepository.observeBookReaders(testBookId) }
                     states.expectMostRecentItem() // drain emitted Ready before cancel
                     states.cancel()
                 }
@@ -317,11 +318,11 @@ class BookReadersViewModelTest :
                     states.awaitItem() // initial Loading
 
                     // When
-                    viewModel.refresh(BOOK_ID)
+                    viewModel.refresh(testBookId)
                     advanceUntilIdle()
 
                     // Then
-                    verifySuspend { fixture.sessionRepository.refreshBookReaders(BOOK_ID) }
+                    verifySuspend { fixture.sessionRepository.refreshBookReaders(testBookId) }
                     states.cancel()
                 }
             }

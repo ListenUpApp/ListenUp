@@ -18,157 +18,206 @@ import kotlinx.coroutines.test.runTest
  */
 class ContributorAliasDaoTest :
     FunSpec({
-        lateinit var db: ListenUpDatabase
-        lateinit var contributorDao: ContributorDao
-        lateinit var aliasDao: ContributorAliasDao
-
-        beforeTest {
-            db = createInMemoryTestDatabase()
-            contributorDao = db.contributorDao()
-            aliasDao = db.contributorAliasDao()
-        }
-
-        afterTest {
-            db.close()
-        }
 
         test("insertAll and getForContributor returns aliases sorted alphabetically case-insensitively") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
 
-                aliasDao.insertAll(
-                    listOf(
-                        ContributorAliasCrossRef(ContributorId("c-1"), "richard bachman"),
-                        ContributorAliasCrossRef(ContributorId("c-1"), "John Swithen"),
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Beryl Evans"),
-                    ),
-                )
+                    aliasDao.insertAll(
+                        listOf(
+                            ContributorAliasCrossRef(ContributorId("c-1"), "richard bachman"),
+                            ContributorAliasCrossRef(ContributorId("c-1"), "John Swithen"),
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Beryl Evans"),
+                        ),
+                    )
 
-                val result = aliasDao.getForContributor("c-1")
+                    val result = aliasDao.getForContributor("c-1")
 
-                result shouldBe listOf("Beryl Evans", "John Swithen", "richard bachman")
+                    result shouldBe listOf("Beryl Evans", "John Swithen", "richard bachman")
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("getForContributor returns empty list when no aliases") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
-                aliasDao.getForContributor("c-1").isEmpty() shouldBe true
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
+                    aliasDao.getForContributor("c-1").isEmpty() shouldBe true
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("deleteForContributor removes only that contributor's aliases") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao, id = "c-1", name = "King")
-                contributorAliasSeedContributor(contributorDao, id = "c-2", name = "Gaiman")
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao, id = "c-1", name = "King")
+                    contributorAliasSeedContributor(contributorDao, id = "c-2", name = "Gaiman")
 
-                aliasDao.insertAll(
-                    listOf(
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
-                        ContributorAliasCrossRef(ContributorId("c-2"), "Pinkerton"),
-                    ),
-                )
+                    aliasDao.insertAll(
+                        listOf(
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
+                            ContributorAliasCrossRef(ContributorId("c-2"), "Pinkerton"),
+                        ),
+                    )
 
-                aliasDao.deleteForContributor("c-1")
+                    aliasDao.deleteForContributor("c-1")
 
-                aliasDao.getForContributor("c-1").isEmpty() shouldBe true
-                aliasDao.getForContributor("c-2") shouldBe listOf("Pinkerton")
+                    aliasDao.getForContributor("c-1").isEmpty() shouldBe true
+                    aliasDao.getForContributor("c-2") shouldBe listOf("Pinkerton")
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("cascade delete removes only the deleted contributor's aliases") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao, id = "c-1", name = "King")
-                contributorAliasSeedContributor(contributorDao, id = "c-2", name = "Gaiman")
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao, id = "c-1", name = "King")
+                    contributorAliasSeedContributor(contributorDao, id = "c-2", name = "Gaiman")
 
-                aliasDao.insertAll(
-                    listOf(
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Swithen"),
-                        ContributorAliasCrossRef(ContributorId("c-2"), "Pinkerton"),
-                    ),
-                )
+                    aliasDao.insertAll(
+                        listOf(
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Swithen"),
+                            ContributorAliasCrossRef(ContributorId("c-2"), "Pinkerton"),
+                        ),
+                    )
 
-                contributorDao.deleteById("c-1")
+                    contributorDao.deleteById("c-1")
 
-                aliasDao.getForContributor("c-1").isEmpty() shouldBe true
-                aliasDao.getForContributor("c-2") shouldBe listOf("Pinkerton")
+                    aliasDao.getForContributor("c-1").isEmpty() shouldBe true
+                    aliasDao.getForContributor("c-2") shouldBe listOf("Pinkerton")
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("observeForContributor emits initial list and re-emits on change") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
-                aliasDao.insertAll(
-                    listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")),
-                )
-
-                aliasDao.observeForContributor("c-1").test {
-                    awaitItem() shouldBe listOf("Bachman")
-
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
                     aliasDao.insertAll(
-                        listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Swithen")),
+                        listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")),
                     )
-                    awaitItem() shouldBe listOf("Bachman", "Swithen")
 
-                    aliasDao.deleteForContributor("c-1")
-                    awaitItem() shouldBe emptyList()
+                    aliasDao.observeForContributor("c-1").test {
+                        awaitItem() shouldBe listOf("Bachman")
 
-                    cancelAndIgnoreRemainingEvents()
+                        aliasDao.insertAll(
+                            listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Swithen")),
+                        )
+                        awaitItem() shouldBe listOf("Bachman", "Swithen")
+
+                        aliasDao.deleteForContributor("c-1")
+                        awaitItem() shouldBe emptyList()
+
+                        cancelAndIgnoreRemainingEvents()
+                    }
                 }
+            } finally {
+                db.close()
             }
         }
 
         test("insertAll with duplicate exact-case alias is ignored") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
 
-                aliasDao.insertAll(listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")))
-                aliasDao.insertAll(listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")))
+                    aliasDao.insertAll(listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")))
+                    aliasDao.insertAll(listOf(ContributorAliasCrossRef(ContributorId("c-1"), "Bachman")))
 
-                aliasDao.getForContributor("c-1") shouldBe listOf("Bachman")
+                    aliasDao.getForContributor("c-1") shouldBe listOf("Bachman")
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("insertAll preserves case-different aliases as distinct rows") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
 
-                aliasDao.insertAll(
-                    listOf(
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
-                        ContributorAliasCrossRef(ContributorId("c-1"), "BACHMAN"),
-                    ),
-                )
+                    aliasDao.insertAll(
+                        listOf(
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
+                            ContributorAliasCrossRef(ContributorId("c-1"), "BACHMAN"),
+                        ),
+                    )
 
-                val result = aliasDao.getForContributor("c-1")
-                result.size shouldBe 2
-                ("Bachman" in result) shouldBe true
-                ("BACHMAN" in result) shouldBe true
+                    val result = aliasDao.getForContributor("c-1")
+                    result.size shouldBe 2
+                    ("Bachman" in result) shouldBe true
+                    ("BACHMAN" in result) shouldBe true
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("observeByIdWithAliases returns contributor with aliases from junction") {
-            runTest {
-                contributorAliasSeedContributor(contributorDao)
-                aliasDao.insertAll(
-                    listOf(
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Swithen"),
-                        ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
-                    ),
-                )
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    val aliasDao = db.contributorAliasDao()
+                    contributorAliasSeedContributor(contributorDao)
+                    aliasDao.insertAll(
+                        listOf(
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Swithen"),
+                            ContributorAliasCrossRef(ContributorId("c-1"), "Bachman"),
+                        ),
+                    )
 
-                val result = contributorDao.getByIdWithAliases("c-1")
+                    val result = contributorDao.getByIdWithAliases("c-1")
 
-                result.shouldNotBeNull()
-                result.contributor.id.value shouldBe "c-1"
-                result.aliases shouldBe listOf("Bachman", "Swithen")
+                    result.shouldNotBeNull()
+                    result.contributor.id.value shouldBe "c-1"
+                    result.aliases shouldBe listOf("Bachman", "Swithen")
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("getByIdWithAliases returns null for missing contributor") {
-            runTest {
-                contributorDao.getByIdWithAliases("no-such-id") shouldBe null
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val contributorDao = db.contributorDao()
+                    contributorDao.getByIdWithAliases("no-such-id") shouldBe null
+                }
+            } finally {
+                db.close()
             }
         }
     })

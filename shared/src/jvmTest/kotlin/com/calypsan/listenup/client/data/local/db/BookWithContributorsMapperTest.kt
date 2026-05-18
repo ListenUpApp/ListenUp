@@ -152,10 +152,11 @@ class BookWithContributorsMapperTest :
             // Authors
             result.authors shouldBe listOf(BookContributor(id = "contrib-author", name = "Brandon Sanderson"))
             // Narrators
-            result.narrators shouldBe listOf(
-                BookContributor(id = "contrib-narrator", name = "Michael Kramer"),
-                BookContributor(id = "contrib-narrator2", name = "Kate Reading"),
-            )
+            result.narrators shouldBe
+                listOf(
+                    BookContributor(id = "contrib-narrator", name = "Michael Kramer"),
+                    BookContributor(id = "contrib-narrator2", name = "Kate Reading"),
+                )
             // Series populated from junction.
             result.series.size shouldBe 1
             result.series.first().seriesName shouldBe "The Stormlight Archive"

@@ -26,47 +26,48 @@ import kotlinx.coroutines.test.runTest
  */
 class BookDaoRandomUnstartedTest :
     FunSpec({
-        lateinit var db: ListenUpDatabase
-        lateinit var bookDao: BookDao
-        lateinit var seriesDao: SeriesDao
-        lateinit var bookSeriesDao: BookSeriesDao
-
-        beforeTest {
-            db = createInMemoryTestDatabase()
-            bookDao = db.bookDao()
-            seriesDao = db.seriesDao()
-            bookSeriesDao = db.bookSeriesDao()
-        }
-
-        afterTest {
-            db.close()
-        }
 
         // ── observeRandomUnstartedBooks ──────────────────────────────────────────────
 
         test("observeRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)") {
-            runTest {
-                randomUnstartedSeedThreeBooks(bookDao, seriesDao, bookSeriesDao)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val seriesDao = db.seriesDao()
+                    val bookSeriesDao = db.bookSeriesDao()
+                    randomUnstartedSeedThreeBooks(bookDao, seriesDao, bookSeriesDao)
 
-                bookDao.observeRandomUnstartedBooks(limit = 10).test {
-                    val emitted = awaitItem().map { it.id.value }.toSet()
-                    ("mid-series" in emitted) shouldBe true
-                    cancelAndIgnoreRemainingEvents()
+                    bookDao.observeRandomUnstartedBooks(limit = 10).test {
+                        val emitted = awaitItem().map { it.id.value }.toSet()
+                        ("mid-series" in emitted) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
                 }
+            } finally {
+                db.close()
             }
         }
 
         // ── observeRandomUnstartedBooksWithAuthor ────────────────────────────────────
 
         test("observeRandomUnstartedBooksWithAuthor returns mid-series books (neutral, no sequence filter)") {
-            runTest {
-                randomUnstartedSeedThreeBooks(bookDao, seriesDao, bookSeriesDao)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val seriesDao = db.seriesDao()
+                    val bookSeriesDao = db.bookSeriesDao()
+                    randomUnstartedSeedThreeBooks(bookDao, seriesDao, bookSeriesDao)
 
-                bookDao.observeRandomUnstartedBooksWithAuthor(limit = 10).test {
-                    val emitted = awaitItem().map { it.id.value }.toSet()
-                    ("mid-series" in emitted) shouldBe true
-                    cancelAndIgnoreRemainingEvents()
+                    bookDao.observeRandomUnstartedBooksWithAuthor(limit = 10).test {
+                        val emitted = awaitItem().map { it.id.value }.toSet()
+                        ("mid-series" in emitted) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
                 }
+            } finally {
+                db.close()
             }
         }
     })

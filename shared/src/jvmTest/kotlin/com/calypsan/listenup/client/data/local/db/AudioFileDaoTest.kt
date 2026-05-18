@@ -16,85 +16,100 @@ import kotlinx.coroutines.test.runTest
  */
 class AudioFileDaoTest :
     FunSpec({
-        lateinit var db: ListenUpDatabase
-        lateinit var bookDao: BookDao
-        lateinit var audioFileDao: AudioFileDao
-
-        beforeTest {
-            db = createInMemoryTestDatabase()
-            bookDao = db.bookDao()
-            audioFileDao = db.audioFileDao()
-        }
-
-        afterTest {
-            db.close()
-        }
 
         test("upsertAll and getForBook returns rows ordered by index ASC") {
-            runTest {
-                audioFileSeedBook(bookDao)
-                audioFileDao.upsertAll(
-                    listOf(
-                        audioFile(index = 2),
-                        audioFile(index = 0),
-                        audioFile(index = 1),
-                    ),
-                )
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val audioFileDao = db.audioFileDao()
+                    audioFileSeedBook(bookDao)
+                    audioFileDao.upsertAll(
+                        listOf(
+                            audioFile(index = 2),
+                            audioFile(index = 0),
+                            audioFile(index = 1),
+                        ),
+                    )
 
-                val result = audioFileDao.getForBook("b1")
+                    val result = audioFileDao.getForBook("b1")
 
-                result.map { it.index } shouldBe listOf(0, 1, 2)
+                    result.map { it.index } shouldBe listOf(0, 1, 2)
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("deleteForBook removes only that book's rows") {
-            runTest {
-                audioFileSeedBook(bookDao, id = "b1")
-                audioFileSeedBook(bookDao, id = "b2")
-                audioFileDao.upsertAll(
-                    listOf(
-                        audioFile(bookId = "b1", index = 0),
-                        audioFile(bookId = "b2", index = 0),
-                    ),
-                )
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val audioFileDao = db.audioFileDao()
+                    audioFileSeedBook(bookDao, id = "b1")
+                    audioFileSeedBook(bookDao, id = "b2")
+                    audioFileDao.upsertAll(
+                        listOf(
+                            audioFile(bookId = "b1", index = 0),
+                            audioFile(bookId = "b2", index = 0),
+                        ),
+                    )
 
-                audioFileDao.deleteForBook("b1")
+                    audioFileDao.deleteForBook("b1")
 
-                audioFileDao.getForBook("b1").isEmpty() shouldBe true
-                audioFileDao.getForBook("b2").map { it.index } shouldBe listOf(0)
+                    audioFileDao.getForBook("b1").isEmpty() shouldBe true
+                    audioFileDao.getForBook("b2").map { it.index } shouldBe listOf(0)
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("cascade delete removes rows when book is deleted") {
-            runTest {
-                audioFileSeedBook(bookDao, id = "b1")
-                audioFileDao.upsertAll(
-                    listOf(
-                        audioFile(bookId = "b1", index = 0),
-                        audioFile(bookId = "b1", index = 1),
-                    ),
-                )
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val audioFileDao = db.audioFileDao()
+                    audioFileSeedBook(bookDao, id = "b1")
+                    audioFileDao.upsertAll(
+                        listOf(
+                            audioFile(bookId = "b1", index = 0),
+                            audioFile(bookId = "b1", index = 1),
+                        ),
+                    )
 
-                bookDao.deleteById(BookId("b1"))
+                    bookDao.deleteById(BookId("b1"))
 
-                audioFileDao.getForBook("b1").isEmpty() shouldBe true
+                    audioFileDao.getForBook("b1").isEmpty() shouldBe true
+                }
+            } finally {
+                db.close()
             }
         }
 
         test("upsert with same composite PK replaces existing row") {
-            runTest {
-                audioFileSeedBook(bookDao)
-                audioFileDao.upsertAll(
-                    listOf(audioFile(index = 0, id = "old-id", filename = "old.m4b")),
-                )
-                audioFileDao.upsertAll(
-                    listOf(audioFile(index = 0, id = "new-id", filename = "new.m4b")),
-                )
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val audioFileDao = db.audioFileDao()
+                    audioFileSeedBook(bookDao)
+                    audioFileDao.upsertAll(
+                        listOf(audioFile(index = 0, id = "old-id", filename = "old.m4b")),
+                    )
+                    audioFileDao.upsertAll(
+                        listOf(audioFile(index = 0, id = "new-id", filename = "new.m4b")),
+                    )
 
-                val result = audioFileDao.getForBook("b1")
-                result.size shouldBe 1
-                result.first().id shouldBe "new-id"
-                result.first().filename shouldBe "new.m4b"
+                    val result = audioFileDao.getForBook("b1")
+                    result.size shouldBe 1
+                    result.first().id shouldBe "new-id"
+                    result.first().filename shouldBe "new.m4b"
+                }
+            } finally {
+                db.close()
             }
         }
     })

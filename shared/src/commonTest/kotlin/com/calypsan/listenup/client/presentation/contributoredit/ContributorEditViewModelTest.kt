@@ -288,7 +288,10 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Verify alias is present
-                (viewModel.state.value.aliases.contains("Richard Bachman")) shouldBe true
+                (
+                    viewModel.state.value.aliases
+                        .contains("Richard Bachman")
+                ) shouldBe true
                 (viewModel.state.value.hasChanges) shouldBe false
 
                 // When - removing an original alias calls the repository unmerge
@@ -296,7 +299,10 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                (viewModel.state.value.aliases.contains("Richard Bachman")) shouldBe false
+                (
+                    viewModel.state.value.aliases
+                        .contains("Richard Bachman")
+                ) shouldBe false
                 // Verify unmerge was called
                 verifySuspend(VerifyMode.exactly(1)) {
                     fixture.contributorEditRepository.unmergeContributor("contributor-1", "Richard Bachman")

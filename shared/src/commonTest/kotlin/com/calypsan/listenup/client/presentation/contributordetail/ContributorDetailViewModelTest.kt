@@ -417,7 +417,10 @@ class ContributorDetailViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorDetailUiState.Ready
-                state.roleSections[0].previewBooks[0].coverPath.shouldBeNull()
+                state.roleSections[0]
+                    .previewBooks[0]
+                    .coverPath
+                    .shouldBeNull()
             }
         }
 

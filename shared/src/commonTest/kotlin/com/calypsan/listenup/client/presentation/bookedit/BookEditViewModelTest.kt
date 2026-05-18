@@ -409,7 +409,9 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.series.size shouldBe 1
-                viewModel.state.value.series.first().name shouldBe "The Stormlight Archive"
+                viewModel.state.value.series
+                    .first()
+                    .name shouldBe "The Stormlight Archive"
                 (viewModel.state.value.hasChanges) shouldBe true
             }
         }
@@ -429,8 +431,12 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.series.size shouldBe 1
-                viewModel.state.value.series.first().name shouldBe "New Fantasy Series"
-                viewModel.state.value.series.first().id shouldBe null // New series has no ID
+                viewModel.state.value.series
+                    .first()
+                    .name shouldBe "New Fantasy Series"
+                viewModel.state.value.series
+                    .first()
+                    .id shouldBe null // New series has no ID
             }
         }
 
@@ -452,7 +458,9 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.SeriesSequenceChanged(loadedSeries, "1"))
 
                 // Then
-                viewModel.state.value.series.first().sequence shouldBe "1"
+                viewModel.state.value.series
+                    .first()
+                    .sequence shouldBe "1"
                 (viewModel.state.value.hasChanges) shouldBe true
             }
         }
@@ -475,7 +483,9 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.genres.size shouldBe 1
-                viewModel.state.value.genres.first().name shouldBe "Fantasy"
+                viewModel.state.value.genres
+                    .first()
+                    .name shouldBe "Fantasy"
                 (viewModel.state.value.hasChanges) shouldBe true
             }
         }
@@ -522,7 +532,9 @@ class BookEditViewModelTest :
 
                 // Then
                 viewModel.state.value.tags.size shouldBe 1
-                viewModel.state.value.tags.first().displayName() shouldBe "Favorites"
+                viewModel.state.value.tags
+                    .first()
+                    .displayName() shouldBe "Favorites"
                 (viewModel.state.value.hasChanges) shouldBe true
             }
         }

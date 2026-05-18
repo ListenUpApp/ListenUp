@@ -26,39 +26,33 @@ import kotlinx.coroutines.test.runTest
  */
 class BookDaoRecentlyAddedTest :
     FunSpec({
-        lateinit var db: ListenUpDatabase
-        lateinit var bookDao: BookDao
-        lateinit var seriesDao: SeriesDao
-        lateinit var bookSeriesDao: BookSeriesDao
-
-        beforeTest {
-            db = createInMemoryTestDatabase()
-            bookDao = db.bookDao()
-            seriesDao = db.seriesDao()
-            bookSeriesDao = db.bookSeriesDao()
-        }
-
-        afterTest {
-            db.close()
-        }
 
         test("observeRecentlyAddedWithAuthor returns all recently added books regardless of series sequence") {
-            runTest {
-                // Three books across the full sequence spectrum. createdAt timestamps are
-                // distinct so the ORDER BY is deterministic — newest first.
-                recentlyAddedSeedBook(bookDao, id = "standalone", createdAt = 3_000L)
-                recentlyAddedSeedBook(bookDao, id = "first-in-series", createdAt = 2_000L)
-                recentlyAddedSeedBook(bookDao, id = "mid-series", createdAt = 1_000L)
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    val seriesDao = db.seriesDao()
+                    val bookSeriesDao = db.bookSeriesDao()
 
-                recentlyAddedSeedSeries(seriesDao, id = "s1", name = "Test Series")
-                recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = "1")
-                recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = "3")
+                    // Three books across the full sequence spectrum. createdAt timestamps are
+                    // distinct so the ORDER BY is deterministic — newest first.
+                    recentlyAddedSeedBook(bookDao, id = "standalone", createdAt = 3_000L)
+                    recentlyAddedSeedBook(bookDao, id = "first-in-series", createdAt = 2_000L)
+                    recentlyAddedSeedBook(bookDao, id = "mid-series", createdAt = 1_000L)
 
-                bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
-                    val emitted = awaitItem().map { it.id.value }
-                    emitted shouldBe listOf("standalone", "first-in-series", "mid-series")
-                    cancelAndIgnoreRemainingEvents()
+                    recentlyAddedSeedSeries(seriesDao, id = "s1", name = "Test Series")
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = "1")
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = "3")
+
+                    bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
+                        val emitted = awaitItem().map { it.id.value }
+                        emitted shouldBe listOf("standalone", "first-in-series", "mid-series")
+                        cancelAndIgnoreRemainingEvents()
+                    }
                 }
+            } finally {
+                db.close()
             }
         }
     })
