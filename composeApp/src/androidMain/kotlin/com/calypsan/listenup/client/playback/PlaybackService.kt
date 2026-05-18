@@ -47,11 +47,13 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.koin.android.ext.android.inject
 import kotlin.time.Duration.Companion.hours
@@ -325,8 +327,10 @@ class PlaybackService : MediaLibraryService() {
         player?.playWhenReady = false
 
         // Always save position when the user swipes the app away — if the system
-        // later kills the process, onDestroy may not get a chance to run
-        saveCurrentPosition()
+        // later kills the process, onDestroy may not get a chance to run.
+        // Must be synchronous: saveCurrentPosition() is fire-and-forget and races
+        // process death; saveCurrentPositionBlocking() completes before returning.
+        saveCurrentPositionBlocking()
 
         // Don't stop immediately - keep the idle timer running
         // User can still resume from notification
@@ -339,8 +343,10 @@ class PlaybackService : MediaLibraryService() {
         logger.info { "PlaybackService destroying" }
 
         // Save position before releasing player — player.release() does not fire
-        // onIsPlayingChanged, so without this the position would be lost
-        saveCurrentPosition()
+        // onIsPlayingChanged, so without this the position would be lost.
+        // Must be synchronous: saveCurrentPosition() is fire-and-forget and races
+        // serviceScope.cancel() below; saveCurrentPositionBlocking() completes before returning.
+        saveCurrentPositionBlocking()
 
         idleJob?.cancel()
         positionUpdateJob?.cancel()
@@ -369,6 +375,28 @@ class PlaybackService : MediaLibraryService() {
             positionMs = getBookRelativePosition(),
             speed = player.playbackParameters.speed,
         )
+    }
+
+    /**
+     * Durable position save for Android lifecycle teardown callbacks.
+     *
+     * [onDestroy] and [onTaskRemoved] are synchronous Android callbacks that cannot
+     * suspend. [saveCurrentPosition] uses [ProgressTracker.onPlaybackPaused], which
+     * is fire-and-forget (`scope.launch { }`): the launched coroutine races
+     * [serviceScope.cancel] in [onDestroy] and races OS process death in
+     * [onTaskRemoved], so the Room write may never run.
+     *
+     * This function uses [runBlocking] with [NonCancellable] to ensure the write
+     * completes before the callback returns. [runBlocking] is intentional and correct
+     * here — this is a platform-boundary use where suspension is impossible, not the
+     * anti-pattern banned in coroutine-path code.
+     */
+    private fun saveCurrentPositionBlocking() {
+        val bookId = currentBookId ?: return
+        val positionMs = getBookRelativePosition()
+        runBlocking(NonCancellable) {
+            progressTracker.savePositionNow(bookId, positionMs)
+        }
     }
 
     private fun startIdleTimer(
