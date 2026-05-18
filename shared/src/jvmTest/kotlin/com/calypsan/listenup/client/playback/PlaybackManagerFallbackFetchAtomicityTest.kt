@@ -29,7 +29,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Proves [PlaybackManager.fetchBookFromServer] delegates the write to
+ * Proves [PlaybackPreparer.fetchBookFromServer] delegates the write to
  * [BookRepository.upsertWithAudioFiles], which owns the atomicity guarantee.
  *
  * The actual rollback behaviour is exercised in [BookRepositoryImplTest].
@@ -74,8 +74,8 @@ class PlaybackManagerFallbackFetchAtomicityTest {
                 )
 
             // ProgressTracker is a final class — use the shared helper from PlaybackManagerTestSupport.
-            val playbackManager =
-                PlaybackManagerImpl(
+            val preparer =
+                PlaybackPreparer(
                     serverConfig = mock(),
                     playbackPreferences = mock(),
                     bookDao = db.bookDao(),
@@ -93,7 +93,7 @@ class PlaybackManagerFallbackFetchAtomicityTest {
                     bookRepository = bookRepository,
                 )
 
-            val result = playbackManager.fetchBookFromServer(BookId("book-rollback"))
+            val result = preparer.fetchBookFromServer(BookId("book-rollback"))
 
             assertTrue(result, "fetchBookFromServer should return true on success")
             verifySuspend(VerifyMode.exactly(1)) {
@@ -129,8 +129,8 @@ class PlaybackManagerFallbackFetchAtomicityTest {
                 )
 
             // ProgressTracker is a final class — use the shared helper from PlaybackManagerTestSupport.
-            val playbackManager =
-                PlaybackManagerImpl(
+            val preparer =
+                PlaybackPreparer(
                     serverConfig = mock(),
                     playbackPreferences = mock(),
                     bookDao = db.bookDao(),
@@ -148,7 +148,7 @@ class PlaybackManagerFallbackFetchAtomicityTest {
                     bookRepository = bookRepository,
                 )
 
-            val result = playbackManager.fetchBookFromServer(BookId("book-fail"))
+            val result = preparer.fetchBookFromServer(BookId("book-fail"))
 
             assertFalse(result, "fetchBookFromServer should return false when persistence fails")
             verifySuspend(VerifyMode.exactly(1)) {
