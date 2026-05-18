@@ -19,7 +19,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 /**
  * Tests for TagRepositoryImpl.
@@ -111,7 +110,7 @@ class TagRepositoryImplTest {
             // Then
             assertNotNull(result[0].createdAt)
             assertEquals(
-                Instant.fromEpochMilliseconds(1609459200000L),
+                Timestamp(1609459200000L),
                 result[0].createdAt,
             )
         }
@@ -196,7 +195,7 @@ class TagRepositoryImplTest {
 
             // Then
             assertEquals(
-                Instant.fromEpochMilliseconds(1704067200000L),
+                Timestamp(1704067200000L),
                 result[0].createdAt,
             )
         }
@@ -260,7 +259,7 @@ class TagRepositoryImplTest {
             assertEquals("tag-42", result.id)
             assertEquals("coming-of-age", result.slug)
             assertEquals(55, result.bookCount)
-            assertEquals(Instant.fromEpochMilliseconds(1609459200000L), result.createdAt)
+            assertEquals(Timestamp(1609459200000L), result.createdAt)
         }
 
     // ========== getBySlug Tests ==========
@@ -322,7 +321,7 @@ class TagRepositoryImplTest {
             assertEquals("tag-99", result.id)
             assertEquals("morally-grey", result.slug)
             assertEquals(77, result.bookCount)
-            assertEquals(Instant.fromEpochMilliseconds(1672531200000L), result.createdAt)
+            assertEquals(Timestamp(1672531200000L), result.createdAt)
         }
 
     // ========== observeTagsForBook Tests ==========
@@ -381,7 +380,7 @@ class TagRepositoryImplTest {
             assertEquals("tag-1", result[0].id)
             assertEquals("heist", result[0].slug)
             assertEquals(20, result[0].bookCount)
-            assertEquals(Instant.fromEpochMilliseconds(1609459200000L), result[0].createdAt)
+            assertEquals(Timestamp(1609459200000L), result[0].createdAt)
         }
 
     @Test
@@ -463,7 +462,7 @@ class TagRepositoryImplTest {
             assertEquals("tag-5", result[0].id)
             assertEquals("mystery", result[0].slug)
             assertEquals(150, result[0].bookCount)
-            assertEquals(Instant.fromEpochMilliseconds(1640995200000L), result[0].createdAt)
+            assertEquals(Timestamp(1640995200000L), result[0].createdAt)
         }
 
     @Test
@@ -582,7 +581,7 @@ class TagRepositoryImplTest {
             assertEquals("tag-conversion-test", result.id)
             assertEquals("test-conversion-slug", result.slug)
             assertEquals(42, result.bookCount)
-            assertEquals(Instant.fromEpochMilliseconds(1234567890123L), result.createdAt)
+            assertEquals(Timestamp(1234567890123L), result.createdAt)
         }
 
     @Test
@@ -614,7 +613,7 @@ class TagRepositoryImplTest {
             val result = repository.getAll()
 
             // Then
-            assertEquals(Instant.fromEpochMilliseconds(0L), result[0].createdAt)
+            assertEquals(Timestamp(0L), result[0].createdAt)
         }
 
     @Test

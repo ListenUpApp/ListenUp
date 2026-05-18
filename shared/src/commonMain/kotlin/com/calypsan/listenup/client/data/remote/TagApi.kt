@@ -13,6 +13,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.calypsan.listenup.client.core.Timestamp
 import kotlin.time.Instant
 
 /**
@@ -138,7 +139,7 @@ internal data class TagResponse(
             id = id,
             slug = slug,
             bookCount = bookCount,
-            createdAt = createdAt?.let { Instant.parse(it) },
+            createdAt = createdAt?.let { Timestamp(Instant.parse(it).toEpochMilliseconds()) },
         )
 }
 
