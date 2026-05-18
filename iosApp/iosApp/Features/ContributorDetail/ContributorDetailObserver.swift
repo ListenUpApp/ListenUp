@@ -16,6 +16,11 @@ final class ContributorDetailObserver {
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
 
+    /// Whether the delete-confirmation dialog should show. Wrapper-held input
+    /// state — the ViewModel has no "confirming" state; `confirmDelete()` deletes
+    /// immediately, so the confirmation step lives here.
+    private(set) var showDeleteConfirmation: Bool = false
+
     // MARK: - Derived from `contributor`
 
     var name: String { contributor?.name ?? "" }
@@ -28,11 +33,10 @@ final class ContributorDetailObserver {
     var website: String? { contributor?.website }
     var totalBookCount: Int { roleSections.reduce(0) { $0 + Int($1.bookCount) } }
 
-    /// Called when the contributor is deleted — set by the view to pop back.
-    var onDeleted: (() -> Void)?
-
     private let viewModel: ContributorDetailViewModel
     private let bridge = FlowBridge()
+    /// Fired once the ViewModel signals deletion completion via `navActions`.
+    private var onDeletedCallback: (() -> Void)?
 
     init(viewModel: ContributorDetailViewModel) {
         self.viewModel = viewModel
@@ -50,12 +54,22 @@ final class ContributorDetailObserver {
         viewModel.loadContributor(contributorId: contributorId)
     }
 
-    func confirmDelete() {
-        viewModel.confirmDelete()
+    /// Show the delete-confirmation dialog.
+    func onDeleteContributor() {
+        showDeleteConfirmation = true
     }
 
-    func dismissDeleteError() {
-        viewModel.dismissDeleteError()
+    /// Dismiss the delete-confirmation dialog without deleting.
+    func onDismissDelete() {
+        showDeleteConfirmation = false
+    }
+
+    /// Confirm deletion. `onDeleted` fires once the ViewModel signals completion
+    /// via its `navActions` flow.
+    func onConfirmDelete(_ onDeleted: @escaping () -> Void) {
+        onDeletedCallback = onDeleted
+        showDeleteConfirmation = false
+        viewModel.confirmDelete()
     }
 
     // MARK: - State mapping
@@ -81,7 +95,7 @@ final class ContributorDetailObserver {
     private func applyNavAction(_ action: ContributorDetailNavAction) {
         switch onEnum(of: action) {
         case .deleted:
-            onDeleted?()
+            onDeletedCallback?()
         }
     }
 
