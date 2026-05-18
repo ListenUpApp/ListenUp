@@ -2,7 +2,13 @@
 
 package com.calypsan.listenup.client.core
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -140,6 +146,7 @@ value class ContributorId(
  *
  * @property epochMillis Unix epoch milliseconds
  */
+@Serializable(with = TimestampIso8601Serializer::class)
 @JvmInline
 value class Timestamp(
     val epochMillis: Long,
@@ -170,4 +177,25 @@ value class Timestamp(
          */
         fun now(): Timestamp = Timestamp(currentEpochMilliseconds())
     }
+}
+
+/**
+ * Serializes [Timestamp] as an ISO-8601 string (e.g. "2024-11-20T14:30:45.123Z"),
+ * identical to the wire form `kotlin.time.Instant` produces. This keeps the wire
+ * contract stable for `@Serializable` types whose timestamp fields move from
+ * `kotlin.time.Instant` to `Timestamp`.
+ */
+object TimestampIso8601Serializer : KSerializer<Timestamp> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("com.calypsan.listenup.client.core.Timestamp", PrimitiveKind.STRING)
+
+    override fun serialize(
+        encoder: Encoder,
+        value: Timestamp,
+    ) {
+        encoder.encodeString(Instant.fromEpochMilliseconds(value.epochMillis).toString())
+    }
+
+    override fun deserialize(decoder: Decoder): Timestamp =
+        Timestamp(Instant.parse(decoder.decodeString()).toEpochMilliseconds())
 }
