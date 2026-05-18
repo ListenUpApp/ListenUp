@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -558,6 +559,62 @@ class NowPlayingViewModelTest {
                 "expected sleep timer Inactive after closeBook; got: ${fixture.sleepTimerManager.state.value}",
             )
             assertTrue(!vm.screenState.value.isExpanded, "expected collapsed after closeBook")
+        }
+
+    // ========== Sleep timer resilience ==========
+
+    @Test
+    fun `sleepEvent observer resets timer to Inactive even when fadeOutAndPause throws`() =
+        runTest(testDispatcher) {
+            val fixture = TestFixture()
+            // Make setVolume (called in the fade loop) throw on first invocation.
+            // This exercises the bug: before the fix, the exception would escape
+            // the collector and onFadeCompleted() would never be called, leaving
+            // the timer stuck in FadingOut.
+            every { fixture.playbackController.setVolume(any()) } throws RuntimeException("simulated fade failure")
+            every { fixture.playbackController.pause() } returns Unit
+
+            val vm = fixture.newVm()
+            advanceUntilIdle() // let init-block collectors start
+
+            // Use EndOfChapter mode — fires synchronously from onChapterChanged without
+            // wall-clock math, so it works cleanly under a TestDispatcher.
+            vm.setSleepTimer(SleepTimerMode.EndOfChapter)
+            advanceUntilIdle()
+
+            // Drive first chapter (sets lastKnownChapterIndex).
+            fixture.fakePm.currentChapterFlow.value =
+                ChapterInfo(
+                    index = 0,
+                    title = "Chapter 1",
+                    startMs = 0L,
+                    endMs = 600_000L,
+                    remainingMs = 600_000L,
+                    totalChapters = 3,
+                    isGenericTitle = false,
+                )
+            advanceUntilIdle()
+
+            // Drive second chapter — this fires the sleep event, which calls
+            // fadeOutAndPause(), which calls setVolume() and throws immediately.
+            fixture.fakePm.currentChapterFlow.value =
+                ChapterInfo(
+                    index = 1,
+                    title = "Chapter 2",
+                    startMs = 600_000L,
+                    endMs = 1_200_000L,
+                    remainingMs = 600_000L,
+                    totalChapters = 3,
+                    isGenericTitle = false,
+                )
+            advanceUntilIdle()
+
+            // After the fix: the try/catch in the collector must call onFadeCompleted()
+            // even when fadeOutAndPause() throws, resetting state to Inactive.
+            assertTrue(
+                fixture.sleepTimerManager.state.value is SleepTimerState.Inactive,
+                "sleep timer must return to Inactive after fade failure; got: ${fixture.sleepTimerManager.state.value}",
+            )
         }
 
     // ========== Helpers ==========
