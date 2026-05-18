@@ -14,7 +14,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 
 /**
  * Tests for GetInstanceUseCase.
@@ -49,8 +49,8 @@ class GetInstanceUseCaseTest {
             localUrl = "http://localhost:8080",
             remoteUrl = null,
             setupRequired = false,
-            createdAt = Instant.fromEpochMilliseconds(1704067200000L),
-            updatedAt = Instant.fromEpochMilliseconds(1704067200000L),
+            createdAt = Timestamp(1704067200000L),
+            updatedAt = Timestamp(1704067200000L),
         )
 
     // ========== Success Tests ==========

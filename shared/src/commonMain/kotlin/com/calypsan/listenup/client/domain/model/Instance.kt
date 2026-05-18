@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.Timestamp
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 /**
  * Type-safe wrapper for Instance IDs.
@@ -33,10 +32,8 @@ value class InstanceId(
  * Each server installation is an "instance" with its own configuration,
  * users, and content library.
  *
- * Timestamp fields use kotlin.time.Instant (Kotlin stdlib) which has native
- * kotlinx.serialization support for ISO-8601 format (e.g., "2024-11-20T14:30:45.123Z").
+ * Timestamp fields use the `Timestamp` value class, serialized as ISO-8601 strings on the wire.
  */
-@OptIn(ExperimentalTime::class)
 @Serializable
 data class Instance(
     @SerialName("id")
@@ -54,9 +51,9 @@ data class Instance(
     @SerialName("setup_required")
     val setupRequired: Boolean,
     @SerialName("created_at")
-    val createdAt: Instant,
+    val createdAt: Timestamp,
     @SerialName("updated_at")
-    val updatedAt: Instant,
+    val updatedAt: Timestamp,
 ) {
     /**
      * True if the instance needs initial setup (no root user configured yet).
