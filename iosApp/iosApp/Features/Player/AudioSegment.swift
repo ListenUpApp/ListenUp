@@ -17,7 +17,7 @@ struct AudioSegment: Equatable, Sendable {
 
 /// An event emitted by `AudioEngine` on its single output stream. One stream,
 /// one consumer (`PlayerCoordinator`), carrying both position and lifecycle.
-enum AudioEngineEvent: Sendable {
+enum AudioEngineEvent: Sendable, Equatable {
     /// A real position sample — whole-book position and the current rate
     /// (0 when paused, the playback speed when playing).
     case position(ms: Int64, rate: Double)
