@@ -93,13 +93,12 @@ final class BookDetailObserver {
         guard let book else { return }
         downloadError = nil
         Task {
-            do {
-                let result = try await downloadService.downloadBook(bookId: book.id)
-                if let error = result as? DownloadResultError {
-                    downloadError = error.message
-                }
-            } catch {
-                downloadError = error.localizedDescription
+            guard let result = try? await downloadService.downloadBook(bookId: book.id) else { return }
+            switch onEnum(of: result) {
+            case .success:
+                break
+            case .failure(let failure):
+                downloadError = failure.error.message
             }
         }
     }
@@ -148,17 +147,34 @@ final class BookDetailObserver {
     private func observeDownloadStatus(bookId: String) {
         observingDownloadForBookId = bookId
         bridge.bind(downloadService.observeBookStatus(bookId: bookId)) { [weak self] status in
-            guard let self else { return }
-            downloadProgress = status.progress
-            isDownloaded = status.isFullyDownloaded
-            switch status.state {
-            case BookDownloadState.completed: downloadState = .completed
-            case BookDownloadState.downloading: downloadState = .downloading
-            case BookDownloadState.queued: downloadState = .queued
-            case BookDownloadState.failed: downloadState = .failed
-            case BookDownloadState.partial: downloadState = .partial
-            default: downloadState = .notDownloaded
-            }
+            self?.applyDownloadStatus(status)
+        }
+    }
+
+    /// Flatten the sealed `BookDownloadStatus` into the UI-facing download props.
+    private func applyDownloadStatus(_ status: BookDownloadStatus) {
+        switch onEnum(of: status) {
+        case .notDownloaded:
+            downloadState = .notDownloaded
+            downloadProgress = 0
+            isDownloaded = false
+        case .inProgress(let s):
+            downloadState = .downloading
+            downloadProgress = s.progress
+            isDownloaded = false
+        case .completed:
+            downloadState = .completed
+            downloadProgress = 1
+            isDownloaded = true
+        case .failed:
+            downloadState = .failed
+            isDownloaded = false
+        case .paused(let s):
+            downloadState = .partial
+            downloadProgress = s.totalBytes > 0
+                ? Float(s.downloadedBytes) / Float(s.totalBytes)
+                : 0
+            isDownloaded = false
         }
     }
 }
