@@ -63,9 +63,9 @@ fun Application.module() {
     install(SSE)
     install(Krpc)
 
-    val resolvedLibraryPath = resolveLibraryPath()
-    val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val seedProfile = resolveSeedProfile()
+    val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
+    val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
 
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
@@ -168,6 +168,26 @@ private fun Application.resolveSeedProfile(): String? {
         return null
     }
     return raw
+}
+
+/**
+ * When the demo seed profile is active and no explicit `scanner.libraryPath` is set, fall back to
+ * the generated synthetic library at `build/seed-library` (produced by `:server:generateSeedLibrary`).
+ * Returns null — with a guiding log line — if that directory does not exist yet.
+ */
+private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? {
+    if (seedProfile != SEED_PROFILE_DEMO) return null
+    val candidate = Path.of("build", "seed-library")
+    if (!Files.isDirectory(candidate)) {
+        logger.warn {
+            "seed.profile=demo but no synthetic library at '$candidate' — run " +
+                "':server:generateSeedLibrary' (or use ':server:runDemo'). The demo user is still " +
+                "seeded; the library will be empty until then."
+        }
+        return null
+    }
+    logger.info { "seed.profile=demo — scanning the generated synthetic library at '$candidate'" }
+    return candidate
 }
 
 /**

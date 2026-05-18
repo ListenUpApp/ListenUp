@@ -35,7 +35,20 @@ The generated library and demo database live under `server/build/` and are wiped
 
 ### Manual activation
 
-`runDemo` is a convenience wrapper. You can activate the demo seed profile on any server run by setting environment variables directly:
+`runDemo` is a convenience wrapper. You can activate the demo seed profile on any server run by
+setting `LISTENUP_SEED_PROFILE=demo` directly. When you do, the server looks for the synthetic
+library at `build/seed-library` and falls back gracefully (logging a warning) if it is not there.
+
+To get the synthetic library in place first:
+
+```bash
+./gradlew :server:generateSeedLibrary
+LISTENUP_SEED_PROFILE=demo \
+LISTENUP_DB_URL=jdbc:sqlite:/path/to/demo.db \
+./gradlew :server:run
+```
+
+Or point at your own library by setting `LISTENUP_LIBRARY_PATH` explicitly:
 
 ```bash
 LISTENUP_SEED_PROFILE=demo \

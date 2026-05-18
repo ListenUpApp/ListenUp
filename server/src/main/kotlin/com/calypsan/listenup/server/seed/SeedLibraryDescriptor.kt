@@ -56,11 +56,22 @@ data class SeedBook(
  * rerun `:server:generateSeedLibrary` to regenerate the files.
  */
 object SeedLibraryDescriptor {
-    val BOOKS: List<SeedBook> = buildList {
-        addRepresentativeBooks()
-        addEdgeCaseBooks()
-    }
+    val BOOKS: List<SeedBook> =
+        buildList {
+            addRepresentativeBooks()
+            addEdgeCaseBooks()
+        }
 }
+
+private const val AUTHOR_WREN_HALLOWAY = "Wren Halloway"
+private const val NARRATOR_MARLOWE_FINCH = "Marlowe Finch"
+private const val SERIES_EMBER_CODEX = "The Ember Codex"
+
+/** Common track file names reused across many seed books. */
+private const val TRACK_SINGLE_M4B = "book.m4b"
+private const val TRACK_01_MP3 = "01.mp3"
+private const val TRACK_02_MP3 = "02.mp3"
+private const val TRACK_03_MP3 = "03.mp3"
 
 /**
  * Core library entries: a series, single-file and multi-file standalones, and multi-disc.
@@ -71,14 +82,14 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
     // Book 1 — single-file, embedded chapters, METADATA_JSON sidecar
     add(
         SeedBook(
-            folderPath = "Wren Halloway/The Ember Codex/The Ember Codex",
-            title = "The Ember Codex",
-            authors = listOf("Wren Halloway"),
-            narrators = listOf("Marlowe Finch"),
-            series = SeedSeries(name = "The Ember Codex", sequence = "1"),
+            folderPath = "$AUTHOR_WREN_HALLOWAY/$SERIES_EMBER_CODEX/$SERIES_EMBER_CODEX",
+            title = SERIES_EMBER_CODEX,
+            authors = listOf(AUTHOR_WREN_HALLOWAY),
+            narrators = listOf(NARRATOR_MARLOWE_FINCH),
+            series = SeedSeries(name = SERIES_EMBER_CODEX, sequence = "1"),
             tracks =
                 listOf(
-                    SeedTrack(fileName = "book.m4b", durationSeconds = 18, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_SINGLE_M4B, durationSeconds = 18, trackNumber = 1),
                 ),
             chapters =
                 listOf(
@@ -95,16 +106,16 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
     // Book 2 — multi-file, no embedded chapters, NFO sidecar
     add(
         SeedBook(
-            folderPath = "Wren Halloway/The Ember Codex/The Ember Codex - Shattered Sigil",
-            title = "The Ember Codex: Shattered Sigil",
-            authors = listOf("Wren Halloway"),
-            narrators = listOf("Marlowe Finch"),
-            series = SeedSeries(name = "The Ember Codex", sequence = "2"),
+            folderPath = "$AUTHOR_WREN_HALLOWAY/$SERIES_EMBER_CODEX/$SERIES_EMBER_CODEX - Shattered Sigil",
+            title = "$SERIES_EMBER_CODEX: Shattered Sigil",
+            authors = listOf(AUTHOR_WREN_HALLOWAY),
+            narrators = listOf(NARRATOR_MARLOWE_FINCH),
+            series = SeedSeries(name = SERIES_EMBER_CODEX, sequence = "2"),
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.mp3", durationSeconds = 5, trackNumber = 1),
-                    SeedTrack(fileName = "02.mp3", durationSeconds = 6, trackNumber = 2),
-                    SeedTrack(fileName = "03.mp3", durationSeconds = 5, trackNumber = 3),
+                    SeedTrack(fileName = TRACK_01_MP3, durationSeconds = 5, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_02_MP3, durationSeconds = 6, trackNumber = 2),
+                    SeedTrack(fileName = TRACK_03_MP3, durationSeconds = 5, trackNumber = 3),
                 ),
             chapters = emptyList(),
             sidecar = SeedSidecar.NFO,
@@ -116,16 +127,16 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
     // Book 3 — multi-file, no embedded chapters, OPF sidecar
     add(
         SeedBook(
-            folderPath = "Wren Halloway/The Ember Codex/The Ember Codex - The Final Pyre",
-            title = "The Ember Codex: The Final Pyre",
-            authors = listOf("Wren Halloway"),
-            narrators = listOf("Marlowe Finch"),
-            series = SeedSeries(name = "The Ember Codex", sequence = "3"),
+            folderPath = "$AUTHOR_WREN_HALLOWAY/$SERIES_EMBER_CODEX/$SERIES_EMBER_CODEX - The Final Pyre",
+            title = "$SERIES_EMBER_CODEX: The Final Pyre",
+            authors = listOf(AUTHOR_WREN_HALLOWAY),
+            narrators = listOf(NARRATOR_MARLOWE_FINCH),
+            series = SeedSeries(name = SERIES_EMBER_CODEX, sequence = "3"),
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.mp3", durationSeconds = 4, trackNumber = 1),
-                    SeedTrack(fileName = "02.mp3", durationSeconds = 5, trackNumber = 2),
-                    SeedTrack(fileName = "03.mp3", durationSeconds = 6, trackNumber = 3),
+                    SeedTrack(fileName = TRACK_01_MP3, durationSeconds = 4, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_02_MP3, durationSeconds = 5, trackNumber = 2),
+                    SeedTrack(fileName = TRACK_03_MP3, durationSeconds = 6, trackNumber = 3),
                     SeedTrack(fileName = "04.mp3", durationSeconds = 4, trackNumber = 4),
                 ),
             chapters = emptyList(),
@@ -136,6 +147,8 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
     )
 
     // ── Standalone: multi-disc, DESC_TXT sidecar ────────────────────────────────────────────
+    // discFolders=true: the generator places exactly one track under each CDn/ folder —
+    // a deliberate synthetic-data simplification, not a faithful real-world multi-disc layout.
     add(
         SeedBook(
             folderPath = "Cassia Vane/The Clockwork Archipelago",
@@ -145,9 +158,9 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.mp3", durationSeconds = 5, trackNumber = 1),
-                    SeedTrack(fileName = "02.mp3", durationSeconds = 6, trackNumber = 2),
-                    SeedTrack(fileName = "03.mp3", durationSeconds = 5, trackNumber = 3),
+                    SeedTrack(fileName = TRACK_01_MP3, durationSeconds = 5, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_02_MP3, durationSeconds = 6, trackNumber = 2),
+                    SeedTrack(fileName = TRACK_03_MP3, durationSeconds = 5, trackNumber = 3),
                     SeedTrack(fileName = "04.mp3", durationSeconds = 6, trackNumber = 4),
                     SeedTrack(fileName = "05.mp3", durationSeconds = 5, trackNumber = 5),
                 ),
@@ -169,7 +182,7 @@ private fun MutableList<SeedBook>.addRepresentativeBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "book.m4b", durationSeconds = 20, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_SINGLE_M4B, durationSeconds = 20, trackNumber = 1),
                 ),
             chapters =
                 listOf(
@@ -199,9 +212,9 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.mp3", durationSeconds = 4, trackNumber = 1),
-                    SeedTrack(fileName = "02.mp3", durationSeconds = 5, trackNumber = 2),
-                    SeedTrack(fileName = "03.mp3", durationSeconds = 4, trackNumber = 3),
+                    SeedTrack(fileName = TRACK_01_MP3, durationSeconds = 4, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_02_MP3, durationSeconds = 5, trackNumber = 2),
+                    SeedTrack(fileName = TRACK_03_MP3, durationSeconds = 4, trackNumber = 3),
                 ),
             chapters = emptyList(),
             sidecar = SeedSidecar.NONE,
@@ -220,7 +233,7 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "book.m4b", durationSeconds = 15, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_SINGLE_M4B, durationSeconds = 15, trackNumber = 1),
                 ),
             chapters =
                 listOf(
@@ -244,9 +257,9 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.mp3", durationSeconds = 5, trackNumber = 1),
-                    SeedTrack(fileName = "02.mp3", durationSeconds = 6, trackNumber = 2),
-                    SeedTrack(fileName = "03.mp3", durationSeconds = 5, trackNumber = 3),
+                    SeedTrack(fileName = TRACK_01_MP3, durationSeconds = 5, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_02_MP3, durationSeconds = 6, trackNumber = 2),
+                    SeedTrack(fileName = TRACK_03_MP3, durationSeconds = 5, trackNumber = 3),
                 ),
             chapters = emptyList(),
             sidecar = SeedSidecar.NFO,
@@ -265,7 +278,7 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "book.m4b", durationSeconds = 16, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_SINGLE_M4B, durationSeconds = 16, trackNumber = 1),
                 ),
             chapters =
                 listOf(
@@ -289,7 +302,7 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             series = null,
             tracks =
                 listOf(
-                    SeedTrack(fileName = "book.m4b", durationSeconds = 14, trackNumber = 1),
+                    SeedTrack(fileName = TRACK_SINGLE_M4B, durationSeconds = 14, trackNumber = 1),
                 ),
             chapters =
                 listOf(
