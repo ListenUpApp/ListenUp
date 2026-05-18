@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
+import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
@@ -87,6 +88,27 @@ val iosPlaybackModule: Module =
                 syncApi = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
+            )
+        }
+
+        // Stateless playback-preparation pipeline — consumed directly by the native iOS player
+        single {
+            PlaybackPreparer(
+                serverConfig = get(),
+                playbackPreferences = get(),
+                bookDao = get(),
+                audioFileDao = get(),
+                chapterDao = get(),
+                imageStorage = get(),
+                progressTracker = get(),
+                tokenProvider = get(),
+                deviceContext = get(),
+                downloadService = get(),
+                playbackApi = null,
+                capabilityDetector = null,
+                syncApi = get(),
+                scope = get(qualifier = named("playbackScope")),
+                bookRepository = get(),
             )
         }
 

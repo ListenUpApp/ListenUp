@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.util.sortableTitle
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
