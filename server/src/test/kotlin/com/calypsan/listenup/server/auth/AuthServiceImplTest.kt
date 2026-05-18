@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -17,6 +19,7 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -26,22 +29,21 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneOffset
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 class AuthServiceImplTest :
     FunSpec({
         val pepper = "x".repeat(32).toByteArray()
-        val clock = Clock.fixed(Instant.parse("2026-05-02T12:00:00Z"), ZoneOffset.UTC)
+        val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
         fun newSvc(policy: RegistrationPolicy = RegistrationPolicy.OPEN): AuthServiceImpl {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}"))
             val hasher = PasswordHasher()
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
-            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", Duration.ofMinutes(15), clock)
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             return AuthServiceImpl(
                 db = db,
                 sessions = sessions,

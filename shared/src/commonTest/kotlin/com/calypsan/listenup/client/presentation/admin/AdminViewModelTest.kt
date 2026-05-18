@@ -39,10 +39,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 
-@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
@@ -55,8 +54,8 @@ class AdminViewModelTest {
             remoteUrl = null,
             openRegistration = openRegistration,
             setupRequired = false,
-            createdAt = Instant.DISTANT_PAST,
-            updatedAt = Instant.DISTANT_PAST,
+            createdAt = Timestamp(0L),
+            updatedAt = Timestamp(0L),
         )
 
     private fun createMockInstanceRepository(openRegistration: Boolean = false): InstanceRepository {

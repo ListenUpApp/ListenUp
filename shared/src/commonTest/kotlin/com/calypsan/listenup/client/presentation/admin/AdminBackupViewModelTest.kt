@@ -168,7 +168,7 @@ class AdminBackupViewModelTest {
             val viewModel = AdminBackupViewModel(api, errorBus = ErrorBus())
             advanceUntilIdle()
 
-            // Should not crash, invalid date should use DISTANT_PAST
+            // Should not crash, invalid date should use epoch (Timestamp(0L))
             val ready = assertIs<AdminBackupUiState.Ready>(viewModel.state.value)
             assertEquals(2, ready.backups.size)
             assertEquals("valid", ready.backups[0].id)

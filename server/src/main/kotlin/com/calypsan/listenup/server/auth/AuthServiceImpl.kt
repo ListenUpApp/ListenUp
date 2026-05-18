@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.AuthServiceAuthed
@@ -25,8 +27,9 @@ import com.calypsan.listenup.server.db.UserTable
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import java.time.Clock
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /** Instance-level registration mode. Drives `register()` branching. */
 enum class RegistrationPolicy { OPEN, APPROVAL_QUEUE, CLOSED }
@@ -46,7 +49,7 @@ class AuthServiceImpl(
     internal val sessions: SessionService,
     internal val hasher: PasswordHasher,
     internal val jwt: JwtConfiguration,
-    internal val clock: Clock = Clock.systemUTC(),
+    internal val clock: Clock = Clock.System,
     internal val registrationPolicy: RegistrationPolicy = RegistrationPolicy.OPEN,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
 ) : AuthServicePublic,
@@ -98,7 +101,7 @@ class AuthServiceImpl(
         // Argon2 is CPU-bound and slow on purpose — run it before opening the
         // transaction so we don't hold a DB connection during the hash.
         val passwordHashed = hasher.hash(request.password)
-        val now = clock.millis()
+        val now = clock.now().toEpochMilliseconds()
         val user =
             suspendTransaction(db) {
                 UserEntity.new(newUserId()) {
@@ -137,7 +140,7 @@ class AuthServiceImpl(
         if (!empty) return AppResult.Failure(AuthError.SetupAlreadyComplete())
 
         val passwordHashed = hasher.hash(request.password)
-        val now = clock.millis()
+        val now = clock.now().toEpochMilliseconds()
         val user =
             suspendTransaction(db) {
                 UserEntity.new(newUserId()) {
@@ -167,7 +170,7 @@ class AuthServiceImpl(
             }
         val role = user.role.toContract()
         val accessJwt = jwt.issue(userId = rotated.userId, sessionId = rotated.sessionId, role = role)
-        val accessExp = clock.instant().plus(jwt.accessTokenTtl).toEpochMilli()
+        val accessExp = (clock.now() + jwt.accessTokenTtl).toEpochMilliseconds()
         return AppResult.Success(
             AuthSession(
                 accessToken = AccessToken(accessJwt),
@@ -251,7 +254,7 @@ class AuthServiceImpl(
             return AppResult.Failure(AuthError.PermissionDenied())
         }
 
-        val now = clock.millis()
+        val now = clock.now().toEpochMilliseconds()
         val newStatus = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
         suspendTransaction(db) {
             target.status = newStatus
@@ -270,7 +273,7 @@ class AuthServiceImpl(
         val role = userEntity.role.toContract()
         val issued = sessions.createSession(userId, label = label)
         val accessJwt = jwt.issue(userId = userId, sessionId = issued.sessionId, role = role)
-        val expiresAt = clock.instant().plus(jwt.accessTokenTtl).toEpochMilli()
+        val expiresAt = (clock.now() + jwt.accessTokenTtl).toEpochMilliseconds()
         return AuthSession(
             accessToken = AccessToken(accessJwt),
             accessTokenExpiresAt = expiresAt,
@@ -282,7 +285,7 @@ class AuthServiceImpl(
     }
 
     private suspend fun markLastLogin(userId: String) {
-        val now = clock.millis()
+        val now = clock.now().toEpochMilliseconds()
         suspendTransaction(db) {
             UserEntity[userId].lastLoginAt = now
         }

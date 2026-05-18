@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 
 /**
  * Domain model for a global tag.
@@ -15,7 +15,7 @@ data class Tag(
     val id: String,
     val slug: String,
     val bookCount: Int = 0,
-    val createdAt: Instant? = null,
+    val createdAt: Timestamp? = null,
 ) {
     /**
      * Converts the slug to a human-readable display name.

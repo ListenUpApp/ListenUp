@@ -29,8 +29,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 import com.calypsan.listenup.client.core.error.ErrorBus
 
 /**
@@ -47,7 +46,7 @@ import com.calypsan.listenup.client.core.error.ErrorBus
  * - `saveAll` failure surfaces as transient `error` on Ready
  * - `clearError` clears the transient error on Ready
  */
-@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminSettingsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
@@ -102,8 +101,8 @@ class AdminSettingsViewModelTest {
             remoteUrl = remoteUrl,
             openRegistration = false,
             setupRequired = false,
-            createdAt = Instant.fromEpochMilliseconds(0),
-            updatedAt = Instant.fromEpochMilliseconds(0),
+            createdAt = Timestamp(0L),
+            updatedAt = Timestamp(0L),
         )
 
     @BeforeTest

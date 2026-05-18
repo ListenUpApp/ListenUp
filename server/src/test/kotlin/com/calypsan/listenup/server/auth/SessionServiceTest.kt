@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.RefreshToken
@@ -9,6 +11,7 @@ import com.calypsan.listenup.server.db.SessionTable
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -17,15 +20,14 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneOffset
+import kotlin.time.ExperimentalTime
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 class SessionServiceTest :
     FunSpec({
         val pepper = "x".repeat(32).toByteArray()
-        val clock = Clock.fixed(Instant.parse("2026-05-02T12:00:00Z"), ZoneOffset.UTC)
+        val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
         fun freshDb(): Database {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
@@ -165,7 +167,7 @@ class SessionServiceTest :
                     db,
                     RefreshTokenHasher(pepper),
                     RefreshTokenGenerator(),
-                    refreshTtl = Duration.ofMillis(-1),
+                    refreshTtl = (-1).milliseconds,
                     clock = clock,
                 )
 

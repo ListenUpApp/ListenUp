@@ -65,6 +65,7 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
@@ -481,7 +482,10 @@ private fun BackupCard(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            val localDateTime = backup.createdAt.toLocalDateTime(TimeZone.currentSystemDefault())
+            val localDateTime =
+                Instant
+                    .fromEpochMilliseconds(backup.createdAt.epochMillis)
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
             val timeStr = "${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')}"
             Text(
                 text = "Created: ${localDateTime.date} at $timeStr",

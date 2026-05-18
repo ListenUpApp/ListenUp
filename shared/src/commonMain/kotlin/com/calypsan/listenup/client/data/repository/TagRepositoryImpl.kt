@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.time.Instant
 
 /**
  * Implementation of TagRepository using Room and TagApi.
@@ -68,7 +67,7 @@ class TagRepositoryImpl(
                     id = tag.id,
                     slug = tag.slug,
                     bookCount = tag.bookCount,
-                    createdAt = tag.createdAt?.let { Timestamp(it.toEpochMilliseconds()) } ?: Timestamp.now(),
+                    createdAt = tag.createdAt ?: Timestamp.now(),
                 )
             dao.upsert(entity)
             dao.insertBookTag(BookTagCrossRef(bookId = BookId(bookId), tagId = tag.id))
@@ -99,5 +98,5 @@ private fun TagEntity.toDomain(): Tag =
         id = id,
         slug = slug,
         bookCount = bookCount,
-        createdAt = Instant.fromEpochMilliseconds(createdAt.epochMillis),
+        createdAt = createdAt,
     )

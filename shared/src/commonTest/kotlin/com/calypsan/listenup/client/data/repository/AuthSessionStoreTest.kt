@@ -20,7 +20,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.time.Instant
+import com.calypsan.listenup.client.core.Timestamp
 
 private fun createTestInstance(setupRequired: Boolean): Instance =
     Instance(
@@ -30,8 +30,8 @@ private fun createTestInstance(setupRequired: Boolean): Instance =
         localUrl = "http://localhost:8080",
         remoteUrl = null,
         setupRequired = setupRequired,
-        createdAt = Instant.DISTANT_PAST,
-        updatedAt = Instant.DISTANT_PAST,
+        createdAt = Timestamp(0L),
+        updatedAt = Timestamp(0L),
     )
 
 private fun createMockStorage(): SecureStorage = mock<SecureStorage>()

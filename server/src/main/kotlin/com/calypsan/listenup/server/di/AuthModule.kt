@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -13,8 +15,9 @@ import io.ktor.server.config.ApplicationConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.time.Clock
-import java.time.Duration
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.ExperimentalTime
 
 /**
  * Koin server module wiring the auth slice end-to-end. [config] is the Ktor
@@ -26,7 +29,7 @@ import java.time.Duration
  */
 fun authModule(config: ApplicationConfig): Module =
     module {
-        single<Clock> { Clock.systemUTC() }
+        single<Clock> { Clock.System }
 
         single<Database> {
             DatabaseFactory.init(
@@ -45,7 +48,7 @@ fun authModule(config: ApplicationConfig): Module =
                 db = get(),
                 tokenHasher = get(),
                 tokenGenerator = get(),
-                refreshTtl = Duration.ofDays(REFRESH_TOKEN_TTL_DAYS),
+                refreshTtl = REFRESH_TOKEN_TTL_DAYS.days,
                 clock = get(),
             )
         }
