@@ -38,14 +38,14 @@ final class LoginViewModelWrapper {
 
     private func apply(_ state: LoginUiState) {
         switch onEnum(of: state) {
-        case .idle, .loading, .success:
-            isLoading = state is LoginUiStateLoading
-            isSuccess = state is LoginUiStateSuccess
-            clearErrors()
+        case .idle:
+            isLoading = false; isSuccess = false; clearErrors()
+        case .loading:
+            isLoading = true; isSuccess = false; clearErrors()
+        case .success:
+            isLoading = false; isSuccess = true; clearErrors()
         case .error(let error):
-            isLoading = false
-            isSuccess = false
-            mapError(error.type)
+            isLoading = false; isSuccess = false; mapError(error.type)
         }
     }
 
