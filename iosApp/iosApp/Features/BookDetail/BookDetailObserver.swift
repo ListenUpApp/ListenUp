@@ -1,185 +1,86 @@
 import SwiftUI
 import Shared
 
-/// Download state for the UI layer, mapped from Kotlin's BookDownloadState.
+/// Download state for the UI, mapped from Kotlin's `BookDownloadState`.
 enum DownloadUIState {
     case notDownloaded, queued, downloading, completed, partial, failed
 }
 
-/// Observes BookDetailViewModel's state StateFlow for SwiftUI consumption.
-///
-/// Maps Kotlin's BookDetailUiState to Swift-native properties that drive
-/// the book detail UI including loading, error, and content states.
+/// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
+/// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
 @MainActor
 final class BookDetailObserver {
+    // MARK: - Flattened state
 
-    // MARK: - Observed State
+    private(set) var isLoading: Bool = true
+    private(set) var error: String?
+    private(set) var book: BookDetail?
+    private(set) var subtitle: String?
+    private(set) var series: String?
+    private(set) var bookDescription: String = ""
+    private(set) var narrators: String = ""
+    private(set) var year: Int?
+    private(set) var rating: Double?
+    private(set) var progress: Float?
+    private(set) var timeRemaining: String?
+    private(set) var isComplete: Bool = false
+    private(set) var chapters: [ChapterUiModel] = []
+    private(set) var genres: [String] = []
 
-    /// Current UI state from the ViewModel
-    private(set) var uiState: BookDetailUiState?
+    // MARK: - Derived from `book`
 
-    // MARK: - Computed Properties
-
-    /// Whether the screen is loading
-    var isLoading: Bool { uiState?.isLoading ?? true }
-
-    /// Error message if any
-    var error: String? { uiState?.error }
-
-    /// The book being displayed
-    var book: BookDetail? { uiState?.book }
-
-    /// Book title
     var title: String { book?.title ?? "" }
-
-    /// Book subtitle (filtered for redundancy)
-    var subtitle: String? { uiState?.subtitle }
-
-    /// Series info (e.g., "The Stormlight Archive #1")
-    var series: String? { uiState?.series }
-
-    /// Book description/synopsis
-    var bookDescription: String { uiState?.description_ ?? "" }
-
-    /// Narrator names as string
-    var narrators: String { uiState?.narrators ?? "" }
-
-    /// Author names from the book
     var authors: String { book?.authorNames ?? "" }
-
-    /// Publish year
-    var year: Int? {
-        guard let y = uiState?.year else { return nil }
-        return y.intValue
-    }
-
-    /// Rating (0-5 scale)
-    var rating: Double? {
-        guard let r = uiState?.rating else { return nil }
-        return r.doubleValue
-    }
-
-    /// Progress (0.0-1.0) if reading
-    var progress: Float? {
-        guard let p = uiState?.progress else { return nil }
-        return p.floatValue
-    }
-
-    /// Time remaining formatted (e.g., "2h 15m left")
-    var timeRemaining: String? { uiState?.timeRemainingFormatted }
-
-    /// Whether the book is complete (99%+ progress)
-    var isComplete: Bool { uiState?.isComplete ?? false }
-
-    /// Chapters list
-    var chapters: [ChapterUiModel] {
-        guard let list = uiState?.chapters else { return [] }
-        return Array(list)
-    }
-
-    /// Genres list
-    var genres: [String] {
-        guard let list = uiState?.genresList else { return [] }
-        return Array(list)
-    }
-
-    /// Book cover path
     var coverPath: String? { book?.coverPath }
-
-    /// Book cover blur hash
     var coverBlurHash: String? { book?.coverBlurHash }
-
-    /// Book duration formatted
     var duration: String { book?.formatDuration() ?? "" }
-
-    /// Book duration in milliseconds
     var durationMs: Int64 { book?.duration ?? 0 }
 
-    // MARK: - Private
+    // MARK: - Download state
+
+    private(set) var downloadState: DownloadUIState = .notDownloaded
+    private(set) var downloadProgress: Float = 0
+    private(set) var isDownloaded: Bool = false
+    private(set) var downloadError: String?
+
+    // MARK: - Dependencies
 
     private let viewModel: BookDetailViewModel
     private let playbackManager: PlaybackManager
     private let audioPlayer: AudioPlayer
     private let downloadService: DownloadService
-    private(set) var downloadState: DownloadUIState = .notDownloaded
-    private(set) var downloadProgress: Float = 0
-    private(set) var isDownloaded: Bool = false
-    private var observationTask: Task<Void, Never>?
+    private let bridge = FlowBridge()
+    private var observingDownloadForBookId: String?
 
-    // MARK: - Initialization
-
-    init(viewModel: BookDetailViewModel, playbackManager: PlaybackManager, audioPlayer: AudioPlayer, downloadService: DownloadService) {
+    init(
+        viewModel: BookDetailViewModel,
+        playbackManager: PlaybackManager,
+        audioPlayer: AudioPlayer,
+        downloadService: DownloadService
+    ) {
         self.viewModel = viewModel
         self.playbackManager = playbackManager
         self.audioPlayer = audioPlayer
         self.downloadService = downloadService
-        startObserving()
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    /// Call this to stop observation when done.
-
     func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
-        downloadObservationTask?.cancel()
-        downloadObservationTask = nil
+        bridge.cancelAll()
     }
 
     // MARK: - Actions
 
-    /// Load a book by ID
     func loadBook(bookId: String) {
         viewModel.loadBook(bookId: bookId)
     }
 
-    /// Start or resume playback for this book
-    /// Error message from last download action, cleared on next attempt.
-    private(set) var downloadError: String?
-
-    func downloadBook() {
-        guard let book else { return }
-        downloadError = nil
-        Task {
-            do {
-                let result = try await downloadService.downloadBook(bookId: book.id)
-                if let error = result as? DownloadResultError {
-                    self.downloadError = error.message
-                }
-            } catch {
-                self.downloadError = error.localizedDescription
-            }
-        }
-    }
-
-    func cancelDownload() {
-        guard let book else { return }
-        Task {
-            try? await downloadService.cancelDownload(bookId: book.id)
-        }
-    }
-
-    func deleteDownload() {
-        guard let book else { return }
-        Task {
-            try? await downloadService.deleteDownload(bookId: book.id)
-        }
-    }
-
     func play() {
-        guard let book = book else {
-            
-            return
-        }
-        
+        guard let book else { return }
         playbackManager.activateBook(bookId: book.id)
-
         Task {
-            print("[BookDetail] Preparing playback...")
-            guard let result = try? await playbackManager.prepareForPlayback(bookId: book.id) else {
-                return
-            }
-
+            guard let result = try? await playbackManager.prepareForPlayback(bookId: book.id) else { return }
             try? await playbackManager.startPlayback(
                 player: audioPlayer,
                 resumePositionMs: result.resumePositionMs,
@@ -188,42 +89,75 @@ final class BookDetailObserver {
         }
     }
 
-    // MARK: - Private
-
-    private var downloadObservationTask: Task<Void, Never>?
-
-    private func observeDownloadStatus(bookId: String) {
-        downloadObservationTask?.cancel()
-        downloadObservationTask = Task {
-            for await status in self.downloadService.observeBookStatus(bookId: bookId) {
-                guard !Task.isCancelled else { break }
-                await MainActor.run {
-                    self.downloadProgress = status.progress
-                    self.isDownloaded = status.isFullyDownloaded
-                    let s = status.state
-                    if s == BookDownloadState.completed { self.downloadState = .completed }
-                    else if s == BookDownloadState.downloading { self.downloadState = .downloading }
-                    else if s == BookDownloadState.queued { self.downloadState = .queued }
-                    else if s == BookDownloadState.failed { self.downloadState = .failed }
-                    else if s == BookDownloadState.partial { self.downloadState = .partial }
-                    else { self.downloadState = .notDownloaded }
+    func downloadBook() {
+        guard let book else { return }
+        downloadError = nil
+        Task {
+            do {
+                let result = try await downloadService.downloadBook(bookId: book.id)
+                if let error = result as? DownloadResultError {
+                    downloadError = error.message
                 }
+            } catch {
+                downloadError = error.localizedDescription
             }
         }
     }
 
-    private func startObserving() {
-        observationTask = Task {
+    func cancelDownload() {
+        guard let book else { return }
+        Task { try? await downloadService.cancelDownload(bookId: book.id) }
+    }
 
-            for await state in self.viewModel.state {
-                guard !Task.isCancelled else { break }
-                await MainActor.run {
-                    self.uiState = state
-                    // Start observing download status when book is loaded
-                    if let bookId = state.book?.idString, self.downloadObservationTask == nil {
-                        self.observeDownloadStatus(bookId: bookId)
-                    }
-                }
+    func deleteDownload() {
+        guard let book else { return }
+        Task { try? await downloadService.deleteDownload(bookId: book.id) }
+    }
+
+    // MARK: - State mapping
+
+    private func apply(_ state: BookDetailUiState) {
+        switch onEnum(of: state) {
+        case .loading:
+            isLoading = true
+            error = nil
+        case .ready(let r):
+            isLoading = false
+            error = nil
+            book = r.book
+            subtitle = r.subtitle
+            series = r.series
+            bookDescription = r.description
+            narrators = r.narrators
+            year = r.year?.intValue
+            rating = r.rating?.doubleValue
+            progress = r.progress?.floatValue
+            timeRemaining = r.timeRemainingFormatted
+            isComplete = r.isComplete
+            chapters = Array(r.chapters)
+            genres = Array(r.genresList)
+            if let bookId = r.book.idString as String?, observingDownloadForBookId != bookId {
+                observeDownloadStatus(bookId: bookId)
+            }
+        case .error(let e):
+            isLoading = false
+            error = e.message
+        }
+    }
+
+    private func observeDownloadStatus(bookId: String) {
+        observingDownloadForBookId = bookId
+        bridge.bind(downloadService.observeBookStatus(bookId: bookId)) { [weak self] status in
+            guard let self else { return }
+            downloadProgress = status.progress
+            isDownloaded = status.isFullyDownloaded
+            switch status.state {
+            case BookDownloadState.completed: downloadState = .completed
+            case BookDownloadState.downloading: downloadState = .downloading
+            case BookDownloadState.queued: downloadState = .queued
+            case BookDownloadState.failed: downloadState = .failed
+            case BookDownloadState.partial: downloadState = .partial
+            default: downloadState = .notDownloaded
             }
         }
     }
