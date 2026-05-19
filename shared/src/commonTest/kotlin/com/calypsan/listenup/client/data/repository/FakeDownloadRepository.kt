@@ -59,8 +59,7 @@ open class FakeDownloadRepository(
     override suspend fun getLocalPath(audioFileId: String): String? =
         state.value[audioFileId]?.takeIf { it.state == DownloadState.COMPLETED }?.localPath
 
-    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? =
-        state.value[audioFileId]?.state
+    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? = state.value[audioFileId]?.state
 
     // --- State-transition writes ---
 

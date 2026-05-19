@@ -27,7 +27,9 @@ interface DownloadDao {
      * Used to find stalled/interrupted downloads for resume. CANCELLED is excluded so that
      * resumeIncompleteDownloads does not silently restart a user-cancelled download on app start.
      */
-    @Query("SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') ORDER BY bookId, fileIndex")
+    @Query(
+        "SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') ORDER BY bookId, fileIndex",
+    )
     suspend fun getIncomplete(): List<DownloadEntity>
 
     /**

@@ -522,17 +522,31 @@ private class FakeBookDao(
 
     override suspend fun deleteAll() = Unit
 
-    override suspend fun updateRevisionAndTimestamp(id: BookId, revision: Long, updatedAt: Timestamp) = Unit
+    override suspend fun updateRevisionAndTimestamp(
+        id: BookId,
+        revision: Long,
+        updatedAt: Timestamp,
+    ) = Unit
 
-    override suspend fun softDelete(id: BookId, deletedAt: Long, revision: Long) = Unit
+    override suspend fun softDelete(
+        id: BookId,
+        deletedAt: Long,
+        revision: Long,
+    ) = Unit
 
-    override suspend fun touchUpdatedAt(id: BookId, timestamp: Timestamp) = Unit
+    override suspend fun touchUpdatedAt(
+        id: BookId,
+        timestamp: Timestamp,
+    ) = Unit
 
     override fun observeBySeriesId(seriesId: String): Flow<List<BookEntity>> = flowOf(emptyList())
 
     override fun observeBySeriesIdWithContributors(seriesId: String): Flow<List<BookWithContributors>> = flowOf(emptyList())
 
-    override fun observeByContributorAndRole(contributorId: String, role: String): Flow<List<BookWithContributors>> = flowOf(emptyList())
+    override fun observeByContributorAndRole(
+        contributorId: String,
+        role: String,
+    ): Flow<List<BookWithContributors>> = flowOf(emptyList())
 
     override fun observeRecentlyAdded(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
 

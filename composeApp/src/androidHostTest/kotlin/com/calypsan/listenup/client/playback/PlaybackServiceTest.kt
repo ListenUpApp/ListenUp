@@ -128,69 +128,187 @@ private class RecordingPositionRepository2 : PlaybackPositionRepository {
     }
 
     override suspend fun get(bookId: BookId) = TODO("not used")
+
     override fun observeAll() = TODO("not used")
+
     override suspend fun delete(bookId: BookId) = TODO("not used")
-    override suspend fun markComplete(bookId: BookId, startedAt: Long?, finishedAt: Long?) = TODO("not used")
+
+    override suspend fun markComplete(
+        bookId: BookId,
+        startedAt: Long?,
+        finishedAt: Long?,
+    ) = TODO("not used")
+
     override suspend fun discardProgress(bookId: BookId) = TODO("not used")
+
     override suspend fun restartBook(bookId: BookId) = TODO("not used")
+
     override suspend fun getEntity(bookId: BookId) = TODO("not used")
+
     override suspend fun getLastPlayedBook() = TODO("not used")
 }
 
 private object ThrowingDownloadRepository2 : DownloadRepository {
     override fun observeForBook(bookId: BookId) = TODO("not used")
+
     override fun observeAll() = TODO("not used")
+
     override fun observeBookStatus(bookId: BookId) = TODO("not used")
+
     override fun observeAllStatuses() = TODO("not used")
+
     override fun observeDownloadedBooks() = TODO("not used")
+
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used")
+
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? = TODO("not used")
-    override suspend fun markDownloading(audioFileId: String, startedAt: Long) = TODO("not used")
-    override suspend fun updateProgress(audioFileId: String, downloadedBytes: Long, totalBytes: Long) = TODO("not used")
-    override suspend fun markCompleted(audioFileId: String, localPath: String, completedAt: Long) = TODO("not used")
+
+    override suspend fun markDownloading(
+        audioFileId: String,
+        startedAt: Long,
+    ) = TODO("not used")
+
+    override suspend fun updateProgress(
+        audioFileId: String,
+        downloadedBytes: Long,
+        totalBytes: Long,
+    ) = TODO("not used")
+
+    override suspend fun markCompleted(
+        audioFileId: String,
+        localPath: String,
+        completedAt: Long,
+    ) = TODO("not used")
+
     override suspend fun markPaused(audioFileId: String) = TODO("not used")
+
     override suspend fun markCancelled(audioFileId: String) = TODO("not used")
-    override suspend fun markFailed(audioFileId: String, error: com.calypsan.listenup.api.error.DownloadError) = TODO("not used")
-    override suspend fun markWaitingForServer(audioFileId: String, transcodeJobId: String) = TODO("not used")
+
+    override suspend fun markFailed(
+        audioFileId: String,
+        error: com.calypsan.listenup.api.error.DownloadError,
+    ) = TODO("not used")
+
+    override suspend fun markWaitingForServer(
+        audioFileId: String,
+        transcodeJobId: String,
+    ) = TODO("not used")
+
     override suspend fun enqueueForBook(bookId: BookId) = TODO("not used")
+
     override suspend fun cancelForBook(bookId: BookId) = TODO("not used")
+
     override suspend fun deleteForBook(bookId: String) = TODO("not used")
+
     override suspend fun resumeForAudioFile(audioFileId: String) = TODO("not used")
+
     override suspend fun resumeIncompleteDownloads() = TODO("not used")
+
     override suspend fun recheckWaitingForServer() = TODO("not used")
 }
 
 private object ThrowingListeningEventRepository2 : ListeningEventRepository {
-    override suspend fun queueListeningEvent(bookId: BookId, startPositionMs: Long, endPositionMs: Long, startedAt: Long, endedAt: Long, playbackSpeed: Float) = TODO("not used")
+    override suspend fun queueListeningEvent(
+        bookId: BookId,
+        startPositionMs: Long,
+        endPositionMs: Long,
+        startedAt: Long,
+        endedAt: Long,
+        playbackSpeed: Float,
+    ) = TODO("not used")
+
     override fun observeEventsForBook(bookId: String) = TODO("not used")
-    override fun observeEventsInRange(startMs: Long, endMs: Long) = TODO("not used")
+
+    override fun observeEventsInRange(
+        startMs: Long,
+        endMs: Long,
+    ) = TODO("not used")
+
     override fun observeEventsSince(startMs: Long) = TODO("not used")
+
     override suspend fun getTotalDurationSince(startMs: Long): Long = TODO("not used")
+
     override fun observeTotalDurationSince(startMs: Long) = TODO("not used")
+
     override fun observeDistinctBooksSince(startMs: Long) = TODO("not used")
+
     override fun observeDistinctDaysSince(startMs: Long) = TODO("not used")
+
     override suspend fun getDistinctDaysWithActivity(startMs: Long) = TODO("not used")
-    override suspend fun getDurationByBook(startMs: Long, endMs: Long) = TODO("not used")
+
+    override suspend fun getDurationByBook(
+        startMs: Long,
+        endMs: Long,
+    ) = TODO("not used")
 }
 
 private object ThrowingSyncApiContract2 : SyncApiContract {
     override suspend fun getManifest() = TODO("not used")
-    override suspend fun getBooks(limit: Int, cursor: String?, updatedAfter: String?) = TODO("not used")
-    override suspend fun getAllBooks(limit: Int, updatedAfter: String?) = TODO("not used")
-    override suspend fun getSeries(limit: Int, cursor: String?, updatedAfter: String?) = TODO("not used")
-    override suspend fun getAllSeries(limit: Int, updatedAfter: String?) = TODO("not used")
-    override suspend fun getContributors(limit: Int, cursor: String?, updatedAfter: String?) = TODO("not used")
-    override suspend fun getAllContributors(limit: Int, updatedAfter: String?) = TODO("not used")
+
+    override suspend fun getBooks(
+        limit: Int,
+        cursor: String?,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
+    override suspend fun getAllBooks(
+        limit: Int,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
+    override suspend fun getSeries(
+        limit: Int,
+        cursor: String?,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
+    override suspend fun getAllSeries(
+        limit: Int,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
+    override suspend fun getContributors(
+        limit: Int,
+        cursor: String?,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
+    override suspend fun getAllContributors(
+        limit: Int,
+        updatedAfter: String?,
+    ) = TODO("not used")
+
     override suspend fun submitListeningEvents(events: List<com.calypsan.listenup.client.data.remote.ListeningEventRequest>) = TODO("not used")
+
     override suspend fun getProgress(bookId: String) = TODO("not used")
+
     override suspend fun getContinueListening(limit: Int) = TODO("not used")
+
     override suspend fun getAllProgress(updatedAfter: String?) = TODO("not used")
+
     override suspend fun getBook(bookId: String) = TODO("not used")
+
     override suspend fun getListeningEvents(sinceMs: Long?) = TODO("not used")
-    override suspend fun endPlaybackSession(bookId: String, durationMs: Long) = TODO("not used")
+
+    override suspend fun endPlaybackSession(
+        bookId: String,
+        durationMs: Long,
+    ) = TODO("not used")
+
     override suspend fun getActiveSessions() = TODO("not used")
+
     override suspend fun getReadingSessions() = TODO("not used")
-    override suspend fun markComplete(bookId: String, startedAt: String?, finishedAt: String?) = TODO("not used")
-    override suspend fun discardProgress(bookId: String, keepHistory: Boolean) = TODO("not used")
+
+    override suspend fun markComplete(
+        bookId: String,
+        startedAt: String?,
+        finishedAt: String?,
+    ) = TODO("not used")
+
+    override suspend fun discardProgress(
+        bookId: String,
+        keepHistory: Boolean,
+    ) = TODO("not used")
+
     override suspend fun restartBook(bookId: String) = TODO("not used")
 }
