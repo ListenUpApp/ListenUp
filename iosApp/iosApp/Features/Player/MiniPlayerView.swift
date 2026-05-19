@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Floating glass mini player shown above the tab bar during playback.
 ///

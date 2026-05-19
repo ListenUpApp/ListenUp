@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `LoginViewModel`'s `state` flow, flattening `LoginUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.

@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
@@ -248,7 +248,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func prepareAndStart(bookId: String) async {
         let id = bookId
-        guard let prepared = try? await preparer.prepare(bookId: id, onPrepareProgress: { _ in }) else {
+        guard let prepared = try? await preparer.prepare(bookId: id, onPrepareProgress: { @Sendable _ in }) else {
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
         }

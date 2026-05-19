@@ -1,4 +1,8 @@
-import ActivityKit
+// `@preconcurrency`: ActivityKit's `Activity` is not `Sendable`, so awaiting its
+// `nonisolated` `update`/`end` from this `@MainActor` manager trips Swift 6 strict
+// concurrency. The activity handle is a system-managed token, safe to use across
+// contexts; the attribute downgrades the diagnostic until ActivityKit is audited.
+@preconcurrency import ActivityKit
 import SwiftUI
 
 /// Manages the audiobook Live Activity (Dynamic Island + Lock Screen).

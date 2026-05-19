@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Contributor (Author/Narrator) detail screen — Liquid Glass design.

@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 // Kotlin value classes (BookId, SeriesId, etc.) are opaque in Swift. Their value
 // is the Kotlin toString() — surfaced via String(describing:). These extensions

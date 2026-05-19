@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Dedicated search screen for finding books, authors, and series.
 ///

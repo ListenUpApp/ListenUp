@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Displays overlapping book covers that cycle through all books in a series.
@@ -86,8 +86,13 @@ struct AnimatedCoverStack: View {
         guard books.count >= 3 else { return }
 
         timer = Timer.scheduledTimer(withTimeInterval: cycleDurationSeconds, repeats: true) { _ in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                cycleOffset = (cycleOffset + 1) % books.count
+            // The timer is scheduled on the main run loop (`startCycling` runs from
+            // `.onAppear`), so its block fires on the main actor — assert that to
+            // mutate the `@MainActor`-isolated `@State` from this `@Sendable` block.
+            MainActor.assumeIsolated {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    cycleOffset = (cycleOffset + 1) % books.count
+                }
             }
         }
     }
