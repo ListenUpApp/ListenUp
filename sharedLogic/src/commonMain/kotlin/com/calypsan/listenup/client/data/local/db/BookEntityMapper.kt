@@ -72,6 +72,7 @@ class BookEntityMapper {
             // Sync substrate fields.
             revision = payload.revision,
             deletedAt = payload.deletedAt,
+            hasScanWarning = payload.hasScanWarning,
             // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
             createdAt = Timestamp(payload.createdAt),
             updatedAt = Timestamp(payload.updatedAt),
@@ -224,5 +225,6 @@ fun BookWithContributors.toDetail(
         allContributors = allContributors,
         genres = genres,
         tags = tags,
+        hasScanWarning = book.hasScanWarning,
     )
 }

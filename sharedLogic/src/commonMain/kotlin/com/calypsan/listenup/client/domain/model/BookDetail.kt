@@ -40,6 +40,7 @@ data class BookDetail(
     val allContributors: List<BookContributor> = emptyList(),
     val genres: List<Genre> = emptyList(),
     val tags: List<Tag> = emptyList(),
+    val hasScanWarning: Boolean = false,
 ) : BookSummaryFields {
     fun toListItem(): BookListItem =
         BookListItem(

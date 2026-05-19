@@ -129,6 +129,7 @@ data class BookEntity(
     // Books-A sync substrate
     val revision: Long = 0, // Monotonic server revision, advanced on every committed change
     val deletedAt: Long? = null, // Epoch ms tombstone; null when the book is live
+    val hasScanWarning: Boolean = false, // Server-raised advisory that the scan found something worth review
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,

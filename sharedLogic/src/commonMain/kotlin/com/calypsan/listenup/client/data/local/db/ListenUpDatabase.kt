@@ -51,7 +51,7 @@ import androidx.room.TypeConverters
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
 )
 @TypeConverters(
