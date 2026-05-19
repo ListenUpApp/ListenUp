@@ -39,14 +39,30 @@ final class Dependencies {
     var authSession: any AuthSession_ { resolve { KoinHelper.shared.getAuthSession() } }
     var serverConfig: ServerConfig { resolve { KoinHelper.shared.getServerConfig() } }
 
-    // MARK: - Playback / library services
+    // MARK: - Playback seam (consumed by PlayerCoordinator)
 
-    var playbackManager: PlaybackManager { resolve { KoinHelper.shared.getPlaybackManager() } }
-    var audioPlayer: AudioPlayer { resolve { KoinHelper.shared.getAudioPlayer() } }
+    var playbackPreparer: PlaybackPreparer { resolve { KoinHelper.shared.getPlaybackPreparer() } }
+    var progressTracker: ProgressTracker { resolve { KoinHelper.shared.getProgressTracker() } }
+    var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
+
+    // MARK: - Library services
+
     var bookRepository: BookRepository { resolve { KoinHelper.shared.getBookRepository() } }
     var imageStorage: ImageStorage { resolve { KoinHelper.shared.getImageStorage() } }
-    var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
+
+    // MARK: - Player coordinator (app-wide Swift singleton)
+
+    @MainActor private var cachedPlayerCoordinator: PlayerCoordinator?
+
+    /// The single app-wide player orchestrator. Built lazily on first access,
+    /// injecting the KMP seam from Koin.
+    @MainActor var playerCoordinator: PlayerCoordinator {
+        if let cachedPlayerCoordinator { return cachedPlayerCoordinator }
+        let coordinator = PlayerCoordinator(deps: self)
+        cachedPlayerCoordinator = coordinator
+        return coordinator
+    }
 
     // MARK: - Detail ViewModels (fresh instance per screen)
 

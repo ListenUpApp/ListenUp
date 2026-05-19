@@ -47,21 +47,18 @@ final class BookDetailObserver {
     // MARK: - Dependencies
 
     private let viewModel: BookDetailViewModel
-    private let playbackManager: PlaybackManager
-    private let audioPlayer: AudioPlayer
+    private let playerCoordinator: PlayerCoordinator
     private let downloadService: DownloadService
     private let bridge = FlowBridge()
     private var observingDownloadForBookId: String?
 
     init(
         viewModel: BookDetailViewModel,
-        playbackManager: PlaybackManager,
-        audioPlayer: AudioPlayer,
+        playerCoordinator: PlayerCoordinator,
         downloadService: DownloadService
     ) {
         self.viewModel = viewModel
-        self.playbackManager = playbackManager
-        self.audioPlayer = audioPlayer
+        self.playerCoordinator = playerCoordinator
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
@@ -78,15 +75,7 @@ final class BookDetailObserver {
 
     func play() {
         guard let book else { return }
-        playbackManager.activateBook(bookId: book.id)
-        Task {
-            guard let result = try? await playbackManager.prepareForPlayback(bookId: book.id) else { return }
-            try? await playbackManager.startPlayback(
-                player: audioPlayer,
-                resumePositionMs: result.resumePositionMs,
-                resumeSpeed: result.resumeSpeed
-            )
-        }
+        playerCoordinator.play(bookId: book.idString)
     }
 
     func downloadBook() {
