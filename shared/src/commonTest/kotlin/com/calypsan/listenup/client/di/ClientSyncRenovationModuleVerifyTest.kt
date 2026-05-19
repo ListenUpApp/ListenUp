@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,8 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `dataModule` (segregated interface bound to
  *    SettingsRepositoryImpl). SSE + catch-up clients use it for current-URL reads.
  *  - [CoroutineScope] (named `appScope`) — owned by `syncModule` until D2 cutover.
+ *  - [DownloadRepository] — owned by `repositoryModule` (bound to `DownloadRepositoryImpl`).
+ *    [SyncEngine] calls [DownloadRepository.recheckWaitingForServer] on every SSE reconnect.
  *  - [Function2], [Function3] — Koin's verify treats constructor lambda params
  *    (`SyncEventDispatcher.onCursorStale` is `suspend (Long?) -> Unit` =
  *    Function2; `cursorAdvance` is `suspend (String, Long) -> Unit` = Function3)
@@ -41,6 +44,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         TransactionRunner::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
+                        DownloadRepository::class,
                         CoroutineScope::class,
                         Function2::class,
                         Function3::class,

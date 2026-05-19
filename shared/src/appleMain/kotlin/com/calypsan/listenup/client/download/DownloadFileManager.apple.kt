@@ -121,4 +121,27 @@ actual class DownloadFileManager {
         val attrs = fileManager.attributesOfFileSystemForPath(documentsUrl.path!!, error = null)
         return attrs?.get("NSFileSystemFreeSize") as? Long ?: 0L
     }
+
+    actual fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int {
+        val dirPath = downloadDir.toString()
+        if (!fileManager.fileExistsAtPath(dirPath)) return 0
+
+        val enumerator = fileManager.enumeratorAtPath(dirPath) ?: return 0
+        var deleted = 0
+
+        while (true) {
+            val relativePath = enumerator.nextObject() as? String ?: break
+            if (!relativePath.endsWith(".tmp")) continue
+
+            // relativePath is relative to dirPath; extract just the filename component.
+            val filename = relativePath.substringAfterLast('/')
+            // Filename format: "${audioFileId}_${filename}.tmp"
+            val audioFileId = filename.substringBefore('_')
+            if (audioFileId !in activeAudioFileIds) {
+                val fullPath = Path(downloadDir, relativePath).toString()
+                if (fileManager.removeItemAtPath(fullPath, error = null)) deleted++
+            }
+        }
+        return deleted
+    }
 }

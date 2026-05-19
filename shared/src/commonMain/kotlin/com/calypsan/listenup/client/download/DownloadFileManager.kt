@@ -64,4 +64,16 @@ expect class DownloadFileManager {
      * Used to check before starting downloads.
      */
     fun getAvailableSpace(): Long
+
+    /**
+     * Delete `.tmp` partial files whose audioFileId is not in [activeAudioFileIds].
+     *
+     * Walks the audiobooks directory tree, finds every file ending in `.tmp`, parses the leading
+     * audioFileId (the substring before the first `_` in the filename), and deletes any file
+     * whose id is absent from [activeAudioFileIds]. Files belonging to active (in-progress)
+     * downloads are intentionally spared so Range-resume can continue from where they left off.
+     *
+     * @return the number of files deleted.
+     */
+    fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int
 }

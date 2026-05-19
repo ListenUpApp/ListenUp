@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.core.AppResult
 import com.calypsan.listenup.client.core.BookId
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
+import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
@@ -44,6 +45,9 @@ interface DownloadRepository {
 
     /** Get local file path for an audio file if downloaded; null otherwise. */
     suspend fun getLocalPath(audioFileId: String): String?
+
+    /** Get the current [DownloadState] for an audio file, or null if no row exists. */
+    suspend fun getStateForAudioFile(audioFileId: String): DownloadState?
 
     // --- State-transition writes (Sync Engine Rule 5 enforcement point) ---
 

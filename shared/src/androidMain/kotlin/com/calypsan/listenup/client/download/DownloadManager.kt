@@ -195,7 +195,7 @@ class DownloadManager(
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the state update fires (Finding 08 D10).
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
-        downloadDao.updateStateForBook(bookId.value, DownloadState.PAUSED)
+        downloadRepository.cancelForBook(bookId)
         logger.info { "Cancelled download: ${bookId.value}" }
     }
 
@@ -250,6 +250,15 @@ class DownloadManager(
      */
     override suspend fun resumeIncompleteDownloads() {
         val incomplete = downloadDao.getIncomplete()
+
+        // Sweep orphaned .tmp partials from prior runs: any .tmp whose audioFileId is not in the
+        // active (non-terminal) set is a leftover from a cancelled or crashed download.
+        val activeIds = incomplete.map { it.audioFileId }.toSet()
+        val swept = fileManager.sweepOrphanedTempFiles(activeIds)
+        if (swept > 0) {
+            logger.info { "Swept $swept orphaned .tmp file(s) on startup" }
+        }
+
         if (incomplete.isEmpty()) return
 
         logger.info { "Resuming ${incomplete.size} incomplete downloads" }

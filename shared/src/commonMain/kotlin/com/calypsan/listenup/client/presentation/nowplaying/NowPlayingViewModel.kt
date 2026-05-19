@@ -179,10 +179,23 @@ class NowPlayingViewModel(
                 }
         }
 
-        // Side effect: handle sleep timer fade-out events
+        // Side effect: handle sleep timer fade-out events.
+        // The try/catch ensures onFadeCompleted() (which resets state to Inactive) is
+        // always called — even when fadeOutAndPause() throws or when viewModelScope is
+        // cancelled mid-fade. Without this, a thrown exception leaves the timer stuck
+        // in FadingOut, which causes PlaybackService to apply the short sleep-idle
+        // timeout to every subsequent pause.
         viewModelScope.launch {
             sleepTimerManager.sleepEvent.collect {
-                fadeOutAndPause()
+                try {
+                    fadeOutAndPause()
+                } catch (e: CancellationException) {
+                    sleepTimerManager.onFadeCompleted()
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "fadeOutAndPause failed — resetting sleep timer to Inactive" }
+                    sleepTimerManager.onFadeCompleted()
+                }
             }
         }
     }

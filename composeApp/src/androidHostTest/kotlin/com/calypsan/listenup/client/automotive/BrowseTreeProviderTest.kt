@@ -23,7 +23,6 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.SeriesWithBookCount
 import com.calypsan.listenup.client.data.local.db.SeriesWithBooks
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -425,12 +424,9 @@ class BrowseTreeProviderTest {
         title = title,
         sortTitle = null,
         subtitle = null,
-        coverUrl = null,
+        coverHash = null,
         coverBlurHash = null,
         totalDuration = 7_200_000L,
-        syncState = SyncState.SYNCED,
-        lastModified = EPOCH,
-        serverVersion = EPOCH,
         createdAt = EPOCH,
         updatedAt = EPOCH,
     )
@@ -442,9 +438,6 @@ class BrowseTreeProviderTest {
         id = SeriesId(id),
         name = name,
         description = null,
-        syncState = SyncState.SYNCED,
-        lastModified = EPOCH,
-        serverVersion = EPOCH,
         createdAt = EPOCH,
         updatedAt = EPOCH,
     )
@@ -459,9 +452,6 @@ class BrowseTreeProviderTest {
         asin = null,
         description = null,
         imagePath = null,
-        syncState = SyncState.SYNCED,
-        lastModified = EPOCH,
-        serverVersion = EPOCH,
         createdAt = EPOCH,
         updatedAt = EPOCH,
     )
@@ -526,34 +516,26 @@ private class FakeBookDao(
 
     override suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors> = emptyList()
 
-    override suspend fun getByStates(states: List<com.calypsan.listenup.client.data.local.db.SyncState>): List<BookEntity> = emptyList()
-
-    override suspend fun markSynced(
-        id: BookId,
-        serverVersion: Timestamp,
-    ) = Unit
-
-    override suspend fun markConflict(
-        id: BookId,
-        serverVersion: Timestamp,
-    ) = Unit
-
     override suspend fun deleteById(id: BookId) = Unit
 
     override suspend fun deleteByIds(ids: List<BookId>) = Unit
 
     override suspend fun deleteAll() = Unit
 
-    override suspend fun touchUpdatedAt(
+    override suspend fun updateRevisionAndTimestamp(
         id: BookId,
-        timestamp: Timestamp,
+        revision: Long,
+        updatedAt: Timestamp,
     ) = Unit
 
-    override suspend fun updateCoverColors(
+    override suspend fun softDelete(
         id: BookId,
-        dominantColor: Int?,
-        darkMutedColor: Int?,
-        vibrantColor: Int?,
+        deletedAt: Long,
+        revision: Long,
+    ) = Unit
+
+    override suspend fun touchUpdatedAt(
+        id: BookId,
         timestamp: Timestamp,
     ) = Unit
 
@@ -568,19 +550,9 @@ private class FakeBookDao(
 
     override fun observeRecentlyAdded(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
 
-    override fun observeRandomUnstartedBooksFirstInSeriesOnly(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
-
     override fun observeRandomUnstartedBooks(limit: Int): Flow<List<BookEntity>> = flowOf(emptyList())
 
-    override suspend fun getRandomUnstartedBooksFirstInSeriesOnly(limit: Int): List<BookEntity> = emptyList()
-
-    override suspend fun getRandomUnstartedBooks(limit: Int): List<BookEntity> = emptyList()
-
     override fun observeRecentlyAddedWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
-
-    override fun observeRecentlyAddedFirstInSeriesWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
-
-    override fun observeRandomUnstartedBooksFirstInSeriesWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
 
     override fun observeRandomUnstartedBooksWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
 }
@@ -608,16 +580,6 @@ private class FakeSeriesDao(
     override suspend fun upsert(series: SeriesEntity) = Unit
 
     override suspend fun upsertAll(series: List<SeriesEntity>) = Unit
-
-    override suspend fun markSynced(
-        id: String,
-        version: Timestamp,
-    ) = Unit
-
-    override suspend fun markConflict(
-        id: String,
-        serverVersion: Timestamp,
-    ) = Unit
 
     override suspend fun deleteById(id: String) = Unit
 
@@ -656,16 +618,6 @@ private class FakeContributorDao(
     override suspend fun upsert(contributor: ContributorEntity) = Unit
 
     override suspend fun upsertAll(contributors: List<ContributorEntity>) = Unit
-
-    override suspend fun markSynced(
-        id: String,
-        version: Timestamp,
-    ) = Unit
-
-    override suspend fun markConflict(
-        id: String,
-        serverVersion: Timestamp,
-    ) = Unit
 
     override suspend fun deleteById(id: String) = Unit
 
