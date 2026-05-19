@@ -1,180 +1,116 @@
 import SwiftUI
 import Shared
 
-/// Observes LibraryViewModel's uiState StateFlow for SwiftUI consumption.
-///
-/// Maps Kotlin's LibraryUiState to Swift-native properties that drive
-/// the library UI including loading, empty, and error states for all tabs.
+/// Observes `LibraryViewModel` — flattens the sealed `LibraryUiState` into flat
+/// `@Observable` properties for all four library tabs. Thin over `FlowBridge`.
 @Observable
 @MainActor
 final class LibraryObserver {
+    // MARK: - Flattened state
 
-    // MARK: - Observed State
-
-    /// Current UI state from the ViewModel
-    private(set) var uiState: LibraryUiState?
-
-    // MARK: - Books
-
-    /// List of books from uiState
-    var books: [BookListItem] {
-        guard let list = uiState?.books else { return [] }
-        return Array(list)
-    }
-
-    /// Progress map (bookId -> 0.0-1.0)
-    var bookProgress: [String: Float] {
-        guard let progress = uiState?.bookProgress as? [String: KotlinFloat] else { return [:] }
-        return progress.mapValues { $0.floatValue }
-    }
-
-    /// Sort state for books tab
-    var booksSortState: SortState? { uiState?.booksSortState }
-
-    // MARK: - Series
-
-    /// List of series with their books (KMP uses SeriesWithBooks_ internally)
-    var series: [SeriesWithBooks_] {
-        guard let list = uiState?.series else { return [] }
-        return Array(list)
-    }
-
-    /// Sort state for series tab
-    var seriesSortState: SortState? { uiState?.seriesSortState }
-
-    // MARK: - Authors
-
-    /// List of authors with book counts (KMP uses ContributorWithBookCount_ internally)
-    var authors: [ContributorWithBookCount_] {
-        guard let list = uiState?.authors else { return [] }
-        return Array(list)
-    }
-
-    /// Sort state for authors tab
-    var authorsSortState: SortState? { uiState?.authorsSortState }
-
-    // MARK: - Narrators
-
-    /// List of narrators with book counts (KMP uses ContributorWithBookCount_ internally)
-    var narrators: [ContributorWithBookCount_] {
-        guard let list = uiState?.narrators else { return [] }
-        return Array(list)
-    }
-
-    /// Sort state for narrators tab
-    var narratorsSortState: SortState? { uiState?.narratorsSortState }
-
-    // MARK: - Loading States
-
-    /// Whether the library is loading (initial load not complete)
-    var isLoading: Bool { uiState?.isLoading ?? true }
-
-    /// Whether the library has loaded but is empty
-    var isEmpty: Bool { uiState?.isEmpty ?? false }
-
-    /// Whether a sync is in progress
-    var isSyncing: Bool { uiState?.isSyncing ?? false }
-
-    /// Error message if sync failed, nil otherwise.
-    var errorMessage: String? {
-        guard let syncState = uiState?.syncState else { return nil }
-        switch onEnum(of: syncState) {
-        case .error(let error):
-            return error.message
-        default:
-            return nil
-        }
-    }
-
-    // MARK: - Private
+    private(set) var books: [BookListItem] = []
+    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var booksSortState: SortState?
+    private(set) var series: [SeriesWithBooks_] = []
+    private(set) var seriesSortState: SortState?
+    private(set) var authors: [ContributorWithBookCount_] = []
+    private(set) var authorsSortState: SortState?
+    private(set) var narrators: [ContributorWithBookCount_] = []
+    private(set) var narratorsSortState: SortState?
+    private(set) var isLoading: Bool = true
+    private(set) var isEmpty: Bool = false
+    private(set) var isSyncing: Bool = false
+    private(set) var errorMessage: String?
 
     private let viewModel: LibraryViewModel
-    private var observationTask: Task<Void, Never>?
-
-    // MARK: - Initialization
+    private let bridge = FlowBridge()
 
     init(viewModel: LibraryViewModel) {
         self.viewModel = viewModel
-        startObserving()
+        bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
 
-    /// Call this to stop observation when done.
-    /// (deinit can't access MainActor properties directly)
     func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
+        bridge.cancelAll()
     }
 
-    // MARK: - Lifecycle
+    // MARK: - Lifecycle & actions
 
-    /// Call when the library screen appears
     func onScreenVisible() {
         viewModel.onScreenVisible()
     }
 
-    /// Trigger a manual refresh
     func refresh() {
         viewModel.onEvent(event: LibraryUiEventRefreshRequested.shared)
     }
 
-    // MARK: - Books Sort Events
-
-    /// Change books sort category
     func setBooksSortCategory(_ category: SortCategory) {
         viewModel.onEvent(event: LibraryUiEventBooksCategoryChanged(category: category))
     }
 
-    /// Toggle books sort direction
     func toggleBooksSortDirection() {
         viewModel.onEvent(event: LibraryUiEventBooksDirectionToggled.shared)
     }
 
-    // MARK: - Series Sort Events
-
-    /// Change series sort category
     func setSeriesSortCategory(_ category: SortCategory) {
         viewModel.onEvent(event: LibraryUiEventSeriesCategoryChanged(category: category))
     }
 
-    /// Toggle series sort direction
     func toggleSeriesSortDirection() {
         viewModel.onEvent(event: LibraryUiEventSeriesDirectionToggled.shared)
     }
 
-    // MARK: - Authors Sort Events
-
-    /// Change authors sort category
     func setAuthorsSortCategory(_ category: SortCategory) {
         viewModel.onEvent(event: LibraryUiEventAuthorsCategoryChanged(category: category))
     }
 
-    /// Toggle authors sort direction
     func toggleAuthorsSortDirection() {
         viewModel.onEvent(event: LibraryUiEventAuthorsDirectionToggled.shared)
     }
 
-    // MARK: - Narrators Sort Events
-
-    /// Change narrators sort category
     func setNarratorsSortCategory(_ category: SortCategory) {
         viewModel.onEvent(event: LibraryUiEventNarratorsCategoryChanged(category: category))
     }
 
-    /// Toggle narrators sort direction
     func toggleNarratorsSortDirection() {
         viewModel.onEvent(event: LibraryUiEventNarratorsDirectionToggled.shared)
     }
 
-    // MARK: - Private
+    // MARK: - State mapping
 
-    private func startObserving() {
-        observationTask = Task { [weak self] in
-            guard let self else { return }
-
-            for await state in self.viewModel.uiState {
-                guard !Task.isCancelled else { break }
-                self.uiState = state
-            }
+    private func apply(_ state: LibraryUiState) {
+        switch onEnum(of: state) {
+        case .loading:
+            isLoading = true
+            errorMessage = nil
+        case .loaded(let l):
+            isLoading = false
+            errorMessage = nil
+            books = Array(l.books)
+            bookProgress = mapProgress(l.bookProgress)
+            booksSortState = l.booksSortState
+            series = Array(l.series)
+            seriesSortState = l.seriesSortState
+            authors = Array(l.authors)
+            authorsSortState = l.authorsSortState
+            narrators = Array(l.narrators)
+            narratorsSortState = l.narratorsSortState
+            isEmpty = l.isEmpty
+            isSyncing = l.isSyncing
+        case .error(let e):
+            isLoading = false
+            errorMessage = e.message
         }
+    }
+
+    /// `Map<BookId, Float>` arrives as `[AnyHashable: KotlinFloat]` over the SKIE
+    /// boundary — the `BookId` value-class key bridges as `AnyHashable`. Keys are
+    /// normalized to the book-id string the UI looks up by.
+    private func mapProgress(_ raw: [AnyHashable: KotlinFloat]) -> [String: Float] {
+        var result: [String: Float] = [:]
+        for (key, value) in raw {
+            result[String(describing: key.base)] = value.floatValue
+        }
+        return result
     }
 }

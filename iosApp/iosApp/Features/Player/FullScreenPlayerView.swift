@@ -12,7 +12,7 @@ import UIKit
 /// - Chapter info below cover
 /// - Bottom-anchored glass controls card with slider, transport, and actions
 struct FullScreenPlayerView: View {
-    let observer: NowPlayingObserver
+    let observer: PlayerCoordinator
     @Binding var isPresented: Bool
 
     @State private var sliderPosition: Double = 0
@@ -311,7 +311,7 @@ struct FullScreenPlayerView: View {
 // MARK: - Sleep Timer Sheet
 
 private struct SleepTimerSheet: View {
-    let observer: NowPlayingObserver
+    let observer: PlayerCoordinator
     let onDismiss: () -> Void
 
     private let durations = [15, 30, 45, 60, 120]
@@ -424,7 +424,7 @@ private struct SpeedPickerSheet: View {
 // MARK: - Chapter List Sheet
 
 private struct ChapterListSheet: View {
-    let observer: NowPlayingObserver
+    let observer: PlayerCoordinator
     let onDismiss: () -> Void
 
     static func formatMs(_ ms: Int64) -> String {

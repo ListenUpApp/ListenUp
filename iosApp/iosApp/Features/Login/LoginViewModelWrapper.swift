@@ -1,81 +1,51 @@
 import Foundation
 import Shared
 
-/// Memory-safe Swift wrapper for Kotlin's LoginViewModel.
-///
-/// This wrapper bridges Kotlin's StateFlow to SwiftUI's @Observable pattern
-/// using SKIE's native flow collection for reactive updates.
-///
-/// **Key Features:**
-/// - Uses SKIE's `collect()` for efficient flow observation
-/// - Uses `[weak self]` to prevent retain cycles
-/// - Cancels observation task on deinit
-/// - All state updates happen on Main thread
-///
-/// Usage:
-/// ```swift
-/// @State private var viewModel: LoginViewModelWrapper
-///
-/// init(dependencies: Dependencies = .shared) {
-///     _viewModel = State(initialValue:
-///         LoginViewModelWrapper(
-///             viewModel: dependencies.loginViewModel
-///         )
-///     )
-/// }
-/// ```
+/// Observes `LoginViewModel`'s `state` flow, flattening `LoginUiState` into
+/// SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
+@MainActor
 final class LoginViewModelWrapper {
-    private let kotlinVM: LoginViewModel
-    private var observationTask: Task<Void, Never>?
+    private(set) var isLoading: Bool = false
+    private(set) var isSuccess: Bool = false
+    private(set) var emailError: String?
+    private(set) var passwordError: String?
+    private(set) var generalError: String?
 
-    // Swift properties mirroring Kotlin UiState
-    var isLoading: Bool = false
-    var isSuccess: Bool = false
-    var emailError: String? = nil
-    var passwordError: String? = nil
-    var generalError: String? = nil
+    private let viewModel: LoginViewModel
+    private let bridge = FlowBridge()
 
     init(viewModel: LoginViewModel) {
-        self.kotlinVM = viewModel
-        observeState()
+        self.viewModel = viewModel
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    private func observeState() {
-        // Use SKIE's native flow collection
-        observationTask = Task { [weak self] in
-            guard let self = self else { return }
+    func stopObserving() {
+        bridge.cancelAll()
+    }
 
-            for await state in self.kotlinVM.state {
-                guard !Task.isCancelled else { break }
+    // MARK: - Actions
 
-                await MainActor.run { [weak self] in
-                    guard let self = self else { return }
+    func login(email: String, password: String) {
+        viewModel.onLoginSubmit(email: email, password: password)
+    }
 
-                    // Map status to Swift properties
-                    switch onEnum(of: state.status) {
-                    case .idle:
-                        self.isLoading = false
-                        self.isSuccess = false
-                        self.clearErrors()
+    func clearError() {
+        viewModel.clearError()
+    }
 
-                    case .loading:
-                        self.isLoading = true
-                        self.isSuccess = false
-                        self.clearErrors()
+    // MARK: - State mapping
 
-                    case .success:
-                        self.isLoading = false
-                        self.isSuccess = true
-                        self.clearErrors()
-
-                    case .error(let error):
-                        self.isLoading = false
-                        self.isSuccess = false
-                        self.mapError(error.type)
-                    }
-                }
-            }
+    private func apply(_ state: LoginUiState) {
+        switch onEnum(of: state) {
+        case .idle:
+            isLoading = false; isSuccess = false; clearErrors()
+        case .loading:
+            isLoading = true; isSuccess = false; clearErrors()
+        case .success:
+            isLoading = false; isSuccess = true; clearErrors()
+        case .error(let error):
+            isLoading = false; isSuccess = false; mapError(error.type)
         }
     }
 
@@ -87,40 +57,18 @@ final class LoginViewModelWrapper {
 
     private func mapError(_ errorType: LoginErrorType) {
         clearErrors()
-
         switch onEnum(of: errorType) {
         case .invalidCredentials:
             generalError = String(localized: "auth.invalid_credentials")
-
         case .networkError(let error):
             generalError = error.detail ?? String(localized: "auth.unable_to_connect")
-
         case .serverError(let error):
             generalError = error.detail ?? String(localized: "auth.server_error")
-
         case .validationError(let error):
             switch error.field {
-            case .email:
-                emailError = String(localized: "auth.invalid_email")
-            case .password:
-                passwordError = String(localized: "auth.enter_password")
+            case .email: emailError = String(localized: "auth.invalid_email")
+            case .password: passwordError = String(localized: "auth.enter_password")
             }
         }
-    }
-
-    // MARK: - Actions
-
-    func login(email: String, password: String) {
-        kotlinVM.onLoginSubmit(email: email, password: password)
-    }
-
-    func clearError() {
-        kotlinVM.clearError()
-    }
-
-    // MARK: - Cleanup
-
-    deinit {
-        observationTask?.cancel()
     }
 }

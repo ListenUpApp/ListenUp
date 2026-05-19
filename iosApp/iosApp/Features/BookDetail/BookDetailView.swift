@@ -50,7 +50,7 @@ struct BookDetailView: View {
         .onAppear {
             if observer == nil {
                 let vm = deps.createBookDetailViewModel()
-                observer = BookDetailObserver(viewModel: vm, playbackManager: deps.playbackManager, audioPlayer: deps.audioPlayer, downloadService: deps.downloadService)
+                observer = BookDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator, downloadService: deps.downloadService)
                 observer?.loadBook(bookId: bookId)
             }
         }

@@ -1,45 +1,29 @@
 import SwiftUI
 import Shared
 
-/// Observes the current user from Kotlin's UserRepository.
-///
-/// Provides reactive access to the logged-in user's profile data.
-/// Use this to display user avatar, name, and other profile info.
+/// Observes the current user from KMP `UserRepository`, exposing it as SwiftUI state.
 @Observable
 @MainActor
 final class CurrentUserObserver {
 
     // MARK: - State
 
-    private(set) var user: User?
+    private(set) var user: User_?
 
-    // MARK: - Private
+    // MARK: - Dependencies
 
-    private let userRepository: UserRepository
-    private var observationTask: Task<Void, Never>?
+    private let bridge = FlowBridge()
 
-    // MARK: - Initialization
+    // MARK: - Init
 
     init(userRepository: UserRepository = KoinHelper.shared.getUserRepository()) {
-        self.userRepository = userRepository
-        startObserving()
-    }
-
-    func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
-    }
-
-    // MARK: - Observation
-
-    private func startObserving() {
-        observationTask = Task { [weak self] in
-            guard let self else { return }
-
-            for await user in self.userRepository.observeCurrentUser() {
-                guard !Task.isCancelled else { break }
-                self.user = user
-            }
+        bridge.bind(userRepository.observeCurrentUser()) { [weak self] user in
+            self?.user = user
         }
+    }
+
+    /// Stop observing. Call on teardown.
+    func stopObserving() {
+        bridge.cancelAll()
     }
 }

@@ -8,10 +8,10 @@ import Shared
 /// - Colored circle with initials as fallback
 /// - Gray placeholder when user is nil
 struct UserAvatarView: View {
-    let user: User?
+    let user: User_?
     let size: CGFloat
 
-    init(user: User?, size: CGFloat = 36) {
+    init(user: User_?, size: CGFloat = 36) {
         self.user = user
         self.size = size
     }
@@ -27,7 +27,7 @@ struct UserAvatarView: View {
 
     // MARK: - Private Views
 
-    private func initialsAvatar(for user: User) -> some View {
+    private func initialsAvatar(for user: User_) -> some View {
         Circle()
             .fill(avatarColor(for: user))
             .frame(width: size, height: size)
@@ -49,7 +49,7 @@ struct UserAvatarView: View {
             }
     }
 
-    private func avatarColor(for user: User) -> Color {
+    private func avatarColor(for user: User_) -> Color {
         Color(hex: user.avatarColor)
     }
 }

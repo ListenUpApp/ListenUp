@@ -1,80 +1,51 @@
 import Foundation
 import Shared
 
-/// Memory-safe Swift wrapper for Kotlin's RegisterViewModel.
-///
-/// This wrapper bridges Kotlin's StateFlow to SwiftUI's @Observable pattern
-/// using SKIE's native flow collection for reactive updates.
+/// Observes `RegisterViewModel`'s `state` flow, flattening `RegisterUiState`
+/// into SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
+@MainActor
 final class RegisterViewModelWrapper {
-    private let kotlinVM: RegisterViewModel
-    private var observationTask: Task<Void, Never>?
+    private(set) var isLoading: Bool = false
+    private(set) var isSuccess: Bool = false
+    private(set) var error: String?
 
-    // Swift properties mirroring Kotlin UiState
-    var isLoading: Bool = false
-    var isSuccess: Bool = false
-    var error: String? = nil
+    private let viewModel: RegisterViewModel
+    private let bridge = FlowBridge()
 
     init(viewModel: RegisterViewModel) {
-        self.kotlinVM = viewModel
-        observeState()
+        self.viewModel = viewModel
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    private func observeState() {
-        // Use SKIE's native flow collection
-        observationTask = Task { [weak self] in
-            guard let self = self else { return }
-
-            for await state in self.kotlinVM.state {
-                guard !Task.isCancelled else { break }
-
-                await MainActor.run { [weak self] in
-                    guard let self = self else { return }
-
-                    switch onEnum(of: state.status) {
-                    case .idle:
-                        self.isLoading = false
-                        self.isSuccess = false
-                        self.error = nil
-
-                    case .loading:
-                        self.isLoading = true
-                        self.isSuccess = false
-                        self.error = nil
-
-                    case .success:
-                        self.isLoading = false
-                        self.isSuccess = true
-                        self.error = nil
-
-                    case .error(let errorState):
-                        self.isLoading = false
-                        self.isSuccess = false
-                        self.error = errorState.message
-                    }
-                }
-            }
-        }
+    func stopObserving() {
+        bridge.cancelAll()
     }
 
     // MARK: - Actions
 
     func register(email: String, password: String, firstName: String, lastName: String) {
-        kotlinVM.onRegisterSubmit(
-            email: email,
-            password: password,
-            firstName: firstName,
-            lastName: lastName
+        viewModel.onRegisterSubmit(
+            email: email, password: password, firstName: firstName, lastName: lastName
         )
     }
 
     func clearError() {
-        kotlinVM.clearError()
+        viewModel.clearError()
     }
 
-    // MARK: - Cleanup
+    // MARK: - State mapping
 
-    deinit {
-        observationTask?.cancel()
+    private func apply(_ state: RegisterUiState) {
+        switch onEnum(of: state) {
+        case .idle:
+            isLoading = false; isSuccess = false; error = nil
+        case .loading:
+            isLoading = true; isSuccess = false; error = nil
+        case .success:
+            isLoading = false; isSuccess = true; error = nil
+        case .error(let errorState):
+            isLoading = false; isSuccess = false; error = errorState.message
+        }
     }
 }

@@ -1,83 +1,57 @@
 import SwiftUI
 import Shared
 
-/// Observes SeriesDetailViewModel's state StateFlow for SwiftUI consumption.
-///
-/// Maps Kotlin's SeriesDetailUiState to Swift-native properties that drive
-/// the series detail UI including loading, error, and content states.
+/// Observes `SeriesDetailViewModel` — flattens the sealed `SeriesDetailUiState`
+/// into flat `@Observable` properties. Thin over `FlowBridge`.
 @Observable
 @MainActor
 final class SeriesDetailObserver {
+    private(set) var isLoading: Bool = true
+    private(set) var error: String?
+    private(set) var seriesName: String = ""
+    private(set) var seriesDescription: String?
+    private(set) var coverPath: String?
+    private(set) var totalDuration: String = ""
+    private(set) var books: [BookListItem] = []
 
-    // MARK: - Observed State
-
-    /// Current UI state from the ViewModel
-    private(set) var uiState: SeriesDetailUiState?
-
-    // MARK: - Computed Properties
-
-    /// Whether the screen is loading
-    var isLoading: Bool { uiState?.isLoading ?? true }
-
-    /// Error message if any
-    var error: String? { uiState?.error }
-
-    /// Series name
-    var seriesName: String { uiState?.seriesName ?? "" }
-
-    /// Series description
-    var seriesDescription: String? { uiState?.seriesDescription }
-
-    /// Cover image path
-    var coverPath: String? { uiState?.coverPath }
-
-    /// Total duration formatted (e.g., "87h 5m")
-    var totalDuration: String { uiState?.formatTotalDuration() ?? "" }
-
-    /// Books in the series (sorted by sequence)
-    var books: [BookListItem] {
-        guard let list = uiState?.books else { return [] }
-        return Array(list)
-    }
-
-    /// Number of books in series
     var bookCount: Int { books.count }
 
-    // MARK: - Private
-
     private let viewModel: SeriesDetailViewModel
-    private var observationTask: Task<Void, Never>?
-
-    // MARK: - Initialization
+    private let bridge = FlowBridge()
 
     init(viewModel: SeriesDetailViewModel) {
         self.viewModel = viewModel
-        startObserving()
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    /// Call this to stop observation when done.
     func stopObserving() {
-        observationTask?.cancel()
-        observationTask = nil
+        bridge.cancelAll()
     }
 
     // MARK: - Actions
 
-    /// Load a series by ID
     func loadSeries(seriesId: String) {
         viewModel.loadSeries(seriesId: seriesId)
     }
 
-    // MARK: - Private
+    // MARK: - State mapping
 
-    private func startObserving() {
-        observationTask = Task { [weak self] in
-            guard let self else { return }
-
-            for await state in self.viewModel.state {
-                guard !Task.isCancelled else { break }
-                self.uiState = state
-            }
+    private func apply(_ state: SeriesDetailUiState) {
+        switch onEnum(of: state) {
+        case .idle, .loading:
+            isLoading = true
+            error = nil
+        case .ready(let r):
+            isLoading = false
+            error = nil
+            seriesName = r.seriesName
+            seriesDescription = r.seriesDescription
+            coverPath = r.coverPath
+            totalDuration = r.formatTotalDuration()
+            books = Array(r.books)
+        case .error(let e):
+            isLoading = false
+            error = e.message
         }
     }
 }

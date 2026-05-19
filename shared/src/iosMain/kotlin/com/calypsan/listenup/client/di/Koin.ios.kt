@@ -11,10 +11,9 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackPreparer
+import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -118,13 +117,8 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
-    fun getPlaybackManager(): PlaybackManager {
-        val instance: PlaybackManager by inject()
-        return instance
-    }
-
-    fun getAudioPlayer(): AudioPlayer {
-        val instance: AudioPlayer by inject()
+    fun getProgressTracker(): ProgressTracker {
+        val instance: ProgressTracker by inject()
         return instance
     }
 

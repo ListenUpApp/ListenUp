@@ -14,9 +14,7 @@ struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @State private var selectedTab: Tab = .home
     @State private var showFullScreenPlayer = false
-    @State private var nowPlayingObserver: NowPlayingObserver?
-    @State private var infoCenterManager: NowPlayingInfoCenterManager?
-    // @State private var liveActivityManager: LiveActivityManager? // Disabled: lock screen banner redundant with Now Playing controls
+    @State private var playerCoordinator: PlayerCoordinator?
 
     init() {
         // Configure tab bar appearance for glass effect with good contrast
@@ -39,7 +37,7 @@ struct MainTabView: View {
             // .tabViewStyle(.sidebarAdaptable) // Removed: causes layout issues on some devices
 
             // Mini player overlay — floats above tab bar
-            if let observer = nowPlayingObserver, observer.isVisible {
+            if let observer = playerCoordinator, observer.isVisible {
                 MiniPlayerView(
                     observer: observer,
                     onTap: { showFullScreenPlayer = true }
@@ -48,9 +46,9 @@ struct MainTabView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: nowPlayingObserver?.isVisible ?? false)
+        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: playerCoordinator?.isVisible ?? false)
         .fullScreenCover(isPresented: $showFullScreenPlayer) {
-            if let observer = nowPlayingObserver {
+            if let observer = playerCoordinator {
                 FullScreenPlayerView(
                     observer: observer,
                     isPresented: $showFullScreenPlayer
@@ -58,11 +56,8 @@ struct MainTabView: View {
             }
         }
         .onAppear {
-            if nowPlayingObserver == nil {
-                let observer = NowPlayingObserver(deps: deps)
-                nowPlayingObserver = observer
-                infoCenterManager = NowPlayingInfoCenterManager(observer: observer)
-                // liveActivityManager = LiveActivityManager(observer: observer)
+            if playerCoordinator == nil {
+                playerCoordinator = deps.playerCoordinator
             }
         }
     }
@@ -83,7 +78,7 @@ struct MainTabView: View {
         }
         .tag(tab)
         .safeAreaInset(edge: .bottom) {
-            if nowPlayingObserver?.isVisible == true {
+            if playerCoordinator?.isVisible == true {
                 Color.clear.frame(height: MiniPlayerView.height)
             }
         }

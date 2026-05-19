@@ -16,7 +16,7 @@ import Shared
 struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
 
-    private var user: User? { userObserver.user }
+    private var user: User_? { userObserver.user }
 
     var body: some View {
         ScrollView {

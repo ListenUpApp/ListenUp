@@ -1,87 +1,58 @@
 import Foundation
 import Shared
 
-/// Memory-safe Swift wrapper for Kotlin's ServerConnectViewModel.
-///
-/// This wrapper bridges Kotlin's StateFlow to SwiftUI's @Observable pattern
-/// using SKIE's native flow collection for reactive updates.
-///
-/// **Key Features:**
-/// - Uses SKIE's `for await` for efficient flow observation
-/// - Uses `[weak self]` to prevent retain cycles
-/// - Cancels observation task on deinit
-/// - All state updates happen on Main thread
-///
-/// Usage:
-/// ```swift
-/// @State private var viewModel: ServerConnectViewModelWrapper
-///
-/// init(dependencies: Dependencies = .shared) {
-///     _viewModel = State(initialValue:
-///         ServerConnectViewModelWrapper(
-///             viewModel: dependencies.serverConnectViewModel
-///         )
-///     )
-/// }
-/// ```
+/// Observes `ServerConnectViewModel`'s `state` flow, flattening the sealed
+/// `ServerConnectUiState` into SwiftUI-native properties. Holds the URL text as
+/// wrapper input state (it is view input, not ViewModel state). Thin over `FlowBridge`.
 @Observable
+@MainActor
 final class ServerConnectViewModelWrapper {
-    private let kotlinVM: ServerConnectViewModel
-    private var observationTask: Task<Void, Never>?
-
-    // Swift properties mirroring Kotlin UiState
+    /// The URL the user is typing — wrapper-held input state.
     var serverUrl: String = ""
-    var isLoading: Bool = false
-    var error: String? = nil
-    var isConnectEnabled: Bool = false
-    var isVerified: Bool = false
+
+    private(set) var isLoading: Bool = false
+    private(set) var isVerified: Bool = false
+    private(set) var error: String?
+
+    /// Whether the Connect action should be enabled.
+    var isConnectEnabled: Bool {
+        !serverUrl.trimmingCharacters(in: .whitespaces).isEmpty && !isLoading
+    }
+
+    private let viewModel: ServerConnectViewModel
+    private let bridge = FlowBridge()
 
     init(viewModel: ServerConnectViewModel) {
-        self.kotlinVM = viewModel
-        observeState()
+        self.viewModel = viewModel
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    private func observeState() {
-        // Use SKIE's native flow collection
-        observationTask = Task { [weak self] in
-            guard let self = self else { return }
-
-            for await state in self.kotlinVM.state {
-                guard !Task.isCancelled else { break }
-
-                await MainActor.run { [weak self] in
-                    guard let self = self else { return }
-
-                    self.serverUrl = state.serverUrl
-                    self.isLoading = state.isLoading
-                    self.isConnectEnabled = state.isConnectEnabled
-                    self.isVerified = state.isVerified
-
-                    // Map error if present
-                    if let kotlinError = state.error {
-                        self.error = kotlinError.message
-                    } else {
-                        self.error = nil
-                    }
-                }
-            }
-        }
+    func stopObserving() {
+        bridge.cancelAll()
     }
 
-    // MARK: - Event Forwarding
+    // MARK: - Actions
 
     func onUrlChanged(_ url: String) {
-        kotlinVM.onEvent(event: ServerConnectUiEventUrlChanged(newUrl: url))
+        serverUrl = url
     }
 
     func onConnectClicked() {
-        kotlinVM.onEvent(event: ServerConnectUiEventConnectClicked())
+        viewModel.submitUrl(rawUrl: serverUrl)
     }
 
-    // MARK: - Cleanup
+    // MARK: - State mapping
 
-    deinit {
-        // Cancel observation task when wrapper is deallocated
-        observationTask?.cancel()
+    private func apply(_ state: ServerConnectUiState) {
+        switch onEnum(of: state) {
+        case .idle:
+            isLoading = false; isVerified = false; error = nil
+        case .verifying:
+            isLoading = true; isVerified = false; error = nil
+        case .verified:
+            isLoading = false; isVerified = true; error = nil
+        case .error(let errorState):
+            isLoading = false; isVerified = false; error = errorState.error.message
+        }
     }
 }
