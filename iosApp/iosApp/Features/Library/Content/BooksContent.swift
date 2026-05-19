@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Content view for the Books tab in the Library.
 ///

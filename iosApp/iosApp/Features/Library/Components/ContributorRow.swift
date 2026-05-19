@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Role type for contributor (used for accessibility labels)

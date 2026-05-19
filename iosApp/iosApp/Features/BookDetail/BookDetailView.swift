@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Book detail screen showing audiobook information.

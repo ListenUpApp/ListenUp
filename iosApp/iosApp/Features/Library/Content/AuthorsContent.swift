@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Content view for the Authors tab in the Library.

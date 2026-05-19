@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Discover screen for finding new audiobooks.
 ///

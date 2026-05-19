@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 import UIKit
 
 /// Root tab view for the main authenticated app experience.

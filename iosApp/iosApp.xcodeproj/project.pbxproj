@@ -460,7 +460,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 			};
 			name = Debug;
@@ -563,7 +563,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 			};
 			name = Release;
@@ -641,7 +641,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
 			};
 			name = Debug;
@@ -655,7 +655,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
 			};
 			name = Release;

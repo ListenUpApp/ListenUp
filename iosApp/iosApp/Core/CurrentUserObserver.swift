@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Observes the current user from KMP `UserRepository`, exposing it as SwiftUI state.
 @Observable

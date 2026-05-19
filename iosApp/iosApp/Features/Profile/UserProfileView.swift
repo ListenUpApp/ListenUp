@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// User profile screen showing the current user's information.
 ///

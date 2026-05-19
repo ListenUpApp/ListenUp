@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Download state for the UI, mapped from Kotlin's `BookDownloadState`.
 enum DownloadUIState {

@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `RegisterViewModel`'s `state` flow, flattening `RegisterUiState`
 /// into SwiftUI-native properties. Thin over `FlowBridge`.

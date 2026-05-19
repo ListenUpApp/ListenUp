@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Observes the KMP auth-state flow and exposes it as SwiftUI-native state.
 /// The single source of truth for authentication state in the iOS app — placed at

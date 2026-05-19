@@ -1,6 +1,6 @@
 import Testing
 @testable import listenup
-import Shared
+@preconcurrency import Shared
 
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {

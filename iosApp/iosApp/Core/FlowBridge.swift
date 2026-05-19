@@ -24,16 +24,17 @@ final class FlowBridge {
         to sink: @escaping @MainActor (S.Element) -> Void
     ) {
         let task = Task { @MainActor in
-            var iterator = sequence.makeAsyncIterator()
-            while !Task.isCancelled {
-                // `try?` also catches a thrown error (a Kotlin flow that fails),
-                // treating it like end-of-sequence. The StateFlow-backed flows this
-                // bridge serves never throw; the error-handling policy is to be
-                // settled at the green-build pass, once SKIE's throwing behaviour
-                // for bridged flows is observable.
-                guard let value = try? await iterator.next() else { break }
-                if Task.isCancelled { break }
-                sink(value)
+            // `for await` keeps the iterator confined to this `@MainActor` task —
+            // the manual `iterator.next()` form `sending`s the non-Sendable SKIE
+            // iterator under Swift 6 strict concurrency. A thrown error from a
+            // failing Kotlin flow ends the subscription (treated as end-of-sequence).
+            do {
+                for try await value in sequence {
+                    if Task.isCancelled { break }
+                    sink(value)
+                }
+            } catch {
+                // Kotlin flow failed — end the subscription.
             }
         }
         tasks.append(task)

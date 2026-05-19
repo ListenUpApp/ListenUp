@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Dependency container wrapping Koin for SwiftUI-native injection: a single,
 /// typed access point to shared-module dependencies, with environment injection.

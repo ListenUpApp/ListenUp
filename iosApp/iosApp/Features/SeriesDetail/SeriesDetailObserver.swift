@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// Observes `SeriesDetailViewModel` — flattens the sealed `SeriesDetailUiState`
 /// into flat `@Observable` properties. Thin over `FlowBridge`.
