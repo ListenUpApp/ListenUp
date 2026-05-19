@@ -1,0 +1,521 @@
+package com.calypsan.listenup.client.presentation.contributormetadata
+
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
+import com.calypsan.listenup.client.domain.repository.ContributorMetadataProfile
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.MetadataRepository
+import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
+import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
+import dev.mokkery.every
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+
+/**
+ * Tests for ContributorMetadataViewModel.
+ *
+ * Tests cover:
+ * - Initialization and synchronous state reset (prevents stale state bugs)
+ * - Search functionality
+ * - Candidate selection and profile loading
+ * - Metadata application with image download
+ * - Error handling
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class ContributorMetadataViewModelTest :
+    FunSpec({
+
+        val testDispatcher = StandardTestDispatcher()
+
+        // ========== Test Fixture ==========
+
+        class TestFixture {
+            val contributorRepository: ContributorRepository = mock()
+            val metadataRepository: MetadataRepository = mock()
+            val applyContributorMetadataUseCase: ApplyContributorMetadataUseCase = mock()
+
+            fun build(): ContributorMetadataViewModel =
+                ContributorMetadataViewModel(
+                    contributorRepository = contributorRepository,
+                    metadataRepository = metadataRepository,
+                    applyContributorMetadataUseCase = applyContributorMetadataUseCase,
+                    errorBus = ErrorBus(),
+                )
+        }
+
+        fun createFixture(): TestFixture = TestFixture()
+
+        // ========== Test Data Factories ==========
+
+        fun createContributor(
+            id: String = "contributor-1",
+            name: String = "Stephen King",
+        ): Contributor =
+            Contributor(
+                id =
+                    com.calypsan.listenup.core
+                        .ContributorId(id),
+                name = name,
+                description = null,
+                imagePath = null,
+            )
+
+        fun createSearchResult(
+            asin: String = "B001ASIN01",
+            name: String = "Stephen King",
+            imageUrl: String? = "https://example.com/image.jpg",
+        ): ContributorMetadataCandidate =
+            ContributorMetadataCandidate(
+                asin = asin,
+                name = name,
+                imageUrl = imageUrl,
+                description = "142 titles",
+            )
+
+        fun createProfile(
+            asin: String = "B001ASIN01",
+            name: String = "Stephen King",
+            biography: String? = "Stephen King is a prolific author...",
+            imageUrl: String? = "https://example.com/image.jpg",
+        ): ContributorMetadataProfile =
+            ContributorMetadataProfile(
+                asin = asin,
+                name = name,
+                biography = biography,
+                imageUrl = imageUrl,
+            )
+
+        beforeTest {
+            Dispatchers.setMain(testDispatcher)
+        }
+
+        afterTest {
+            Dispatchers.resetMain()
+        }
+
+        // ========== Initialization Tests ==========
+
+        test("init synchronously resets state to prevent stale state bugs") {
+            runTest {
+                // Given - ViewModel with stale state from previous contributor
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+
+                // Simulate stale state (e.g., applySuccess from previous contributor)
+                // We can't set this directly, but we can verify the fix works by checking
+                // that init() synchronously sets contributorId before any async work
+
+                val contributor = createContributor(id = "contributor-2", name = "Neil Gaiman")
+                every { fixture.contributorRepository.observeById("contributor-2") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns emptyList()
+
+                // When
+                viewModel.init("contributor-2")
+
+                // Then - synchronous state reset happens immediately (before advanceUntilIdle)
+                val stateBeforeAsync = viewModel.state.value
+                stateBeforeAsync.contributorId shouldBe "contributor-2"
+                (stateBeforeAsync.applySuccess) shouldBe false // Reset from default
+                stateBeforeAsync.currentContributor shouldBe null // Not loaded yet
+                stateBeforeAsync.searchQuery shouldBe "" // Reset
+                (stateBeforeAsync.searchResults.isEmpty()) shouldBe true // Reset
+            }
+        }
+
+        test("init loads contributor and pre-fills search query") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor(name = "Stephen King")
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors("Stephen King", "us") } returns
+                    listOf(createSearchResult())
+
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                state.contributorId shouldBe "contributor-1"
+                state.currentContributor shouldBe contributor
+                state.searchQuery shouldBe "Stephen King"
+            }
+        }
+
+        test("init auto-searches with contributor name") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor(name = "Stephen King")
+                val searchResults = listOf(createSearchResult())
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors("Stephen King", "us") } returns searchResults
+
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                state.searchResults shouldBe searchResults
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.metadataRepository.searchContributors("Stephen King", "us")
+                }
+            }
+        }
+
+        test("init does not auto-search when contributor name is blank") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor(name = "")
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Then - search should not be called
+                verifySuspend(VerifyMode.exactly(0)) {
+                    fixture.metadataRepository.searchContributors(any(), any())
+                }
+            }
+        }
+
+        // ========== Search Tests ==========
+
+        test("search updates state with results") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResults =
+                    listOf(
+                        createSearchResult(asin = "B001", name = "Stephen King"),
+                        createSearchResult(asin = "B002", name = "Stephen King Jr"),
+                    )
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns searchResults
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // When - manual search with different query
+                viewModel.updateQuery("Stephen")
+                viewModel.search()
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                state.searchResults.size shouldBe 2
+                (state.isSearching) shouldBe false
+                state.searchError shouldBe null
+            }
+        }
+
+        test("search handles error gracefully") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } throws
+                    RuntimeException("Network error")
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                (state.isSearching) shouldBe false
+                state.searchError shouldBe "Network error"
+            }
+        }
+
+        test("search with blank query does nothing") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor(name = "")
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.updateQuery("   ") // Blank query
+
+                // When
+                viewModel.search()
+                advanceUntilIdle()
+
+                // Then - search should not be called (only the auto-search check, which is skipped for blank name)
+                verifySuspend(VerifyMode.exactly(0)) {
+                    fixture.metadataRepository.searchContributors(any(), any())
+                }
+            }
+        }
+
+        // ========== Candidate Selection Tests ==========
+
+        test("selectCandidate loads profile") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResult = createSearchResult()
+                val profile = createProfile()
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns listOf(searchResult)
+                everySuspend { fixture.metadataRepository.getContributorProfile("B001ASIN01") } returns profile
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // When
+                viewModel.selectCandidate(searchResult)
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                state.selectedCandidate shouldBe searchResult
+                state.previewProfile shouldBe profile
+                (state.isLoadingPreview) shouldBe false
+                state.previewError shouldBe null
+            }
+        }
+
+        test("selectCandidate initializes field selections based on profile") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResult = createSearchResult()
+                // Profile with name and biography but no image
+                val profile = createProfile(imageUrl = null)
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns listOf(searchResult)
+                everySuspend { fixture.metadataRepository.getContributorProfile(any()) } returns profile
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // When
+                viewModel.selectCandidate(searchResult)
+                advanceUntilIdle()
+
+                // Then - image selection should be false since no image available
+                val selections = viewModel.state.value.selections
+                (selections.name) shouldBe true
+                (selections.biography) shouldBe true
+                (selections.image) shouldBe false
+            }
+        }
+
+        // ========== Apply Tests ==========
+
+        test("apply successfully updates contributor via use case") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResult = createSearchResult()
+                val profile = createProfile()
+                val updatedContributor = createContributor(name = "Updated Name")
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns listOf(searchResult)
+                everySuspend { fixture.metadataRepository.getContributorProfile(any()) } returns profile
+                everySuspend { fixture.applyContributorMetadataUseCase.invoke(any()) } returns Success(updatedContributor)
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+                viewModel.selectCandidate(searchResult)
+                advanceUntilIdle()
+
+                // When
+                viewModel.apply()
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                (state.applySuccess) shouldBe true
+                (state.isApplying) shouldBe false
+                state.applyError shouldBe null
+                state.currentContributor shouldBe updatedContributor
+
+                // Verify use case was called
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.applyContributorMetadataUseCase.invoke(any())
+                }
+            }
+        }
+
+        test("apply handles use case failure") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResult = createSearchResult()
+                val profile = createProfile()
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns listOf(searchResult)
+                everySuspend { fixture.metadataRepository.getContributorProfile(any()) } returns profile
+                // Body-level message convention: pass a typed AppError so the
+                // user-facing message survives delegation to the ViewModel.
+                everySuspend { fixture.applyContributorMetadataUseCase.invoke(any()) } returns
+                    Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Server error"),
+                    )
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+                viewModel.selectCandidate(searchResult)
+                advanceUntilIdle()
+
+                // When
+                viewModel.apply()
+                advanceUntilIdle()
+
+                // Then
+                val state = viewModel.state.value
+                (state.applySuccess) shouldBe false
+                (state.isApplying) shouldBe false
+                state.applyError shouldBe "Server error"
+            }
+        }
+
+        test("apply does nothing when no fields selected") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val searchResult = createSearchResult()
+                // Profile with nothing available
+                val profile =
+                    ContributorMetadataProfile(
+                        asin = "B001ASIN01",
+                        name = "",
+                        biography = null,
+                        imageUrl = null,
+                    )
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns listOf(searchResult)
+                everySuspend { fixture.metadataRepository.getContributorProfile(any()) } returns profile
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+                viewModel.selectCandidate(searchResult)
+                advanceUntilIdle()
+
+                // When
+                viewModel.apply()
+                advanceUntilIdle()
+
+                // Then - use case should not be called since no fields selected
+                verifySuspend(VerifyMode.exactly(0)) {
+                    fixture.applyContributorMetadataUseCase.invoke(any())
+                }
+            }
+        }
+
+        // ========== Field Toggle Tests ==========
+
+        test("toggleField updates selections") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors(any(), any()) } returns emptyList()
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Initial state - all true by default
+                (viewModel.state.value.selections.name) shouldBe true
+
+                // When
+                viewModel.toggleField(ContributorMetadataField.NAME)
+
+                // Then
+                (viewModel.state.value.selections.name) shouldBe false
+
+                // Toggle back
+                viewModel.toggleField(ContributorMetadataField.NAME)
+                (viewModel.state.value.selections.name) shouldBe true
+            }
+        }
+
+        // ========== Region Change Tests ==========
+
+        test("changeRegion updates state and re-searches") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val usResults = listOf(createSearchResult(name = "Stephen King US"))
+                val ukResults = listOf(createSearchResult(name = "Stephen King UK"))
+
+                every { fixture.contributorRepository.observeById("contributor-1") } returns flowOf(contributor)
+                everySuspend { fixture.metadataRepository.searchContributors("Stephen King", "us") } returns usResults
+                everySuspend { fixture.metadataRepository.searchContributors("Stephen King", "uk") } returns ukResults
+
+                val viewModel = fixture.build()
+                viewModel.init("contributor-1")
+                advanceUntilIdle()
+
+                // Verify initial region and results
+                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.client.presentation.metadata.AudibleRegion.US
+                viewModel.state.value.searchResults shouldBe usResults
+
+                // When
+                viewModel.changeRegion(com.calypsan.listenup.client.presentation.metadata.AudibleRegion.UK)
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.client.presentation.metadata.AudibleRegion.UK
+                viewModel.state.value.searchResults shouldBe ukResults
+            }
+        }
+    })

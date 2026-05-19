@@ -35,9 +35,10 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":baselineprofile")
-include(":composeApp")
+include(":sharedUI")
+include(":contract")
 include(":desktopApp")
 include(":server")
-include(":shared")
+include(":sharedLogic")
 include(":build-logic:detekt-rules")
 include(":rpc-guard-ksp")

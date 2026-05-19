@@ -1,0 +1,260 @@
+package com.calypsan.listenup.client.presentation.contributordetail
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.domain.model.RoleWithBookCount
+import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
+import com.calypsan.listenup.client.util.calculateProgressMap
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
+
+/**
+ * ViewModel for the Contributor Detail screen.
+ *
+ * Observes contributor info and their per-role book previews via
+ * `combine(...).stateIn(WhileSubscribed)`. The delete flow runs imperatively
+ * and surfaces its state via a private [DeleteOverlay] combined into the
+ * main pipeline — success emits a `NavAction.Deleted` through a nav Channel,
+ * failure projects into `Ready.deleteError` for snackbar rendering.
+ *
+ * N+1 query on per-role book previews — tracked for W6; do not fix here.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class ContributorDetailViewModel(
+    private val contributorRepository: ContributorRepository,
+    private val playbackPositionRepository: PlaybackPositionRepository,
+    private val deleteContributorUseCase: DeleteContributorUseCase,
+) : ViewModel() {
+    private val contributorIdFlow = MutableStateFlow<String?>(null)
+    private val deleteOverlay = MutableStateFlow<DeleteOverlay>(DeleteOverlay.None)
+
+    private sealed interface DeleteOverlay {
+        data object None : DeleteOverlay
+
+        data object Deleting : DeleteOverlay
+
+        /** Last delete attempt failed; [message] surfaces in the UI until dismissed. */
+        data class Failed(
+            val message: String,
+        ) : DeleteOverlay
+    }
+
+    private val dataState: Flow<ContributorDetailUiState> =
+        contributorIdFlow.flatMapLatest { id ->
+            if (id == null) {
+                flowOf(ContributorDetailUiState.Idle)
+            } else {
+                combine(
+                    contributorRepository.observeById(id).filterNotNull(),
+                    contributorRepository.observeRolesWithCountForContributor(id),
+                ) { contributor, rolesWithCount ->
+                    val ready: ContributorDetailUiState = buildReadyState(id, contributor, rolesWithCount)
+                    ready
+                }.onStart { emit(ContributorDetailUiState.Loading) }
+            }
+        }
+
+    val state: StateFlow<ContributorDetailUiState> =
+        combine(dataState, deleteOverlay) { data, overlay ->
+            if (data is ContributorDetailUiState.Ready) {
+                data.copy(
+                    isDeleting = overlay is DeleteOverlay.Deleting,
+                    deleteError = (overlay as? DeleteOverlay.Failed)?.message,
+                )
+            } else {
+                data
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ContributorDetailUiState.Idle,
+        )
+
+    private val _navActions = Channel<ContributorDetailNavAction>(Channel.BUFFERED)
+    val navActions: Flow<ContributorDetailNavAction> = _navActions.receiveAsFlow()
+
+    /** Set the contributor to observe. Safe to call repeatedly with the same id. */
+    fun loadContributor(contributorId: String) {
+        contributorIdFlow.value = contributorId
+    }
+
+    /** Confirm deletion of the currently-loaded contributor. */
+    fun confirmDelete() {
+        val contributorId = contributorIdFlow.value ?: return
+        viewModelScope.launch {
+            deleteOverlay.value = DeleteOverlay.Deleting
+
+            when (val result = deleteContributorUseCase(contributorId)) {
+                is Success -> {
+                    deleteOverlay.value = DeleteOverlay.None
+                    _navActions.trySend(ContributorDetailNavAction.Deleted)
+                }
+
+                is Failure -> {
+                    deleteOverlay.value = DeleteOverlay.Failed(result.message)
+                }
+            }
+        }
+    }
+
+    /** Dismiss a delete error shown in the Ready state. */
+    fun dismissDeleteError() {
+        deleteOverlay.update { if (it is DeleteOverlay.Failed) DeleteOverlay.None else it }
+    }
+
+    private suspend fun buildReadyState(
+        contributorId: String,
+        contributor: Contributor,
+        rolesWithCount: List<RoleWithBookCount>,
+    ): ContributorDetailUiState.Ready {
+        val allCreditedAs = mutableMapOf<String, String>()
+
+        val roleSections =
+            rolesWithCount.map { roleWithCount ->
+                val result = loadBooksForRole(contributorId, contributor.name, roleWithCount.role)
+                allCreditedAs.putAll(result.creditedAsMap)
+                RoleSection(
+                    role = roleWithCount.role,
+                    displayName = roleToDisplayName(roleWithCount.role),
+                    bookCount = roleWithCount.bookCount,
+                    previewBooks = result.books.take(PREVIEW_BOOK_COUNT),
+                )
+            }
+
+        val allPreviewBooks = roleSections.flatMap { it.previewBooks }
+        val bookProgress = playbackPositionRepository.calculateProgressMap(allPreviewBooks)
+
+        return ContributorDetailUiState.Ready(
+            contributor = contributor,
+            roleSections = roleSections,
+            bookProgress = bookProgress,
+            bookCreditedAs = allCreditedAs,
+            isDeleting = false,
+            deleteError = null,
+        )
+    }
+
+    private data class BooksForRoleResult(
+        val books: List<BookListItem>,
+        /** Maps bookId to creditedAs name (when different from contributor's name). */
+        val creditedAsMap: Map<String, String>,
+    )
+
+    private suspend fun loadBooksForRole(
+        contributorId: String,
+        contributorName: String,
+        role: String,
+    ): BooksForRoleResult {
+        val booksWithRole =
+            contributorRepository
+                .observeBooksForContributorRole(contributorId, role)
+                .first()
+
+        val books = booksWithRole.map { it.book }
+
+        val creditedAsMap =
+            booksWithRole
+                .mapNotNull { bwr ->
+                    val creditedAs = bwr.creditedAs
+                    if (creditedAs != null && !creditedAs.equals(contributorName, ignoreCase = true)) {
+                        bwr.book.id.value to creditedAs
+                    } else {
+                        null
+                    }
+                }.toMap()
+
+        return BooksForRoleResult(books, creditedAsMap)
+    }
+
+    companion object {
+        /** Number of books to show in the horizontal preview. */
+        private const val PREVIEW_BOOK_COUNT = 10
+
+        /** Threshold for showing "View All" button. */
+        const val VIEW_ALL_THRESHOLD = 6
+
+        /** Convert a role string to a user-friendly display name. */
+        fun roleToDisplayName(role: String): String =
+            when (role.lowercase()) {
+                ContributorRole.AUTHOR.apiValue -> "Written By"
+                ContributorRole.NARRATOR.apiValue -> "Narrated By"
+                ContributorRole.TRANSLATOR.apiValue -> "Translated By"
+                ContributorRole.EDITOR.apiValue -> "Edited By"
+                else -> role.replaceFirstChar { it.uppercase() }
+            }
+    }
+}
+
+/**
+ * UI state for the Contributor Detail screen.
+ */
+sealed interface ContributorDetailUiState {
+    /** No contributor selected (pre-[ContributorDetailViewModel.loadContributor]). */
+    data object Idle : ContributorDetailUiState
+
+    /** Upstream has not yet produced data for the selected contributor. */
+    data object Loading : ContributorDetailUiState
+
+    /** Contributor loaded with role sections and per-book progress. */
+    data class Ready(
+        val contributor: Contributor,
+        val roleSections: List<RoleSection>,
+        val bookProgress: Map<BookId, Float>,
+        /** Maps bookId to creditedAs name when different from contributor's name. */
+        val bookCreditedAs: Map<String, String>,
+        /** True while a delete is in flight. Screen shows an overlay spinner. */
+        val isDeleting: Boolean,
+        /** Non-null when the last delete attempt failed. Screen shows a snackbar. */
+        val deleteError: String?,
+    ) : ContributorDetailUiState
+
+    /** Load failed. */
+    data class Error(
+        val message: String,
+    ) : ContributorDetailUiState
+}
+
+/** Navigation events emitted by [ContributorDetailViewModel]. */
+sealed interface ContributorDetailNavAction {
+    /** Contributor was deleted — the screen should pop back. */
+    data object Deleted : ContributorDetailNavAction
+}
+
+/**
+ * A section displaying books for a specific role.
+ */
+data class RoleSection(
+    val role: String,
+    val displayName: String,
+    val bookCount: Int,
+    val previewBooks: List<BookListItem>,
+) {
+    /** Whether to show "View All" button. */
+    val showViewAll: Boolean
+        get() = bookCount > ContributorDetailViewModel.VIEW_ALL_THRESHOLD
+}

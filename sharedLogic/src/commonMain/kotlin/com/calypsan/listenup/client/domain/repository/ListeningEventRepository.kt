@@ -1,0 +1,73 @@
+package com.calypsan.listenup.client.domain.repository
+
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.data.local.db.BookDuration
+import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * Repository for listening events.
+ *
+ * Encapsulates the two-write atomic operation (local upsert + pending-op queue) behind
+ * a single transactional call. All read methods surface DAO queries to callers that
+ * currently access [com.calypsan.listenup.client.data.local.db.ListeningEventDao] directly
+ * (Stats, Leaderboard) — so those callers can migrate through this interface later.
+ *
+ * Read methods return [ListeningEventEntity] rather than a domain type because no
+ * `ListeningEvent` domain class exists; the entity fields are the canonical representation
+ * in this codebase (confirmed: grep found no `class ListeningEvent` domain type).
+ */
+interface ListeningEventRepository {
+    /**
+     * Save a listening event locally and queue it for server sync, atomically.
+     *
+     * Both the DAO upsert and the pending-op queue happen inside a single
+     * [com.calypsan.listenup.client.data.local.db.TransactionRunner.atomically] block.
+     * If either write fails the transaction rolls back. [kotlinx.coroutines.CancellationException]
+     * is always rethrown (EM-R1).
+     */
+    suspend fun queueListeningEvent(
+        bookId: BookId,
+        startPositionMs: Long,
+        endPositionMs: Long,
+        startedAt: Long,
+        endedAt: Long,
+        playbackSpeed: Float,
+    ): AppResult<Unit>
+
+    // ==================== Read methods (external callers today) ====================
+
+    /** All events for [bookId], newest first. Used by future per-book stats. */
+    fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>>
+
+    /** Events in [startMs]..[endMs] window, newest first. */
+    fun observeEventsInRange(
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<ListeningEventEntity>>
+
+    /** Events since [startMs], no upper bound, newest first. */
+    fun observeEventsSince(startMs: Long): Flow<List<ListeningEventEntity>>
+
+    /** Total listening duration (ms) across events since [startMs]. */
+    suspend fun getTotalDurationSince(startMs: Long): Long
+
+    /** Reactive total listening duration since [startMs]. */
+    fun observeTotalDurationSince(startMs: Long): Flow<Long>
+
+    /** Reactive distinct-book count since [startMs]. */
+    fun observeDistinctBooksSince(startMs: Long): Flow<Int>
+
+    /** Reactive distinct days (epoch ms) with listening activity since [startMs]. */
+    fun observeDistinctDaysSince(startMs: Long): Flow<List<Long>>
+
+    /** Distinct days (epoch ms) with listening activity since [startMs] (one-shot). */
+    suspend fun getDistinctDaysWithActivity(startMs: Long): List<Long>
+
+    /** Total duration grouped by book for [startMs]..[endMs]. */
+    suspend fun getDurationByBook(
+        startMs: Long,
+        endMs: Long,
+    ): List<BookDuration>
+}

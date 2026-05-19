@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.e2e
 
-import com.calypsan.listenup.client.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorage
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

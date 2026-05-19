@@ -32,7 +32,7 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Run unit tests
-        run: ./gradlew :shared:jvmTest --no-daemon
+        run: ./gradlew :sharedLogic:jvmTest --no-daemon
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

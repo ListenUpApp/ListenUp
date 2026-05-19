@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer

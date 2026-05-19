@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource

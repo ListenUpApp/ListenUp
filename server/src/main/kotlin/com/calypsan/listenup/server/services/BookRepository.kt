@@ -10,8 +10,8 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable

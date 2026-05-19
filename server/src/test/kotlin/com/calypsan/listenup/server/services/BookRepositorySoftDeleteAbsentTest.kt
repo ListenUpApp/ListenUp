@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.BusEvent
