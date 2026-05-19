@@ -99,8 +99,14 @@ final class ContributorDetailObserver {
         }
     }
 
-    /// `Map<BookId, Float>` arrives as `[String: KotlinFloat]` over the SKIE boundary.
-    private func mapProgress(_ raw: [String: KotlinFloat]) -> [String: Float] {
-        raw.mapValues { $0.floatValue }
+    /// `Map<BookId, Float>` arrives as `[AnyHashable: KotlinFloat]` over the SKIE
+    /// boundary — the `BookId` value-class key bridges as `AnyHashable`. Keys are
+    /// normalized to the book-id string the UI looks up by.
+    private func mapProgress(_ raw: [AnyHashable: KotlinFloat]) -> [String: Float] {
+        var result: [String: Float] = [:]
+        for (key, value) in raw {
+            result[String(describing: key.base)] = value.floatValue
+        }
+        return result
     }
 }
