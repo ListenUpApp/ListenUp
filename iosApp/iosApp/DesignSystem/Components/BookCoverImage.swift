@@ -5,7 +5,7 @@ import UIKit
 /// In-memory image cache shared across all BookCoverImage instances.
 /// Uses NSCache for automatic memory pressure eviction.
 private final class CoverImageCache {
-    static let shared = CoverImageCache()
+    nonisolated(unsafe) static let shared = CoverImageCache()
     private let cache = NSCache<NSString, UIImage>()
 
     init() {

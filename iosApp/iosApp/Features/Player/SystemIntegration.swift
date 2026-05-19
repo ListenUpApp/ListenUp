@@ -34,7 +34,7 @@ protocol RemoteCommandHandler: AnyObject {
 final class SystemIntegration {
     /// Skip interval in seconds, surfaced on the lock screen and used by the
     /// skip commands.
-    static let skipIntervalSeconds: Int = 30
+    nonisolated static let skipIntervalSeconds: Int = 30
 
     private weak var handler: RemoteCommandHandler?
 

@@ -22,11 +22,11 @@ struct AuthFlowCoordinator: View {
 // MARK: - Navigation environment keys
 
 private struct NavigateToRegisterKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+    nonisolated(unsafe) static let defaultValue: () -> Void = {}
 }
 
 private struct NavigateBackKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
+    nonisolated(unsafe) static let defaultValue: () -> Void = {}
 }
 
 extension EnvironmentValues {

@@ -15,10 +15,14 @@ final class FlowBridge {
 
     /// Subscribe `sequence`; deliver each element to `sink` on the main actor until
     /// the sequence ends or `cancelAll()` is called.
-    func bind<S: AsyncSequence & Sendable>(
+    ///
+    /// No `Sendable` constraints: `FlowBridge` is `@MainActor`, `bind` is called on
+    /// the main actor, and the collecting task is `@MainActor`-isolated — the
+    /// (non-`Sendable`) SKIE flow never crosses an isolation boundary.
+    func bind<S: AsyncSequence>(
         _ sequence: S,
         to sink: @escaping @MainActor (S.Element) -> Void
-    ) where S.Element: Sendable {
+    ) {
         let task = Task { @MainActor in
             var iterator = sequence.makeAsyncIterator()
             while !Task.isCancelled {

@@ -6,7 +6,7 @@ import Shared
 /// typed access point to shared-module dependencies, with environment injection.
 @Observable
 final class Dependencies {
-    static let shared = Dependencies()
+    nonisolated(unsafe) static let shared = Dependencies()
 
     private init() {}
 
@@ -74,7 +74,7 @@ final class Dependencies {
 // MARK: - SwiftUI environment
 
 private struct DependenciesKey: EnvironmentKey {
-    static let defaultValue = Dependencies.shared
+    nonisolated(unsafe) static let defaultValue = Dependencies.shared
 }
 
 extension EnvironmentValues {
