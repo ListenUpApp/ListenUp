@@ -1,5 +1,5 @@
 import Testing
-@testable import iosApp
+@testable import listenup
 
 @Suite("AuthStateKind")
 struct AuthStateKindTests {

@@ -1,7 +1,7 @@
 import Foundation
 import MediaPlayer
 import Testing
-@testable import iosApp
+@testable import listenup
 
 @Suite("SystemIntegration.dictionary")
 struct SystemIntegrationTests {

@@ -54,9 +54,10 @@ final class SystemIntegration {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
-    /// Map a `NowPlayingInfo` to the `MPNowPlayingInfoCenter` dictionary. Pure and
-    /// `static` so it is testable without touching the live info center.
-    static func dictionary(from info: NowPlayingInfo) -> [String: Any] {
+    /// Map a `NowPlayingInfo` to the `MPNowPlayingInfoCenter` dictionary. Pure,
+    /// `nonisolated`, and `static` so it is testable without touching the live
+    /// info center or the main actor.
+    nonisolated static func dictionary(from info: NowPlayingInfo) -> [String: Any] {
         [
             MPMediaItemPropertyTitle: info.title,
             MPMediaItemPropertyArtist: info.artist,

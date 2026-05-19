@@ -1,5 +1,5 @@
 import Testing
-@testable import iosApp
+@testable import listenup
 
 /// A simple `Sendable` async sequence for exercising `FlowBridge` without KMP.
 private struct NumberSequence: AsyncSequence, Sendable {

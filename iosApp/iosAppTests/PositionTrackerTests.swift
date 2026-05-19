@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import iosApp
+@testable import listenup
 
 @Suite("PositionInterpolator")
 struct PositionTrackerTests {
