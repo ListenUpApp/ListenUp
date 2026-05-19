@@ -27,6 +27,7 @@ internal object BookTable : SyncableTable("books") {
     val asin = varchar("asin", 32).nullable()
     val abridged = bool("abridged").default(false)
     val explicit = bool("explicit").default(false)
+    val hasScanWarning = bool("has_scan_warning").default(false)
     val totalDuration = long("total_duration")
     val coverSource = varchar("cover_source", 32).nullable()
     val coverPath = varchar("cover_path", 1024).nullable()

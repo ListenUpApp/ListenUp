@@ -33,6 +33,7 @@ class BookTableTest :
                     "asin",
                     "abridged",
                     "explicit",
+                    "has_scan_warning",
                     "total_duration",
                     "cover_source",
                     "cover_path",

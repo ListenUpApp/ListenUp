@@ -37,6 +37,14 @@ class BookSyncPayloadContractTest :
             json shouldContain "\"deletedAt\""
         }
 
+        test("BookSyncPayload round-trips with hasScanWarning set") {
+            val original = bookSyncPayloadMinimal().copy(hasScanWarning = true)
+            val json = contractJson.encodeToString(BookSyncPayload.serializer(), original)
+            val decoded = contractJson.decodeFromString(BookSyncPayload.serializer(), json)
+            decoded shouldBe original
+            decoded.hasScanWarning shouldBe true
+        }
+
         test("BookSyncPayload routes through Tombstoned by deletedAt") {
             val tombstoned: Tombstoned = bookSyncPayloadMinimal().copy(deletedAt = 100L)
             tombstoned.deletedAt shouldBe 100L

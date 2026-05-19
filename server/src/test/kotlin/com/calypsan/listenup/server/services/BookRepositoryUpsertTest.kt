@@ -2,6 +2,11 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
+import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -11,6 +16,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -273,6 +279,38 @@ class BookRepositoryUpsertTest :
             }
         }
 
+        test("upsertFromAnalyzed persists and round-trips hasScanWarning") {
+            withInMemoryDatabase {
+                val db = this
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                    )
+                runTest {
+                    val warned =
+                        repo.upsertFromAnalyzed(
+                            BookId("warned"),
+                            analyzedFixture(rootRelPath = "books/warned", hasScanWarning = true),
+                        )
+                    warned.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    warned.data.hasScanWarning shouldBe true
+                    repo.findById(BookId("warned"))?.hasScanWarning shouldBe true
+
+                    val clean =
+                        repo.upsertFromAnalyzed(
+                            BookId("clean"),
+                            analyzedFixture(rootRelPath = "books/clean", hasScanWarning = false),
+                        )
+                    clean.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    clean.data.hasScanWarning shouldBe false
+                    repo.findById(BookId("clean"))?.hasScanWarning shouldBe false
+                }
+            }
+        }
+
         test("update re-uses existing rowid; book_search has exactly one row per book") {
             withInMemoryDatabase {
                 val db = this
@@ -360,6 +398,37 @@ private fun bookPayloadFixture(
         createdAt = 0L,
         deletedAt = null,
     )
+
+/**
+ * Builds a minimal [AnalyzedBook] anchored at [rootRelPath] with one audio file,
+ * carrying the supplied [hasScanWarning] advisory flag.
+ */
+private fun analyzedFixture(
+    rootRelPath: String,
+    hasScanWarning: Boolean,
+): AnalyzedBook {
+    val file =
+        FileEntry(
+            relPath = "$rootRelPath/01.m4b",
+            name = "01.m4b",
+            ext = "m4b",
+            size = 1024L,
+            mtimeMs = 0L,
+            inode = null,
+            fileType = FileType.AUDIO,
+        )
+    return AnalyzedBook(
+        candidate =
+            CandidateBook(
+                rootRelPath = rootRelPath,
+                isFile = false,
+                files = listOf(file),
+            ),
+        title = rootRelPath.substringAfterLast('/'),
+        tracks = listOf(TrackEntry(file = file)),
+        hasScanWarning = hasScanWarning,
+    )
+}
 
 private fun contributor(
     id: String,
