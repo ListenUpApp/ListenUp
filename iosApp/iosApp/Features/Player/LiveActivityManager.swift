@@ -8,12 +8,12 @@ import SwiftUI
 @MainActor
 final class LiveActivityManager {
 
-    private let observer: NowPlayingObserver
+    private let observer: PlayerCoordinator
     private var activity: Activity<AudiobookActivityAttributes>?
     private var updateTask: Task<Void, Never>?
     private var wasVisible = false
 
-    init(observer: NowPlayingObserver) {
+    init(observer: PlayerCoordinator) {
         self.observer = observer
         startMonitoring()
     }
