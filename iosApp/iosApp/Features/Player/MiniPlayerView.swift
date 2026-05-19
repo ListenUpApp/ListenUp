@@ -12,7 +12,7 @@ import Shared
 /// - Gradient border stroke (white 0.3→0.1)
 /// - Shadow with 0.12 opacity
 struct MiniPlayerView: View {
-    let observer: NowPlayingObserver
+    let observer: PlayerCoordinator
     var onTap: () -> Void
 
     /// Height of the mini player for layout calculations
