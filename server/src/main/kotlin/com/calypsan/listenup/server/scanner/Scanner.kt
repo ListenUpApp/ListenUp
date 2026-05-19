@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
+import com.calypsan.listenup.server.scanner.pipeline.BookAnalysisFailure
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
@@ -219,11 +220,22 @@ internal class Scanner(
         )
     }
 
-    private fun toScanError(t: Throwable): ScanError =
-        ScanError.FileUnreadable(
-            path = rootPath.toString(),
-            debugInfo = t.message ?: t::class.simpleName ?: "unknown error",
+    /**
+     * Maps a per-book analysis failure to a [ScanError.FileUnreadable]. When the
+     * throwable is a [BookAnalysisFailure] it carries the candidate's
+     * `rootRelPath`, so the error names the *failing book's* directory rather
+     * than the library root — the operator can navigate straight to it.
+     */
+    private fun toScanError(t: Throwable): ScanError {
+        val path =
+            (t as? BookAnalysisFailure)
+                ?.let { rootPath.resolve(it.rootRelPath).toString() }
+                ?: rootPath.toString()
+        return ScanError.FileUnreadable(
+            path = path,
+            debugInfo = t.message ?: "unknown error",
         )
+    }
 }
 
 private data class SubtreeAnalysis(

@@ -79,7 +79,7 @@ internal class Analyzer(
         }
 
     private suspend fun analyzeOne(candidate: CandidateBook): Result<AnalyzedBook> =
-        safeRun {
+        safeRun(candidate.rootRelPath) {
             val shape = FolderShape.parse(candidate.rootRelPath)
             val parsed =
                 AbsTitleParser.parse(
@@ -88,6 +88,12 @@ internal class Analyzer(
                     parseSubtitle = parseSubtitle,
                 )
             val tracks = buildTracks(candidate)
+            // Tiered book rule: a candidate that yields no playable track is not a
+            // book — it's skipped, not ingested. Surfaces as a Result.failure so the
+            // caller records it in ScanResult.errors and never in ScanResult.books.
+            if (tracks.isEmpty()) {
+                error("candidate has no audio tracks")
+            }
             val primaryAudio = tracks.firstOrNull()?.file
             val (embedded, embeddedStatus) = parseEmbedded(primaryAudio)
             val cover = resolveCover(candidate.files, embedded)
@@ -327,6 +333,10 @@ internal class Analyzer(
             embedded = embedded,
             embeddedStatus = embeddedStatus,
             sources = collectSources(shape, parsed, embedded, metadata, sidecar),
+            // A ParseError / UnsupportedFormat status means a file the scanner could
+            // not fully read. MetadataStatus.Available and a null status (no audio
+            // file, or a clean parse) are not warnings.
+            hasScanWarning = embeddedStatus.isParseFailure(),
         )
     }
 
@@ -497,6 +507,14 @@ private fun List<AbsChapter>.toDomainChapters(): List<Chapter> =
         )
     }
 
+/**
+ * True when the parser outcome is a failure the user should know about —
+ * [MetadataStatus.UnsupportedFormat] or [MetadataStatus.ParseError]. A `null`
+ * status (no audio file) and [MetadataStatus.Available] (a clean parse) are not.
+ */
+private fun MetadataStatus?.isParseFailure(): Boolean =
+    this is MetadataStatus.UnsupportedFormat || this is MetadataStatus.ParseError
+
 private fun FolderShape.contributesAnything(): Boolean =
     titleFolder.isNotEmpty() || seriesFolder != null || authorFolder != null
 
@@ -511,11 +529,29 @@ private val NATURAL_TRACK_ORDER =
         { it.file.name },
     )
 
-private suspend fun <T> safeRun(block: suspend () -> T): Result<T> =
+/**
+ * Wraps any per-book analysis failure with the candidate's `rootRelPath` so
+ * the scanner can name the *failing book's* directory in its `ScanError`
+ * rather than the library root.
+ */
+internal class BookAnalysisFailure(
+    val rootRelPath: String,
+    cause: Throwable,
+) : Exception(cause.message ?: cause::class.simpleName ?: "unknown error", cause)
+
+/**
+ * Runs [block], converting any non-cancellation throwable into a
+ * `Result.failure` carrying a [BookAnalysisFailure] tagged with [rootRelPath].
+ * `CancellationException` is always re-raised so structured concurrency stays intact.
+ */
+private suspend fun <T> safeRun(
+    rootRelPath: String,
+    block: suspend () -> T,
+): Result<T> =
     try {
         Result.success(block())
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        Result.failure(e)
+        Result.failure(BookAnalysisFailure(rootRelPath, e))
     }

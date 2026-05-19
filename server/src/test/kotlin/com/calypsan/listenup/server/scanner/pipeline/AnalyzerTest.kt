@@ -6,10 +6,13 @@ import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
+import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
@@ -20,6 +23,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import java.nio.file.Files
+import java.nio.file.Path
 
 class AnalyzerTest :
     FunSpec({
@@ -378,6 +383,85 @@ class AnalyzerTest :
             }
         }
 
+        test("a book whose primary audio fails to parse is still produced, with hasScanWarning") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val rel = "Author/Broken Book"
+                    // Random non-audio bytes — no magic matches, the parser rejects this
+                    // as an unsupported format. The book is still produced; the failure
+                    // travels as embeddedStatus and raises hasScanWarning.
+                    val malformedBytes = ByteArray(64) { it.toByte() }
+                    val audioPath = writeBytes(fixture.root, "$rel/01.mp3", malformedBytes)
+                    val candidate =
+                        candidateOf(
+                            rel,
+                            files =
+                                listOf(
+                                    fileEntry(
+                                        "$rel/01.mp3",
+                                        FileType.AUDIO,
+                                        size = Files.size(audioPath),
+                                    ),
+                                ),
+                        )
+                    val book =
+                        analyzer
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.embeddedStatus.shouldNotBeNull()
+                    book.hasScanWarning shouldBe true
+                }
+            }
+        }
+
+        test("a clean book has hasScanWarning false") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    // The real Mp3Parser so a well-formed file parses to
+                    // MetadataStatus.Available — proving a successful parse
+                    // does NOT raise the scan warning.
+                    val realParser =
+                        EmbeddedMetadataParser(
+                            detector = AudioFormatDetector(),
+                            parsers = listOf(Mp3Parser()),
+                        )
+                    val analyzer = Analyzer(fixture.root, metadataReader, realParser)
+                    val rel = "Author/Clean Book"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Clean Book") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = writeBytes(fixture.root, "$rel/01.mp3", audioBytes)
+                    val candidate =
+                        candidateOf(
+                            rel,
+                            files =
+                                listOf(
+                                    fileEntry(
+                                        "$rel/01.mp3",
+                                        FileType.AUDIO,
+                                        size = Files.size(audioPath),
+                                    ),
+                                ),
+                        )
+                    val book =
+                        analyzer
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.embeddedStatus shouldBe MetadataStatus.Available
+                    book.hasScanWarning shouldBe false
+                }
+            }
+        }
+
         test("read returns the live cover FileEntry, not a copy") {
             audioLibrary {}.use { fixture ->
                 runTest {
@@ -423,13 +507,25 @@ private fun candidateOf(
 private fun fileEntry(
     relPath: String,
     fileType: FileType,
+    size: Long = 0,
 ): FileEntry =
     FileEntry(
         relPath = relPath,
         name = relPath.substringAfterLast('/'),
         ext = relPath.substringAfterLast('.', "").lowercase(),
-        size = 0,
+        size = size,
         mtimeMs = 0,
         inode = null,
         fileType = fileType,
     )
+
+private fun writeBytes(
+    root: Path,
+    relPath: String,
+    bytes: ByteArray,
+): Path {
+    val target = root.resolve(relPath)
+    Files.createDirectories(target.parent)
+    Files.write(target, bytes)
+    return target
+}
