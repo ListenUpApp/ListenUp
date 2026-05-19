@@ -39,8 +39,7 @@ class ArchitectureTest :
                 .withoutValueModifier()
                 .filter { it.hasAnnotationOf(Serializable::class) }
                 .assertTrue { koClass ->
-                    val path = koClass.containingFile.path
-                    "/shared/src/commonMain/" in path
+                    "/contract/src/commonMain/" in koClass.containingFile.path
                 }
         }
 
@@ -78,7 +77,7 @@ class ArchitectureTest :
                 .filter { it.resideInPackage("com.calypsan.listenup.api.event..") }
                 .withoutValueModifier()
                 .assertTrue { koClass ->
-                    "/shared/src/commonMain/" in koClass.containingFile.path
+                    "/contract/src/commonMain/" in koClass.containingFile.path
                 }
         }
 

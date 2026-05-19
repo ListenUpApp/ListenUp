@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
  *
  * @param context Android application context
  */
-internal class AndroidSecureStorage(
+class AndroidSecureStorage(
     private val context: Context,
 ) : SecureStorage {
     private val prefs: SharedPreferences by lazy {

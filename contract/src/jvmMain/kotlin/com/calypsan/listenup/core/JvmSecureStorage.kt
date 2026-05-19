@@ -36,7 +36,7 @@ private const val SALT_LENGTH = 16
  *
  * @param storageFile The file where encrypted data is stored
  */
-internal class JvmSecureStorage(
+class JvmSecureStorage(
     private val storageFile: File,
 ) : SecureStorage {
     private val json = appJson

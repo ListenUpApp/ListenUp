@@ -43,6 +43,10 @@ detekt {
     baseline = file("$rootDir/detekt-baseline.xml")
     parallel = true
     source.setFrom(
+        "$rootDir/contract/src/commonMain/kotlin",
+        "$rootDir/contract/src/androidMain/kotlin",
+        "$rootDir/contract/src/iosMain/kotlin",
+        "$rootDir/contract/src/jvmMain/kotlin",
         "$rootDir/shared/src/commonMain/kotlin",
         "$rootDir/shared/src/androidMain/kotlin",
         "$rootDir/shared/src/iosMain/kotlin",

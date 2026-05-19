@@ -16,6 +16,7 @@ application {
 }
 
 dependencies {
+    implementation(projects.contract)
     implementation(projects.shared)
 
     // Ktor server core + engine

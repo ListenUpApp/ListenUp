@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
  * block returns, MDC is restored to its prior state by [MDCContext]'s
  * `restoreThreadContext` semantics.
  */
-internal suspend inline fun <R> withMdc(
+suspend inline fun <R> withMdc(
     vararg pairs: Pair<String, String>,
     crossinline block: suspend () -> R,
 ): R {

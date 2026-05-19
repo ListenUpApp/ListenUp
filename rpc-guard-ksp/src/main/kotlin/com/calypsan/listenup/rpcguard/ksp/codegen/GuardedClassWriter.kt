@@ -43,7 +43,7 @@ internal object GuardedClassWriter {
             appendLine("import com.calypsan.listenup.server.rpcguard.newCorrelationId")
             appendLine("import com.calypsan.listenup.server.rpcguard.withMdc")
             appendLine()
-            appendLine("internal class ${model.simpleName}Guarded(")
+            appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
             appendLine("    private val log: Logger = LoggerFactory.getLogger(\"rpc.${model.simpleName}\"),")
             appendLine("    private val metrics: RpcGuardMetrics = RpcGuardMetrics.global,")

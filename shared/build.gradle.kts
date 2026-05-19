@@ -10,7 +10,6 @@ plugins {
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.skie)
-    alias(libs.plugins.kotlinxRpc)
 }
 
 kotlin {
@@ -82,6 +81,7 @@ kotlin {
 
             // Export Koin so it's accessible from Swift
             export(libs.koin.core)
+            export(projects.contract)
         }
     }
 
@@ -102,6 +102,7 @@ kotlin {
         val macosMain by getting
 
         commonMain.dependencies {
+            api(projects.contract)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
@@ -225,10 +226,6 @@ dependencies {
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
-
-    // rpc-guard-ksp: generates exception-guard decorators for all @Rpc services.
-    // JVM-only because the generated code imports server-side helpers (MDC, Micrometer).
-    add("kspJvm", project(":rpc-guard-ksp"))
 }
 
 // SKIE configuration for enhanced Swift interop
