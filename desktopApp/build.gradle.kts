@@ -22,7 +22,7 @@ kotlin {
 
     sourceSets {
         jvmMain.dependencies {
-            implementation(project(":shared"))
+            implementation(project(":sharedLogic"))
             implementation(project(":composeApp"))
 
             implementation(compose.desktop.currentOs)

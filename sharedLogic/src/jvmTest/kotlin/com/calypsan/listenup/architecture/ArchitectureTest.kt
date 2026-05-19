@@ -62,9 +62,9 @@ class ArchitectureTest :
                 .files
                 .filter { "/server/src/main/" !in it.path && "/server/src/test/" !in it.path }
                 // C3 e2e fixture intentionally drives the real `:server` testApplication
-                // in-process. Confined to `:shared:jvmTest` so production code is
+                // in-process. Confined to `:sharedLogic:jvmTest` so production code is
                 // unaffected; the fixture is the documented seam.
-                .filter { "/shared/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/testing/" !in it.path }
+                .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/testing/" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }

@@ -17,7 +17,7 @@ application {
 
 dependencies {
     implementation(projects.contract)
-    implementation(projects.shared)
+    implementation(projects.sharedLogic)
 
     // Ktor server core + engine
     implementation(libs.ktor.server.core)

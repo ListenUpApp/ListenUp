@@ -137,7 +137,7 @@ kotlin {
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(projects.shared)
+            implementation(projects.sharedLogic)
 
             // Navigation 3 (multiplatform)
             implementation(libs.navigation3.ui)
@@ -255,7 +255,7 @@ val generateStrings by tasks.registering {
     group = "localization"
     description = "Generate platform string resource files from shared JSON"
 
-    val stringsDir = rootProject.file("shared/src/commonMain/resources/strings")
+    val stringsDir = rootProject.file("sharedLogic/src/commonMain/resources/strings")
     val outputDir = project.file("src/commonMain/composeResources")
 
     inputs.dir(stringsDir)
