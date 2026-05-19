@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.test.fake
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 class FakeBookRepositoryTest {
     @Test
@@ -87,13 +87,13 @@ class FakeBookRepositoryTest {
             val older =
                 TestData.bookListItem(id = "older").copy(
                     addedAt =
-                        com.calypsan.listenup.client.core
+                        com.calypsan.listenup.core
                             .Timestamp(epochMillis = 1_000L),
                 )
             val newer =
                 TestData.bookListItem(id = "newer").copy(
                     addedAt =
-                        com.calypsan.listenup.client.core
+                        com.calypsan.listenup.core
                             .Timestamp(epochMillis = 2_000L),
                 )
             val repo = FakeBookRepository(initialBooks = listOf(older, newer))

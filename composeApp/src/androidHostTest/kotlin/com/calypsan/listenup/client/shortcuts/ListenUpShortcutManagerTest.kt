@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.shortcuts
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.kotest.matchers.shouldBe

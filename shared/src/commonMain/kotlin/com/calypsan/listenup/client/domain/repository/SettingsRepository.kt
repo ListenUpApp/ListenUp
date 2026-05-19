@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow

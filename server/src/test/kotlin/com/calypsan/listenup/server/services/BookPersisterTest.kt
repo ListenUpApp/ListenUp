@@ -11,8 +11,8 @@ import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty

@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.answering.returns

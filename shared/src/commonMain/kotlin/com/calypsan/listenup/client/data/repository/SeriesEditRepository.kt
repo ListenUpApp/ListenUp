@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.IODispatcher
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext

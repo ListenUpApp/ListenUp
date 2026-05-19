@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.local.db
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest

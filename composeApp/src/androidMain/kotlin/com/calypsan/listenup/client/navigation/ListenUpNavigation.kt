@@ -29,7 +29,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
@@ -77,7 +77,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 
@@ -443,7 +443,7 @@ private fun AuthenticatedNavigation(
             is ShortcutAction.Resume -> {
                 // Get the most recent book and play it
                 val result = homeRepository.getContinueListening(1)
-                if (result is com.calypsan.listenup.client.core.Success && result.data.isNotEmpty()) {
+                if (result is com.calypsan.listenup.core.Success && result.data.isNotEmpty()) {
                     val book = result.data.first()
                     logger.info { "Resuming book: ${book.title}" }
                     nowPlayingViewModel.playBook(BookId(book.bookId))
@@ -487,7 +487,7 @@ private fun AuthenticatedNavigation(
             is ShortcutAction.SleepTimer -> {
                 // If playing, show sleep timer; otherwise resume + set timer
                 val result = homeRepository.getContinueListening(1)
-                if (result is com.calypsan.listenup.client.core.Success && result.data.isNotEmpty()) {
+                if (result is com.calypsan.listenup.core.Success && result.data.isNotEmpty()) {
                     val book = result.data.first()
                     nowPlayingViewModel.playBook(BookId(book.bookId))
                     nowPlayingViewModel.expand()

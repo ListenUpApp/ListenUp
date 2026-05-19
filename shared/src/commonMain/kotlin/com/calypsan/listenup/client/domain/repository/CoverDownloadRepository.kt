@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 
 /**
  * Repository for downloading book cover images from the server and persisting them locally.

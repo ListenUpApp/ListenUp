@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec

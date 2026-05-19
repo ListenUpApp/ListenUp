@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.profile
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
@@ -32,7 +32,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserProfileViewModelTest {

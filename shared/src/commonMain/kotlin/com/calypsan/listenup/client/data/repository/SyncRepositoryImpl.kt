@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Timestamp
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState

@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase

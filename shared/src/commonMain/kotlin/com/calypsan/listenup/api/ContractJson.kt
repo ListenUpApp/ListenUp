@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
  * root — `client/` code may import from `api/`, but `api/` must never import from `client/`.
  * Placing the shared serialization config here keeps that boundary structurally enforced.
  *
- * The client-side [com.calypsan.listenup.client.core.appJson] is a superset that adds
+ * The client-side [com.calypsan.listenup.core.appJson] is a superset that adds
  * client-specific concerns (SSE polymorphic defaults) on top of this base configuration.
  */
 public val contractJson: Json =

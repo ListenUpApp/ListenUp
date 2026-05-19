@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import kotlinx.coroutines.flow.Flow

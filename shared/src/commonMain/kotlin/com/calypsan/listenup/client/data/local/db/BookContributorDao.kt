@@ -6,7 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 
 @Dao
 interface BookContributorDao {

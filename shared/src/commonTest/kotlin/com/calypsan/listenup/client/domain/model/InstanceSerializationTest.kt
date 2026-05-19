@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 

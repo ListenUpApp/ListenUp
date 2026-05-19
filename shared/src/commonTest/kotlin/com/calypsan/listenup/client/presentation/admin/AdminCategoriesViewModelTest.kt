@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
@@ -27,7 +27,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 
 /**
  * Tests for AdminCategoriesViewModel.

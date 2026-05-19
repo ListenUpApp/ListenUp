@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.local.db
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

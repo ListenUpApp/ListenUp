@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.LocalPreferences

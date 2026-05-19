@@ -2,10 +2,10 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.mapSuspend
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.mapSuspend
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.ktor.client.call.body

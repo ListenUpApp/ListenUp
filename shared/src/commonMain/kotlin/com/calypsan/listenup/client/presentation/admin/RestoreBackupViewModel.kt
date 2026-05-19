@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.model.RestoreError
 import com.calypsan.listenup.client.data.remote.model.RestoreRequest

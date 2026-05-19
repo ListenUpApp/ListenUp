@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase

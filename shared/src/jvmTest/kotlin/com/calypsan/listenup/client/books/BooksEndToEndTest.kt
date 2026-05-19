@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.books
 import app.cash.turbine.test
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner

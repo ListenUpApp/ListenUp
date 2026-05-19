@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.LibraryId
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.LibraryId
 
 /**
  * The narrow slice of [BookRepository] that [BookPersister] depends on.

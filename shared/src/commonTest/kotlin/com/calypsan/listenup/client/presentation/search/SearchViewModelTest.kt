@@ -28,7 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 
 /**
  * Tests for [SearchViewModel].

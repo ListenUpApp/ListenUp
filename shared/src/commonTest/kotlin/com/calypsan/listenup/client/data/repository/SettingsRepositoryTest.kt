@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.SecureStorage
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent
 import dev.mokkery.answering.returns

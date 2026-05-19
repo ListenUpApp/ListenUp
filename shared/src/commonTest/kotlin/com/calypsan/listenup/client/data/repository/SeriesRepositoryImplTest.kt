@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef
@@ -64,7 +64,7 @@ class SeriesRepositoryImplTest :
         ): SeriesEntity =
             SeriesEntity(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .SeriesId(id),
                 name = name,
                 description = description,

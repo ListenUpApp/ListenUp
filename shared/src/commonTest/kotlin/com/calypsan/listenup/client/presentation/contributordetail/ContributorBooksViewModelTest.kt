@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -74,7 +74,7 @@ class ContributorBooksViewModelTest :
         ): Contributor =
             Contributor(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .ContributorId(id),
                 name = name,
                 description = null,

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.local.db.ServerDao
 import com.calypsan.listenup.client.data.local.db.ServerEntity

@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.core.IODispatcher
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService

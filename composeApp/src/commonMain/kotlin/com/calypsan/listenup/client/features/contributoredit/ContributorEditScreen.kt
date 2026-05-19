@@ -68,7 +68,7 @@ import listenup.composeapp.generated.resources.contributor_enter_a_biography
 import listenup.composeapp.generated.resources.contributor_links
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 /**
  * Artist Studio - immersive contributor editing experience.

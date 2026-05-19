@@ -251,6 +251,6 @@ class ServerEntityTest {
     // ============================================================
 
     private fun currentTime(): Long =
-        com.calypsan.listenup.client.core
+        com.calypsan.listenup.core
             .currentEpochMilliseconds()
 }

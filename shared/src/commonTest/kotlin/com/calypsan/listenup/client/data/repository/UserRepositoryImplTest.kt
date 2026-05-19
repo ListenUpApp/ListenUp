@@ -68,10 +68,10 @@ class UserRepositoryImplTest {
             avatarColor = avatarColor,
             tagline = tagline,
             createdAt =
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .Timestamp(createdAt),
             updatedAt =
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .Timestamp(updatedAt),
         )
 
@@ -609,10 +609,10 @@ class UserRepositoryImplTest {
                     avatarColor = "#10B981",
                     tagline = "Keeping things running smoothly",
                     createdAt =
-                        com.calypsan.listenup.client.core
+                        com.calypsan.listenup.core
                             .Timestamp(1700000000000L),
                     updatedAt =
-                        com.calypsan.listenup.client.core
+                        com.calypsan.listenup.core
                             .Timestamp(1705000000000L),
                 )
             everySuspend { userDao.getCurrentUser() } returns entity

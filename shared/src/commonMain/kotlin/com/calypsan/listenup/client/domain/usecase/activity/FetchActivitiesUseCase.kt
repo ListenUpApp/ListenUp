@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.activity
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 

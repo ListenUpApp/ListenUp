@@ -1,6 +1,6 @@
 package com.calypsan.listenup.api.resources
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import io.ktor.resources.Resource
 
 /**

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -58,7 +58,7 @@ class SeriesDetailViewModelTest :
         ): Series =
             Series(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .SeriesId(id),
                 name = name,
                 description = description,

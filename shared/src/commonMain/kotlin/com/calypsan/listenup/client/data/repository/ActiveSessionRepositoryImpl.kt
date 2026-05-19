@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.ActiveSessionWithDetails
 import com.calypsan.listenup.client.domain.model.ActiveSession

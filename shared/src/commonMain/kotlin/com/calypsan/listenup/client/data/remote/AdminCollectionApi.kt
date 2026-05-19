@@ -2,8 +2,8 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.map
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.map
 import com.calypsan.listenup.client.data.remote.model.AddBooksToCollectionRequest
 import com.calypsan.listenup.client.data.remote.model.AdminCollectionResponse
 import com.calypsan.listenup.client.data.remote.model.ApiResponse

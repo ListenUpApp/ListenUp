@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity
 import com.calypsan.listenup.client.data.remote.TagApiContract

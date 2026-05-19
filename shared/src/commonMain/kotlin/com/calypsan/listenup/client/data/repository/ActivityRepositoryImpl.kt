@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.remote.ActivityFeedApiContract

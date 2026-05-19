@@ -33,7 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 
 /**
  * Tests for HomeViewModel.
@@ -310,7 +310,7 @@ class HomeViewModelTest {
             // Given
             val fixture = createFixture()
             everySuspend { fixture.syncRepository.sync() } returns
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .Success(Unit)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
@@ -329,7 +329,7 @@ class HomeViewModelTest {
             // Given - sync returns a failure Result (not an exception)
             val fixture = createFixture()
             everySuspend { fixture.syncRepository.sync() } returns
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .Failure(RuntimeException("Network error"))
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()

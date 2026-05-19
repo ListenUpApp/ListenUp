@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.metadata
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.domain.repository.CoverOption
 import com.calypsan.listenup.client.domain.repository.MetadataBook
@@ -29,7 +29,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MetadataViewModelTest {

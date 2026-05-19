@@ -80,7 +80,7 @@ import listenup.composeapp.generated.resources.series_enter_a_description_for_th
 import listenup.composeapp.generated.resources.series_no_cover
 import listenup.composeapp.generated.resources.series_series_cover
 import listenup.composeapp.generated.resources.series_series_name
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 /**
  * Series Edit Screen - simplified edit screen for series metadata and cover.

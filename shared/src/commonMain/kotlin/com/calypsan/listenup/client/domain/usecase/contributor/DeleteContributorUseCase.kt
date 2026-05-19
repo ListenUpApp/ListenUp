@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 

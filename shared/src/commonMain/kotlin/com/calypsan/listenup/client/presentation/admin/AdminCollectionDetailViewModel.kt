@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.repository.CollectionBookSummary
@@ -75,7 +75,7 @@ class AdminCollectionDetailViewModel(
                     throw e
                 } catch (e: Exception) {
                     errorBus.emit(
-                        com.calypsan.listenup.client.core.error.ErrorMapper
+                        com.calypsan.listenup.core.error.ErrorMapper
                             .map(e),
                     )
                     logger.error(e) { "Failed to load collection from local DB: $collectionId" }

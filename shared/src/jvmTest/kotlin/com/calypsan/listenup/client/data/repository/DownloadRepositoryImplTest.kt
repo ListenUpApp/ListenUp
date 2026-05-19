@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.data.remote.PreparePlaybackResponse
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences

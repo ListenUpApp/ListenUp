@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin

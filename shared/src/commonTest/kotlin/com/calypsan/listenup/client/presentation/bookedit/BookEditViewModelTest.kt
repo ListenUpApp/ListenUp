@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.bookedit
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.failureOf
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.failureOf
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse

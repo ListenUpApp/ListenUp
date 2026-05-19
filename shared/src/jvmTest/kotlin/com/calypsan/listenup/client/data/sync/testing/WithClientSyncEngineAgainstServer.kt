@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner

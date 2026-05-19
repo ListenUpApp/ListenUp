@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.metadata
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.ApplyMatchRequest
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.MetadataBook

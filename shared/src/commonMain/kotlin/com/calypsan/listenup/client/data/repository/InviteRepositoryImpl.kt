@@ -5,8 +5,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.map
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.map
 import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.InviteClaimedUser
 import com.calypsan.listenup.client.domain.model.InviteDetails

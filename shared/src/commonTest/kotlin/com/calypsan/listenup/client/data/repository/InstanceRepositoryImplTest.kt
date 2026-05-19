@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.ServerUrl
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertIs

@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.profile
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.User

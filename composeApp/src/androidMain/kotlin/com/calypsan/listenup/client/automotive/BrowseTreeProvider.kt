@@ -5,8 +5,8 @@ package com.calypsan.listenup.client.automotive
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao

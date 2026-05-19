@@ -3,9 +3,9 @@ package com.calypsan.listenup.client.presentation.connect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.ServerConnectError
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.error.ErrorBus
-import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DiscoveredServer
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository

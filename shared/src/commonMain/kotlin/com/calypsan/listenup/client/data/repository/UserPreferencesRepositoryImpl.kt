@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.remote.UserPreferencesRequest
 import com.calypsan.listenup.client.domain.repository.UserPreferences
@@ -23,7 +23,7 @@ class UserPreferencesRepositoryImpl(
 ) : UserPreferencesRepository {
     override suspend fun getPreferences(): AppResult<UserPreferences> =
         when (val result = userPreferencesApi.getPreferences()) {
-            is com.calypsan.listenup.client.core.Success -> {
+            is com.calypsan.listenup.core.Success -> {
                 Success(
                     UserPreferences(
                         defaultPlaybackSpeed = result.data.defaultPlaybackSpeed,
@@ -57,7 +57,7 @@ class UserPreferencesRepositoryImpl(
 
     private suspend fun syncSetting(request: UserPreferencesRequest): AppResult<Unit> =
         when (val result = userPreferencesApi.updatePreferences(request)) {
-            is com.calypsan.listenup.client.core.Success -> {
+            is com.calypsan.listenup.core.Success -> {
                 Success(Unit)
             }
 

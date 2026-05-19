@@ -3,9 +3,9 @@ package com.calypsan.listenup.client.presentation.invite
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.InviteRepository

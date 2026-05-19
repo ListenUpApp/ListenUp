@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -13,7 +13,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.client.core.failureOf
+import com.calypsan.listenup.core.failureOf
 
 /**
  * Tests for DeleteContributorUseCase.

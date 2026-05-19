@@ -3,8 +3,8 @@
 
 package com.calypsan.listenup.client.download
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -43,7 +43,7 @@ import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 
@@ -60,7 +60,7 @@ private val logger = KotlinLogging.logger {}
  * — deferred to W10").
  *
  * For Phase B specifically, this class's interface compliance was updated:
- * - [downloadBook] returns [com.calypsan.listenup.client.core.AppResult]<[com.calypsan.listenup.client.domain.model.DownloadOutcome]> instead of the legacy `DownloadResult`.
+ * - [downloadBook] returns [com.calypsan.listenup.core.AppResult]<[com.calypsan.listenup.client.domain.model.DownloadOutcome]> instead of the legacy `DownloadResult`.
  * - [observeBookStatus] aggregates via the new sealed [com.calypsan.listenup.client.domain.model.BookDownloadStatus] hierarchy.
  *
  * The internal DAO writes remain untouched.

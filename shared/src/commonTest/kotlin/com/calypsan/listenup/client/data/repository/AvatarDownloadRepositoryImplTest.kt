@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend

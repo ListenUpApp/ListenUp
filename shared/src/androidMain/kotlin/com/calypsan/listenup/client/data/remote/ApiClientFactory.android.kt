@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient

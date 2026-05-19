@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 /**
  * In-memory fake of [BookRepository]. Backed by a [MutableStateFlow] of the book list

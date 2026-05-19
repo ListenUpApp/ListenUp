@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.core.configureLogging
+import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase

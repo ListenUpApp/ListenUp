@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.cover
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 
 /**
  * Validation-domain handler for Tags. Tags has no client UI nor Room entity in

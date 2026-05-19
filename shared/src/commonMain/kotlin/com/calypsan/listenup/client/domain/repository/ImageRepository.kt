@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.AppResult
 
 /**
  * Domain repository for persistent image operations.

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.notFoundError
+import com.calypsan.listenup.core.notFoundError
 
 private val logger = KotlinLogging.logger {}
 

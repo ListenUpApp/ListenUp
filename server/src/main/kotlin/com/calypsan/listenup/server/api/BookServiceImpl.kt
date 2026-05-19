@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.services.BookRepository
 
 private const val MAX_SEARCH_LIMIT = 200

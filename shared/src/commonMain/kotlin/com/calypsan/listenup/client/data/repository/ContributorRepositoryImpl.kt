@@ -2,10 +2,10 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.IODispatcher
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
@@ -350,8 +350,8 @@ private fun com.calypsan.listenup.client.data.remote.model.ContributorMetadataSe
 
 private fun Contributor.toEntity(): ContributorEntity {
     val now =
-        com.calypsan.listenup.client.core.Timestamp(
-            com.calypsan.listenup.client.core
+        com.calypsan.listenup.core.Timestamp(
+            com.calypsan.listenup.core
                 .currentEpochMilliseconds(),
         )
     return ContributorEntity(

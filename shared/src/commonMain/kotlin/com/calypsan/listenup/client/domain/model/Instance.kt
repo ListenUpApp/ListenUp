@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline

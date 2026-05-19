@@ -1,12 +1,12 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 

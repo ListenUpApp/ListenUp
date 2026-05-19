@@ -1,13 +1,13 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.appJson
-import com.calypsan.listenup.client.core.flatMap
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.appJson
+import com.calypsan.listenup.core.flatMap
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.remote.dataOrFailure
 import com.calypsan.listenup.client.data.remote.model.ApiResponse

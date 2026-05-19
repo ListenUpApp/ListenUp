@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.local.images
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO

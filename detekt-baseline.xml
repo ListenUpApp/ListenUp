@@ -439,7 +439,7 @@
     <ID>UnusedImports:DownloadWorkerLogicTest.kt$import kotlin.test.assertFails</ID>
     <ID>UnusedImports:InstanceRepositoryImpl.kt$import io.ktor.client.plugins.timeout</ID>
     <ID>UnusedImports:JvmSecureStorageTest.kt$import kotlin.test.assertNotEquals</ID>
-    <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.client.core.ServerUrl</ID>
+    <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.core.ServerUrl</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
     <ID>UnusedImports:SSEEventProcessorAtomicityTest.kt$import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos</ID>

@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.repository.BookContributorInput

@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.test.fake
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -80,7 +80,7 @@ class FakePlaybackPositionRepositoryTest {
 
             val result = repo.markComplete(BookId("book-1"), startedAt = 100L, finishedAt = 999L)
 
-            assertTrue(result is com.calypsan.listenup.client.core.Success)
+            assertTrue(result is com.calypsan.listenup.core.Success)
             val after =
                 assertNotNull(
                     assertIs<AppResult.Success<com.calypsan.listenup.client.domain.model.PlaybackPosition?>>(
@@ -100,7 +100,7 @@ class FakePlaybackPositionRepositoryTest {
 
             val result = repo.discardProgress(BookId("book-1"))
 
-            assertTrue(result is com.calypsan.listenup.client.core.Success)
+            assertTrue(result is com.calypsan.listenup.core.Success)
             val afterDiscard = assertIs<AppResult.Success<*>>(repo.get(BookId("book-1")))
             assertNull(afterDiscard.data)
         }
@@ -114,7 +114,7 @@ class FakePlaybackPositionRepositoryTest {
 
             val result = repo.restartBook(BookId("book-1"))
 
-            assertTrue(result is com.calypsan.listenup.client.core.Success)
+            assertTrue(result is com.calypsan.listenup.core.Success)
             val after =
                 assertNotNull(
                     assertIs<AppResult.Success<com.calypsan.listenup.client.domain.model.PlaybackPosition?>>(

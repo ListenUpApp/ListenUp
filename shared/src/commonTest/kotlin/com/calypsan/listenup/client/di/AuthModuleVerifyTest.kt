@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
 import com.calypsan.listenup.client.data.remote.model.ShelfSummaryResponse

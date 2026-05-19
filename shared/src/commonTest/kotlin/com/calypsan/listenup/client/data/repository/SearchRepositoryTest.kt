@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
@@ -428,7 +428,7 @@ class SearchRepositoryTest {
                 listOf(
                     ContributorEntity(
                         id =
-                            com.calypsan.listenup.client.core
+                            com.calypsan.listenup.core
                                 .ContributorId("c1"),
                         name = "Author",
                         description = null,
@@ -441,7 +441,7 @@ class SearchRepositoryTest {
                 listOf(
                     SeriesEntity(
                         id =
-                            com.calypsan.listenup.client.core
+                            com.calypsan.listenup.core
                                 .SeriesId("s1"),
                         name = "Series",
                         description = null,

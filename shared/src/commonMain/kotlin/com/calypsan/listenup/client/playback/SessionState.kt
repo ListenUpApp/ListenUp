@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 
 /**
  * Reactive session state for [ProgressTracker].

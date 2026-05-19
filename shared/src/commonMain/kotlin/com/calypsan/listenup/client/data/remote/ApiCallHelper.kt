@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.flatMap
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.flatMap
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 
 // ---- AppResult-returning helpers -----------------------------------------------------
@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
  * envelope and returns an [AppResult]. `suspendRunCatching` catches Ktor's typed
  * exceptions (`ResponseException`, `IOException`, etc.) — which the
  * [HttpClientErrorHandling] plugin's `expectSuccess = true` setting raises on
- * non-2xx — and routes them through [com.calypsan.listenup.client.core.error.ErrorMapper].
+ * non-2xx — and routes them through [com.calypsan.listenup.core.error.ErrorMapper].
  *
  * @param errorMessage Used as the `TransportError.DataMalformed.detail` if the
  *   envelope reports `success = true` but `data == null` (the only case where

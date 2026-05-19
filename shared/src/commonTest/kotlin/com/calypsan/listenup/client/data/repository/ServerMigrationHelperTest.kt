@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.SecureStorage
+import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.local.db.ServerDao
 import com.calypsan.listenup.client.data.local.db.ServerEntity
 import dev.mokkery.answering.returns

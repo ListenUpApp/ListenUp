@@ -4,7 +4,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceContextProvider
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
 import com.calypsan.listenup.client.data.remote.ActivityFeedApi
@@ -200,7 +200,7 @@ val dataModule =
         // Error bus — single instance shared by every emitter (data layer, ViewModels)
         // and the single subscriber (GlobalErrorSnackbar in AppShell).
         single {
-            com.calypsan.listenup.client.core.error
+            com.calypsan.listenup.core.error
                 .ErrorBus()
         }
 
@@ -316,7 +316,7 @@ val repositoryModule =
         // dependency (SettingsRepository -> InstanceRepository -> SettingsRepository).
         // The URL is stored before checkServerStatus() is called.
         single<InstanceRepository> {
-            val secureStorage: com.calypsan.listenup.client.core.SecureStorage = get()
+            val secureStorage: com.calypsan.listenup.core.SecureStorage = get()
             InstanceRepositoryImpl(
                 getServerUrl = {
                     secureStorage.read("server_url")?.let { ServerUrl(it) }

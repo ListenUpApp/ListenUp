@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.ApplyContributorMetadataRequest
 import com.calypsan.listenup.client.data.remote.model.ApplyMatchRequest
@@ -26,7 +26,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 /**
  * Contract interface for metadata API operations.

@@ -2,8 +2,8 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.IODispatcher
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.local.db.BookSearchResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.FileSource
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse

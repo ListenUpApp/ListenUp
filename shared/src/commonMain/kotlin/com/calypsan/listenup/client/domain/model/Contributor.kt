@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.model
 
-import com.calypsan.listenup.client.core.ContributorId
+import com.calypsan.listenup.core.ContributorId
 
 /**
  * Domain model representing a book contributor (author, narrator, etc).

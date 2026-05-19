@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.domain.model.BackupValidation
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}

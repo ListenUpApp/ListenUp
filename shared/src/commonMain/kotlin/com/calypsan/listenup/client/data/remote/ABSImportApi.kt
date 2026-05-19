@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.error.ImportError
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.FileSource
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout

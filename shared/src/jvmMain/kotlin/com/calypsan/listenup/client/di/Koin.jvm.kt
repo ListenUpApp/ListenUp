@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.core.JvmSecureStorage
-import com.calypsan.listenup.client.core.SecureStorage
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.JvmSecureStorage
+import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.discovery.JmDnsDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage

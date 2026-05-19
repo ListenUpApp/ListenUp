@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.e2e
 
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 
 /**

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 
 /**
  * Per-book audio file row.

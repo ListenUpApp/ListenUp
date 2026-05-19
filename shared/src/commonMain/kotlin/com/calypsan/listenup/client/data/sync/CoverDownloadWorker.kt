@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.CoverDownloadDao
 import com.calypsan.listenup.client.data.local.db.CoverDownloadStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Failure
 
 private val logger = KotlinLogging.logger {}
 

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.di
 
 import android.content.Context
-import com.calypsan.listenup.client.core.AndroidSecureStorage
-import com.calypsan.listenup.client.core.SecureStorage
+import com.calypsan.listenup.core.AndroidSecureStorage
+import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.local.images.AndroidCoverColorExtractor
 import com.calypsan.listenup.client.data.local.images.AndroidStoragePaths
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage

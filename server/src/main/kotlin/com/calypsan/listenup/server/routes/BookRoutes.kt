@@ -25,7 +25,7 @@ import io.ktor.server.routing.Route
  *    Responds the **unwrapped** value (RESTful convention for the third-party
  *    surface, not the AppResult-wrapped envelope that authRoutes uses).
  *  - `GET /api/v1/books?q=&limit=` — runs a server-side FTS5 query and returns
- *    a [List]<[com.calypsan.listenup.client.core.BookId]> in rank order.
+ *    a [List]<[com.calypsan.listenup.core.BookId]> in rank order.
  *    Rate-limited to 60 req/min per host.
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on

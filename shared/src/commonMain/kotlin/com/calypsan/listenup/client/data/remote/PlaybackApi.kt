@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.map
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.map
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.call.body

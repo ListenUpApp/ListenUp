@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.SecureStorage
-import com.calypsan.listenup.client.core.ServerUrl
+import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import kotlinx.coroutines.CancellationException

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import dev.mokkery.answering.returns

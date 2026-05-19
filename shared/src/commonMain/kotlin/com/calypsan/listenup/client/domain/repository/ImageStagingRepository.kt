@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 
 /**
  * Domain repository owning the staging-location lifecycle for book and series cover art.

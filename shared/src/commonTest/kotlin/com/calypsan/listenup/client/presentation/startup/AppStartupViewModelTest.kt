@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.startup
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryStatusResponse
 import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.domain.model.User

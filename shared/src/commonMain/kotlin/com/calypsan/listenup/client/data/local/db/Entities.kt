@@ -3,13 +3,13 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ChapterId
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ChapterId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.currentEpochMilliseconds
 
 /**
  * Room entity representing a user in the local database.

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.BookListItem

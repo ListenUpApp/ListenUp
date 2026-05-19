@@ -55,8 +55,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.client.foldable.PostureProvider
 
 /**

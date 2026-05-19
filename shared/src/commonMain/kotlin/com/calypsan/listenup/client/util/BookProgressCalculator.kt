@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.util
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging

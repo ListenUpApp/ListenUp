@@ -10,10 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.calypsan.listenup.client.core.AndroidFileSource
-import com.calypsan.listenup.client.core.FileSource
+import com.calypsan.listenup.core.AndroidFileSource
+import com.calypsan.listenup.core.FileSource
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 

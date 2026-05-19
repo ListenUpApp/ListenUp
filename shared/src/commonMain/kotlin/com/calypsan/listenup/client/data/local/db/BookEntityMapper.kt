@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem

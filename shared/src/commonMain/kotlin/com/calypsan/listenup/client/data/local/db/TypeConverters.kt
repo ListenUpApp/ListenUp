@@ -1,12 +1,12 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.TypeConverter
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.appJson
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 

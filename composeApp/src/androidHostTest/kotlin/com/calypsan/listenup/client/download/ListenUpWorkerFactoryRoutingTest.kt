@@ -5,9 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.FileSource
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.FileSource
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportBook
 import com.calypsan.listenup.client.data.remote.ABSImportResponse

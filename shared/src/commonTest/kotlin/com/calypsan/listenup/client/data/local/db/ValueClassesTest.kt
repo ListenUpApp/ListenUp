@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.local.db
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.ChapterId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ChapterId
+import com.calypsan.listenup.core.Timestamp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.IODispatcher
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository

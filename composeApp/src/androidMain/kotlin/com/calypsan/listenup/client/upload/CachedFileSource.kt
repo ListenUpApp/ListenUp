@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.upload
 
-import com.calypsan.listenup.client.core.FileSource
+import com.calypsan.listenup.core.FileSource
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import java.io.File

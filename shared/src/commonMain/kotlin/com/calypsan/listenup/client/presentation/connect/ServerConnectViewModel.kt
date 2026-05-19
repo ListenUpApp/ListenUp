@@ -2,10 +2,10 @@ package com.calypsan.listenup.client.presentation.connect
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.PlatformUtils
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.PlatformUtils
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository

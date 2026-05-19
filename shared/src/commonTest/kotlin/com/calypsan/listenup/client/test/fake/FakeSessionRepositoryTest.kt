@@ -7,7 +7,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 class FakeSessionRepositoryTest {
     private fun reader(userId: String) =

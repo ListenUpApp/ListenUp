@@ -3,8 +3,8 @@ package com.calypsan.listenup.client.domain.model
 /**
  * Successful outcomes of a download orchestration request.
  *
- * Wrapped in [com.calypsan.listenup.client.core.AppResult.Success] when the request succeeds.
- * Failures use [com.calypsan.listenup.client.core.AppResult.Failure] with a
+ * Wrapped in [com.calypsan.listenup.core.AppResult.Success] when the request succeeds.
+ * Failures use [com.calypsan.listenup.core.AppResult.Failure] with a
  * [com.calypsan.listenup.api.error.DownloadError].
  *
  * Replaces the legacy `DownloadResult` sealed type per W8 Phase B

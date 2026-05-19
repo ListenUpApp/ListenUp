@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Tag

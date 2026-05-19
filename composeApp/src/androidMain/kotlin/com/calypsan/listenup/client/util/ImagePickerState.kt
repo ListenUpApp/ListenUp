@@ -11,7 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 

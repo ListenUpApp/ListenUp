@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource

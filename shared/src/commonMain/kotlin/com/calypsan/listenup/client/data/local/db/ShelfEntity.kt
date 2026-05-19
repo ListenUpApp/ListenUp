@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 
 /**
  * Room entity representing a shelf in the local database.

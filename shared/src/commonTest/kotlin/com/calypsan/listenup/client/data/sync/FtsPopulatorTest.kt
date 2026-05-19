@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -96,7 +96,7 @@ class FtsPopulatorTest {
     ): ContributorEntity =
         ContributorEntity(
             id =
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .ContributorId(id),
             name = name,
             description = description,
@@ -112,7 +112,7 @@ class FtsPopulatorTest {
     ): SeriesEntity =
         SeriesEntity(
             id =
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .SeriesId(id),
             name = name,
             description = description,

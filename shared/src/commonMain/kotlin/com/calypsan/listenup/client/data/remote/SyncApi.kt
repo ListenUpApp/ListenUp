@@ -2,12 +2,12 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.flatMap
-import com.calypsan.listenup.client.core.map
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.flatMap
+import com.calypsan.listenup.core.map
+import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.AllProgressResponse
 import com.calypsan.listenup.client.data.remote.model.ApiActiveSessions
 import com.calypsan.listenup.client.data.remote.model.ApiReadingSessions

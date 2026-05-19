@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.download
 
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 
 /**

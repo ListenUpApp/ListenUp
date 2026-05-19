@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.core.map
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.map
 import com.calypsan.listenup.client.data.local.db.BookReadersSummaryDao
 import com.calypsan.listenup.client.data.local.db.BookReadersSummaryEntity
 import com.calypsan.listenup.client.data.local.db.ReaderSessionCacheDao
@@ -134,7 +134,7 @@ class SessionRepositoryImpl(
                 }
             }
 
-            is com.calypsan.listenup.client.core.Failure -> {
+            is com.calypsan.listenup.core.Failure -> {
                 logger.error { "Failed to refresh readers for book $bookId: ${result.message}" }
             }
         }

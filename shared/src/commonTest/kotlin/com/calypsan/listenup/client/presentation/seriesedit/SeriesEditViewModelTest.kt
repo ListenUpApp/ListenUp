@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -59,7 +59,7 @@ class SeriesEditViewModelTest :
             description: String? = "A test series",
         ) = Series(
             id =
-                com.calypsan.listenup.client.core
+                com.calypsan.listenup.core
                     .SeriesId(id),
             name = name,
             description = description,

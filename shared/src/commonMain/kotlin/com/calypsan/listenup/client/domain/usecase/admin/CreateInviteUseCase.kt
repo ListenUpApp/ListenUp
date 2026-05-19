@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.admin
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.validationError
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.validationError
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 

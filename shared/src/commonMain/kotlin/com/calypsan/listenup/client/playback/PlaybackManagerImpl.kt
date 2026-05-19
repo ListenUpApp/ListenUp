@@ -8,7 +8,7 @@
 
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
@@ -250,7 +250,7 @@ class PlaybackManagerImpl(
                                     message = playbackState.message ?: "Playback failed.",
                                     isRecoverable = playbackState.isRecoverable,
                                     timestampMs =
-                                        com.calypsan.listenup.client.core
+                                        com.calypsan.listenup.core
                                             .currentEpochMilliseconds(),
                                 )
                         }
@@ -452,7 +452,7 @@ class PlaybackManagerImpl(
                 message = message,
                 isRecoverable = isRecoverable,
                 timestampMs =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .currentEpochMilliseconds(),
             )
     }

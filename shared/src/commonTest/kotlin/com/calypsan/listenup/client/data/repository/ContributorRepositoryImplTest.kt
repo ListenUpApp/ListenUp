@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
@@ -66,7 +66,7 @@ class ContributorRepositoryImplTest :
         ): ContributorEntity =
             ContributorEntity(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .ContributorId(id),
                 name = name,
                 description = description,

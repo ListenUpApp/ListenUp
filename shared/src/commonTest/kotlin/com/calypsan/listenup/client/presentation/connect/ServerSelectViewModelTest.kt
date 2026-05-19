@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.connect
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.error.ServerConnectError
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Server
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.domain.repository.InstanceRepository

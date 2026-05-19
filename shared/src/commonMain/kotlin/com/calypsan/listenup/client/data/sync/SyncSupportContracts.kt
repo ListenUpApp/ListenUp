@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 
 /** Utility contract for local image download/cache operations. */
 interface ImageDownloaderContract {

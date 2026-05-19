@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.playback
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.AudioFile
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test

@@ -2,7 +2,7 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import kotlinx.rpc.annotations.Rpc
 
 /**

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.cover
 
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

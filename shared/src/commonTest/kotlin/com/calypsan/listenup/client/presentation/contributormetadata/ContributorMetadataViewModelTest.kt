@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.contributormetadata
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.error.ErrorBus
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
 import com.calypsan.listenup.client.domain.repository.ContributorMetadataProfile
@@ -70,7 +70,7 @@ class ContributorMetadataViewModelTest :
         ): Contributor =
             Contributor(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .ContributorId(id),
                 name = name,
                 description = null,

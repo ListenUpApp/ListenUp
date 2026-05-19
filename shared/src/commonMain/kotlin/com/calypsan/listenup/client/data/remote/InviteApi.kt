@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.appJson
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -101,7 +101,7 @@ class InviteApi : InviteApiContract {
                     clientVersion = "1.0.0",
                     clientBuild = "1",
                     deviceModel =
-                        com.calypsan.listenup.client.core.PlatformUtils
+                        com.calypsan.listenup.core.PlatformUtils
                             .getDeviceModel(),
                 )
             return apiCall(errorMessage = "Failed to claim invite") {

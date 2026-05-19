@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.library
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -101,7 +101,7 @@ class LibraryViewModelTest :
         ): Series =
             Series(
                 id =
-                    com.calypsan.listenup.client.core
+                    com.calypsan.listenup.core
                         .SeriesId(id),
                 name = name,
                 description = null,
@@ -117,7 +117,7 @@ class LibraryViewModelTest :
                 contributor =
                     Contributor(
                         id =
-                            com.calypsan.listenup.client.core
+                            com.calypsan.listenup.core
                                 .ContributorId(id),
                         name = name,
                         description = null,

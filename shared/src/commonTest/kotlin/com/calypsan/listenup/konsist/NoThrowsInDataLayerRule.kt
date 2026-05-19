@@ -8,7 +8,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * Pins the data-layer error contract delivered by Task 27d (Phase 3.5).
  *
  * After Task 27d, fallible work in `data/remote/` and `data/repository/` returns
- * [com.calypsan.listenup.client.core.AppResult] rather than throwing. This rule
+ * [com.calypsan.listenup.core.AppResult] rather than throwing. This rule
  * detects functions whose body contains `throw` expressions, then filters out
  * patterns that are still legitimate after the migration:
  *

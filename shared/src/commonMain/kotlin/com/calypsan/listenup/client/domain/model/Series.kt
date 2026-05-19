@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
-import com.calypsan.listenup.client.core.SeriesId
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Timestamp
 
 /**
  * Domain model representing a book series.

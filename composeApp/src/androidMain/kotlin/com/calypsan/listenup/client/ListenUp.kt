@@ -16,7 +16,7 @@ import androidx.work.WorkManager
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
-import com.calypsan.listenup.client.core.ImageLoaderFactory
+import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.client.data.remote.PlaybackApi
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.notifications.NotificationChannels

@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult as WireResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner

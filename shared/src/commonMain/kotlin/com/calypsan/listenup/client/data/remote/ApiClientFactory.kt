@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.appJson
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging

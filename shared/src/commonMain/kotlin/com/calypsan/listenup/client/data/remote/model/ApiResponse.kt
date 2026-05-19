@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.remote.model
 
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement

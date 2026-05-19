@@ -2,12 +2,12 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.ContributorId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.IODispatcher
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorAliasCrossRef

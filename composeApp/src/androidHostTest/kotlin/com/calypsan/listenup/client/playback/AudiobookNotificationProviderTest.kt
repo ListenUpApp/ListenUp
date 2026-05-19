@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.playback
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import kotlinx.coroutines.flow.MutableStateFlow

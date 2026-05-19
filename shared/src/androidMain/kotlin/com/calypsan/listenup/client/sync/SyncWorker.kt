@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import com.calypsan.listenup.client.core.AppResult as CoreResult
+import com.calypsan.listenup.core.AppResult as CoreResult
 
 private val logger = KotlinLogging.logger {}
 

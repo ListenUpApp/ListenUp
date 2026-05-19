@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
-import com.calypsan.listenup.client.core.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.failureOf
-import com.calypsan.listenup.client.core.validationError
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.core.validationError
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
 import com.calypsan.listenup.client.domain.model.ContributorWithMetadata
@@ -151,7 +151,7 @@ open class ApplyContributorMetadataUseCase(
 private fun ContributorWithMetadata.toDomain(existing: Contributor? = null): Contributor =
     Contributor(
         id =
-            com.calypsan.listenup.client.core
+            com.calypsan.listenup.core
                 .ContributorId(id),
         name = name,
         description = biography,

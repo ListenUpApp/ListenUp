@@ -2,10 +2,10 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.SecureStorage
-import com.calypsan.listenup.client.core.ServerUrl
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.SecureStorage
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.model.InstanceId
@@ -20,7 +20,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.Timestamp
 
 private fun createTestInstance(setupRequired: Boolean): Instance =
     Instance(

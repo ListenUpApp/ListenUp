@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Success
-import com.calypsan.listenup.client.core.Timestamp
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.CoverDownloadDao
 import com.calypsan.listenup.client.data.local.db.CoverDownloadStatus
 import com.calypsan.listenup.client.data.local.db.CoverDownloadTaskEntity

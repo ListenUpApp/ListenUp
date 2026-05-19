@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.discover
 
-import com.calypsan.listenup.client.core.AppResult
+import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase

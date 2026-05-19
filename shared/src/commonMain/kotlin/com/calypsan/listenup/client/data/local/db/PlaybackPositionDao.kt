@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import com.calypsan.listenup.client.core.BookId
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 
 /**

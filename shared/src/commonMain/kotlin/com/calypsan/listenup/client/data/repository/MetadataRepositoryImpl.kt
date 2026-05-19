@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.IODispatcher
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.remote.MetadataApiContract
 import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
 import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
@@ -22,7 +22,7 @@ import com.calypsan.listenup.client.data.remote.model.ApplyMatchRequest as DataA
 import com.calypsan.listenup.client.data.remote.model.CoverOption as DataCoverOption
 import com.calypsan.listenup.client.data.remote.model.MetadataBook as DataMetadataBook
 import com.calypsan.listenup.client.data.remote.model.MetadataSearchResult as DataMetadataSearchResult
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 

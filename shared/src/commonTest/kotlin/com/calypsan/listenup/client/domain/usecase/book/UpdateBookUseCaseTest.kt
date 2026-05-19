@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.domain.usecase.book
 
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.BookId
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.core.Success
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
@@ -33,7 +33,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.client.core.failureOf
+import com.calypsan.listenup.core.failureOf
 
 /**
  * Tests for UpdateBookUseCase.
