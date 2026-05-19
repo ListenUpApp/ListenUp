@@ -171,6 +171,7 @@ kotlin {
             // server symbols from `:shared:jvmTest` requires them on the test classpath
             // explicitly. Confined to jvmTest — production is unaffected.
             implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.cio)
             implementation(libs.ktor.server.test.host)
             implementation(libs.ktor.server.content.negotiation)
             implementation(libs.ktor.server.sse)
