@@ -164,7 +164,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Toggle between play and pause.
     func togglePlayback() {
         guard let loaded = phase.playingState else { return }
-        let id = BookId(value: loaded.bookId)
+        // KMP value-class `BookId` is erased at the Swift boundary — its APIs take
+        // the underlying id value directly.
+        let id = loaded.bookId
         if phase.isPlaying {
             Task { await engine.pause() }
             phase = .paused(loaded)
@@ -189,7 +191,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         Task { await engine.setRate(speed) }
         if let id = currentBookId {
             progressTracker.onSpeedChanged(
-                bookId: BookId(value: id), positionMs: bookPositionMs, newSpeed: speed
+                bookId: id, positionMs: bookPositionMs, newSpeed: speed
             )
         }
         updateNowPlaying()
@@ -242,7 +244,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Prepare
 
     private func prepareAndStart(bookId: String) async {
-        let id = BookId(value: bookId)
+        let id = bookId
         guard let prepared = try? await preparer.prepare(bookId: id, onPrepareProgress: { _ in }) else {
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
@@ -316,14 +318,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
         if abs(positionMs - lastReportedPositionMs) >= Self.positionReportIntervalMs {
             lastReportedPositionMs = positionMs
             progressTracker.onPositionUpdate(
-                bookId: BookId(value: id), positionMs: positionMs, speed: playbackSpeed
+                bookId: id, positionMs: positionMs, speed: playbackSpeed
             )
         }
     }
 
     private func handleBookEnded() {
         guard let id = currentBookId, let loaded = phase.playingState else { return }
-        progressTracker.onBookFinished(bookId: BookId(value: id), finalPositionMs: bookDurationMs)
+        progressTracker.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
     }
