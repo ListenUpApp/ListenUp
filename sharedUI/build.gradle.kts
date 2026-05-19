@@ -35,6 +35,13 @@ composeCompiler {
     reportsDestination = layout.buildDirectory.dir("compose-reports")
 }
 
+compose.resources {
+    // Pin the generated Res package so it stays independent of the module
+    // directory name (the renamed :sharedUI module would otherwise shift it
+    // to listenup.sharedui.generated.resources and break every import).
+    packageOfResClass = "listenup.composeapp.generated.resources"
+}
+
 kotlin {
     // Android target using new AGP 9.0-compatible plugin
     androidLibrary {

@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  * bytes when serializing/deserializing.
  *
  * Allowlisted (NOT wire-borne, legitimate platform-specific @Serializable use):
- * - `:composeApp/.../androidMain/...` — Android Navigation 3 routes use `@Serializable` for
+ * - `:sharedUI/.../androidMain/...` — Android Navigation 3 routes use `@Serializable` for
  *   compile-time type-safe nav arg passing, not for cross-platform wire transport.
  * - `:server/src/main/` — persistence-internal @Serializable types (DB row classes, job
  *   payloads). If a new wire-borne type lands in `:server` instead of commonMain, this rule
@@ -29,7 +29,7 @@ class DtosLiveInCommonMainRule :
                     .filter { !it.path.contains("/commonMain/") }
                     // Allowlist: see KDoc on this rule for justification.
                     .filter { !it.path.contains("/server/src/main/") }
-                    .filter { !it.path.contains("/composeApp/") }
+                    .filter { !it.path.contains("/sharedUI/") }
                     .map { "${it.fullyQualifiedName} @ ${it.path}" }
 
             offenders.shouldBeEmpty()

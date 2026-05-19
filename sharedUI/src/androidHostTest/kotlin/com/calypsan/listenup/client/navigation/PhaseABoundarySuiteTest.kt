@@ -61,11 +61,11 @@ class PhaseABoundarySuiteTest {
 
         val authNav =
             readNavigationSource(
-                "composeApp/src/commonMain/kotlin/com/calypsan/listenup/client/navigation/AuthNavigation.kt",
+                "sharedUI/src/commonMain/kotlin/com/calypsan/listenup/client/navigation/AuthNavigation.kt",
             )
         val listenUpNav =
             readNavigationSource(
-                "composeApp/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/ListenUpNavigation.kt",
+                "sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/ListenUpNavigation.kt",
             )
 
         val sites = mutableListOf<Pair<String, Int>>()
@@ -86,7 +86,7 @@ class PhaseABoundarySuiteTest {
     }
 
     private fun readNavigationSource(path: String): List<String> {
-        // Test working directory is `client/composeApp/`. Project root is two levels up.
+        // Test working directory is `client/sharedUI/`. Project root is two levels up.
         val candidates =
             listOf(
                 java.io.File("../../$path"),
