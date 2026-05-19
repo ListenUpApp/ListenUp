@@ -4,8 +4,8 @@ import Shared
 
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
-    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
-        Chapter(id: id, title: id, duration: duration, startTime: start)
+    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter_ {
+        Chapter_(id: id, title: id, duration: duration, startTime: start)
     }
 
     @Test func indexIsNilForEmpty() {

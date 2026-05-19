@@ -6,7 +6,7 @@ import Shared
 enum ChapterMath {
     /// The index of the chapter containing `positionMs`, or `nil` for an empty
     /// list. A position past the last chapter clamps to the last index.
-    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter]) -> Int? {
+    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter_]) -> Int? {
         guard !chapters.isEmpty else { return nil }
         for (index, chapter) in chapters.enumerated()
         where positionMs < chapter.startTime + chapter.duration {
@@ -51,7 +51,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private(set) var coverPath: String?
     private(set) var coverBlurHash: String?
     private(set) var playbackSpeed: Float = 1.0
-    private(set) var chapters: [Chapter] = []
+    private(set) var chapters: [Chapter_] = []
 
     // MARK: - Preserved UI surface — position (derived from PositionTracker)
 
@@ -91,12 +91,15 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard !chapters.isEmpty else { return nil }
         let index = chapterIndex
         let chapter = chapters[index]
+        let endMs = chapter.startTime + chapter.duration
         return PlaybackManagerChapterInfo(
             index: Int32(index),
             title: chapter.title,
             startMs: chapter.startTime,
-            endMs: chapter.startTime + chapter.duration,
-            totalChapters: Int32(chapters.count)
+            endMs: endMs,
+            remainingMs: max(0, endMs - bookPositionMs),
+            totalChapters: Int32(chapters.count),
+            isGenericTitle: false
         )
     }
 
