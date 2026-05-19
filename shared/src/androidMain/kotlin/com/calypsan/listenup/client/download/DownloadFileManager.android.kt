@@ -98,15 +98,14 @@ actual class DownloadFileManager(
         if (!dir.exists()) return 0
 
         var deleted = 0
-        dir.walkTopDown()
+        dir
+            .walkTopDown()
             .filter { it.isFile && it.name.endsWith(".tmp") }
             .forEach { file ->
                 // Filename format: "${audioFileId}_${filename}.tmp"
                 // The audioFileId is everything before the first '_'.
                 val audioFileId = file.name.substringBefore('_')
-                if (audioFileId !in activeAudioFileIds) {
-                    if (file.delete()) deleted++
-                }
+                if (audioFileId !in activeAudioFileIds && file.delete()) deleted++
             }
         return deleted
     }

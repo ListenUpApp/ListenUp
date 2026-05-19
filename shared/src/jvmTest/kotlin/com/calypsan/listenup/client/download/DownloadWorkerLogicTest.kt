@@ -807,7 +807,7 @@ class DownloadWorkerLogicTest {
      * after a cancelled download, the .tmp is absent from active ids and the sweep removes it.
      */
     @Test
-    fun `user-cancel leaves tmp on disk - sweep removes orphaned partial`() =
+    fun sweepRemovesOrphanedTmpPartial() =
         runTest {
             val tmpRoot = tempDir()
             try {

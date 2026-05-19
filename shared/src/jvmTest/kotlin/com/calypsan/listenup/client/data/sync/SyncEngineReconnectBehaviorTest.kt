@@ -56,7 +56,8 @@ class SyncEngineReconnectBehaviorTest :
                     recheckCalls.size shouldBe 1
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }
@@ -92,7 +93,7 @@ class SyncEngineReconnectBehaviorTest :
                     // then reconnect so distinctUntilChanged fires the Connected edge again.
                     sse.simulateDisconnect()
                     // Allow the collector to observe Disconnected before we flip back.
-                    kotlinx.coroutines.delay(50)
+                    kotlinx.coroutines.delay(RECONNECT_SETTLE_MS)
                     sse.simulateReconnect()
 
                     withTimeout(5.seconds) {
@@ -103,7 +104,8 @@ class SyncEngineReconnectBehaviorTest :
                     recheckCalls.size shouldBe 2
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }
@@ -120,7 +122,7 @@ class SyncEngineReconnectBehaviorTest :
                     val failingDownloadRepository =
                         object : FakeDownloadRepository() {
                             override suspend fun recheckWaitingForServer(): AppResult<Unit> {
-                                throw RuntimeException("simulated recheck failure")
+                                error("simulated recheck failure")
                             }
                         }
                     val engine = buildReconnectEngine(db, state, sse, failingDownloadRepository, scope)
@@ -143,7 +145,8 @@ class SyncEngineReconnectBehaviorTest :
                     (state.value.connection is ConnectionState.Connected) shouldBe true
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }
@@ -153,6 +156,9 @@ class SyncEngineReconnectBehaviorTest :
 // ---------------------------------------------------------------------------
 // Local helpers
 // ---------------------------------------------------------------------------
+
+/** Milliseconds to let the SSE collector observe [ConnectionState.Disconnected] before reconnecting. */
+private const val RECONNECT_SETTLE_MS = 50L
 
 private fun buildReconnectEngine(
     db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
