@@ -3,6 +3,7 @@
 // concurrency. The activity handle is a system-managed token, safe to use across
 // contexts; the attribute downgrades the diagnostic until ActivityKit is audited.
 @preconcurrency import ActivityKit
+import ListenUpActivityKit
 import SwiftUI
 
 /// Manages the audiobook Live Activity (Dynamic Island + Lock Screen).
@@ -55,6 +56,7 @@ final class LiveActivityManager {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let attributes = AudiobookActivityAttributes(
+            bookId: observer.phase.bookId ?? "",
             bookTitle: observer.bookTitle,
             authorName: observer.authorName,
             coverBlurHash: observer.coverBlurHash
@@ -89,33 +91,19 @@ final class LiveActivityManager {
     // MARK: - State
 
     private func makeContentState() -> AudiobookActivityAttributes.ContentState {
-        AudiobookActivityAttributes.ContentState(
+        let snapshot = LiveActivitySnapshot(
+            bookId: observer.phase.bookId ?? "",
+            bookTitle: observer.bookTitle,
+            authorName: observer.authorName,
+            coverBlurHash: observer.coverBlurHash,
+            coverPath: observer.coverPath,
             chapterTitle: observer.chapterTitle ?? observer.bookTitle,
             isPlaying: observer.isPlaying,
-            progress: observer.bookProgress,
-            chapterProgress: chapterProgress,
-            elapsedFormatted: formatDuration(ms: observer.bookPositionMs),
-            remainingFormatted: formatRemaining()
+            bookPositionMs: observer.bookPositionMs,
+            bookDurationMs: observer.bookDurationMs,
+            chapterPositionMs: observer.chapterPositionMs,
+            chapterDurationMs: observer.chapterDurationMs
         )
-    }
-
-    private var chapterProgress: Float {
-        guard observer.chapterDurationMs > 0 else { return 0 }
-        return Float(observer.chapterPositionMs) / Float(observer.chapterDurationMs)
-    }
-
-    private func formatDuration(ms: Int64) -> String {
-        let totalSeconds = Int(ms / 1000)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
-    }
-
-    private func formatRemaining() -> String {
-        let remaining = observer.bookDurationMs - observer.bookPositionMs
-        return formatDuration(ms: remaining) + " left"
+        return LiveActivityContentMapper.contentState(from: snapshot)
     }
 }

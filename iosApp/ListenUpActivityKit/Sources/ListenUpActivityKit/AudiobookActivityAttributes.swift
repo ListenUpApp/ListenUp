@@ -22,7 +22,7 @@ public struct AudiobookActivityAttributes: ActivityAttributes {
     }
 
     /// Dynamic data — pushed on discrete playback events.
-    public struct ContentState: Codable, Hashable {
+    public struct ContentState: Codable, Hashable, Sendable {
         public let chapterTitle: String
         public let isPlaying: Bool
         public let bookProgress: Double      // 0.0–1.0, whole book
