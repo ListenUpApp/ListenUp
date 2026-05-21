@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
@@ -198,6 +199,64 @@ class ScannerTest :
 
                     val result = bus.replayCache.first()
                     result.scope shouldBe ScanScope.Full
+                }
+            }
+        }
+
+        test("a book with no playable track is skipped, not ingested") {
+            runTest {
+                audioLibrary {
+                    book("Author/Real Book") { tracks(count = 1) }
+                    // Image-only folder — yields a candidate with zero audio tracks.
+                    book("Author/Coverless") { cover() }
+                }.use { fixture ->
+                    val (scanner, _) = newScanner(fixture)
+
+                    val result = scanner.runFullScan()
+
+                    result.books.map { it.candidate.rootRelPath } shouldBe listOf("Author/Real Book")
+                    result.errors.size shouldBe 1
+                    val error = result.errors.single().shouldBeInstanceOf<ScanError.FileUnreadable>()
+                    // The error names the failing book's own directory, not the library root.
+                    error.path shouldBe fixture.root.resolve("Author/Coverless").toString()
+                }
+            }
+        }
+
+        test("a book with an unreadable primary file stays in books with hasScanWarning") {
+            runTest {
+                audioLibrary {
+                    // 64 bytes of zeroes — past the parser's minimum-header threshold,
+                    // but no magic matches, so the parser rejects it as unsupported.
+                    book("Author/Damaged") { audio("01.mp3", sizeBytes = 64) }
+                }.use { fixture ->
+                    val (scanner, _) = newScanner(fixture)
+
+                    val result = scanner.runFullScan()
+
+                    val book = result.books.single { it.candidate.rootRelPath == "Author/Damaged" }
+                    book.hasScanWarning shouldBe true
+                    book.embeddedStatus.shouldNotBeNull()
+                }
+            }
+        }
+
+        test("a scan over a library with one unreadable file completes normally") {
+            runTest {
+                audioLibrary {
+                    book("Author/Good A") { tracks(count = 1) }
+                    book("Author/Good B") { tracks(count = 2) }
+                    // Image-only folder — fails analysis, must not abort the scan.
+                    book("Author/Bad") { cover() }
+                }.use { fixture ->
+                    val (scanner, _) = newScanner(fixture)
+
+                    // the scan completes and reports the failure as an error, never throwing.
+                    val result = scanner.runFullScan()
+
+                    result.books.map { it.candidate.rootRelPath } shouldContainExactlyInAnyOrder
+                        listOf("Author/Good A", "Author/Good B")
+                    result.errors.size shouldBe 1
                 }
             }
         }

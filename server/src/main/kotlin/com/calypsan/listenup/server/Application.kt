@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -55,6 +56,8 @@ private val logger = KotlinLogging.logger {}
 
 private const val SEED_PROFILE_DEMO = "demo"
 
+private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
+
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
@@ -66,12 +69,14 @@ fun Application.module() {
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val metadataPrecedence = resolveMetadataPrecedence()
+    val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
 
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
         if (resolvedLibraryPath != null) {
-            modules += scannerModule(resolvedLibraryPath, applicationScope)
-            modules += booksModule(resolvedLibraryPath)
+            modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
+            modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
         }
         modules += embeddedmetaModule
         modules += syncModule()
@@ -148,6 +153,42 @@ private fun Application.resolveLibraryPath(): Path? {
         return null
     }
     return path
+}
+
+/**
+ * Reads `scanner.metadataPrecedence` from configuration and parses it into a
+ * [MetadataPrecedence]. A blank value yields [MetadataPrecedence.DEFAULT].
+ *
+ * An invalid token throws [IllegalArgumentException] — deliberately left to
+ * propagate so a misconfigured precedence fails server startup loud rather
+ * than silently scanning with the default order.
+ */
+private fun Application.resolveMetadataPrecedence(): MetadataPrecedence {
+    val raw =
+        environment.config
+            .propertyOrNull("scanner.metadataPrecedence")
+            ?.getString()
+            .orEmpty()
+    return MetadataPrecedence.parse(raw)
+}
+
+/**
+ * Reads `scanner.embeddedCoverCacheSize` from configuration. Falls back to
+ * [DEFAULT_EMBEDDED_COVER_CACHE_SIZE] when unset or blank.
+ *
+ * A non-numeric value throws [NumberFormatException] — deliberately left to
+ * propagate so a misconfigured cache size fails server startup loud rather than
+ * silently running with the default.
+ */
+private fun Application.resolveEmbeddedCoverCacheSize(): Int {
+    val raw =
+        environment.config
+            .propertyOrNull("scanner.embeddedCoverCacheSize")
+            ?.getString()
+            ?.trim()
+            .orEmpty()
+    if (raw.isBlank()) return DEFAULT_EMBEDDED_COVER_CACHE_SIZE
+    return raw.toInt()
 }
 
 /**

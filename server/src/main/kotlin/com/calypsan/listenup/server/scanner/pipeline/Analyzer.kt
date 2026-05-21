@@ -23,6 +23,8 @@ import com.calypsan.listenup.server.scanner.inference.FolderShape
 import com.calypsan.listenup.server.scanner.inference.ParsedTitle
 import com.calypsan.listenup.server.scanner.inference.TrackInference
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource
 import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -54,6 +56,11 @@ private val logger = KotlinLogging.logger {}
  *  5. **`metadata.json` overlay** — fields in a sidecar override
  *     embedded-, sidecar-, filename-, and folder-derived values when present.
  *
+ * The textual chain's source ordering is operator-configurable via
+ * [precedence]; the default ([MetadataPrecedence.DEFAULT]) is exactly the
+ * high→low order listed above. A source omitted from the configured order is
+ * never consulted for the textual `pick*` fields.
+ *
  * Cover-image precedence is its own rule, separate from the textual chain:
  * filesystem `cover.*` → first sibling image → embedded artwork. The
  * filesystem-first order respects user intent — if a `cover.jpg` is on
@@ -72,6 +79,7 @@ internal class Analyzer(
     private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val parseSubtitle: Boolean = false,
     private val sidecarParsers: List<SidecarParser> = emptyList(),
+    private val precedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
@@ -79,7 +87,7 @@ internal class Analyzer(
         }
 
     private suspend fun analyzeOne(candidate: CandidateBook): Result<AnalyzedBook> =
-        safeRun {
+        safeRun(candidate.rootRelPath) {
             val shape = FolderShape.parse(candidate.rootRelPath)
             val parsed =
                 AbsTitleParser.parse(
@@ -88,6 +96,12 @@ internal class Analyzer(
                     parseSubtitle = parseSubtitle,
                 )
             val tracks = buildTracks(candidate)
+            // Tiered book rule: a candidate that yields no playable track is not a
+            // book — it's skipped, not ingested. Surfaces as a Result.failure so the
+            // caller records it in ScanResult.errors and never in ScanResult.books.
+            if (tracks.isEmpty()) {
+                error("candidate has no audio tracks")
+            }
             val primaryAudio = tracks.firstOrNull()?.file
             val (embedded, embeddedStatus) = parseEmbedded(primaryAudio)
             val cover = resolveCover(candidate.files, embedded)
@@ -327,6 +341,10 @@ internal class Analyzer(
             embedded = embedded,
             embeddedStatus = embeddedStatus,
             sources = collectSources(shape, parsed, embedded, metadata, sidecar),
+            // A ParseError / UnsupportedFormat status means a file the scanner could
+            // not fully read. MetadataStatus.Available and a null status (no audio
+            // file, or a clean parse) are not warnings.
+            hasScanWarning = embeddedStatus.isParseFailure(),
         )
     }
 
@@ -386,12 +404,15 @@ internal class Analyzer(
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
     ): String =
-        metadata?.title?.takeUnless { it.isBlank() }
-            ?: embedded?.tags?.title?.takeUnless { it.isBlank() }
-            ?: sidecar?.title?.takeUnless { it.isBlank() }
-            ?: parsed.title.takeUnless { it.isBlank() }
-            ?: shape.titleFolder.takeUnless { it.isBlank() }
-            ?: candidate.rootRelPath
+        precedence.order.firstNotNullOfOrNull { source ->
+            when (source) {
+                MetadataPrecedenceSource.ABS_METADATA -> metadata?.title?.takeUnless { it.isBlank() }
+                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.title?.takeUnless { it.isBlank() }
+                MetadataPrecedenceSource.SIDECAR -> sidecar?.title?.takeUnless { it.isBlank() }
+                MetadataPrecedenceSource.FILENAME -> parsed.title.takeUnless { it.isBlank() }
+                MetadataPrecedenceSource.FOLDER -> shape.titleFolder.takeUnless { it.isBlank() }
+            }
+        } ?: candidate.rootRelPath
 
     private fun pickAuthors(
         shape: FolderShape,
@@ -399,11 +420,15 @@ internal class Analyzer(
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
     ): List<String> =
-        metadata?.authors?.takeIf { it.isNotEmpty() }
-            ?: embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
-            ?: sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
-            ?: shape.authorFolder?.let { listOf(it) }
-            ?: emptyList()
+        precedence.order.firstNotNullOfOrNull { source ->
+            when (source) {
+                MetadataPrecedenceSource.ABS_METADATA -> metadata?.authors?.takeIf { it.isNotEmpty() }
+                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
+                MetadataPrecedenceSource.SIDECAR -> sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
+                MetadataPrecedenceSource.FILENAME -> null
+                MetadataPrecedenceSource.FOLDER -> shape.authorFolder?.let { listOf(it) }
+            }
+        } ?: emptyList()
 
     private fun pickNarrators(
         parsed: ParsedTitle,
@@ -411,37 +436,81 @@ internal class Analyzer(
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
     ): List<String> =
-        metadata?.narrators?.takeIf { it.isNotEmpty() }
-            ?: embedded?.tags?.narrators?.takeIf { it.isNotEmpty() }
-            ?: sidecar.contributorNames(role = "narrator").takeIf { it.isNotEmpty() }
-            ?: parsed.narrators
+        precedence.order.firstNotNullOfOrNull { source ->
+            when (source) {
+                MetadataPrecedenceSource.ABS_METADATA -> {
+                    metadata?.narrators?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.EMBEDDED -> {
+                    embedded?.tags?.narrators?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.SIDECAR -> {
+                    sidecar
+                        .contributorNames(
+                            role = "narrator",
+                        ).takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.FILENAME -> {
+                    parsed.narrators.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.FOLDER -> {
+                    null
+                }
+            }
+        } ?: emptyList()
 
     private fun pickSeries(
         shape: FolderShape,
         parsed: ParsedTitle,
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
-    ): List<SeriesEntry> {
-        val fromMetadata = metadataReader.parseSeriesEntries(metadata?.series.orEmpty())
-        if (fromMetadata.isNotEmpty()) return fromMetadata
-        val fromEmbedded =
-            embedded
-                ?.tags
-                ?.series
-                .orEmpty()
-                .map(EmbeddedSeriesEntry::toContract)
-        if (fromEmbedded.isNotEmpty()) return fromEmbedded
-        return shape.seriesFolder
-            ?.let { listOf(SeriesEntry(name = it, sequence = parsed.sequence)) }
-            ?: emptyList()
-    }
+    ): List<SeriesEntry> =
+        precedence.order.firstNotNullOfOrNull { source ->
+            when (source) {
+                MetadataPrecedenceSource.ABS_METADATA -> {
+                    metadataReader.parseSeriesEntries(metadata?.series.orEmpty()).takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.EMBEDDED -> {
+                    embedded
+                        ?.tags
+                        ?.series
+                        .orEmpty()
+                        .map(EmbeddedSeriesEntry::toContract)
+                        .takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.SIDECAR -> {
+                    null
+                }
+
+                MetadataPrecedenceSource.FILENAME -> {
+                    null
+                }
+
+                MetadataPrecedenceSource.FOLDER -> {
+                    shape.seriesFolder?.let { listOf(SeriesEntry(name = it, sequence = parsed.sequence)) }
+                }
+            }
+        } ?: emptyList()
 
     private fun pickGenres(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
     ): List<String> =
-        metadata?.genres?.takeIf { it.isNotEmpty() }
-            ?: embedded?.tags?.genres.orEmpty()
+        precedence.order.firstNotNullOfOrNull { source ->
+            when (source) {
+                MetadataPrecedenceSource.ABS_METADATA -> metadata?.genres?.takeIf { it.isNotEmpty() }
+                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.genres?.takeIf { it.isNotEmpty() }
+                MetadataPrecedenceSource.SIDECAR -> null
+                MetadataPrecedenceSource.FILENAME -> null
+                MetadataPrecedenceSource.FOLDER -> null
+            }
+        } ?: emptyList()
 
     private fun collectSources(
         shape: FolderShape,
@@ -497,6 +566,14 @@ private fun List<AbsChapter>.toDomainChapters(): List<Chapter> =
         )
     }
 
+/**
+ * True when the parser outcome is a failure the user should know about —
+ * [MetadataStatus.UnsupportedFormat] or [MetadataStatus.ParseError]. A `null`
+ * status (no audio file) and [MetadataStatus.Available] (a clean parse) are not.
+ */
+private fun MetadataStatus?.isParseFailure(): Boolean =
+    this is MetadataStatus.UnsupportedFormat || this is MetadataStatus.ParseError
+
 private fun FolderShape.contributesAnything(): Boolean =
     titleFolder.isNotEmpty() || seriesFolder != null || authorFolder != null
 
@@ -511,11 +588,29 @@ private val NATURAL_TRACK_ORDER =
         { it.file.name },
     )
 
-private suspend fun <T> safeRun(block: suspend () -> T): Result<T> =
+/**
+ * Wraps any per-book analysis failure with the candidate's `rootRelPath` so
+ * the scanner can name the *failing book's* directory in its `ScanError`
+ * rather than the library root.
+ */
+internal class BookAnalysisFailure(
+    val rootRelPath: String,
+    cause: Throwable,
+) : Exception(cause.message ?: cause::class.simpleName ?: "unknown error", cause)
+
+/**
+ * Runs [block], converting any non-cancellation throwable into a
+ * `Result.failure` carrying a [BookAnalysisFailure] tagged with [rootRelPath].
+ * `CancellationException` is always re-raised so structured concurrency stays intact.
+ */
+private suspend fun <T> safeRun(
+    rootRelPath: String,
+    block: suspend () -> T,
+): Result<T> =
     try {
         Result.success(block())
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        Result.failure(e)
+        Result.failure(BookAnalysisFailure(rootRelPath, e))
     }

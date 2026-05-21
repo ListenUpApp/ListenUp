@@ -56,6 +56,7 @@ import com.calypsan.listenup.client.design.components.rememberCoverColors
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.LocalDarkTheme
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
 import com.calypsan.listenup.client.features.bookdetail.TagsSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
@@ -267,6 +268,14 @@ fun WideBookDetail(
                         }
                     }
                 }
+            }
+
+            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+            item {
+                BookDetailScanWarning(
+                    hasScanWarning = state.hasScanWarning,
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+                )
             }
 
             // Server unreachable warning — informational only, does not disable buttons

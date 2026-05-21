@@ -90,6 +90,53 @@ class EmbeddedCoverCacheTest :
             }
         }
 
+        test("maxSize is honored — the eldest entry is evicted past the cap") {
+            runTest {
+                val cache = EmbeddedCoverCache(maxSize = 2)
+
+                cache.getOrCompute(BookId("a")) { artwork("a") }
+                cache.getOrCompute(BookId("b")) { artwork("b") }
+                cache.getOrCompute(BookId("c")) { artwork("c") }
+
+                // Probe the survivors first — a get() never inserts, so it can't
+                // perturb residency. "b" and "c" remain resident past the cap.
+                val cLoaderCalls = AtomicInteger(0)
+                cache.getOrCompute(BookId("c")) {
+                    cLoaderCalls.incrementAndGet()
+                    artwork("c-SHOULD-NOT-RUN")
+                }
+                val bLoaderCalls = AtomicInteger(0)
+                cache.getOrCompute(BookId("b")) {
+                    bLoaderCalls.incrementAndGet()
+                    artwork("b-SHOULD-NOT-RUN")
+                }
+                // "a" is the eldest — evicted, so its loader must run again.
+                val aLoaderCalls = AtomicInteger(0)
+                cache.getOrCompute(BookId("a")) {
+                    aLoaderCalls.incrementAndGet()
+                    artwork("a-RELOADED")
+                }
+
+                cLoaderCalls.get() shouldBe 0 // still resident
+                bLoaderCalls.get() shouldBe 0 // still resident
+                aLoaderCalls.get() shouldBe 1 // evicted → recomputed
+            }
+        }
+
+        test("an evicted entry also evicts its keyLock") {
+            runTest {
+                val cache = EmbeddedCoverCache(maxSize = 1)
+
+                cache.getOrCompute(BookId("first")) { artwork("first") }
+                cache.getOrCompute(BookId("second")) { artwork("second") }
+
+                // "first" was evicted from entries — its keyLock must go with it,
+                // so keyLocks stays bounded alongside entries.
+                cache.hasKeyLock(BookId("first")) shouldBe false
+                cache.hasKeyLock(BookId("second")) shouldBe true
+            }
+        }
+
         test("concurrent getOrCompute for the same key invokes the loader exactly once") {
             runTest {
                 val cache = EmbeddedCoverCache()

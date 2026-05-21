@@ -55,4 +55,10 @@ data class AnalyzedBook(
     val embedded: EmbeddedAudioMetadata? = null,
     val embeddedStatus: MetadataStatus? = null,
     val sources: Set<MetadataSource> = emptySet(),
+    /**
+     * True when this book's embedded-metadata parse failed — its primary audio file is
+     * corrupt or an unsupported format. The book is still produced (from folder/sidecar/
+     * filename metadata); this flag surfaces a user-facing "double-check this book" advisory.
+     */
+    val hasScanWarning: Boolean = false,
 )

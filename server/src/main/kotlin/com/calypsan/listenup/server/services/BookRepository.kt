@@ -196,6 +196,7 @@ class BookRepository(
             asin = bookRow[BookTable.asin],
             abridged = bookRow[BookTable.abridged],
             explicit = bookRow[BookTable.explicit],
+            hasScanWarning = bookRow[BookTable.hasScanWarning],
             totalDuration = bookRow[BookTable.totalDuration],
             cover = cover,
             rootRelPath = bookRow[BookTable.rootRelPath],
@@ -416,6 +417,7 @@ class BookRepository(
                 asin = analyzed.asin,
                 abridged = analyzed.abridged ?: false,
                 explicit = analyzed.explicit ?: false,
+                hasScanWarning = analyzed.hasScanWarning,
                 totalDuration = totalDuration,
                 cover = null,
                 rootRelPath = candidate.rootRelPath,
@@ -681,6 +683,7 @@ class BookRepository(
         stmt[BookTable.asin] = p.asin
         stmt[BookTable.abridged] = p.abridged
         stmt[BookTable.explicit] = p.explicit
+        stmt[BookTable.hasScanWarning] = p.hasScanWarning
         stmt[BookTable.totalDuration] = p.totalDuration
         stmt[BookTable.coverSource] =
             p.cover

@@ -13,7 +13,9 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
+import com.calypsan.listenup.server.scanner.pipeline.BookAnalysisFailure
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
@@ -61,6 +63,7 @@ internal class Scanner(
     private val scanResultBus: MutableSharedFlow<ScanResult>,
     private val parseSubtitle: Boolean = false,
     private val sidecarParsers: List<SidecarParser> = emptyList(),
+    private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -158,7 +161,15 @@ internal class Scanner(
         val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
         val grouper = Grouper()
-        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle, sidecarParsers)
+        val analyzer =
+            Analyzer(
+                rootPath,
+                metadataReader,
+                embeddedMetadataParser,
+                parseSubtitle,
+                sidecarParsers,
+                metadataPrecedence,
+            )
 
         emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
         val rebasedFiles =
@@ -219,11 +230,22 @@ internal class Scanner(
         )
     }
 
-    private fun toScanError(t: Throwable): ScanError =
-        ScanError.FileUnreadable(
-            path = rootPath.toString(),
-            debugInfo = t.message ?: t::class.simpleName ?: "unknown error",
+    /**
+     * Maps a per-book analysis failure to a [ScanError.FileUnreadable]. When the
+     * throwable is a [BookAnalysisFailure] it carries the candidate's
+     * `rootRelPath`, so the error names the *failing book's* directory rather
+     * than the library root — the operator can navigate straight to it.
+     */
+    private fun toScanError(t: Throwable): ScanError {
+        val path =
+            (t as? BookAnalysisFailure)
+                ?.let { rootPath.resolve(it.rootRelPath).toString() }
+                ?: rootPath.toString()
+        return ScanError.FileUnreadable(
+            path = path,
+            debugInfo = t.message ?: "unknown error",
         )
+    }
 }
 
 private data class SubtreeAnalysis(

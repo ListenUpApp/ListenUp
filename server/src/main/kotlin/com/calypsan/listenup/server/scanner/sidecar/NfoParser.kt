@@ -60,18 +60,6 @@ internal class NfoParser : SidecarParser {
         }
 }
 
-/** Trimmed text of the first `<tag>` descendant, or null when absent or blank. */
-private fun Element.firstText(tag: String): String? =
-    getElementsByTagName(tag).let { nodes ->
-        if (nodes.length == 0) null else (nodes.item(0) as Element).textContent?.trim()?.ifBlank { null }
-    }
-
-/** Trimmed text of every `<tag>` descendant, blanks dropped. */
-private fun Element.allText(tag: String): List<String> =
-    getElementsByTagName(tag).let { nodes ->
-        (0 until nodes.length).mapNotNull { (nodes.item(it) as Element).textContent?.trim()?.ifBlank { null } }
-    }
-
 /**
  * Names of every `<actor>` descendant, blanks dropped. Kodi `<actor>` is either
  * `<actor>Name</actor>` or `<actor><name>Name</name><role>…</role></actor>` —

@@ -3,8 +3,13 @@ package com.calypsan.listenup.client.data.local.db
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.Timestamp
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -191,5 +196,40 @@ class BookEntityMapperTest :
             val result = mapper.toBookEntity(payload, existing = existing)
 
             result.title shouldBe "New Title from Server"
+        }
+
+        test("toBookEntity carries hasScanWarning from payload — true and false") {
+            mapper
+                .toBookEntity(bookPayload().copy(hasScanWarning = true), existing = null)
+                .hasScanWarning shouldBe true
+            mapper
+                .toBookEntity(bookPayload().copy(hasScanWarning = false), existing = null)
+                .hasScanWarning shouldBe false
+        }
+
+        // --- toDetail mapping ---
+
+        fun bookWithContributors(hasScanWarning: Boolean): BookWithContributors =
+            BookWithContributors(
+                book =
+                    bookEntity().copy(
+                        revision = 1L,
+                        hasScanWarning = hasScanWarning,
+                    ),
+                contributors = emptyList(),
+                contributorRoles = emptyList(),
+                series = emptyList(),
+                seriesSequences = emptyList(),
+            )
+
+        test("toDetail carries hasScanWarning from the book entity — true and false") {
+            val imageStorage = mock<ImageStorage> { every { exists(any()) } returns false }
+
+            bookWithContributors(hasScanWarning = true)
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList())
+                .hasScanWarning shouldBe true
+            bookWithContributors(hasScanWarning = false)
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList())
+                .hasScanWarning shouldBe false
         }
     })

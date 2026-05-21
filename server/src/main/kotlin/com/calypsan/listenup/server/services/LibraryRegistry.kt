@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import org.jetbrains.exposed.v1.core.eq
@@ -9,6 +10,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Resolves the single library id for this server process.
@@ -23,10 +25,16 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  *
  * @param db Exposed database the `libraries` row lives in.
  * @param env environment map (injectable for tests; production passes `System.getenv()`).
+ * @param metadataPrecedence the operator-configured textual-metadata precedence
+ *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). The running scanner uses
+ *   this env-resolved value, threaded directly to the `Analyzer`. This value
+ *   is persisted onto the `libraries` row as forward-storage for the future
+ *   per-library Libraries domain phase; it is not read back today.
  */
 class LibraryRegistry(
     private val db: Database,
     private val env: Map<String, String>,
+    private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
 ) {
     // Holds the raw id string, not LibraryId — AtomicReference uses identity
     // equality, and the @JvmInline value class has no consistent identity.
@@ -55,12 +63,25 @@ class LibraryRegistry(
 
         val id =
             suspendTransaction(db) {
-                LibraryTable
-                    .selectAll()
-                    .where { LibraryTable.rootPath eq rootPath }
-                    .firstOrNull()
-                    ?.get(LibraryTable.id)
-                    ?: bootstrapLibrary(rootPath)
+                val existing =
+                    LibraryTable
+                        .selectAll()
+                        .where { LibraryTable.rootPath eq rootPath }
+                        .firstOrNull()
+                if (existing != null) {
+                    // Reconcile: keep the column in sync with the live configured value
+                    // so it never silently diverges when an operator changes
+                    // LISTENUP_METADATA_PRECEDENCE between restarts.
+                    val currentPrecedence = metadataPrecedence.serialize()
+                    if (existing[LibraryTable.metadataPrecedence] != currentPrecedence) {
+                        LibraryTable.update({ LibraryTable.id eq existing[LibraryTable.id] }) {
+                            it[LibraryTable.metadataPrecedence] = currentPrecedence
+                        }
+                    }
+                    existing[LibraryTable.id]
+                } else {
+                    bootstrapLibrary(rootPath)
+                }
             }
 
         // compareAndSet guards the *cache* slot against a concurrent first-caller
@@ -75,10 +96,12 @@ class LibraryRegistry(
 
     private fun bootstrapLibrary(rootPath: String): String {
         val newId = UUID.randomUUID().toString()
+        val precedence = metadataPrecedence.serialize()
         LibraryTable.insert {
             it[LibraryTable.id] = newId
             it[LibraryTable.name] = "Default"
             it[LibraryTable.rootPath] = rootPath
+            it[LibraryTable.metadataPrecedence] = precedence
         }
         return newId
     }

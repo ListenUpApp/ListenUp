@@ -30,6 +30,7 @@ data class BookSyncPayload(
     val asin: String?,
     val abridged: Boolean,
     val explicit: Boolean,
+    val hasScanWarning: Boolean = false,
     val totalDuration: Long,
     val cover: CoverPayload?,
     val rootRelPath: String,

@@ -40,9 +40,19 @@ class EmbeddedCoverCache(
 
     // accessOrder = true makes get() reorder entries by recency, so the eldest
     // entry removeEldestEntry sees is the genuine LRU victim.
+    //
+    // removeEldestEntry runs synchronously inside the entries[key] = value put,
+    // which write() performs under mapLock — the same lock keyLockFor() takes to
+    // mutate keyLocks. So dropping the victim's per-key Mutex here is race-free:
+    // the lock map shrinks in lockstep with the entry map, keeping keyLocks
+    // bounded by maxSize rather than growing once per distinct BookId forever.
     private val entries =
         object : LinkedHashMap<BookId, EmbeddedArtwork>(INITIAL_CAPACITY, LOAD_FACTOR, true) {
-            override fun removeEldestEntry(eldest: Map.Entry<BookId, EmbeddedArtwork>): Boolean = size > maxSize
+            override fun removeEldestEntry(eldest: Map.Entry<BookId, EmbeddedArtwork>): Boolean {
+                if (size <= maxSize) return false
+                keyLocks.remove(eldest.key)
+                return true
+            }
         }
 
     /**
@@ -77,6 +87,13 @@ class EmbeddedCoverCache(
     ) = mapLock.withLock { entries[key] = value }
 
     private suspend fun keyLockFor(key: BookId): Mutex = mapLock.withLock { keyLocks.getOrPut(key) { Mutex() } }
+
+    /**
+     * Test hook: reports whether [keyLocks] still holds a per-key [Mutex] for
+     * [key]. Lets a test assert the lock is evicted in lockstep with its
+     * [entries] entry, proving the [keyLocks] map stays bounded.
+     */
+    internal suspend fun hasKeyLock(key: BookId): Boolean = mapLock.withLock { keyLocks.containsKey(key) }
 
     private companion object {
         const val DEFAULT_MAX_SIZE = 1000
