@@ -717,7 +717,7 @@ class BookRepository(
     }
 
     private fun ensureContributor(c: BookContributorPayload): String {
-        val normalized = c.name.normalizeForDedup()
+        val normalized = normalizeForDedup(c.name)
         val existing =
             ContributorTable
                 .selectAll()
@@ -751,7 +751,7 @@ class BookRepository(
     }
 
     private fun ensureSeries(s: BookSeriesPayload): String {
-        val normalized = s.name.normalizeForDedup()
+        val normalized = normalizeForDedup(s.name)
         val existing =
             BookSeriesTable
                 .selectAll()
@@ -861,8 +861,6 @@ class BookRepository(
         }
         return nextRowid
     }
-
-    private fun String.normalizeForDedup(): String = lowercase().trim().replace(Regex("\\s+"), " ")
 
     /**
      * Test-only accessor for the protected [idAsString]. Used by
