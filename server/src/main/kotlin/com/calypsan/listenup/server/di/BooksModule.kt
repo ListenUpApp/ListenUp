@@ -57,10 +57,14 @@ import java.nio.file.Path
  * @param metadataPrecedence the operator-configured textual-metadata precedence
  *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). [LibraryRegistry] persists it
  *   onto the `libraries` row at bootstrap.
+ * @param embeddedCoverCacheSize the operator-configured maximum number of covers
+ *   the [EmbeddedCoverCache] retains (resolved from
+ *   `LISTENUP_EMBEDDED_COVER_CACHE_SIZE`).
  */
 fun booksModule(
     libraryPath: Path,
     metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
+    embeddedCoverCacheSize: Int = DEFAULT_EMBEDDED_COVER_CACHE_SIZE,
 ): Module =
     module {
         single<MeterRegistry> { SimpleMeterRegistry() }
@@ -78,7 +82,7 @@ fun booksModule(
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
 
-        single { EmbeddedCoverCache() }
+        single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
         single {
             CoverResponder(
                 repository = get<BookRepository>(),
@@ -97,3 +101,9 @@ fun booksModule(
             )
         }
     }
+
+/**
+ * Default [EmbeddedCoverCache] capacity used when `scanner.embeddedCoverCacheSize`
+ * is unset. Matches the cache's own built-in default.
+ */
+private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
