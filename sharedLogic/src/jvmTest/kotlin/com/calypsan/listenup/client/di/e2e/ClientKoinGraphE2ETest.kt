@@ -49,7 +49,7 @@ class ClientKoinGraphE2ETest :
             val singletonFactories =
                 koin.instanceRegistry.instances.values
                     .filter { it.beanDefinition.kind == Kind.Singleton }
-                    .toSet()   // dedup by object identity: the same factory may be registered under multiple type keys
+                    .toSet() // dedup by object identity: the same factory may be registered under multiple type keys
 
             for (factory in singletonFactories) {
                 val definition = factory.beanDefinition
@@ -88,23 +88,27 @@ class ClientKoinGraphE2ETest :
 
                 // Provision a user through the DI-resolved repo (the server starts
                 // empty; `setup` is the first-run root-account path).
-                val credentials = RegisterRequest(
-                    email = "e2e@listenup.app",
-                    password = "e2e-password",
-                    displayName = "E2E User",
-                )
-                authRepository.setup(credentials)
+                val credentials =
+                    RegisterRequest(
+                        email = "e2e@listenup.app",
+                        password = "e2e-password",
+                        displayName = "E2E User",
+                    )
+                authRepository
+                    .setup(credentials)
                     .shouldBeInstanceOf<AppResult.Success<*>>()
 
                 // Log in through the DI-resolved repo, against the live server.
-                val result = authRepository.login(
-                    LoginRequest(email = credentials.email, password = credentials.password),
-                )
+                val result =
+                    authRepository.login(
+                        LoginRequest(email = credentials.email, password = credentials.password),
+                    )
 
-                val session = result
-                    .shouldBeInstanceOf<AppResult.Success<*>>()
-                    .data
-                    .shouldBeInstanceOf<com.calypsan.listenup.api.dto.auth.AuthSession>()
+                val session =
+                    result
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+                        .data
+                        .shouldBeInstanceOf<com.calypsan.listenup.api.dto.auth.AuthSession>()
                 session.user.email shouldBe credentials.email
             }
         }

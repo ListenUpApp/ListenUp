@@ -13,6 +13,8 @@ import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.runBlocking
 import org.koin.core.KoinApplication
+import org.koin.core.context.GlobalContext
+import org.koin.core.context.stopKoin
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import java.nio.file.Files
@@ -30,18 +32,28 @@ internal class DiWiredClientFixture private constructor(
     private val server: EmbeddedServer<*, *>,
     val koin: KoinApplication,
 ) : AutoCloseable {
-
     override fun close() {
         @Suppress("MagicNumber")
         server.stop(gracePeriodMillis = 100, timeoutMillis = 500)
+        // The Ktor Koin plugin starts the global Koin context via install(Koin).
+        // server.stop() triggers the application-stop hook that calls stopKoin(), but
+        // the timing is not guaranteed within the grace/timeout window. Explicitly
+        // stopping here is a no-op when the hook already ran and ensures co-resident
+        // tests that call startKoin() (e.g. KoinTestRuleTest) never see a stale
+        // global context.
+        if (GlobalContext.getKoinApplicationOrNull() != null) {
+            stopKoin()
+        }
         koin.close()
     }
 
     companion object {
         fun start(): DiWiredClientFixture {
             val tmpDb =
-                Files.createTempFile("listenup-koin-e2e-", ".db")
-                    .toFile().apply { deleteOnExit() }
+                Files
+                    .createTempFile("listenup-koin-e2e-", ".db")
+                    .toFile()
+                    .apply { deleteOnExit() }
 
             val env =
                 applicationEnvironment {

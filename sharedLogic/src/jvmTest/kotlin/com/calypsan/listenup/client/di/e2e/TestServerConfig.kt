@@ -8,7 +8,9 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
  * `http://127.0.0.1:<port>` endpoint resolved at boot. Replaces the production
  * `SettingsRepositoryImpl` (SecureStorage + mDNS) in the e2e graph.
  */
-internal class TestServerConfig(private val baseUrl: String) : ServerConfig {
+internal class TestServerConfig(
+    private val baseUrl: String,
+) : ServerConfig {
     override suspend fun setServerUrl(url: ServerUrl) = Unit
 
     override suspend fun getServerUrl(): ServerUrl = ServerUrl(baseUrl)
