@@ -93,7 +93,12 @@ internal object Id3v2Reader {
             // Skip flags at offset+8, offset+9
             val frameDataStart = offset + ID3V2_FRAME_HEADER_SIZE
             val frameDataEnd = frameDataStart + frameSize
-            if (frameSize < 0 || frameDataEnd > tagEnd) break
+            // `frameDataEnd < frameDataStart` catches a frameSize so large the
+            // Int addition overflows to negative — an ID3v2.3 frame size is a
+            // plain (non-sync-safe) 32-bit field, so a corrupt header can
+            // declare a value near Int.MAX_VALUE. Without this guard the
+            // overflowed end slips past `> tagEnd` and `copyOfRange` throws.
+            if (frameSize < 0 || frameDataEnd < frameDataStart || frameDataEnd > tagEnd) break
             val frameData = bytes.copyOfRange(frameDataStart, frameDataEnd)
             when {
                 frameId == "TXXX" -> {
@@ -259,7 +264,12 @@ internal object Id3v2Reader {
             }
         val dataStart = ID3V2_FRAME_HEADER_SIZE
         val dataEnd = dataStart + subSize
-        if (subSize <= 0 || dataEnd > subframes.size) return null
+        // `dataEnd < dataStart` catches a subSize so large the Int addition
+        // overflows to negative — an ID3v2.3 sub-frame size is a plain
+        // (non-sync-safe) 32-bit field, so a corrupt CHAP frame can declare a
+        // value near Int.MAX_VALUE. Without this guard the overflowed end
+        // slips past `> subframes.size` and `copyOfRange` throws.
+        if (subSize <= 0 || dataEnd < dataStart || dataEnd > subframes.size) return null
         val frameData = subframes.copyOfRange(dataStart, dataEnd)
         if (frameData.isEmpty()) return null
         val encoding = frameData[0]
