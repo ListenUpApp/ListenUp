@@ -7,8 +7,13 @@ import kotlin.io.path.inputStream
 
 private val logger = KotlinLogging.logger {}
 
-/** Matches the first run of four consecutive digits — the year inside a `dc:date`. */
-private val YEAR_PATTERN = Regex("""\d{4}""")
+/**
+ * Captures a leading four-digit year — either a bare year (`2014`) or the year
+ * of an ISO-8601 date (`2014-03-01`). Start-anchored on purpose: free-text
+ * prose that does not begin with a year yields no match, so the parser refuses
+ * to guess rather than picking the wrong four-digit run.
+ */
+private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
 
 /**
  * Parses OPF / Dublin Core XML metadata sidecars (`.opf`).
@@ -24,12 +29,13 @@ private val YEAR_PATTERN = Regex("""\d{4}""")
  * Element mapping:
  *  - `<dc:title>`       → [SidecarMetadata.title]
  *  - `<dc:description>` → [SidecarMetadata.description]
- *  - `<dc:date>`        → [SidecarMetadata.publishYear] (first four-digit run)
+ *  - `<dc:date>`        → [SidecarMetadata.publishYear] (leading four-digit
+ *    year only; free-text prose yields no year rather than a guess)
  *  - `<dc:publisher>`   → [SidecarMetadata.publisher]
  *  - `<dc:language>`    → [SidecarMetadata.language]
  *  - `<dc:creator>`     → contributor; the `opf:role` attribute maps
- *    `aut` → `"author"`, `nrt` → `"narrator"`, absent/other → `"author"`
- *    (the OPF default for a creator with no role is the author)
+ *    `aut` (or absent — the OPF default) → `"author"`, `nrt` → `"narrator"`.
+ *    Any other relator code (`trl`, `edt`, …) is dropped, not mis-filed
  *
  * `<dc:identifier>` (ISBN / ASIN) is intentionally NOT extracted —
  * [SidecarMetadata] carries no identifier field and the Analyzer does not
@@ -54,7 +60,17 @@ internal class OpfParser : SidecarParser {
             SidecarMetadata(
                 title = root.firstText("dc:title"),
                 description = root.firstText("dc:description"),
-                publishYear = root.firstText("dc:date")?.let { YEAR_PATTERN.find(it)?.value?.toIntOrNull() },
+                publishYear =
+                    root
+                        .firstText(
+                            "dc:date",
+                        )?.let {
+                            YEAR_PATTERN
+                                .find(it)
+                                ?.groupValues
+                                ?.get(1)
+                                ?.toIntOrNull()
+                        },
                 publisher = root.firstText("dc:publisher"),
                 language = root.firstText("dc:language"),
                 contributors = root.creators(),
@@ -68,31 +84,24 @@ internal class OpfParser : SidecarParser {
         }
 }
 
-/** Trimmed text of the first `<tag>` descendant, or null when absent or blank. */
-private fun Element.firstText(tag: String): String? =
-    getElementsByTagName(tag).let { nodes ->
-        if (nodes.length == 0) {
-            null
-        } else {
-            nodes
-                .item(0)
-                .textContent
-                ?.trim()
-                ?.ifBlank { null }
-        }
-    }
-
 /**
- * Every `<dc:creator>` descendant as a [SidecarContributor]. The `opf:role`
- * attribute selects the role: `nrt` → narrator, everything else (including a
- * missing attribute) → author, which is the OPF default for a bare creator.
+ * Every `<dc:creator>` descendant that maps to a contributor ListenUp models.
+ * The `opf:role` attribute selects the role: `aut` (or a missing attribute,
+ * the OPF default for a bare creator) → author, `nrt` → narrator. Any other
+ * MARC relator code — `trl`, `edt`, … — is dropped rather than silently
+ * mis-filed as an author.
  */
 private fun Element.creators(): List<SidecarContributor> =
     getElementsByTagName("dc:creator").let { nodes ->
         (0 until nodes.length).mapNotNull { index ->
             val element = nodes.item(index) as Element
             val name = element.textContent?.trim()?.ifBlank { null } ?: return@mapNotNull null
-            val role = if (element.getAttribute("opf:role") == "nrt") "narrator" else "author"
+            val role =
+                when (element.getAttribute("opf:role")) {
+                    "nrt" -> "narrator"
+                    "aut", "" -> "author"
+                    else -> return@mapNotNull null
+                }
             SidecarContributor(name, role)
         }
     }
