@@ -6,9 +6,9 @@ import io.kotest.matchers.shouldBe
 
 class LibraryTableTest :
     FunSpec({
-        test("LibraryTable exists with id, name, root_path columns") {
+        test("LibraryTable exists with id, name, root_path, metadata_precedence columns") {
             LibraryTable.columns.map { it.name } shouldContainExactlyInAnyOrder
-                listOf("id", "name", "root_path")
+                listOf("id", "name", "root_path", "metadata_precedence")
         }
 
         test("LibraryTable tableName is 'libraries'") {

@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -66,12 +67,13 @@ fun Application.module() {
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val metadataPrecedence = resolveMetadataPrecedence()
 
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
         if (resolvedLibraryPath != null) {
-            modules += scannerModule(resolvedLibraryPath, applicationScope)
-            modules += booksModule(resolvedLibraryPath)
+            modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
+            modules += booksModule(resolvedLibraryPath, metadataPrecedence)
         }
         modules += embeddedmetaModule
         modules += syncModule()
@@ -148,6 +150,23 @@ private fun Application.resolveLibraryPath(): Path? {
         return null
     }
     return path
+}
+
+/**
+ * Reads `scanner.metadataPrecedence` from configuration and parses it into a
+ * [MetadataPrecedence]. A blank value yields [MetadataPrecedence.DEFAULT].
+ *
+ * An invalid token throws [IllegalArgumentException] — deliberately left to
+ * propagate so a misconfigured precedence fails server startup loud rather
+ * than silently scanning with the default order.
+ */
+private fun Application.resolveMetadataPrecedence(): MetadataPrecedence {
+    val raw =
+        environment.config
+            .propertyOrNull("scanner.metadataPrecedence")
+            ?.getString()
+            .orEmpty()
+    return MetadataPrecedence.parse(raw)
 }
 
 /**

@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
@@ -191,6 +192,81 @@ class AnalyzerEnrichmentTest :
                     book.embedded?.tags?.title shouldBe "Embedded Title"
                     book.sources shouldContain MetadataSource.ABS_METADATA
                     book.sources shouldContain MetadataSource.AUDIO_METATAGS
+                }
+            }
+        }
+
+        test("non-default precedence makes embedded title win over metadata.json") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Title"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Embedded Title") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val metadataPath =
+                        fixture.root.writeFile(
+                            "$rel/metadata.json",
+                            """{"title":"Sidecar Title"}""".toByteArray(),
+                        )
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", FileType.AUDIO, size = Files.size(audioPath)),
+                                    fileEntry("$rel/metadata.json", FileType.METADATA, size = Files.size(metadataPath)),
+                                ),
+                        )
+
+                    // Embedded ahead of metadata.json — embedded wins despite both being present.
+                    val book =
+                        Analyzer(
+                            fixture.root,
+                            metadataReader,
+                            embeddedParser,
+                            precedence = MetadataPrecedence.parse("embedded,metadata.json"),
+                        ).analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.title shouldBe "Embedded Title"
+                }
+            }
+        }
+
+        test("precedence omitting embedded ignores embedded tags for the field") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Folder Title"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Embedded Title") }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    // Embedded omitted entirely — title falls through to the folder name.
+                    val book =
+                        Analyzer(
+                            fixture.root,
+                            metadataReader,
+                            embeddedParser,
+                            precedence = MetadataPrecedence.parse("metadata.json,sidecar,filename,folder"),
+                        ).analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.title shouldBe "Folder Title"
+                    // Embedded tags are still parsed and preserved verbatim — only the
+                    // resolved view skips them.
+                    book.embedded?.tags?.title shouldBe "Embedded Title"
                 }
             }
         }

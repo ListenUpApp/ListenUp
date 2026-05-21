@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.BookAnalysisFailure
 import com.calypsan.listenup.server.scanner.pipeline.Differ
@@ -62,6 +63,7 @@ internal class Scanner(
     private val scanResultBus: MutableSharedFlow<ScanResult>,
     private val parseSubtitle: Boolean = false,
     private val sidecarParsers: List<SidecarParser> = emptyList(),
+    private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -159,7 +161,15 @@ internal class Scanner(
         val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
         val grouper = Grouper()
-        val analyzer = Analyzer(rootPath, metadataReader, embeddedMetadataParser, parseSubtitle, sidecarParsers)
+        val analyzer =
+            Analyzer(
+                rootPath,
+                metadataReader,
+                embeddedMetadataParser,
+                parseSubtitle,
+                sidecarParsers,
+                metadataPrecedence,
+            )
 
         emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
         val rebasedFiles =

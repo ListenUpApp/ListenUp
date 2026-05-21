@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
 import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
@@ -40,10 +41,16 @@ import java.nio.file.Path
  * The module is only installed when [libraryPath] is set; the caller
  * (Application.module()) decides whether to skip installation when no
  * library path is configured.
+ *
+ * @param metadataPrecedence the operator-configured textual-metadata
+ *   precedence (resolved from `LISTENUP_METADATA_PRECEDENCE`), threaded into
+ *   the [Scanner] so every [com.calypsan.listenup.server.scanner.pipeline.Analyzer]
+ *   it builds honours the configured order.
  */
 fun scannerModule(
     libraryPath: Path,
     applicationScope: CoroutineScope,
+    metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
 ): Module =
     module {
         single { libraryPath }
@@ -76,6 +83,7 @@ fun scannerModule(
                 eventBus = get<MutableSharedFlow<ScanEvent>>(),
                 scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
                 sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
+                metadataPrecedence = metadataPrecedence,
             )
         }
 

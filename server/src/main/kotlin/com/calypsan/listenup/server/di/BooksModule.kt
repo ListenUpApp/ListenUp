@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
@@ -53,14 +54,24 @@ import java.nio.file.Path
  *   the books slice consistent with the scanner slice: both are driven by the
  *   one path `Application.module()` already resolved from configuration, so a
  *   config override of `scanner.libraryPath` reaches both.
+ * @param metadataPrecedence the operator-configured textual-metadata precedence
+ *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). [LibraryRegistry] persists it
+ *   onto the `libraries` row at bootstrap.
  */
-fun booksModule(libraryPath: Path): Module =
+fun booksModule(
+    libraryPath: Path,
+    metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
+): Module =
     module {
         single<MeterRegistry> { SimpleMeterRegistry() }
         single { BookPersisterMetrics(get()) }
 
         single {
-            LibraryRegistry(db = get(), env = mapOf("LISTENUP_LIBRARY_PATH" to libraryPath.toString()))
+            LibraryRegistry(
+                db = get(),
+                env = mapOf("LISTENUP_LIBRARY_PATH" to libraryPath.toString()),
+                metadataPrecedence = metadataPrecedence,
+            )
         }
 
         single(createdAtStart = true) { BookRepository(get(), get(), get(), get()) }
