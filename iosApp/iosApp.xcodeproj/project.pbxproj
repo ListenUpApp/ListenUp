@@ -327,7 +327,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../shared/src/commonMain/resources/strings/en.json",
+				"$(SRCROOT)/../sharedLogic/src/commonMain/resources/strings/en.json",
 			);
 			name = "Generate Localizable Strings";
 			outputFileListPaths = (
