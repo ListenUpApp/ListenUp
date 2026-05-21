@@ -64,6 +64,7 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.Success as ResultSuccess
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_server_is_unreachable_connect_to
 
 /**
@@ -526,6 +527,14 @@ private fun ImmersiveBookDetail(
             )
         }
 
+        // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+        item {
+            BookDetailScanWarning(
+                hasScanWarning = state.hasScanWarning,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+        }
+
         // 2. THE TALENT - Who made this
         item {
             TalentSectionWithRoles(
@@ -662,6 +671,44 @@ private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =
         is BookDownloadStatus.Paused -> downloadedBytes
         else -> 0L
     }
+
+/**
+ * Advisory banner shown when the scanner flagged a problem with this book's
+ * files. Renders nothing when [hasScanWarning] is `false`, so callers can place
+ * it unconditionally; the gate lives here.
+ */
+@Composable
+fun BookDetailScanWarning(
+    hasScanWarning: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!hasScanWarning) return
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        tonalElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = stringResource(Res.string.book_detail_scan_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
+}
 
 @Composable
 private fun ServerUnreachableBanner(modifier: Modifier = Modifier) {
