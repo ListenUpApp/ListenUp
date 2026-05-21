@@ -22,6 +22,11 @@ class PublicCommonMainTypesHaveKDocRule :
                     .scopeFromProduction()
                     .classes()
                     .filter { it.path.contains("/commonMain/") }
+                    // Exclude third-party library sources that Konsist may materialise under a
+                    // path containing "/commonMain/" (e.g. Koin's InstanceRegistry extracted
+                    // from a sources jar into <worktree-root>/commonMain/org/koin/…).
+                    // First-party types always live under the com.calypsan.listenup namespace.
+                    .filter { it.packagee?.name?.startsWith("com.calypsan.listenup") == true }
                     .withPublicOrDefaultModifier()
                     .filter { !it.hasKDoc }
                     .map { "${it.fullyQualifiedName} @ ${it.path}" }

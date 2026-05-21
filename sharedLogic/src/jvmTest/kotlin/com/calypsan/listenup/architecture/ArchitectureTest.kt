@@ -65,6 +65,10 @@ class ArchitectureTest :
                 // in-process. Confined to `:sharedLogic:jvmTest` so production code is
                 // unaffected; the fixture is the documented seam.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/testing/" !in it.path }
+                // DI-wired client e2e fixture: boots the real server module in-process to
+                // exercise the full Koin graph and authenticate against it. Same exemption
+                // class as the C3 sync fixture above — confined to jvmTest, not production.
+                .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/di/e2e/" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }
