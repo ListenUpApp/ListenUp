@@ -1,8 +1,15 @@
 package com.calypsan.listenup.client.di.e2e
 
+import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.runTest
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.definition.Kind
 
@@ -69,6 +76,36 @@ class ClientKoinGraphE2ETest :
                     // are intentionally absent and will surface as missing-dep errors here,
                     // not as cycles.
                 }
+            }
+        }
+
+        test("the DI-wired client graph authenticates against the live server") {
+            runTest {
+                val fixture = autoClose(DiWiredClientFixture.start())
+                val koin = fixture.koin.koin
+
+                val authRepository = koin.get<AuthRepository>()
+
+                // Provision a user through the DI-resolved repo (the server starts
+                // empty; `setup` is the first-run root-account path).
+                val credentials = RegisterRequest(
+                    email = "e2e@listenup.app",
+                    password = "e2e-password",
+                    displayName = "E2E User",
+                )
+                authRepository.setup(credentials)
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                // Log in through the DI-resolved repo, against the live server.
+                val result = authRepository.login(
+                    LoginRequest(email = credentials.email, password = credentials.password),
+                )
+
+                val session = result
+                    .shouldBeInstanceOf<AppResult.Success<*>>()
+                    .data
+                    .shouldBeInstanceOf<com.calypsan.listenup.api.dto.auth.AuthSession>()
+                session.user.email shouldBe credentials.email
             }
         }
     })
