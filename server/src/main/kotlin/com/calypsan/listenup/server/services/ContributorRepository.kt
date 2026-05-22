@@ -74,6 +74,7 @@ class ContributorRepository(
         rev: Long,
         now: Long,
         clientOpId: String?,
+        userId: String?,
         existed: Boolean,
     ) {
         val normalized = normalizeForDedup(value.name)

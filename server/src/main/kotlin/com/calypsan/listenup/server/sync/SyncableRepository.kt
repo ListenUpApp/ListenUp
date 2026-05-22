@@ -17,6 +17,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.lessEq
@@ -29,7 +30,7 @@ import org.jetbrains.exposed.v1.jdbc.update
  * Abstract base for syncable-domain repositories. Subclasses provide:
  *  - The Exposed table (a [SyncableTable] subtype) for the aggregate root
  *  - `readPayload(idStr)` — aggregate read (row + children) by id
- *  - `writePayload(value, rev, now, clientOpId, existed)` — aggregate write inside the open transaction
+ *  - `writePayload(value, rev, now, clientOpId, userId, existed)` — aggregate write inside the open transaction
  *  - The `T.id` projection
  *  - The `T.revisionOf()` projection
  *
@@ -58,6 +59,14 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     }
 
     /**
+     * `true` for a per-user domain whose [table] is a [UserScopedSyncableTable]:
+     * every write records the owning user and every read/digest filters by it.
+     * Default `false` is a global domain (books, contributors, series, tags) —
+     * the `userId` argument is ignored and behaviour is unchanged.
+     */
+    protected open val userScoped: Boolean = false
+
+    /**
      * Read the full aggregate (root row + children) for [idStr], or null if absent.
      *
      * **Called only from inside an active Exposed transaction** (opened by base
@@ -81,12 +90,17 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      *
      * Atomicity is the contract: the base opens one `suspendTransaction`; this
      * method writes everything inside it.
+     *
+     * [userId] is the owning user for a per-user domain (`userScoped = true`),
+     * to be written into the `user_id` column on insert; it is `null` for
+     * global domains, which ignore it.
      */
     protected abstract suspend fun writePayload(
         value: T,
         rev: Long,
         now: Long,
         clientOpId: String?,
+        userId: String?,
         existed: Boolean,
     )
 
@@ -142,10 +156,14 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      *
      * @param clientOpId originating client operation id for SSE echo matching; null
      *   for server-initiated writes (scanner, admin, etc.).
+     * @param userId owning user for a per-user domain (`userScoped = true`);
+     *   threaded into [writePayload] and the published [BusEvent]. Global
+     *   domains omit it.
      */
     suspend fun upsert(
         value: T,
         clientOpId: String? = null,
+        userId: String? = null,
     ): AppResult<T> =
         suspendTransaction(db) {
             val rev = nextRevision()
@@ -159,7 +177,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                     .empty()
                     .not()
 
-            writePayload(value, rev, now, clientOpId, existed)
+            writePayload(value, rev, now, clientOpId, userId, existed)
 
             val saved =
                 readPayload(idStr)
@@ -183,7 +201,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                         payload = saved,
                     )
                 }
-            bus.publish(repo = this@SyncableRepository, event = event)
+            bus.publish(repo = this@SyncableRepository, event = event, userId = userId)
 
             AppResult.Success(saved)
         }
@@ -222,10 +240,13 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      *
      * @param clientOpId originating client operation id for SSE echo matching; null
      *   for server-initiated deletes.
+     * @param userId owning user for a per-user domain (`userScoped = true`);
+     *   threaded into the published [BusEvent]. Global domains omit it.
      */
     suspend fun softDelete(
         id: ID,
         clientOpId: String? = null,
+        userId: String? = null,
     ): AppResult<Unit> =
         suspendTransaction(db) {
             val rev = nextRevision()
@@ -255,9 +276,27 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                             occurredAt = now,
                             clientOpId = clientOpId,
                         ),
+                    userId = userId,
                 )
                 AppResult.Success(Unit)
             }
+        }
+
+    /**
+     * Resolves the WHERE-clause user-filter column for a per-user domain.
+     *
+     * For `userScoped = true` it returns `(table as UserScopedSyncableTable).userId`
+     * paired with the caller-supplied [userId], which must be non-null — a
+     * per-user read with no authenticated user is a programming error. For a
+     * global domain it returns `null`: no extra predicate is applied and
+     * [userId] is ignored.
+     */
+    private fun userFilter(userId: String?): Pair<Column<String>, String>? =
+        if (userScoped) {
+            val column = (table as UserScopedSyncableTable).userId
+            column to (userId ?: error("user-scoped read on '$domainName' requires a userId"))
+        } else {
+            null
         }
 
     /**
@@ -267,21 +306,32 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * can apply tombstones. [Page.hasMore] is true when the result set hit the
      * limit, signalling more pages remain.
      *
+     * For a per-user domain (`userScoped = true`) the result is additionally
+     * scoped to [userId]'s rows; global domains ignore [userId].
+     *
      * `nextCursor` advances using the queried revision rather than
      * `items.last().revisionOf()` — a hard delete between the id-query and the
      * payload-read could theoretically null a row, and the queried revision is
      * the canonical cursor advance regardless.
      */
     suspend fun pullSince(
+        userId: String?,
         cursor: Long,
         limit: Int,
     ): Page<T> =
         suspendTransaction(db) {
+            val filter = userFilter(userId)
             val idsWithRev =
                 table
                     .selectAll()
-                    .where { table.revision greater cursor }
-                    .orderBy(table.revision, SortOrder.ASC)
+                    .where {
+                        val revisionPredicate = table.revision greater cursor
+                        if (filter != null) {
+                            revisionPredicate and (filter.first eq filter.second)
+                        } else {
+                            revisionPredicate
+                        }
+                    }.orderBy(table.revision, SortOrder.ASC)
                     .limit(limit)
                     .map { it[idColumn()] to it[table.revision] }
 
@@ -299,18 +349,31 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * included. Used by clients to detect drift cheaply — a `(count, hash)` mismatch signals
      * the client should re-pull from `?since=0`.
      *
+     * For a per-user domain (`userScoped = true`) the digest covers only [userId]'s
+     * rows; global domains ignore [userId].
+     *
      * Algorithm: sort `(id, revision)` pairs lexicographically by id, concatenate as
      * `<id>|<revision>\n` per row, SHA-256 the bytes, format as `"sha256:<lowercase-hex>"`.
      * Empty domain → `count = 0`, `hash = ""`. This is a permanent wire contract — clients
      * compute identically over their local rows.
      */
-    suspend fun digest(cursor: Long): DomainDigest =
+    suspend fun digest(
+        userId: String?,
+        cursor: Long,
+    ): DomainDigest =
         suspendTransaction(db) {
+            val filter = userFilter(userId)
             val rows =
                 table
                     .selectAll()
-                    .where { table.revision lessEq cursor }
-                    .map { row -> row[idColumn()] to row[table.revision] }
+                    .where {
+                        val revisionPredicate = table.revision lessEq cursor
+                        if (filter != null) {
+                            revisionPredicate and (filter.first eq filter.second)
+                        } else {
+                            revisionPredicate
+                        }
+                    }.map { row -> row[idColumn()] to row[table.revision] }
                     .sortedBy { it.first }
             if (rows.isEmpty()) {
                 DomainDigest(cursor = cursor, count = 0, hash = "")
