@@ -1,28 +1,131 @@
 import ActivityKit
+import AppIntents
+import ListenUpActivityKit
 import SwiftUI
 import WidgetKit
 
-// MARK: - Shared Activity Attributes (must match the app's definition exactly)
-
-struct AudiobookActivityAttributes: ActivityAttributes {
-    let bookTitle: String
-    let authorName: String
-    let coverBlurHash: String?
-
-    struct ContentState: Codable, Hashable {
-        let chapterTitle: String
-        let isPlaying: Bool
-        let progress: Float
-        let chapterProgress: Float
-        let elapsedFormatted: String
-        let remainingFormatted: String
-    }
-}
-
-// MARK: - Brand Color
+// MARK: - Brand colour
 
 private extension Color {
     static let listenUpOrange = Color(red: 1.0, green: 0.42, blue: 0.29) // #FF6B4A
+}
+
+// MARK: - Cover image
+
+/// The book cover for the Live Activity. Reads the thumbnail the app wrote into
+/// the App Group container; falls back to a branded placeholder.
+private struct ActivityCover: View {
+    let bookId: String
+    var cornerRadius: CGFloat = 8
+
+    private static let appGroupID = "group.com.calypsan.listenup.client.listenup"
+
+    private var coverImage: UIImage? {
+        guard let container = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupID) else { return nil }
+        let url = container
+            .appendingPathComponent("LiveActivityCovers", isDirectory: true)
+            .appendingPathComponent("\(bookId).jpg")
+        return UIImage(contentsOfFile: url.path)
+    }
+
+    var body: some View {
+        Group {
+            if let coverImage {
+                Image(uiImage: coverImage).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                ZStack {
+                    Color.listenUpOrange.opacity(0.3)
+                    Image(systemName: "book.closed.fill").foregroundStyle(Color.listenUpOrange)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+// MARK: - Control buttons
+
+/// The three interactive controls — skip back, play/pause, skip forward.
+private struct ControlButtons: View {
+    let isPlaying: Bool
+
+    var body: some View {
+        HStack(spacing: 28) {
+            Button(intent: SkipBackwardIntent()) {
+                Image(systemName: "gobackward.15")
+            }
+            Button(intent: TogglePlaybackIntent()) {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+            }
+            Button(intent: SkipForwardIntent()) {
+                Image(systemName: "goforward.15")
+            }
+        }
+        .font(.title3)
+        .foregroundStyle(.white)
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Lock-screen banner
+
+/// The lock-screen / banner presentation. Earns its place beside the system Now
+/// Playing control by showing chapter-level detail and ListenUp branding.
+private struct LockScreenBanner: View {
+    let context: ActivityViewContext<AudiobookActivityAttributes>
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                ActivityCover(bookId: context.attributes.bookId)
+                    .frame(width: 52, height: 52)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(context.attributes.bookTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(context.state.chapterTitle)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                    ProgressView(value: context.state.bookProgress)
+                        .tint(Color.listenUpOrange)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack {
+                Text(context.state.elapsedDescription)
+                Spacer()
+                ControlButtons(isPlaying: context.state.isPlaying)
+                Spacer()
+                Text(context.state.remainingDescription)
+            }
+            .font(.caption2)
+            .foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(16)
+        .activityBackgroundTint(Color.black.opacity(0.85))
+    }
+}
+
+// MARK: - Progress ring (compact / minimal Dynamic Island)
+
+private struct ProgressRing: View {
+    let progress: Double
+    var lineWidth: CGFloat = 2
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.white.opacity(0.2), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+    }
 }
 
 // MARK: - Widget
@@ -30,24 +133,18 @@ private extension Color {
 struct AudiobookLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AudiobookActivityAttributes.self) { context in
-            EmptyView() // Lock screen handled by system Now Playing controls
+            LockScreenBanner(context: context)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white.opacity(0.2), lineWidth: 3)
-                        Circle()
-                            .trim(from: 0, to: CGFloat(context.state.progress))
-                            .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                        Image(systemName: context.state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                    .frame(width: 44, height: 44)
+                    ActivityCover(bookId: context.attributes.bookId)
+                        .frame(width: 44, height: 44)
                 }
-
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(context.state.remainingDescription)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.attributes.bookTitle)
@@ -60,80 +157,24 @@ struct AudiobookLiveActivityWidget: Widget {
                             .lineLimit(1)
                     }
                 }
-
-                DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.remainingFormatted)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(value: context.state.chapterProgress)
-                        .tint(Color.listenUpOrange)
-                        .padding(.horizontal, 4)
+                    VStack(spacing: 8) {
+                        ControlButtons(isPlaying: context.state.isPlaying)
+                        ProgressView(value: context.state.chapterProgress)
+                            .tint(Color.listenUpOrange)
+                    }
                 }
             } compactLeading: {
                 Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color.listenUpOrange)
             } compactTrailing: {
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.2), lineWidth: 2)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(context.state.progress))
-                        .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
-                .frame(width: 16, height: 16)
+                ProgressRing(progress: context.state.bookProgress)
+                    .frame(width: 16, height: 16)
             } minimal: {
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.2), lineWidth: 2)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(context.state.progress))
-                        .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                }
+                ProgressRing(progress: context.state.bookProgress)
+                    .frame(width: 16, height: 16)
             }
         }
-    }
-
-    // MARK: - Lock Screen Banner
-
-    @ViewBuilder
-    private func lockScreenView(context: ActivityViewContext<AudiobookActivityAttributes>) -> some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.listenUpOrange.opacity(0.3))
-                .frame(width: 48, height: 48)
-                .overlay {
-                    Image(systemName: "book.closed.fill")
-                        .foregroundStyle(Color.listenUpOrange)
-                }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(context.attributes.bookTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                Text(context.state.chapterTitle)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
-
-                ProgressView(value: context.state.progress)
-                    .tint(Color.listenUpOrange)
-            }
-
-            Spacer()
-
-            Image(systemName: context.state.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                .font(.title)
-                .foregroundStyle(Color.listenUpOrange)
-        }
-        .padding(16)
-        .background(Color.black.opacity(0.8))
     }
 }

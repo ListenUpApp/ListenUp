@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-STRINGS_DIR="$REPO_ROOT/shared/src/commonMain/resources/strings"
+STRINGS_DIR="$REPO_ROOT/sharedLogic/src/commonMain/resources/strings"
 RESOURCES_DIR="$SCRIPT_DIR/../iosApp/Resources"
 
 for json_file in "$STRINGS_DIR"/*.json; do

@@ -1,3 +1,5 @@
+import AppIntents
+import ListenUpActivityKit
 import SwiftUI
 @preconcurrency import Shared
 
@@ -7,6 +9,8 @@ struct ListenUpApp: App {
         // Koin must be initialised before any UI (or observer) accesses it.
         Koin_iosKt.initializeKoin(additionalModules: [])
         Log.info("ListenUp iOS app initialized")
+        // Make the app's player available to the Live Activity intents.
+        AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
     }
 
     var body: some Scene {
