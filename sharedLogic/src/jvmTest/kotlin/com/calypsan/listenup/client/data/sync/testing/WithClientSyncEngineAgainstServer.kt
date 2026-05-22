@@ -178,6 +178,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             val catchUp =
                 SyncCatchUpClient(
                     httpClientProvider = { testClient },
+                    // testApplication serves relative URLs in-process — an empty base URL is correct here.
                     serverUrlProvider = { "" },
                     store = store,
                 )

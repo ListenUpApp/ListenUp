@@ -67,10 +67,11 @@ class Migration16To17Test :
                 val seriesColumns = db.columnsOf("series")
                 seriesColumns shouldContain "revision"
                 seriesColumns shouldContain "deletedAt"
-                db.prepare("SELECT name, revision FROM series WHERE id = 's1'").use { stmt ->
+                db.prepare("SELECT name, revision, deletedAt FROM series WHERE id = 's1'").use { stmt ->
                     stmt.step().shouldBeTrue()
                     stmt.getText(0) shouldBe "The Stormlight Archive"
                     stmt.getLong(1) shouldBeExactly 0L
+                    stmt.isNull(2).shouldBeTrue()
                 }
             } finally {
                 helper.close()
