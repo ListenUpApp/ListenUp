@@ -1,6 +1,6 @@
 import Testing
 import UIKit
-@testable import listenup
+@testable import ListenUp
 
 struct CoverThumbnailWriterTests {
 

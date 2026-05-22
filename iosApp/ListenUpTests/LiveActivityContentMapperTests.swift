@@ -1,5 +1,5 @@
 import Testing
-@testable import listenup
+@testable import ListenUp
 
 struct LiveActivityContentMapperTests {
 

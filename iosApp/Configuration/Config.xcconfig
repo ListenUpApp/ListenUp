@@ -1,6 +1,6 @@
 TEAM_ID=
 
-PRODUCT_NAME=listenup
+PRODUCT_NAME=ListenUp
 PRODUCT_BUNDLE_IDENTIFIER=com.calypsan.listenup.client.listenup$(TEAM_ID)
 
 CURRENT_PROJECT_VERSION=1

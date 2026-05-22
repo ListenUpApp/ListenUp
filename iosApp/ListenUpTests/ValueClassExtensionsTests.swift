@@ -1,6 +1,6 @@
 import SwiftUI
 import Testing
-@testable import listenup
+@testable import ListenUp
 
 @Suite("ValueClassExtensions")
 struct ValueClassExtensionsTests {
