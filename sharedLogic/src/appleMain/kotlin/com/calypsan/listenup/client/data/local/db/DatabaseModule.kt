@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_14_15
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_15_16
+import com.calypsan.listenup.client.data.local.migrations.MIGRATION_16_17
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -39,7 +40,7 @@ actual val platformDatabaseModule: Module =
                     name = dbFile,
                 ).setDriver(BundledSQLiteDriver())
                 .setQueryCoroutineContext(Dispatchers.Default)
-                .addMigrations(MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 // No public installs yet — every schema change nukes and re-creates local
                 // data. Flip back to `false` + a proper Migration chain before launch.
                 .fallbackToDestructiveMigration(true)

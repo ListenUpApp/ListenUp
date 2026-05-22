@@ -158,8 +158,8 @@ data class ChapterEntity(
 /**
  * Local database entity for series.
  *
- * Series do not sync independently — they ride along with the books that
- * reference them.
+ * Series sync as a first-class domain (Books-B1); `revision`/`deletedAt` carry
+ * the substrate bookkeeping.
  */
 @Entity(tableName = "series")
 data class SeriesEntity(
@@ -169,12 +169,17 @@ data class SeriesEntity(
     val asin: String? = null,
     val coverPath: String? = null,
     val coverBlurHash: String? = null,
+    val revision: Long = 0,
+    val deletedAt: Long? = null,
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
 )
 
 /**
  * Local database entity for contributors (authors, narrators, etc.).
+ *
+ * Carries the Books-B1 sync substrate ([revision], [deletedAt]) — contributors
+ * are a first-class syncable domain from Books-B1 onward.
  *
  * Aliases: pen names that have been merged into this contributor, stored in the
  * `contributor_aliases` junction (see [ContributorAliasCrossRef]) — NOT on this
@@ -198,6 +203,8 @@ data class ContributorEntity(
     val website: String? = null,
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")
+    val revision: Long = 0,
+    val deletedAt: Long? = null,
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
 )

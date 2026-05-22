@@ -7,6 +7,8 @@ import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.SeriesId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -134,6 +136,14 @@ interface SeriesDao {
 
     @Query("DELETE FROM series")
     suspend fun deleteAll()
+
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query("UPDATE series SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(
+        id: SeriesId,
+        deletedAt: Long,
+        revision: Long,
+    )
 }
 
 @Dao
@@ -263,6 +273,14 @@ interface ContributorDao {
 
     @Query("DELETE FROM contributors")
     suspend fun deleteAll()
+
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query("UPDATE contributors SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(
+        id: ContributorId,
+        deletedAt: Long,
+        revision: Long,
+    )
 
     // =========================================================================
     // Book-Contributor Relationship Queries

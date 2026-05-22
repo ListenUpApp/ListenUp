@@ -20,7 +20,9 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -120,7 +122,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 db = serverDb,
                 env = mapOf("LISTENUP_LIBRARY_PATH" to libraryDir.absolutePath),
             )
-        val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry)
+        val contributorRepo = ContributorRepository(serverDb, bus, registry)
+        val seriesRepo = SeriesRepository(serverDb, bus, registry)
+        val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
