@@ -20,6 +20,9 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.audio.AudioFileLocator
+import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
@@ -49,6 +52,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.rpc.krpc.ktor.server.Krpc
+import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import java.nio.file.Files
@@ -114,6 +118,11 @@ fun Application.module() {
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
 
+    // TODO(P1-Task-14): Koin-wire AudioFileLocator/AudioUrlSigner via playbackModule
+    val db by inject<Database>()
+    val audioFileLocator = resolvedLibraryPath?.let { AudioFileLocator(db) }
+    val audioUrlSigner = AudioUrlSigner(AudioUrlSigner.deriveSigningKey(jwt.secret))
+
     routing {
         healthRoutes()
         instanceRoutes()
@@ -126,6 +135,9 @@ fun Application.module() {
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
+        }
+        if (audioFileLocator != null) {
+            audioRoutes(audioFileLocator, audioUrlSigner)
         }
     }
 
