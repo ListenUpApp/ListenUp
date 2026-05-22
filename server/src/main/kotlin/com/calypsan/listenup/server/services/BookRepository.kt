@@ -74,12 +74,20 @@ private val log = KotlinLogging.logger {}
  * @param libraryRegistry resolves the single library id for this process; the
  *   INSERT branch of [writePayload] reads it to stamp a fresh book's
  *   `library_id` column.
+ * @param contributorRepository the syncable contributors catalogue;
+ *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
+ *   stable [com.calypsan.listenup.core.ContributorId] before the aggregate write.
+ * @param seriesRepository the syncable series catalogue;
+ *   [upsertFromAnalyzed] resolves each series name through it before the
+ *   aggregate write.
  */
 class BookRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
     private val libraryRegistry: LibraryRegistry,
+    private val contributorRepository: ContributorRepository,
+    private val seriesRepository: SeriesRepository,
     clock: Clock = Clock.System,
 ) : SyncableRepository<BookSyncPayload, BookId>(
         db = db,
@@ -227,11 +235,11 @@ class BookRepository(
      * `ordinal` is cheaper than computing a structural diff to skip touched
      * rows that didn't change.
      *
-     * Contributors and series resolve through their top-level catalogues by
-     * normalized name — a book authored by "Brandon Sanderson" and one by
-     * "  brandon  sanderson  " share a single `contributors` row. The wire-side
-     * `id` is honoured when present; otherwise a fresh UUID is allocated for
-     * new catalogue entries.
+     * Contributor and series junction rows reference the payload's ids directly.
+     * Those ids MUST already exist in [ContributorTable] / [BookSeriesTable] —
+     * see [replaceContributors] / [replaceSeries]. The only path that builds a
+     * [BookSyncPayload] (`upsertFromAnalyzed`) satisfies this by resolving every
+     * contributor/series through the syncable catalogues before calling `upsert`.
      */
     override suspend fun writePayload(
         value: BookSyncPayload,
@@ -376,9 +384,10 @@ class BookRepository(
      *
      * The mapping flattens the scanner's resolved view onto the wire shape:
      *  - `authors` + `narrators` become contributor rows (`role = "author"` /
-     *    `"narrator"`); blank ids trigger `ensureContributor` to allocate fresh
-     *    catalogue UUIDs by normalized name.
-     *  - `series` entries map one-to-one to series memberships.
+     *    `"narrator"`); each is resolved through [ContributorRepository.resolveOrCreate]
+     *    by normalized name, so the junction rows reference an existing catalogue id.
+     *  - `series` entries map one-to-one to series memberships, each resolved
+     *    through [SeriesRepository.resolveOrCreate] the same way.
      *  - `tracks` map to audio files; `filename`/`format`/`size` come from the
      *    track's [com.calypsan.listenup.api.dto.scanner.FileEntry].
      *  - `chapters` map to chapter rows (`duration = endMs - startMs`).
@@ -403,6 +412,14 @@ class BookRepository(
         val candidate = analyzed.candidate
         val inode = candidate.files.firstOrNull()?.inode
         val totalDuration = analyzed.embedded?.durationMs ?: 0L
+        val resolvedContributors =
+            buildContributors(analyzed).map { c ->
+                c.copy(id = contributorRepository.resolveOrCreate(c.name).value)
+            }
+        val resolvedSeries =
+            buildSeries(analyzed).map { s ->
+                s.copy(id = seriesRepository.resolveOrCreate(s.name).value)
+            }
         val payload =
             BookSyncPayload(
                 id = bookId.value,
@@ -423,8 +440,8 @@ class BookRepository(
                 rootRelPath = candidate.rootRelPath,
                 inode = inode,
                 scannedAt = clock.now().toEpochMilliseconds(),
-                contributors = buildContributors(analyzed),
-                series = buildSeries(analyzed),
+                contributors = resolvedContributors,
+                series = resolvedSeries,
                 audioFiles = buildAudioFiles(analyzed),
                 chapters = buildChapters(analyzed),
                 revision = 0L,
@@ -699,16 +716,21 @@ class BookRepository(
         stmt[BookTable.scannedAt] = p.scannedAt
     }
 
+    /**
+     * Replaces this book's contributor junction rows. The caller MUST supply a
+     * payload whose contributor ids already exist in [ContributorTable] —
+     * `upsertFromAnalyzed` satisfies this by resolving every contributor through
+     * [ContributorRepository.resolveOrCreate] before calling `upsert`.
+     */
     private fun replaceContributors(
         bookId: String,
         contributors: List<BookContributorPayload>,
     ) {
         BookContributorTable.deleteWhere { BookContributorTable.bookId eq bookId }
         contributors.forEachIndexed { idx, c ->
-            val contribId = ensureContributor(c)
             BookContributorTable.insert {
                 it[BookContributorTable.bookId] = bookId
-                it[BookContributorTable.contributorId] = contribId
+                it[BookContributorTable.contributorId] = c.id
                 it[BookContributorTable.role] = c.role
                 it[BookContributorTable.creditedAs] = c.creditedAs
                 it[BookContributorTable.ordinal] = idx
@@ -716,56 +738,25 @@ class BookRepository(
         }
     }
 
-    private fun ensureContributor(c: BookContributorPayload): String {
-        val normalized = normalizeForDedup(c.name)
-        val existing =
-            ContributorTable
-                .selectAll()
-                .where { ContributorTable.normalizedName eq normalized }
-                .firstOrNull()
-        if (existing != null) return existing[ContributorTable.id]
-        val newId = c.id.ifBlank { UUID.randomUUID().toString() }
-        ContributorTable.insert {
-            it[ContributorTable.id] = newId
-            it[ContributorTable.normalizedName] = normalized
-            it[ContributorTable.name] = c.name
-            it[ContributorTable.sortName] = c.sortName
-        }
-        return newId
-    }
-
+    /**
+     * Replaces this book's series junction rows. The caller MUST supply a
+     * payload whose series ids already exist in [BookSeriesTable] —
+     * `upsertFromAnalyzed` satisfies this by resolving every series through
+     * [SeriesRepository.resolveOrCreate] before calling `upsert`.
+     */
     private fun replaceSeries(
         bookId: String,
         series: List<BookSeriesPayload>,
     ) {
         BookSeriesMembershipTable.deleteWhere { BookSeriesMembershipTable.bookId eq bookId }
         series.forEachIndexed { idx, s ->
-            val seriesId = ensureSeries(s)
             BookSeriesMembershipTable.insert {
                 it[BookSeriesMembershipTable.bookId] = bookId
-                it[BookSeriesMembershipTable.seriesId] = seriesId
+                it[BookSeriesMembershipTable.seriesId] = s.id
                 it[BookSeriesMembershipTable.sequence] = s.sequence
                 it[BookSeriesMembershipTable.ordinal] = idx
             }
         }
-    }
-
-    private fun ensureSeries(s: BookSeriesPayload): String {
-        val normalized = normalizeForDedup(s.name)
-        val existing =
-            BookSeriesTable
-                .selectAll()
-                .where { BookSeriesTable.normalizedName eq normalized }
-                .firstOrNull()
-        if (existing != null) return existing[BookSeriesTable.id]
-        val newId = s.id.ifBlank { UUID.randomUUID().toString() }
-        BookSeriesTable.insert {
-            it[BookSeriesTable.id] = newId
-            it[BookSeriesTable.normalizedName] = normalized
-            it[BookSeriesTable.name] = s.name
-            it[BookSeriesTable.sortName] = null
-        }
-        return newId
     }
 
     private fun replaceChapters(

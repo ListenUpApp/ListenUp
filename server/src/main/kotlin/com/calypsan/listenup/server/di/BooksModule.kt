@@ -11,7 +11,9 @@ import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.SeriesRepository
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,6 +30,11 @@ import java.nio.file.Path
  *    signal in logs, not a metrics pipeline (project "no premature
  *    observability" stance). [BookPersisterMetrics] is its only consumer.
  *  - [LibraryRegistry] — single-library bootstrap keyed off `LISTENUP_LIBRARY_PATH`.
+ *  - [ContributorRepository] / [SeriesRepository] — the contributors and series
+ *    syncable domains. `createdAtStart = true` so each registers with
+ *    `SyncRegistry` at bootstrap, listing `"contributors"` / `"series"` on
+ *    `/api/v1/sync/domains`. [BookRepository] depends on both to resolve the
+ *    aggregate's contributor/series ids before its junction-row writes.
  *  - [BookRepository] — the books aggregate's [SyncableRepository][com.calypsan.listenup.server.sync.SyncableRepository].
  *    `createdAtStart = true` so its `init` block registers with `SyncRegistry`
  *    at bootstrap, making `/api/v1/sync/domains` list `"books"` on the first request.
@@ -78,7 +85,9 @@ fun booksModule(
             )
         }
 
-        single(createdAtStart = true) { BookRepository(get(), get(), get(), get()) }
+        single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
+        single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
+        single(createdAtStart = true) { BookRepository(get(), get(), get(), get(), get(), get()) }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
 

@@ -1,15 +1,17 @@
 package com.calypsan.listenup.server.db
 
-import org.jetbrains.exposed.v1.core.Table
+import com.calypsan.listenup.server.sync.SyncableTable
 
 /**
- * Top-level contributors, deduplicated by [normalizedName].
+ * Contributors as a first-class syncable domain (Books-B1).
  *
- * Not syncable in Books-A — the wire payload resolves contributors through this
- * table on every aggregate upsert (find-or-insert by `normalized_name`, then
- * write the [BookContributorTable] junction row).
+ * Extends [SyncableTable] — every row carries `revision`, `created_at`,
+ * `updated_at`, `deleted_at`, `client_op_id`. Deduplicated by [normalizedName];
+ * the wire payload never carries that key. Rows are created by the scanner via
+ * `ContributorRepository.resolveOrCreate`, which routes through the substrate so
+ * each new contributor publishes a `SyncEvent`.
  */
-internal object ContributorTable : Table("contributors") {
+internal object ContributorTable : SyncableTable("contributors") {
     val id = varchar("id", 36)
     val normalizedName = varchar("normalized_name", 512)
     val name = varchar("name", 512)

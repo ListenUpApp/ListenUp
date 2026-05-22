@@ -7,8 +7,6 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
-import com.calypsan.listenup.api.sync.BookContributorPayload
-import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.module
@@ -214,17 +212,12 @@ private fun bookRouteFixture(
         rootRelPath = rootRelPath,
         inode = null,
         scannedAt = 1_730_000_000_000L,
-        contributors =
-            listOf(
-                BookContributorPayload(
-                    id = "c-$id",
-                    name = "Brandon Sanderson",
-                    sortName = "Sanderson, Brandon",
-                    role = "author",
-                    creditedAs = null,
-                ),
-            ),
-        series = listOf(BookSeriesPayload(id = "s-$id", name = "Stormlight Archive", sequence = "1")),
+        // Contributors/series left empty: these tests assert only on book
+        // identity and FTS search, not the aggregate's child rows. Junction-row
+        // writes require pre-resolved catalogue ids (see
+        // BookRepository.replaceContributors).
+        contributors = emptyList(),
+        series = emptyList(),
         audioFiles =
             listOf(
                 BookAudioFilePayload(

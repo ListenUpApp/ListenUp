@@ -13,6 +13,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -136,7 +138,19 @@ class BooksSyncCatchUpTest :
                     val token = client.mintAccessToken()
 
                     val repo by application.inject<BookRepository>()
-                    repo.upsert(bookSyncFixture(id = "rt-book", title = "Round-trip Title"))
+                    val contributors by application.inject<ContributorRepository>()
+                    val series by application.inject<SeriesRepository>()
+                    // Resolve real catalogue ids — junction-row FKs require them.
+                    val contributorId = contributors.resolveOrCreate("Brandon Sanderson").value
+                    val seriesId = series.resolveOrCreate("Stormlight Archive").value
+                    repo.upsert(
+                        bookSyncFixture(
+                            id = "rt-book",
+                            title = "Round-trip Title",
+                            contributorId = contributorId,
+                            seriesId = seriesId,
+                        ),
+                    )
 
                     val page =
                         client
@@ -177,9 +191,20 @@ private suspend fun HttpClient.mintAccessToken(): String {
         .value
 }
 
+/**
+ * Builds a [BookSyncPayload] fixture.
+ *
+ * [contributorId] / [seriesId] default to null — contributors/series are then
+ * left empty. Junction-row writes require ids that already exist in the
+ * catalogue tables (see `BookRepository.replaceContributors`); a test that
+ * asserts on contributors/series resolves real ids through the catalogue
+ * repositories first and passes them here.
+ */
 private fun bookSyncFixture(
     id: String,
     title: String,
+    contributorId: String? = null,
+    seriesId: String? = null,
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
@@ -200,16 +225,21 @@ private fun bookSyncFixture(
         inode = null,
         scannedAt = 1_730_000_000_000L,
         contributors =
-            listOf(
-                BookContributorPayload(
-                    id = "c-$id",
-                    name = "Brandon Sanderson",
-                    sortName = "Sanderson, Brandon",
-                    role = "author",
-                    creditedAs = null,
-                ),
-            ),
-        series = listOf(BookSeriesPayload(id = "s-$id", name = "Stormlight Archive", sequence = "1")),
+            contributorId?.let {
+                listOf(
+                    BookContributorPayload(
+                        id = it,
+                        name = "Brandon Sanderson",
+                        sortName = "Sanderson, Brandon",
+                        role = "author",
+                        creditedAs = null,
+                    ),
+                )
+            } ?: emptyList(),
+        series =
+            seriesId?.let {
+                listOf(BookSeriesPayload(id = it, name = "Stormlight Archive", sequence = "1"))
+            } ?: emptyList(),
         audioFiles =
             listOf(
                 BookAudioFilePayload(

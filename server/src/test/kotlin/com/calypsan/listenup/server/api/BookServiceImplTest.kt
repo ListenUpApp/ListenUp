@@ -6,12 +6,12 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
-import com.calypsan.listenup.api.sync.BookContributorPayload
-import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -28,12 +28,16 @@ class BookServiceImplTest :
         test("getBook returns Success with the aggregate for a seeded book") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 val service = BookServiceImpl(repo)
                 runTest {
@@ -51,12 +55,16 @@ class BookServiceImplTest :
         test("getBook returns SyncError.NotFound for an absent book id") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 val service = BookServiceImpl(repo)
                 runTest {
@@ -73,12 +81,16 @@ class BookServiceImplTest :
         test("searchBooks returns matching book ids in FTS rank order") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 val service = BookServiceImpl(repo)
                 runTest {
@@ -97,12 +109,16 @@ class BookServiceImplTest :
         test("searchBooks returns only the id whose title matches the query") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 val service = BookServiceImpl(repo)
                 runTest {
@@ -121,12 +137,16 @@ class BookServiceImplTest :
         test("searchBooks with blank query returns empty list without querying all books") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 val service = BookServiceImpl(repo)
                 runTest {
@@ -165,17 +185,12 @@ private fun bookFixture(
         rootRelPath = rootRelPath,
         inode = null,
         scannedAt = 1_730_000_000_000L,
-        contributors =
-            listOf(
-                BookContributorPayload(
-                    id = "c-sanderson",
-                    name = "Brandon Sanderson",
-                    sortName = "Sanderson, Brandon",
-                    role = "author",
-                    creditedAs = null,
-                ),
-            ),
-        series = listOf(BookSeriesPayload(id = "s1", name = "Stormlight Archive", sequence = "1")),
+        // Contributors/series are left empty: these tests assert only on book
+        // identity and FTS title search. Junction-row writes require pre-resolved
+        // catalogue ids (see BookRepository.replaceContributors precondition);
+        // dedup-by-name coverage lives in ContributorRepositoryTest / SeriesRepositoryTest.
+        contributors = emptyList(),
+        series = emptyList(),
         audioFiles =
             listOf(
                 BookAudioFilePayload(
