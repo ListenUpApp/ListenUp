@@ -68,7 +68,7 @@ class UserScopedRepositoryScopesByUserRule :
 
                     val tableObj =
                         allObjects.firstOrNull { it.name == expectedTableName }
-                            ?: return@mapNotNull null  // Non-standard naming: skip (document manually)
+                            ?: return@mapNotNull null // Non-standard naming: skip (document manually)
 
                     val isUserScoped =
                         tableObj.parents().any { it.name.bareTypeName() == "UserScopedSyncableTable" }

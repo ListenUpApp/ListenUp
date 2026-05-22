@@ -57,7 +57,10 @@ fun Route.playbackRoutes(playbackService: PlaybackService) {
                     call.respond(HttpStatusCode.NotFound)
                 }
             }
-            is AppResult.Failure -> call.respondBareAppError(result.error)
+
+            is AppResult.Failure -> {
+                call.respondBareAppError(result.error)
+            }
         }
     }
 

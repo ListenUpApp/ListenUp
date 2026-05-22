@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
@@ -10,6 +11,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.syncModule
@@ -27,6 +29,7 @@ import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
+import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
@@ -52,7 +55,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.rpc.krpc.ktor.server.Krpc
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import java.nio.file.Files
@@ -85,6 +87,7 @@ fun Application.module() {
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+            modules += playbackModule()
         }
         modules += embeddedmetaModule
         modules += syncModule()
@@ -117,26 +120,25 @@ fun Application.module() {
     val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
-
-    // TODO(P1-Task-14): Koin-wire AudioFileLocator/AudioUrlSigner via playbackModule
-    val db by inject<Database>()
-    val audioFileLocator = resolvedLibraryPath?.let { AudioFileLocator(db) }
-    val audioUrlSigner = AudioUrlSigner(AudioUrlSigner.deriveSigningKey(jwt.secret))
+    val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
+    val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
+    val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
 
     routing {
         healthRoutes()
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService, bookService)
+        rpcRoutes(authService, scannerService, bookService, playbackService)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
+            if (playbackService != null) playbackRoutes(playbackService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
-        if (audioFileLocator != null) {
+        if (audioFileLocator != null && audioUrlSigner != null) {
             audioRoutes(audioFileLocator, audioUrlSigner)
         }
     }

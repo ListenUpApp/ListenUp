@@ -39,14 +39,15 @@ class PlaybackServiceImplTest :
         fun buildDeps(db: org.jetbrains.exposed.v1.jdbc.Database): Triple<BookRepository, PlaybackPositionRepository, AudioUrlSigner> {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val bookRepo = BookRepository(
-                db = db,
-                bus = bus,
-                registry = registry,
-                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake/library")),
-                contributorRepository = ContributorRepository(db, bus, registry),
-                seriesRepository = SeriesRepository(db, bus, registry),
-            )
+            val bookRepo =
+                BookRepository(
+                    db = db,
+                    bus = bus,
+                    registry = registry,
+                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake/library")),
+                    contributorRepository = ContributorRepository(db, bus, registry),
+                    seriesRepository = SeriesRepository(db, bus, registry),
+                )
             val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             return Triple(bookRepo, positionRepo, signer)
@@ -67,13 +68,14 @@ class PlaybackServiceImplTest :
                 runTest {
                     bookRepo.upsert(bookWithThreeFiles("b1"))
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -110,13 +112,14 @@ class PlaybackServiceImplTest :
                         currentChapterId = "chap-1",
                     )
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -134,13 +137,14 @@ class PlaybackServiceImplTest :
                 runTest {
                     bookRepo.upsert(bookWithThreeFiles("b1"))
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
                     val result = service.prepare(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -149,9 +153,10 @@ class PlaybackServiceImplTest :
                     // URL shape: /api/v1/audio/{bookId}/{fileId}?u=...&exp=...&sig=...
                     file.url.shouldNotBeNull()
                     val queryString = file.url.substringAfter("?")
-                    val params = queryString.split("&").associate {
-                        it.substringBefore("=") to it.substringAfter("=")
-                    }
+                    val params =
+                        queryString.split("&").associate {
+                            it.substringBefore("=") to it.substringAfter("=")
+                        }
                     val userId = params["u"].shouldNotBeNull()
                     val exp = params["exp"]?.toLong().shouldNotBeNull()
                     val sig = params["sig"].shouldNotBeNull()
@@ -166,13 +171,14 @@ class PlaybackServiceImplTest :
                 runTest {
                     bookRepo.upsert(bookWithThreeFiles("b1"))
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
                     val result = service.getPosition(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PlaybackPositionSyncPayload?>>()
@@ -187,22 +193,25 @@ class PlaybackServiceImplTest :
                 runTest {
                     bookRepo.upsert(bookWithThreeFiles("b1"))
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
-                    service.recordPosition(RecordPositionRequest(
-                        bookId = "b1",
-                        positionMs = 99_000L,
-                        lastPlayedAt = 1_730_000_000_000L,
-                        finished = false,
-                        playbackSpeed = 1.5f,
-                        currentChapterId = "chap-x",
-                    ))
+                    service.recordPosition(
+                        RecordPositionRequest(
+                            bookId = "b1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = false,
+                            playbackSpeed = 1.5f,
+                            currentChapterId = "chap-x",
+                        ),
+                    )
 
                     val result = service.getPosition(BookId("b1"))
                     val success = result.shouldBeInstanceOf<AppResult.Success<PlaybackPositionSyncPayload?>>()
@@ -220,22 +229,25 @@ class PlaybackServiceImplTest :
                 runTest {
                     bookRepo.upsert(bookWithThreeFiles("b1"))
 
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
-                    service.recordPosition(RecordPositionRequest(
-                        bookId = "b1",
-                        positionMs = 5_000L,
-                        lastPlayedAt = 1_730_000_000_000L,
-                        finished = false,
-                        playbackSpeed = 1.0f,
-                        currentChapterId = null,
-                    ))
+                    service.recordPosition(
+                        RecordPositionRequest(
+                            bookId = "b1",
+                            positionMs = 5_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = false,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        ),
+                    )
 
                     // u1 sees the position
                     val u1pos = positionRepo.getPosition("u1", "b1").shouldNotBeNull()
@@ -255,13 +267,14 @@ class PlaybackServiceImplTest :
                     positionRepo.recordPosition("u1", "b1", 10_000L, 1_730_000_000_000L, false, 1.0f, null)
                     positionRepo.recordPosition("u2", "b1", 20_000L, 1_730_000_000_000L, false, 1.5f, "chap-2")
 
-                    val svc1 = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val svc1 =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
                     val svc2 = svc1.copyWith(principal("u2"))
 
                     val r1 = svc1.prepare(BookId("b1")).shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
@@ -277,13 +290,14 @@ class PlaybackServiceImplTest :
             withInMemoryDatabase {
                 val (bookRepo, positionRepo, signer) = buildDeps(this)
                 runTest {
-                    val service = PlaybackServiceImpl(
-                        bookRepository = bookRepo,
-                        audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
-                        audioUrlSigner = signer,
-                        playbackPositionRepository = positionRepo,
-                        principal = principal("u1"),
-                    )
+                    val service =
+                        PlaybackServiceImpl(
+                            bookRepository = bookRepo,
+                            audioFileLocator = AudioFileLocator(this@withInMemoryDatabase),
+                            audioUrlSigner = signer,
+                            playbackPositionRepository = positionRepo,
+                            principal = principal("u1"),
+                        )
 
                     val result = service.prepare(BookId("nonexistent"))
                     result.shouldBeInstanceOf<AppResult.Failure>()

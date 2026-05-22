@@ -9,7 +9,9 @@ import io.ktor.resources.Resource
  * [com.calypsan.listenup.api.dto.PreparedPlayback].
  */
 @Resource("/api/v1/playback/prepare/{bookId}")
-class Prepare(val bookId: BookId)
+class Prepare(
+    val bookId: BookId,
+)
 
 /**
  * REST mirror of [com.calypsan.listenup.api.PlaybackService.getPosition]
@@ -19,4 +21,6 @@ class Prepare(val bookId: BookId)
  * `AppResult<PlaybackPositionSyncPayload>`.
  */
 @Resource("/api/v1/playback/position/{bookId}")
-class Position(val bookId: BookId)
+class Position(
+    val bookId: BookId,
+)
