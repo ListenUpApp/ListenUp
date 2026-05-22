@@ -1,17 +1,16 @@
 package com.calypsan.listenup.server.db
 
-import org.jetbrains.exposed.v1.core.Table
+import com.calypsan.listenup.server.sync.SyncableTable
 
 /**
- * Server-internal series catalogue, deduplicated by [normalizedName].
+ * Book series as a first-class syncable domain (Books-B1).
  *
- * Not syncable in Books-A — the wire payload resolves series through this table
- * on every aggregate upsert (find-or-insert by `normalized_name`, then write
- * the [BookSeriesMembershipTable] junction row). The display [name] preserves
- * the original casing of the first writer; subsequent writers with matching
- * normalized form reuse the existing row's display [name].
+ * Extends [SyncableTable]. Deduplicated by [normalizedName]; the wire payload
+ * never carries that key. Rows are created by the scanner via
+ * `SeriesRepository.resolveOrCreate`. The display [name] preserves the original
+ * casing of the first writer.
  */
-internal object BookSeriesTable : Table("book_series") {
+internal object BookSeriesTable : SyncableTable("book_series") {
     val id = varchar("id", 36)
     val normalizedName = varchar("normalized_name", 512)
     val name = varchar("name", 512)

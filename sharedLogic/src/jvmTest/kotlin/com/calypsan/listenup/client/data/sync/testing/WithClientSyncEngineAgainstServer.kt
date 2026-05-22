@@ -16,11 +16,16 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -60,6 +65,12 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   server-side
  * @property serverBookRepository the server-side book repository for triggering
  *   `upsert` / `softDelete` writes that publish Books `SyncEvent`s
+ * @property serverContributorRepository the server-side contributor repository; use
+ *   [com.calypsan.listenup.server.services.ContributorRepository.resolveOrCreate]
+ *   to seed a contributor before building a [BookSyncPayload] with its id
+ * @property serverSeriesRepository the server-side series repository; use
+ *   [com.calypsan.listenup.server.services.SeriesRepository.resolveOrCreate]
+ *   to seed a series and publish a `series` [com.calypsan.listenup.server.sync.SyncEvent]
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -71,6 +82,8 @@ data class ClientEngineScope(
     val recording: RecordingTagSyncDomainHandler,
     val tagRepo: TagRepository,
     val serverBookRepository: BookRepository,
+    val serverContributorRepository: ContributorRepository,
+    val serverSeriesRepository: SeriesRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -97,30 +110,11 @@ data class ClientEngineScope(
 fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Unit) {
     testApplication {
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
-        val tmp =
-            Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb =
-            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val bus = ChangeBus()
-        val registry = SyncRegistry()
-        val tagRepo = TagRepository(serverDb, bus, registry)
-
-        // The books domain needs a configured library: BookRepository's INSERT
-        // path resolves the single library row through LibraryRegistry, keyed off
-        // LISTENUP_LIBRARY_PATH. The path only seeds a `libraries` DB row — it is
-        // never read from the filesystem on the sync write path — so a throwaway
-        // temp dir is sufficient. Wiring BookRepository directly (rather than
-        // installing the full `booksModule`) keeps the fixture free of the
-        // scanner/cover/persister deps that module also wires; the e2e round-trip
-        // only exercises the SyncableRepository write → SSE → client surface.
-        val libraryDir =
-            Files.createTempDirectory("listenup-c3-library-").toFile().apply { deleteOnExit() }
-        val libraryRegistry =
-            LibraryRegistry(
-                db = serverDb,
-                env = mapOf("LISTENUP_LIBRARY_PATH" to libraryDir.absolutePath),
-            )
-        val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry)
+        val syncRegistry = SyncRegistry()
+        val serverRepos = buildServerRepositories(serverDb, bus, syncRegistry)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -130,9 +124,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     module {
                         single { serverDb }
                         single { bus }
-                        single { registry }
-                        single(createdAtStart = true) { tagRepo }
-                        single(createdAtStart = true) { bookRepo }
+                        single { syncRegistry }
+                        single(createdAtStart = true) { serverRepos.tagRepo }
+                        single(createdAtStart = true) { serverRepos.bookRepo }
                     },
                 )
             }
@@ -151,16 +145,10 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         try {
             val registry = ClientSyncDomainRegistry()
             val recording = RecordingTagSyncDomainHandler(registry)
-            // Real Books handler registered into the SAME registry — the client
-            // dispatcher routes `books` SSE frames here, applying them into the
-            // client Room DB exactly as production does. The handler self-registers
-            // under `domainName = "books"` on construction.
-            BookSyncDomainHandler(
-                database = clientDb,
-                mapper = BookEntityMapper(),
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
+            // Real Books, Contributor, and Series handlers registered into the SAME
+            // registry — the client dispatcher routes domain SSE frames here, applying
+            // them into the client Room DB exactly as production does.
+            registerClientSyncHandlers(clientDb, registry)
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
             val queue =
@@ -169,10 +157,10 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     sender = PendingOperationSender { AppResult.Success(Unit) },
                 )
 
-            // testApplication routes relative URLs in-process — empty baseUrl is correct.
             val catchUp =
                 SyncCatchUpClient(
                     httpClientProvider = { testClient },
+                    // testApplication serves relative URLs in-process — an empty base URL is correct here.
                     serverUrlProvider = { "" },
                     store = store,
                 )
@@ -220,8 +208,10 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 ClientEngineScope(
                     engine = engine,
                     recording = recording,
-                    tagRepo = tagRepo,
-                    serverBookRepository = bookRepo,
+                    tagRepo = serverRepos.tagRepo,
+                    serverBookRepository = serverRepos.bookRepo,
+                    serverContributorRepository = serverRepos.contributorRepo,
+                    serverSeriesRepository = serverRepos.seriesRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,
@@ -243,4 +233,72 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             }
         }
     }
+}
+
+/** Server-side sync repositories wired for a single e2e test run. */
+private data class ServerRepositories(
+    val tagRepo: TagRepository,
+    val contributorRepo: ContributorRepository,
+    val seriesRepo: SeriesRepository,
+    val bookRepo: BookRepository,
+)
+
+/**
+ * Constructs and registers the real [BookSyncDomainHandler], [ContributorSyncDomainHandler],
+ * and [SeriesSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
+ * applying them into [clientDb] exactly as production does.
+ */
+private fun registerClientSyncHandlers(
+    clientDb: ListenUpDatabase,
+    registry: ClientSyncDomainRegistry,
+) {
+    BookSyncDomainHandler(
+        database = clientDb,
+        mapper = BookEntityMapper(),
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    ContributorSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    SeriesSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+}
+
+/**
+ * Builds all server-side sync repositories from an already-initialised [serverDb].
+ *
+ * Wires [TagRepository], [ContributorRepository], [SeriesRepository], and
+ * [BookRepository] in dependency order without pulling in the full `booksModule`
+ * Koin graph (scanner / cover / persister deps are not needed for the sync
+ * write → SSE → client surface exercised by Tier 3 e2e tests).
+ *
+ * The books domain needs a configured library: [BookRepository]'s INSERT path
+ * resolves the single library row through [LibraryRegistry], keyed off
+ * `LISTENUP_LIBRARY_PATH`. The path only seeds a `libraries` DB row — it is
+ * never read from the filesystem on the sync write path — so a throwaway temp
+ * dir is sufficient.
+ */
+private fun buildServerRepositories(
+    serverDb: ExposedDatabase,
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): ServerRepositories {
+    val tagRepo = TagRepository(serverDb, bus, registry)
+    val libraryDir = Files.createTempDirectory("listenup-c3-library-").toFile().apply { deleteOnExit() }
+    val libraryRegistry =
+        LibraryRegistry(
+            db = serverDb,
+            env = mapOf("LISTENUP_LIBRARY_PATH" to libraryDir.absolutePath),
+        )
+    val contributorRepo = ContributorRepository(serverDb, bus, registry)
+    val seriesRepo = SeriesRepository(serverDb, bus, registry)
+    val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
+    return ServerRepositories(tagRepo, contributorRepo, seriesRepo, bookRepo)
 }

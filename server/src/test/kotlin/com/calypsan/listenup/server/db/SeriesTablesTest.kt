@@ -7,9 +7,19 @@ import io.kotest.matchers.shouldBe
 class SeriesTablesTest :
     FunSpec({
 
-        test("BookSeriesTable has id, normalized_name, name, sort_name") {
+        test("BookSeriesTable has id, normalized_name, name, sort_name + sync columns") {
             BookSeriesTable.columns.map { it.name } shouldContainExactlyInAnyOrder
-                listOf("id", "normalized_name", "name", "sort_name")
+                listOf(
+                    "id",
+                    "normalized_name",
+                    "name",
+                    "sort_name",
+                    "revision",
+                    "created_at",
+                    "updated_at",
+                    "deleted_at",
+                    "client_op_id",
+                )
         }
 
         test("BookSeriesTable tableName is 'book_series'") {

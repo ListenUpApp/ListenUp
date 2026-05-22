@@ -130,12 +130,15 @@ private fun repository(
     bus: ChangeBus,
 ): SoftDeleteRepoFixture {
     val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+    val syncRegistry = SyncRegistry()
     val repo =
         BookRepository(
             db = db,
             bus = bus,
-            registry = SyncRegistry(),
+            registry = syncRegistry,
             libraryRegistry = registry,
+            contributorRepository = ContributorRepository(db, bus, syncRegistry),
+            seriesRepository = SeriesRepository(db, bus, syncRegistry),
         )
     return SoftDeleteRepoFixture(repo, registry)
 }

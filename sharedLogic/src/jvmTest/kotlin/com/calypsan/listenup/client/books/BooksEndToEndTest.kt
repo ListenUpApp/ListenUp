@@ -52,11 +52,16 @@ class BooksEndToEndTest :
             withClientSyncEngineAgainstServer {
                 engine.start(currentUserId = "u1")
 
+                // Resolve the contributor on the server so its row exists in the
+                // contributors table before we insert the book_contributors FK row.
+                val contributorId =
+                    serverContributorRepository.resolveOrCreate("Brandon Sanderson")
+
                 serverBookRepository.upsert(
                     bookPayload(
                         id = "b1",
                         title = "The Way of Kings",
-                        contributors = listOf(authorContributor("Brandon Sanderson")),
+                        contributors = listOf(authorContributor(contributorId.value, "Brandon Sanderson")),
                     ),
                 )
 
@@ -64,12 +69,16 @@ class BooksEndToEndTest :
                     awaitClientBook(clientDatabase, "b1", ROUND_TRIP_TIMEOUT_SECONDS.seconds)
                 book.title shouldBe "The Way of Kings"
 
-                val contributors =
+                // Verify the author cross-ref landed in Room for this book
+                val authorRef =
                     clientDatabase
                         .bookContributorDao()
-                        .getContributorsForBookByRole(BookId("b1"), role = "author")
-                contributors.size shouldBe 1
-                contributors.single().name shouldBe "Brandon Sanderson"
+                        .get(BookId("b1"), contributorId.value, "author")
+                authorRef.shouldNotBeNull()
+                // Verify the contributor itself was synced with the correct name
+                val contributor = clientDatabase.contributorDao().getById(contributorId.value)
+                contributor.shouldNotBeNull()
+                contributor.name shouldBe "Brandon Sanderson"
             }
         }
 
@@ -172,9 +181,12 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
     )
 }
 
-private fun authorContributor(name: String): BookContributorPayload =
+private fun authorContributor(
+    id: String,
+    name: String,
+): BookContributorPayload =
     BookContributorPayload(
-        id = "",
+        id = id,
         name = name,
         sortName = name,
         role = "author",

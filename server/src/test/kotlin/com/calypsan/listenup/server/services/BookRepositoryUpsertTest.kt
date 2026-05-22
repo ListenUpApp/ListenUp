@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.BookSearchMapTable
+import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -30,8 +31,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class BookRepositoryUpsertTest :
@@ -41,14 +42,26 @@ class BookRepositoryUpsertTest :
             withInMemoryDatabase {
                 val db = this
                 val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
-                        registry = SyncRegistry(),
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
+                    // Seed the contributor/series catalogue rows the junction-row FKs
+                    // require. Direct inserts (not resolveOrCreate) so the global
+                    // revision counter and the bus stay untouched — the test asserts
+                    // the book's own revision is 1 and its Created event is first.
+                    transaction(db) {
+                        seedContributor("c1", "Brandon Sanderson")
+                        seedContributor("c2", "Michael Kramer")
+                        seedSeries("s1", "Stormlight Archive")
+                    }
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
@@ -97,14 +110,23 @@ class BookRepositoryUpsertTest :
         test("upsert replaces child rows wholesale on second call") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
+                    transaction(db) {
+                        seedContributor("c1", "Brandon Sanderson")
+                        seedContributor("c2", "Michael Kramer")
+                        seedSeries("s1", "Stormlight Archive")
+                    }
                     val v1 =
                         bookPayloadFixture(
                             id = "b1",
@@ -153,95 +175,25 @@ class BookRepositoryUpsertTest :
             }
         }
 
-        test("contributor dedup: same normalized name across books resolves to one row") {
-            withInMemoryDatabase {
-                val db = this
-                val repo =
-                    BookRepository(
-                        db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    )
-                runTest {
-                    repo.upsert(
-                        bookPayloadFixture(
-                            id = "b1",
-                            title = "Way of Kings",
-                            rootRelPath = "Sanderson/Way of Kings",
-                            contributors = listOf(contributor("c1", "Brandon Sanderson", "author")),
-                        ),
-                    )
-                    repo.upsert(
-                        bookPayloadFixture(
-                            id = "b2",
-                            title = "Words of Radiance",
-                            rootRelPath = "Sanderson/Words of Radiance",
-                            // Different display, same normalized name — should resolve to same row.
-                            contributors = listOf(contributor("c-different", "  Brandon  Sanderson  ", "author")),
-                        ),
-                    )
-
-                    transaction(db) {
-                        ContributorTable.selectAll().count() shouldBe 1L
-                    }
-                }
-            }
-        }
-
-        test("series dedup preserves display casing of first writer") {
-            withInMemoryDatabase {
-                val db = this
-                val repo =
-                    BookRepository(
-                        db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    )
-                runTest {
-                    // First book writes "Stormlight Archive".
-                    repo.upsert(
-                        bookPayloadFixture(
-                            id = "b1",
-                            title = "Way of Kings",
-                            series = listOf(series("s1", "Stormlight Archive", "1")),
-                        ),
-                    )
-                    // Second book writes "  STORMLIGHT  archive " (whitespace + case variance).
-                    repo.upsert(
-                        bookPayloadFixture(
-                            id = "b2",
-                            title = "Words of Radiance",
-                            rootRelPath = "books/b2",
-                            series = listOf(series("s2", "  STORMLIGHT  archive ", "2")),
-                        ),
-                    )
-
-                    // Both books should resolve to the SAME series row,
-                    // with the first writer's casing preserved.
-                    suspendTransaction(db = db) {
-                        val readback1 = repo.readPayloadForTest("b1")!!.series.single()
-                        val readback2 = repo.readPayloadForTest("b2")!!.series.single()
-                        readback1.id shouldBe readback2.id
-                        readback1.name shouldBe "Stormlight Archive"
-                        readback2.name shouldBe "Stormlight Archive"
-                    }
-                }
-            }
-        }
-
         test("FTS row is upserted in book_search and mapped via book_search_map") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
+                    transaction(db) {
+                        seedContributor("c1", "Brandon Sanderson")
+                        seedSeries("s1", "Stormlight Archive")
+                    }
                     repo.upsert(
                         bookPayloadFixture(
                             id = "b1",
@@ -282,12 +234,16 @@ class BookRepositoryUpsertTest :
         test("upsertFromAnalyzed persists and round-trips hasScanWarning") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val warned =
@@ -314,12 +270,16 @@ class BookRepositoryUpsertTest :
         test("update re-uses existing rowid; book_search has exactly one row per book") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))
@@ -358,6 +318,49 @@ class BookRepositoryUpsertTest :
     })
 
 // --- Fixtures ---------------------------------------------------------------
+
+/**
+ * Seeds one [ContributorTable] row directly. `replaceContributors` requires the
+ * contributor id to pre-exist (its junction-row FK); these inserts satisfy that
+ * without touching the global revision counter or the change bus — so tests can
+ * still assert on the book's own revision and Created event.
+ *
+ * Must be called inside a `transaction { }` block.
+ */
+private fun seedContributor(
+    id: String,
+    name: String,
+) {
+    ContributorTable.insert {
+        it[ContributorTable.id] = id
+        it[ContributorTable.normalizedName] = name.lowercase().trim()
+        it[ContributorTable.name] = name
+        it[ContributorTable.sortName] = null
+        it[ContributorTable.revision] = 0L
+        it[ContributorTable.createdAt] = 0L
+        it[ContributorTable.updatedAt] = 0L
+        it[ContributorTable.deletedAt] = null
+        it[ContributorTable.clientOpId] = null
+    }
+}
+
+/** Seeds one [BookSeriesTable] row directly — see [seedContributor]. */
+private fun seedSeries(
+    id: String,
+    name: String,
+) {
+    BookSeriesTable.insert {
+        it[BookSeriesTable.id] = id
+        it[BookSeriesTable.normalizedName] = name.lowercase().trim()
+        it[BookSeriesTable.name] = name
+        it[BookSeriesTable.sortName] = null
+        it[BookSeriesTable.revision] = 0L
+        it[BookSeriesTable.createdAt] = 0L
+        it[BookSeriesTable.updatedAt] = 0L
+        it[BookSeriesTable.deletedAt] = null
+        it[BookSeriesTable.clientOpId] = null
+    }
+}
 
 private fun bookPayloadFixture(
     id: String,

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.sync.handlers
 
-import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -26,7 +25,6 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
@@ -46,10 +44,13 @@ private val logger = KotlinLogging.logger {}
  *   then advances only `revision` and `updatedAt` on the root row, leaving title,
  *   cover, and child rows untouched — repainting them would flicker the UI.
  *
- * - **Enrichment preservation.** Contributor and series rows carry client- and
- *   server-enriched fields (descriptions, images, ASINs) that the book sync payload
- *   does not. `ensureExists` semantics update only the identity fields a book payload
- *   is authoritative for, preserving enrichment already present on the local row.
+ * - **Bootstrap-only contributor/series writes.** The `contributors` and `series`
+ *   sync domains own their respective rows. When a book event references a contributor
+ *   or series that is not yet in Room, the handler inserts a minimal stub so the book
+ *   renders immediately; the real row, with enrichment and a real revision, supersedes
+ *   the stub when the contributor/series domain syncs. If the row already exists, it is
+ *   left completely untouched — the book payload's embedded fields are never written
+ *   back to an existing contributor or series row.
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
@@ -70,7 +71,7 @@ class BookSyncDomainHandler(
         event: SyncEvent<BookSyncPayload>,
         isOwnEcho: Boolean,
     ): AppResult<Unit> =
-        runAtomically(event.id) {
+        transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
                 is SyncEvent.Created -> {
                     upsertAggregate(event.payload, isOwnEcho)
@@ -94,7 +95,7 @@ class BookSyncDomainHandler(
         item: BookSyncPayload,
         isTombstone: Boolean,
     ): AppResult<Unit> =
-        runAtomically(item.id) {
+        transactionRunner.applyEventAtomically(domainName, item.id, logger) {
             if (isTombstone) {
                 database.bookDao().softDelete(
                     id = BookId(item.id),
@@ -104,25 +105,6 @@ class BookSyncDomainHandler(
             } else {
                 upsertAggregate(item, isOwnEcho = false)
             }
-        }
-
-    /**
-     * Run [block] inside one IMMEDIATE write transaction, mapping any escaped failure to a
-     * typed [SyncError.SyncFailed]. [CancellationException] is re-thrown — cancellation is
-     * not a sync failure.
-     */
-    private suspend fun runAtomically(
-        bookId: String,
-        block: suspend () -> Unit,
-    ): AppResult<Unit> =
-        try {
-            transactionRunner.atomically { block() }
-            AppResult.Success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to apply books sync event for $bookId" }
-            AppResult.Failure(SyncError.SyncFailed(debugInfo = "books/$bookId: ${e.message}"))
         }
 
     /**
@@ -229,56 +211,54 @@ class BookSyncDomainHandler(
     }
 
     /**
-     * Ensure a contributor row exists for [contributor]. When present, update only the
-     * identity fields the book payload is authoritative for (`name`, `sortName`) and
-     * preserve every enrichment field. When absent, insert a minimal row with null
-     * enrichment — it fills in once the contributor itself syncs.
+     * Ensure a contributor row exists for [contributor]. When the row is already
+     * present, leave it untouched — the `contributors` sync domain owns it
+     * ([com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler]).
+     * When absent, insert a minimal bootstrap stub from the book payload's
+     * embedded fields so the book renders immediately; the real row, with
+     * enrichment and a real revision, supersedes the stub when the contributors
+     * domain syncs. `revision = 0` marks the row as a not-yet-synced stub.
      */
     private suspend fun contributorEnsureExists(contributor: BookContributorPayload) {
         val existing = database.contributorDao().getById(contributor.id)
-        if (existing != null) {
-            database.contributorDao().upsert(
-                existing.copy(
-                    name = contributor.name,
-                    sortName = contributor.sortName,
-                ),
-            )
-        } else {
-            val now = Timestamp(currentEpochMilliseconds())
-            database.contributorDao().upsert(
-                ContributorEntity(
-                    id = ContributorId(contributor.id),
-                    name = contributor.name,
-                    sortName = contributor.sortName,
-                    description = null,
-                    imagePath = null,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            )
-        }
+        if (existing != null) return
+        val now = Timestamp(currentEpochMilliseconds())
+        database.contributorDao().upsert(
+            ContributorEntity(
+                id = ContributorId(contributor.id),
+                name = contributor.name,
+                sortName = contributor.sortName,
+                description = null,
+                imagePath = null,
+                revision = 0,
+                deletedAt = null,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
     }
 
     /**
-     * Ensure a series row exists for [series]. When present, update only `name` and
-     * preserve every enrichment field. When absent, insert a minimal row with null
-     * enrichment — it fills in once the series itself syncs.
+     * Ensure a series row exists for [series]. When already present, leave it
+     * untouched — the `series` sync domain owns it
+     * ([com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler]).
+     * When absent, insert a minimal bootstrap stub so the book renders
+     * immediately; the real row supersedes it when the series domain syncs.
      */
     private suspend fun seriesEnsureExists(series: BookSeriesPayload) {
         val existing = database.seriesDao().getById(series.id)
-        if (existing != null) {
-            database.seriesDao().upsert(existing.copy(name = series.name))
-        } else {
-            val now = Timestamp(currentEpochMilliseconds())
-            database.seriesDao().upsert(
-                SeriesEntity(
-                    id = SeriesId(series.id),
-                    name = series.name,
-                    description = null,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            )
-        }
+        if (existing != null) return
+        val now = Timestamp(currentEpochMilliseconds())
+        database.seriesDao().upsert(
+            SeriesEntity(
+                id = SeriesId(series.id),
+                name = series.name,
+                description = null,
+                revision = 0,
+                deletedAt = null,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
     }
 }

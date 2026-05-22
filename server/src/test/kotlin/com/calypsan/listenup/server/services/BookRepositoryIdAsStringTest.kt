@@ -13,12 +13,16 @@ class BookRepositoryIdAsStringTest :
     FunSpec({
         test("idAsString returns the raw value, not the value-class toString") {
             withInMemoryDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = this,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = registry,
                         libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(this, bus, registry),
+                        seriesRepository = SeriesRepository(this, bus, registry),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
             }
@@ -26,12 +30,16 @@ class BookRepositoryIdAsStringTest :
 
         test("BookRepository.domainName is 'books'") {
             withInMemoryDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = this,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = registry,
                         libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(this, bus, registry),
+                        seriesRepository = SeriesRepository(this, bus, registry),
                     )
                 repo.domainName shouldBe "books"
             }

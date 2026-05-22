@@ -29,12 +29,16 @@ class BookRepositoryReadTest :
         test("readPayload returns null for absent book") {
             withInMemoryDatabase {
                 val db = this
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     suspendTransaction(db = db) {
@@ -48,12 +52,16 @@ class BookRepositoryReadTest :
             withInMemoryDatabase {
                 val db = this
                 val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = registry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     // Resolve the library id first — this bootstraps the `libraries`
@@ -178,12 +186,16 @@ class BookRepositoryReadTest :
             withInMemoryDatabase {
                 val db = this
                 val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
                 val repo =
                     BookRepository(
                         db = db,
-                        bus = ChangeBus(),
-                        registry = SyncRegistry(),
+                        bus = bus,
+                        registry = syncRegistry,
                         libraryRegistry = registry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val libId = registry.currentLibrary().value

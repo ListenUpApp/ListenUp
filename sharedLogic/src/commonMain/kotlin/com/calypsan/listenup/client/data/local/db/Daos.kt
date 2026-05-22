@@ -7,6 +7,8 @@ import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.SeriesId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -81,32 +83,6 @@ interface SeriesDao {
     suspend fun deleteById(id: String)
 
     /**
-     * Delete multiple series by their IDs in a single transaction.
-     *
-     * More efficient than calling deleteById in a loop when handling
-     * batch deletions from sync operations.
-     *
-     * @param ids List of series IDs to delete
-     */
-    @Query("DELETE FROM series WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<String>)
-
-    /**
-     * Observe all series with their book counts.
-     * Returns series ordered by name with the count of books in each series.
-     */
-    @Query(
-        """
-        SELECT s.*, COUNT(bs.bookId) as bookCount
-        FROM series s
-        LEFT JOIN book_series bs ON s.id = bs.seriesId
-        GROUP BY s.id
-        ORDER BY s.name ASC
-    """,
-    )
-    fun observeAllWithBookCount(): Flow<List<SeriesWithBookCount>>
-
-    /**
      * Observe all series with their books.
      * Uses Room Relations to batch-load all books for each series.
      * Books are ordered by series sequence then title within each series.
@@ -134,6 +110,14 @@ interface SeriesDao {
 
     @Query("DELETE FROM series")
     suspend fun deleteAll()
+
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query("UPDATE series SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
+    suspend fun softDelete(
+        id: SeriesId,
+        deletedAt: Long,
+        revision: Long,
+    )
 }
 
 @Dao
@@ -173,17 +157,6 @@ interface ContributorDao {
     suspend fun deleteById(id: String)
 
     /**
-     * Delete multiple contributors by their IDs in a single transaction.
-     *
-     * More efficient than calling deleteById in a loop when handling
-     * batch deletions from sync operations.
-     *
-     * @param ids List of contributor IDs to delete
-     */
-    @Query("DELETE FROM contributors WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<String>)
-
-    /**
      * Observe contributors filtered by role with their book counts.
      * Returns contributors who have the specified role on at least one book,
      * ordered by name with the count of books they're associated with.
@@ -212,22 +185,6 @@ interface ContributorDao {
     fun observeById(id: String): Flow<ContributorEntity?>
 
     /**
-     * Get all distinct roles a contributor has across their books.
-     *
-     * @param contributorId The contributor's unique ID
-     * @return List of role strings (e.g., ["author", "narrator"])
-     */
-    @Query(
-        """
-        SELECT DISTINCT bc.role
-        FROM book_contributors bc
-        WHERE bc.contributorId = :contributorId
-        ORDER BY bc.role ASC
-    """,
-    )
-    suspend fun getRolesForContributor(contributorId: String): List<String>
-
-    /**
      * Observe all roles a contributor has with book counts per role.
      *
      * @param contributorId The contributor's unique ID
@@ -244,25 +201,21 @@ interface ContributorDao {
     )
     fun observeRolesWithCountForContributor(contributorId: String): Flow<List<RoleWithBookCount>>
 
-    /**
-     * Update the local image path for a contributor.
-     *
-     * Called after downloading a contributor's image during sync.
-     *
-     * @param contributorId The contributor to update
-     * @param imagePath Local file path to the downloaded image
-     */
-    @Query("UPDATE contributors SET imagePath = :imagePath WHERE id = :contributorId")
-    suspend fun updateImagePath(
-        contributorId: String,
-        imagePath: String?,
-    )
-
     @Query("SELECT COUNT(*) FROM contributors")
     suspend fun count(): Int
 
     @Query("DELETE FROM contributors")
     suspend fun deleteAll()
+
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query(
+        "UPDATE contributors SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
+    suspend fun softDelete(
+        id: ContributorId,
+        deletedAt: Long,
+        revision: Long,
+    )
 
     // =========================================================================
     // Book-Contributor Relationship Queries
@@ -272,7 +225,6 @@ interface ContributorDao {
      * Observe all contributors for a specific book.
      *
      * Returns contributors for all roles (author, narrator, etc.).
-     * Use getContributorsForBookByRole on BookContributorDao for role-specific queries.
      *
      * @param bookId The book ID
      * @return Flow emitting list of contributors for the book
