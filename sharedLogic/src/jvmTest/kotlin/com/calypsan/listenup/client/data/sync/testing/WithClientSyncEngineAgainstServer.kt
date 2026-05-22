@@ -29,12 +29,15 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE as ServerSSE
 import io.ktor.server.testing.testApplication
@@ -119,6 +122,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         application {
             install(ServerContentNegotiation) { json(contractJson) }
             install(ServerSSE)
+            install(Authentication) { testAuth() }
             install(Koin) {
                 modules(
                     module {
@@ -130,7 +134,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     },
                 )
             }
-            routing { syncRoutes() }
+            routing {
+                authenticate(JWT_PROVIDER) { syncRoutes() }
+            }
         }
 
         // ---- Client-side test scope ----
