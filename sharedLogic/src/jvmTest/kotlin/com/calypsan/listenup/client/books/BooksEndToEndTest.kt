@@ -69,12 +69,16 @@ class BooksEndToEndTest :
                     awaitClientBook(clientDatabase, "b1", ROUND_TRIP_TIMEOUT_SECONDS.seconds)
                 book.title shouldBe "The Way of Kings"
 
-                val contributors =
+                // Verify the author cross-ref landed in Room for this book
+                val authorRef =
                     clientDatabase
                         .bookContributorDao()
-                        .getContributorsForBookByRole(BookId("b1"), role = "author")
-                contributors.size shouldBe 1
-                contributors.single().name shouldBe "Brandon Sanderson"
+                        .get(BookId("b1"), contributorId.value, "author")
+                authorRef.shouldNotBeNull()
+                // Verify the contributor itself was synced with the correct name
+                val contributor = clientDatabase.contributorDao().getById(contributorId.value)
+                contributor.shouldNotBeNull()
+                contributor.name shouldBe "Brandon Sanderson"
             }
         }
 

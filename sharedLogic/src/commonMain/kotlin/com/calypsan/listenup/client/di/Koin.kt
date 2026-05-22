@@ -1070,7 +1070,6 @@ val syncModule =
                 bookDao = get(),
                 searchDao = get(),
                 api = get(),
-                metadataApi = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
             )

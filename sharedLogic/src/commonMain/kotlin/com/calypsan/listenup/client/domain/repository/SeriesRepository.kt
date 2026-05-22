@@ -94,8 +94,8 @@ interface SeriesRepository {
      * Search series for autocomplete during book editing.
      *
      * Implements "never stranded" pattern:
-     * - Online: Uses server Bleve search (fuzzy, ranked by book count)
-     * - Offline: Falls back to local Room FTS5 (simpler but always works)
+     * - Online: uses the server search endpoint (ranked by book count)
+     * - Offline: falls back to local Room FTS5 (simpler but always works)
      *
      * @param query Search query (min 2 characters recommended)
      * @param limit Maximum results to return (default 10)

@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.domain.repository
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
-import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
@@ -118,8 +117,8 @@ interface ContributorRepository {
      * Search contributors for autocomplete during book editing.
      *
      * Implements "never stranded" pattern:
-     * - Online: Uses server Bleve search (fuzzy, ranked by book count)
-     * - Offline: Falls back to local Room FTS5 (simpler but always works)
+     * - Online: uses the server search endpoint (ranked by book count)
+     * - Offline: falls back to local Room FTS5 (simpler but always works)
      *
      * @param query Search query (min 2 characters recommended)
      * @param limit Maximum results to return (default 10)
@@ -152,29 +151,6 @@ interface ContributorRepository {
      * @return Success or failure result
      */
     suspend fun deleteContributor(contributorId: String): AppResult<Unit>
-
-    /**
-     * Apply metadata from external source (e.g., Audible) to a contributor.
-     *
-     * Fetches contributor profile (biography, image) from external source and applies
-     * selected fields to the local contributor.
-     *
-     * @param contributorId Local contributor ID
-     * @param asin External source identifier (e.g., Audible ASIN)
-     * @param imageUrl Optional image URL to apply
-     * @param applyName Whether to apply the name from external source
-     * @param applyBiography Whether to apply the biography from external source
-     * @param applyImage Whether to download and apply the image
-     * @return Result indicating success, need for disambiguation, or error
-     */
-    suspend fun applyMetadataFromAudible(
-        contributorId: String,
-        asin: String,
-        imageUrl: String? = null,
-        applyName: Boolean = true,
-        applyBiography: Boolean = true,
-        applyImage: Boolean = true,
-    ): ContributorMetadataResult
 }
 
 /**

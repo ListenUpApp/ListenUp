@@ -99,7 +99,13 @@ private fun withHandler(block: suspend (ContributorSyncDomainHandler, ListenUpDa
     }
 
 private fun created(p: ContributorSyncPayload) =
-    SyncEvent.Created(id = p.id, revision = p.revision, occurredAt = p.updatedAt, clientOpId = null, payload = p)
+    SyncEvent.Created(
+        id = p.id,
+        revision = p.revision,
+        occurredAt = p.updatedAt,
+        clientOpId = null,
+        payload = p,
+    )
 
 private fun payload(
     id: String,

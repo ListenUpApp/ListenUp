@@ -47,14 +47,21 @@ class SeriesSyncDomainHandler(
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
-                is SyncEvent.Created -> upsert(event.payload)
-                is SyncEvent.Updated -> upsert(event.payload)
-                is SyncEvent.Deleted ->
+                is SyncEvent.Created -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Updated -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Deleted -> {
                     database.seriesDao().softDelete(
                         id = SeriesId(event.id),
                         deletedAt = event.occurredAt,
                         revision = event.revision,
                     )
+                }
             }
         }
 

@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.MetadataApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import dev.mokkery.MockMode
@@ -47,7 +46,6 @@ class ContributorRepositoryImplTest :
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
                 api = mock<ContributorApiContract>(),
-                metadataApi = mock<MetadataApiContract>(),
                 networkMonitor = mock<NetworkMonitor>(),
                 imageStorage = mock<ImageStorage>(),
             )

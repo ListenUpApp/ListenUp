@@ -97,7 +97,13 @@ private fun withHandler(block: suspend (SeriesSyncDomainHandler, ListenUpDatabas
     }
 
 private fun created(p: SeriesSyncPayload) =
-    SyncEvent.Created(id = p.id, revision = p.revision, occurredAt = p.updatedAt, clientOpId = null, payload = p)
+    SyncEvent.Created(
+        id = p.id,
+        revision = p.revision,
+        occurredAt = p.updatedAt,
+        clientOpId = null,
+        payload = p,
+    )
 
 private fun payload(
     id: String,

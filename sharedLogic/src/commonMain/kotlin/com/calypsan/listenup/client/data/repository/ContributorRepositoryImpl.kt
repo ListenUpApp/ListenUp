@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:max-line-length")
-
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.Failure
@@ -13,14 +11,10 @@ import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.data.remote.ApplyContributorMetadataResult
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.MetadataApiContract
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
-import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
-import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
@@ -43,14 +37,12 @@ private val logger = KotlinLogging.logger {}
  * - Library view methods (contributors by role with book counts)
  * - Contributor detail methods (roles with counts, books per role)
  * - Search with "never stranded" pattern (server with local fallback)
- * - Metadata operations (apply from Audible)
  * - Delete operations
  *
  * @property contributorDao Room DAO for contributor operations
  * @property bookDao Room DAO for book operations
  * @property searchDao Room DAO for FTS search
  * @property api Server API client for contributor operations
- * @property metadataApi API client for Audible metadata
  * @property networkMonitor For checking online/offline status
  * @property imageStorage For resolving cover image paths
  */
@@ -59,7 +51,6 @@ class ContributorRepositoryImpl(
     private val bookDao: BookDao,
     private val searchDao: SearchDao,
     private val api: ContributorApiContract,
-    private val metadataApi: MetadataApiContract,
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
 ) : ContributorRepository {
@@ -238,56 +229,6 @@ class ContributorRepositoryImpl(
                 if (result is Success) logger.info { "Deleted contributor $contributorId" }
             }
         }
-
-    override suspend fun applyMetadataFromAudible(
-        contributorId: String,
-        asin: String,
-        imageUrl: String?,
-        applyName: Boolean,
-        applyBiography: Boolean,
-        applyImage: Boolean,
-    ): ContributorMetadataResult =
-        withContext(IODispatcher) {
-            try {
-                when (
-                    val result =
-                        metadataApi.applyContributorMetadata(
-                            contributorId = contributorId,
-                            asin = asin,
-                            imageUrl = imageUrl,
-                            applyName = applyName,
-                            applyBiography = applyBiography,
-                            applyImage = applyImage,
-                        )
-                ) {
-                    is ApplyContributorMetadataResult.Success -> {
-                        logger.info { "Applied Audible metadata to contributor $contributorId" }
-                        // Simple success without contributor data
-                        ContributorMetadataResult.Success()
-                    }
-
-                    is ApplyContributorMetadataResult.NeedsDisambiguation -> {
-                        logger.debug {
-                            "Contributor metadata needs disambiguation: " +
-                                "${result.candidates.size} candidates for '${result.searchedName}'"
-                        }
-                        ContributorMetadataResult.NeedsDisambiguation(
-                            options = result.candidates.map { it.toDomain() },
-                        )
-                    }
-
-                    is ApplyContributorMetadataResult.Error -> {
-                        logger.warn { "Failed to apply contributor metadata: ${result.message}" }
-                        ContributorMetadataResult.Error(result.message)
-                    }
-                }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(e) { "Error applying contributor metadata" }
-                ContributorMetadataResult.Error(e.message ?: "Unknown error")
-            }
-        }
 }
 
 // ========== Entity to Domain Mappers ==========
@@ -336,14 +277,6 @@ private fun com.calypsan.listenup.client.data.remote.ContributorSearchResult.toD
         id = id,
         name = name,
         bookCount = bookCount,
-    )
-
-private fun com.calypsan.listenup.client.data.remote.model.ContributorMetadataSearchResult.toDomain(): ContributorMetadataCandidate =
-    ContributorMetadataCandidate(
-        asin = asin,
-        name = name,
-        imageUrl = imageUrl,
-        description = description,
     )
 
 // ========== Domain to Entity Mappers ==========

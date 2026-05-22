@@ -38,15 +38,14 @@ data class ContributorUpdateRequest(
  * Contract for contributor editing operations.
  *
  * Provides methods for modifying contributor metadata and managing aliases.
- * Uses offline-first pattern: changes are applied locally immediately
- * and queued for sync to server.
+ * Changes are applied locally immediately; server propagation for contributor
+ * edits is a Books-C concern and is not yet wired.
  */
 interface ContributorEditRepositoryContract {
     /**
      * Update contributor metadata.
      *
-     * Applies update locally and queues for server sync.
-     * Only non-null fields are updated (PATCH semantics).
+     * Applies update locally. Only non-null fields are updated (PATCH semantics).
      *
      * @param contributorId ID of the contributor to update
      * @param update Fields to update
@@ -65,8 +64,6 @@ interface ContributorEditRepositoryContract {
      * - Adds source name to target's aliases
      * - Deletes source contributor
      *
-     * Server sync will perform the same operations on the server side.
-     *
      * @param targetId ID of the target contributor (receives the merge)
      * @param sourceId ID of the source contributor (will be deleted)
      * @return Result indicating success or failure
@@ -84,8 +81,6 @@ interface ContributorEditRepositoryContract {
      * - Re-links book relationships where creditedAs matches the alias
      * - Removes alias from original contributor
      *
-     * Server sync will create the real contributor and we'll update the local ID.
-     *
      * @param contributorId ID of the contributor to unmerge from
      * @param aliasName Name of the alias to split out
      * @return Result indicating success or failure
@@ -97,19 +92,16 @@ interface ContributorEditRepositoryContract {
 }
 
 /**
- * Repository for contributor editing operations using offline-first pattern.
+ * Repository for contributor editing operations using an offline-first pattern.
  *
- * Handles the edit flow:
- * 1. Apply optimistic update to local database
- * 2. Queue operation for server sync via PendingOperationRepository
- * 3. Return success immediately
+ * Edits are applied optimistically to Room inside a [TransactionRunner.atomically] block
+ * and returned as success immediately. Server propagation for contributor edits is a
+ * Books-C concern and is not yet wired.
  *
+ * @property transactionRunner For atomic multi-DAO writes
  * @property contributorDao Room DAO for contributor operations
+ * @property contributorAliasDao Room DAO for contributor alias operations
  * @property bookContributorDao Room DAO for book-contributor relationships
- * @property pendingOperationRepository Repository for queuing sync operations
- * @property contributorUpdateHandler Handler for contributor update operations
- * @property mergeContributorHandler Handler for merge operations
- * @property unmergeContributorHandler Handler for unmerge operations
  */
 class ContributorEditRepository(
     private val transactionRunner: TransactionRunner,

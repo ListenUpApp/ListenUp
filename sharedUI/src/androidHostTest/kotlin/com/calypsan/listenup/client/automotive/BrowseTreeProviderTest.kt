@@ -21,7 +21,6 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.SeriesWithBookCount
 import com.calypsan.listenup.client.data.local.db.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -583,10 +582,6 @@ private class FakeSeriesDao(
 
     override suspend fun deleteById(id: String) = Unit
 
-    override suspend fun deleteByIds(ids: List<String>) = Unit
-
-    override fun observeAllWithBookCount(): Flow<List<SeriesWithBookCount>> = flowOf(emptyList())
-
     override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> = flowOf(emptyList())
 
     override fun observeByIdWithBooks(id: String): Flow<SeriesWithBooks?> = flowOf(null)
@@ -594,6 +589,12 @@ private class FakeSeriesDao(
     override suspend fun count(): Int = allSeries.size
 
     override suspend fun deleteAll() = Unit
+
+    override suspend fun softDelete(
+        id: SeriesId,
+        deletedAt: Long,
+        revision: Long,
+    ) = Unit
 }
 
 private class FakeContributorDao(
@@ -621,24 +622,21 @@ private class FakeContributorDao(
 
     override suspend fun deleteById(id: String) = Unit
 
-    override suspend fun deleteByIds(ids: List<String>) = Unit
-
     override fun observeByRoleWithCount(role: String): Flow<List<com.calypsan.listenup.client.data.local.db.ContributorWithBookCount>> = flowOf(emptyList())
 
     override fun observeById(id: String): Flow<ContributorEntity?> = flowOf(null)
 
-    override suspend fun getRolesForContributor(contributorId: String): List<String> = emptyList()
-
     override fun observeRolesWithCountForContributor(contributorId: String): Flow<List<com.calypsan.listenup.client.data.local.db.RoleWithBookCount>> = flowOf(emptyList())
-
-    override suspend fun updateImagePath(
-        contributorId: String,
-        imagePath: String?,
-    ) = Unit
 
     override suspend fun count(): Int = allContributors.size
 
     override suspend fun deleteAll() = Unit
+
+    override suspend fun softDelete(
+        id: ContributorId,
+        deletedAt: Long,
+        revision: Long,
+    ) = Unit
 
     override fun observeByBookId(bookId: String): Flow<List<ContributorEntity>> = flowOf(emptyList())
 
