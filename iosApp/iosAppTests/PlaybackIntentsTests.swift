@@ -13,35 +13,41 @@ final class FakePlaybackController: PlaybackControlling {
     func skipBackward() { skippedBackward = true }
 }
 
+/// Run serialized so parallel tests don't race on the shared AppDependencyManager
+/// dependency slot. @MainActor lets us construct FakePlaybackController and read
+/// its properties without await, and eliminates the actor-hop that made the
+/// compiler warn "no async operations within await expression".
+@MainActor
+@Suite(.serialized)
 struct PlaybackIntentsTests {
 
     @Test func togglePlaybackIntentRoutesToTogglePlayPause() async throws {
-        let fake = await FakePlaybackController()
-        var intent = TogglePlaybackIntent()
+        let fake = FakePlaybackController()
+        let intent = TogglePlaybackIntent()
         intent.playback = fake
 
         _ = try await intent.perform()
 
-        #expect(await fake.toggled)
+        #expect(fake.toggled)
     }
 
     @Test func skipForwardIntentRoutesToSkipForward() async throws {
-        let fake = await FakePlaybackController()
-        var intent = SkipForwardIntent()
+        let fake = FakePlaybackController()
+        let intent = SkipForwardIntent()
         intent.playback = fake
 
         _ = try await intent.perform()
 
-        #expect(await fake.skippedForward)
+        #expect(fake.skippedForward)
     }
 
     @Test func skipBackwardIntentRoutesToSkipBackward() async throws {
-        let fake = await FakePlaybackController()
-        var intent = SkipBackwardIntent()
+        let fake = FakePlaybackController()
+        let intent = SkipBackwardIntent()
         intent.playback = fake
 
         _ = try await intent.perform()
 
-        #expect(await fake.skippedBackward)
+        #expect(fake.skippedBackward)
     }
 }
