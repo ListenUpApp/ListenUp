@@ -16,6 +16,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -164,8 +165,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         value: T,
         clientOpId: String? = null,
         userId: String? = null,
-    ): AppResult<T> =
-        suspendTransaction(db) {
+    ): AppResult<T> {
+        if (userScoped) {
+            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
+        }
+        return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
             val idStr = idAsString(value.id)
@@ -205,6 +209,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
 
             AppResult.Success(saved)
         }
+    }
 
     /**
      * Serializes a domain id to its raw string representation for WHERE clauses,
@@ -247,8 +252,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         id: ID,
         clientOpId: String? = null,
         userId: String? = null,
-    ): AppResult<Unit> =
-        suspendTransaction(db) {
+    ): AppResult<Unit> {
+        if (userScoped) {
+            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
+        }
+        return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
             val idStr = idAsString(id)
@@ -281,6 +289,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 AppResult.Success(Unit)
             }
         }
+    }
 
     /**
      * Resolves the WHERE-clause user-filter column for a per-user domain.
@@ -293,11 +302,24 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      */
     private fun userFilter(userId: String?): Pair<Column<String>, String>? =
         if (userScoped) {
-            val column = (table as UserScopedSyncableTable).userId
+            val scopedTable =
+                (table as? UserScopedSyncableTable)
+                    ?: error("userScoped repo '$domainName' must use a UserScopedSyncableTable")
+            val column = scopedTable.userId
             column to (userId ?: error("user-scoped read on '$domainName' requires a userId"))
         } else {
             null
         }
+
+    /**
+     * Combines [this] predicate with the per-user equality predicate when this repo is
+     * user-scoped, leaving it unchanged for global domains. Keeps [pullSince] and
+     * [digest] WHERE-clause composition in one place.
+     */
+    private fun Op<Boolean>.withUserFilter(userId: String?): Op<Boolean> {
+        val filter = userFilter(userId) ?: return this
+        return this and (filter.first eq filter.second)
+    }
 
     /**
      * Returns up to [limit] aggregates whose root row has `revision > cursor`,
@@ -320,18 +342,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         limit: Int,
     ): Page<T> =
         suspendTransaction(db) {
-            val filter = userFilter(userId)
             val idsWithRev =
                 table
                     .selectAll()
-                    .where {
-                        val revisionPredicate = table.revision greater cursor
-                        if (filter != null) {
-                            revisionPredicate and (filter.first eq filter.second)
-                        } else {
-                            revisionPredicate
-                        }
-                    }.orderBy(table.revision, SortOrder.ASC)
+                    .where { (table.revision greater cursor).withUserFilter(userId) }
+                    .orderBy(table.revision, SortOrder.ASC)
                     .limit(limit)
                     .map { it[idColumn()] to it[table.revision] }
 
@@ -362,18 +377,11 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         cursor: Long,
     ): DomainDigest =
         suspendTransaction(db) {
-            val filter = userFilter(userId)
             val rows =
                 table
                     .selectAll()
-                    .where {
-                        val revisionPredicate = table.revision lessEq cursor
-                        if (filter != null) {
-                            revisionPredicate and (filter.first eq filter.second)
-                        } else {
-                            revisionPredicate
-                        }
-                    }.map { row -> row[idColumn()] to row[table.revision] }
+                    .where { (table.revision lessEq cursor).withUserFilter(userId) }
+                    .map { row -> row[idColumn()] to row[table.revision] }
                     .sortedBy { it.first }
             if (rows.isEmpty()) {
                 DomainDigest(cursor = cursor, count = 0, hash = "")

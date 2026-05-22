@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -56,6 +57,36 @@ class UserScopedRepositoryTest :
 
                     val u2Page = repo.pullSince(userId = "u2", cursor = 0L, limit = 50)
                     u2Page.items.map { it.id } shouldContainExactlyInAnyOrder listOf("c")
+                }
+            }
+        }
+
+        test("upsert(userId = null) on a userScoped repo throws IllegalArgumentException") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = UserScopedFixtureRepository(db, ChangeBus(), SyncRegistry())
+
+                runTest {
+                    suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
+
+                    shouldThrow<IllegalArgumentException> {
+                        repo.upsert(UserScopedPayload(id = "a", label = "alpha"), userId = null)
+                    }
+                }
+            }
+        }
+
+        test("softDelete(userId = null) on a userScoped repo throws IllegalArgumentException") {
+            withInMemoryDatabase {
+                val db = this
+                val repo = UserScopedFixtureRepository(db, ChangeBus(), SyncRegistry())
+
+                runTest {
+                    suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
+
+                    shouldThrow<IllegalArgumentException> {
+                        repo.softDelete("a", clientOpId = null, userId = null)
+                    }
                 }
             }
         }
