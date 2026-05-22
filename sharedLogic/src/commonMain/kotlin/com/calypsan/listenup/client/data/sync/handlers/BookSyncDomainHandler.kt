@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.sync.handlers
 
-import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -26,7 +25,6 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
@@ -70,7 +68,7 @@ class BookSyncDomainHandler(
         event: SyncEvent<BookSyncPayload>,
         isOwnEcho: Boolean,
     ): AppResult<Unit> =
-        runAtomically(event.id) {
+        transactionRunner.applyEventAtomically("books", event.id, logger) {
             when (event) {
                 is SyncEvent.Created -> {
                     upsertAggregate(event.payload, isOwnEcho)
@@ -94,7 +92,7 @@ class BookSyncDomainHandler(
         item: BookSyncPayload,
         isTombstone: Boolean,
     ): AppResult<Unit> =
-        runAtomically(item.id) {
+        transactionRunner.applyEventAtomically("books", item.id, logger) {
             if (isTombstone) {
                 database.bookDao().softDelete(
                     id = BookId(item.id),
@@ -104,25 +102,6 @@ class BookSyncDomainHandler(
             } else {
                 upsertAggregate(item, isOwnEcho = false)
             }
-        }
-
-    /**
-     * Run [block] inside one IMMEDIATE write transaction, mapping any escaped failure to a
-     * typed [SyncError.SyncFailed]. [CancellationException] is re-thrown — cancellation is
-     * not a sync failure.
-     */
-    private suspend fun runAtomically(
-        bookId: String,
-        block: suspend () -> Unit,
-    ): AppResult<Unit> =
-        try {
-            transactionRunner.atomically { block() }
-            AppResult.Success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to apply books sync event for $bookId" }
-            AppResult.Failure(SyncError.SyncFailed(debugInfo = "books/$bookId: ${e.message}"))
         }
 
     /**
