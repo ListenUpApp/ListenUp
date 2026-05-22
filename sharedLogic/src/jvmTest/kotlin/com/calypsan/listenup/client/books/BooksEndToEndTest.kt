@@ -52,11 +52,16 @@ class BooksEndToEndTest :
             withClientSyncEngineAgainstServer {
                 engine.start(currentUserId = "u1")
 
+                // Resolve the contributor on the server so its row exists in the
+                // contributors table before we insert the book_contributors FK row.
+                val contributorId =
+                    serverContributorRepository.resolveOrCreate("Brandon Sanderson")
+
                 serverBookRepository.upsert(
                     bookPayload(
                         id = "b1",
                         title = "The Way of Kings",
-                        contributors = listOf(authorContributor("Brandon Sanderson")),
+                        contributors = listOf(authorContributor(contributorId.value, "Brandon Sanderson")),
                     ),
                 )
 
@@ -172,9 +177,12 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
     )
 }
 
-private fun authorContributor(name: String): BookContributorPayload =
+private fun authorContributor(
+    id: String,
+    name: String,
+): BookContributorPayload =
     BookContributorPayload(
-        id = "",
+        id = id,
         name = name,
         sortName = name,
         role = "author",

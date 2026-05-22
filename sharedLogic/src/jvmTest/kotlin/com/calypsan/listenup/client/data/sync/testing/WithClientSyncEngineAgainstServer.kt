@@ -62,6 +62,9 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   server-side
  * @property serverBookRepository the server-side book repository for triggering
  *   `upsert` / `softDelete` writes that publish Books `SyncEvent`s
+ * @property serverContributorRepository the server-side contributor repository; use
+ *   [com.calypsan.listenup.server.services.ContributorRepository.resolveOrCreate]
+ *   to seed a contributor before building a [BookSyncPayload] with its id
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -73,6 +76,7 @@ data class ClientEngineScope(
     val recording: RecordingTagSyncDomainHandler,
     val tagRepo: TagRepository,
     val serverBookRepository: BookRepository,
+    val serverContributorRepository: ContributorRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -99,10 +103,8 @@ data class ClientEngineScope(
 fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Unit) {
     testApplication {
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
-        val tmp =
-            Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb =
-            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
         val bus = ChangeBus()
         val registry = SyncRegistry()
         val tagRepo = TagRepository(serverDb, bus, registry)
@@ -173,7 +175,6 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     sender = PendingOperationSender { AppResult.Success(Unit) },
                 )
 
-            // testApplication routes relative URLs in-process — empty baseUrl is correct.
             val catchUp =
                 SyncCatchUpClient(
                     httpClientProvider = { testClient },
@@ -226,6 +227,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     recording = recording,
                     tagRepo = tagRepo,
                     serverBookRepository = bookRepo,
+                    serverContributorRepository = contributorRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,

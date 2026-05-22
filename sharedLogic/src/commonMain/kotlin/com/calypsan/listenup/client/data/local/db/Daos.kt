@@ -138,7 +138,7 @@ interface SeriesDao {
     suspend fun deleteAll()
 
     /** Apply a server tombstone: set the soft-delete timestamp and revision. */
-    @Query("UPDATE series SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    @Query("UPDATE series SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
     suspend fun softDelete(
         id: SeriesId,
         deletedAt: Long,
@@ -275,7 +275,9 @@ interface ContributorDao {
     suspend fun deleteAll()
 
     /** Apply a server tombstone: set the soft-delete timestamp and revision. */
-    @Query("UPDATE contributors SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    @Query(
+        "UPDATE contributors SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
     suspend fun softDelete(
         id: ContributorId,
         deletedAt: Long,
