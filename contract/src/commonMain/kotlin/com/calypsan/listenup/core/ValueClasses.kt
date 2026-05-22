@@ -138,6 +138,25 @@ value class ContributorId(
 }
 
 /**
+ * Type-safe wrapper for PlaybackPosition IDs.
+ *
+ * Identifies a single per-user position row in the `playback_positions` table.
+ * Each row represents the current resume point for one `(userId, bookId)` pair;
+ * the id is a stable UUID assigned on first write and reused on every update.
+ */
+@Serializable
+@JvmInline
+value class PlaybackPositionId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "PlaybackPosition ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Unix epoch millisecond timestamps.
  *
  * Prevents accidentally comparing timestamps with durations or other numeric values.
