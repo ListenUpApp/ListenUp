@@ -24,6 +24,7 @@ private const val LIVE_TAIL_BUFFER = 256
 data class BusEvent<T : Any>(
     val repo: SyncableRepository<T, *>,
     val event: SyncEvent<T>,
+    val userId: String? = null,
 )
 
 /**
@@ -58,8 +59,9 @@ class ChangeBus {
     suspend fun <T : Any> publish(
         repo: SyncableRepository<T, *>,
         event: SyncEvent<T>,
+        userId: String? = null,
     ) {
-        flow.emit(BusEvent(repo, event))
+        flow.emit(BusEvent(repo, event, userId))
     }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
