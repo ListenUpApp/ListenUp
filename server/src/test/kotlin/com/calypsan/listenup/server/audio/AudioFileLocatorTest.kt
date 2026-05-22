@@ -15,7 +15,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 class AudioFileLocatorTest :
     FunSpec({
@@ -43,7 +43,7 @@ class AudioFileLocatorTest :
                     val result = locator.locate("b1", "af1")
 
                     result.shouldNotBeNull()
-                    result.path shouldBe Path.of(libraryPath, "Sanderson/WayOfKings", "01.m4b")
+                    result.path shouldBe Path(libraryPath, "Sanderson/WayOfKings", "01.m4b")
                     result.format shouldBe "m4b"
                     result.sizeBytes shouldBe 500_000_000L
                 }

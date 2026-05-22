@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.audio
 
-import java.net.URLEncoder
+import io.ktor.http.encodeURLParameter
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import javax.crypto.Mac
@@ -31,7 +31,6 @@ class AudioUrlSigner(
     private val ttl: Duration = 12.hours,
     private val clock: Clock = Clock.System,
 ) {
-
     /**
      * Returns `u=<userId>&exp=<epochSec>&sig=<hex>` for the audio URL of
      * `(userId, bookId, fileId)`. The `bookId` and `fileId` are path segments
@@ -44,7 +43,7 @@ class AudioUrlSigner(
     ): String {
         val exp = (clock.now() + ttl).epochSeconds
         val sig = hmacHex(payload(userId, bookId, fileId, exp))
-        return "u=${URLEncoder.encode(userId, StandardCharsets.UTF_8)}&exp=$exp&sig=$sig"
+        return "u=${userId.encodeURLParameter()}&exp=$exp&sig=$sig"
     }
 
     /**
@@ -65,16 +64,18 @@ class AudioUrlSigner(
         return MessageDigest.isEqual(expectedBytes, actualBytes)
     }
 
-    private fun payload(userId: String, bookId: String, fileId: String, exp: Long) =
-        "$userId|$bookId|$fileId|$exp"
+    private fun payload(
+        userId: String,
+        bookId: String,
+        fileId: String,
+        exp: Long,
+    ) = "$userId|$bookId|$fileId|$exp"
 
     private fun hmacHex(message: String): String {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(signingKey, "HmacSHA256"))
-        return mac.doFinal(message.toByteArray(StandardCharsets.UTF_8)).toHex()
+        return mac.doFinal(message.toByteArray(StandardCharsets.UTF_8)).toHexString()
     }
-
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     /**
      * Decodes a lowercase-hex string to bytes, or returns null when the string
@@ -83,16 +84,13 @@ class AudioUrlSigner(
     private fun hexToBytes(hex: String): ByteArray? {
         if (hex.length != 64) return null // SHA-256 produces 32 bytes = 64 hex chars
         return try {
-            ByteArray(hex.length / 2) { i ->
-                hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-            }
-        } catch (_: NumberFormatException) {
+            hex.hexToByteArray()
+        } catch (_: IllegalArgumentException) {
             null
         }
     }
 
     companion object {
-
         /**
          * Derives the signing key from a JWT secret so operators manage no new
          * secret. The derivation uses HMAC-SHA256 itself as a KDF:

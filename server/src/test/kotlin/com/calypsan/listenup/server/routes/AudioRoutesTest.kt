@@ -41,8 +41,7 @@ import java.nio.file.Files
  * `mintAccessToken()` fires before `inject<BookRepository>()`.
  */
 
-/** Test JWT secret must match the value in [useIsolatedTestConfig]. */
-private val TEST_JWT_SECRET = "x".repeat(32)
+private val TEST_JWT_SECRET = "x".repeat(32) // must match the value in useIsolatedTestConfig
 private val TEST_SIGNING_KEY = AudioUrlSigner.deriveSigningKey(TEST_JWT_SECRET)
 
 class AudioRoutesTest :

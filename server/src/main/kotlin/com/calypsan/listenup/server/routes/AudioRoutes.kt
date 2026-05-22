@@ -20,7 +20,10 @@ import io.ktor.server.routing.get
  * byte-range streaming and HEAD-for-GET for free — no additional handling needed
  * here; `respondFile` cooperates with both plugins automatically.
  */
-fun Route.audioRoutes(locator: AudioFileLocator, signer: AudioUrlSigner) {
+fun Route.audioRoutes(
+    locator: AudioFileLocator,
+    signer: AudioUrlSigner,
+) {
     get("/api/v1/audio/{bookId}/{fileId}") {
         val bookId = call.parameters["bookId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val fileId = call.parameters["fileId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
@@ -33,7 +36,7 @@ fun Route.audioRoutes(locator: AudioFileLocator, signer: AudioUrlSigner) {
             return@get call.respond(HttpStatusCode.Forbidden)
         }
         val location = locator.locate(bookId, fileId) ?: return@get call.respond(HttpStatusCode.NotFound)
-        val file = location.path.toFile()
+        val file = java.io.File(location.path.toString())
         if (!file.isFile) return@get call.respond(HttpStatusCode.NotFound)
         call.respondFile(file)
     }

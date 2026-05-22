@@ -3,16 +3,19 @@ package com.calypsan.listenup.server.audio
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
+import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import java.nio.file.Path
 
 /**
  * Where one audio file lives on disk, plus the metadata the audio route needs
  * to serve it correctly.
+ *
+ * [path] is a [kotlinx.io.files.Path]; callers that need a [java.io.File]
+ * (e.g. Ktor's `respondFile`) convert at the boundary via `File(path.toString())`.
  */
 data class AudioFileLocation(
     val path: Path,
@@ -27,15 +30,19 @@ data class AudioFileLocation(
  * `<library rootPath>/<book rootRelPath>/<filename>` — the same three-table
  * join that `BookRepository.coverInfo` uses.
  */
-class AudioFileLocator(private val db: Database) {
-
+class AudioFileLocator(
+    private val db: Database,
+) {
     /**
      * Returns the [AudioFileLocation] for the given `(bookId, fileId)` pair,
      * or null when either the audio file row or its parent book/library row
      * is absent. Does not check whether the file exists on disk — the caller
      * handles a missing file as 404.
      */
-    suspend fun locate(bookId: String, fileId: String): AudioFileLocation? =
+    suspend fun locate(
+        bookId: String,
+        fileId: String,
+    ): AudioFileLocation? =
         suspendTransaction(db) {
             val fileRow =
                 BookAudioFileTable
@@ -43,8 +50,7 @@ class AudioFileLocator(private val db: Database) {
                     .where {
                         (BookAudioFileTable.bookId eq bookId) and
                             (BookAudioFileTable.id eq fileId)
-                    }
-                    .firstOrNull() ?: return@suspendTransaction null
+                    }.firstOrNull() ?: return@suspendTransaction null
 
             val filename = fileRow[BookAudioFileTable.filename]
             val format = fileRow[BookAudioFileTable.format]
@@ -68,7 +74,7 @@ class AudioFileLocator(private val db: Database) {
                     ?: return@suspendTransaction null
 
             AudioFileLocation(
-                path = Path.of(libraryRoot, rootRelPath, filename),
+                path = Path(libraryRoot, rootRelPath, filename),
                 format = format,
                 sizeBytes = size,
             )
