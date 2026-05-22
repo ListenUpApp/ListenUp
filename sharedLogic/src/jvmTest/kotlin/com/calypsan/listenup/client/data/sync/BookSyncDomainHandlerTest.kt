@@ -81,22 +81,39 @@ class BookSyncDomainHandlerTest :
             }
         }
 
-        test("contributor enrichment is preserved across an Updated event") {
+        test("book handler does not clobber an existing contributor row") {
             withTestHandler { handler, db ->
                 db.contributorDao().upsert(
-                    contributorEntity(id = "c1", name = "Old Name", description = "A prolific author."),
+                    contributorEntity(id = "c1", name = "Canonical Name", description = "A prolific author."),
                 )
                 val payload =
                     bookPayload(
                         id = "b1",
-                        contributors = listOf(contrib(id = "c1", name = "New Name")),
+                        contributors = listOf(contrib(id = "c1", name = "Stale Embedded Name")),
                     )
                 handler.onEvent(created(payload), isOwnEcho = false)
 
-                val contributor = db.contributorDao().getById("c1")
-                contributor shouldNotBe null
-                contributor!!.name shouldBe "New Name"
+                // The contributor domain owns this row — the book payload's
+                // embedded name must NOT overwrite it.
+                val contributor = db.contributorDao().getById("c1")!!
+                contributor.name shouldBe "Canonical Name"
                 contributor.description shouldBe "A prolific author."
+            }
+        }
+
+        test("book handler inserts a bootstrap stub for a missing contributor") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(
+                        id = "b1",
+                        contributors = listOf(contrib(id = "c9", name = "Newly Seen Author")),
+                    )
+                handler.onEvent(created(payload), isOwnEcho = false)
+
+                val stub = db.contributorDao().getById("c9")
+                stub shouldNotBe null
+                stub!!.name shouldBe "Newly Seen Author"
+                stub.revision shouldBe 0L // sentinel — real revision arrives via the contributors domain
             }
         }
 
