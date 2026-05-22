@@ -1,5 +1,5 @@
 import Testing
-@testable import listenup
+@testable import ListenUp
 
 @Suite("Navigation destinations")
 struct NavigationTests {

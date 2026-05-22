@@ -11,7 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STRINGS_DIR="$REPO_ROOT/sharedLogic/src/commonMain/resources/strings"
-RESOURCES_DIR="$SCRIPT_DIR/../iosApp/Resources"
+RESOURCES_DIR="$SCRIPT_DIR/../ListenUp/Resources"
 
 for json_file in "$STRINGS_DIR"/*.json; do
     locale="$(basename "$json_file" .json)"

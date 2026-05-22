@@ -20,7 +20,7 @@ captures
 # Generated localization files
 composeApp/src/commonMain/composeResources/values/strings.xml
 composeApp/src/commonMain/composeResources/values-*/strings.xml
-iosApp/iosApp/Resources/*.lproj/Localizable.strings
+iosApp/ListenUp/Resources/*.lproj/Localizable.strings
 
 # Git worktrees (Claude Code subagent-driven development)
 .worktrees/

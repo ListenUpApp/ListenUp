@@ -20,14 +20,14 @@
 			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 7BAAD05E534B00C963664416;
-			remoteInfo = iosApp;
+			remoteInfo = ListenUp;
 		};
 		F4A6DB532F3EC7F200F9C38D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = F4A6DB3E2F3EC7F200F9C38D;
-			remoteInfo = listenUpWidgetsExtension;
+			remoteInfo = ListenUpWidgetsExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -46,10 +46,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		E757F5D28662E4BCC0992649 /* listenup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = listenup.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F42CD9A92FBF666E008B9D90 /* listenUpWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = listenUpWidgetsExtension.entitlements; sourceTree = "<group>"; };
-		F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = listenUpWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ListenUpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E757F5D28662E4BCC0992649 /* listenup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ListenUp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F42CD9A92FBF666E008B9D90 /* listenUpWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenUpWidgetsExtension.entitlements; sourceTree = "<group>"; };
+		F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ListenUpWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4A6DB412F3EC7F200F9C38D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		F4A6DB432F3EC7F200F9C38D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -82,12 +82,12 @@
 			exceptions = (
 				2CD8B17B8CD93251BAA9E461 /* Exceptions for "iosApp" folder in "iosApp" target */,
 			);
-			path = iosApp;
+			path = ListenUp;
 			sourceTree = "<group>";
 		};
 		D6FB2F3845C34DB4A3FCAD45 /* iosAppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = iosAppTests;
+			path = ListenUpTests;
 			sourceTree = "<group>";
 		};
 		F4A6DB452F3EC7F200F9C38D /* listenUpWidgets */ = {
@@ -95,7 +95,7 @@
 			exceptions = (
 				F4A6DB592F3EC7F200F9C38D /* Exceptions for "listenUpWidgets" folder in "listenUpWidgetsExtension" target */,
 			);
-			path = listenUpWidgets;
+			path = ListenUpWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -179,10 +179,10 @@
 			fileSystemSynchronizedGroups = (
 				D6FB2F3845C34DB4A3FCAD45 /* iosAppTests */,
 			);
-			name = iosAppTests;
+			name = ListenUpTests;
 			packageProductDependencies = (
 			);
-			productName = iosAppTests;
+			productName = ListenUpTests;
 			productReference = 8E6E37047B9E4CE1B6B36533 /* iosAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -205,11 +205,11 @@
 			fileSystemSynchronizedGroups = (
 				C8EF4017F06459C992EEE7AF /* iosApp */,
 			);
-			name = iosApp;
+			name = ListenUp;
 			packageProductDependencies = (
 				F42CD9A52FBF6648008B9D90 /* ListenUpActivityKit */,
 			);
-			productName = iosApp;
+			productName = ListenUp;
 			productReference = E757F5D28662E4BCC0992649 /* listenup.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -228,11 +228,11 @@
 			fileSystemSynchronizedGroups = (
 				F4A6DB452F3EC7F200F9C38D /* listenUpWidgets */,
 			);
-			name = listenUpWidgetsExtension;
+			name = ListenUpWidgetsExtension;
 			packageProductDependencies = (
 				F42CD9A72FBF664E008B9D90 /* ListenUpActivityKit */,
 			);
-			productName = listenUpWidgetsExtension;
+			productName = ListenUpWidgetsExtension;
 			productReference = F4A6DB3F2F3EC7F200F9C38D /* listenUpWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
@@ -333,7 +333,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/iosApp/Resources/en.lproj/Localizable.strings",
+				"$(SRCROOT)/ListenUp/Resources/en.lproj/Localizable.strings",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -389,7 +389,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ListenUp.app/ListenUp";
 			};
 			name = Debug;
 		};
@@ -458,16 +458,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ListenUp/ListenUp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"ListenUp/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_FILE = ListenUp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ListenUp;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -562,16 +562,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ListenUp/ListenUp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"ListenUp/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_FILE = ListenUp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ListenUp;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -599,14 +599,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = listenUpWidgetsExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ListenUpWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = listenUpWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = listenUpWidgets;
+				INFOPLIST_FILE = ListenUpWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ListenUpWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -632,14 +632,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = listenUpWidgetsExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ListenUpWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = listenUpWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = listenUpWidgets;
+				INFOPLIST_FILE = ListenUpWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ListenUpWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -670,7 +670,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.listenup$(TEAM_ID).tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/listenup.app/listenup";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ListenUp.app/ListenUp";
 			};
 			name = Release;
 		};
