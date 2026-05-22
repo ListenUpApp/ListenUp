@@ -71,7 +71,7 @@ class BookSyncDomainHandler(
         event: SyncEvent<BookSyncPayload>,
         isOwnEcho: Boolean,
     ): AppResult<Unit> =
-        transactionRunner.applyEventAtomically("books", event.id, logger) {
+        transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
                 is SyncEvent.Created -> {
                     upsertAggregate(event.payload, isOwnEcho)
@@ -95,7 +95,7 @@ class BookSyncDomainHandler(
         item: BookSyncPayload,
         isTombstone: Boolean,
     ): AppResult<Unit> =
-        transactionRunner.applyEventAtomically("books", item.id, logger) {
+        transactionRunner.applyEventAtomically(domainName, item.id, logger) {
             if (isTombstone) {
                 database.bookDao().softDelete(
                     id = BookId(item.id),
