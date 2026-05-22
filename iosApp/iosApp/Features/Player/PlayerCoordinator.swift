@@ -115,6 +115,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let engine = AudioEngine()
     private let positionTracker = PositionTracker()
     private let system = SystemIntegration()
+    private let liveActivity = LiveActivityManager()
 
     // MARK: - KMP seam
 
@@ -126,6 +127,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private var currentBookId: String?
     private var lastReportedPositionMs: Int64 = 0
+    private var lastSyncedChapterIndex: Int = -1
     private static let positionReportIntervalMs: Int64 = 5000
 
     // MARK: - Init
@@ -180,12 +182,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
             progressTracker.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         }
         updateNowPlaying()
+        syncLiveActivity()
     }
 
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
         Task { await engine.seek(toMs: positionMs) }
         updateNowPlaying()
+        syncLiveActivity()
     }
 
     /// Set the playback speed.
@@ -198,6 +202,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             )
         }
         updateNowPlaying()
+        syncLiveActivity()
     }
 
     /// Skip forward, clamped to the book's end.
@@ -233,6 +238,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bridge.cancelAll()
         positionTracker.reset()
         Task { await engine.release() }
+        liveActivity.end()
     }
 
     // MARK: - RemoteCommandHandler
@@ -284,6 +290,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
             bookId: id, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed
         )
         updateNowPlaying()
+        lastSyncedChapterIndex = chapterIndex
+        if let snapshot = liveActivitySnapshot() {
+            liveActivity.start(snapshot)
+        }
     }
 
     // MARK: - Engine events
@@ -293,6 +303,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case .position(let ms, let rate):
             positionTracker.update(positionMs: ms, rate: rate)
             reportPositionIfNeeded(ms)
+            if chapterIndex != lastSyncedChapterIndex {
+                lastSyncedChapterIndex = chapterIndex
+                syncLiveActivity()
+            }
         case .statusChanged(let status):
             applyEngineStatus(status)
         case .ended:
@@ -331,6 +345,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progressTracker.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
+        syncLiveActivity()
     }
 
     // MARK: - Sleep timer
@@ -352,6 +367,32 @@ final class PlayerCoordinator: RemoteCommandHandler {
             sleepTimerMode = ""
             sleepTimerLabel = ""
         }
+    }
+
+    // MARK: - Live Activity
+
+    /// A value snapshot of the playback state the Live Activity needs.
+    private func liveActivitySnapshot() -> LiveActivitySnapshot? {
+        guard let bookId = currentBookId else { return nil }
+        return LiveActivitySnapshot(
+            bookId: bookId,
+            bookTitle: bookTitle,
+            authorName: authorName,
+            coverBlurHash: coverBlurHash,
+            coverPath: coverPath,
+            chapterTitle: chapterTitle ?? bookTitle,
+            isPlaying: isPlaying,
+            bookPositionMs: bookPositionMs,
+            bookDurationMs: bookDurationMs,
+            chapterPositionMs: chapterPositionMs,
+            chapterDurationMs: chapterDurationMs
+        )
+    }
+
+    /// Push the current state to the Live Activity, if one should be running.
+    private func syncLiveActivity() {
+        guard let snapshot = liveActivitySnapshot() else { return }
+        liveActivity.sync(snapshot)
     }
 
     // MARK: - System integration
