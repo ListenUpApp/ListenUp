@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.audio
 
 import io.ktor.http.encodeURLParameter
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import kotlin.text.Charsets
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -74,7 +74,7 @@ class AudioUrlSigner(
     private fun hmacHex(message: String): String {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(signingKey, "HmacSHA256"))
-        return mac.doFinal(message.toByteArray(StandardCharsets.UTF_8)).toHexString()
+        return mac.doFinal(message.toByteArray(Charsets.UTF_8)).toHexString()
     }
 
     /**
@@ -98,8 +98,8 @@ class AudioUrlSigner(
          */
         fun deriveSigningKey(jwtSecret: String): ByteArray {
             val mac = Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(jwtSecret.toByteArray(StandardCharsets.UTF_8), "HmacSHA256"))
-            return mac.doFinal("listenup-audio-url-v1".toByteArray(StandardCharsets.UTF_8))
+            mac.init(SecretKeySpec(jwtSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+            return mac.doFinal("listenup-audio-url-v1".toByteArray(Charsets.UTF_8))
         }
     }
 }

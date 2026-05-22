@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.result.AppResult
@@ -7,8 +9,8 @@ import com.calypsan.listenup.server.db.PlaybackPositionTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -139,7 +141,7 @@ internal class PlaybackPositionRepository(
             return AppResult.Success(existing)
         }
 
-        val id = existing?.id ?: UUID.randomUUID().toString()
+        val id = existing?.id ?: Uuid.random().toString()
         val payload =
             PlaybackPositionSyncPayload(
                 id = id,
@@ -172,8 +174,7 @@ internal class PlaybackPositionRepository(
                     (PlaybackPositionTable.userId eq userId) and
                         (PlaybackPositionTable.bookId eq bookId) and
                         (PlaybackPositionTable.deletedAt eq null)
-                }
-                .firstOrNull()
+                }.firstOrNull()
                 ?.let { row ->
                     PlaybackPositionSyncPayload(
                         id = row[PlaybackPositionTable.id],
