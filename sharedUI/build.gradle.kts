@@ -110,9 +110,6 @@ kotlin {
             // Navigation 3 Android-specific (deep linking)
             implementation(libs.androidx.navigation3.ui.android)
 
-            // Navigation 3 ViewModel decorator add-on (per-entry ViewModelStore scoping)
-            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-
             // WorkManager for background sync
             implementation(libs.androidx.work.runtime.ktx)
 
