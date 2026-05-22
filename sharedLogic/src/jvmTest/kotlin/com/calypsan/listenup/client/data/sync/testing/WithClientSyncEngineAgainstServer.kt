@@ -16,6 +16,8 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -65,6 +67,9 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * @property serverContributorRepository the server-side contributor repository; use
  *   [com.calypsan.listenup.server.services.ContributorRepository.resolveOrCreate]
  *   to seed a contributor before building a [BookSyncPayload] with its id
+ * @property serverSeriesRepository the server-side series repository; use
+ *   [com.calypsan.listenup.server.services.SeriesRepository.resolveOrCreate]
+ *   to seed a series and publish a `series` [com.calypsan.listenup.server.sync.SyncEvent]
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -77,6 +82,7 @@ data class ClientEngineScope(
     val tagRepo: TagRepository,
     val serverBookRepository: BookRepository,
     val serverContributorRepository: ContributorRepository,
+    val serverSeriesRepository: SeriesRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -157,13 +163,23 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         try {
             val registry = ClientSyncDomainRegistry()
             val recording = RecordingTagSyncDomainHandler(registry)
-            // Real Books handler registered into the SAME registry — the client
-            // dispatcher routes `books` SSE frames here, applying them into the
-            // client Room DB exactly as production does. The handler self-registers
-            // under `domainName = "books"` on construction.
+            // Real Books, Contributor, and Series handlers registered into the SAME
+            // registry — the client dispatcher routes domain SSE frames here, applying
+            // them into the client Room DB exactly as production does. Each handler
+            // self-registers under its `domainName` on construction.
             BookSyncDomainHandler(
                 database = clientDb,
                 mapper = BookEntityMapper(),
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            ContributorSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            SeriesSyncDomainHandler(
+                database = clientDb,
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
@@ -229,6 +245,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     tagRepo = tagRepo,
                     serverBookRepository = bookRepo,
                     serverContributorRepository = contributorRepo,
+                    serverSeriesRepository = seriesRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,
