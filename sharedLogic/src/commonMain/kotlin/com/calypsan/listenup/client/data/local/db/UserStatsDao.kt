@@ -59,7 +59,11 @@ interface UserStatsDao {
      * Apply a server tombstone: set the soft-delete timestamp and revision.
      */
     @Query("UPDATE user_stats SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
-    suspend fun softDelete(id: String, deletedAt: Long, revision: Long)
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
 
     /**
      * Delete all cached stats.

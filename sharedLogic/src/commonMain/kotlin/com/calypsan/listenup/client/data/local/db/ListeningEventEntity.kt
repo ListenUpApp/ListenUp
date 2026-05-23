@@ -119,8 +119,13 @@ interface ListeningEventDao {
     /**
      * Get all events for a user and book (live rows only, newest first).
      */
-    @Query("SELECT * FROM listening_events WHERE userId = :userId AND bookId = :bookId AND deletedAt IS NULL ORDER BY endedAt DESC")
-    suspend fun getByBookForUser(userId: String, bookId: String): List<ListeningEventEntity>
+    @Query(
+        "SELECT * FROM listening_events WHERE userId = :userId AND bookId = :bookId AND deletedAt IS NULL ORDER BY endedAt DESC",
+    )
+    suspend fun getByBookForUser(
+        userId: String,
+        bookId: String,
+    ): List<ListeningEventEntity>
 
     /**
      * Insert or update an event.
@@ -138,7 +143,11 @@ interface ListeningEventDao {
      * Apply a server tombstone: set the soft-delete timestamp and revision.
      */
     @Query("UPDATE listening_events SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
-    suspend fun softDelete(id: String, deletedAt: Long, revision: Long)
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
 
     /**
      * Get the most recent event timestamp for sync cursor.

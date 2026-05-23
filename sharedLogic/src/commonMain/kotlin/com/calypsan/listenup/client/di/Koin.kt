@@ -931,7 +931,10 @@ val syncModule =
                 listeningEventDao = get(),
                 transactionRunner = get(),
                 userId = get(qualifier = named("deviceId")),
-                tz = kotlinx.datetime.TimeZone.currentSystemDefault().id,
+                tz =
+                    kotlinx.datetime.TimeZone
+                        .currentSystemDefault()
+                        .id,
                 deviceLabel = null,
             )
         }

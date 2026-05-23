@@ -50,8 +50,14 @@ class UserStatsSyncDomainHandler(
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
-                is SyncEvent.Created -> upsert(event.payload)
-                is SyncEvent.Updated -> upsert(event.payload)
+                is SyncEvent.Created -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Updated -> {
+                    upsert(event.payload)
+                }
+
                 is SyncEvent.Deleted -> {
                     logger.debug { "[$domainName] Deleted event for ${event.id} — deferred to catch-up" }
                 }

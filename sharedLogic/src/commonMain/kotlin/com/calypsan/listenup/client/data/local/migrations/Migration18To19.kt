@@ -57,9 +57,15 @@ private fun SQLiteConnection.rebuildListeningEvents() {
         )
         """.trimIndent(),
     )
-    execSQL("CREATE INDEX IF NOT EXISTS `index_listening_events_userId_endedAt` ON `listening_events` (`userId`, `endedAt`)")
-    execSQL("CREATE INDEX IF NOT EXISTS `index_listening_events_userId_revision` ON `listening_events` (`userId`, `revision`)")
-    execSQL("CREATE INDEX IF NOT EXISTS `index_listening_events_userId_bookId` ON `listening_events` (`userId`, `bookId`)")
+    execSQL(
+        "CREATE INDEX IF NOT EXISTS `index_listening_events_userId_endedAt` ON `listening_events` (`userId`, `endedAt`)",
+    )
+    execSQL(
+        "CREATE INDEX IF NOT EXISTS `index_listening_events_userId_revision` ON `listening_events` (`userId`, `revision`)",
+    )
+    execSQL(
+        "CREATE INDEX IF NOT EXISTS `index_listening_events_userId_bookId` ON `listening_events` (`userId`, `bookId`)",
+    )
 }
 
 private fun SQLiteConnection.rebuildUserStats() {

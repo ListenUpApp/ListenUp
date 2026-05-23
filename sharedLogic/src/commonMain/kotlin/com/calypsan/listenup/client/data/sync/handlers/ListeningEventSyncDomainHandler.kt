@@ -52,8 +52,14 @@ class ListeningEventSyncDomainHandler(
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
-                is SyncEvent.Created -> insertIfAbsent(event.payload)
-                is SyncEvent.Updated -> insertIfAbsent(event.payload)
+                is SyncEvent.Created -> {
+                    insertIfAbsent(event.payload)
+                }
+
+                is SyncEvent.Updated -> {
+                    insertIfAbsent(event.payload)
+                }
+
                 is SyncEvent.Deleted -> {
                     // Tombstones converge via onCatchUpItem (which carries the full payload).
                     logger.debug { "[$domainName] Deleted event for ${event.id} — deferred to catch-up" }
@@ -89,7 +95,7 @@ class ListeningEventSyncDomainHandler(
         database.listeningEventDao().upsert(
             ListeningEventEntity(
                 id = payload.id,
-                userId = "",  // userId is not on the wire payload; the server owns it
+                userId = "", // userId is not on the wire payload; the server owns it
                 bookId = payload.bookId,
                 startPositionMs = payload.startPositionMs,
                 endPositionMs = payload.endPositionMs,
