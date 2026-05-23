@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.UserStatsId
 import com.calypsan.listenup.server.db.UserStatsTable
@@ -37,6 +38,7 @@ class UserStatsRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
+    private val userStatsUpdater: UserStatsUpdater? = null,
 ) : SyncableRepository<UserStatsSyncPayload, UserStatsId>(
         db = db,
         table = UserStatsTable,
@@ -124,8 +126,43 @@ class UserStatsRepository(
                 ?.toUserStatsPayload()
         }
 
+    /**
+     * Overrides [SyncableRepository.pullSince] to lazily refresh the rolling-window fields
+     * (`totalSecondsLast7Days` / `totalSecondsLast30Days`) when the stats row is stale
+     * (older than [STATS_STALENESS_LIMIT_MS]).
+     *
+     * A user who listens actively keeps their stats fresh via [UserStatsUpdater.onListeningEvent].
+     * An idle user's windows drift stale as time passes — an event from 6 days ago is
+     * inside the 7-day window today but outside it in 2 days. This catch-up path ensures
+     * the row is corrected before it is returned to a syncing client.
+     *
+     * Only fires for single-user queries (`userId != null`) — global catch-up paging is
+     * unaffected.
+     */
+    override suspend fun pullSince(
+        userId: String?,
+        cursor: Long,
+        limit: Int,
+    ): Page<UserStatsSyncPayload> {
+        if (userId != null && userStatsUpdater != null) {
+            val existing = getForUser(userId)
+            if (existing != null) {
+                val now = clock.now().toEpochMilliseconds()
+                if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
+                    userStatsUpdater.recomputeWindowsOnly(userId, asOfMs = now)
+                }
+            }
+        }
+        return super.pullSince(userId, cursor, limit)
+    }
+
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: UserStatsId): String = idAsString(id)
+
+    private companion object {
+        /** Threshold after which a stats row is considered stale and windows are recomputed. */
+        private const val STATS_STALENESS_LIMIT_MS = 60 * 60 * 1000L // 1 hour
+    }
 }
 
 private fun ResultRow.toUserStatsPayload(): UserStatsSyncPayload =

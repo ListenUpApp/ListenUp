@@ -336,7 +336,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * payload-read could theoretically null a row, and the queried revision is
      * the canonical cursor advance regardless.
      */
-    suspend fun pullSince(
+    open suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,
