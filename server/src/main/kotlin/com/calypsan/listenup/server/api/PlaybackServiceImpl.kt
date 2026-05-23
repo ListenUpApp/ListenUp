@@ -3,10 +3,14 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
+import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -85,6 +89,12 @@ internal class PlaybackServiceImpl(
             currentChapterId = request.currentChapterId,
         )
     }
+
+    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> =
+        AppResult.Failure(InternalError(debugInfo = "getStats not yet implemented — P2 server phase pending"))
+
+    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> =
+        AppResult.Failure(InternalError(debugInfo = "recordListeningEvent not yet implemented — P2 server phase pending"))
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): PlaybackServiceImpl =
