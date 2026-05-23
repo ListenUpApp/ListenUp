@@ -371,7 +371,7 @@ val discoverPresentationModule =
             )
         }
         // LeaderboardViewModel for discover screen leaderboard
-        factory { LeaderboardViewModel(leaderboardRepository = get()) }
+        factory { LeaderboardViewModel(repo = get()) }
         // ActivityFeedViewModel for discover screen activity feed
         factory { ActivityFeedViewModel(activityRepository = get(), fetchActivitiesUseCase = get()) }
     }
