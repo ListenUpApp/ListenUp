@@ -4,18 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
+import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 private val logger = KotlinLogging.logger {}
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
-private const val MS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
 
@@ -36,47 +36,60 @@ private const val MINUTES_PER_HOUR = 60L
 class HomeStatsViewModel(
     private val statsRepository: StatsRepository,
 ) : ViewModel() {
-    val state: StateFlow<HomeStatsUiState> =
+    val uiState: StateFlow<HomeStatsUiState> =
         statsRepository
             .observeWeeklyStats()
             .map<_, HomeStatsUiState> { stats ->
-                HomeStatsUiState.Ready(
-                    totalSecondsThisWeek = stats.totalSecondsThisWeek,
-                    currentStreakDays = stats.currentStreakDays,
-                    longestStreakDays = stats.longestStreakDays,
-                    dailyBuckets = stats.dailyBuckets,
-                    topGenres = stats.topGenres,
-                    isEverEmpty = stats.isEverEmpty,
-                )
-            }.onStart { emit(HomeStatsUiState.Loading) }
-            .catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                if (stats.isEverEmpty) {
+                    HomeStatsUiState.Empty
+                } else {
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = stats.totalSecondsThisWeek,
+                        currentStreakDays = stats.currentStreakDays,
+                        longestStreakDays = stats.longestStreakDays,
+                        dailyBuckets = stats.dailyBuckets,
+                        topGenres = stats.topGenres,
+                    )
+                }
+            }.catch { e ->
+                if (e is CancellationException) throw e
                 logger.error(e) { "Error observing stats" }
-                emit(HomeStatsUiState.Error("Failed to load stats: ${e.message}"))
+                emit(HomeStatsUiState.Error(isRetryable = true))
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = HomeStatsUiState.Loading,
             )
-
-    /** Pull-to-refresh no-op — stats recompute from Room when listening events change. */
-    fun refresh() {
-        logger.debug { "Refresh requested - stats will update automatically from Room" }
-    }
 }
 
 /**
  * UI state for the Home stats section.
  *
- * Sealed hierarchy: `Loading` → first `observeWeeklyStats()` emission flips to
- * `Ready`; upstream failures emit `Error`.
+ * Sealed hierarchy covering the four distinct surfaces:
+ * - [Loading]: pre-first-emission placeholder
+ * - [Empty]: user has never listened to anything — shown before any history exists
+ * - [Data]: populated stats ready to display
+ * - [Error]: upstream failure — section offers a retry action
+ *
+ * [Empty] is distinct from [Data] with low numbers: it signals the user has
+ * no listening history at all, not merely a quiet week.
  */
 sealed interface HomeStatsUiState {
-    /** Pre-first-emission placeholder. */
+    /** Pre-first-emission placeholder shown while the Room query is loading. */
     data object Loading : HomeStatsUiState
 
-    /** Stats loaded from Room. Derived display helpers live here. */
-    data class Ready(
+    /**
+     * User has never listened to anything. Distinct from a user who listened
+     * in the past but not this week — [Data] covers that case (with low numbers).
+     */
+    data object Empty : HomeStatsUiState
+
+    /**
+     * Stats loaded and non-empty — user has listening history.
+     * Display helpers derived from the raw seconds are computed here so the
+     * Composable stays pure transformation-free.
+     */
+    data class Data(
         val totalSecondsThisWeek: Long,
         val currentStreakDays: Int,
         val longestStreakDays: Int,
@@ -84,8 +97,6 @@ sealed interface HomeStatsUiState {
         val dailyBuckets: List<DayBucket>,
         /** Up to 3 genres, descending by listening seconds. */
         val topGenres: List<GenreShare>,
-        /** True when the user has never listened to anything (not just this week). */
-        val isEverEmpty: Boolean,
     ) : HomeStatsUiState {
         /**
          * Total listening time formatted as human-readable string.
@@ -121,8 +132,9 @@ sealed interface HomeStatsUiState {
             get() = currentStreakDays > 0 || longestStreakDays > 0
     }
 
-    /** Upstream failure — section renders the message in error styling. */
+    /** Upstream failure — section renders an error card. */
     data class Error(
-        val message: String,
+        /** True when the error is transient and the VM will recover on resubscription. */
+        val isRetryable: Boolean,
     ) : HomeStatsUiState
 }
