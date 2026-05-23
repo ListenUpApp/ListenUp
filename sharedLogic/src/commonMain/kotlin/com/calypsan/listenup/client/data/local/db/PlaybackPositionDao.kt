@@ -145,4 +145,23 @@ interface PlaybackPositionDao {
      */
     @Query("SELECT * FROM playback_positions")
     fun observeAll(): Flow<List<PlaybackPositionEntity>>
+
+    /**
+     * Observe the current user's finished position for a specific book.
+     *
+     * Returns the position row if [isFinished] is true and no soft-delete tombstone is set.
+     * [PlaybackPositionEntity] stores only the current user's position (one row per book),
+     * so this emits at most one item — the current user's completed position for this book.
+     *
+     * Used by [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl] to
+     * populate the "completed by" slot in [com.calypsan.listenup.client.domain.readers.BookReaders].
+     *
+     * @param bookId The book to observe completion for
+     * @return Flow emitting the position when the user has finished the book, or null otherwise
+     */
+    @Query(
+        "SELECT * FROM playback_positions " +
+            "WHERE bookId = :bookId AND isFinished = 1 AND deletedAt IS NULL",
+    )
+    fun observeFinishedForBook(bookId: BookId): Flow<PlaybackPositionEntity?>
 }
