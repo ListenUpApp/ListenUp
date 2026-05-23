@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
+import com.calypsan.listenup.client.data.sync.ListeningEventOpSender
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
@@ -21,8 +22,10 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.core.qualifier.named
@@ -62,6 +65,7 @@ val clientSyncRenovationModule =
                 byDomain =
                     mapOf(
                         "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
+                        "listening_events" to ListeningEventOpSender(rpcFactory = get()),
                     ),
             )
         }
@@ -135,6 +139,20 @@ val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             PlaybackPositionSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            ListeningEventSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            UserStatsSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),

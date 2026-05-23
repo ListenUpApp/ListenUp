@@ -1,12 +1,25 @@
 package com.calypsan.listenup.server.testing
 
+import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.server.api.PlaybackServiceImpl
+import com.calypsan.listenup.server.audio.AudioFileLocator
+import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.routes.playbackRoutes
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.ListeningEventRepository
+import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureTable
@@ -17,6 +30,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
+import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
@@ -40,12 +54,18 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * [playbackPositionRepo] is the real per-user playback-positions domain; it is
  * wired only when [withTestApplication] is called with `playbackPositions = true`,
  * and accessing it otherwise throws.
+ *
+ * [listeningEventRepo] and [userStatsRepo] are the playback P2 domains; they are
+ * wired only when [withTestApplication] is called with `playbackEvents = true`,
+ * and accessing them otherwise throws.
  */
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
+    private val listeningEventRepoOrNull: ListeningEventRepository?,
+    private val userStatsRepoOrNull: UserStatsRepository?,
 ) {
     val userScopedRepo: UserScopedFixtureRepository
         get() =
@@ -57,6 +77,18 @@ internal data class SyncTestScope(
         get() =
             requireNotNull(playbackPositionRepoOrNull) {
                 "playbackPositionRepo requires withTestApplication(playbackPositions = true)"
+            }
+
+    val listeningEventRepo: ListeningEventRepository
+        get() =
+            requireNotNull(listeningEventRepoOrNull) {
+                "listeningEventRepo requires withTestApplication(playbackEvents = true)"
+            }
+
+    val userStatsRepo: UserStatsRepository
+        get() =
+            requireNotNull(userStatsRepoOrNull) {
+                "userStatsRepo requires withTestApplication(playbackEvents = true)"
             }
 }
 
@@ -83,11 +115,16 @@ internal data class SyncTestScope(
  * @param playbackPositions when true, also wires a [PlaybackPositionRepository]
  *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
  *   The table is created by Flyway migrations, so no manual `SchemaUtils.create` is needed.
+ * @param playbackEvents when true, also wires [ListeningEventRepository], [UserStatsRepository],
+ *   [UserStatsUpdater], and [PlaybackServiceImpl], mounts [playbackRoutes], and exposes
+ *   [SyncTestScope.listeningEventRepo] and [SyncTestScope.userStatsRepo]. Enables end-to-end
+ *   tests of the `POST /api/v1/playback/events` → stats materialization → sync catch-up path.
  */
 internal fun withTestApplication(
     heartbeatIntervalMillis: Long? = null,
     userScoped: Boolean = false,
     playbackPositions: Boolean = false,
+    playbackEvents: Boolean = false,
     block: suspend SyncTestScope.() -> Unit,
 ) {
     testApplication {
@@ -109,9 +146,61 @@ internal fun withTestApplication(
         val playbackPositionRepo =
             if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
 
+        // Playback P2: events + stats. The lazy provider breaks the UserStatsRepository ↔
+        // UserStatsUpdater mutual reference — same pattern as the production Koin binding.
+        val listeningEventRepo: ListeningEventRepository?
+        val userStatsRepo: UserStatsRepository?
+        val playbackService: PlaybackService?
+        if (playbackEvents) {
+            lateinit var updater: UserStatsUpdater
+            val statsRepo =
+                UserStatsRepository(
+                    db = db,
+                    bus = bus,
+                    registry = registry,
+                    userStatsUpdaterProvider = { updater },
+                )
+            val eventRepo =
+                ListeningEventRepository(
+                    db = db,
+                    bus = bus,
+                    registry = registry,
+                    userStatsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo).also { updater = it },
+                )
+            val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
+            val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
+            val sharedRegistry = SyncRegistry()
+            val bookRepo =
+                BookRepository(
+                    db = db,
+                    bus = bus,
+                    registry = sharedRegistry,
+                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake")),
+                    contributorRepository = ContributorRepository(db, bus, sharedRegistry),
+                    seriesRepository = SeriesRepository(db, bus, sharedRegistry),
+                )
+            playbackService =
+                PlaybackServiceImpl(
+                    bookRepository = bookRepo,
+                    audioFileLocator = AudioFileLocator(db),
+                    audioUrlSigner = signer,
+                    playbackPositionRepository = positionRepoForPlayback,
+                    listeningEventRepository = eventRepo,
+                    userStatsRepository = statsRepo,
+                    principal = PrincipalProvider { error("unscoped — copyWith required") },
+                )
+            listeningEventRepo = eventRepo
+            userStatsRepo = statsRepo
+        } else {
+            listeningEventRepo = null
+            userStatsRepo = null
+            playbackService = null
+        }
+
         application {
             install(ServerContentNegotiation) { json(contractJson) }
             install(SSE)
+            if (playbackEvents) install(Resources)
             install(Authentication) { testAuth() }
             install(Koin) {
                 modules(
@@ -122,6 +211,8 @@ internal fun withTestApplication(
                         single(createdAtStart = true) { tagRepo }
                         if (userScopedRepo != null) single(createdAtStart = true) { userScopedRepo }
                         if (playbackPositionRepo != null) single(createdAtStart = true) { playbackPositionRepo }
+                        if (listeningEventRepo != null) single(createdAtStart = true) { listeningEventRepo }
+                        if (userStatsRepo != null) single(createdAtStart = true) { userStatsRepo }
                     },
                 )
             }
@@ -132,6 +223,7 @@ internal fun withTestApplication(
                     } else {
                         syncRoutes()
                     }
+                    if (playbackService != null) playbackRoutes(playbackService)
                 }
             }
         }
@@ -147,6 +239,8 @@ internal fun withTestApplication(
             tagRepo = tagRepo,
             userScopedRepoOrNull = userScopedRepo,
             playbackPositionRepoOrNull = playbackPositionRepo,
+            listeningEventRepoOrNull = listeningEventRepo,
+            userStatsRepoOrNull = userStatsRepo,
         ).block()
     }
 }

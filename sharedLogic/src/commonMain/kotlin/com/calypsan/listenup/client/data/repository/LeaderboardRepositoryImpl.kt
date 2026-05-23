@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.UserDao
@@ -23,8 +22,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import com.calypsan.listenup.client.data.remote.LeaderboardCategory as ApiLeaderboardCategory
-import com.calypsan.listenup.client.data.remote.StatsPeriod as ApiStatsPeriod
 
 private val logger = KotlinLogging.logger {}
 
@@ -124,12 +121,16 @@ class LeaderboardRepositoryImpl(
             listeningEventDao.observeTotalDurationSince(0), // All time
             listeningEventDao.observeDistinctBooksSince(0),
             observeMyStreak(),
+            // TODO(P2-leaderboard): user_stats no longer carries profile data; join with
+            //  user_profiles here once the P2 stats sync domain handler lands.
             userStatsDao.observeAll(),
         ) { currentUser, myTimeMs, myBooks, myStreak, cachedStats ->
-            // Convert cached stats to the same format as activity-based stats
+            // Convert cached stats to the same format as activity-based stats.
+            // Profile data (displayName, avatar) not available from user_stats in P2 shape —
+            // entries without a matching user_profile entry are omitted until the handler lands.
             val othersStats =
                 cachedStats
-                    .filter { it.userId != currentUser.id.value }
+                    .filter { it.id != currentUser.id.value }
                     .map { it.toLeaderboardStats() }
 
             buildLeaderboard(
@@ -184,16 +185,12 @@ class LeaderboardRepositoryImpl(
             listeningEventDao.observeDistinctBooksSince(0),
             userStatsDao.observeAll(),
         ) { currentUser, myTimeMs, myBooks, cachedStats ->
-            // Sum up all cached stats plus current user's authoritative stats
-            val othersTimeMs =
-                cachedStats
-                    .filter { it.userId != currentUser.id.value }
-                    .sumOf { it.totalTimeMs }
-            val othersBooks =
-                cachedStats
-                    .filter { it.userId != currentUser.id.value }
-                    .sumOf { it.totalBooks }
-            val otherUsersCount = cachedStats.count { it.userId != currentUser.id.value }
+            // Sum up all cached stats plus current user's authoritative stats.
+            // P2 user_stats stores seconds; convert to ms for CommunityStats.
+            val othersRows = cachedStats.filter { it.id != currentUser.id.value }
+            val othersTimeMs = othersRows.sumOf { it.totalSecondsAllTime * 1_000L }
+            val othersBooks = othersRows.sumOf { it.booksFinished }
+            val otherUsersCount = othersRows.size
 
             CommunityStats(
                 totalTimeMs = othersTimeMs + myTimeMs,
@@ -320,50 +317,22 @@ class LeaderboardRepositoryImpl(
     /**
      * Fetch and cache user stats for All-time leaderboard.
      *
-     * Called when the user_stats cache is empty (first All-time view).
-     * Fetches from server with period=ALL which includes totalTimeMs,
-     * totalBooks, and currentStreak for each user.
+     * **Vestigial after Playback-P2.** The `user_stats` table is now populated by
+     * [com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler] via the sync
+     * engine; the old leaderboard-API fetch path is no longer valid. This method is a no-op
+     * until the leaderboard subsystem is rebuilt against the P2 `user_stats` shape.
+     * The [leaderboardApi] constructor parameter is also unused as a result.
      */
-    override suspend fun fetchAndCacheUserStats(): Boolean =
-        try {
-            logger.debug { "Fetching initial user stats for All-time leaderboard" }
-            val response =
-                leaderboardApi.getLeaderboard(
-                    period = ApiStatsPeriod.ALL,
-                    category = ApiLeaderboardCategory.TIME,
-                    limit = 100, // Get all users for caching
-                )
-
-            val entities =
-                response.entries.mapNotNull { entry ->
-                    // Only cache entries that have All-time totals
-                    if (entry.totalTimeMs == null || entry.totalBooks == null || entry.currentStreak == null) {
-                        logger.warn { "Skipping entry without All-time totals: ${entry.userId}" }
-                        return@mapNotNull null
-                    }
-
-                    UserStatsEntity(
-                        userId = entry.userId,
-                        displayName = entry.displayName,
-                        avatarColor = entry.avatarColor,
-                        avatarType = entry.avatarType,
-                        avatarValue = entry.avatarValue.takeIf { it.isNotEmpty() },
-                        totalTimeMs = entry.totalTimeMs,
-                        totalBooks = entry.totalBooks,
-                        currentStreak = entry.currentStreak,
-                        updatedAt = Timestamp.now().epochMillis,
-                    )
-                }
-
-            userStatsDao.upsertAll(entities)
-            logger.info { "Cached ${entities.size} user stats for All-time leaderboard" }
-            true
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.error(e) { "Failed to fetch user stats for All-time leaderboard" }
-            false
-        }
+    @Deprecated(
+        message =
+            "Vestigial after Playback-P2; the leaderboard subsystem needs a rebuild against " +
+                "the P2 user_stats sync domain before this path is meaningful again.",
+        level = DeprecationLevel.WARNING,
+    )
+    override suspend fun fetchAndCacheUserStats(): Boolean {
+        logger.debug { "fetchAndCacheUserStats: no-op in P2 — stats arrive via sync domain handler" }
+        return true
+    }
 
     /**
      * Check if user stats cache is empty.
@@ -373,15 +342,21 @@ class LeaderboardRepositoryImpl(
 }
 
 /**
- * Extension to convert UserStatsEntity to UserLeaderboardStats.
+ * Extension to convert [UserStatsEntity] to [UserLeaderboardStats].
+ *
+ * Profile fields (displayName, avatar) are not available in the P2 `user_stats` shape —
+ * the table stores aggregate stats only. Profile data will be joined from `user_profiles`
+ * once the P2 leaderboard integration lands.
+ *
+ * TODO(P2-leaderboard): join with user_profiles for displayName/avatar.
  */
 private fun UserStatsEntity.toLeaderboardStats(): UserLeaderboardStats =
     UserLeaderboardStats(
-        userId = userId,
-        displayName = displayName,
-        avatarColor = avatarColor,
-        avatarType = avatarType,
-        avatarValue = avatarValue,
-        totalTimeMs = totalTimeMs,
-        booksCount = totalBooks,
+        userId = id,
+        displayName = id, // Profile data not yet in user_stats; use id as placeholder
+        avatarColor = "#6B7280",
+        avatarType = "auto",
+        avatarValue = null,
+        totalTimeMs = totalSecondsAllTime * 1_000L,
+        booksCount = booksFinished,
     )

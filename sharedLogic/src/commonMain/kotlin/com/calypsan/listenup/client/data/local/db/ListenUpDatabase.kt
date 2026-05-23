@@ -11,8 +11,8 @@ import androidx.room.TypeConverters
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v18. Migrations live in the `data/local/migrations/` package
- * (e.g. `Migration14To15`, `Migration17To18`) and are registered via `.addMigrations(...)`
+ * Schema is at v19. Migrations live in the `data/local/migrations/` package
+ * (e.g. `Migration14To15`, `Migration18To19`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
  * verify the full migration chain is registered. The `@Database.exportSchema`
@@ -45,13 +45,14 @@ import androidx.room.TypeConverters
         ActiveSessionEntity::class,
         ActivityEntity::class,
         UserStatsEntity::class,
+        TentativeSpanEntity::class,
         UserReadingSessionEntity::class,
         ReaderSessionCacheEntity::class,
         CoverDownloadTaskEntity::class,
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 @TypeConverters(
@@ -108,6 +109,8 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun activityDao(): ActivityDao
 
     abstract fun userStatsDao(): UserStatsDao
+
+    abstract fun tentativeSpanDao(): TentativeSpanDao
 
     abstract fun userReadingSessionDao(): UserReadingSessionDao
 

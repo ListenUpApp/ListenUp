@@ -40,6 +40,7 @@ class PlaybackPositionRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
+    private val userStatsUpdater: UserStatsUpdater? = null,
 ) : SyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         table = PlaybackPositionTable,
@@ -135,29 +136,37 @@ class PlaybackPositionRepository(
         finished: Boolean,
         playbackSpeed: Float,
         currentChapterId: String?,
-    ): AppResult<PlaybackPositionSyncPayload> {
-        val existing = getPosition(userId, bookId)
-        if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
-            return AppResult.Success(existing)
-        }
+    ): AppResult<PlaybackPositionSyncPayload> =
+        suspendTransaction(db) {
+            val existing = getPosition(userId, bookId)
+            if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
+                return@suspendTransaction AppResult.Success(existing)
+            }
 
-        val id = existing?.id ?: Uuid.random().toString()
-        val payload =
-            PlaybackPositionSyncPayload(
-                id = id,
-                bookId = bookId,
-                positionMs = positionMs,
-                lastPlayedAt = lastPlayedAt,
-                finished = finished,
-                playbackSpeed = playbackSpeed,
-                currentChapterId = currentChapterId,
-                revision = 0L,
-                updatedAt = 0L,
-                createdAt = 0L,
-                deletedAt = null,
-            )
-        return upsert(payload, clientOpId = null, userId = userId)
-    }
+            val priorFinished = existing?.finished ?: false
+            val id = existing?.id ?: Uuid.random().toString()
+            val payload =
+                PlaybackPositionSyncPayload(
+                    id = id,
+                    bookId = bookId,
+                    positionMs = positionMs,
+                    lastPlayedAt = lastPlayedAt,
+                    finished = finished,
+                    playbackSpeed = playbackSpeed,
+                    currentChapterId = currentChapterId,
+                    revision = 0L,
+                    updatedAt = 0L,
+                    createdAt = 0L,
+                    deletedAt = null,
+                )
+            val result = upsert(payload, clientOpId = null, userId = userId)
+            // Fire the finished flip when false → true. The caller is responsible for
+            // detecting the flip condition; the updater unconditionally increments booksFinished.
+            if (result is AppResult.Success && finished && !priorFinished) {
+                userStatsUpdater?.onPositionFinishedFlip(userId)
+            }
+            result
+        }
 
     /**
      * Returns the current position for `(userId, bookId)`, or `null` if the user

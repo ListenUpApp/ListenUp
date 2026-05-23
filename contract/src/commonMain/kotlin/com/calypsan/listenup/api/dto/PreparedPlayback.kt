@@ -43,3 +43,24 @@ data class RecordPositionRequest(
     val playbackSpeed: Float,
     val currentChapterId: String?,
 )
+
+/**
+ * A client→server listening-event write. The owning user is NOT carried — the
+ * server takes it from the authenticated principal. `id` is client-assigned
+ * (a `Uuid.random().toString()` matching the local tentative-span row's id);
+ * re-recording the same id is a no-op on the substrate's `upsert` — safe for
+ * the pending-operation queue to re-fire.
+ */
+@Serializable
+@SerialName("RecordListeningEventRequest")
+data class RecordListeningEventRequest(
+    val id: String,
+    val bookId: String,
+    val startPositionMs: Long,
+    val endPositionMs: Long,
+    val startedAt: Long,
+    val endedAt: Long,
+    val playbackSpeed: Float,
+    val tz: String,
+    val deviceLabel: String?,
+)

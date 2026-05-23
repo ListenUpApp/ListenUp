@@ -90,6 +90,7 @@ class PlaybackService : MediaLibraryService() {
     // Inject dependencies
     private val playbackManager: PlaybackManager by inject()
     private val progressTracker: ProgressTracker by inject()
+    private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
     private val positionRepository: PlaybackPositionRepository by inject()
     private val errorHandler: PlaybackErrorHandler by inject()
     private val errorBus: ErrorBus by inject()
@@ -429,11 +430,13 @@ class PlaybackService : MediaLibraryService() {
                     val bookId = currentBookId ?: break
 
                     if (player.isPlaying) {
+                        val positionMs = getBookRelativePosition()
                         progressTracker.onPositionUpdate(
                             bookId = bookId,
-                            positionMs = getBookRelativePosition(),
+                            positionMs = positionMs,
                             speed = player.playbackParameters.speed,
                         )
+                        listeningEventRecorder.onPeriodicTick(positionMs = positionMs)
                     }
                 }
             }
@@ -500,21 +503,34 @@ class PlaybackService : MediaLibraryService() {
                 startPositionUpdates()
 
                 if (bookId != null && player != null) {
+                    val positionMs = getBookRelativePosition()
+                    val speed = player.playbackParameters.speed
                     progressTracker.onPlaybackStarted(
                         bookId = bookId,
-                        positionMs = getBookRelativePosition(),
-                        speed = player.playbackParameters.speed,
+                        positionMs = positionMs,
+                        speed = speed,
                     )
+                    serviceScope.launch {
+                        listeningEventRecorder.onPlay(
+                            bookId = bookId.value,
+                            positionMs = positionMs,
+                            playbackSpeed = speed,
+                        )
+                    }
                 }
             } else {
                 stopPositionUpdates()
 
                 if (bookId != null && player != null) {
+                    val positionMs = getBookRelativePosition()
                     progressTracker.onPlaybackPaused(
                         bookId = bookId,
-                        positionMs = getBookRelativePosition(),
+                        positionMs = positionMs,
                         speed = player.playbackParameters.speed,
                     )
+                    serviceScope.launch {
+                        listeningEventRecorder.onPause(positionMs = positionMs)
+                    }
                 }
 
                 // Context-aware idle timer based on why playback stopped

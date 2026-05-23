@@ -161,7 +161,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      *   threaded into [writePayload] and the published [BusEvent]. Global
      *   domains omit it.
      */
-    suspend fun upsert(
+    open suspend fun upsert(
         value: T,
         clientOpId: String? = null,
         userId: String? = null,
@@ -336,7 +336,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * payload-read could theoretically null a row, and the queried revision is
      * the canonical cursor advance regardless.
      */
-    suspend fun pullSince(
+    open suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,

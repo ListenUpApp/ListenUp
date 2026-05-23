@@ -20,12 +20,15 @@ import kotlinx.coroutines.flow.Flow
  */
 interface ListeningEventRepository {
     /**
-     * Save a listening event locally and queue it for server sync, atomically.
+     * Save a listening event locally (Room-only write).
      *
-     * Both the DAO upsert and the pending-op queue happen inside a single
-     * [com.calypsan.listenup.client.data.local.db.TransactionRunner.atomically] block.
-     * If either write fails the transaction rolls back. [kotlinx.coroutines.CancellationException]
-     * is always rethrown (EM-R1).
+     * Writes through [com.calypsan.listenup.client.data.local.db.ListeningEventDao.upsert]
+     * inside a [com.calypsan.listenup.client.data.local.db.TransactionRunner.atomically] block.
+     * The server-sync pending-op is **not** enqueued here — the P2 canonical recording path
+     * ([com.calypsan.listenup.client.playback.ListeningEventRecorder.finalizeCurrentSpan])
+     * handles the pending-op enqueue directly.
+     *
+     * [kotlinx.coroutines.CancellationException] is always rethrown (EM-R1).
      */
     suspend fun queueListeningEvent(
         bookId: BookId,

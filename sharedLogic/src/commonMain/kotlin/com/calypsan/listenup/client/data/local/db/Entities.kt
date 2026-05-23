@@ -477,35 +477,57 @@ data class ActivityEntity(
 )
 
 /**
- * Cached user stats for leaderboard display.
+ * Materialized per-user listening stats, maintained server-side and synced to
+ * the client via the P2 stats sync domain.
  *
- * Stores all-time totals for each user, populated from:
- * - Initial leaderboard API response
- * - SSE user_stats.updated events
+ * `id` equals the owning user ID (1:1 with the user). `lastEventDate` is
+ * `"YYYY-MM-DD"` in the user's IANA timezone — drives streak math; null until
+ * the user's first event.
  *
- * Week/Month stats are calculated from activities table.
- * This table is only used for the "All Time" period.
+ * Carries the P2 sync substrate ([revision], [deletedAt]) for reconciliation;
+ * tombstones are not emitted in P2 but the substrate shape is required.
  */
-@Entity(
-    tableName = "user_stats",
-)
+@Entity(tableName = "user_stats")
 data class UserStatsEntity(
-    @PrimaryKey
+    /** Primary key — equals the user's ID. */
+    @PrimaryKey val id: String,
+    val totalSecondsAllTime: Long,
+    val totalSecondsLast7Days: Long,
+    val totalSecondsLast30Days: Long,
+    val booksStarted: Int,
+    val booksFinished: Int,
+    val currentStreakDays: Int,
+    val longestStreakDays: Int,
+    /** `"YYYY-MM-DD"` in the user's timezone; null until the first event. */
+    val lastEventDate: String?,
+    /** Monotonic server revision; 0 until the server has confirmed the row. */
+    val revision: Long = 0,
+    /** Epoch-ms tombstone; null while the row is live. */
+    val deletedAt: Long? = null,
+)
+
+/**
+ * Local-only crash-recovery state for the current playback span. **Not synced.**
+ *
+ * Single-row table (a user can only listen to one thing at a time). The row
+ * exists only while a span is open; it is finalized into a [ListeningEventEntity]
+ * and queued for sync on pause / book-end / speed-change / seek, or on app restart
+ * when an orphan span is detected.
+ */
+@Entity(tableName = "tentative_span")
+data class TentativeSpanEntity(
+    @PrimaryKey val id: String,
     val userId: String,
-    /** User display name for leaderboard display */
-    val displayName: String,
-    /** Avatar color (hex) for generated avatars */
-    val avatarColor: String,
-    /** Avatar type: "auto" or "image" */
-    val avatarType: String,
-    /** Avatar image path if type is "image" */
-    val avatarValue: String?,
-    /** Total listening time in milliseconds (all-time) */
-    val totalTimeMs: Long,
-    /** Total books completed */
-    val totalBooks: Int,
-    /** Current consecutive listening streak in days */
-    val currentStreak: Int,
-    /** When this cache was last updated (epoch ms) */
-    val updatedAt: Long,
+    val bookId: String,
+    val startPositionMs: Long,
+    val currentPositionMs: Long,
+    /** When listening started (epoch ms). */
+    val startedAt: Long,
+    /** Last heartbeat timestamp (epoch ms) — updated periodically while playing. */
+    val lastHeartbeatAt: Long,
+    val playbackSpeed: Float,
+    /** IANA timezone name recorded at span open time. */
+    val tz: String,
+    /** Human-readable device label (null on older clients). */
+    val deviceLabel: String?,
 )

@@ -24,3 +24,18 @@ class Prepare(
 class Position(
     val bookId: BookId,
 )
+
+/**
+ * REST mirror of [com.calypsan.listenup.api.PlaybackService.getStats]:
+ * `GET /api/v1/playback/stats` returns the caller's [com.calypsan.listenup.api.sync.UserStatsSyncPayload]?.
+ */
+@Resource("/api/v1/playback/stats")
+class Stats
+
+/**
+ * REST mirror of [com.calypsan.listenup.api.PlaybackService.recordListeningEvent]:
+ * `POST /api/v1/playback/events` with a [com.calypsan.listenup.api.dto.RecordListeningEventRequest]
+ * body returns the stored [com.calypsan.listenup.api.sync.ListeningEventSyncPayload].
+ */
+@Resource("/api/v1/playback/events")
+class Events

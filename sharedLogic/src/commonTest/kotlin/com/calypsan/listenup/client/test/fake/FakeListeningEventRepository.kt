@@ -5,7 +5,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,16 +41,15 @@ class FakeListeningEventRepository(
         val entity =
             ListeningEventEntity(
                 id = "fake-evt-${queueCount + 1}",
+                userId = "fake-user",
                 bookId = bookId.value,
                 startPositionMs = startPositionMs,
                 endPositionMs = endPositionMs,
                 startedAt = startedAt,
                 endedAt = endedAt,
                 playbackSpeed = playbackSpeed,
-                deviceId = "fake-device",
-                syncState = SyncState.NOT_SYNCED,
-                createdAt = 0L,
-                source = "playback",
+                tz = "UTC",
+                deviceLabel = null,
             )
         events.value = events.value + entity
         queueCount++
