@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
@@ -38,6 +39,7 @@ import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -121,6 +123,10 @@ fun Application.module() {
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
     val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
+    val backfillService: UserStatsBackfillService? =
+        resolvedLibraryPath?.let {
+            inject<UserStatsBackfillService>().value
+        }
     val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
     val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
 
@@ -134,6 +140,7 @@ fun Application.module() {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
             if (playbackService != null) playbackRoutes(playbackService)
+            if (backfillService != null) adminRoutes(backfillService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

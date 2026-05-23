@@ -1,0 +1,127 @@
+package com.calypsan.listenup.server.services
+
+import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.server.db.ListeningEventTable
+import com.calypsan.listenup.server.db.PlaybackPositionTable
+import kotlin.math.max
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+
+/**
+ * Rebuilds the materialized `user_stats` row from scratch by replaying all
+ * `listening_events` for a user, plus counting `playback_positions` where
+ * `finished = true`.
+ *
+ * Useful when the stats schema changes, after a bug, or after restoring from
+ * backup. Idempotent — running it twice produces the same result.
+ */
+class UserStatsBackfillService(
+    private val db: Database,
+    private val userStatsRepo: UserStatsRepository,
+    private val clock: Clock = Clock.System,
+) {
+    /**
+     * Rebuilds the `user_stats` row for [userId] from the raw event and position tables.
+     * Replaces any pre-existing row with the fully recomputed values.
+     */
+    suspend fun backfillFor(userId: String) {
+        val nowMs = clock.now().toEpochMilliseconds()
+
+        // 1. Read all listening_events for this user, ordered by endedAt ascending.
+        val events =
+            suspendTransaction(db) {
+                ListeningEventTable
+                    .selectAll()
+                    .where {
+                        (ListeningEventTable.userId eq userId) and
+                            ListeningEventTable.deletedAt.isNull()
+                    }.orderBy(ListeningEventTable.endedAt)
+                    .toList()
+            }
+
+        // 2. Walk events to compute totals, distinct books, and streaks.
+        var totalAllTime = 0L
+        val distinctBooks = mutableSetOf<String>()
+        var lastDate: LocalDate? = null
+        var currentStreak = 0
+        var longestStreak = 0
+
+        for (event in events) {
+            val wallSeconds = (event[ListeningEventTable.endedAt] - event[ListeningEventTable.startedAt]) / 1_000L
+            totalAllTime += wallSeconds
+            distinctBooks.add(event[ListeningEventTable.bookId])
+
+            val tz = TimeZone.of(event[ListeningEventTable.tz])
+            val eventDate =
+                Instant
+                    .fromEpochMilliseconds(event[ListeningEventTable.endedAt])
+                    .toLocalDateTime(tz)
+                    .date
+
+            currentStreak =
+                when {
+                    lastDate == null -> 1
+                    eventDate == lastDate -> currentStreak.coerceAtLeast(1)
+                    eventDate == lastDate.plus(DatePeriod(days = 1)) -> currentStreak + 1
+                    else -> 1
+                }
+            longestStreak = max(longestStreak, currentStreak)
+            lastDate = eventDate
+        }
+
+        // 3. Rolling-window sums against nowMs.
+        val cutoff7 = nowMs - 7 * 86_400_000L
+        val cutoff30 = nowMs - 30 * 86_400_000L
+        var last7 = 0L
+        var last30 = 0L
+        for (event in events) {
+            val endedAtMs = event[ListeningEventTable.endedAt]
+            val wallSeconds = (endedAtMs - event[ListeningEventTable.startedAt]) / 1_000L
+            if (endedAtMs >= cutoff7) last7 += wallSeconds
+            if (endedAtMs >= cutoff30) last30 += wallSeconds
+        }
+
+        // 4. Count finished positions (non-deleted) for this user.
+        val booksFinished =
+            suspendTransaction(db) {
+                PlaybackPositionTable
+                    .selectAll()
+                    .where {
+                        (PlaybackPositionTable.userId eq userId) and
+                            (PlaybackPositionTable.finished eq true) and
+                            PlaybackPositionTable.deletedAt.isNull()
+                    }.toList()
+                    .size
+            }
+
+        // 5. Upsert the rebuilt row. The substrate assigns revision and timestamps.
+        val rebuilt =
+            UserStatsSyncPayload(
+                id = userId,
+                totalSecondsAllTime = totalAllTime,
+                totalSecondsLast7Days = last7,
+                totalSecondsLast30Days = last30,
+                booksStarted = distinctBooks.size,
+                booksFinished = booksFinished,
+                currentStreakDays = currentStreak,
+                longestStreakDays = longestStreak,
+                lastEventDate = lastDate?.toString(),
+                revision = 0L,
+                updatedAt = 0L,
+                createdAt = 0L,
+                deletedAt = null,
+            )
+        userStatsRepo.upsert(rebuilt, clientOpId = null, userId = userId)
+    }
+}

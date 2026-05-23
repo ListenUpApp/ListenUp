@@ -77,34 +77,36 @@ class UserStatsLazyDecayTest :
 
                     // Upsert a stats row whose windows say 3600s in 7d (stale — computed back when
                     // the event was within the 7-day window). updatedAt will be set to thenMs by the thenClock.
-                    val staleStats = com.calypsan.listenup.api.sync.UserStatsSyncPayload(
-                        id = "u1",
-                        totalSecondsAllTime = 3600L,
-                        totalSecondsLast7Days = 3600L,
-                        totalSecondsLast30Days = 3600L,
-                        booksStarted = 1,
-                        booksFinished = 0,
-                        currentStreakDays = 1,
-                        longestStreakDays = 1,
-                        lastEventDate = null,
-                        revision = 0L,
-                        updatedAt = 0L, // overwritten by writePayload to thenMs
-                        createdAt = 0L,
-                        deletedAt = null,
-                    )
+                    val staleStats =
+                        com.calypsan.listenup.api.sync.UserStatsSyncPayload(
+                            id = "u1",
+                            totalSecondsAllTime = 3600L,
+                            totalSecondsLast7Days = 3600L,
+                            totalSecondsLast30Days = 3600L,
+                            booksStarted = 1,
+                            booksFinished = 0,
+                            currentStreakDays = 1,
+                            longestStreakDays = 1,
+                            lastEventDate = null,
+                            revision = 0L,
+                            updatedAt = 0L, // overwritten by writePayload to thenMs
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
                     statsRepoThen.upsert(staleStats, clientOpId = null, userId = "u1")
 
                     val revisionAfterSeed = statsRepoThen.getForUser("u1").shouldNotBeNull().revision
 
                     // Now create a repo with the current clock and a lazy-decay updater.
                     val updaterWithNowClock = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
-                    val statsRepoWithDecay = UserStatsRepository(
-                        db = db,
-                        bus = bus,
-                        registry = SyncRegistry(),
-                        clock = nowClock,
-                        userStatsUpdater = updaterWithNowClock,
-                    )
+                    val statsRepoWithDecay =
+                        UserStatsRepository(
+                            db = db,
+                            bus = bus,
+                            registry = SyncRegistry(),
+                            clock = nowClock,
+                            userStatsUpdater = updaterWithNowClock,
+                        )
 
                     val page = statsRepoWithDecay.pullSince(userId = "u1", cursor = 0L, limit = 50)
 
@@ -134,33 +136,35 @@ class UserStatsLazyDecayTest :
                     eventRepo.upsert(oldEvent, clientOpId = null, userId = "u1")
 
                     // Upsert stats with stale window values, but updatedAt = thenMs (fresh — 30 min ago).
-                    val freshStats = com.calypsan.listenup.api.sync.UserStatsSyncPayload(
-                        id = "u1",
-                        totalSecondsAllTime = 3600L,
-                        totalSecondsLast7Days = 3600L,
-                        totalSecondsLast30Days = 3600L,
-                        booksStarted = 1,
-                        booksFinished = 0,
-                        currentStreakDays = 1,
-                        longestStreakDays = 1,
-                        lastEventDate = null,
-                        revision = 0L,
-                        updatedAt = 0L,
-                        createdAt = 0L,
-                        deletedAt = null,
-                    )
+                    val freshStats =
+                        com.calypsan.listenup.api.sync.UserStatsSyncPayload(
+                            id = "u1",
+                            totalSecondsAllTime = 3600L,
+                            totalSecondsLast7Days = 3600L,
+                            totalSecondsLast30Days = 3600L,
+                            booksStarted = 1,
+                            booksFinished = 0,
+                            currentStreakDays = 1,
+                            longestStreakDays = 1,
+                            lastEventDate = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
                     statsRepoThen.upsert(freshStats, clientOpId = null, userId = "u1")
 
                     val revisionAfterSeed = statsRepoThen.getForUser("u1").shouldNotBeNull().revision
 
                     val updaterWithNowClock = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
-                    val statsRepoWithDecay = UserStatsRepository(
-                        db = db,
-                        bus = bus,
-                        registry = SyncRegistry(),
-                        clock = nowClock,
-                        userStatsUpdater = updaterWithNowClock,
-                    )
+                    val statsRepoWithDecay =
+                        UserStatsRepository(
+                            db = db,
+                            bus = bus,
+                            registry = SyncRegistry(),
+                            clock = nowClock,
+                            userStatsUpdater = updaterWithNowClock,
+                        )
 
                     val page = statsRepoWithDecay.pullSince(userId = "u1", cursor = 0L, limit = 50)
 

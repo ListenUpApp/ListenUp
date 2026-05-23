@@ -89,7 +89,10 @@ fun Route.playbackRoutes(playbackService: PlaybackService) {
                 val stats = result.data
                 if (stats != null) call.respond(stats) else call.respond(HttpStatusCode.NoContent)
             }
-            is AppResult.Failure -> call.respondBareAppError(result.error)
+
+            is AppResult.Failure -> {
+                call.respondBareAppError(result.error)
+            }
         }
     }
 

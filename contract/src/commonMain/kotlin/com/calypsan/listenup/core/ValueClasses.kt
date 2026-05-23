@@ -162,7 +162,9 @@ value class PlaybackPositionId(
  */
 @Serializable
 @JvmInline
-value class ListeningEventId(val value: String)
+value class ListeningEventId(
+    val value: String,
+)
 
 /**
  * Stable id of a user's materialized listening stats row. `value` equals the
@@ -170,7 +172,9 @@ value class ListeningEventId(val value: String)
  */
 @Serializable
 @JvmInline
-value class UserStatsId(val value: String)
+value class UserStatsId(
+    val value: String,
+)
 
 /**
  * Type-safe wrapper for Unix epoch millisecond timestamps.

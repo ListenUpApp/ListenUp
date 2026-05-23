@@ -80,7 +80,10 @@ class PlaybackServiceImplTest :
                 )
             }
 
-        fun TestDeps.service(db: org.jetbrains.exposed.v1.jdbc.Database, userId: String = "u1"): PlaybackServiceImpl =
+        fun TestDeps.service(
+            db: org.jetbrains.exposed.v1.jdbc.Database,
+            userId: String = "u1",
+        ): PlaybackServiceImpl =
             PlaybackServiceImpl(
                 bookRepository = bookRepo,
                 audioFileLocator = AudioFileLocator(db),
@@ -311,19 +314,20 @@ class PlaybackServiceImplTest :
 
                     val startedAt = 1_779_451_200_000L
                     val endedAt = startedAt + 3_600_000L // 3600 seconds
-                    service.recordListeningEvent(
-                        RecordListeningEventRequest(
-                            id = "evt-1",
-                            bookId = "book-1",
-                            startPositionMs = 0L,
-                            endPositionMs = 3_600_000L,
-                            startedAt = startedAt,
-                            endedAt = endedAt,
-                            playbackSpeed = 1.0f,
-                            tz = "UTC",
-                            deviceLabel = null,
-                        ),
-                    ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
+                    service
+                        .recordListeningEvent(
+                            RecordListeningEventRequest(
+                                id = "evt-1",
+                                bookId = "book-1",
+                                startPositionMs = 0L,
+                                endPositionMs = 3_600_000L,
+                                startedAt = startedAt,
+                                endedAt = endedAt,
+                                playbackSpeed = 1.0f,
+                                tz = "UTC",
+                                deviceLabel = null,
+                            ),
+                        ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
 
                     val statsResult = service.getStats()
                     val stats = statsResult.shouldBeInstanceOf<AppResult.Success<UserStatsSyncPayload?>>().data.shouldNotBeNull()
@@ -370,22 +374,29 @@ class PlaybackServiceImplTest :
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
-                    val request = RecordListeningEventRequest(
-                        id = "evt-idem",
-                        bookId = "book-1",
-                        startPositionMs = 0L,
-                        endPositionMs = 30_000L,
-                        startedAt = startedAt,
-                        endedAt = startedAt + 30_000L,
-                        playbackSpeed = 1.5f,
-                        tz = "UTC",
-                        deviceLabel = "iPhone",
-                    )
+                    val request =
+                        RecordListeningEventRequest(
+                            id = "evt-idem",
+                            bookId = "book-1",
+                            startPositionMs = 0L,
+                            endPositionMs = 30_000L,
+                            startedAt = startedAt,
+                            endedAt = startedAt + 30_000L,
+                            playbackSpeed = 1.5f,
+                            tz = "UTC",
+                            deviceLabel = "iPhone",
+                        )
 
-                    val first = service.recordListeningEvent(request)
-                        .shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>().data
-                    val second = service.recordListeningEvent(request)
-                        .shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>().data
+                    val first =
+                        service
+                            .recordListeningEvent(request)
+                            .shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
+                            .data
+                    val second =
+                        service
+                            .recordListeningEvent(request)
+                            .shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
+                            .data
 
                     // Domain fields must be identical across both calls
                     second.id shouldBe first.id
