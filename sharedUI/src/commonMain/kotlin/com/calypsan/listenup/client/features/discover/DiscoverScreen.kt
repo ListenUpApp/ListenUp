@@ -42,8 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.ProfileAvatar
+import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
@@ -284,12 +285,10 @@ private fun UserShelvesSection(
                     .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Avatar - uses ProfileAvatar for offline-first avatar display
-            ProfileAvatar(
+            // Avatar - user header in a shelf list row
+            UserAvatar(
                 userId = userShelves.user.id,
-                displayName = userShelves.user.displayName,
-                avatarColor = userShelves.user.avatarColor,
-                size = 40.dp,
+                size = AvatarSize.Small,
             )
 
             Spacer(modifier = Modifier.width(12.dp))

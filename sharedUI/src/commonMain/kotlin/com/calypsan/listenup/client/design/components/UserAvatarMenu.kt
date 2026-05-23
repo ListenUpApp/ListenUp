@@ -36,7 +36,6 @@ import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.compose.koinInject
-import java.io.File
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_administration
@@ -106,16 +105,14 @@ fun UserAvatarMenu(
                     }
 
                 if (localPath != null) {
-                    // Use local file with modification time as cache buster
-                    val file = File(localPath)
-                    val lastModified = file.lastModified()
+                    // Cache key matches the canonical UserAvatar key so Coil shares the cache entry.
                     AsyncImage(
                         model =
                             ImageRequest
                                 .Builder(platformContext)
                                 .data(localPath)
-                                .memoryCacheKey("${user.id}-avatar-$lastModified")
-                                .diskCacheKey("${user.id}-avatar-$lastModified")
+                                .memoryCacheKey("${user.id}-avatar")
+                                .diskCacheKey("${user.id}-avatar")
                                 .build(),
                         contentDescription = "${user.displayName} avatar",
                         modifier =

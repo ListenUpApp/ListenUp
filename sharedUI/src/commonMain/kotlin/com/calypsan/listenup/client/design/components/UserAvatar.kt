@@ -120,6 +120,7 @@ private fun ResolvedAvatar(
     } else {
         // "auto" type, or "image" type where the file has not downloaded yet.
         InitialsAvatar(
+            userId = userId,
             displayName = profile.displayName,
             avatarColor = profile.avatarColor,
             size = size,
@@ -155,12 +156,13 @@ private fun LocalImageAvatar(
 
 @Composable
 private fun InitialsAvatar(
+    userId: String,
     displayName: String,
     avatarColor: String,
     size: AvatarSize,
     modifier: Modifier,
 ) {
-    val color = parseAvatarHexColor(avatarColor)
+    val color = parseAvatarHexColor(avatarColor, userId)
     val initials =
         displayName
             .trim()
@@ -236,13 +238,20 @@ fun getInitials(displayName: String): String {
 /**
  * Parse a server-assigned hex color string (e.g. `"#6B7280"`) into a [Color].
  *
- * Falls back to neutral grey on parse failure, matching the server's default avatar color.
+ * Falls back to [stableColorForUserId] when the hex string is blank or malformed, so every
+ * initials avatar gets a visually distinct, cross-platform stable color rather than a
+ * hardcoded neutral grey.
+ *
+ * @param hexColor Server-assigned hex color, e.g. `"#3949AB"`. May be blank or invalid for
+ *   profiles created before the server began assigning colors.
+ * @param userId Forwarded to [stableColorForUserId] when [hexColor] cannot be parsed.
  */
-private fun parseAvatarHexColor(hexColor: String): Color =
+private fun parseAvatarHexColor(hexColor: String, userId: String): Color =
     try {
+        if (hexColor.isBlank()) error("blank")
         Color(hexColor.removePrefix("#").toLong(16) or 0xFF000000L)
     } catch (_: Exception) {
-        Color(0xFF6B7280L)
+        stableColorForUserId(userId)
     }
 
 /**
@@ -252,7 +261,6 @@ private fun parseAvatarHexColor(hexColor: String): Color =
  * [Uuid.toLongs] for a fully cross-platform stable hash. Falls back gracefully
  * when [userId] is not a valid UUID.
  */
-@Suppress("UnusedPrivateMember")
 private fun stableColorForUserId(userId: String): Color {
     val index =
         try {
