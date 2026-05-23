@@ -8,37 +8,36 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Data Access Object for [UserStatsEntity] operations.
  *
- * Manages cached user stats for leaderboard display.
- * Used for "All Time" period rankings where we need server-calculated totals.
+ * Manages per-user materialized stats, synced from the server via the P2 stats
+ * sync domain. The primary key is the user ID (`id`).
  */
 @Dao
 interface UserStatsDao {
     /**
-     * Observe all cached user stats for leaderboard display.
-     * Sorted by total listening time descending.
+     * Observe all cached user stats (live rows only), ordered by all-time seconds descending.
      *
      * @return Flow emitting list of all cached user stats
      */
-    @Query("SELECT * FROM user_stats ORDER BY totalTimeMs DESC")
+    @Query("SELECT * FROM user_stats WHERE deletedAt IS NULL ORDER BY totalSecondsAllTime DESC")
     fun observeAll(): Flow<List<UserStatsEntity>>
 
     /**
      * Get stats for a specific user.
      *
-     * @param userId The user ID to look up
+     * @param userId The user ID to look up (matches the `id` column)
      * @return The cached stats or null if not found
      */
-    @Query("SELECT * FROM user_stats WHERE userId = :userId")
-    suspend fun getById(userId: String): UserStatsEntity?
+    @Query("SELECT * FROM user_stats WHERE id = :userId LIMIT 1")
+    suspend fun getForUser(userId: String): UserStatsEntity?
 
     /**
      * Observe stats for a specific user.
      *
-     * @param userId The user ID to observe
+     * @param userId The user ID to observe (matches the `id` column)
      * @return Flow emitting the user's stats or null
      */
-    @Query("SELECT * FROM user_stats WHERE userId = :userId")
-    fun observeById(userId: String): Flow<UserStatsEntity?>
+    @Query("SELECT * FROM user_stats WHERE id = :userId LIMIT 1")
+    fun observe(userId: String): Flow<UserStatsEntity?>
 
     /**
      * Insert or update a user's stats.
@@ -57,12 +56,10 @@ interface UserStatsDao {
     suspend fun upsertAll(statsList: List<UserStatsEntity>)
 
     /**
-     * Delete stats for a specific user.
-     *
-     * @param userId The user ID to delete
+     * Apply a server tombstone: set the soft-delete timestamp and revision.
      */
-    @Query("DELETE FROM user_stats WHERE userId = :userId")
-    suspend fun deleteById(userId: String)
+    @Query("UPDATE user_stats SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(id: String, deletedAt: Long, revision: Long)
 
     /**
      * Delete all cached stats.

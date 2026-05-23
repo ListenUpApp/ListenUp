@@ -106,12 +106,13 @@ interface ActivityDao {
 
     /**
      * Observe aggregated stats for all users (for leaderboard).
-     * LEFT JOINs with user_stats to include ALL known users, even those with no activity.
-     * Users with no recent activity will show 0 values.
      *
-     * Uses nested CASE to filter negative durations (from bad data) to prevent overflow.
+     * Joins `user_profiles` (for display data) with `activities` (for recent stats).
+     * Users with no recent activity show 0 values.
      *
-     * Note: Requires user_stats to be populated first (via All-time API call).
+     * TODO(P2-leaderboard): The P2 `user_stats` table now holds per-user materialized
+     *  stats; this query should be updated to join `user_stats` for all-time stats and
+     *  `user_profiles` for profile data once the P2 sync domain handler lands.
      *
      * @param sinceMs Epoch milliseconds - only include activities since this time
      * @return Flow emitting list of user stats
@@ -119,16 +120,16 @@ interface ActivityDao {
     @Query(
         """
         SELECT
-            us.userId,
-            us.displayName,
-            us.avatarColor,
-            us.avatarType,
-            us.avatarValue,
+            up.id as userId,
+            up.displayName,
+            up.avatarColor,
+            up.avatarType,
+            up.avatarValue,
             COALESCE(SUM(CASE WHEN a.type = 'listening_session' AND a.durationMs > 0 THEN a.durationMs ELSE 0 END), 0) as totalTimeMs,
             COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as booksCount
-        FROM user_stats us
-        LEFT JOIN activities a ON a.userId = us.userId AND a.createdAt >= :sinceMs
-        GROUP BY us.userId
+        FROM user_profiles up
+        LEFT JOIN activities a ON a.userId = up.id AND a.createdAt >= :sinceMs
+        GROUP BY up.id
         ORDER BY totalTimeMs DESC
     """,
     )
@@ -138,7 +139,7 @@ interface ActivityDao {
      * Observe community totals for all users.
      * Used for the community stats footer in leaderboard.
      *
-     * LEFT JOINs with user_stats to count ALL known users as the community size.
+     * Uses `user_profiles` as the universe of known users.
      * Uses durationMs > 0 check to filter negative durations (from bad data) to prevent overflow.
      *
      * @param sinceMs Epoch milliseconds - only include activities since this time
@@ -149,9 +150,9 @@ interface ActivityDao {
         SELECT
             COALESCE(SUM(CASE WHEN a.type = 'listening_session' AND a.durationMs > 0 THEN a.durationMs ELSE 0 END), 0) as totalTimeMs,
             COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as totalBooks,
-            (SELECT COUNT(*) FROM user_stats) as activeUsers
-        FROM user_stats us
-        LEFT JOIN activities a ON a.userId = us.userId AND a.createdAt >= :sinceMs
+            (SELECT COUNT(*) FROM user_profiles) as activeUsers
+        FROM user_profiles up
+        LEFT JOIN activities a ON a.userId = up.id AND a.createdAt >= :sinceMs
     """,
     )
     fun observeCommunityStats(sinceMs: Long): Flow<CommunityStatsProjection>

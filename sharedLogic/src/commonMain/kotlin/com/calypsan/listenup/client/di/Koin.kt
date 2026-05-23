@@ -349,6 +349,7 @@ val repositoryModule =
         single { get<ListenUpDatabase>().activeSessionDao() }
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
+        single { get<ListenUpDatabase>().tentativeSpanDao() }
         single { get<ListenUpDatabase>().userReadingSessionDao() }
         single { get<ListenUpDatabase>().readerSessionCacheDao() }
         single { get<ListenUpDatabase>().bookReadersSummaryDao() }
@@ -921,12 +922,17 @@ val syncModule =
             )
         }
 
-        // ListeningEventRepository — transactional write (upsert + pending-op) + DAO read surface
+        // ListeningEventRepository — transactional write (upsert + pending-op) + DAO read surface.
+        // TODO(P2-session): Replace userId placeholder with the authenticated user ID from the
+        //  active session once the P2 session-context DI binding lands. For now we use the
+        //  deviceId as a stable surrogate so that existing events can be distinguished by device.
         single<ListeningEventRepository> {
             ListeningEventRepositoryImpl(
                 listeningEventDao = get(),
                 transactionRunner = get(),
-                deviceId = get(qualifier = named("deviceId")),
+                userId = get(qualifier = named("deviceId")),
+                tz = kotlinx.datetime.TimeZone.currentSystemDefault().id,
+                deviceLabel = null,
             )
         }
 

@@ -9,50 +9,58 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Room entity representing a listening event.
+ * Room entity for one closed listening span — a single uninterrupted play segment.
  *
- * Listening events are append-only and immutable - they record a segment
- * of time spent listening to a book. Stats are computed locally from
- * these events.
+ * Each row is append-only and represents an event where the user listened from
+ * [startPositionMs] to [endPositionMs] within [bookId]. Pauses, speed changes,
+ * seeks, and sleep-timer fires each close the current span and open a new one,
+ * so every row has a single [playbackSpeed].
  *
- * Synced bidirectionally:
- * - Local events pushed to server
- * - Events from other devices received via SSE
+ * [tz] is the IANA timezone name recorded at the time of the event (e.g.
+ * `"Europe/London"`); it drives streak day-boundary math on both client and server.
+ *
+ * Carries the P2 sync substrate ([revision], [deletedAt]) for bidirectional
+ * reconciliation with the server.
  */
 @Entity(
     tableName = "listening_events",
     indices = [
-        Index(value = ["bookId"]),
-        Index(value = ["endedAt"]),
-        Index(value = ["syncState"]),
+        Index(value = ["userId", "endedAt"]),
+        Index(value = ["userId", "revision"]),
+        Index(value = ["userId", "bookId"]),
     ],
 )
 data class ListeningEventEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val bookId: String,
     val startPositionMs: Long,
     val endPositionMs: Long,
-    /** When listening started (epoch ms) */
+    /** When listening started (epoch ms). */
     val startedAt: Long,
-    /** When listening ended (epoch ms) */
+    /** When listening ended (epoch ms). */
     val endedAt: Long,
     val playbackSpeed: Float,
-    val deviceId: String,
-    val syncState: SyncState,
-    val createdAt: Long,
-    /** Event source: playback, import, or manual */
-    val source: String = "playback",
+    /** IANA timezone name recorded at event time (e.g. `"Europe/London"`). */
+    val tz: String,
+    /** Human-readable device label for multi-device history (null on older clients). */
+    val deviceLabel: String?,
+    /** Monotonic server revision; 0 until the server has confirmed the row. */
+    val revision: Long = 0,
+    /** Epoch-ms tombstone; null while the event is live. */
+    val deletedAt: Long? = null,
 ) {
-    /** Duration of this listening segment in milliseconds */
+    /** Duration of this listening segment in milliseconds. */
     val durationMs: Long get() = endPositionMs - startPositionMs
 }
 
 /**
- * DAO for listening event operations.
+ * DAO for [ListeningEventEntity] operations.
  *
  * Provides queries for:
- * - Stats computation (events in date range)
- * - Sync operations (pending events)
+ * - Stats computation (events in date range, reactive)
+ * - Sync operations (by revision for incremental push)
+ * - History browsing (per book, per user)
  */
 @Dao
 interface ListeningEventDao {
@@ -77,7 +85,7 @@ interface ListeningEventDao {
     /**
      * Get all events for a specific book.
      */
-    @Query("SELECT * FROM listening_events WHERE bookId = :bookId ORDER BY endedAt DESC")
+    @Query("SELECT * FROM listening_events WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY endedAt DESC")
     fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>>
 
     /**
@@ -103,16 +111,16 @@ interface ListeningEventDao {
     suspend fun getTotalDurationSince(startMs: Long): Long
 
     /**
-     * Get events pending sync to server.
-     */
-    @Query("SELECT * FROM listening_events WHERE syncState = :state")
-    suspend fun getByState(state: SyncState): List<ListeningEventEntity>
-
-    /**
      * Get an event by ID.
      */
-    @Query("SELECT * FROM listening_events WHERE id = :id")
+    @Query("SELECT * FROM listening_events WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ListeningEventEntity?
+
+    /**
+     * Get all events for a user and book (live rows only, newest first).
+     */
+    @Query("SELECT * FROM listening_events WHERE userId = :userId AND bookId = :bookId AND deletedAt IS NULL ORDER BY endedAt DESC")
+    suspend fun getByBookForUser(userId: String, bookId: String): List<ListeningEventEntity>
 
     /**
      * Insert or update an event.
@@ -127,13 +135,10 @@ interface ListeningEventDao {
     suspend fun upsertAll(events: List<ListeningEventEntity>)
 
     /**
-     * Update sync state for an event.
+     * Apply a server tombstone: set the soft-delete timestamp and revision.
      */
-    @Query("UPDATE listening_events SET syncState = :state WHERE id = :id")
-    suspend fun updateSyncState(
-        id: String,
-        state: SyncState,
-    )
+    @Query("UPDATE listening_events SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(id: String, deletedAt: Long, revision: Long)
 
     /**
      * Get the most recent event timestamp for sync cursor.

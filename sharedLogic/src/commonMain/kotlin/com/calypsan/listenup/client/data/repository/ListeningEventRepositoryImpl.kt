@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.AppResult
@@ -8,13 +6,10 @@ import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.util.NanoId
 import kotlinx.coroutines.flow.Flow
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * Room-backed implementation of [ListeningEventRepository].
@@ -28,15 +23,17 @@ import kotlin.time.ExperimentalTime
  * automatically (EM-R1).
  *
  * @param listeningEventDao Room DAO for listening event operations.
- * @param pendingOperationRepository Sync queue for outbound server push.
- * @param listeningEventHandler Handler used to serialise/dispatch the pending op.
  * @param transactionRunner Wraps both writes in a single DB transaction.
- * @param deviceId Stable device identifier injected from the DI graph.
+ * @param userId Authenticated user ID injected from the DI graph.
+ * @param tz IANA timezone name injected from the DI graph (e.g. `"Europe/London"`).
+ * @param deviceLabel Human-readable device label (null if unavailable).
  */
 class ListeningEventRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
     private val transactionRunner: TransactionRunner,
-    private val deviceId: String,
+    private val userId: String,
+    private val tz: String,
+    private val deviceLabel: String?,
 ) : ListeningEventRepository {
     override suspend fun queueListeningEvent(
         bookId: BookId,
@@ -48,21 +45,19 @@ class ListeningEventRepositoryImpl(
     ): AppResult<Unit> =
         suspendRunCatching {
             val eventId = NanoId.generate("evt")
-            val now = Clock.System.now().toEpochMilliseconds()
 
             val entity =
                 ListeningEventEntity(
                     id = eventId,
+                    userId = userId,
                     bookId = bookId.value,
                     startPositionMs = startPositionMs,
                     endPositionMs = endPositionMs,
                     startedAt = startedAt,
                     endedAt = endedAt,
                     playbackSpeed = playbackSpeed,
-                    deviceId = deviceId,
-                    syncState = SyncState.NOT_SYNCED,
-                    createdAt = now,
-                    source = "playback",
+                    tz = tz,
+                    deviceLabel = deviceLabel,
                 )
 
             transactionRunner.atomically {
