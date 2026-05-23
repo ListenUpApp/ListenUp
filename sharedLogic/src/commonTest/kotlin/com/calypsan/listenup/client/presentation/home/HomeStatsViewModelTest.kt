@@ -56,13 +56,14 @@ class HomeStatsViewModelTest :
 
         test("stats with zero seconds and zero longest streak are Empty") {
             runTest {
-                val stats = WeeklyStats(
-                    dailyBuckets = List(7) { DayBucket(it, 0L) },
-                    currentStreakDays = 0,
-                    longestStreakDays = 0,
-                    topGenres = emptyList(),
-                    totalSecondsThisWeek = 0L,
-                )
+                val stats =
+                    WeeklyStats(
+                        dailyBuckets = List(7) { DayBucket(it, 0L) },
+                        currentStreakDays = 0,
+                        longestStreakDays = 0,
+                        topGenres = emptyList(),
+                        totalSecondsThisWeek = 0L,
+                    )
                 val vm = HomeStatsViewModel(stubRepo(flowOf(stats)))
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
@@ -93,13 +94,14 @@ class HomeStatsViewModelTest :
             runTest {
                 val buckets = listOf(DayBucket(0, 1_800L), DayBucket(1, 900L))
                 val genres = listOf(GenreShare("Fiction", 1_200L))
-                val stats = WeeklyStats(
-                    dailyBuckets = buckets,
-                    currentStreakDays = 1,
-                    longestStreakDays = 1,
-                    topGenres = genres,
-                    totalSecondsThisWeek = 2_700L,
-                )
+                val stats =
+                    WeeklyStats(
+                        dailyBuckets = buckets,
+                        currentStreakDays = 1,
+                        longestStreakDays = 1,
+                        topGenres = genres,
+                        totalSecondsThisWeek = 2_700L,
+                    )
                 val vm = HomeStatsViewModel(stubRepo(flowOf(stats)))
                 vm.uiState.test {
                     awaitItem() // Loading
@@ -152,11 +154,13 @@ class HomeStatsViewModelTest :
 
         test("upstream exception transitions to Error with isRetryable = true") {
             runTest {
-                val repo = object : StatsRepository {
-                    override fun observeWeeklyStats(): Flow<WeeklyStats> = flow {
-                        throw RuntimeException("boom")
+                val repo =
+                    object : StatsRepository {
+                        override fun observeWeeklyStats(): Flow<WeeklyStats> =
+                            flow {
+                                throw RuntimeException("boom")
+                            }
                     }
-                }
                 val vm = HomeStatsViewModel(repo)
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
@@ -171,134 +175,145 @@ class HomeStatsViewModelTest :
 
         test("formattedListenTime: 0 seconds → 0m") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 0L,
-                    currentStreakDays = 1,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 0L,
+                        currentStreakDays = 1,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.formattedListenTime shouldBe "0m"
             }
         }
 
         test("formattedListenTime: 45 minutes") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 45 * 60L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 45 * 60L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.formattedListenTime shouldBe "45m"
             }
         }
 
         test("formattedListenTime: exact 2 hours") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 2 * 60 * 60L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 2 * 60 * 60L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.formattedListenTime shouldBe "2h"
             }
         }
 
         test("formattedListenTime: 2h 30m") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = (2 * 60 + 30) * 60L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = (2 * 60 + 30) * 60L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.formattedListenTime shouldBe "2h 30m"
             }
         }
 
         test("hasData: false when all stats are zero") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 0L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 0,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 0L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 0,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.hasData shouldBe false
             }
         }
 
         test("hasData: true when totalSecondsThisWeek > 0") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 1L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 1L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.hasData shouldBe true
             }
         }
 
         test("hasStreak: false when both streaks are zero") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 100L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 0,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 100L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 0,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.hasStreak shouldBe false
             }
         }
 
         test("hasStreak: true when longestStreakDays > 0") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 0L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 7,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 0L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 7,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.hasStreak shouldBe true
             }
         }
 
         test("maxDailySeconds: returns max from dailyBuckets") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 7_800L,
-                    currentStreakDays = 1,
-                    longestStreakDays = 1,
-                    dailyBuckets = listOf(
-                        DayBucket(0, 1_800L),
-                        DayBucket(1, 3_600L),
-                        DayBucket(2, 2_400L),
-                    ),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 7_800L,
+                        currentStreakDays = 1,
+                        longestStreakDays = 1,
+                        dailyBuckets =
+                            listOf(
+                                DayBucket(0, 1_800L),
+                                DayBucket(1, 3_600L),
+                                DayBucket(2, 2_400L),
+                            ),
+                        topGenres = emptyList(),
+                    )
                 data.maxDailySeconds shouldBe 3_600L
             }
         }
 
         test("maxDailySeconds: 0 when dailyBuckets is empty") {
             runTest {
-                val data = HomeStatsUiState.Data(
-                    totalSecondsThisWeek = 0L,
-                    currentStreakDays = 0,
-                    longestStreakDays = 1,
-                    dailyBuckets = emptyList(),
-                    topGenres = emptyList(),
-                )
+                val data =
+                    HomeStatsUiState.Data(
+                        totalSecondsThisWeek = 0L,
+                        currentStreakDays = 0,
+                        longestStreakDays = 1,
+                        dailyBuckets = emptyList(),
+                        topGenres = emptyList(),
+                    )
                 data.maxDailySeconds shouldBe 0L
             }
         }
