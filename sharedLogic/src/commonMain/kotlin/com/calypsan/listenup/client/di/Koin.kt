@@ -989,6 +989,7 @@ val syncModule =
                 syncEngine = get(),
                 syncEngineState = get(),
                 authSession = get(),
+                listeningEventRecorder = get(),
                 scope =
                     get(
                         qualifier =

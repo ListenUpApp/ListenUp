@@ -145,10 +145,11 @@ class ListeningEventRecorderTest :
 
                     // Wire payload carries the OLD speed
                     enqueuedOps.size shouldBe 1
-                    val req = contractJson.decodeFromString(
-                        RecordListeningEventRequest.serializer(),
-                        enqueuedOps[0].payload,
-                    )
+                    val req =
+                        contractJson.decodeFromString(
+                            RecordListeningEventRequest.serializer(),
+                            enqueuedOps[0].payload,
+                        )
                     req.playbackSpeed shouldBe 1.0f
 
                     // New tentative span open with new speed at the speed-change position
@@ -271,9 +272,9 @@ class ListeningEventRecorderTest :
                     val event = events[0]
                     event.id shouldBe orphanId
                     event.startPositionMs shouldBe 10_000L
-                    event.endPositionMs shouldBe 45_000L   // tentative.currentPositionMs
+                    event.endPositionMs shouldBe 45_000L // tentative.currentPositionMs
                     event.startedAt shouldBe 50_000L
-                    event.endedAt shouldBe 80_000L         // tentative.lastHeartbeatAt
+                    event.endedAt shouldBe 80_000L // tentative.lastHeartbeatAt
                     event.playbackSpeed shouldBe 1.25f
                     event.tz shouldBe "America/New_York"
                     event.deviceLabel shouldBe "Crashed Device"
@@ -324,27 +325,30 @@ private suspend fun withFixture(
 
         // A real PendingOperationQueue is used so the DAO write runs too; we also
         // capture calls for assertion via the enqueue lambda indirection.
-        val realQueue = PendingOperationQueue(
-            dao = db.pendingOperationV2Dao(),
-            sender = PendingOperationSender { AppResult.Success(Unit) },
-            nowMillis = nowMillisProvider,
-        )
+        val realQueue =
+            PendingOperationQueue(
+                dao = db.pendingOperationV2Dao(),
+                sender = PendingOperationSender { AppResult.Success(Unit) },
+                nowMillis = nowMillisProvider,
+            )
 
-        val recorder = ListeningEventRecorder(
-            listeningEventDao = db.listeningEventDao(),
-            tentativeSpanDao = db.tentativeSpanDao(),
-            enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                captured.add(CapturedEnqueue(domainName, entityId, opType, payload, ownerUserId))
-                realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
-                Unit
-            },
-            currentUserId = { USER_ID },
-            deviceLabel = { DEVICE_LABEL },
-            clock = object : Clock {
-                override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillisProvider())
-            },
-            timeZone = { TimeZone.currentSystemDefault() },
-        )
+        val recorder =
+            ListeningEventRecorder(
+                listeningEventDao = db.listeningEventDao(),
+                tentativeSpanDao = db.tentativeSpanDao(),
+                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
+                    captured.add(CapturedEnqueue(domainName, entityId, opType, payload, ownerUserId))
+                    realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
+                    Unit
+                },
+                currentUserId = { USER_ID },
+                deviceLabel = { DEVICE_LABEL },
+                clock =
+                    object : Clock {
+                        override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillisProvider())
+                    },
+                timeZone = { TimeZone.currentSystemDefault() },
+            )
 
         block(recorder, db, captured)
     } finally {

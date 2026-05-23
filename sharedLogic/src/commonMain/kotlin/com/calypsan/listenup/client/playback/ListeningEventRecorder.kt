@@ -82,10 +82,11 @@ class ListeningEventRecorder(
         positionMs: Long,
         playbackSpeed: Float,
     ) {
-        val userId = currentUserId() ?: run {
-            logger.debug { "[ListeningEventRecorder] onPlay skipped — no authenticated user" }
-            return
-        }
+        val userId =
+            currentUserId() ?: run {
+                logger.debug { "[ListeningEventRecorder] onPlay skipped — no authenticated user" }
+                return
+            }
         val nowMs = clock.now().toEpochMilliseconds()
         tentativeSpanDao.upsertSingleton(
             TentativeSpanEntity(
@@ -221,33 +222,35 @@ class ListeningEventRecorder(
             return
         }
 
-        val entity = ListeningEventEntity(
-            id = tentative.id,
-            userId = tentative.userId,
-            bookId = tentative.bookId,
-            startPositionMs = tentative.startPositionMs,
-            endPositionMs = endPositionMs,
-            startedAt = tentative.startedAt,
-            endedAt = endedAt,
-            playbackSpeed = tentative.playbackSpeed,
-            tz = tentative.tz,
-            deviceLabel = tentative.deviceLabel,
-            revision = 0L,
-            deletedAt = null,
-        )
+        val entity =
+            ListeningEventEntity(
+                id = tentative.id,
+                userId = tentative.userId,
+                bookId = tentative.bookId,
+                startPositionMs = tentative.startPositionMs,
+                endPositionMs = endPositionMs,
+                startedAt = tentative.startedAt,
+                endedAt = endedAt,
+                playbackSpeed = tentative.playbackSpeed,
+                tz = tentative.tz,
+                deviceLabel = tentative.deviceLabel,
+                revision = 0L,
+                deletedAt = null,
+            )
         listeningEventDao.upsert(entity)
 
-        val request = RecordListeningEventRequest(
-            id = entity.id,
-            bookId = entity.bookId,
-            startPositionMs = entity.startPositionMs,
-            endPositionMs = entity.endPositionMs,
-            startedAt = entity.startedAt,
-            endedAt = entity.endedAt,
-            playbackSpeed = entity.playbackSpeed,
-            tz = entity.tz,
-            deviceLabel = entity.deviceLabel,
-        )
+        val request =
+            RecordListeningEventRequest(
+                id = entity.id,
+                bookId = entity.bookId,
+                startPositionMs = entity.startPositionMs,
+                endPositionMs = entity.endPositionMs,
+                startedAt = entity.startedAt,
+                endedAt = entity.endedAt,
+                playbackSpeed = entity.playbackSpeed,
+                tz = entity.tz,
+                deviceLabel = entity.deviceLabel,
+            )
 
         try {
             enqueue(

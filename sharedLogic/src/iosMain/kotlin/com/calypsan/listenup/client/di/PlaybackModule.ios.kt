@@ -3,6 +3,9 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
@@ -10,6 +13,7 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
+import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
@@ -80,6 +84,21 @@ val iosPlaybackModule: Module =
                 listeningEventRepository = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
+            )
+        }
+
+        // Listening event recorder — span state machine for P2 listening history
+        single {
+            ListeningEventRecorder(
+                listeningEventDao = get<ListenUpDatabase>().listeningEventDao(),
+                tentativeSpanDao = get<ListenUpDatabase>().tentativeSpanDao(),
+                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
+                    get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
+                    Unit
+                },
+                currentUserId = { get<AuthSession>().getUserId() },
+                // iOS: UIDevice.name is the user-facing device name (e.g. "Simon's iPhone"). null also valid.
+                deviceLabel = { platform.UIKit.UIDevice.currentDevice.name },
             )
         }
 

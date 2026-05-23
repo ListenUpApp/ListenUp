@@ -12,10 +12,14 @@ import com.calypsan.listenup.client.download.JvmDownloadEnqueuer
 import com.calypsan.listenup.client.platform.DesktopAudioTokenProvider
 import com.calypsan.listenup.client.platform.StubBackgroundSyncScheduler
 import com.calypsan.listenup.client.platform.StubDownloadService
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.DesktopPlaybackController
+import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
@@ -112,6 +116,21 @@ val platformModule: Module =
                 listeningEventRepository = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
+            )
+        }
+
+        // Listening event recorder — span state machine for P2 listening history
+        single {
+            ListeningEventRecorder(
+                listeningEventDao = get<ListenUpDatabase>().listeningEventDao(),
+                tentativeSpanDao = get<ListenUpDatabase>().tentativeSpanDao(),
+                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
+                    get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
+                    Unit
+                },
+                currentUserId = { get<AuthSession>().getUserId() },
+                // JVM/desktop: no safe Java-free way to get device name; null is fine (advisory column).
+                deviceLabel = { null },
             )
         }
 
