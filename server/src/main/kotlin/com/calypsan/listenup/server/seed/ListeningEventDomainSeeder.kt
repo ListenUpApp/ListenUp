@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
 private const val DEMO_BOOK_COUNT = 3
 
 /** Milliseconds in one minute. */
-private const val ONE_MINUTE_MS = ONE_MINUTE_MS
+private const val ONE_MINUTE_MS = 60_000L
 
 /** Milliseconds in one day. */
 private const val ONE_DAY_MS = 86_400_000L
