@@ -38,8 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.domain.repository.LeaderboardCategory
-import com.calypsan.listenup.client.domain.repository.LeaderboardEntry
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 
 /** Number of entries to show when collapsed */
 private const val COLLAPSED_COUNT = 4
@@ -48,13 +48,11 @@ private const val COLLAPSED_COUNT = 4
  * Leaderboard list showing ranked users with animated position changes.
  *
  * Shows top 4 entries by default with an expand/collapse option to see more.
- * Uses LazyColumn with animateItem() for smooth position animations when
- * users move up or down in the rankings.
  *
- * @param entries List of leaderboard entries
- * @param category Current leaderboard category (for value labels)
- * @param onUserClick Callback when a user row is clicked
- * @param modifier Modifier from parent
+ * @param entries List of leaderboard entries to display.
+ * @param category Current leaderboard category — determines which value to show.
+ * @param onUserClick Callback when a user row is clicked.
+ * @param modifier Modifier from parent.
  */
 @Composable
 fun LeaderboardList(
@@ -113,33 +111,24 @@ private fun LeaderboardEntryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor =
-        if (entry.isCurrentUser) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
-        }
-
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.small)
                 .clickable(onClick = onClick)
-                .background(backgroundColor)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Animated rank badge - slides up/down when rank changes
+        // Animated rank badge — slides up/down when rank changes
         AnimatedContent(
             targetState = entry.rank,
             transitionSpec = {
                 if (targetState < initialState) {
-                    // Moving up - slide in from top
                     slideInVertically { -it } + fadeIn() togetherWith
                         slideOutVertically { it } + fadeOut()
                 } else {
-                    // Moving down - slide in from bottom
                     slideInVertically { it } + fadeIn() togetherWith
                         slideOutVertically { -it } + fadeOut()
                 }
@@ -156,12 +145,11 @@ private fun LeaderboardEntryRow(
             Text(
                 text = entry.displayName,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (entry.isCurrentUser) FontWeight.Bold else FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
-        // Animated value label - fades when value changes
+        // Animated value label — fades when value changes
         AnimatedContent(
             targetState = entry.labelFor(category),
             transitionSpec = {
@@ -174,14 +162,33 @@ private fun LeaderboardEntryRow(
                 text = value,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color =
-                    if (entry.isCurrentUser) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
+    }
+}
+
+/**
+ * Format a [LeaderboardEntry] value for the given [category].
+ *
+ * Lives here (in the UI layer) because formatting is a display concern, not a
+ * domain concern. The domain entry carries raw numeric values; this extension
+ * converts them to user-readable strings.
+ */
+private fun LeaderboardEntry.labelFor(category: LeaderboardCategory): String =
+    when (category) {
+        LeaderboardCategory.Time -> formatSeconds(totalSeconds)
+        LeaderboardCategory.Books -> "$booksFinished books"
+        LeaderboardCategory.Streak -> "$longestStreakDays days"
+    }
+
+private fun formatSeconds(seconds: Long): String {
+    val hours = seconds / 3_600
+    val minutes = (seconds % 3_600) / 60
+    return when {
+        hours == 0L -> "${minutes}m"
+        minutes == 0L -> "${hours}h"
+        else -> "${hours}h ${minutes}m"
     }
 }
 
@@ -196,7 +203,7 @@ private fun RankBadge(
                 Triple(
                     MaterialTheme.colorScheme.tertiaryContainer,
                     MaterialTheme.colorScheme.onTertiaryContainer,
-                    "\uD83E\uDD47", // Gold medal
+                    "🥇",
                 )
             }
 
@@ -204,7 +211,7 @@ private fun RankBadge(
                 Triple(
                     MaterialTheme.colorScheme.secondaryContainer,
                     MaterialTheme.colorScheme.onSecondaryContainer,
-                    "\uD83E\uDD48", // Silver medal
+                    "🥈",
                 )
             }
 
@@ -212,7 +219,7 @@ private fun RankBadge(
                 Triple(
                     MaterialTheme.colorScheme.surfaceContainerHighest,
                     MaterialTheme.colorScheme.onSurface,
-                    "\uD83E\uDD49", // Bronze medal
+                    "🥉",
                 )
             }
 
