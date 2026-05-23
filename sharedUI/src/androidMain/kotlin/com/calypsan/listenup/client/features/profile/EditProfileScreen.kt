@@ -360,13 +360,17 @@ private fun AvatarSection(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = user.displayName.trim().split("\\s+".toRegex()).let { parts ->
-                            when {
-                                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                user.displayName.length >= 2 -> user.displayName.take(2)
-                                else -> user.displayName.take(1)
-                            }
-                        }.uppercase(),
+                    text =
+                        user.displayName
+                            .trim()
+                            .split("\\s+".toRegex())
+                            .let { parts ->
+                                when {
+                                    parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                    user.displayName.length >= 2 -> user.displayName.take(2)
+                                    else -> user.displayName.take(1)
+                                }
+                            }.uppercase(),
                     color = Color.White,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,

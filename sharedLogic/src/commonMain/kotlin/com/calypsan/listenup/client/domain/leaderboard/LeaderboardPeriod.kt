@@ -29,11 +29,17 @@ sealed interface LeaderboardPeriod {
      * @return A pair `(startMs, endMs)` where `startMs` is inclusive and `endMs`
      *   equals `now.toEpochMilliseconds()` for bounded periods.
      */
-    fun bounds(now: Instant, tz: TimeZone): Pair<Long, Long>
+    fun bounds(
+        now: Instant,
+        tz: TimeZone,
+    ): Pair<Long, Long>
 
     /** Last 7 days ending at [now], day-aligned in [tz]. */
     data object Week : LeaderboardPeriod {
-        override fun bounds(now: Instant, tz: TimeZone): Pair<Long, Long> {
+        override fun bounds(
+            now: Instant,
+            tz: TimeZone,
+        ): Pair<Long, Long> {
             val today = now.toLocalDateTime(tz).date
             val startDate = today.minus(DatePeriod(days = 6))
             return startDate.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
@@ -42,7 +48,10 @@ sealed interface LeaderboardPeriod {
 
     /** Current calendar month in [tz]. */
     data object Month : LeaderboardPeriod {
-        override fun bounds(now: Instant, tz: TimeZone): Pair<Long, Long> {
+        override fun bounds(
+            now: Instant,
+            tz: TimeZone,
+        ): Pair<Long, Long> {
             val today = now.toLocalDateTime(tz).date
             val firstOfMonth = LocalDate(today.year, today.month, 1)
             return firstOfMonth.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
@@ -51,7 +60,10 @@ sealed interface LeaderboardPeriod {
 
     /** Current calendar year in [tz]. */
     data object Year : LeaderboardPeriod {
-        override fun bounds(now: Instant, tz: TimeZone): Pair<Long, Long> {
+        override fun bounds(
+            now: Instant,
+            tz: TimeZone,
+        ): Pair<Long, Long> {
             val today = now.toLocalDateTime(tz).date
             val firstOfYear = LocalDate(today.year, 1, 1)
             return firstOfYear.atStartOfDayIn(tz).toEpochMilliseconds() to now.toEpochMilliseconds()
@@ -60,6 +72,9 @@ sealed interface LeaderboardPeriod {
 
     /** All recorded history. */
     data object AllTime : LeaderboardPeriod {
-        override fun bounds(now: Instant, tz: TimeZone): Pair<Long, Long> = 0L to Long.MAX_VALUE
+        override fun bounds(
+            now: Instant,
+            tz: TimeZone,
+        ): Pair<Long, Long> = 0L to Long.MAX_VALUE
     }
 }

@@ -63,7 +63,6 @@ class StatsRepositoryImpl(
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
     private val ticker: Flow<Unit> = midnightPulse(),
 ) : StatsRepository {
-
     override fun observeWeeklyStats(): Flow<WeeklyStats> =
         // Re-evaluate the window whenever the user changes or the clock ticks
         // past a minute boundary (so day buckets roll over at local midnight).
@@ -73,8 +72,7 @@ class StatsRepositoryImpl(
                     is AuthState.Authenticated -> state.userId.value
                     else -> null
                 }
-            }
-            .combine(ticker) { userId, _ -> userId }
+            }.combine(ticker) { userId, _ -> userId }
             .flatMapLatest { userId ->
                 if (userId == null) return@flatMapLatest flowOf(WeeklyStats.empty())
                 val tz = timeZone()
@@ -116,10 +114,11 @@ class StatsRepositoryImpl(
                 genreSeconds[g] = (genreSeconds[g] ?: 0L) + wallSeconds
             }
         }
-        val topGenres = genreSeconds.entries
-            .sortedByDescending { it.value }
-            .take(3)
-            .map { GenreShare(it.key, it.value) }
+        val topGenres =
+            genreSeconds.entries
+                .sortedByDescending { it.value }
+                .take(3)
+                .map { GenreShare(it.key, it.value) }
 
         return WeeklyStats(
             dailyBuckets = buckets,
@@ -136,10 +135,11 @@ class StatsRepositoryImpl(
  * causes the window bounds to be recomputed each minute so the active day
  * bucket rolls over at local midnight without any manual refresh.
  */
-private fun midnightPulse(): Flow<Unit> = flow {
-    emit(Unit)
-    while (true) {
-        delay(MIDNIGHT_PULSE_DELAY_MS)
+private fun midnightPulse(): Flow<Unit> =
+    flow {
         emit(Unit)
+        while (true) {
+            delay(MIDNIGHT_PULSE_DELAY_MS)
+            emit(Unit)
+        }
     }
-}

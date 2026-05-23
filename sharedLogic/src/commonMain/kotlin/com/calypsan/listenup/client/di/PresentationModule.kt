@@ -262,11 +262,10 @@ val bookPresentationModule =
                 errorBus = get(),
             )
         }
-        factory {
+        factory { params ->
             com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel(
-                sessionRepository = get(),
-                eventStreamRepository = get(),
-                userRepository = get(),
+                repo = get(),
+                bookId = params.get(),
             )
         }
         factory {

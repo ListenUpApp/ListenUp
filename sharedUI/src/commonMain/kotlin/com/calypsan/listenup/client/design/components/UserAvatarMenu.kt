@@ -143,13 +143,17 @@ fun UserAvatarMenu(
                     // No local file and no server URL - show initials
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = user.displayName.trim().split("\\s+".toRegex()).let { parts ->
-                                    when {
-                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                        user.displayName.length >= 2 -> user.displayName.take(2)
-                                        else -> user.displayName.take(1)
-                                    }
-                                }.uppercase(),
+                            text =
+                                user.displayName
+                                    .trim()
+                                    .split("\\s+".toRegex())
+                                    .let { parts ->
+                                        when {
+                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                            user.displayName.length >= 2 -> user.displayName.take(2)
+                                            else -> user.displayName.take(1)
+                                        }
+                                    }.uppercase(),
                             style = MaterialTheme.typography.titleSmall,
                             color = Color.White,
                         )
@@ -158,15 +162,19 @@ fun UserAvatarMenu(
             } else {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = user?.let { u ->
-                                    u.displayName.trim().split("\\s+".toRegex()).let { parts ->
+                        text =
+                            user?.let { u ->
+                                u.displayName
+                                    .trim()
+                                    .split("\\s+".toRegex())
+                                    .let { parts ->
                                         when {
                                             parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
                                             u.displayName.length >= 2 -> u.displayName.take(2)
                                             else -> u.displayName.take(1)
                                         }
                                     }.uppercase()
-                                } ?: "?",
+                            } ?: "?",
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.White,
                     )

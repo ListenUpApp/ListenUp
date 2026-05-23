@@ -76,7 +76,7 @@ import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerMigrationHelper
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerUrlChangeListener
-import com.calypsan.listenup.client.data.repository.SessionRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
@@ -114,7 +114,7 @@ import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerRepository
-import com.calypsan.listenup.client.domain.repository.SessionRepository
+import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -348,9 +348,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
-        single { get<ListenUpDatabase>().userReadingSessionDao() }
-        single { get<ListenUpDatabase>().readerSessionCacheDao() }
-        single { get<ListenUpDatabase>().bookReadersSummaryDao() }
 
         single<com.calypsan.listenup.client.data.local.db.TransactionRunner> {
             com.calypsan.listenup.client.data.local.db
@@ -1052,15 +1049,14 @@ val syncModule =
             )
         }
 
-        // SessionRepository for reading sessions (SOLID: interface in domain, impl in data)
-        // Offline-first: caches reader data in Room, syncs via API and SSE
-        single<SessionRepository> {
-            SessionRepositoryImpl(
-                sessionApi = get(),
-                userReadingSessionDao = get(),
-                readerSessionCacheDao = get(),
-                bookReadersSummaryDao = get(),
-                transactionRunner = get(),
+        // BookReadersRepository for Book Detail Readers section (SOLID: interface in domain, impl in data)
+        // Pure Room observation — no REST refresh, no debounce, no cache layer.
+        // active_sessions and playback_positions are kept current by SSE events and the
+        // P3-B completion cascade respectively.
+        single<BookReadersRepository> {
+            BookReadersRepositoryImpl(
+                activeSessionDao = get(),
+                playbackPositionDao = get(),
                 authSession = get(),
             )
         }

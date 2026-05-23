@@ -121,13 +121,17 @@ fun ContributorIdentityHeader(
 
                     if (!imageLoaded) {
                         Text(
-                            text = name.trim().split("\\s+".toRegex()).let { parts ->
-                                    when {
-                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                        name.length >= 2 -> name.take(2)
-                                        else -> name.take(1)
-                                    }
-                                }.uppercase(),
+                            text =
+                                name
+                                    .trim()
+                                    .split("\\s+".toRegex())
+                                    .let { parts ->
+                                        when {
+                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                            name.length >= 2 -> name.take(2)
+                                            else -> name.take(1)
+                                        }
+                                    }.uppercase(),
                             style =
                                 MaterialTheme.typography.displaySmall.copy(
                                     fontFamily = DisplayFontFamily,

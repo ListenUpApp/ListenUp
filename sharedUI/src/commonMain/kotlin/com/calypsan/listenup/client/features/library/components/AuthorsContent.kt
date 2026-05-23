@@ -199,13 +199,17 @@ internal fun ContributorCard(
 
                     if (!imageLoaded) {
                         Text(
-                            text = contributor.name.trim().split("\\s+".toRegex()).let { parts ->
-                                    when {
-                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                        contributor.name.length >= 2 -> contributor.name.take(2)
-                                        else -> contributor.name.take(1)
-                                    }
-                                }.uppercase(),
+                            text =
+                                contributor.name
+                                    .trim()
+                                    .split("\\s+".toRegex())
+                                    .let { parts ->
+                                        when {
+                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                            contributor.name.length >= 2 -> contributor.name.take(2)
+                                            else -> contributor.name.take(1)
+                                        }
+                                    }.uppercase(),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )

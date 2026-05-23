@@ -820,17 +820,21 @@ private fun ElevatedAvatar(
     contributorId: String,
     colorScheme: ContributorColorScheme,
 ) {
-    val initials = if (name.isNotBlank()) {
-        name.trim().split("\\s+".toRegex()).let { parts ->
-            when {
-                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                name.length >= 2 -> name.take(2)
-                else -> name.take(1)
-            }
-        }.uppercase()
-    } else {
-        "?"
-    }
+    val initials =
+        if (name.isNotBlank()) {
+            name
+                .trim()
+                .split("\\s+".toRegex())
+                .let { parts ->
+                    when {
+                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                        name.length >= 2 -> name.take(2)
+                        else -> name.take(1)
+                    }
+                }.uppercase()
+        } else {
+            "?"
+        }
 
     ElevatedCard(
         shape = CircleShape,

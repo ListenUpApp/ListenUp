@@ -357,13 +357,17 @@ private fun ProfileHeader(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = displayName.trim().split("\\s+".toRegex()).let { parts ->
-                                when {
-                                    parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                    displayName.length >= 2 -> displayName.take(2)
-                                    else -> displayName.take(1)
-                                }
-                            }.uppercase(),
+                        text =
+                            displayName
+                                .trim()
+                                .split("\\s+".toRegex())
+                                .let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        displayName.length >= 2 -> displayName.take(2)
+                                        else -> displayName.take(1)
+                                    }
+                                }.uppercase(),
                         color = Color.White,
                         fontSize = 42.sp,
                         fontWeight = FontWeight.Bold,

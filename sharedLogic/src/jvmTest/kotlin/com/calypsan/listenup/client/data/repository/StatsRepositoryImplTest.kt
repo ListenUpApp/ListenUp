@@ -112,9 +112,10 @@ class StatsRepositoryImplTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -138,9 +139,10 @@ class StatsRepositoryImplTest :
                         makeEvent("e1", startedAt = startedAt, endedAt = endedAt),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -168,9 +170,10 @@ class StatsRepositoryImplTest :
                     db.listeningEventDao().upsert(makeEvent("e0", startedAt = e0Start, endedAt = e0End))
                     db.listeningEventDao().upsert(makeEvent("e3", startedAt = e3Start, endedAt = e3End))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -193,9 +196,10 @@ class StatsRepositoryImplTest :
 
                     db.listeningEventDao().upsert(makeEvent("old", startedAt = oldStart, endedAt = oldEnd))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -224,9 +228,10 @@ class StatsRepositoryImplTest :
                         ),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -275,9 +280,10 @@ class StatsRepositoryImplTest :
                         makeEvent("e3", bookId = "book-history", startedAt = anchorMs + 10800_000L, endedAt = anchorMs + 12600_000L),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -305,9 +311,10 @@ class StatsRepositoryImplTest :
                         makeEvent("e1", bookId = "book-nogenre", startedAt = nowMs - 3600_000L, endedAt = nowMs - 1800_000L),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val stats = repo.observeWeeklyStats().first()
@@ -353,18 +360,39 @@ private fun seedBook(id: String): BookEntity =
 private class FakeAuthSession(
     override val authState: StateFlow<AuthState>,
 ) : AuthSession {
-    override suspend fun saveAuthTokens(access: AccessToken, refresh: RefreshToken, sessionId: String, userId: String) = Unit
+    override suspend fun saveAuthTokens(
+        access: AccessToken,
+        refresh: RefreshToken,
+        sessionId: String,
+        userId: String,
+    ) = Unit
+
     override suspend fun getAccessToken(): AccessToken? = null
+
     override suspend fun getRefreshToken(): RefreshToken? = null
+
     override suspend fun getSessionId(): String? = null
+
     override suspend fun getUserId(): String? = null
+
     override suspend fun updateAccessToken(token: AccessToken) = Unit
+
     override suspend fun clearAuthTokens() = Unit
+
     override suspend fun isAuthenticated(): Boolean = false
+
     override suspend fun initializeAuthState() = Unit
+
     override suspend fun checkServerStatus(): AuthState = authState.value
+
     override suspend fun refreshOpenRegistration() = Unit
-    override suspend fun savePendingRegistration(userId: String, email: String) = Unit
+
+    override suspend fun savePendingRegistration(
+        userId: String,
+        email: String,
+    ) = Unit
+
     override suspend fun getPendingRegistration(): PendingRegistration? = null
+
     override suspend fun clearPendingRegistration() = Unit
 }

@@ -46,7 +46,13 @@ data class WeeklyStats(
  * [dayOffsetFromToday] is 0 for today, 1 for yesterday, up to 6 for six days ago.
  * This ordering matches a "today first" bar chart layout.
  */
-data class DayBucket(val dayOffsetFromToday: Int, val totalSeconds: Long)
+data class DayBucket(
+    val dayOffsetFromToday: Int,
+    val totalSeconds: Long,
+)
 
 /** Genre total within the 7-day window, used for the genre breakdown chart. */
-data class GenreShare(val genreName: String, val totalSeconds: Long)
+data class GenreShare(
+    val genreName: String,
+    val totalSeconds: Long,
+)

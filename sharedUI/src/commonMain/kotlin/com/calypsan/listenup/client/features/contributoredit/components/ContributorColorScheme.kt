@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
-
 /**
  * Rich color scheme derived from contributor's avatar hue.
  * More saturated than detail screen for editing atmosphere.

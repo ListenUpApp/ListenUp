@@ -45,7 +45,10 @@ import org.koin.compose.koinInject
  * (Internal rendering uses [LocalDensity] to derive a physical-pixel font size —
  * see [InitialsAvatar].)
  */
-enum class AvatarSize(val dp: Dp, val fontSize: TextUnit) {
+enum class AvatarSize(
+    val dp: Dp,
+    val fontSize: TextUnit,
+) {
     Mini(20.dp, 9.sp),
     Small(32.dp, 12.sp),
     Medium(48.dp, 16.sp),
@@ -213,7 +216,10 @@ private fun LoadingPlaceholder(modifier: Modifier) {
  *   profiles created before the server began assigning colors.
  * @param userId Forwarded to [stableColorForUserId] when [hexColor] cannot be parsed.
  */
-private fun parseAvatarHexColor(hexColor: String, userId: String): Color =
+private fun parseAvatarHexColor(
+    hexColor: String,
+    userId: String,
+): Color =
     try {
         if (hexColor.isBlank()) error("blank")
         Color(hexColor.removePrefix("#").toLong(16) or 0xFF000000L)
@@ -240,7 +246,16 @@ private fun stableColorForUserId(userId: String): Color {
 /** Twelve-color Material 3 palette for stable avatar background colors. */
 private val avatarPalette =
     listOf(
-        Color(0xFFE53935L), Color(0xFFD81B60L), Color(0xFF8E24AAL), Color(0xFF5E35B1L),
-        Color(0xFF3949ABL), Color(0xFF1E88E5L), Color(0xFF039BE5L), Color(0xFF00ACC1L),
-        Color(0xFF00897BL), Color(0xFF43A047L), Color(0xFFFB8C00L), Color(0xFF6D4C41L),
+        Color(0xFFE53935L),
+        Color(0xFFD81B60L),
+        Color(0xFF8E24AAL),
+        Color(0xFF5E35B1L),
+        Color(0xFF3949ABL),
+        Color(0xFF1E88E5L),
+        Color(0xFF039BE5L),
+        Color(0xFF00ACC1L),
+        Color(0xFF00897BL),
+        Color(0xFF43A047L),
+        Color(0xFFFB8C00L),
+        Color(0xFF6D4C41L),
     )
