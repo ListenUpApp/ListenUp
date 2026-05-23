@@ -22,8 +22,7 @@ class ActiveSessionCleanupTaskTest :
         fun makeRepo(
             db: org.jetbrains.exposed.v1.jdbc.Database,
             clock: kotlin.time.Clock = kotlin.time.Clock.System,
-        ): ActiveSessionRepository =
-            ActiveSessionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
+        ): ActiveSessionRepository = ActiveSessionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
 
         fun session(
             sessionId: String,
@@ -46,9 +45,9 @@ class ActiveSessionCleanupTaskTest :
 
                 // Three repos with different fixed clocks simulate rows written at different times.
                 // The substrate sets updated_at from the repo's clock on every upsert.
-                val freshClock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 5 * 60_000))     // 5m ago — fresh
-                val stale35Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 35 * 60_000))  // 35m ago — stale
-                val stale60Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 60 * 60_000))  // 60m ago — stale
+                val freshClock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 5 * 60_000)) // 5m ago — fresh
+                val stale35Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 35 * 60_000)) // 35m ago — stale
+                val stale60Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 60 * 60_000)) // 60m ago — stale
 
                 val freshRepo = makeRepo(this, freshClock)
                 val stale35Repo = makeRepo(this, stale35Clock)
@@ -60,11 +59,12 @@ class ActiveSessionCleanupTaskTest :
                     stale35Repo.upsert(session("sess-stale-35", "b2", nowMs - 35 * 60_000), userId = "u2")
                     stale60Repo.upsert(session("sess-stale-60", "b3", nowMs - 60 * 60_000), userId = "u3")
 
-                    val task = ActiveSessionCleanupTask(
-                        db = this@withInMemoryDatabase,
-                        clock = FixedClock(nowInstant),
-                        staleAfter = 30.minutes,
-                    )
+                    val task =
+                        ActiveSessionCleanupTask(
+                            db = this@withInMemoryDatabase,
+                            clock = FixedClock(nowInstant),
+                            staleAfter = 30.minutes,
+                        )
                     val removed = task.runOnce()
                     removed shouldBe 2
 
@@ -99,11 +99,12 @@ class ActiveSessionCleanupTaskTest :
                         repo.upsert(session("sess-fresh-$i", "book-$i", nowMs - 1_000L), userId = "u$i")
                     }
 
-                    val task = ActiveSessionCleanupTask(
-                        db = this@withInMemoryDatabase,
-                        clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
-                        staleAfter = 30.minutes,
-                    )
+                    val task =
+                        ActiveSessionCleanupTask(
+                            db = this@withInMemoryDatabase,
+                            clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
+                            staleAfter = 30.minutes,
+                        )
                     task.runOnce() shouldBe 0
 
                     repeat(3) { i ->

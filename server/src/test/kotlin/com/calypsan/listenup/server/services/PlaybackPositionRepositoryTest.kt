@@ -446,15 +446,16 @@ class PlaybackPositionRepositoryTest :
                     )
                 runTest {
                     // Should complete without throwing even though activeSessionRepo is null
-                    val result = repo.recordPosition(
-                        userId = "u1",
-                        bookId = "book-1",
-                        positionMs = 99_000L,
-                        lastPlayedAt = 1_730_000_000_000L,
-                        finished = true,
-                        playbackSpeed = 1.0f,
-                        currentChapterId = null,
-                    )
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = true,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        )
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }

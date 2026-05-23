@@ -123,7 +123,10 @@ class ActiveSessionRepository(
      * branch when a book's `finished` flag flips `false→true`. The outer
      * `suspendTransaction(db)` makes this hard-delete atomic with the position write.
      */
-    suspend fun deleteForUserBook(userId: String, bookId: String): AppResult<Unit> =
+    suspend fun deleteForUserBook(
+        userId: String,
+        bookId: String,
+    ): AppResult<Unit> =
         suspendTransaction(db) {
             ActiveSessionTable.deleteWhere {
                 (ActiveSessionTable.userId eq userId) and

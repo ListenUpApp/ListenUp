@@ -17,25 +17,27 @@ import kotlinx.coroutines.test.runTest
 class ActiveSessionRepositoryTest :
     FunSpec({
 
-        fun activeSessionRepo() = ActiveSessionRepository(
-            db = error("must be wired inside withInMemoryDatabase"),
-            bus = ChangeBus(),
-            registry = SyncRegistry(),
-        )
+        fun activeSessionRepo() =
+            ActiveSessionRepository(
+                db = error("must be wired inside withInMemoryDatabase"),
+                bus = ChangeBus(),
+                registry = SyncRegistry(),
+            )
 
         test("upsert inserts a new active-session row") {
             withInMemoryDatabase {
                 val repo = ActiveSessionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
-                    val payload = ActiveSessionSyncPayload(
-                        sessionId = "sess-1",
-                        bookId = "book-1",
-                        startedAt = 1_730_000_000_000L,
-                        revision = 0L,
-                        updatedAt = 0L,
-                        createdAt = 0L,
-                        deletedAt = null,
-                    )
+                    val payload =
+                        ActiveSessionSyncPayload(
+                            sessionId = "sess-1",
+                            bookId = "book-1",
+                            startedAt = 1_730_000_000_000L,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
                     val result = repo.upsert(payload, userId = "u1")
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
 
