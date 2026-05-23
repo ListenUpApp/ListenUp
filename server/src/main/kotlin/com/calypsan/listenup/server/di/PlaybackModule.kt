@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -21,9 +22,11 @@ import org.koin.dsl.module
  *  - [AudioFileLocator] — resolves `(bookId, fileId)` to an on-disk path for the audio route.
  *  - [AudioUrlSigner] — mints and verifies short-lived signed audio URLs. Derives its signing
  *    key from the JWT secret so operators manage no extra secret.
+ *  - [ActiveSessionRepository] — per-user active listening sessions; `createdAtStart = true`; injected into
+ *    [PlaybackPositionRepository] to cascade a hard-delete when a book's `finished` flag flips `false→true`.
  *  - [PlaybackPositionRepository] — per-user `(userId, bookId)` resume positions; `createdAtStart = true`
  *    so its `init` block registers `"playback_positions"` with [com.calypsan.listenup.server.sync.SyncRegistry]
- *    at bootstrap.
+ *    at bootstrap. Receives [ActiveSessionRepository] for the completion cascade.
  *  - [UserStatsUpdater] — incremental updater wired into [ListeningEventRepository] and
  *    [PlaybackPositionRepository]; drives the materialized `user_stats` row.
  *  - [UserStatsRepository] — materialized per-user stats; `createdAtStart = true`; receives
@@ -54,7 +57,16 @@ fun playbackModule(): Module =
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
-        single(createdAtStart = true) { PlaybackPositionRepository(get(), get(), get()) }
+        single(createdAtStart = true) { ActiveSessionRepository(get(), get(), get()) }
+        single(createdAtStart = true) {
+            PlaybackPositionRepository(
+                db = get(),
+                bus = get(),
+                registry = get(),
+                userStatsUpdater = get(),
+                activeSessionRepo = get(),
+            )
+        }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
         // UserStatsUpdater references UserStatsRepository (to write recomputed rows). The lazy
         // provider `{ get<UserStatsUpdater>() }` breaks the construction-time cycle: Koin resolves
