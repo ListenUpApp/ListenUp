@@ -27,7 +27,10 @@ import org.koin.dsl.module
  *  - [UserStatsUpdater] — incremental updater wired into [ListeningEventRepository] and
  *    [PlaybackPositionRepository]; drives the materialized `user_stats` row.
  *  - [UserStatsRepository] — materialized per-user stats; `createdAtStart = true`; receives
- *    [UserStatsUpdater] for lazy window-decay on catch-up.
+ *    [UserStatsUpdater] via a **lazy provider** (`userStatsUpdaterProvider = { get<UserStatsUpdater>() }`)
+ *    to break the construction-time mutual reference: [UserStatsRepository] needs [UserStatsUpdater]
+ *    for lazy window-decay, and [UserStatsUpdater] needs [UserStatsRepository] to write recomputed rows.
+ *    The provider is only invoked at runtime inside `pullSince`, by which time both singletons resolve.
  *  - [ListeningEventRepository] — per-user listening spans; `createdAtStart = true`; fires
  *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
@@ -52,12 +55,19 @@ fun playbackModule(): Module =
             )
         }
         single(createdAtStart = true) { PlaybackPositionRepository(get(), get(), get()) }
-        // Wire the stats repositories without the circular decay reference at construction time.
-        // UserStatsUpdater → UserStatsRepository: direct, constructed first.
-        // UserStatsRepository → UserStatsUpdater: would create a cycle — the optional `userStatsUpdater`
-        // param stays null in the Koin binding; the lazy-decay path is exercised in tests that
-        // construct both manually. Production stats are kept current by the on-event updater.
-        single(createdAtStart = true) { UserStatsRepository(db = get(), bus = get(), registry = get()) }
+        // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
+        // UserStatsUpdater references UserStatsRepository (to write recomputed rows). The lazy
+        // provider `{ get<UserStatsUpdater>() }` breaks the construction-time cycle: Koin resolves
+        // UserStatsRepository first, then UserStatsUpdater. The provider is only invoked at
+        // runtime inside pullSince(), by which time both singletons are fully resolved.
+        single(createdAtStart = true) {
+            UserStatsRepository(
+                db = get(),
+                bus = get(),
+                registry = get(),
+                userStatsUpdaterProvider = { get<UserStatsUpdater>() },
+            )
+        }
         single { UserStatsUpdater(db = get(), userStatsRepo = get()) }
         single(createdAtStart = true) {
             ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())

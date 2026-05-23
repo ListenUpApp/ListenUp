@@ -32,13 +32,19 @@ import org.jetbrains.exposed.v1.jdbc.update
  * `idAsString(UserStatsId) = id.value` is load-bearing — Kotlin's default
  * `toString()` on a value class returns `"UserStatsId(value=foo)"`, which would
  * corrupt every column the id is written to.
+ *
+ * `userStatsUpdaterProvider` is a lazy provider rather than a direct reference to
+ * break what would otherwise be a construction-time circular dependency:
+ * `UserStatsUpdater` depends on `UserStatsRepository` (to write recomputed rows),
+ * so the provider is invoked only on first use inside [pullSince] — by which time
+ * the Koin container has fully resolved both singletons.
  */
 class UserStatsRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-    private val userStatsUpdater: UserStatsUpdater? = null,
+    private val userStatsUpdaterProvider: () -> UserStatsUpdater? = { null },
 ) : SyncableRepository<UserStatsSyncPayload, UserStatsId>(
         db = db,
         table = UserStatsTable,
@@ -144,12 +150,15 @@ class UserStatsRepository(
         cursor: Long,
         limit: Int,
     ): Page<UserStatsSyncPayload> {
-        if (userId != null && userStatsUpdater != null) {
-            val existing = getForUser(userId)
-            if (existing != null) {
-                val now = clock.now().toEpochMilliseconds()
-                if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
-                    userStatsUpdater.recomputeWindowsOnly(userId, asOfMs = now)
+        if (userId != null) {
+            val updater = userStatsUpdaterProvider()
+            if (updater != null) {
+                val existing = getForUser(userId)
+                if (existing != null) {
+                    val now = clock.now().toEpochMilliseconds()
+                    if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
+                        updater.recomputeWindowsOnly(userId, asOfMs = now)
+                    }
                 }
             }
         }

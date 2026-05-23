@@ -105,7 +105,7 @@ class UserStatsLazyDecayTest :
                             bus = bus,
                             registry = SyncRegistry(),
                             clock = nowClock,
-                            userStatsUpdater = updaterWithNowClock,
+                            userStatsUpdaterProvider = { updaterWithNowClock },
                         )
 
                     val page = statsRepoWithDecay.pullSince(userId = "u1", cursor = 0L, limit = 50)
@@ -163,7 +163,7 @@ class UserStatsLazyDecayTest :
                             bus = bus,
                             registry = SyncRegistry(),
                             clock = nowClock,
-                            userStatsUpdater = updaterWithNowClock,
+                            userStatsUpdaterProvider = { updaterWithNowClock },
                         )
 
                     val page = statsRepoWithDecay.pullSince(userId = "u1", cursor = 0L, limit = 50)
@@ -173,6 +173,68 @@ class UserStatsLazyDecayTest :
                     item.totalSecondsLast7Days shouldBe 3600L
                     // Revision is unchanged
                     item.revision shouldBe revisionAfterSeed
+                }
+            }
+        }
+
+        test("production-like wiring (lazy provider) fires recompute when stale") {
+            // Mirrors the Koin binding shape: `userStatsUpdaterProvider = { get<UserStatsUpdater>() }`.
+            // Both repos are constructed before the provider is ever invoked — no cycle at start-up.
+            // The provider is only called on first pullSince(), by which time both are live.
+            withInMemoryDatabase {
+                val db = this
+                val thenMs = nowMs - 2 * 60 * 60 * 1_000L
+                val thenClock = FixedClock(Instant.fromEpochMilliseconds(thenMs))
+                val nowClock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
+                val bus = ChangeBus()
+
+                // statsRepoThen seeds the stale row.
+                val statsRepoThen = UserStatsRepository(db = db, bus = bus, registry = SyncRegistry(), clock = thenClock)
+                // Production-like repo: provider returns the updater, but the updater is not
+                // yet constructed when statsRepoWithDecay is constructed — same as Koin.
+                lateinit var updater: UserStatsUpdater
+                val statsRepoWithDecay =
+                    UserStatsRepository(
+                        db = db,
+                        bus = bus,
+                        registry = SyncRegistry(),
+                        clock = nowClock,
+                        userStatsUpdaterProvider = { updater },
+                    )
+                // Construct the updater after the repo — mirroring Koin's resolution order.
+                updater = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
+
+                val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+
+                runTest {
+                    val oldEvent = eventAt("evt-koin", "book-1", endedAtMs = nowMs - 10 * dayMs, wallSeconds = 3600L)
+                    eventRepo.upsert(oldEvent, clientOpId = null, userId = "u1")
+
+                    val staleStats =
+                        com.calypsan.listenup.api.sync.UserStatsSyncPayload(
+                            id = "u1",
+                            totalSecondsAllTime = 3600L,
+                            totalSecondsLast7Days = 3600L,
+                            totalSecondsLast30Days = 3600L,
+                            booksStarted = 1,
+                            booksFinished = 0,
+                            currentStreakDays = 1,
+                            longestStreakDays = 1,
+                            lastEventDate = null,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        )
+                    statsRepoThen.upsert(staleStats, clientOpId = null, userId = "u1")
+                    val revisionAfterSeed = statsRepoThen.getForUser("u1").shouldNotBeNull().revision
+
+                    val page = statsRepoWithDecay.pullSince(userId = "u1", cursor = 0L, limit = 50)
+
+                    val item = page.items.firstOrNull().shouldNotBeNull()
+                    // Lazy-decay fires: event is 10 days old → outside 7-day window
+                    item.totalSecondsLast7Days shouldBe 0L
+                    item.revision shouldBeGreaterThan revisionAfterSeed
                 }
             }
         }
