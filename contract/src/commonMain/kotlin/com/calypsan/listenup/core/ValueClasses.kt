@@ -157,6 +157,22 @@ value class PlaybackPositionId(
 }
 
 /**
+ * Stable id of one listening event — one closed playback span recorded by the
+ * client and synced to the server. Listening events are append-only.
+ */
+@Serializable
+@JvmInline
+value class ListeningEventId(val value: String)
+
+/**
+ * Stable id of a user's materialized listening stats row. `value` equals the
+ * owning `UserId.value` (1:1 with the user).
+ */
+@Serializable
+@JvmInline
+value class UserStatsId(val value: String)
+
+/**
  * Type-safe wrapper for Unix epoch millisecond timestamps.
  *
  * Prevents accidentally comparing timestamps with durations or other numeric values.
