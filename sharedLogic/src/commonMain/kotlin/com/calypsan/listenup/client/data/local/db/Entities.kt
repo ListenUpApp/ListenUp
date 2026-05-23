@@ -242,6 +242,10 @@ data class PlaybackPositionEntity(
     val finishedAt: Long? = null,
     // When the user started this book (epoch ms, null for legacy data)
     val startedAt: Long? = null,
+    // Monotonic server revision — used by the sync engine to detect stale updates
+    val revision: Long = 0,
+    // Epoch-ms tombstone set by the server when the position is soft-deleted
+    val deletedAt: Long? = null,
 )
 
 /**

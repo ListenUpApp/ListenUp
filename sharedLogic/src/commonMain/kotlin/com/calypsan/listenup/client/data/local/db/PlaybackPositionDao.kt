@@ -116,6 +116,16 @@ interface PlaybackPositionDao {
     @Query("DELETE FROM playback_positions")
     suspend fun deleteAll()
 
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query(
+        "UPDATE playback_positions SET deletedAt = :deletedAt, revision = :revision WHERE bookId = :id",
+    )
+    suspend fun softDelete(
+        id: BookId,
+        deletedAt: Long,
+        revision: Long,
+    )
+
     /**
      * Get recently played books for "Continue Listening" section.
      * Returns positions ordered by most recently played, limited to specified count.
