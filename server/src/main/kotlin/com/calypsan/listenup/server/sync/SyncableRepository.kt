@@ -161,7 +161,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      *   threaded into [writePayload] and the published [BusEvent]. Global
      *   domains omit it.
      */
-    suspend fun upsert(
+    open suspend fun upsert(
         value: T,
         clientOpId: String? = null,
         userId: String? = null,

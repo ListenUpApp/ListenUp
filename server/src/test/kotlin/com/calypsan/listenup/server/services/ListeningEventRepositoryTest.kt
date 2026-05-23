@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
@@ -87,6 +88,29 @@ class ListeningEventRepositoryTest :
             withInMemoryDatabase {
                 val repo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 repo.idAsStringForTest(ListeningEventId("evt-1")) shouldBe "evt-1"
+            }
+        }
+
+        test("upsert with userStatsUpdater wired fires onListeningEvent and materialises totalSecondsAllTime") {
+            withInMemoryDatabase {
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val repo =
+                    ListeningEventRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        userStatsUpdater = updater,
+                    )
+                runTest {
+                    // 60-second span
+                    val payload = listeningEventPayload("evt-wire-1", "book-wire-1")
+                    repo.upsert(payload, clientOpId = null, userId = "u-wire")
+
+                    val stats = statsRepo.getForUser("u-wire").shouldNotBeNull()
+                    // startedAt = 1_730_000_000_000L, endedAt = 1_730_000_060_000L → 60 s
+                    stats.totalSecondsAllTime shouldBe 60L
+                }
             }
         }
     })

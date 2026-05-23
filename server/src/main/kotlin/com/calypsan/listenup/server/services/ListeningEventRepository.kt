@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.db.ListeningEventTable
@@ -12,6 +13,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
@@ -34,6 +36,7 @@ class ListeningEventRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
+    private val userStatsUpdater: UserStatsUpdater? = null,
 ) : SyncableRepository<ListeningEventSyncPayload, ListeningEventId>(
         db = db,
         table = ListeningEventTable,
@@ -43,6 +46,26 @@ class ListeningEventRepository(
         clock = clock,
     ) {
     override val userScoped: Boolean = true
+
+    /**
+     * Overrides the base upsert to atomically fire [UserStatsUpdater.onListeningEvent] in the
+     * same database transaction as the event insert. The outer [suspendTransaction] here is the
+     * real transaction boundary; the base implementation's own [suspendTransaction] call detects
+     * an active transaction and joins it (Exposed's `useNestedTransactions = false` default),
+     * so all writes — event row + stats row — commit or roll back together.
+     */
+    override suspend fun upsert(
+        value: ListeningEventSyncPayload,
+        clientOpId: String?,
+        userId: String?,
+    ): AppResult<ListeningEventSyncPayload> =
+        suspendTransaction(db) {
+            val result = super.upsert(value, clientOpId, userId)
+            if (result is AppResult.Success && userId != null) {
+                userStatsUpdater?.onListeningEvent(userId, value)
+            }
+            result
+        }
 
     override val elementSerializer: KSerializer<ListeningEventSyncPayload> =
         ListeningEventSyncPayload.serializer()

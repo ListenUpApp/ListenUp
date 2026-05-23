@@ -188,4 +188,69 @@ class PlaybackPositionRepositoryTest :
                 repo.idAsStringForTest(PlaybackPositionId("pos-42")) shouldBe "pos-42"
             }
         }
+
+        test("recordPosition false→true flip increments booksFinished via UserStatsUpdater") {
+            withInMemoryDatabase {
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        userStatsUpdater = updater,
+                    )
+                runTest {
+                    // First call: not finished — no flip
+                    repo.recordPosition(
+                        userId = "u-flip",
+                        bookId = "book-flip",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    statsRepo.getForUser("u-flip")?.booksFinished shouldBe null
+
+                    // Second call: finished=true — flip fires
+                    repo.recordPosition(
+                        userId = "u-flip",
+                        bookId = "book-flip",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_999_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    statsRepo.getForUser("u-flip").shouldNotBeNull().booksFinished shouldBe 1
+                }
+            }
+        }
+
+        test("recordPosition finished=true on a new row (no prior) also counts as a flip") {
+            withInMemoryDatabase {
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        userStatsUpdater = updater,
+                    )
+                runTest {
+                    repo.recordPosition(
+                        userId = "u-new-fin",
+                        bookId = "book-new",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    statsRepo.getForUser("u-new-fin").shouldNotBeNull().booksFinished shouldBe 1
+                }
+            }
+        }
     })

@@ -31,7 +31,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Window math (last 7 / 30 days) is recomputed via indexed `SUM`s over
  * [ListeningEventTable]; cheap with the (`user_id`, `ended_at`) index.
  */
-internal class UserStatsUpdater(
+class UserStatsUpdater(
     private val db: Database,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
@@ -41,7 +41,10 @@ internal class UserStatsUpdater(
      * May run inside an existing Exposed transaction (nested transactions
      * short-circuit in Exposed JDBC).
      */
-    suspend fun onListeningEvent(userId: String, event: ListeningEventSyncPayload) {
+    suspend fun onListeningEvent(
+        userId: String,
+        event: ListeningEventSyncPayload,
+    ) {
         val wallSeconds = (event.endedAt - event.startedAt) / 1_000L
         val tz = TimeZone.of(event.tz)
         val eventInstant = Instant.fromEpochMilliseconds(event.endedAt)
@@ -83,7 +86,10 @@ internal class UserStatsUpdater(
      * `UserStatsRepository.pullSince`'s lazy-decay path so an idle user's
      * windows don't stay stale forever.
      */
-    internal suspend fun recomputeWindowsOnly(userId: String, asOfMs: Long) {
+    internal suspend fun recomputeWindowsOnly(
+        userId: String,
+        asOfMs: Long,
+    ) {
         val existing = userStatsRepo.getForUser(userId) ?: return
         val last7 = sumWindowSeconds(userId, days = 7, asOfMs = asOfMs)
         val last30 = sumWindowSeconds(userId, days = 30, asOfMs = asOfMs)
@@ -119,7 +125,11 @@ internal class UserStatsUpdater(
         }
     }
 
-    private suspend fun hasOtherEventForBook(userId: String, bookId: String, excludingId: String): Boolean =
+    private suspend fun hasOtherEventForBook(
+        userId: String,
+        bookId: String,
+        excludingId: String,
+    ): Boolean =
         suspendTransaction(db) {
             ListeningEventTable
                 .selectAll()
@@ -131,7 +141,11 @@ internal class UserStatsUpdater(
                 .any()
         }
 
-    private suspend fun sumWindowSeconds(userId: String, days: Int, asOfMs: Long): Long {
+    private suspend fun sumWindowSeconds(
+        userId: String,
+        days: Int,
+        asOfMs: Long,
+    ): Long {
         val cutoffMs = asOfMs - days * 86_400_000L
         return suspendTransaction(db) {
             ListeningEventTable
