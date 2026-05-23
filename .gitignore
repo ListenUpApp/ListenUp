@@ -24,3 +24,6 @@ iosApp/ListenUp/Resources/*.lproj/Localizable.strings
 
 # Git worktrees (Claude Code subagent-driven development)
 .worktrees/
+
+# brainstorm visual-companion artifacts
+.superpowers/
