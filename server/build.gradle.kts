@@ -52,6 +52,10 @@ dependencies {
     // Password hashing
     implementation(libs.password4j)
 
+    // Kotlin-native cryptography (HMAC for AudioUrlSigner)
+    implementation(libs.cryptography.core)
+    implementation(libs.cryptography.provider.jdk)
+
     // Koin
     implementation(libs.koin.core)
     implementation(libs.koin.ktor)

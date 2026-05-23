@@ -73,4 +73,18 @@ class AudioUrlSignerTest :
             signer.verify("user1", "book1", "file1", exp, "deadbeef") shouldBe false // too short
             signer.verify("user1", "book1", "file1", exp, "") shouldBe false
         }
+
+        test("verify fails for a sig that differs only in the last byte (byte-comparison reaches end)") {
+            val signer = AudioUrlSigner(signingKey = key, clock = FixedClock(now))
+
+            val query = signer.signedQuery("user1", "book1", "file1")
+            val exp = query.substringAfter("exp=").substringBefore("&")
+            val sig = query.substringAfter("sig=")
+            // Flip a nibble in the very last byte of the 64-char hex sig
+            val lastNibble = sig.last()
+            val flipped = if (lastNibble == '0') '1' else '0'
+            val tampered = sig.dropLast(1) + flipped
+
+            signer.verify("user1", "book1", "file1", exp.toLong(), tampered) shouldBe false
+        }
     })

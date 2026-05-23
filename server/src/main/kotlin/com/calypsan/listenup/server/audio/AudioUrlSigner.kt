@@ -1,10 +1,9 @@
 package com.calypsan.listenup.server.audio
 
+import dev.whyoleg.cryptography.CryptographyProvider
+import dev.whyoleg.cryptography.algorithms.HMAC
+import dev.whyoleg.cryptography.algorithms.SHA256
 import io.ktor.http.encodeURLParameter
-import java.security.MessageDigest
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
-import kotlin.text.Charsets
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -27,10 +26,16 @@ import kotlin.time.Duration.Companion.hours
  *   played for hours. Default 12h.
  */
 class AudioUrlSigner(
-    private val signingKey: ByteArray,
+    signingKey: ByteArray,
     private val ttl: Duration = 12.hours,
     private val clock: Clock = Clock.System,
 ) {
+    private val key: HMAC.Key =
+        CryptographyProvider.Default
+            .get(HMAC)
+            .keyDecoder(SHA256)
+            .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, signingKey)
+
     /**
      * Returns `u=<userId>&exp=<epochSec>&sig=<hex>` for the audio URL of
      * `(userId, bookId, fileId)`. The `bookId` and `fileId` are path segments
@@ -49,6 +54,10 @@ class AudioUrlSigner(
     /**
      * Returns true when [sig] is a valid, unexpired HMAC signature for the
      * given `(userId, bookId, fileId, exp)` tuple.
+     *
+     * Verification is constant-time: the expected signature is always computed
+     * in full and compared byte-by-byte via XOR accumulation, so timing does
+     * not reveal how many bytes matched.
      */
     fun verify(
         userId: String,
@@ -58,10 +67,9 @@ class AudioUrlSigner(
         sig: String,
     ): Boolean {
         if (exp <= clock.now().epochSeconds) return false
-        val expected = hmacHex(payload(userId, bookId, fileId, exp))
-        val expectedBytes = hexToBytes(expected) ?: return false
+        val expectedBytes = hmacBytes(payload(userId, bookId, fileId, exp))
         val actualBytes = hexToBytes(sig) ?: return false
-        return MessageDigest.isEqual(expectedBytes, actualBytes)
+        return constantTimeEquals(expectedBytes, actualBytes)
     }
 
     private fun payload(
@@ -71,10 +79,25 @@ class AudioUrlSigner(
         exp: Long,
     ) = "$userId|$bookId|$fileId|$exp"
 
-    private fun hmacHex(message: String): String {
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(signingKey, "HmacSHA256"))
-        return mac.doFinal(message.toByteArray(Charsets.UTF_8)).toHexString()
+    private fun hmacHex(message: String): String = hmacBytes(message).toHexString()
+
+    private fun hmacBytes(message: String): ByteArray =
+        key.signatureGenerator().generateSignatureBlocking(message.encodeToByteArray())
+
+    /**
+     * Constant-time byte comparison via XOR accumulation. Returns true only
+     * when both arrays have the same length and every byte pair is equal.
+     * Does not short-circuit on the first mismatch, so timing does not leak
+     * how many bytes matched.
+     */
+    private fun constantTimeEquals(
+        a: ByteArray,
+        b: ByteArray,
+    ): Boolean {
+        if (a.size != b.size) return false
+        var diff = 0
+        for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
+        return diff == 0
     }
 
     /**
@@ -94,12 +117,21 @@ class AudioUrlSigner(
         /**
          * Derives the signing key from a JWT secret so operators manage no new
          * secret. The derivation uses HMAC-SHA256 itself as a KDF:
-         * `HMAC-SHA256(jwtSecret.toByteArray(), "listenup-audio-url-v1")`.
+         * `HMAC-SHA256(jwtSecret.encodeToByteArray(), "listenup-audio-url-v1")`.
+         *
+         * Uses the blocking API — safe to call from Koin module construction
+         * (non-suspend context).
          */
         fun deriveSigningKey(jwtSecret: String): ByteArray {
-            val mac = Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(jwtSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-            return mac.doFinal("listenup-audio-url-v1".toByteArray(Charsets.UTF_8))
+            val provider = CryptographyProvider.Default
+            val tempKey =
+                provider
+                    .get(HMAC)
+                    .keyDecoder(SHA256)
+                    .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, jwtSecret.encodeToByteArray())
+            return tempKey
+                .signatureGenerator()
+                .generateSignatureBlocking("listenup-audio-url-v1".encodeToByteArray())
         }
     }
 }
