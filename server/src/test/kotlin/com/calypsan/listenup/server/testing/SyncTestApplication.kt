@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureTable
@@ -35,16 +36,27 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * [userScopedRepo] is the per-user fixture domain (`user_scoped_fixtures`); it
  * is wired only when [withTestApplication] is called with `userScoped = true`,
  * and accessing it otherwise throws.
+ *
+ * [playbackPositionRepo] is the real per-user playback-positions domain; it is
+ * wired only when [withTestApplication] is called with `playbackPositions = true`,
+ * and accessing it otherwise throws.
  */
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
+    private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
 ) {
     val userScopedRepo: UserScopedFixtureRepository
         get() =
             requireNotNull(userScopedRepoOrNull) {
                 "userScopedRepo requires withTestApplication(userScoped = true)"
+            }
+
+    val playbackPositionRepo: PlaybackPositionRepository
+        get() =
+            requireNotNull(playbackPositionRepoOrNull) {
+                "playbackPositionRepo requires withTestApplication(playbackPositions = true)"
             }
 }
 
@@ -68,10 +80,14 @@ internal data class SyncTestScope(
  * @param userScoped when true, also wires a per-user [UserScopedFixtureRepository]
  *   (domain `user_scoped_fixtures`) and exposes it as [SyncTestScope.userScopedRepo].
  *   Off by default so domain-list and global-domain tests see only `tags`.
+ * @param playbackPositions when true, also wires a [PlaybackPositionRepository]
+ *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
+ *   The table is created by Flyway migrations, so no manual `SchemaUtils.create` is needed.
  */
 internal fun withTestApplication(
     heartbeatIntervalMillis: Long? = null,
     userScoped: Boolean = false,
+    playbackPositions: Boolean = false,
     block: suspend SyncTestScope.() -> Unit,
 ) {
     testApplication {
@@ -90,6 +106,8 @@ internal fun withTestApplication(
             } else {
                 null
             }
+        val playbackPositionRepo =
+            if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -103,6 +121,7 @@ internal fun withTestApplication(
                         single { registry }
                         single(createdAtStart = true) { tagRepo }
                         if (userScopedRepo != null) single(createdAtStart = true) { userScopedRepo }
+                        if (playbackPositionRepo != null) single(createdAtStart = true) { playbackPositionRepo }
                     },
                 )
             }
@@ -127,6 +146,7 @@ internal fun withTestApplication(
             client = jsonClient,
             tagRepo = tagRepo,
             userScopedRepoOrNull = userScopedRepo,
+            playbackPositionRepoOrNull = playbackPositionRepo,
         ).block()
     }
 }
