@@ -5,7 +5,10 @@ import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
+import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
@@ -17,6 +20,7 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -25,6 +29,7 @@ import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -74,6 +79,11 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * @property serverSeriesRepository the server-side series repository; use
  *   [com.calypsan.listenup.server.services.SeriesRepository.resolveOrCreate]
  *   to seed a series and publish a `series` [com.calypsan.listenup.server.sync.SyncEvent]
+ * @property serverPlaybackPositionRepository the server-side playback-position repository; use
+ *   [com.calypsan.listenup.server.services.PlaybackPositionRepository.recordPosition] to write
+ *   a position server-side and assert its SSE event lands in the client Room DB (server→client
+ *   direction). Also use [PlaybackPositionRepository.getPosition] to assert that a
+ *   client-enqueued pending op reached the server (client→server direction).
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -87,6 +97,7 @@ data class ClientEngineScope(
     val serverBookRepository: BookRepository,
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
+    val serverPlaybackPositionRepository: PlaybackPositionRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -122,7 +133,11 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
         application {
             install(ServerContentNegotiation) { json(contractJson) }
             install(ServerSSE)
-            install(Authentication) { testAuth() }
+            // The e2e tests run as "u1". Setting defaultUserId = "u1" means the
+            // SyncSseClient's unauthenticated GET /api/v1/sync/events request is
+            // resolved as user "u1" by TestAuthProvider — so per-user SSE events
+            // published for "u1" are delivered to the client's SSE subscriber.
+            install(Authentication) { testAuth(defaultUserId = "u1") }
             install(Koin) {
                 modules(
                     module {
@@ -131,6 +146,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                         single { syncRegistry }
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
+                        single(createdAtStart = true) { serverRepos.playbackPositionRepo }
                     },
                 )
             }
@@ -157,10 +173,14 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             registerClientSyncHandlers(clientDb, registry)
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
+            // Wire a real sender for `playback_positions` so the client→server direction
+            // is exercised end-to-end: the test calls queue.drain() and the op reaches
+            // the server's PlaybackPositionRepository without going through HTTP/RPC.
+            val playbackSender = DirectPlaybackPositionSender(serverRepos.playbackPositionRepo)
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
-                    sender = PendingOperationSender { AppResult.Success(Unit) },
+                    sender = DomainPendingOperationSender(mapOf("playback_positions" to playbackSender)),
                 )
 
             val catchUp =
@@ -218,6 +238,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverBookRepository = serverRepos.bookRepo,
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
+                    serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,
@@ -247,13 +268,14 @@ private data class ServerRepositories(
     val contributorRepo: ContributorRepository,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
+    val playbackPositionRepo: PlaybackPositionRepository,
 )
 
 /**
  * Constructs and registers the real [BookSyncDomainHandler], [ContributorSyncDomainHandler],
- * and [SeriesSyncDomainHandler] into [registry]. Each handler self-registers under its
- * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
- * applying them into [clientDb] exactly as production does.
+ * [SeriesSyncDomainHandler], and [PlaybackPositionSyncDomainHandler] into [registry]. Each
+ * handler self-registers under its `domainName` on construction, so the client dispatcher
+ * routes domain SSE frames here, applying them into [clientDb] exactly as production does.
  */
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
@@ -271,6 +293,11 @@ private fun registerClientSyncHandlers(
         registry = registry,
     )
     SeriesSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    PlaybackPositionSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
@@ -306,5 +333,38 @@ private fun buildServerRepositories(
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
-    return ServerRepositories(tagRepo, contributorRepo, seriesRepo, bookRepo)
+    val playbackPositionRepo = PlaybackPositionRepository(serverDb, bus, registry)
+    return ServerRepositories(tagRepo, contributorRepo, seriesRepo, bookRepo, playbackPositionRepo)
+}
+
+/**
+ * Test-only [PendingOperationSender] that routes a `playback_positions` pending op directly
+ * to [PlaybackPositionRepository.recordPosition] without an HTTP/RPC round-trip.
+ *
+ * This is the correct test-double for the client→server direction in Tier 3 e2e tests:
+ * the queue drain is real, the payload decoding is real, and the server write is real —
+ * only the transport layer is short-circuited (in-process call instead of WebSocket RPC).
+ * The resulting SSE event published by the repository is still real, so the round-trip
+ * server→SSE→client Room assertion works without a network stack.
+ */
+internal class DirectPlaybackPositionSender(
+    private val repository: PlaybackPositionRepository,
+) : PendingOperationSender {
+    override suspend fun send(op: PendingOperation): AppResult<Unit> {
+        val request = contractJson.decodeFromString(RecordPositionRequest.serializer(), op.payload)
+        val wireResult =
+            repository.recordPosition(
+                userId = op.ownerUserId,
+                bookId = request.bookId,
+                positionMs = request.positionMs,
+                lastPlayedAt = request.lastPlayedAt,
+                finished = request.finished,
+                playbackSpeed = request.playbackSpeed,
+                currentChapterId = request.currentChapterId,
+            )
+        return when (wireResult) {
+            is com.calypsan.listenup.api.result.AppResult.Success -> AppResult.Success(Unit)
+            is com.calypsan.listenup.api.result.AppResult.Failure -> AppResult.Failure(wireResult.error)
+        }
+    }
 }

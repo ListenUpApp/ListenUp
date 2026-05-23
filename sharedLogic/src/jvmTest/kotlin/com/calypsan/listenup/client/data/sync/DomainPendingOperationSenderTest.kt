@@ -13,14 +13,17 @@ class DomainPendingOperationSenderTest :
         test("routes a known domainName op to the registered sender") {
             runTest {
                 val recorded = mutableListOf<PendingOperation>()
-                val sender = DomainPendingOperationSender(
-                    byDomain = mapOf(
-                        "playback_positions" to PendingOperationSender { op ->
-                            recorded += op
-                            AppResult.Success(Unit)
-                        },
-                    ),
-                )
+                val sender =
+                    DomainPendingOperationSender(
+                        byDomain =
+                            mapOf(
+                                "playback_positions" to
+                                    PendingOperationSender { op ->
+                                        recorded += op
+                                        AppResult.Success(Unit)
+                                    },
+                            ),
+                    )
                 val op = fakeOp(domainName = "playback_positions")
 
                 val result = sender.send(op)
@@ -46,13 +49,16 @@ class DomainPendingOperationSenderTest :
         test("failure from the delegate sender is propagated") {
             runTest {
                 val expected = SyncError.PushFailed()
-                val sender = DomainPendingOperationSender(
-                    byDomain = mapOf(
-                        "playback_positions" to PendingOperationSender {
-                            AppResult.Failure(expected)
-                        },
-                    ),
-                )
+                val sender =
+                    DomainPendingOperationSender(
+                        byDomain =
+                            mapOf(
+                                "playback_positions" to
+                                    PendingOperationSender {
+                                        AppResult.Failure(expected)
+                                    },
+                            ),
+                    )
                 val op = fakeOp(domainName = "playback_positions")
 
                 val result = sender.send(op)

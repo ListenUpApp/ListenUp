@@ -143,7 +143,6 @@ open class ProgressTracker(
                     )
                 }
             }
-
         }
     }
 
@@ -383,14 +382,22 @@ open class ProgressTracker(
 
             // Mark book as complete (Issue #206)
             val finishedAt = Clock.System.now().toEpochMilliseconds()
-            when (val r = positionRepository.markComplete(
-                bookId = bookId,
-                startedAt = null,
-                finishedAt = finishedAt,
-            )) {
-                is AppResult.Success -> logger.info { "Book marked complete: ${bookId.value}" }
-                is AppResult.Failure -> logger.warn {
-                    "Failed to mark book ${bookId.value} complete: ${r.error.message}"
+            when (
+                val r =
+                    positionRepository.markComplete(
+                        bookId = bookId,
+                        startedAt = null,
+                        finishedAt = finishedAt,
+                    )
+            ) {
+                is AppResult.Success -> {
+                    logger.info { "Book marked complete: ${bookId.value}" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn {
+                        "Failed to mark book ${bookId.value} complete: ${r.error.message}"
+                    }
                 }
             }
         }
@@ -401,9 +408,14 @@ open class ProgressTracker(
      */
     suspend fun clearProgress(bookId: BookId) {
         when (val r = positionRepository.delete(bookId)) {
-            is AppResult.Success -> logger.info { "Progress cleared for book: ${bookId.value}" }
-            is AppResult.Failure -> logger.warn {
-                "Failed to clear progress for book ${bookId.value}: ${r.error.message}"
+            is AppResult.Success -> {
+                logger.info { "Progress cleared for book: ${bookId.value}" }
+            }
+
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Failed to clear progress for book ${bookId.value}: ${r.error.message}"
+                }
             }
         }
     }
@@ -476,5 +488,4 @@ open class ProgressTracker(
             }
         }
     }
-
 }

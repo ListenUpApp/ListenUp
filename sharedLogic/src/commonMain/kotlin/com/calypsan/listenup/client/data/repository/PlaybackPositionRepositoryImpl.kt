@@ -168,12 +168,15 @@ class PlaybackPositionRepositoryImpl(
      *
      * No sign-in user means no server to push to — silently skipped.
      */
-    private suspend fun enqueueIfPositionMoving(bookId: BookId, update: PlaybackUpdate) {
+    private suspend fun enqueueIfPositionMoving(
+        bookId: BookId,
+        update: PlaybackUpdate,
+    ) {
         val userId = authSession.getUserId() ?: return
         val now = currentEpochMilliseconds()
         val request: RecordPositionRequest =
             when (update) {
-                is PlaybackUpdate.Position ->
+                is PlaybackUpdate.Position -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -182,8 +185,9 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
+                }
 
-                is PlaybackUpdate.Speed ->
+                is PlaybackUpdate.Speed -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -192,8 +196,9 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
+                }
 
-                is PlaybackUpdate.SpeedReset ->
+                is PlaybackUpdate.SpeedReset -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -202,8 +207,9 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.defaultSpeed,
                         currentChapterId = null,
                     )
+                }
 
-                is PlaybackUpdate.PlaybackStarted ->
+                is PlaybackUpdate.PlaybackStarted -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -212,8 +218,9 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
+                }
 
-                is PlaybackUpdate.PlaybackPaused ->
+                is PlaybackUpdate.PlaybackPaused -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -222,8 +229,9 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
+                }
 
-                is PlaybackUpdate.PeriodicUpdate ->
+                is PlaybackUpdate.PeriodicUpdate -> {
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
@@ -232,6 +240,7 @@ class PlaybackPositionRepositoryImpl(
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
+                }
 
                 is PlaybackUpdate.BookFinished -> {
                     val entity = dao.get(bookId)
@@ -261,7 +270,9 @@ class PlaybackPositionRepositoryImpl(
                 is PlaybackUpdate.CrossDeviceSync,
                 PlaybackUpdate.DiscardProgress,
                 PlaybackUpdate.Restart,
-                -> return
+                -> {
+                    return
+                }
             }
 
         try {

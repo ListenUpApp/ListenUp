@@ -35,7 +35,7 @@ import org.jetbrains.exposed.v1.jdbc.update
  * `toString()` on a value class returns `"PlaybackPositionId(value=foo)"`, which
  * would corrupt every column the id is written to.
  */
-internal class PlaybackPositionRepository(
+class PlaybackPositionRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,

@@ -26,11 +26,12 @@ private const val DEMO_BOOK_COUNT = 3
  * Varied position offsets (ms) — each "Continue Listening" card shows distinct progress.
  * Index matches the seeded book order.
  */
-private val POSITION_OFFSETS_MS = listOf(
-    5 * 60 * 1000L,   //  5 min — just started
-    22 * 60 * 1000L,  // 22 min — well into it
-    11 * 60 * 1000L,  // 11 min — somewhere in the middle
-)
+private val POSITION_OFFSETS_MS =
+    listOf(
+        5 * 60 * 1000L, //  5 min — just started
+        22 * 60 * 1000L, // 22 min — well into it
+        11 * 60 * 1000L, // 11 min — somewhere in the middle
+    )
 
 /**
  * Seeds demo playback positions for the [UserDomainSeeder.DEMO_EMAIL] account.
@@ -102,11 +103,13 @@ internal class PlaybackPositionDomainSeeder(
                         currentChapterId = null,
                     )
             ) {
-                is AppResult.Success ->
+                is AppResult.Success -> {
                     logger.info { "seed [$domainName]: recorded $positionMs ms for book $bookId" }
+                }
 
-                is AppResult.Failure ->
+                is AppResult.Failure -> {
                     logger.warn { "seed [$domainName]: failed for $bookId — ${result.error.code}" }
+                }
             }
         }
     }

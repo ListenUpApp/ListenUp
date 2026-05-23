@@ -6,60 +6,19 @@
     <ID>CognitiveComplexMethod:AdminCollectionDetailViewModel.kt$AdminCollectionDetailViewModel$private fun loadCollection()</ID>
     <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>CognitiveComplexMethod:BookCoverImage.kt$@Composable fun BookCoverImage( bookId: String, coverPath: String?, contentDescription: String?, modifier: Modifier = Modifier, blurHash: String? = null, contentScale: ContentScale = ContentScale.Crop, onState: ((AsyncImagePainter.State) -&gt; Unit)? = null, )</ID>
-    <ID>CognitiveComplexMethod:ContributorPuller.kt$ContributorPuller$override suspend fun pull( updatedAfter: String?, onProgress: (SyncStatus) -&gt; Unit, ): AppResult&lt;Unit&gt;</ID>
     <ID>CognitiveComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
-    <ID>CognitiveComplexMethod:SyncManager.kt$SyncManager$private fun handleScanCompleted(scanInfo: ScanCompletedInfo)</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x4F.toByte() &amp;&amp; headerBytes[1] == 0x67.toByte() &amp;&amp; headerBytes[2] == 0x67.toByte() &amp;&amp; headerBytes[3] == 0x53.toByte()</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x66.toByte() &amp;&amp; headerBytes[1] == 0x4C.toByte() &amp;&amp; headerBytes[2] == 0x61.toByte() &amp;&amp; headerBytes[3] == 0x43.toByte()</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[4] == 0x66.toByte() &amp;&amp; headerBytes[5] == 0x74.toByte() &amp;&amp; headerBytes[6] == 0x79.toByte() &amp;&amp; headerBytes[7] == 0x70.toByte()</ID>
-    <ID>ComplexCondition:BookPuller.kt$BookPuller$colors != null &amp;&amp; book.dominantColor == null &amp;&amp; book.darkMutedColor == null &amp;&amp; book.vibrantColor == null</ID>
+    <ID>ComplexCondition:AudioRoutes.kt$exp == null || sig == null || userId == null || !signer.verify(userId, bookId, fileId, exp, sig)</ID>
     <ID>ComplexCondition:BuildMp4File.kt$MoovBuilder$patched[i] == stcoMarker[0] &amp;&amp; patched[i + 1] == stcoMarker[1] &amp;&amp; patched[i + 2] == stcoMarker[2] &amp;&amp; patched[i + 3] == stcoMarker[3]</ID>
+    <ID>CyclomaticComplexMethod:Application.kt$fun Application.module()</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$private fun handleTextFrame( frameId: String, data: ByteArray, builder: AudioTagsBuilder, )</ID>
     <ID>CyclomaticComplexMethod:IlstReader.kt$IlstReader$private fun mapTextTag( type: String, value: String, builder: AudioTagsBuilder, )</ID>
     <ID>CyclomaticComplexMethod:IlstReader.kt$IlstReader$private fun readFreeform( bytes: ByteArray, atom: Atom, builder: AudioTagsBuilder, )</ID>
     <ID>CyclomaticComplexMethod:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$private fun parseTextTrackChapters( bytes: ByteArray, trakAtom: Atom, durationMs: Long, source: SeekableAudioSource, ): List&lt;Chapter&gt;</ID>
-    <ID>FunctionMaxLength:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
-    <ID>FunctionMaxLength:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `upsert with same composite PK replaces existing row`()</ID>
-    <ID>FunctionMaxLength:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `upsertAll and getForBook returns rows ordered by index ASC`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `getRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `getRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksFirstInSeriesWithAuthor excludes mid-series books`()</ID>
-    <ID>FunctionMaxLength:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksWithAuthor returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionMaxLength:BookDaoRecentlyAddedTest.kt$BookDaoRecentlyAddedTest$@Test fun `observeRecentlyAddedFirstInSeriesWithAuthor excludes mid-series books`()</ID>
-    <ID>FunctionMaxLength:BookDaoRecentlyAddedTest.kt$BookDaoRecentlyAddedTest$@Test fun `observeRecentlyAddedWithAuthor returns all recently added books regardless of series sequence`()</ID>
-    <ID>FunctionMaxLength:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll handles multi-book bundles with heterogeneous relationships`()</ID>
-    <ID>FunctionMaxLength:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll persists a single-book bundle across all five junction tables`()</ID>
-    <ID>FunctionMaxLength:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll replaces existing relationships — old rows gone, new rows present in all 5 tables`()</ID>
-    <ID>FunctionMaxLength:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll upserts tag catalog before inserting junctions (foreign-key ordering)`()</ID>
-    <ID>FunctionMaxLength:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll with empty bundles does not mutate pre-existing junction rows`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookDetail returns BookDetail with genres and tags merged`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItem returns mapped BookListItem when present`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItems returns empty list for empty input`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail emits null then BookDetail when row inserted`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail re-emits when genres change for the book`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail re-emits when tags change for the book`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookListItems emits current rows and ignores genre-only changes`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplUpsertWithAudioFilesTest$@Test fun `upsertWithAudioFiles with empty audio file list skips upsertAll`()</ID>
-    <ID>FunctionMaxLength:BookRepositoryImplTest.kt$BookRepositoryImplUpsertWithAudioFilesTest$@Test fun `upsertWithAudioFiles writes book delete-and-upsert audio files inside one transaction`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors falls back to canonical contributor name when creditedAs is null`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors handles same person in multiple roles by grouping`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors prefers creditedAs over canonical contributor name when creditedAs is non-null`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail computes allContributors via dedup-and-role-aggregation, genres+tags forwarded as-is`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail then toListItem equals toListItem for same input`()</ID>
-    <ID>FunctionMaxLength:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toListItem returns BookListItem with authors and narrators populated, no detail-only fields`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `cascade delete removes only the deleted contributor's aliases`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `deleteForContributor removes only that contributor's aliases`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `getByIdWithAliases returns null for missing contributor`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `getForContributor returns empty list when no aliases`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll and getForContributor returns aliases sorted alphabetically case-insensitively`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll preserves case-different aliases as distinct rows`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll with duplicate exact-case alias is ignored`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `observeByIdWithAliases returns contributor with aliases from junction`()</ID>
-    <ID>FunctionMaxLength:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `observeForContributor emits initial list and re-emits on change`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
     <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getOldWaitingForServer returns only rows older than threshold`()</ID>
@@ -83,9 +42,6 @@
     <ID>FunctionMaxLength:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `encryption produces different ciphertext for same plaintext`()</ID>
     <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabasePath returns path ending in listenup db`()</ID>
     <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getSecureStoragePath returns path ending in auth enc`()</ID>
-    <ID>FunctionMaxLength:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `queue called from inside outer atomically participates in outer tx - success path`()</ID>
-    <ID>FunctionMaxLength:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `queue called from inside outer atomically rolls back when outer throws`()</ID>
-    <ID>FunctionMaxLength:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `sequential queue for same entity produces exactly one row`()</ID>
     <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob clears playbackError on transition to Playing`()</ID>
     <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackPaused when player transitions to Paused`()</ID>
     <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackStarted when player transitions to Playing`()</ID>
@@ -103,18 +59,11 @@
     <ID>FunctionMaxLength:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `startPlayback with effective speed 1_0f calls audioPlayer setSpeed 1_0f`()</ID>
     <ID>FunctionMaxLength:PlaybackPositionDaoTest.kt$PlaybackPositionDaoTest$@Test fun `observeRecentPositions emits new list when a position updates`()</ID>
     <ID>FunctionMaxLength:PlaybackPositionDaoTest.kt$PlaybackPositionDaoTest$@Test fun `observeRecentPositions returns started positions sorted by recency, limited`()</ID>
-    <ID>FunctionMaxLength:ProgressPullerAtomicityTest.kt$ProgressPullerAtomicityTest$@Test fun `no rows persist when saveAll throws inside transaction`()</ID>
     <ID>FunctionMaxLength:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `cascade delete removes cache rows when book is deleted`()</ID>
     <ID>FunctionMaxLength:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `deleteForBook removes only that book's cache rows`()</ID>
     <ID>FunctionMaxLength:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
     <ID>FunctionMaxLength:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook excludes the current user and orders by active then recent`()</ID>
     <ID>FunctionMaxLength:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook with empty excludingUserId returns all readers`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated creates fresh entity when existing row is null`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated overwrites finishedAt when event carries a value (post-SP1 echo)`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated preserves finishedAt when event does not carry it (pre-SP1 echo)`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated skips row when last_played_at is malformed`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated skips when local lastPlayedAt is newer`()</ID>
-    <ID>FunctionMaxLength:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated still persists adjacent valid event after malformed one`()</ID>
     <ID>FunctionMaxLength:SchemaMigrationSmokeTest.kt$SchemaMigrationSmokeTest$@Test fun `creates current schema database and opens a live connection`()</ID>
     <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
     <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns null when book has no genres`()</ID>
@@ -129,71 +78,10 @@
     <ID>FunctionMaxLength:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `refresh writes all three tables in one transaction`()</ID>
     <ID>FunctionMaxLength:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `self-emission path reads from user_reading_sessions not from cache`()</ID>
     <ID>FunctionMaxLength:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `totalReaders reflects API response value not derived cache count`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `addBooksToShelf inserts junction rows and queues ADD_BOOKS_TO_SHELF pending op`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `addBooksToShelf rolls back junction writes when queue throws`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf returns Shelf domain model with correct fields`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf rolls back Room write when queue throws`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf writes entity to Room and queues CREATE_SHELF pending op`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `deleteShelf removes entity from Room and queues DELETE_SHELF pending op`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `deleteShelf rolls back Room delete when queue throws`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `removeBookFromShelf deletes junction row and queues REMOVE_BOOK_FROM_SHELF pending op`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `removeBookFromShelf rolls back junction delete when queue throws`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `updateShelf rolls back Room write when queue throws`()</ID>
-    <ID>FunctionMaxLength:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `updateShelf writes updated entity to Room and queues UPDATE_SHELF pending op`()</ID>
     <ID>FunctionMaxLength:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `cascade delete removes sessions when book is deleted`()</ID>
     <ID>FunctionMaxLength:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `deleteForBook removes only that book+user's sessions`()</ID>
     <ID>FunctionMaxLength:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
     <ID>FunctionMaxLength:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `upsertAll and getForBook returns sessions ordered by startedAt DESC`()</ID>
-    <ID>FunctionNaming:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `cascade delete removes rows when book is deleted`()</ID>
-    <ID>FunctionNaming:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `deleteForBook removes only that book's rows`()</ID>
-    <ID>FunctionNaming:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
-    <ID>FunctionNaming:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `upsert with same composite PK replaces existing row`()</ID>
-    <ID>FunctionNaming:AudioFileDaoTest.kt$AudioFileDaoTest$@Test fun `upsertAll and getForBook returns rows ordered by index ASC`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `getRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `getRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooks returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksFirstInSeriesOnly excludes mid-series books`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksFirstInSeriesWithAuthor excludes mid-series books`()</ID>
-    <ID>FunctionNaming:BookDaoRandomUnstartedTest.kt$BookDaoRandomUnstartedTest$@Test fun `observeRandomUnstartedBooksWithAuthor returns mid-series books (neutral, no sequence filter)`()</ID>
-    <ID>FunctionNaming:BookDaoRecentlyAddedTest.kt$BookDaoRecentlyAddedTest$@Test fun `observeRecentlyAddedFirstInSeriesWithAuthor excludes mid-series books`()</ID>
-    <ID>FunctionNaming:BookDaoRecentlyAddedTest.kt$BookDaoRecentlyAddedTest$@Test fun `observeRecentlyAddedWithAuthor returns all recently added books regardless of series sequence`()</ID>
-    <ID>FunctionNaming:BookPullerAtomicityTest.kt$BookPullerAtomicityTest$@Test fun `rollback when cover enqueue throws mid-page`()</ID>
-    <ID>FunctionNaming:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll handles multi-book bundles with heterogeneous relationships`()</ID>
-    <ID>FunctionNaming:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll persists a single-book bundle across all five junction tables`()</ID>
-    <ID>FunctionNaming:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll replaces existing relationships — old rows gone, new rows present in all 5 tables`()</ID>
-    <ID>FunctionNaming:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll upserts tag catalog before inserting junctions (foreign-key ordering)`()</ID>
-    <ID>FunctionNaming:BookRelationshipWriterTest.kt$BookRelationshipWriterTest$@Test fun `replaceAll with empty bundles does not mutate pre-existing junction rows`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookDetail returns BookDetail with genres and tags merged`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookDetail returns null for unknown id`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItem returns mapped BookListItem when present`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItem returns null for unknown id`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItems returns empty list for empty input`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `getBookListItems returns rows for requested ids`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail emits null then BookDetail when row inserted`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail re-emits when genres change for the book`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookDetail re-emits when tags change for the book`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplTest$@Test fun `observeBookListItems emits current rows and ignores genre-only changes`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplUpsertWithAudioFilesTest$@Test fun `upsertWithAudioFiles with empty audio file list skips upsertAll`()</ID>
-    <ID>FunctionNaming:BookRepositoryImplTest.kt$BookRepositoryImplUpsertWithAudioFilesTest$@Test fun `upsertWithAudioFiles writes book delete-and-upsert audio files inside one transaction`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors falls back to canonical contributor name when creditedAs is null`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors handles same person in multiple roles by grouping`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail allContributors prefers creditedAs over canonical contributor name when creditedAs is non-null`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail computes allContributors via dedup-and-role-aggregation, genres+tags forwarded as-is`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toDetail then toListItem equals toListItem for same input`()</ID>
-    <ID>FunctionNaming:BookWithContributorsMapperTest.kt$BookWithContributorsMapperTest$@Test fun `toListItem returns BookListItem with authors and narrators populated, no detail-only fields`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `cascade delete removes only the deleted contributor's aliases`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `deleteForContributor removes only that contributor's aliases`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `getByIdWithAliases returns null for missing contributor`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `getForContributor returns empty list when no aliases`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll and getForContributor returns aliases sorted alphabetically case-insensitively`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll preserves case-different aliases as distinct rows`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `insertAll with duplicate exact-case alias is ignored`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `observeByIdWithAliases returns contributor with aliases from junction`()</ID>
-    <ID>FunctionNaming:ContributorAliasDaoTest.kt$ContributorAliasDaoTest$@Test fun `observeForContributor emits initial list and re-emits on change`()</ID>
-    <ID>FunctionNaming:ContributorEditRepositoryAtomicityTest.kt$ContributorEditRepositoryAtomicityTest$@Test fun `mergeContributor rollback when queue throws`()</ID>
-    <ID>FunctionNaming:ContributorEditRepositoryAtomicityTest.kt$ContributorEditRepositoryAtomicityTest$@Test fun `unmergeContributor rollback when queue throws`()</ID>
-    <ID>FunctionNaming:ContributorEditRepositoryAtomicityTest.kt$ContributorEditRepositoryAtomicityTest$@Test fun `updateContributor rollback when queue throws`()</ID>
-    <ID>FunctionNaming:ContributorPullerAtomicityTest.kt$ContributorPullerAtomicityTest$@Test fun `rollback when alias insert throws mid-batch`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
     <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getOldWaitingForServer returns only rows older than threshold`()</ID>
@@ -224,18 +112,6 @@
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames matches case-insensitively`()</ID>
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames returns empty list for empty input`()</ID>
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames returns matching id-name pairs`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `colors are valid ARGB integers`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `dark muted color has low brightness`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `extracts colors from two-tone image`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `extracts dominant color from solid blue image`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `extracts dominant color from solid red image`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `handles JPEG format`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `handles PNG format`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `handles large image efficiently`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `handles very small image`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `returns null for empty byte array`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `returns null for invalid image data`()</ID>
-    <ID>FunctionNaming:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$@Test fun `vibrant color has high saturation`()</ID>
     <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `clear deletes storage file`()</ID>
     <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `clear removes all data`()</ID>
     <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `data persists across storage instances`()</ID>
@@ -266,10 +142,6 @@
     <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabasePath returns path ending in listenup db`()</ID>
     <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getSecureStoragePath returns path ending in auth enc`()</ID>
     <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `paths do not contain double slashes`()</ID>
-    <ID>FunctionNaming:LibraryResetHelperAtomicityTest.kt$LibraryResetHelperAtomicityTest$@Test fun `rollback when reset transaction aborts at commit`()</ID>
-    <ID>FunctionNaming:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `queue called from inside outer atomically participates in outer tx - success path`()</ID>
-    <ID>FunctionNaming:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `queue called from inside outer atomically rolls back when outer throws`()</ID>
-    <ID>FunctionNaming:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$@Test fun `sequential queue for same entity produces exactly one row`()</ID>
     <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob clears playbackError on transition to Playing`()</ID>
     <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackPaused when player transitions to Paused`()</ID>
     <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackStarted when player transitions to Playing`()</ID>
@@ -289,22 +161,11 @@
     <ID>FunctionNaming:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `startPlayback with effective speed 1_0f calls audioPlayer setSpeed 1_0f`()</ID>
     <ID>FunctionNaming:PlaybackPositionDaoTest.kt$PlaybackPositionDaoTest$@Test fun `observeRecentPositions emits new list when a position updates`()</ID>
     <ID>FunctionNaming:PlaybackPositionDaoTest.kt$PlaybackPositionDaoTest$@Test fun `observeRecentPositions returns started positions sorted by recency, limited`()</ID>
-    <ID>FunctionNaming:ProgressPullerAtomicityTest.kt$ProgressPullerAtomicityTest$@Test fun `no rows persist when saveAll throws inside transaction`()</ID>
     <ID>FunctionNaming:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `cascade delete removes cache rows when book is deleted`()</ID>
     <ID>FunctionNaming:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `deleteForBook removes only that book's cache rows`()</ID>
     <ID>FunctionNaming:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
     <ID>FunctionNaming:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook excludes the current user and orders by active then recent`()</ID>
     <ID>FunctionNaming:ReaderSessionCacheDaoTest.kt$ReaderSessionCacheDaoTest$@Test fun `observeForBook with empty excludingUserId returns all readers`()</ID>
-    <ID>FunctionNaming:ReadingSessionPullerAtomicityTest.kt$ReadingSessionPullerAtomicityTest$@Test fun `rollback when cache insert throws`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorAtomicityTest.kt$SSEEventProcessorAtomicityTest$@Test fun `rollback when audio file insert throws`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorAtomicityTest.kt$SSEEventProcessorAtomicityTest$@Test fun `rollback when contributor insert throws`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorAtomicityTest.kt$SSEEventProcessorAtomicityTest$@Test fun `rollback when genre insert throws`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated creates fresh entity when existing row is null`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated overwrites finishedAt when event carries a value (post-SP1 echo)`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated preserves finishedAt when event does not carry it (pre-SP1 echo)`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated skips row when last_played_at is malformed`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated skips when local lastPlayedAt is newer`()</ID>
-    <ID>FunctionNaming:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$@Test fun `handleProgressUpdated still persists adjacent valid event after malformed one`()</ID>
     <ID>FunctionNaming:SchemaMigrationSmokeTest.kt$SchemaMigrationSmokeTest$@Test fun `creates current schema database and opens a live connection`()</ID>
     <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
     <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns null when book has no genres`()</ID>
@@ -320,18 +181,6 @@
     <ID>FunctionNaming:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `refresh writes all three tables in one transaction`()</ID>
     <ID>FunctionNaming:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `self-emission path reads from user_reading_sessions not from cache`()</ID>
     <ID>FunctionNaming:SessionRepositoryImplTest.kt$SessionRepositoryImplTest$@Test fun `totalReaders reflects API response value not derived cache count`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `addBooksToShelf inserts junction rows and queues ADD_BOOKS_TO_SHELF pending op`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `addBooksToShelf rolls back junction writes when queue throws`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf returns Shelf domain model with correct fields`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf rolls back Room write when queue throws`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `createShelf writes entity to Room and queues CREATE_SHELF pending op`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `deleteShelf removes entity from Room and queues DELETE_SHELF pending op`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `deleteShelf rolls back Room delete when queue throws`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `removeBookFromShelf deletes junction row and queues REMOVE_BOOK_FROM_SHELF pending op`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `removeBookFromShelf rolls back junction delete when queue throws`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `updateShelf returns updated Shelf domain model`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `updateShelf rolls back Room write when queue throws`()</ID>
-    <ID>FunctionNaming:ShelfRepositoryImplCommandTest.kt$ShelfRepositoryImplCommandTest$@Test fun `updateShelf writes updated entity to Room and queues UPDATE_SHELF pending op`()</ID>
     <ID>FunctionNaming:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `cascade delete removes sessions when book is deleted`()</ID>
     <ID>FunctionNaming:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `deleteForBook removes only that book+user's sessions`()</ID>
     <ID>FunctionNaming:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `observeForBook emits initial list and re-emits on upsert`()</ID>
@@ -339,9 +188,9 @@
     <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storage: JvmSecureStorage</ID>
     <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storageFile: File</ID>
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:BookPullerAtomicityTest.kt$BookPullerAtomicityTest$@Test fun `rollback when cover enqueue throws mid-page`()</ID>
     <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, birthDate: String?, deathDate: String?, website: String?, description: String?, isDescriptionExpanded: Boolean, onToggleDescription: () -&gt; Unit, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
+    <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>
     <ID>MagicNumber:AuroraBackground.kt$0.95f</ID>
     <ID>MagicNumber:AuroraBackground.kt$120f</ID>
     <ID>MagicNumber:AuroraBackground.kt$180f</ID>
@@ -349,7 +198,6 @@
     <ID>MagicNumber:AuroraBackground.kt$300f</ID>
     <ID>MagicNumber:AuroraBackground.kt$360f</ID>
     <ID>MagicNumber:AuthServicePublicGuardedBehaviorTest.kt$AuthServicePublicGuardedBehaviorTest$36</ID>
-    <ID>MagicNumber:BookRepositoryImplTest.kt$BookRepositoryImplTest$1_700_000_000_000L</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt$12</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt$200</ID>
     <ID>MagicNumber:CorrelationIdAndMdcTest.kt$CorrelationIdAndMdcTest$36</ID>
@@ -371,19 +219,36 @@
     <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$5000</ID>
     <ID>MagicNumber:LoginScreen.kt$0.4f</ID>
     <ID>MagicNumber:LoginScreen.kt$0.6f</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$12345L</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$6</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$7</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$8</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$800L</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$9</ID>
+    <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$900L</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$0.45f</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$0.4f</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$0.6f</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$1.4f</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$15_000L</ID>
     <ID>MagicNumber:NowPlayingScreen.kt$200</ID>
+    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$1.25f</ID>
+    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$1.5f</ID>
+    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$42_000L</ID>
+    <ID>MagicNumber:PlaybackPositionEndToEndTest.kt$PlaybackPositionEndToEndTest$99_000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$10_000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$123L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$20_000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$5000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$500L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$77_000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$7L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$88_000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$9000L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$999L</ID>
+    <ID>MagicNumber:PlaybackPositionSyncDomainHandlerTest.kt$PlaybackPositionSyncDomainHandlerTest$99_000L</ID>
     <ID>MagicNumber:RegisterScreen.kt$0.4f</ID>
     <ID>MagicNumber:RegisterScreen.kt$0.6f</ID>
-    <ID>MagicNumber:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$1.2f</ID>
-    <ID>MagicNumber:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$1234L</ID>
-    <ID>MagicNumber:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$1_600_000_000_000L</ID>
-    <ID>MagicNumber:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$50_000L</ID>
-    <ID>MagicNumber:SSEEventProcessorProgressMergeTest.kt$SSEEventProcessorProgressMergeTest$6000L</ID>
     <ID>MagicNumber:SeriesDetailScreen.kt$150</ID>
     <ID>MagicNumber:SeriesDetailScreen.kt$200</ID>
     <ID>MagicNumber:ServerSetupScreen.kt$0.4f</ID>
@@ -396,9 +261,15 @@
     <ID>MagicNumber:SetupScreen.kt$0.4f</ID>
     <ID>MagicNumber:SetupScreen.kt$0.6f</ID>
     <ID>MagicNumber:ShelfCard.kt$6</ID>
+    <ID>MaxLineLength:AudioFileLocatorTest.kt$AudioFileLocatorTest$repo.upsert(locatorFixture(bookId = "b1", fileId = "af1", rootRelPath = "Sanderson/WayOfKings", filename = "01.m4b", format = "m4b", size = 500_000_000L))</ID>
+    <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", revision = 1, updatedAt = 0))</ID>
+    <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", revision = 2, updatedAt = 0))</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakePlaybackApiContract$PreparePlaybackResponse(ready = false, streamUrl = "", variant = "original", codec = "mp3", transcodeJobId = "job1", progress = 0)</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
@@ -407,10 +278,9 @@
     <ID>StringLiteralDuplication:InstanceRepositoryImpl.kt$InstanceRepositoryImpl$"/api/v1/instance"</ID>
     <ID>StringLiteralDuplication:Mp4Parser.kt$Mp4Parser$"&lt;source&gt;"</ID>
     <ID>StringLiteralDuplication:PlatformUtils.jvm.kt$PlatformUtils$"Unknown"</ID>
+    <ID>StringLiteralDuplication:PlaybackServiceImpl.kt$PlaybackServiceImpl$"principal"</ID>
     <ID>SwallowedException:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$e: Exception</ID>
     <ID>ThrowsCount:AtomWalker.kt$AtomWalker$fun readHeader( bytes: ByteArray, offset: Int, end: Int = bytes.size, ): Atom</ID>
-    <ID>TooGenericExceptionThrown:LibraryResetHelperAtomicityTest.kt$LibraryResetHelperAtomicityTest.FailAtCommitRunner$throw RuntimeException("boom — simulated commit-time failure")</ID>
-    <ID>TooGenericExceptionThrown:PendingOperationRepositoryCoalesceAtomicityTest.kt$PendingOperationRepositoryCoalesceAtomicityTest$throw RuntimeException("outer throws after inner queue")</ID>
     <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt$ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
     <ID>TooManyFunctions:Koin.ios.kt$KoinHelper : KoinComponent</ID>
     <ID>UnnecessaryParentheses:AtomWalker.kt$AtomWalker$(end - offset)</ID>
@@ -434,16 +304,15 @@
     <ID>UnnecessaryParentheses:Mp4Parser.kt$Mp4Parser$(durationUnits * 1000L)</ID>
     <ID>UnnecessaryParentheses:Mp4ParserPropertyTest.kt$Mp4ParserPropertyTest$(du * 1000L)</ID>
     <ID>UnnecessaryParentheses:MpegDurationCalculator.kt$MpegDurationCalculator$(bytes[i + 1].toInt() and 0xE0)</ID>
-    <ID>UnusedImports:ContributorEditRepositoryAtomicityTest.kt$import dev.mokkery.answering.returns</ID>
-    <ID>UnusedImports:ContributorEditRepositoryAtomicityTest.kt$import kotlin.test.assertNull</ID>
+    <ID>UnnecessaryParentheses:SyncableRepository.kt$SyncableRepository$(table as? UserScopedSyncableTable)</ID>
     <ID>UnusedImports:DownloadWorkerLogicTest.kt$import kotlin.test.assertFails</ID>
     <ID>UnusedImports:InstanceRepositoryImpl.kt$import io.ktor.client.plugins.timeout</ID>
     <ID>UnusedImports:JvmSecureStorageTest.kt$import kotlin.test.assertNotEquals</ID>
     <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.core.ServerUrl</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
-    <ID>UnusedImports:SSEEventProcessorAtomicityTest.kt$import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos</ID>
-    <ID>UnusedImports:SSEEventProcessorProgressMergeTest.kt$import com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos</ID>
+    <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.client.data.remote.model.ApiResponse</ID>
+    <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.core.flatMap</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content1 = file1.readText()</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content2 = file2.readText()</ID>
     <ID>UnusedPrivateProperty:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$j</ID>

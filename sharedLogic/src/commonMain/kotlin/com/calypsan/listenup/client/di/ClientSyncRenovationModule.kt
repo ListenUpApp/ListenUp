@@ -59,9 +59,10 @@ val clientSyncRenovationModule =
 
         single<PendingOperationSender> {
             DomainPendingOperationSender(
-                byDomain = mapOf(
-                    "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
-                ),
+                byDomain =
+                    mapOf(
+                        "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
+                    ),
             )
         }
         single {
