@@ -92,6 +92,87 @@ class ListeningEventDaoTest :
                 db.close()
             }
         }
+
+        // ====================== observeByBookForUser ======================
+
+        test("observeByBookForUser returns only the target user's events for the target book") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val dao = db.listeningEventDao()
+
+                    // u1 / bookA — the expected results
+                    dao.upsert(makeEventForBook("e1", userId = "u1", bookId = "bookA", startedAt = 100, endedAt = 200))
+                    dao.upsert(makeEventForBook("e2", userId = "u1", bookId = "bookA", startedAt = 300, endedAt = 400))
+                    // u2 / bookA — different user, must be excluded
+                    dao.upsert(makeEventForBook("e3", userId = "u2", bookId = "bookA", startedAt = 100, endedAt = 200))
+                    // u1 / bookB — different book, must be excluded
+                    dao.upsert(makeEventForBook("e4", userId = "u1", bookId = "bookB", startedAt = 100, endedAt = 200))
+
+                    dao.observeByBookForUser(userId = "u1", bookId = "bookA").test {
+                        val items = awaitItem()
+                        // Newest first: e2 (endedAt=400) before e1 (endedAt=200)
+                        items.map { it.id } shouldContainExactly listOf("e2", "e1")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeByBookForUser excludes tombstoned events for that (user, book)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val dao = db.listeningEventDao()
+
+                    dao.upsert(makeEventForBook("live", userId = "u1", bookId = "bookA", startedAt = 100, endedAt = 200))
+                    dao.upsert(
+                        makeEventForBook(
+                            "tomb",
+                            userId = "u1",
+                            bookId = "bookA",
+                            startedAt = 300,
+                            endedAt = 400,
+                            deletedAt = 999L,
+                        ),
+                    )
+
+                    dao.observeByBookForUser(userId = "u1", bookId = "bookA").test {
+                        val items = awaitItem()
+                        items.map { it.id } shouldContainExactly listOf("live")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeByBookForUser re-emits when a new event is inserted for that (user, book)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val dao = db.listeningEventDao()
+
+                    dao.upsert(makeEventForBook("e1", userId = "u1", bookId = "bookA", startedAt = 100, endedAt = 200))
+
+                    dao.observeByBookForUser(userId = "u1", bookId = "bookA").test {
+                        awaitItem().map { it.id } shouldContainExactly listOf("e1")
+
+                        dao.upsert(makeEventForBook("e2", userId = "u1", bookId = "bookA", startedAt = 300, endedAt = 400))
+
+                        val updated = awaitItem()
+                        // e2 (endedAt=400) should be first
+                        updated.map { it.id } shouldContainExactly listOf("e2", "e1")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
     })
 
 private fun makeEvent(
@@ -105,6 +186,29 @@ private fun makeEvent(
         id = id,
         userId = userId,
         bookId = "book-$id",
+        startPositionMs = 0L,
+        endPositionMs = endedAt - startedAt,
+        startedAt = startedAt,
+        endedAt = endedAt,
+        playbackSpeed = 1.0f,
+        tz = "UTC",
+        deviceLabel = null,
+        revision = 0,
+        deletedAt = deletedAt,
+    )
+
+private fun makeEventForBook(
+    id: String,
+    userId: String,
+    bookId: String,
+    startedAt: Long,
+    endedAt: Long,
+    deletedAt: Long? = null,
+): ListeningEventEntity =
+    ListeningEventEntity(
+        id = id,
+        userId = userId,
+        bookId = bookId,
         startPositionMs = 0L,
         endPositionMs = endedAt - startedAt,
         startedAt = startedAt,

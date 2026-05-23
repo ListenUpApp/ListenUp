@@ -128,6 +128,27 @@ interface ListeningEventDao {
     ): List<ListeningEventEntity>
 
     /**
+     * Observe all live events for a specific user and book, newest-first by [endedAt].
+     *
+     * Tombstoned events ([deletedAt] != null) are excluded. Re-emits whenever any
+     * row in `listening_events` changes — Room reactive semantics.
+     *
+     * @param userId The user whose events to observe.
+     * @param bookId The book whose history to stream.
+     */
+    @Query(
+        """
+        SELECT * FROM listening_events
+        WHERE userId = :userId AND bookId = :bookId AND deletedAt IS NULL
+        ORDER BY endedAt DESC
+    """,
+    )
+    fun observeByBookForUser(
+        userId: String,
+        bookId: String,
+    ): Flow<List<ListeningEventEntity>>
+
+    /**
      * Insert or update an event.
      */
     @Upsert
