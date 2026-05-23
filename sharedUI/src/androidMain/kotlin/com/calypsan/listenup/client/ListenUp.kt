@@ -177,7 +177,6 @@ val playbackModule =
             ProgressTracker(
                 downloadRepository = get(),
                 listeningEventRepository = get(),
-                syncApi = get(),
                 positionRepository = get(),
                 scope = get(),
             )

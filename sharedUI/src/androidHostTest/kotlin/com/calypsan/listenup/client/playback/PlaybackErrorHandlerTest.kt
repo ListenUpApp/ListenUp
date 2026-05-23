@@ -621,8 +621,6 @@ private object ThrowingSyncApiContract : SyncApiContract {
 
     override suspend fun submitListeningEvents(events: List<com.calypsan.listenup.client.data.remote.ListeningEventRequest>) = TODO("not used in handler test")
 
-    override suspend fun getProgress(bookId: String) = TODO("not used in handler test")
-
     override suspend fun getContinueListening(limit: Int) = TODO("not used in handler test")
 
     override suspend fun getAllProgress(updatedAfter: String?) = TODO("not used in handler test")

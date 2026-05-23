@@ -280,8 +280,6 @@ private object ThrowingSyncApiContract2 : SyncApiContract {
 
     override suspend fun submitListeningEvents(events: List<com.calypsan.listenup.client.data.remote.ListeningEventRequest>) = TODO("not used")
 
-    override suspend fun getProgress(bookId: String) = TODO("not used")
-
     override suspend fun getContinueListening(limit: Int) = TODO("not used")
 
     override suspend fun getAllProgress(updatedAfter: String?) = TODO("not used")

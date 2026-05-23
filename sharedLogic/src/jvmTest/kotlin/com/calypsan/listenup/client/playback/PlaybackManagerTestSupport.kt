@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -26,16 +25,13 @@ import kotlinx.coroutines.Job
 fun buildProgressTracker(
     scope: CoroutineScope = CoroutineScope(Job()),
     positionRepository: PlaybackPositionRepository = defaultPositionRepository(),
-): ProgressTracker {
-    val stubSyncApi = mock<SyncApiContract>()
-    return ProgressTracker(
+): ProgressTracker =
+    ProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
         listeningEventRepository = mock<ListeningEventRepository>(),
-        syncApi = stubSyncApi,
         positionRepository = positionRepository,
         scope = scope,
     )
-}
 
 /**
  * Constructs a [FakeProgressTracker] whose dependencies are all interface mocks.
@@ -45,16 +41,13 @@ fun buildProgressTracker(
 fun buildFakeProgressTracker(
     scope: CoroutineScope = CoroutineScope(Job()),
     positionRepository: PlaybackPositionRepository = defaultPositionRepository(),
-): FakeProgressTracker {
-    val stubSyncApi = mock<SyncApiContract>()
-    return FakeProgressTracker(
+): FakeProgressTracker =
+    FakeProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
         listeningEventRepository = mock<ListeningEventRepository>(),
-        syncApi = stubSyncApi,
         positionRepository = positionRepository,
         scope = scope,
     )
-}
 
 /** Returns a [PlaybackPositionRepository] stub that returns success for all writes and null for reads. */
 fun defaultPositionRepository(): PlaybackPositionRepository {
