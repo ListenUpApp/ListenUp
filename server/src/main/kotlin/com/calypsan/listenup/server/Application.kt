@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
@@ -152,6 +153,8 @@ fun Application.module() {
 
     if (resolvedLibraryPath != null) {
         bootstrapScannerOnStartup(applicationScope)
+        val cleanupTask by inject<ActiveSessionCleanupTask>()
+        cleanupTask.start(applicationScope)
     } else {
         logger.warn {
             "scanner.libraryPath unset or invalid — server starts without scanning. " +

@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -38,6 +39,8 @@ import org.koin.dsl.module
  *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
  *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`.
+ *  - [ActiveSessionCleanupTask] — periodic sweep that hard-deletes stale `active_sessions` rows
+ *    left by ungraceful disconnects. Started on the application scope in [Application.module].
  *  - [PlaybackService] / [PlaybackServiceImpl] — the RPC+REST implementation. Bound at module level
  *    with an unscoped [PrincipalProvider] placeholder; route handlers call [PlaybackServiceImpl.copyWith]
  *    to scope each request to the authenticated caller.
@@ -85,6 +88,7 @@ fun playbackModule(): Module =
             ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
         }
         single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
+        single { ActiveSessionCleanupTask(db = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),
