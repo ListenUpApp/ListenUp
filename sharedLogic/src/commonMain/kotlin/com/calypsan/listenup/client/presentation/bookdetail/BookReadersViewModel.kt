@@ -44,7 +44,7 @@ sealed interface BookReadersUiState {
  * Observes [BookReadersRepository.observeReadersFor] for the given [bookId] and maps each
  * emission to a sealed [BookReadersUiState]. There is no debounce, no REST refresh, and no
  * manual refresh action — Room handles change coalescing, and the server's P3-B completion
- * cascade (deleting `active_sessions` rows when [PlaybackPositionEntity.isFinished] flips)
+ * cascade (deleting `active_sessions` rows when a book is finished)
  * means transitions are immediate without any side-channel refresh.
  *
  * @param repo The readers repository providing reactive Room observation.
@@ -59,7 +59,7 @@ class BookReadersViewModel(
         repo
             .observeReadersFor(bookId)
             .map { readers ->
-                if (readers.currentlyListening.isEmpty() && readers.completedBy.isEmpty()) {
+                if (readers.currentlyListening.isEmpty()) {
                     BookReadersUiState.NoReaders
                 } else {
                     BookReadersUiState.Data(readers)

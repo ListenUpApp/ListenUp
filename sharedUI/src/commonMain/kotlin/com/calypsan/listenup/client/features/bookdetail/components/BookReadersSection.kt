@@ -36,8 +36,7 @@ import listenup.composeapp.generated.resources.common_see_all
  *
  * Shows:
  * - Users currently listening (live, from active_sessions via SSE)
- * - Users who have completed the book (current user only, from playback_positions)
- * - "See all" link if more than 3 readers total
+ * - "See all" link if more than 3 readers
  *
  * Renders nothing if there are no active listeners and no completions (NoReaders state),
  * or while loading. Errors are silently swallowed — the section is non-critical.
@@ -59,7 +58,7 @@ fun BookReadersSection(
     // Loading and Error render nothing — the Readers section is non-critical.
     val data = state as? BookReadersUiState.Data ?: return
 
-    val allReaders = data.readers.currentlyListening + data.readers.completedBy
+    val allReaders = data.readers.currentlyListening
     if (allReaders.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth()) {

@@ -1051,12 +1051,11 @@ val syncModule =
 
         // BookReadersRepository for Book Detail Readers section (SOLID: interface in domain, impl in data)
         // Pure Room observation — no REST refresh, no debounce, no cache layer.
-        // active_sessions and playback_positions are kept current by SSE events and the
-        // P3-B completion cascade respectively.
+        // active_sessions is kept current by SSE events; P3-B completion cascade deletes
+        // rows when a user finishes a book, so the table is always current without polling.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
                 activeSessionDao = get(),
-                playbackPositionDao = get(),
                 authSession = get(),
             )
         }

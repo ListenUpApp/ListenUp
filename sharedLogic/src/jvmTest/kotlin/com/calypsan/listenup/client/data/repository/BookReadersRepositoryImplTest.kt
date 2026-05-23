@@ -1,11 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ActiveSessionEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.UserProfileEntity
-import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -17,9 +15,8 @@ import kotlinx.coroutines.test.runTest
 /**
  * Integration tests for [BookReadersRepositoryImpl].
  *
- * Uses an in-memory Room database so both [ActiveSessionDao] and [PlaybackPositionDao]
- * are real implementations — this catches any SQL issues in [ActiveSessionDao.observeForBook]
- * and [PlaybackPositionDao.observeFinishedForBook].
+ * Uses an in-memory Room database so [ActiveSessionDao] is a real implementation —
+ * this catches any SQL issues in [ActiveSessionDao.observeForBook].
  *
  * A minimal [AuthSession] fake provides the current user's id without pulling in
  * the full auth machinery.
@@ -53,17 +50,6 @@ class BookReadersRepositoryImplTest :
                 id = id,
                 displayName = displayName,
                 updatedAt = 0L,
-            )
-
-        fun finishedPosition(bookId: String): PlaybackPositionEntity =
-            PlaybackPositionEntity(
-                bookId = BookId(bookId),
-                positionMs = 99_000L,
-                playbackSpeed = 1.0f,
-                updatedAt = 2_000L,
-                lastPlayedAt = 2_000L,
-                isFinished = true,
-                deletedAt = null,
             )
 
         fun fakeAuthSession(userId: String?) =
@@ -118,7 +104,6 @@ class BookReadersRepositoryImplTest :
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 
@@ -136,33 +121,6 @@ class BookReadersRepositoryImplTest :
                     readers.currentlyListening shouldHaveSize 2
                     readers.currentlyListening.map { it.userId } shouldContainExactly listOf("u2", "u3")
                     readers.currentlyListening.map { it.displayName } shouldContainExactly listOf("Bob", "Carol")
-                    readers.completedBy.shouldBeEmpty()
-                    cancelAndIgnoreRemainingEvents()
-                }
-            }
-        }
-
-        // ── Current user's finished position appears in completedBy ───────────
-
-        test("current user appears in completedBy when their position is finished") {
-            runTest {
-                val database = db()
-                val repo =
-                    BookReadersRepositoryImpl(
-                        activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
-                        authSession = fakeAuthSession("u1"),
-                    )
-
-                database.playbackPositionDao().save(finishedPosition("bookA"))
-
-                repo.observeReadersFor("bookA").test {
-                    val readers = awaitItem()
-                    readers.completedBy shouldHaveSize 1
-                    readers.completedBy[0].userId shouldBe "u1"
-                    readers.completedBy[0].displayName shouldBe "You"
-                    readers.totalCompletions shouldBe 1
-                    readers.currentlyListening.shouldBeEmpty()
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -176,7 +134,6 @@ class BookReadersRepositoryImplTest :
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 
@@ -200,23 +157,20 @@ class BookReadersRepositoryImplTest :
             }
         }
 
-        // ── Empty state when no sessions and no finished position ─────────────
+        // ── Empty state when no sessions ──────────────────────────────────────
 
-        test("emits empty BookReaders when no sessions and no finished position") {
+        test("emits empty BookReaders when no sessions exist") {
             runTest {
                 val database = db()
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 
                 repo.observeReadersFor("bookA").test {
                     val readers = awaitItem()
                     readers.currentlyListening.shouldBeEmpty()
-                    readers.completedBy.shouldBeEmpty()
-                    readers.totalCompletions shouldBe 0
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -230,7 +184,6 @@ class BookReadersRepositoryImplTest :
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 
@@ -255,7 +208,6 @@ class BookReadersRepositoryImplTest :
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 
@@ -281,7 +233,6 @@ class BookReadersRepositoryImplTest :
                 val repo =
                     BookReadersRepositoryImpl(
                         activeSessionDao = database.activeSessionDao(),
-                        playbackPositionDao = database.playbackPositionDao(),
                         authSession = fakeAuthSession("u1"),
                     )
 

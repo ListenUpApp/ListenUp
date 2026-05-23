@@ -5,15 +5,12 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
  * Covers the reactive query surface of [PlaybackPositionDao]:
  * - [PlaybackPositionDao.observeRecentPositions] — Continue Listening shelf (W4.3)
- * - [PlaybackPositionDao.observeFinishedForBook] — Readers "completed by" slot (P3)
  */
 class PlaybackPositionDaoTest :
     FunSpec({
@@ -76,115 +73,6 @@ class PlaybackPositionDaoTest :
 
                     dao.save(position(id = "b", positionMs = 200L, lastPlayedAt = 2_000L, updatedAt = 2_000L))
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("b", "a")
-
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.deleteAll()
-            }
-        }
-
-        // ──────────────────────────────────────────────────────────────────────
-        // observeFinishedForBook
-        // ──────────────────────────────────────────────────────────────────────
-
-        test("observeFinishedForBook returns null when no position exists for the book") {
-            runTest {
-                dao.observeFinishedForBook(BookId("no-such-book")).test {
-                    awaitItem().shouldBeNull()
-                    cancelAndIgnoreRemainingEvents()
-                }
-            }
-        }
-
-        test("observeFinishedForBook returns null when position exists but isFinished is false") {
-            runTest {
-                dao.save(position(id = "bookA", positionMs = 1_000L, lastPlayedAt = 1L, updatedAt = 1L, isFinished = false))
-
-                dao.observeFinishedForBook(BookId("bookA")).test {
-                    awaitItem().shouldBeNull()
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.deleteAll()
-            }
-        }
-
-        test("observeFinishedForBook returns null when position is soft-deleted even if isFinished") {
-            runTest {
-                dao.save(
-                    position(
-                        id = "bookA",
-                        positionMs = 1_000L,
-                        lastPlayedAt = 1L,
-                        updatedAt = 1L,
-                        isFinished = true,
-                        deletedAt = 999L,
-                    ),
-                )
-
-                dao.observeFinishedForBook(BookId("bookA")).test {
-                    awaitItem().shouldBeNull()
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.deleteAll()
-            }
-        }
-
-        test("observeFinishedForBook returns the position when isFinished and no tombstone") {
-            runTest {
-                dao.save(position(id = "bookA", positionMs = 1_000L, lastPlayedAt = 2_000L, updatedAt = 2_000L, isFinished = true))
-
-                dao.observeFinishedForBook(BookId("bookA")).test {
-                    val pos = awaitItem()
-                    pos.shouldNotBeNull()
-                    pos.bookId shouldBe BookId("bookA")
-                    pos.isFinished shouldBe true
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.deleteAll()
-            }
-        }
-
-        test("observeFinishedForBook scopes to the given bookId") {
-            runTest {
-                dao.saveAll(
-                    listOf(
-                        position(id = "bookA", positionMs = 100L, lastPlayedAt = 1L, updatedAt = 1L, isFinished = true),
-                        position(id = "bookB", positionMs = 200L, lastPlayedAt = 2L, updatedAt = 2L, isFinished = true),
-                    ),
-                )
-
-                dao.observeFinishedForBook(BookId("bookA")).test {
-                    val pos = awaitItem()
-                    pos.shouldNotBeNull()
-                    pos.bookId shouldBe BookId("bookA")
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.observeFinishedForBook(BookId("bookB")).test {
-                    val pos = awaitItem()
-                    pos.shouldNotBeNull()
-                    pos.bookId shouldBe BookId("bookB")
-                    cancelAndIgnoreRemainingEvents()
-                }
-
-                dao.deleteAll()
-            }
-        }
-
-        test("observeFinishedForBook re-emits when isFinished flips false to true") {
-            runTest {
-                dao.save(position(id = "bookA", positionMs = 1_000L, lastPlayedAt = 1L, updatedAt = 1L, isFinished = false))
-
-                dao.observeFinishedForBook(BookId("bookA")).test {
-                    awaitItem().shouldBeNull()
-
-                    // Flip to finished
-                    dao.save(position(id = "bookA", positionMs = 1_000L, lastPlayedAt = 2L, updatedAt = 2L, isFinished = true))
-                    awaitItem().shouldNotBeNull()
 
                     cancelAndIgnoreRemainingEvents()
                 }
