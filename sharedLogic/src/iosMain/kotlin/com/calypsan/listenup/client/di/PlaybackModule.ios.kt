@@ -94,7 +94,6 @@ val iosPlaybackModule: Module =
                 tentativeSpanDao = get<ListenUpDatabase>().tentativeSpanDao(),
                 enqueue = { domainName, entityId, opType, payload, ownerUserId ->
                     get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
-                    Unit
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
                 // iOS: UIDevice.name is the user-facing device name (e.g. "Simon's iPhone"). null also valid.

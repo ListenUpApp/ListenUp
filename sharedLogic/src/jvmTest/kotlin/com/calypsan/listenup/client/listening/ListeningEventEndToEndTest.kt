@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgains
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlin.time.Duration.Companion.seconds

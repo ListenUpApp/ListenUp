@@ -339,7 +339,6 @@ private suspend fun withFixture(
                 enqueue = { domainName, entityId, opType, payload, ownerUserId ->
                     captured.add(CapturedEnqueue(domainName, entityId, opType, payload, ownerUserId))
                     realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
-                    Unit
                 },
                 currentUserId = { USER_ID },
                 deviceLabel = { DEVICE_LABEL },

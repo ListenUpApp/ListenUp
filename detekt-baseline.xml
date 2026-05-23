@@ -4,9 +4,11 @@
   <CurrentIssues>
     <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$also</ID>
     <ID>CognitiveComplexMethod:AdminCollectionDetailViewModel.kt$AdminCollectionDetailViewModel$private fun loadCollection()</ID>
+    <ID>CognitiveComplexMethod:Application.kt$fun Application.module()</ID>
     <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>CognitiveComplexMethod:BookCoverImage.kt$@Composable fun BookCoverImage( bookId: String, coverPath: String?, contentDescription: String?, modifier: Modifier = Modifier, blurHash: String? = null, contentScale: ContentScale = ContentScale.Crop, onState: ((AsyncImagePainter.State) -&gt; Unit)? = null, )</ID>
     <ID>CognitiveComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
+    <ID>CognitiveComplexMethod:SyncTestApplication.kt$internal fun withTestApplication( heartbeatIntervalMillis: Long? = null, userScoped: Boolean = false, playbackPositions: Boolean = false, playbackEvents: Boolean = false, block: suspend SyncTestScope.() -&gt; Unit, )</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x4F.toByte() &amp;&amp; headerBytes[1] == 0x67.toByte() &amp;&amp; headerBytes[2] == 0x67.toByte() &amp;&amp; headerBytes[3] == 0x53.toByte()</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x66.toByte() &amp;&amp; headerBytes[1] == 0x4C.toByte() &amp;&amp; headerBytes[2] == 0x61.toByte() &amp;&amp; headerBytes[3] == 0x43.toByte()</ID>
     <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[4] == 0x66.toByte() &amp;&amp; headerBytes[5] == 0x74.toByte() &amp;&amp; headerBytes[6] == 0x79.toByte() &amp;&amp; headerBytes[7] == 0x70.toByte()</ID>
@@ -187,7 +189,9 @@
     <ID>FunctionNaming:UserReadingSessionDaoTest.kt$UserReadingSessionDaoTest$@Test fun `upsertAll and getForBook returns sessions ordered by startedAt DESC`()</ID>
     <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storage: JvmSecureStorage</ID>
     <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storageFile: File</ID>
+    <ID>LateinitUsage:WithClientSyncEngineAgainstServer.kt$lateinit var statsUpdater: UserStatsUpdater</ID>
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
     <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, birthDate: String?, deathDate: String?, website: String?, description: String?, isDescriptionExpanded: Boolean, onToggleDescription: () -&gt; Unit, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>
@@ -217,6 +221,25 @@
     <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$255</ID>
     <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$50</ID>
     <ID>MagicNumber:JvmCoverColorExtractorTest.kt$JvmCoverColorExtractorTest$5000</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$1.25f</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$1.5f</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$10_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$30_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$31_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$45_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$50_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$5_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$60_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$61_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$80_000L</ID>
+    <ID>MagicNumber:ListeningEventRecorderTest.kt$ListeningEventRecorderTest$90_000L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$200L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$30_000L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$555L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$5_000L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$60_000L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$61_000L</ID>
+    <ID>MagicNumber:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$9L</ID>
     <ID>MagicNumber:LoginScreen.kt$0.4f</ID>
     <ID>MagicNumber:LoginScreen.kt$0.6f</ID>
     <ID>MagicNumber:Migration17To18Test.kt$Migration17To18Test$12345L</ID>
@@ -261,17 +284,27 @@
     <ID>MagicNumber:SetupScreen.kt$0.4f</ID>
     <ID>MagicNumber:SetupScreen.kt$0.6f</ID>
     <ID>MagicNumber:ShelfCard.kt$6</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$200L</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$42</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$5000L</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$500L</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$7777L</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$99</ID>
+    <ID>MagicNumber:UserStatsSyncDomainHandlerTest.kt$UserStatsSyncDomainHandlerTest$9999L</ID>
     <ID>MaxLineLength:AudioFileLocatorTest.kt$AudioFileLocatorTest$repo.upsert(locatorFixture(bookId = "b1", fileId = "af1", rootRelPath = "Sanderson/WayOfKings", filename = "01.m4b", format = "m4b", size = 500_000_000L))</ID>
     <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", revision = 1, updatedAt = 0))</ID>
     <ID>MaxLineLength:ChangeBusTest.kt$ChangeBusTest$val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", revision = 2, updatedAt = 0))</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakePlaybackApiContract$PreparePlaybackResponse(ready = false, streamUrl = "", variant = "original", codec = "mp3", transcodeJobId = "job1", progress = 0)</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
+    <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
+    <ID>NestedBlockDepth:UserStatsRepository.kt$UserStatsRepository$override suspend fun pullSince( userId: String?, cursor: Long, limit: Int, ): Page&lt;UserStatsSyncPayload&gt;</ID>
+    <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
     <ID>StringLiteralDuplication:IlstReader.kt$IlstReader$"image/jpeg"</ID>
@@ -311,13 +344,16 @@
     <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.core.ServerUrl</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContext</ID>
     <ID>UnusedImports:Koin.kt$import com.calypsan.listenup.client.device.DeviceContextProvider</ID>
+    <ID>UnusedImports:ListeningEventAndStatsRouteTest.kt$import io.kotest.matchers.nulls.shouldNotBeNull</ID>
     <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.client.data.remote.model.ApiResponse</ID>
     <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.core.flatMap</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content1 = file1.readText()</ID>
     <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content2 = file2.readText()</ID>
+    <ID>UnusedPrivateProperty:LeaderboardRepositoryImpl.kt$LeaderboardRepositoryImpl$private val leaderboardApi: LeaderboardApiContract</ID>
     <ID>UnusedPrivateProperty:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$j</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val HEX_RADIX = 16</ID>
     <ID>UnusedPrivateProperty:ShelfCard.kt$private const val MAX_RGB_LENGTH = 6</ID>
+    <ID>UnusedPrivateProperty:UserStatsUpdater.kt$UserStatsUpdater$private val clock: Clock = Clock.System</ID>
     <ID>UseIfInsteadOfWhen:DockedNowPlayingBar.kt$when { hours &gt; 0 -&gt; "${hours}h ${minutes}m left" else -&gt; "${minutes}m left" }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
