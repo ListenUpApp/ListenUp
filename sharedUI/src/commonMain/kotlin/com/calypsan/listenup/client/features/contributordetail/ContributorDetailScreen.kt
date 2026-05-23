@@ -68,7 +68,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.getInitials
+
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
@@ -820,7 +820,17 @@ private fun ElevatedAvatar(
     contributorId: String,
     colorScheme: ContributorColorScheme,
 ) {
-    val initials = if (name.isNotBlank()) getInitials(name) else "?"
+    val initials = if (name.isNotBlank()) {
+        name.trim().split("\\s+".toRegex()).let { parts ->
+            when {
+                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                name.length >= 2 -> name.take(2)
+                else -> name.take(1)
+            }
+        }.uppercase()
+    } else {
+        "?"
+    }
 
     ElevatedCard(
         shape = CircleShape,

@@ -41,8 +41,7 @@ import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
-import com.calypsan.listenup.client.design.components.avatarColorForUser
-import com.calypsan.listenup.client.design.components.getInitials
+import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -192,7 +191,7 @@ internal fun ContributorCard(
             // Avatar with image or initials
             Surface(
                 shape = CircleShape,
-                color = avatarColorForUser(contributor.id.value),
+                color = Color.hsl((contributor.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f),
                 modifier = Modifier.size(48.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -200,7 +199,13 @@ internal fun ContributorCard(
 
                     if (!imageLoaded) {
                         Text(
-                            text = getInitials(contributor.name),
+                            text = contributor.name.trim().split("\\s+".toRegex()).let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        contributor.name.length >= 2 -> contributor.name.take(2)
+                                        else -> contributor.name.take(1)
+                                    }
+                                }.uppercase(),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )

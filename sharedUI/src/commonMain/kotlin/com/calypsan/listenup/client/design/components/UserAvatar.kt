@@ -195,41 +195,8 @@ private fun LoadingPlaceholder(modifier: Modifier) {
 }
 
 // ---------------------------------------------------------------------------
-// Utilities — public for backward-compat callers (library, contributor features)
+// Internal utilities (no external callers — logic inlined at each call site)
 // ---------------------------------------------------------------------------
-
-/**
- * Deterministic avatar color for a user ID.
- *
- * Uses hue rotation to produce visually distinct colors while maintaining
- * pleasant saturation and lightness values.
- *
- * @param userId The user's unique identifier
- * @return A [Color] for the avatar background
- */
-fun avatarColorForUser(userId: String): Color {
-    val hue = (userId.hashCode() and 0x7FFFFFFF) % 360
-    return Color.hsl(hue.toFloat(), 0.4f, 0.65f)
-}
-
-/**
- * Extract initials from a display name.
- *
- * - Two+ words: first letter of the first two words (e.g. "John Doe" → "JD")
- * - One word with 2+ chars: first two letters (e.g. "Admin" → "AD")
- * - Single char: that character (e.g. "X" → "X")
- *
- * @param displayName The user's display name
- * @return Uppercase initials string
- */
-fun getInitials(displayName: String): String {
-    val parts = displayName.trim().split("\\s+".toRegex())
-    return when {
-        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-        displayName.length >= 2 -> displayName.take(2)
-        else -> displayName.take(1)
-    }.uppercase()
-}
 
 // ---------------------------------------------------------------------------
 // Internal utilities
@@ -257,8 +224,7 @@ private fun parseAvatarHexColor(hexColor: String, userId: String): Color =
 /**
  * Stable avatar color derived from [userId] using a cross-platform stable UUID hash.
  *
- * Unlike [avatarColorForUser] which uses [String.hashCode], this function uses
- * [Uuid.toLongs] for a fully cross-platform stable hash. Falls back gracefully
+ * Uses [Uuid.toLongs] for a fully cross-platform stable hash. Falls back gracefully
  * when [userId] is not a valid UUID.
  */
 private fun stableColorForUserId(userId: String): Color {

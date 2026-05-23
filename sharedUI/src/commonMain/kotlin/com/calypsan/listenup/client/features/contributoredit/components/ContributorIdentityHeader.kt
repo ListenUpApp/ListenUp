@@ -42,7 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.design.components.getInitials
+
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -121,7 +121,13 @@ fun ContributorIdentityHeader(
 
                     if (!imageLoaded) {
                         Text(
-                            text = getInitials(name),
+                            text = name.trim().split("\\s+".toRegex()).let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        name.length >= 2 -> name.take(2)
+                                        else -> name.take(1)
+                                    }
+                                }.uppercase(),
                             style =
                                 MaterialTheme.typography.displaySmall.copy(
                                     fontFamily = DisplayFontFamily,

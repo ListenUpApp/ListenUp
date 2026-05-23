@@ -90,7 +90,7 @@ fun UserAvatarMenu(
                 if (hasImageAvatar) {
                     Color.Transparent
                 } else {
-                    user?.let { avatarColorForUser(it.id.value) }
+                    user?.let { Color.hsl((it.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f) }
                         ?: MaterialTheme.colorScheme.surfaceContainerHighest
                 },
             modifier = Modifier.size(40.dp),
@@ -143,7 +143,13 @@ fun UserAvatarMenu(
                     // No local file and no server URL - show initials
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = user.let { getInitials(it.displayName) },
+                            text = user.displayName.trim().split("\\s+".toRegex()).let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        user.displayName.length >= 2 -> user.displayName.take(2)
+                                        else -> user.displayName.take(1)
+                                    }
+                                }.uppercase(),
                             style = MaterialTheme.typography.titleSmall,
                             color = Color.White,
                         )
@@ -152,7 +158,15 @@ fun UserAvatarMenu(
             } else {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = user?.let { getInitials(it.displayName) } ?: "?",
+                        text = user?.let { u ->
+                                    u.displayName.trim().split("\\s+".toRegex()).let { parts ->
+                                        when {
+                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                            u.displayName.length >= 2 -> u.displayName.take(2)
+                                            else -> u.displayName.take(1)
+                                        }
+                                    }.uppercase()
+                                } ?: "?",
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.White,
                     )

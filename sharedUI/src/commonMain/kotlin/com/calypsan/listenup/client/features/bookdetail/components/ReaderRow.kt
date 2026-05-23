@@ -26,7 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.calypsan.listenup.client.design.components.getInitials
+
 import com.calypsan.listenup.client.design.util.parseHexColor
 import com.calypsan.listenup.client.domain.model.ReaderInfo
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -97,7 +97,13 @@ fun ReaderRow(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = getInitials(reader.displayName),
+                        text = reader.displayName.trim().split("\\s+".toRegex()).let { parts ->
+                                when {
+                                    parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                    reader.displayName.length >= 2 -> reader.displayName.take(2)
+                                    else -> reader.displayName.take(1)
+                                }
+                            }.uppercase(),
                         style = MaterialTheme.typography.titleSmall,
                         color = Color.White,
                     )
