@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -20,8 +21,10 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -29,14 +32,19 @@ import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
+import kotlin.time.Clock
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.serialization.kotlinx.json.json
@@ -84,6 +92,14 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   a position server-side and assert its SSE event lands in the client Room DB (server→client
  *   direction). Also use [PlaybackPositionRepository.getPosition] to assert that a
  *   client-enqueued pending op reached the server (client→server direction).
+ * @property serverListeningEventRepository the server-side listening-event repository; use
+ *   [com.calypsan.listenup.server.services.ListeningEventRepository.upsert] to write an event
+ *   server-side and assert its SSE event + derived stats land in the client Room DB (server→client
+ *   direction). Also use [ListeningEventRepository.pullSince] to assert that a client-enqueued
+ *   pending op reached the server (client→server direction).
+ * @property serverUserStatsRepository the server-side user-stats repository; use
+ *   [com.calypsan.listenup.server.services.UserStatsRepository.getForUser] to assert that
+ *   [UserStatsUpdater] populated the materialized stats row when a listening event was recorded.
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -98,6 +114,8 @@ data class ClientEngineScope(
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
     val serverPlaybackPositionRepository: PlaybackPositionRepository,
+    val serverListeningEventRepository: ListeningEventRepository,
+    val serverUserStatsRepository: UserStatsRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -147,6 +165,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
                         single(createdAtStart = true) { serverRepos.playbackPositionRepo }
+                        single(createdAtStart = true) { serverRepos.listeningEventRepo }
+                        single(createdAtStart = true) { serverRepos.userStatsRepo }
                     },
                 )
             }
@@ -173,14 +193,22 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             registerClientSyncHandlers(clientDb, registry)
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
-            // Wire a real sender for `playback_positions` so the client→server direction
-            // is exercised end-to-end: the test calls queue.drain() and the op reaches
-            // the server's PlaybackPositionRepository without going through HTTP/RPC.
+            // Wire real senders for `playback_positions` and `listening_events` so the
+            // client→server direction is exercised end-to-end: the engine's reactive drain
+            // dispatches ops through these senders to the server repositories in-process,
+            // with no HTTP/RPC round-trip.
             val playbackSender = DirectPlaybackPositionSender(serverRepos.playbackPositionRepo)
+            val listeningEventSender = DirectListeningEventSender(serverRepos.listeningEventRepo)
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
-                    sender = DomainPendingOperationSender(mapOf("playback_positions" to playbackSender)),
+                    sender =
+                        DomainPendingOperationSender(
+                            mapOf(
+                                "playback_positions" to playbackSender,
+                                "listening_events" to listeningEventSender,
+                            ),
+                        ),
                 )
 
             val catchUp =
@@ -239,6 +267,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
                     serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
+                    serverListeningEventRepository = serverRepos.listeningEventRepo,
+                    serverUserStatsRepository = serverRepos.userStatsRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,
@@ -269,13 +299,16 @@ private data class ServerRepositories(
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
     val playbackPositionRepo: PlaybackPositionRepository,
+    val listeningEventRepo: ListeningEventRepository,
+    val userStatsRepo: UserStatsRepository,
 )
 
 /**
  * Constructs and registers the real [BookSyncDomainHandler], [ContributorSyncDomainHandler],
- * [SeriesSyncDomainHandler], and [PlaybackPositionSyncDomainHandler] into [registry]. Each
- * handler self-registers under its `domainName` on construction, so the client dispatcher
- * routes domain SSE frames here, applying them into [clientDb] exactly as production does.
+ * [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler], [ListeningEventSyncDomainHandler],
+ * and [UserStatsSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * `domainName` on construction, so the client dispatcher routes domain SSE frames here, applying
+ * them into [clientDb] exactly as production does.
  */
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
@@ -302,21 +335,36 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
+    ListeningEventSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    UserStatsSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
 }
 
 /**
  * Builds all server-side sync repositories from an already-initialised [serverDb].
  *
- * Wires [TagRepository], [ContributorRepository], [SeriesRepository], and
- * [BookRepository] in dependency order without pulling in the full `booksModule`
- * Koin graph (scanner / cover / persister deps are not needed for the sync
- * write → SSE → client surface exercised by Tier 3 e2e tests).
+ * Wires [TagRepository], [ContributorRepository], [SeriesRepository], [BookRepository],
+ * [PlaybackPositionRepository], [ListeningEventRepository], and [UserStatsRepository] in
+ * dependency order without pulling in the full `booksModule` Koin graph (scanner / cover /
+ * persister deps are not needed for the sync write → SSE → client surface exercised by
+ * Tier 3 e2e tests).
  *
- * The books domain needs a configured library: [BookRepository]'s INSERT path
- * resolves the single library row through [LibraryRegistry], keyed off
- * `LISTENUP_LIBRARY_PATH`. The path only seeds a `libraries` DB row — it is
- * never read from the filesystem on the sync write path — so a throwaway temp
- * dir is sufficient.
+ * The books domain needs a configured library: [BookRepository]'s INSERT path resolves the
+ * single library row through [LibraryRegistry], keyed off `LISTENUP_LIBRARY_PATH`. The path
+ * only seeds a `libraries` DB row — it is never read from the filesystem on the sync write
+ * path — so a throwaway temp dir is sufficient.
+ *
+ * The P2 stats domain requires [UserStatsUpdater], which needs [UserStatsRepository] at
+ * runtime (write path) and is needed by [ListeningEventRepository] at construction. The
+ * `lateinit` trick from [SyncTestApplication] breaks the circular reference: the updater
+ * lambda captures the `lateinit var` that is assigned immediately after construction.
  */
 private fun buildServerRepositories(
     serverDb: ExposedDatabase,
@@ -334,7 +382,38 @@ private fun buildServerRepositories(
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
     val playbackPositionRepo = PlaybackPositionRepository(serverDb, bus, registry)
-    return ServerRepositories(tagRepo, contributorRepo, seriesRepo, bookRepo, playbackPositionRepo)
+
+    // P2: break the UserStatsRepository ↔ UserStatsUpdater cycle with a lateinit, matching
+    // the pattern in SyncTestApplication.
+    lateinit var statsUpdater: UserStatsUpdater
+    val userStatsRepo =
+        UserStatsRepository(
+            db = serverDb,
+            bus = bus,
+            registry = registry,
+            userStatsUpdaterProvider = { statsUpdater },
+        )
+    val listeningEventRepo =
+        ListeningEventRepository(
+            db = serverDb,
+            bus = bus,
+            registry = registry,
+            userStatsUpdater =
+                UserStatsUpdater(
+                    db = serverDb,
+                    userStatsRepo = userStatsRepo,
+                ).also { statsUpdater = it },
+        )
+
+    return ServerRepositories(
+        tagRepo,
+        contributorRepo,
+        seriesRepo,
+        bookRepo,
+        playbackPositionRepo,
+        listeningEventRepo,
+        userStatsRepo,
+    )
 }
 
 /**
@@ -362,6 +441,46 @@ internal class DirectPlaybackPositionSender(
                 playbackSpeed = request.playbackSpeed,
                 currentChapterId = request.currentChapterId,
             )
+        return when (wireResult) {
+            is com.calypsan.listenup.api.result.AppResult.Success -> AppResult.Success(Unit)
+            is com.calypsan.listenup.api.result.AppResult.Failure -> AppResult.Failure(wireResult.error)
+        }
+    }
+}
+
+/**
+ * Test-only [PendingOperationSender] that routes a `listening_events` pending op directly
+ * to [ListeningEventRepository.upsert] without an HTTP/RPC round-trip.
+ *
+ * Mirrors [DirectPlaybackPositionSender]: queue drain and payload decoding are real, server
+ * write is real, transport is short-circuited. The resulting SSE events (listening_events
+ * upsert + user_stats update) are still published by the repository, so the full
+ * server→SSE→client Room assertion works in-process.
+ */
+internal class DirectListeningEventSender(
+    private val repository: ListeningEventRepository,
+) : PendingOperationSender {
+    override suspend fun send(op: PendingOperation): AppResult<Unit> {
+        val request =
+            contractJson.decodeFromString(RecordListeningEventRequest.serializer(), op.payload)
+        val now = Clock.System.now().toEpochMilliseconds()
+        val payload =
+            ListeningEventSyncPayload(
+                id = request.id,
+                bookId = request.bookId,
+                startPositionMs = request.startPositionMs,
+                endPositionMs = request.endPositionMs,
+                startedAt = request.startedAt,
+                endedAt = request.endedAt,
+                playbackSpeed = request.playbackSpeed,
+                tz = request.tz,
+                deviceLabel = request.deviceLabel,
+                revision = 0L,
+                updatedAt = now,
+                createdAt = now,
+                deletedAt = null,
+            )
+        val wireResult = repository.upsert(payload, clientOpId = null, userId = op.ownerUserId)
         return when (wireResult) {
             is com.calypsan.listenup.api.result.AppResult.Success -> AppResult.Success(Unit)
             is com.calypsan.listenup.api.result.AppResult.Failure -> AppResult.Failure(wireResult.error)
