@@ -6,13 +6,10 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
-import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.model.PlaybackProgressResponse
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
-import com.calypsan.listenup.client.domain.repository.CrossDevicePlaybackProgress
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,8 +20,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.Failure
 
 private val logger = KotlinLogging.logger {}
 
@@ -48,7 +43,6 @@ private val logger = KotlinLogging.logger {}
 open class ProgressTracker(
     private val downloadRepository: DownloadRepository,
     private val listeningEventRepository: ListeningEventRepository,
-    private val syncApi: SyncApiContract,
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
 ) {
@@ -149,7 +143,6 @@ open class ProgressTracker(
                     )
                 }
             }
-
         }
     }
 
@@ -333,166 +326,19 @@ open class ProgressTracker(
     /**
      * Get resume position for a book.
      *
-     * Cross-device sync: Checks both local and server progress, returns whichever
-     * is more recent. This enables seamless handoff between devices.
-     *
-     * Flow:
-     * 1. Get local position (instant, offline-first)
-     * 2. Try to get server position (best-effort, may fail if offline)
-     * 3. Compare timestamps - use whichever is newer
-     * 4. If server is newer, update local cache
-     *
-     * This method retains a synchronous `syncApi.getProgress(bookId)` call (via
-     * [fetchServerProgress]) — the one remaining direct HTTP read in [ProgressTracker].
-     * Cross-device merge has no SSE coverage today, and resume must reflect a sibling
-     * device's progress at the moment playback starts. The 3 s deadline is enforced at
-     * the HTTP layer via a per-request `timeout { requestTimeoutMillis = 3_000 }` in
-     * [com.calypsan.listenup.client.data.remote.SyncApi.getProgress], so a slow or
-     * unreachable server cannot block ExoPlayer startup. Future work (W8 Phase D):
-     * either an SSE-driven cross-device merge that obviates the synchronous read, or a
-     * `PlaybackPositionRepository.fetchAndMerge(bookId)` that internalises the HTTP
-     * call behind the seam.
+     * Reads the local Room row — kept current by [PlaybackPositionSyncDomainHandler]
+     * (live SSE events) and catch-up on reconnect. The synchronous HTTP read that
+     * previously blocked ExoPlayer startup has been removed: `PlaybackService.prepare`
+     * returns the server-authoritative resume position in the same call that signs the
+     * stream URLs, so there is no need for a separate progress read at resume time.
      *
      * @param bookId Book to get resume position for
      * @return Position to resume from, or null if never played
      */
     open suspend fun getResumePosition(bookId: BookId): PlaybackPositionEntity? {
-        // 1. Get local position via repository seam (instant, offline-first)
-        val localResult = positionRepository.getEntity(bookId)
-        val local = if (localResult is AppResult.Success) localResult.data else null
-
-        // 2. Try to get server position — best-effort, may return null if offline.
-        //    The 3 s deadline is enforced at the HTTP layer (SyncApi.getProgress
-        //    per-request timeout), so a slow server cannot block ExoPlayer startup.
-        val server = fetchServerProgress(bookId)
-        if (server == null) {
-            logger.debug { "Server progress unavailable — using local position" }
-        }
-
-        // 3. Merge: latest timestamp wins
-        return mergePositions(bookId, local, server)
+        val result = positionRepository.getEntity(bookId)
+        return if (result is AppResult.Success) result.data else null
     }
-
-    /**
-     * Fetch progress from server. Returns null on any error (offline, auth, etc.)
-     */
-    private suspend fun fetchServerProgress(bookId: BookId): PlaybackProgressResponse? =
-        try {
-            when (val result = syncApi.getProgress(bookId.value)) {
-                is Success -> {
-                    result.data
-                }
-
-                is Failure -> {
-                    logger.debug { "Server progress unavailable: ${result.message}" }
-                    null
-                }
-            }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.debug { "Server progress fetch failed: ${e.message}" }
-            null
-        }
-
-    /**
-     * Merge local and server positions, returning the more recent one.
-     * When server is newer, writes via [PlaybackUpdate.CrossDeviceSync] (which preserves
-     * local speed/hasCustomSpeed in the handler) and reads back via [PlaybackPositionRepository.getEntity].
-     */
-    private suspend fun mergePositions(
-        bookId: BookId,
-        local: PlaybackPositionEntity?,
-        server: PlaybackProgressResponse?,
-    ): PlaybackPositionEntity? =
-        when {
-            local == null && server == null -> {
-                null
-            }
-
-            local == null && server != null -> {
-                // Only server has progress — write via CrossDeviceSync, read back
-                when (
-                    val r =
-                        positionRepository.savePlaybackState(
-                            bookId = bookId,
-                            update = PlaybackUpdate.CrossDeviceSync(server.toCrossDeviceProgress()),
-                        )
-                ) {
-                    is AppResult.Success -> {}
-
-                    is AppResult.Failure -> {
-                        logger.warn { "CrossDeviceSync save failed for ${bookId.value}: ${r.error.message}" }
-                        return null
-                    }
-                }
-                logger.info { "Using server position: ${server.currentPositionMs}ms (first sync)" }
-                (positionRepository.getEntity(bookId) as? AppResult.Success)?.data
-                    ?: server.toEntity()  // pre-Phase-C parity: a successful CrossDeviceSync save guarantees a non-null return
-            }
-
-            server == null -> {
-                local
-            }
-
-            else -> {
-                // Both exist — compare timestamps using lastPlayedAt consistently.
-                // Previously this compared server.lastPlayedAt against local.updatedAt,
-                // but caching server positions set updatedAt to Clock.System.now(),
-                // inflating it beyond the server timestamp and causing stale local
-                // positions to win.
-                val serverTimestamp = server.lastPlayedAtMillis()
-                val localTimestamp = local!!.lastPlayedAt ?: local.updatedAt
-                if (serverTimestamp > localTimestamp) {
-                    // Server is newer (listened on another device).
-                    // CrossDeviceSync handler preserves local speed/hasCustomSpeed via .copy().
-                    when (
-                        val r =
-                            positionRepository.savePlaybackState(
-                                bookId = bookId,
-                                update = PlaybackUpdate.CrossDeviceSync(server.toCrossDeviceProgress()),
-                            )
-                    ) {
-                        is AppResult.Success -> {}
-
-                        is AppResult.Failure -> {
-                            logger.warn { "CrossDeviceSync save failed for ${bookId.value}: ${r.error.message}" }
-                            return local
-                        }
-                    }
-                    logger.info {
-                        "Using server position: ${server.currentPositionMs}ms " +
-                            "(was ${local.positionMs}ms locally, server is ${(serverTimestamp - localTimestamp) / 1000}s newer)"
-                    }
-                    (positionRepository.getEntity(bookId) as? AppResult.Success)?.data
-                        ?: server.toEntity().copy(
-                            playbackSpeed = local.playbackSpeed,
-                            hasCustomSpeed = local.hasCustomSpeed,
-                        )  // pre-Phase-C parity: preserve local speed/hasCustomSpeed across server merge
-                } else {
-                    // Local is newer or same
-                    local
-                }
-            }
-        }
-
-    /**
-     * Build a cross-device progress update from a REST progress response.
-     * Used by [mergePositions] to route cross-device saves through the canonical
-     * [PlaybackUpdate.CrossDeviceSync] write path.
-     *
-     * Field mapping mirrors [PlaybackProgressResponse.toEntity] for consistency.
-     * [PlaybackProgressResponse.startedAt] is non-nullable on the REST model but
-     * nullable on [CrossDevicePlaybackProgress]; passed through directly.
-     */
-    private fun PlaybackProgressResponse.toCrossDeviceProgress(): CrossDevicePlaybackProgress =
-        CrossDevicePlaybackProgress(
-            currentPositionMs = currentPositionMs,
-            isFinished = isFinished,
-            lastPlayedAt = lastPlayedAt,
-            startedAt = startedAt,
-            finishedAt = null, // REST progress response has no finishedAt field
-        )
 
     /**
      * Mark a book as finished.
@@ -536,14 +382,22 @@ open class ProgressTracker(
 
             // Mark book as complete (Issue #206)
             val finishedAt = Clock.System.now().toEpochMilliseconds()
-            when (val r = positionRepository.markComplete(
-                bookId = bookId,
-                startedAt = null,
-                finishedAt = finishedAt,
-            )) {
-                is AppResult.Success -> logger.info { "Book marked complete: ${bookId.value}" }
-                is AppResult.Failure -> logger.warn {
-                    "Failed to mark book ${bookId.value} complete: ${r.error.message}"
+            when (
+                val r =
+                    positionRepository.markComplete(
+                        bookId = bookId,
+                        startedAt = null,
+                        finishedAt = finishedAt,
+                    )
+            ) {
+                is AppResult.Success -> {
+                    logger.info { "Book marked complete: ${bookId.value}" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn {
+                        "Failed to mark book ${bookId.value} complete: ${r.error.message}"
+                    }
                 }
             }
         }
@@ -554,9 +408,14 @@ open class ProgressTracker(
      */
     suspend fun clearProgress(bookId: BookId) {
         when (val r = positionRepository.delete(bookId)) {
-            is AppResult.Success -> logger.info { "Progress cleared for book: ${bookId.value}" }
-            is AppResult.Failure -> logger.warn {
-                "Failed to clear progress for book ${bookId.value}: ${r.error.message}"
+            is AppResult.Success -> {
+                logger.info { "Progress cleared for book: ${bookId.value}" }
+            }
+
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Failed to clear progress for book ${bookId.value}: ${r.error.message}"
+                }
             }
         }
     }
@@ -629,5 +488,4 @@ open class ProgressTracker(
             }
         }
     }
-
 }

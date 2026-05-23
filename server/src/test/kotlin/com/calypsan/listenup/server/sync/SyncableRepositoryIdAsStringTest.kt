@@ -164,6 +164,7 @@ internal class FixtureRepository(
         rev: Long,
         now: Long,
         clientOpId: String?,
+        userId: String?,
         existed: Boolean,
     ) {
         if (existed) {

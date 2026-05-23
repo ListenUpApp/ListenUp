@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
@@ -10,6 +11,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.syncModule
@@ -20,10 +22,14 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.audio.AudioFileLocator
+import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
+import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
@@ -38,6 +44,8 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.auth.authenticate
 import io.ktor.server.cio.EngineMain
+import io.ktor.server.plugins.autohead.AutoHeadResponse
+import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
@@ -65,6 +73,8 @@ fun Application.module() {
     install(Resources)
     install(SSE)
     install(Krpc)
+    install(PartialContent)
+    install(AutoHeadResponse)
 
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
@@ -77,10 +87,11 @@ fun Application.module() {
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+            modules += playbackModule()
         }
         modules += embeddedmetaModule
         modules += syncModule()
-        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule()
+        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule(hasPlaybackModule = resolvedLibraryPath != null)
         modules(modules)
     }
 
@@ -109,19 +120,26 @@ fun Application.module() {
     val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
+    val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
+    val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
+    val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
 
     routing {
         healthRoutes()
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService, bookService)
+        rpcRoutes(authService, scannerService, bookService, playbackService)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
+            if (playbackService != null) playbackRoutes(playbackService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
+        }
+        if (audioFileLocator != null && audioUrlSigner != null) {
+            audioRoutes(audioFileLocator, audioUrlSigner)
         }
     }
 

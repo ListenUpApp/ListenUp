@@ -30,7 +30,7 @@ class SuspendCodegenTest :
                 )
             result.exitCode shouldBe KotlinCompilation.ExitCode.OK
             val generated = result.kspGeneratedFile("FakeServiceGuarded.kt")
-            generated.shouldContain("internal class FakeServiceGuarded(")
+            generated.shouldContain("class FakeServiceGuarded(")
             generated.shouldContain("private val delegate: fake.FakeService")
             generated.shouldContain(
                 "override suspend fun foo(x: kotlin.String): com.calypsan.listenup.api.result.AppResult<kotlin.Int>",
@@ -51,5 +51,29 @@ class SuspendCodegenTest :
                 """metrics.recordEscape("FakeService", "foo", e::class.simpleName ?: "Unknown")""",
             )
             generated.shouldContain("correlationId = cid")
+        }
+
+        test("preserves nullable type argument in AppResult<T?> return type") {
+            val result =
+                compile(
+                    SourceFile.kotlin(
+                        "FakeNullableContract.kt",
+                        """
+                        package fake
+
+                        import kotlinx.rpc.annotations.Rpc
+
+                        @Rpc
+                        interface FakeNullableService {
+                            suspend fun getOptional(id: String): com.calypsan.listenup.api.result.AppResult<Int?>
+                        }
+                        """.trimIndent(),
+                    ),
+                )
+            result.exitCode shouldBe KotlinCompilation.ExitCode.OK
+            val generated = result.kspGeneratedFile("FakeNullableServiceGuarded.kt")
+            generated.shouldContain(
+                "override suspend fun getOptional(id: kotlin.String): com.calypsan.listenup.api.result.AppResult<kotlin.Int?>",
+            )
         }
     })

@@ -59,15 +59,6 @@ interface PlaybackPositionDao {
     suspend fun getByBookIds(bookIds: List<BookId>): List<PlaybackPositionEntity>
 
     /**
-     * Get all positions that haven't been synced to server.
-     * Used by sync worker for multi-device support.
-     *
-     * @return List of positions where syncedAt is null or older than updatedAt
-     */
-    @Query("SELECT * FROM playback_positions WHERE syncedAt IS NULL OR syncedAt < updatedAt")
-    suspend fun getUnsyncedPositions(): List<PlaybackPositionEntity>
-
-    /**
      * Update only the playback position and timestamps for an existing record.
      *
      * IMPORTANT: This intentionally does NOT touch [PlaybackPositionEntity.hasCustomSpeed]
@@ -89,18 +80,6 @@ interface PlaybackPositionDao {
     ): Int
 
     /**
-     * Mark a position as synced to server.
-     *
-     * @param bookId The book whose position was synced
-     * @param syncedAt When the sync completed (epoch ms)
-     */
-    @Query("UPDATE playback_positions SET syncedAt = :syncedAt WHERE bookId = :bookId")
-    suspend fun markSynced(
-        bookId: BookId,
-        syncedAt: Long,
-    )
-
-    /**
      * Delete position for a book.
      * Used when resetting progress.
      *
@@ -115,6 +94,16 @@ interface PlaybackPositionDao {
      */
     @Query("DELETE FROM playback_positions")
     suspend fun deleteAll()
+
+    /** Apply a server tombstone: set the soft-delete timestamp and revision. */
+    @Query(
+        "UPDATE playback_positions SET deletedAt = :deletedAt, revision = :revision WHERE bookId = :id",
+    )
+    suspend fun softDelete(
+        id: BookId,
+        deletedAt: Long,
+        revision: Long,
+    )
 
     /**
      * Get recently played books for "Continue Listening" section.

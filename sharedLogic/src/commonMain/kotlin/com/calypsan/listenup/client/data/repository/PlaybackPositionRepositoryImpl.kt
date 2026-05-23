@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -7,15 +9,20 @@ import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Instant
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Implementation of PlaybackPositionRepository using Room.
@@ -23,10 +30,10 @@ import kotlin.time.Instant
  * Wraps PlaybackPositionDao and converts entities to domain models.
  * Position operations are instant and local-first.
  *
- * [markComplete], [discardProgress], and [restartBook] are thin facades over
- * [savePlaybackState] and use the outbox pattern: local save + pending-op queue
- * (MARK_COMPLETE / DISCARD_PROGRESS / RESTART_BOOK respectively); the sync engine
- * processes the op asynchronously.
+ * After each position-moving write, enqueues a [RecordPositionRequest] onto the
+ * pending-operation queue so the sync engine pushes the updated position to the server.
+ * Per-`(domain, entityId)` queue coalescing means rapid successive writes for one book
+ * collapse to the latest — no flooding.
  *
  * The [savePlaybackState] entry point owns per-book Mutex serialization
  * plus per-call transactional dispatch over the 11-variant [PlaybackUpdate]
@@ -35,15 +42,15 @@ import kotlin.time.Instant
  * book serialize on a per-book Mutex; different books proceed in parallel.
  *
  * @property dao Room DAO for position operations
- * @property pendingOps Queue for pending push operations
- * @property markCompleteHandler Handler for MARK_COMPLETE pending ops
- * @property discardProgressHandler Handler for DISCARD_PROGRESS pending ops
- * @property restartBookHandler Handler for RESTART_BOOK pending ops
  * @property transactionRunner Runs each variant handler inside a write transaction
+ * @property pendingQueue Outbox queue for server-side position writes
+ * @property authSession Source of the current user ID for queue ownership
  */
 class PlaybackPositionRepositoryImpl(
     private val dao: PlaybackPositionDao,
     private val transactionRunner: TransactionRunner,
+    private val pendingQueue: PendingOperationQueue,
+    private val authSession: AuthSession,
 ) : PlaybackPositionRepository {
     // ----- Per-book Mutex map ---------------------------------------------------------------
 
@@ -119,6 +126,7 @@ class PlaybackPositionRepositoryImpl(
                 transactionRunner.atomically {
                     handle(bookId, update)
                 }
+                enqueueIfPositionMoving(bookId, update)
             }
         }
 
@@ -144,6 +152,144 @@ class PlaybackPositionRepositoryImpl(
             is PlaybackUpdate.MarkComplete -> handleMarkComplete(bookId, update)
             PlaybackUpdate.DiscardProgress -> handleDiscardProgress(bookId)
             PlaybackUpdate.Restart -> handleRestart(bookId)
+        }
+    }
+
+    // ----- Outbox enqueue -------------------------------------------------------------------
+
+    /**
+     * Enqueues a [RecordPositionRequest] for the position-moving [PlaybackUpdate] variants.
+     *
+     * [CrossDeviceSync], [DiscardProgress], and [Restart] are excluded:
+     * - [CrossDeviceSync] is incoming server state; pushing it back would create an echo loop.
+     * - [DiscardProgress] and [Restart] are user-command ops with their own pending-op domain
+     *   operations, not a position write (they reset position to 0 which the server's
+     *   `lastPlayedAt`-wins policy handles correctly via the next playback-start enqueue).
+     *
+     * No sign-in user means no server to push to — silently skipped.
+     */
+    private suspend fun enqueueIfPositionMoving(
+        bookId: BookId,
+        update: PlaybackUpdate,
+    ) {
+        val userId = authSession.getUserId() ?: return
+        val now = currentEpochMilliseconds()
+        val request: RecordPositionRequest =
+            when (update) {
+                is PlaybackUpdate.Position -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.speed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.Speed -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.speed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.SpeedReset -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.defaultSpeed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.PlaybackStarted -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.speed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.PlaybackPaused -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.speed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.PeriodicUpdate -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = false,
+                        playbackSpeed = update.speed,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.BookFinished -> {
+                    val entity = dao.get(bookId)
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.finalPositionMs,
+                        lastPlayedAt = now,
+                        finished = true,
+                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
+                        currentChapterId = null,
+                    )
+                }
+
+                is PlaybackUpdate.MarkComplete -> {
+                    val entity = dao.get(bookId)
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = entity?.positionMs ?: 0L,
+                        lastPlayedAt = now,
+                        finished = true,
+                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
+                        currentChapterId = null,
+                    )
+                }
+
+                // Not enqueued — see KDoc above.
+                is PlaybackUpdate.CrossDeviceSync,
+                PlaybackUpdate.DiscardProgress,
+                PlaybackUpdate.Restart,
+                -> {
+                    return
+                }
+            }
+
+        try {
+            pendingQueue.enqueue(
+                domainName = "playback_positions",
+                entityId = bookId.value,
+                opType = "upsert",
+                payload = contractJson.encodeToString(RecordPositionRequest.serializer(), request),
+                ownerUserId = userId,
+            )
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Queue write failure is non-fatal: the position is already saved locally.
+            // The next position write will enqueue, and the missing op will be reconciled
+            // by the catch-up on the next connection.
+            logger.warn(e) { "Failed to enqueue position write for ${bookId.value} — will retry on next write" }
         }
     }
 
@@ -346,9 +492,9 @@ class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleDiscardProgress(bookId: BookId) {
-        // Local-only reset followed by DISCARD_PROGRESS pending-op enqueue.
-        // The OperationExecutor processes the op asynchronously; the local
-        // DB write and the enqueue happen inside the same transaction.
+        // Local-only reset. A DISCARD_PROGRESS pending-op enqueue is deferred to a
+        // follow-up phase; until then DiscardProgress flows through the legacy REST path.
+        // See docs/superpowers/followups.md — "DiscardProgress / Restart legacy REST path".
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(
@@ -364,9 +510,9 @@ class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleRestart(bookId: BookId) {
-        // Local-only reset followed by RESTART_BOOK pending-op enqueue.
-        // The OperationExecutor processes the op asynchronously; the local
-        // DB write and the enqueue happen inside the same transaction.
+        // Local-only reset. A RESTART_BOOK pending-op enqueue is deferred to a
+        // follow-up phase; until then Restart flows through the legacy REST path.
+        // See docs/superpowers/followups.md — "DiscardProgress / Restart legacy REST path".
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(

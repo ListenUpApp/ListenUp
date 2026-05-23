@@ -63,7 +63,7 @@ class ContributorRepositoryTest :
                 runTest {
                     repo.resolveOrCreate("Author One")
                     repo.resolveOrCreate("Author Two")
-                    val page = repo.pullSince(cursor = 0L, limit = 10)
+                    val page = repo.pullSince(userId = null, cursor = 0L, limit = 10)
                     page.items.map { it.name } shouldBe listOf("Author One", "Author Two")
                 }
             }

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -83,6 +84,24 @@ class ChangeBusTest :
                     val busEvent = deferred.await()
                     busEvent.repo.shouldBeInstanceOf<TagRepository>()
                     busEvent.repo shouldBe repo
+                }
+            }
+        }
+
+        test("publish carries an optional userId on the BusEvent") {
+            withInMemoryDatabase {
+                val bus = ChangeBus()
+                val fakeRepo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
+                val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", revision = 1, updatedAt = 0))
+                val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", revision = 2, updatedAt = 0))
+                runTest {
+                    val sub = async { bus.subscribe().take(2).toList() }
+                    advanceUntilIdle()
+                    bus.publish(repo = fakeRepo, event = fakeEvent, userId = "u1")
+                    bus.publish(repo = fakeRepo, event = fakeEvent2, userId = null)
+                    val events = sub.await()
+                    events[0].userId shouldBe "u1"
+                    events[1].userId shouldBe null
                 }
             }
         }

@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.sse)
+    implementation(libs.ktor.server.partial.content)
+    implementation(libs.ktor.server.auto.head.response)
 
     // Ktor plugins (auth, rate limit, OpenAPI)
     implementation(libs.ktor.server.auth.jwt)
@@ -49,6 +51,10 @@ dependencies {
 
     // Password hashing
     implementation(libs.password4j)
+
+    // Kotlin-native cryptography (HMAC for AudioUrlSigner)
+    implementation(libs.cryptography.core)
+    implementation(libs.cryptography.provider.jdk)
 
     // Koin
     implementation(libs.koin.core)

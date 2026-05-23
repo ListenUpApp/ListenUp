@@ -147,12 +147,13 @@ internal object GuardedClassWriter {
 
 private fun KSType.qualifiedRender(): String {
     val name = declaration.qualifiedName?.asString() ?: declaration.simpleName.asString()
+    val nullable = if (isMarkedNullable) "?" else ""
     return if (arguments.isEmpty()) {
-        name
+        name + nullable
     } else {
         name +
             arguments.joinToString(prefix = "<", postfix = ">") { arg ->
                 arg.type?.resolve()?.qualifiedRender() ?: "*"
-            }
+            } + nullable
     }
 }

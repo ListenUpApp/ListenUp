@@ -1,13 +1,16 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -18,6 +21,7 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -46,10 +50,20 @@ val clientSyncRenovationModule =
         single { SyncEngineState() }
         single { SyncCursorStore(dao = get()) }
 
-        // Sender: scaffolding only — no real domain has a write API yet. Books-C
-        // onwards register concrete senders per (domain, opType).
+        single<PlaybackRpcFactory> {
+            KtorPlaybackRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         single<PendingOperationSender> {
-            PendingOperationSender { AppResult.Success(Unit) }
+            DomainPendingOperationSender(
+                byDomain =
+                    mapOf(
+                        "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
+                    ),
+            )
         }
         single {
             PendingOperationQueue(
@@ -114,6 +128,13 @@ val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             SeriesSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            PlaybackPositionSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),

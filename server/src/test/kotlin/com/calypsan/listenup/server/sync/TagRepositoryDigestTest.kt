@@ -15,7 +15,7 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    val d = repo.digest(cursor = Long.MAX_VALUE)
+                    val d = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d.cursor shouldBe Long.MAX_VALUE
                     d.count shouldBe 0
                     d.hash shouldBe ""
@@ -30,8 +30,8 @@ class TagRepositoryDigestTest :
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.upsert(Tag("b", "beta", 0, 0))
-                    val d1 = repo.digest(cursor = Long.MAX_VALUE)
-                    val d2 = repo.digest(cursor = Long.MAX_VALUE)
+                    val d1 = repo.digest(userId = null, cursor = Long.MAX_VALUE)
+                    val d2 = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d1 shouldBe d2
                     d1.count shouldBe 2
                     d1.hash shouldStartWith "sha256:"
@@ -46,9 +46,9 @@ class TagRepositoryDigestTest :
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
-                    val before = repo.digest(cursor = Long.MAX_VALUE)
+                    val before = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     repo.upsert(Tag("a", "alpha-updated", 0, 0))
-                    val after = repo.digest(cursor = Long.MAX_VALUE)
+                    val after = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     (before.hash != after.hash) shouldBe true
                     before.count shouldBe after.count // still one row
                 }
@@ -63,7 +63,7 @@ class TagRepositoryDigestTest :
                     repo.upsert(Tag("a", "alpha", 0, 0)) // rev 1
                     repo.upsert(Tag("b", "beta", 0, 0)) // rev 2
                     repo.upsert(Tag("c", "gamma", 0, 0)) // rev 3
-                    val d = repo.digest(cursor = 2L)
+                    val d = repo.digest(userId = null, cursor = 2L)
                     d.count shouldBe 2 // only a, b
                 }
             }
@@ -76,7 +76,7 @@ class TagRepositoryDigestTest :
                 runTest {
                     repo.upsert(Tag("a", "alpha", 0, 0))
                     repo.softDelete("a")
-                    val d = repo.digest(cursor = Long.MAX_VALUE)
+                    val d = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d.count shouldBe 1
                 }
             }
@@ -97,7 +97,7 @@ class TagRepositoryDigestTest :
                         md
                             .digest(expectedInput.toByteArray(Charsets.UTF_8))
                             .joinToString("") { "%02x".format(it) }
-                    val actual = repo.digest(cursor = Long.MAX_VALUE)
+                    val actual = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     actual.hash shouldBe "sha256:$expectedHex"
                 }
             }

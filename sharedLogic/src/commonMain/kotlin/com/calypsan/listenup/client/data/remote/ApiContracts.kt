@@ -122,20 +122,6 @@ interface SyncApiContract {
     suspend fun submitListeningEvents(events: List<ListeningEventRequest>): AppResult<ListeningEventsResponse>
 
     /**
-     * Get playback progress for a specific book.
-     *
-     * Used for cross-device sync: checks if another device has newer progress.
-     * Returns null if no progress exists for this book.
-     *
-     * Endpoint: GET /api/v1/listening/progress/{bookId}
-     * Auth: Required
-     *
-     * @param bookId Book to get progress for
-     * @return Result containing PlaybackProgressResponse or null if not found
-     */
-    suspend fun getProgress(bookId: String): AppResult<PlaybackProgressResponse?>
-
-    /**
      * Get list of books with playback progress (Continue Listening).
      *
      * Returns display-ready items with embedded book details.

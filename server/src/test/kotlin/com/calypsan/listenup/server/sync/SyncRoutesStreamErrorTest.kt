@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.testing.testAuth
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -13,6 +15,8 @@ import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.sse
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE as ServerSSE
 import io.ktor.server.testing.testApplication
@@ -116,6 +120,7 @@ private fun withThrowingTestApplication(block: suspend ThrowingTestScope.() -> U
         application {
             install(ServerContentNegotiation) { json(contractJson) }
             install(ServerSSE)
+            install(Authentication) { testAuth() }
             install(Koin) {
                 modules(
                     module {
@@ -126,7 +131,7 @@ private fun withThrowingTestApplication(block: suspend ThrowingTestScope.() -> U
                     },
                 )
             }
-            routing { syncRoutes() }
+            routing { authenticate(JWT_PROVIDER) { syncRoutes() } }
         }
 
         val jsonClient =
@@ -216,6 +221,7 @@ private class ThrowingRepository(
         rev: Long,
         now: Long,
         clientOpId: String?,
+        userId: String?,
         existed: Boolean,
     ) {
         if (existed) {

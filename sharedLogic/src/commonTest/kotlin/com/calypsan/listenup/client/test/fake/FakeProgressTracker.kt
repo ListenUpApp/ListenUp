@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -25,13 +24,11 @@ import kotlinx.coroutines.CoroutineScope
 class FakeProgressTracker(
     downloadRepository: DownloadRepository,
     listeningEventRepository: ListeningEventRepository,
-    syncApi: SyncApiContract,
     positionRepository: PlaybackPositionRepository,
     scope: CoroutineScope,
 ) : ProgressTracker(
         downloadRepository = downloadRepository,
         listeningEventRepository = listeningEventRepository,
-        syncApi = syncApi,
         positionRepository = positionRepository,
         scope = scope,
     ) {

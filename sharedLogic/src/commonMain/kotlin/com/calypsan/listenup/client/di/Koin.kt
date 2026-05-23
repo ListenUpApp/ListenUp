@@ -994,6 +994,8 @@ val syncModule =
             PlaybackPositionRepositoryImpl(
                 dao = get(),
                 transactionRunner = get(),
+                pendingQueue = get(),
+                authSession = get(),
             )
         }
 

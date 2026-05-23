@@ -21,20 +21,15 @@ import com.calypsan.listenup.client.data.remote.model.SyncListeningEventsRespons
 import com.calypsan.listenup.client.data.remote.model.SyncManifestResponse
 import com.calypsan.listenup.client.data.remote.model.SyncSeriesResponse
 import io.ktor.client.call.body
-import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-private const val RESUME_PROGRESS_REQUEST_TIMEOUT_MS = 3_000L
 
 /**
  * API client for sync endpoints.
@@ -252,36 +247,6 @@ class SyncApi(
                     setBody(ListeningEventsRequest(events = events))
                 }.body()
         }
-
-    /**
-     * Get playback progress for a specific book.
-     *
-     * Used for cross-device sync: checks if another device has newer progress.
-     * Returns null if no progress exists (404 response).
-     *
-     * Endpoint: GET /api/v1/listening/progress/{bookId}
-     * Auth: Required
-     *
-     * @param bookId Book to get progress for
-     * @return Result containing PlaybackProgressResponse or null if not found
-     */
-    override suspend fun getProgress(bookId: String): AppResult<PlaybackProgressResponse?> =
-        suspendRunCatching {
-            val httpResponse: HttpResponse =
-                clientFactory.getClient().get("/api/v1/books/$bookId/progress") {
-                    // Bound to 3 s: resume must not block ExoPlayer prepare while the
-                    // server is slow or unreachable (global client default is 30 s).
-                    timeout { requestTimeoutMillis = RESUME_PROGRESS_REQUEST_TIMEOUT_MS }
-                }
-
-            // Handle 404 as null (no progress yet)
-            if (httpResponse.status == HttpStatusCode.NotFound) {
-                AppResult.Success<PlaybackProgressResponse?>(null)
-            } else {
-                val response: ApiResponse<PlaybackProgressResponse> = httpResponse.body()
-                response.dataOrFailure("Failed to fetch playback progress")
-            }
-        }.flatMap { it }
 
     /**
      * Get list of books with playback progress (Continue Listening).

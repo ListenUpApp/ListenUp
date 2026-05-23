@@ -107,8 +107,8 @@ interface PlaybackPositionRepository {
      * doesn't expose (e.g., raw timestamps, sync metadata). For domain-model reads,
      * prefer [get] which returns the domain projection via [AppResult].
      *
-     * Primary call site: read-back path for `savePlaybackState(... CrossDeviceSync(...))`
-     * in `ProgressTracker.mergePositions`.
+     * Primary call site: read-back path for `savePlaybackState(... CrossDeviceSync(...))` in
+     * [com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl].
      *
      * @param bookId The book to read the entity row for.
      * @return [AppResult.Success] wrapping the entity (or null if no row exists);
