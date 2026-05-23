@@ -7,7 +7,10 @@ import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.services.UserStatsUpdater
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -20,6 +23,12 @@ import org.koin.dsl.module
  *  - [PlaybackPositionRepository] — per-user `(userId, bookId)` resume positions; `createdAtStart = true`
  *    so its `init` block registers `"playback_positions"` with [com.calypsan.listenup.server.sync.SyncRegistry]
  *    at bootstrap.
+ *  - [UserStatsUpdater] — incremental updater wired into [ListeningEventRepository] and
+ *    [PlaybackPositionRepository]; drives the materialized `user_stats` row.
+ *  - [UserStatsRepository] — materialized per-user stats; `createdAtStart = true`; receives
+ *    [UserStatsUpdater] for lazy window-decay on catch-up.
+ *  - [ListeningEventRepository] — per-user listening spans; `createdAtStart = true`; fires
+ *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
  *  - [PlaybackService] / [PlaybackServiceImpl] — the RPC+REST implementation. Bound at module level
  *    with an unscoped [PrincipalProvider] placeholder; route handlers call [PlaybackServiceImpl.copyWith]
  *    to scope each request to the authenticated caller.
@@ -40,12 +49,22 @@ fun playbackModule(): Module =
             )
         }
         single(createdAtStart = true) { PlaybackPositionRepository(get(), get(), get()) }
+        // Wire the stats repositories without the circular decay reference at construction time.
+        // UserStatsUpdater → UserStatsRepository: direct, constructed first.
+        // UserStatsRepository → UserStatsUpdater: would create a cycle — the optional `userStatsUpdater`
+        // param stays null in the Koin binding; the lazy-decay path is exercised in tests that
+        // construct both manually. Production stats are kept current by the on-event updater.
+        single(createdAtStart = true) { UserStatsRepository(db = get(), bus = get(), registry = get()) }
+        single { UserStatsUpdater(db = get(), userStatsRepo = get()) }
+        single(createdAtStart = true) { ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),
                 audioFileLocator = get(),
                 audioUrlSigner = get(),
                 playbackPositionRepository = get(),
+                listeningEventRepository = get(),
+                userStatsRepository = get(),
                 principal =
                     PrincipalProvider {
                         error(
