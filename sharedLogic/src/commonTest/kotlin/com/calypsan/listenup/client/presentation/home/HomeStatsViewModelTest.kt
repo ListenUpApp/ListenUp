@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.home
 
-import com.calypsan.listenup.client.domain.repository.DailyListening
-import com.calypsan.listenup.client.domain.repository.GenreListening
-import com.calypsan.listenup.client.domain.repository.HomeStats
+import com.calypsan.listenup.client.domain.DayBucket
+import com.calypsan.listenup.client.domain.GenreShare
+import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -46,7 +46,7 @@ class HomeStatsViewModelTest {
 
     private class TestFixture {
         val statsRepository: StatsRepository = mock()
-        val statsFlow = MutableStateFlow(createEmptyStats())
+        val statsFlow = MutableStateFlow(WeeklyStats.empty())
 
         fun build(): HomeStatsViewModel =
             HomeStatsViewModel(
@@ -70,53 +70,30 @@ class HomeStatsViewModelTest {
     // ========== Test Data Factories ==========
 
     companion object {
-        private fun createEmptyStats(): HomeStats =
-            HomeStats(
-                totalListenTimeMs = 0,
-                currentStreakDays = 0,
-                longestStreakDays = 0,
-                dailyListening = emptyList(),
-                genreBreakdown = emptyList(),
-            )
-
         private fun createStats(
-            totalListenTimeMs: Long = 0,
+            totalSecondsThisWeek: Long = 0,
             currentStreakDays: Int = 0,
             longestStreakDays: Int = 0,
-            dailyListening: List<DailyListening> = emptyList(),
-            genreBreakdown: List<GenreListening> = emptyList(),
-        ): HomeStats =
-            HomeStats(
-                totalListenTimeMs = totalListenTimeMs,
+            dailyBuckets: List<DayBucket> = emptyList(),
+            topGenres: List<GenreShare> = emptyList(),
+        ): WeeklyStats =
+            WeeklyStats(
+                totalSecondsThisWeek = totalSecondsThisWeek,
                 currentStreakDays = currentStreakDays,
                 longestStreakDays = longestStreakDays,
-                dailyListening = dailyListening,
-                genreBreakdown = genreBreakdown,
+                dailyBuckets = dailyBuckets,
+                topGenres = topGenres,
             )
 
-        private fun createDailyListening(
-            date: String = "2024-01-01",
-            listenTimeMs: Long = 3_600_000L,
-            booksListened: Int = 1,
-        ): DailyListening =
-            DailyListening(
-                date = date,
-                listenTimeMs = listenTimeMs,
-                booksListened = booksListened,
-            )
+        private fun createDayBucket(
+            dayOffsetFromToday: Int = 0,
+            totalSeconds: Long = 3_600L,
+        ): DayBucket = DayBucket(dayOffsetFromToday = dayOffsetFromToday, totalSeconds = totalSeconds)
 
-        private fun createGenreListening(
-            genreSlug: String = "fiction",
+        private fun createGenreShare(
             genreName: String = "Fiction",
-            listenTimeMs: Long = 3_600_000L,
-            percentage: Double = 50.0,
-        ): GenreListening =
-            GenreListening(
-                genreSlug = genreSlug,
-                genreName = genreName,
-                listenTimeMs = listenTimeMs,
-                percentage = percentage,
-            )
+            totalSeconds: Long = 3_600L,
+        ): GenreShare = GenreShare(genreName = genreName, totalSeconds = totalSeconds)
     }
 
     @BeforeTest
@@ -172,7 +149,7 @@ class HomeStatsViewModelTest {
             // When - flow emits new data
             val stats =
                 createStats(
-                    totalListenTimeMs = 7_200_000L,
+                    totalSecondsThisWeek = 7_200L,
                     currentStreakDays = 3,
                     longestStreakDays = 5,
                 )
@@ -181,7 +158,7 @@ class HomeStatsViewModelTest {
 
             // Then - state should update reactively
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
-            assertEquals(7_200_000L, ready.totalListenTimeMs)
+            assertEquals(7_200L, ready.totalSecondsThisWeek)
             assertEquals(3, ready.currentStreakDays)
             assertEquals(5, ready.longestStreakDays)
         }
@@ -191,22 +168,22 @@ class HomeStatsViewModelTest {
         runTest {
             // Given - start with some stats
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 3_600_000L)
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 3_600L)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
             assertEquals(
-                3_600_000L,
-                assertIs<HomeStatsUiState.Ready>(viewModel.state.value).totalListenTimeMs,
+                3_600L,
+                assertIs<HomeStatsUiState.Ready>(viewModel.state.value).totalSecondsThisWeek,
             )
 
             // When - new listening event added (Flow emits updated stats)
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 7_200_000L)
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 7_200L)
             advanceUntilIdle()
 
             // Then - UI updates immediately without manual refresh
             assertEquals(
-                7_200_000L,
-                assertIs<HomeStatsUiState.Ready>(viewModel.state.value).totalListenTimeMs,
+                7_200L,
+                assertIs<HomeStatsUiState.Ready>(viewModel.state.value).totalSecondsThisWeek,
             )
         }
 
@@ -236,7 +213,7 @@ class HomeStatsViewModelTest {
         runTest {
             // Given - ViewModel with reactive observation
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 1_800_000L)
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 1_800L)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
             val before = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
@@ -250,18 +227,16 @@ class HomeStatsViewModelTest {
             assertEquals(before, after)
         }
 
-    // ========== Formatted Listen Time Tests ==========
+    // ========== Formatted Listen Time Tests (seconds-based) ==========
 
     @Test
     fun `formattedListenTime shows 0m for zero time`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 0)
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 0)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertEquals("0m", ready.formattedListenTime)
         }
@@ -269,13 +244,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `formattedListenTime shows minutes only for less than one hour`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 45 * 60 * 1000L) // 45 minutes
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 45 * 60L) // 45 minutes
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertEquals("45m", ready.formattedListenTime)
         }
@@ -283,13 +256,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `formattedListenTime shows hours only for exact hours`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 2 * 60 * 60 * 1000L) // 2 hours
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 2 * 60 * 60L) // 2 hours
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertEquals("2h", ready.formattedListenTime)
         }
@@ -297,14 +268,12 @@ class HomeStatsViewModelTest {
     @Test
     fun `formattedListenTime shows hours and minutes`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            val twoHoursThirtyMinutes = (2 * 60 + 30) * 60 * 1000L
-            fixture.statsFlow.value = createStats(totalListenTimeMs = twoHoursThirtyMinutes)
+            val twoHoursThirtyMinutes = (2 * 60 + 30) * 60L
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = twoHoursThirtyMinutes)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertEquals("2h 30m", ready.formattedListenTime)
         }
@@ -312,14 +281,12 @@ class HomeStatsViewModelTest {
     @Test
     fun `formattedListenTime shows large hours correctly`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            val fifteenHoursFortyFive = (15 * 60 + 45) * 60 * 1000L
-            fixture.statsFlow.value = createStats(totalListenTimeMs = fifteenHoursFortyFive)
+            val fifteenHoursFortyFive = (15 * 60 + 45) * 60L
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = fifteenHoursFortyFive)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertEquals("15h 45m", ready.formattedListenTime)
         }
@@ -329,44 +296,23 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasData is false when all stats are empty`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createEmptyStats()
+            fixture.statsFlow.value = WeeklyStats.empty()
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertFalse(ready.hasData)
         }
 
     @Test
-    fun `hasData is true when totalListenTimeMs greater than zero`() =
+    fun `hasData is true when totalSecondsThisWeek greater than zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(totalListenTimeMs = 1L)
+            fixture.statsFlow.value = createStats(totalSecondsThisWeek = 1L)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
-            val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
-            assertTrue(ready.hasData)
-        }
-
-    @Test
-    fun `hasData is true when dailyListening is not empty`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.statsFlow.value =
-                createStats(
-                    dailyListening = listOf(createDailyListening()),
-                )
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
-
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasData)
         }
@@ -374,13 +320,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasData is true when currentStreakDays greater than zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value = createStats(currentStreakDays = 1)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasData)
         }
@@ -388,13 +332,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasData is true when longestStreakDays greater than zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value = createStats(longestStreakDays = 5)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasData)
         }
@@ -402,32 +344,25 @@ class HomeStatsViewModelTest {
     // ========== hasGenreData Tests ==========
 
     @Test
-    fun `hasGenreData is false when genreBreakdown is empty`() =
+    fun `hasGenreData is false when topGenres is empty`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(genreBreakdown = emptyList())
+            fixture.statsFlow.value = createStats(topGenres = emptyList())
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertFalse(ready.hasGenreData)
         }
 
     @Test
-    fun `hasGenreData is true when genreBreakdown is not empty`() =
+    fun `hasGenreData is true when topGenres is not empty`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value =
-                createStats(
-                    genreBreakdown = listOf(createGenreListening()),
-                )
+            fixture.statsFlow.value = createStats(topGenres = listOf(createGenreShare()))
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasGenreData)
         }
@@ -437,13 +372,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasStreak is false when both streaks are zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value = createStats(currentStreakDays = 0, longestStreakDays = 0)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertFalse(ready.hasStreak)
         }
@@ -451,13 +384,11 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasStreak is true when currentStreakDays greater than zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value = createStats(currentStreakDays = 1, longestStreakDays = 0)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasStreak)
         }
@@ -465,52 +396,46 @@ class HomeStatsViewModelTest {
     @Test
     fun `hasStreak is true when longestStreakDays greater than zero`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value = createStats(currentStreakDays = 0, longestStreakDays = 7)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
             assertTrue(ready.hasStreak)
         }
 
-    // ========== maxDailyListenTimeMs Tests ==========
+    // ========== maxDailySeconds Tests ==========
 
     @Test
-    fun `maxDailyListenTimeMs is zero when dailyListening is empty`() =
+    fun `maxDailySeconds is zero when dailyBuckets is empty`() =
         runTest {
-            // Given
             val fixture = createFixture()
-            fixture.statsFlow.value = createStats(dailyListening = emptyList())
+            fixture.statsFlow.value = createStats(dailyBuckets = emptyList())
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
-            assertEquals(0L, ready.maxDailyListenTimeMs)
+            assertEquals(0L, ready.maxDailySeconds)
         }
 
     @Test
-    fun `maxDailyListenTimeMs returns maximum from dailyListening`() =
+    fun `maxDailySeconds returns maximum from dailyBuckets`() =
         runTest {
-            // Given
             val fixture = createFixture()
             fixture.statsFlow.value =
                 createStats(
-                    dailyListening =
+                    dailyBuckets =
                         listOf(
-                            createDailyListening(date = "2024-01-01", listenTimeMs = 1_800_000L),
-                            createDailyListening(date = "2024-01-02", listenTimeMs = 3_600_000L),
-                            createDailyListening(date = "2024-01-03", listenTimeMs = 2_400_000L),
+                            createDayBucket(dayOffsetFromToday = 0, totalSeconds = 1_800L),
+                            createDayBucket(dayOffsetFromToday = 1, totalSeconds = 3_600L),
+                            createDayBucket(dayOffsetFromToday = 2, totalSeconds = 2_400L),
                         ),
                 )
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
-            // Then
             val ready = assertIs<HomeStatsUiState.Ready>(viewModel.state.value)
-            assertEquals(3_600_000L, ready.maxDailyListenTimeMs)
+            assertEquals(3_600L, ready.maxDailySeconds)
         }
 }

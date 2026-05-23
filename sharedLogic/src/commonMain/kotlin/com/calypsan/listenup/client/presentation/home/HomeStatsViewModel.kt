@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.domain.repository.DailyListening
-import com.calypsan.listenup.client.domain.repository.GenreListening
+import com.calypsan.listenup.client.domain.DayBucket
+import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,19 +15,21 @@ import kotlinx.coroutines.flow.stateIn
 
 private val logger = KotlinLogging.logger {}
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
-private const val MS_PER_MINUTE = 60_000L
+private const val MS_PER_SECOND = 1_000L
+private const val SECONDS_PER_MINUTE = 60L
 private const val MINUTES_PER_HOUR = 60L
 
 /**
  * ViewModel for the Home screen stats section.
  *
  * Manages:
- * - 7-day listening chart data
+ * - 7-day listening bar chart (one [DayBucket] per day, today-first)
  * - Current/longest streak display
  * - Top 3 genres breakdown
  *
- * Stats are computed locally from ListeningEventEntity records stored in Room.
- * Updates automatically when new listening events are added (local or via SSE).
+ * Stats are computed locally from `listening_events` and `user_stats` records
+ * stored in Room. Updates automatically when new listening events are added
+ * (local or via SSE sync).
  *
  * @property statsRepository Repository for computing local stats
  */
@@ -39,11 +41,12 @@ class HomeStatsViewModel(
             .observeWeeklyStats()
             .map<_, HomeStatsUiState> { stats ->
                 HomeStatsUiState.Ready(
-                    totalListenTimeMs = stats.totalListenTimeMs,
+                    totalSecondsThisWeek = stats.totalSecondsThisWeek,
                     currentStreakDays = stats.currentStreakDays,
                     longestStreakDays = stats.longestStreakDays,
-                    dailyListening = stats.dailyListening,
-                    genreBreakdown = stats.genreBreakdown,
+                    dailyBuckets = stats.dailyBuckets,
+                    topGenres = stats.topGenres,
+                    isEverEmpty = stats.isEverEmpty,
                 )
             }.onStart { emit(HomeStatsUiState.Loading) }
             .catch { e ->
@@ -74,11 +77,15 @@ sealed interface HomeStatsUiState {
 
     /** Stats loaded from Room. Derived display helpers live here. */
     data class Ready(
-        val totalListenTimeMs: Long,
+        val totalSecondsThisWeek: Long,
         val currentStreakDays: Int,
         val longestStreakDays: Int,
-        val dailyListening: List<DailyListening>,
-        val genreBreakdown: List<GenreListening>,
+        /** 7 buckets, index 0 = today, index 6 = six days ago. */
+        val dailyBuckets: List<DayBucket>,
+        /** Up to 3 genres, descending by listening seconds. */
+        val topGenres: List<GenreShare>,
+        /** True when the user has never listened to anything (not just this week). */
+        val isEverEmpty: Boolean,
     ) : HomeStatsUiState {
         /**
          * Total listening time formatted as human-readable string.
@@ -87,7 +94,7 @@ sealed interface HomeStatsUiState {
          */
         val formattedListenTime: String
             get() {
-                val totalMinutes = totalListenTimeMs / MS_PER_MINUTE
+                val totalMinutes = totalSecondsThisWeek / SECONDS_PER_MINUTE
                 val hours = totalMinutes / MINUTES_PER_HOUR
                 val minutes = totalMinutes % MINUTES_PER_HOUR
                 return when {
@@ -97,21 +104,17 @@ sealed interface HomeStatsUiState {
                 }
             }
 
-        /** Whether there is any data to display. */
+        /** Whether there is any listening data to display this week. */
         val hasData: Boolean
-            get() =
-                totalListenTimeMs > 0 ||
-                    dailyListening.isNotEmpty() ||
-                    currentStreakDays > 0 ||
-                    longestStreakDays > 0
+            get() = totalSecondsThisWeek > 0 || currentStreakDays > 0 || longestStreakDays > 0
 
         /** Whether there is genre data to display. */
         val hasGenreData: Boolean
-            get() = genreBreakdown.isNotEmpty()
+            get() = topGenres.isNotEmpty()
 
-        /** Maximum daily listening time in milliseconds for chart scaling. */
-        val maxDailyListenTimeMs: Long
-            get() = dailyListening.maxOfOrNull { it.listenTimeMs } ?: 0
+        /** Maximum daily seconds across all buckets — for bar chart scaling. */
+        val maxDailySeconds: Long
+            get() = dailyBuckets.maxOfOrNull { it.totalSeconds } ?: 0L
 
         /** Whether to show the streak section (current or longest streak > 0). */
         val hasStreak: Boolean

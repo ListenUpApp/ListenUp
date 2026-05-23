@@ -905,7 +905,9 @@ val syncModule =
         single<StatsRepository> {
             StatsRepositoryImpl(
                 listeningEventDao = get(),
+                userStatsDao = get(),
                 genreDao = get(),
+                authSession = get(),
             )
         }
 

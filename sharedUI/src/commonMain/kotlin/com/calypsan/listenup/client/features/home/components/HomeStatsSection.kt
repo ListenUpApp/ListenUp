@@ -88,7 +88,7 @@ fun HomeStatsSection(
                 }
 
                 is HomeStatsUiState.Ready -> {
-                    if (s.hasData) {
+                    if (!s.isEverEmpty) {
                         HomeStatsContent(state = s)
                     } else {
                         Text(
@@ -112,10 +112,9 @@ private fun HomeStatsContent(state: HomeStatsUiState.Ready) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // 7-day listening chart
-        if (state.dailyListening.isNotEmpty()) {
+        if (state.dailyBuckets.isNotEmpty()) {
             DailyListeningChart(
-                dailyListening = state.dailyListening,
-                maxListenTimeMs = state.maxDailyListenTimeMs,
+                dailyBuckets = state.dailyBuckets,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -131,7 +130,7 @@ private fun HomeStatsContent(state: HomeStatsUiState.Ready) {
         // Genre breakdown
         if (state.hasGenreData) {
             GenreBreakdownBars(
-                genres = state.genreBreakdown,
+                genres = state.topGenres,
             )
         }
     }
