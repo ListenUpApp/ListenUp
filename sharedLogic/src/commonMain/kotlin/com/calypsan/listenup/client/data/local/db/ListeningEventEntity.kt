@@ -228,6 +228,35 @@ interface ListeningEventDao {
     fun observeDistinctDaysSince(sinceMs: Long): Flow<List<Long>>
 
     /**
+     * Observe events for a specific user within a time window (exclusive upper bound).
+     *
+     * Scoped to [userId] so cross-user events never contaminate stats. Tombstoned
+     * events ([deletedAt] != null) are excluded — they represent server-reconciled
+     * deletes and must not inflate stats.
+     *
+     * @param userId The user whose events to observe.
+     * @param startMs Inclusive lower bound (epoch ms) on [endedAt].
+     * @param endMs Exclusive upper bound (epoch ms) on [endedAt].
+     * @return Flow that re-emits the full matching list whenever any row in
+     *   [tableName] changes (Room reactive semantics).
+     */
+    @Query(
+        """
+        SELECT * FROM listening_events
+        WHERE userId = :userId
+          AND endedAt >= :startMs
+          AND endedAt < :endMs
+          AND deletedAt IS NULL
+        ORDER BY endedAt DESC
+    """,
+    )
+    fun observeWithinWindow(
+        userId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<ListeningEventEntity>>
+
+    /**
      * Get total duration grouped by book for a date range.
      * Uses bounds checking to prevent overflow from corrupted data.
      */
