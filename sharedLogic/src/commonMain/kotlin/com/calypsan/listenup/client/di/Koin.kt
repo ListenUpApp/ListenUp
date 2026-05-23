@@ -1061,6 +1061,15 @@ val syncModule =
             )
         }
 
+        // BookListeningHistoryRepository for Book Detail listening-history section.
+        // Pure Room observation from listening_events, day-bucketed per the viewer's local TZ.
+        single<com.calypsan.listenup.client.domain.repository.BookListeningHistoryRepository> {
+            com.calypsan.listenup.client.data.repository.BookListeningHistoryRepositoryImpl(
+                listeningEventDao = get(),
+                authSession = get(),
+            )
+        }
+
         // ContributorRepository for domain-layer contributor queries including search and metadata
         single<com.calypsan.listenup.client.domain.repository.ContributorRepository> {
             com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl(

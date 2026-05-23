@@ -268,6 +268,12 @@ val bookPresentationModule =
                 bookId = params.get(),
             )
         }
+        factory { params ->
+            com.calypsan.listenup.client.presentation.bookdetail.BookListeningHistoryViewModel(
+                repo = get(),
+                bookId = params.get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel(
                 loadBookForEditUseCase = get(),
