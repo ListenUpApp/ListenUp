@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.components.UserAvatarMenu
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import org.jetbrains.compose.resources.stringResource
@@ -104,7 +104,7 @@ fun AppNavigationRail(
         }
 
         // User avatar at bottom (profile + sign out only)
-        UserAvatar(
+        UserAvatarMenu(
             user = user,
             expanded = isAvatarMenuExpanded,
             onExpandedChange = onAvatarMenuExpandedChange,

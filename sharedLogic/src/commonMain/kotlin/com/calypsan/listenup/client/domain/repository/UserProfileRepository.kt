@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository for accessing cached user profile data.
@@ -16,4 +17,16 @@ interface UserProfileRepository {
      * @return The cached profile or null if not found
      */
     suspend fun getById(userId: String): CachedUserProfile?
+
+    /**
+     * Observe a user's cached profile reactively.
+     *
+     * Emits the current cached value immediately, then emits again whenever
+     * the profile is updated (e.g. via SSE profile.updated events or sync).
+     * Emits null if the profile is not yet cached.
+     *
+     * @param userId The user's unique ID
+     * @return Flow emitting the cached profile or null if not yet cached
+     */
+    fun observeProfile(userId: String): Flow<CachedUserProfile?>
 }
