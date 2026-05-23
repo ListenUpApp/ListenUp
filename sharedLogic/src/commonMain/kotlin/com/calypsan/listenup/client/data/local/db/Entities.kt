@@ -228,7 +228,12 @@ data class PlaybackPositionEntity(
     val hasCustomSpeed: Boolean = false,
     // Local timestamp when entity was modified (epoch ms)
     val updatedAt: Long,
-    // When last synced to server (null if not synced)
+    // Epoch-ms timestamp from the last server-applied write (null if the row has never
+    // been written by the server via CrossDeviceSync or an SSE catch-up). Originally
+    // used as an outbox dirty-bit; the pending-operation queue (Playback-P1) is now
+    // the outbox. syncedAt now serves solely as a "came-from-server" marker in the
+    // CrossDeviceSync handler. The DAO methods getUnsyncedPositions/markSynced that
+    // consumed this column as an outbox were removed in Playback-P1.
     val syncedAt: Long? = null,
     // When user actually last played this book (epoch ms)
     // Used for "Continue Listening" ordering and social features ("last read")

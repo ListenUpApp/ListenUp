@@ -41,10 +41,9 @@ data class PlaybackProgressResponse(
      * Convert to local PlaybackPositionEntity for caching.
      *
      * Uses the server's own timestamps (not Clock.System.now()) so that
-     * future local-vs-server comparisons in ProgressTracker.mergePositions
-     * use consistent time bases. Using local clock would inflate updatedAt,
-     * causing stale local positions to win over newer server positions on
-     * subsequent app launches.
+     * future local-vs-server comparisons use consistent time bases.
+     * Using local clock would inflate updatedAt, causing stale local positions
+     * to win over newer server positions on subsequent app launches.
      */
     fun toEntity(): PlaybackPositionEntity {
         val serverUpdatedAt = updatedAtMillis()

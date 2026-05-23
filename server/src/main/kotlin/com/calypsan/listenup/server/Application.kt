@@ -91,7 +91,7 @@ fun Application.module() {
         }
         modules += embeddedmetaModule
         modules += syncModule()
-        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule()
+        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule(hasPlaybackModule = resolvedLibraryPath != null)
         modules(modules)
     }
 
