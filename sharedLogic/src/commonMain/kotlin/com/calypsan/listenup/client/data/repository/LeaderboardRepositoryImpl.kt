@@ -317,15 +317,19 @@ class LeaderboardRepositoryImpl(
     /**
      * Fetch and cache user stats for All-time leaderboard.
      *
-     * Called when the user_stats cache is empty (first All-time view).
-     * Fetches from server with period=ALL which includes totalTimeMs,
-     * totalBooks, and currentStreak for each user.
+     * **Vestigial after Playback-P2.** The `user_stats` table is now populated by
+     * [com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler] via the sync
+     * engine; the old leaderboard-API fetch path is no longer valid. This method is a no-op
+     * until the leaderboard subsystem is rebuilt against the P2 `user_stats` shape.
+     * The [leaderboardApi] constructor parameter is also unused as a result.
      */
+    @Deprecated(
+        message =
+            "Vestigial after Playback-P2; the leaderboard subsystem needs a rebuild against " +
+                "the P2 user_stats sync domain before this path is meaningful again.",
+        level = DeprecationLevel.WARNING,
+    )
     override suspend fun fetchAndCacheUserStats(): Boolean {
-        // TODO(P2-leaderboard): The user_stats table now holds per-user materialized stats
-        //  from the P2 sync domain (UserStatsSyncDomainHandler). The old leaderboard-API
-        //  cache path is no longer valid. This method becomes a no-op until the P2 handler
-        //  lands and populates user_stats via the sync engine.
         logger.debug { "fetchAndCacheUserStats: no-op in P2 — stats arrive via sync domain handler" }
         return true
     }
