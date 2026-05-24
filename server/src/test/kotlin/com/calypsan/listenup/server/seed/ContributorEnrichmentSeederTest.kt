@@ -5,7 +5,6 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -14,8 +13,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class ContributorEnrichmentSeederTest :
     FunSpec({
 
-        fun makeRepo(db: Database): ContributorRepository =
-            ContributorRepository(db, ChangeBus(), SyncRegistry())
+        fun makeRepo(db: Database): ContributorRepository = ContributorRepository(db, ChangeBus(), SyncRegistry())
 
         test("seed enriches contributors that have no description") {
             withInMemoryDatabase {
@@ -101,5 +99,4 @@ class ContributorEnrichmentSeederTest :
  * exists, or creates a new (unenriched) one. The returned payload reflects the
  * current DB state, including any enrichment applied by the seeder.
  */
-private suspend fun ContributorRepository.findByName(displayName: String) =
-    findById(resolveOrCreate(displayName).value)
+private suspend fun ContributorRepository.findByName(displayName: String) = findById(resolveOrCreate(displayName).value)

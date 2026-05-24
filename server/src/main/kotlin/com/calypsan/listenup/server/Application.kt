@@ -110,10 +110,11 @@ fun Application.module() {
         modules += embeddedmetaModule
         modules += syncModule()
         if (seedProfile == SEED_PROFILE_DEMO) {
-            modules += seedModule(
-                hasPlaybackModule = resolvedLibraryPath != null,
-                hasBooksModule = resolvedLibraryPath != null,
-            )
+            modules +=
+                seedModule(
+                    hasPlaybackModule = resolvedLibraryPath != null,
+                    hasBooksModule = resolvedLibraryPath != null,
+                )
         }
         modules(modules)
     }

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.server.scheduler
 
-import com.calypsan.listenup.api.sync.ContributorSyncPayload
-import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -51,7 +49,11 @@ class OrphanImageCleanupTaskTest :
                     // Seed a live contributor and a tombstoned contributor via the substrate
                     val liveId = contributorRepo.resolveOrCreate("Brandon Sanderson").value
                     val tombstonedId = contributorRepo.resolveOrCreate("Deleted Author").value
-                    contributorRepo.softDelete(com.calypsan.listenup.core.ContributorId(tombstonedId), userId = null)
+                    contributorRepo.softDelete(
+                        com.calypsan.listenup.core
+                            .ContributorId(tombstonedId),
+                        userId = null,
+                    )
 
                     val contributorDir = Path(tempDir, ".listenup-meta/contributors")
                     // live file — must survive
@@ -63,11 +65,12 @@ class OrphanImageCleanupTaskTest :
                     // non-jpg — must be ignored (not deleted)
                     touch(Path(contributorDir, "$liveId.png"))
 
-                    val task = OrphanImageCleanupTask(
-                        contributorRepository = contributorRepo,
-                        seriesRepository = seriesRepo,
-                        libraryPath = Path(tempDir),
-                    )
+                    val task =
+                        OrphanImageCleanupTask(
+                            contributorRepository = contributorRepo,
+                            seriesRepository = seriesRepo,
+                            libraryPath = Path(tempDir),
+                        )
                     task.runOnce()
 
                     SystemFileSystem.exists(Path(contributorDir, "$liveId.jpg")) shouldBe true
@@ -93,11 +96,12 @@ class OrphanImageCleanupTaskTest :
                     // orphan — must be deleted
                     touch(Path(seriesDir, "orphan-series-id.jpg"))
 
-                    val task = OrphanImageCleanupTask(
-                        contributorRepository = contributorRepo,
-                        seriesRepository = seriesRepo,
-                        libraryPath = Path(tempDir),
-                    )
+                    val task =
+                        OrphanImageCleanupTask(
+                            contributorRepository = contributorRepo,
+                            seriesRepository = seriesRepo,
+                            libraryPath = Path(tempDir),
+                        )
                     task.runOnce()
 
                     SystemFileSystem.exists(Path(seriesDir, "$liveSeriesId.jpg")) shouldBe true
@@ -110,11 +114,12 @@ class OrphanImageCleanupTaskTest :
             withInMemoryDatabase {
                 val tempDir = Files.createTempDirectory("orphan-nodir-test-").toString()
                 val db = this
-                val task = OrphanImageCleanupTask(
-                    contributorRepository = makeContributorRepo(db),
-                    seriesRepository = makeSeriesRepo(db),
-                    libraryPath = Path(tempDir),
-                )
+                val task =
+                    OrphanImageCleanupTask(
+                        contributorRepository = makeContributorRepo(db),
+                        seriesRepository = makeSeriesRepo(db),
+                        libraryPath = Path(tempDir),
+                    )
                 runTest {
                     // must not throw
                     task.runOnce()
@@ -126,11 +131,12 @@ class OrphanImageCleanupTaskTest :
             withInMemoryDatabase {
                 val tempDir = Files.createTempDirectory("orphan-emptydir-test-").toString()
                 val db = this
-                val task = OrphanImageCleanupTask(
-                    contributorRepository = makeContributorRepo(db),
-                    seriesRepository = makeSeriesRepo(db),
-                    libraryPath = Path(tempDir),
-                )
+                val task =
+                    OrphanImageCleanupTask(
+                        contributorRepository = makeContributorRepo(db),
+                        seriesRepository = makeSeriesRepo(db),
+                        libraryPath = Path(tempDir),
+                    )
                 runTest {
                     SystemFileSystem.createDirectories(Path(tempDir, ".listenup-meta/contributors"))
                     SystemFileSystem.createDirectories(Path(tempDir, ".listenup-meta/series"))
