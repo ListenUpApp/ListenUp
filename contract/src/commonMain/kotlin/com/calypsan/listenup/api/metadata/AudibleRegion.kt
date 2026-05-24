@@ -39,7 +39,6 @@ enum class AudibleRegion(
 
     companion object {
         /** Returns the region whose [code] matches, case-insensitively, or `null`. */
-        fun fromCodeOrNull(code: String): AudibleRegion? =
-            entries.firstOrNull { it.code == code.lowercase() }
+        fun fromCodeOrNull(code: String): AudibleRegion? = entries.firstOrNull { it.code == code.lowercase() }
     }
 }

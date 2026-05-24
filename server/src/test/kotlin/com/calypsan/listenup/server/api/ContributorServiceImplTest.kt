@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -34,14 +33,19 @@ class ContributorServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = ContributorServiceImpl(contributorRepo = contributorRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = contributorRepo,
-                    seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                ))
+                val service =
+                    ContributorServiceImpl(
+                        contributorRepo = contributorRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = contributorRepo,
+                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            ),
+                    )
                 runTest {
                     val id = contributorRepo.resolveOrCreate("Brandon Sanderson")
 
@@ -61,14 +65,19 @@ class ContributorServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = ContributorServiceImpl(contributorRepo = contributorRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = contributorRepo,
-                    seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                ))
+                val service =
+                    ContributorServiceImpl(
+                        contributorRepo = contributorRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = contributorRepo,
+                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            ),
+                    )
                 runTest {
                     val result = service.getContributor(ContributorId("does-not-exist"))
 
@@ -85,14 +94,15 @@ class ContributorServiceImplTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = contributorRepo,
-                    seriesRepository = seriesRepo,
-                )
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                    )
                 val service = ContributorServiceImpl(contributorRepo = contributorRepo, bookRepo = bookRepo)
                 runTest {
                     val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -113,14 +123,19 @@ class ContributorServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = ContributorServiceImpl(contributorRepo = contributorRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = contributorRepo,
-                    seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                ))
+                val service =
+                    ContributorServiceImpl(
+                        contributorRepo = contributorRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = contributorRepo,
+                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                            ),
+                    )
                 runTest {
                     val contributorId = contributorRepo.resolveOrCreate("Unknown Author")
 

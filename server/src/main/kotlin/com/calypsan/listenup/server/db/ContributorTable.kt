@@ -20,6 +20,7 @@ internal object ContributorTable : SyncableTable("contributors") {
     val normalizedName = varchar("normalized_name", 512)
     val name = varchar("name", 512)
     val sortName = varchar("sort_name", 512).nullable()
+
     // B2a enrichment columns
     val asin = varchar("asin", 32).nullable()
     val description = text("description").nullable()

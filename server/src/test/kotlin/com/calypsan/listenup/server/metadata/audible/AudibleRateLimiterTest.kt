@@ -20,8 +20,11 @@ import kotlin.time.Instant
  * [epochMs] property. Lets the rate limiter see deterministic timestamps that
  * the test advances in step with [advanceTimeBy].
  */
-private class MutableClock(initialEpochMs: Long = 0L) : kotlin.time.Clock {
+private class MutableClock(
+    initialEpochMs: Long = 0L,
+) : kotlin.time.Clock {
     var epochMs: Long = initialEpochMs
+
     override fun now(): Instant = Instant.fromEpochMilliseconds(epochMs)
 }
 
@@ -85,14 +88,15 @@ class AudibleRateLimiterTest :
                 clock.epochMs = currentTime
 
                 var caughtCancellation = false
-                val job = launch {
-                    try {
-                        limiter.await(AudibleRegion.US)
-                    } catch (e: CancellationException) {
-                        caughtCancellation = true
-                        throw e
+                val job =
+                    launch {
+                        try {
+                            limiter.await(AudibleRegion.US)
+                        } catch (e: CancellationException) {
+                            caughtCancellation = true
+                            throw e
+                        }
                     }
-                }
 
                 // Advance 500ms — not enough to unblock (needs 10s).
                 advanceTimeBy(500.milliseconds)

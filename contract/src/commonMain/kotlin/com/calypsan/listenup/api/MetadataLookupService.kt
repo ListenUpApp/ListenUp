@@ -43,7 +43,10 @@ interface MetadataLookupService {
      * Results are cached for 24 hours (search-TTL). Repeated calls with the
      * same arguments are cheap.
      */
-    suspend fun searchBooks(query: String, region: AudibleRegion?): AppResult<MetadataSearchResults>
+    suspend fun searchBooks(
+        query: String,
+        region: AudibleRegion?,
+    ): AppResult<MetadataSearchResults>
 
     /**
      * Fetches the canonical metadata for the Audible book identified by [asin]
@@ -53,7 +56,10 @@ interface MetadataLookupService {
      * for the ASIN; null is cached for the same 7-day TTL so repeated lookups
      * for unknown ASINs don't hammer the external API.
      */
-    suspend fun getBookMetadata(asin: String, region: AudibleRegion): AppResult<MetadataBook?>
+    suspend fun getBookMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?>
 
     /**
      * Fetches the chapter list for the Audible book identified by [asin] in
@@ -63,7 +69,10 @@ interface MetadataLookupService {
      * unavailable. Cached for 30 days — chapter lists rarely change after a
      * book is published.
      */
-    suspend fun getBookChapters(asin: String, region: AudibleRegion): AppResult<MetadataChapters?>
+    suspend fun getBookChapters(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataChapters?>
 
     /**
      * Searches Audible for contributors matching [query].
@@ -88,7 +97,10 @@ interface MetadataLookupService {
      * Returns `null` inside [AppResult.Success] when Audible returns HTTP 404
      * for the ASIN.
      */
-    suspend fun getContributorMetadata(asin: String, region: AudibleRegion): AppResult<MetadataContributorProfile?>
+    suspend fun getContributorMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataContributorProfile?>
 
     /**
      * Bypasses the cache and forces a fresh fetch of the Audible metadata for
@@ -97,7 +109,10 @@ interface MetadataLookupService {
      * Use sparingly — this counts against the per-region rate limit. Intended
      * for operator or power-user workflows where the cached data is stale.
      */
-    suspend fun refreshBookMetadata(asin: String, region: AudibleRegion): AppResult<MetadataBook?>
+    suspend fun refreshBookMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?>
 
     /**
      * Applies the canonical Audible metadata for [asin] to the book at
@@ -108,7 +123,11 @@ interface MetadataLookupService {
      * connected clients' Room databases receive the update. The caller should
      * confirm the match in a preview UI before calling this method.
      */
-    suspend fun applyBookMetadata(bookId: BookId, asin: String, region: AudibleRegion): AppResult<Unit>
+    suspend fun applyBookMetadata(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<Unit>
 
     /**
      * Applies the canonical Audible contributor metadata for [asin] to the

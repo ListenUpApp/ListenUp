@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
@@ -23,19 +24,26 @@ import kotlin.time.Instant
 
 class AudibleClientTest :
     FunSpec({
-        val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        val json =
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            }
 
         fun makeClient(engine: MockEngine): AudibleClient {
-            val httpClient = HttpClient(engine) {
-                install(ContentNegotiation) { json(json) }
-            }
+            val httpClient =
+                HttpClient(engine) {
+                    install(ContentNegotiation) { json(json) }
+                }
             // Clock always at epoch — rate limiter always grants immediately in tests.
-            val rateLimiter = AudibleRateLimiter(
-                perRegionInterval = 0.seconds,
-                clock = object : kotlin.time.Clock {
-                    override fun now() = Instant.fromEpochMilliseconds(0)
-                },
-            )
+            val rateLimiter =
+                AudibleRateLimiter(
+                    perRegionInterval = 0.seconds,
+                    clock =
+                        object : kotlin.time.Clock {
+                            override fun now() = Instant.fromEpochMilliseconds(0)
+                        },
+                )
             return AudibleClient(httpClient, rateLimiter, json)
         }
 
@@ -43,13 +51,14 @@ class AudibleClientTest :
 
         test("search returns Success with parsed results on 200") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_200,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -63,9 +72,10 @@ class AudibleClientTest :
 
         test("search returns ExternalRateLimited on 429") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.TooManyRequests)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.TooManyRequests)
+                    }
                 val client = makeClient(engine)
                 val result = client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -76,9 +86,10 @@ class AudibleClientTest :
 
         test("search returns ExternalUnavailable on 500") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.InternalServerError)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.InternalServerError)
+                    }
                 val client = makeClient(engine)
                 val result = client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -89,9 +100,10 @@ class AudibleClientTest :
 
         test("search returns NotFound on 404") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.NotFound)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.NotFound)
+                    }
                 val client = makeClient(engine)
                 val result = client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -102,13 +114,14 @@ class AudibleClientTest :
 
         test("search returns Malformed on invalid JSON") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = """{"products": "not an array"}""",
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = """{"products": "not an array"}""",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -120,27 +133,31 @@ class AudibleClientTest :
         test("search calls rate limiter before making the HTTP request") {
             runTest {
                 var rateLimiterCallCount = 0
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_200,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
-                val httpClient = HttpClient(engine) {
-                    install(ContentNegotiation) { json(json) }
-                }
-                val countingLimiter = object : AudibleRateLimiter(
-                    perRegionInterval = 0.seconds,
-                    clock = object : kotlin.time.Clock {
-                        override fun now() = Instant.fromEpochMilliseconds(0)
-                    },
-                ) {
-                    override suspend fun await(region: AudibleRegion) {
-                        rateLimiterCallCount++
-                        super.await(region)
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
                     }
-                }
+                val httpClient =
+                    HttpClient(engine) {
+                        install(ContentNegotiation) { json(json) }
+                    }
+                val countingLimiter =
+                    object : AudibleRateLimiter(
+                        perRegionInterval = 0.seconds,
+                        clock =
+                            object : kotlin.time.Clock {
+                                override fun now() = Instant.fromEpochMilliseconds(0)
+                            },
+                    ) {
+                        override suspend fun await(region: AudibleRegion) {
+                            rateLimiterCallCount++
+                            super.await(region)
+                        }
+                    }
                 val client = AudibleClient(httpClient, countingLimiter, json)
                 client.search(AudibleRegion.US, SearchParams(keywords = "dune"))
 
@@ -152,13 +169,14 @@ class AudibleClientTest :
 
         test("getBook returns Success with parsed book on 200") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = BOOK_200,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = BOOK_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.getBook(AudibleRegion.US, "B002V5DFJ4")
 
@@ -173,13 +191,14 @@ class AudibleClientTest :
 
         test("getChapters returns Success with parsed chapters on 200") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = CHAPTERS_200,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = CHAPTERS_200,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.getChapters(AudibleRegion.US, "B002V5DFJ4")
 
@@ -192,11 +211,83 @@ class AudibleClientTest :
                 chapters[1].startMs shouldBe 45_000L
             }
         }
+
+        // ─── getContributor ───────────────────────────────────────────────────
+
+        test("getContributor returns Success with parsed profile when og:image is present") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = CONTRIBUTOR_PAGE_WITH_OG_IMAGE,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.getContributor(AudibleRegion.US, "B000APZOQA")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val profile = (result as AppResult.Success<AudibleContributorProfile?>).data
+                profile.shouldNotBeNull()
+                profile.asin shouldBe "B000APZOQA"
+                profile.name shouldBe "Frank Herbert"
+                profile.biography shouldBe "Author of Dune"
+                profile.imageUrl shouldBe "https://images.example.com/frank_herbert.jpg"
+            }
+        }
+
+        test("getContributor returns null (Success) on 404 — Audible serves generic page for unknown ASINs") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.NotFound)
+                    }
+                val client = makeClient(engine)
+                val result = client.getContributor(AudibleRegion.US, "UNKNOWN")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success<*>).data shouldBe null
+            }
+        }
+
+        test("getContributor returns ExternalRateLimited on 429") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.TooManyRequests)
+                    }
+                val client = makeClient(engine)
+                val result = client.getContributor(AudibleRegion.US, "B000APZOQA")
+
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<MetadataError.ExternalRateLimited>()
+            }
+        }
+
+        test("getContributor returns null when page has no bc-heading h1 — generic/unknown page") {
+            runTest {
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = "<html><body><p>Not found</p></body></html>",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", "text/html"),
+                        )
+                    }
+                val client = makeClient(engine)
+                val result = client.getContributor(AudibleRegion.US, "B000APZOQA")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success<*>).data shouldBe null
+            }
+        }
     })
 
 // ─── Fixture JSON ─────────────────────────────────────────────────────────────
 
-private val SEARCH_200 = """
+private val SEARCH_200 =
+    """
 {
   "products": [
     {
@@ -222,9 +313,10 @@ private val SEARCH_200 = """
     }
   ]
 }
-""".trimIndent()
+    """.trimIndent()
 
-private val BOOK_200 = """
+private val BOOK_200 =
+    """
 {
   "product": {
     "asin": "B002V5DFJ4",
@@ -243,9 +335,10 @@ private val BOOK_200 = """
     "rating": null
   }
 }
-""".trimIndent()
+    """.trimIndent()
 
-private val CHAPTERS_200 = """
+private val CHAPTERS_200 =
+    """
 {
   "content_metadata": {
     "chapter_info": {
@@ -256,4 +349,26 @@ private val CHAPTERS_200 = """
     }
   }
 }
-""".trimIndent()
+    """.trimIndent()
+
+// ─── Contributor page HTML fixture ────────────────────────────────────────────
+
+/**
+ * Minimal Audible author page HTML with:
+ *  - `<h1 class="bc-heading">Frank Herbert</h1>` → name
+ *  - `class="bc-expander-content"` → biography text
+ *  - `<meta property="og:image" content="...">` → image URL (not a placeholder)
+ */
+private val CONTRIBUTOR_PAGE_WITH_OG_IMAGE =
+    """
+<!DOCTYPE html>
+<html>
+<head>
+<meta property="og:image" content="https://images.example.com/frank_herbert.jpg">
+</head>
+<body>
+<h1 class="bc-heading">Frank Herbert</h1>
+<div class="bc-expander-content">Author of Dune</div>
+</body>
+</html>
+    """.trimIndent()

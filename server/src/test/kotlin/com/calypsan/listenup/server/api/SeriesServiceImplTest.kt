@@ -33,14 +33,19 @@ class SeriesServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = SeriesServiceImpl(seriesRepo = seriesRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                    seriesRepository = seriesRepo,
-                ))
+                val service =
+                    SeriesServiceImpl(
+                        seriesRepo = seriesRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                                seriesRepository = seriesRepo,
+                            ),
+                    )
                 runTest {
                     val id = seriesRepo.resolveOrCreate("The Stormlight Archive")
 
@@ -60,14 +65,19 @@ class SeriesServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = SeriesServiceImpl(seriesRepo = seriesRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                    seriesRepository = seriesRepo,
-                ))
+                val service =
+                    SeriesServiceImpl(
+                        seriesRepo = seriesRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                                seriesRepository = seriesRepo,
+                            ),
+                    )
                 runTest {
                     val result = service.getSeries(SeriesId("does-not-exist"))
 
@@ -84,14 +94,15 @@ class SeriesServiceImplTest :
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
-                val bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = contributorRepo,
-                    seriesRepository = seriesRepo,
-                )
+                val bookRepo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                    )
                 val service = SeriesServiceImpl(seriesRepo = seriesRepo, bookRepo = bookRepo)
                 runTest {
                     val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -112,14 +123,19 @@ class SeriesServiceImplTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
-                val service = SeriesServiceImpl(seriesRepo = seriesRepo, bookRepo = BookRepository(
-                    db = db,
-                    bus = bus,
-                    registry = syncRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
-                    contributorRepository = ContributorRepository(db, bus, syncRegistry),
-                    seriesRepository = seriesRepo,
-                ))
+                val service =
+                    SeriesServiceImpl(
+                        seriesRepo = seriesRepo,
+                        bookRepo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                                seriesRepository = seriesRepo,
+                            ),
+                    )
                 runTest {
                     val seriesId = seriesRepo.resolveOrCreate("Empty Series")
 

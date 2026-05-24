@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.server.db.MetadataCacheTable
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -43,7 +42,10 @@ internal class MetadataCacheRepository(
      * An expired row is deleted as a side-effect (lazy eviction). The periodic
      * cleanup task handles rows that are never re-read.
      */
-    suspend fun get(cacheKey: String, region: AudibleRegion): String? =
+    suspend fun get(
+        cacheKey: String,
+        region: AudibleRegion,
+    ): String? =
         suspendTransaction(db) {
             val storedKey = storedKey(cacheKey, region)
             val row =
@@ -121,6 +123,8 @@ internal class MetadataCacheRepository(
      * distinct even when the logical key is identical, since
      * [MetadataCacheTable.cacheKey] is the sole primary key.
      */
-    private fun storedKey(cacheKey: String, region: AudibleRegion): String =
-        "${region.code}:$cacheKey"
+    private fun storedKey(
+        cacheKey: String,
+        region: AudibleRegion,
+    ): String = "${region.code}:$cacheKey"
 }

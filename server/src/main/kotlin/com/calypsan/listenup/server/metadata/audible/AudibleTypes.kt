@@ -23,24 +23,32 @@ import kotlinx.serialization.json.floatOrNull
  */
 @Serializable(with = FlexibleFloat32Serializer::class)
 @JvmInline
-value class FlexibleFloat32(val value: Float)
+value class FlexibleFloat32(
+    val value: Float,
+)
 
 internal object FlexibleFloat32Serializer : KSerializer<FlexibleFloat32> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("FlexibleFloat32", PrimitiveKind.STRING)
 
     override fun deserialize(decoder: Decoder): FlexibleFloat32 {
-        val jsonDecoder = decoder as? JsonDecoder
-            ?: error("FlexibleFloat32 only supports JSON decoding")
-        val element = jsonDecoder.decodeJsonElement() as? JsonPrimitive
-            ?: error("FlexibleFloat32 expected a JSON primitive")
-        val float = element.floatOrNull
-            ?: element.contentOrNull?.toFloatOrNull()
-            ?: error("FlexibleFloat32 cannot parse: $element")
+        val jsonDecoder =
+            decoder as? JsonDecoder
+                ?: error("FlexibleFloat32 only supports JSON decoding")
+        val element =
+            jsonDecoder.decodeJsonElement() as? JsonPrimitive
+                ?: error("FlexibleFloat32 expected a JSON primitive")
+        val float =
+            element.floatOrNull
+                ?: element.contentOrNull?.toFloatOrNull()
+                ?: error("FlexibleFloat32 cannot parse: $element")
         return FlexibleFloat32(float)
     }
 
-    override fun serialize(encoder: Encoder, value: FlexibleFloat32) {
+    override fun serialize(
+        encoder: Encoder,
+        value: FlexibleFloat32,
+    ) {
         encoder.encodeFloat(value.value)
     }
 }
@@ -258,4 +266,27 @@ data class AudibleChapter(
     val title: String,
     val startMs: Long,
     val durationMs: Long,
+)
+
+/**
+ * Full contributor profile scraped from an Audible author page.
+ *
+ * Unlike book metadata (which uses the catalog JSON API), contributor data is
+ * fetched by scraping `www.audible.{tld}/author/x/{asin}` — Audible's official
+ * API no longer returns contributor images or biographies. Ported from Go's
+ * `ContributorProfile` in `server/internal/metadata/audible/types.go`.
+ *
+ * `@Serializable` so [com.calypsan.listenup.server.services.MetadataService]
+ * can cache this value as JSON in `MetadataCacheRepository`.
+ */
+@Serializable
+data class AudibleContributorProfile(
+    /** Audible contributor ASIN — the stable external key. */
+    val asin: String,
+    /** Display name extracted from the author page heading. */
+    val name: String,
+    /** Plain-text biography extracted from the expander block, or empty string. */
+    val biography: String,
+    /** Author photo URL from the `og:image` meta tag, or empty string if unavailable. */
+    val imageUrl: String,
 )

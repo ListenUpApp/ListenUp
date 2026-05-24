@@ -64,55 +64,60 @@ class MetadataLookupContractTest :
         // ── MetadataBook ───────────────────────────────────────────────────────
 
         test("MetadataBook survives round-trip with all fields populated") {
-            val book = MetadataBook(
-                asin = "B0015T963C",
-                title = "The Way of Kings",
-                subtitle = "Book One of the Stormlight Archive",
-                description = "A long epic fantasy novel.",
-                publisher = "Macmillan Audio",
-                releaseDate = "2010-08-31",
-                runtimeMinutes = 2230,
-                language = "en-US",
-                authors = listOf(MetadataContributorRef(asin = "B001A1", name = "Brandon Sanderson")),
-                narrators = listOf(
-                    MetadataContributorRef(asin = "B001N1", name = "Michael Kramer"),
-                    MetadataContributorRef(asin = "B001N2", name = "Kate Reading"),
-                ),
-                series = listOf(MetadataSeriesRef(asin = "B001S1", title = "Stormlight Archive", sequence = "1")),
-                coverUrl = "https://m.media-amazon.com/images/I/example.jpg",
-                coverUrlMaxSize = "https://is1-ssl.mzstatic.com/image/thumb/example/7000x7000bb.jpg",
-            )
+            val book =
+                MetadataBook(
+                    asin = "B0015T963C",
+                    title = "The Way of Kings",
+                    subtitle = "Book One of the Stormlight Archive",
+                    description = "A long epic fantasy novel.",
+                    publisher = "Macmillan Audio",
+                    releaseDate = "2010-08-31",
+                    runtimeMinutes = 2230,
+                    language = "en-US",
+                    authors = listOf(MetadataContributorRef(asin = "B001A1", name = "Brandon Sanderson")),
+                    narrators =
+                        listOf(
+                            MetadataContributorRef(asin = "B001N1", name = "Michael Kramer"),
+                            MetadataContributorRef(asin = "B001N2", name = "Kate Reading"),
+                        ),
+                    series = listOf(MetadataSeriesRef(asin = "B001S1", title = "Stormlight Archive", sequence = "1")),
+                    coverUrl = "https://m.media-amazon.com/images/I/example.jpg",
+                    coverUrlMaxSize = "https://is1-ssl.mzstatic.com/image/thumb/example/7000x7000bb.jpg",
+                )
             roundTrip<MetadataBook>(book) shouldBe book
         }
 
         test("MetadataBook survives round-trip with all nullable fields null") {
-            val minimal = MetadataBook(
-                asin = "B000MIN01",
-                title = "Untitled",
-                subtitle = null,
-                description = null,
-                publisher = null,
-                releaseDate = null,
-                runtimeMinutes = null,
-                language = null,
-                authors = emptyList(),
-                narrators = emptyList(),
-                series = emptyList(),
-                coverUrl = null,
-                coverUrlMaxSize = null,
-            )
+            val minimal =
+                MetadataBook(
+                    asin = "B000MIN01",
+                    title = "Untitled",
+                    subtitle = null,
+                    description = null,
+                    publisher = null,
+                    releaseDate = null,
+                    runtimeMinutes = null,
+                    language = null,
+                    authors = emptyList(),
+                    narrators = emptyList(),
+                    series = emptyList(),
+                    coverUrl = null,
+                    coverUrlMaxSize = null,
+                )
             roundTrip<MetadataBook>(minimal) shouldBe minimal
         }
 
         // ── MetadataSearchResults ──────────────────────────────────────────────
 
         test("MetadataSearchResults survives round-trip with multiple hits") {
-            val results = MetadataSearchResults(
-                hits = listOf(
-                    MetadataBook("B001", "Book A", null, null, null, null, 600, null, emptyList(), emptyList(), emptyList(), null, null),
-                    MetadataBook("B002", "Book B", "Sub B", null, "Pub B", "2020-01-01", 720, "en-US", emptyList(), emptyList(), emptyList(), "http://cover.jpg", null),
-                ),
-            )
+            val results =
+                MetadataSearchResults(
+                    hits =
+                        listOf(
+                            MetadataBook("B001", "Book A", null, null, null, null, 600, null, emptyList(), emptyList(), emptyList(), null, null),
+                            MetadataBook("B002", "Book B", "Sub B", null, "Pub B", "2020-01-01", 720, "en-US", emptyList(), emptyList(), emptyList(), "http://cover.jpg", null),
+                        ),
+                )
             roundTrip<MetadataSearchResults>(results) shouldBe results
         }
 
@@ -129,13 +134,15 @@ class MetadataLookupContractTest :
         }
 
         test("MetadataChapters survives round-trip with multiple chapters") {
-            val chapters = MetadataChapters(
-                chapters = listOf(
-                    MetadataChapter("Prologue", 0L, 120_000L),
-                    MetadataChapter("Chapter 1", 120_000L, 1_800_000L),
-                    MetadataChapter("Epilogue", 1_920_000L, 300_000L),
-                ),
-            )
+            val chapters =
+                MetadataChapters(
+                    chapters =
+                        listOf(
+                            MetadataChapter("Prologue", 0L, 120_000L),
+                            MetadataChapter("Chapter 1", 120_000L, 1_800_000L),
+                            MetadataChapter("Epilogue", 1_920_000L, 300_000L),
+                        ),
+                )
             roundTrip<MetadataChapters>(chapters) shouldBe chapters
         }
 
@@ -147,30 +154,32 @@ class MetadataLookupContractTest :
         // ── MetadataContributorProfile ─────────────────────────────────────────
 
         test("MetadataContributorProfile survives round-trip with all fields") {
-            val profile = MetadataContributorProfile(
-                asin = "B001PROF01",
-                name = "Brandon Sanderson",
-                sortName = "Sanderson, Brandon",
-                description = "American fantasy author.",
-                imageUrl = "https://m.media-amazon.com/images/I/profile.jpg",
-                birthDate = "1975-12-19",
-                deathDate = null,
-                website = "https://brandonsanderson.com",
-            )
+            val profile =
+                MetadataContributorProfile(
+                    asin = "B001PROF01",
+                    name = "Brandon Sanderson",
+                    sortName = "Sanderson, Brandon",
+                    description = "American fantasy author.",
+                    imageUrl = "https://m.media-amazon.com/images/I/profile.jpg",
+                    birthDate = "1975-12-19",
+                    deathDate = null,
+                    website = "https://brandonsanderson.com",
+                )
             roundTrip<MetadataContributorProfile>(profile) shouldBe profile
         }
 
         test("MetadataContributorProfile survives round-trip with all optional fields null") {
-            val minimal = MetadataContributorProfile(
-                asin = "B001PROF02",
-                name = "Unknown Narrator",
-                sortName = null,
-                description = null,
-                imageUrl = null,
-                birthDate = null,
-                deathDate = null,
-                website = null,
-            )
+            val minimal =
+                MetadataContributorProfile(
+                    asin = "B001PROF02",
+                    name = "Unknown Narrator",
+                    sortName = null,
+                    description = null,
+                    imageUrl = null,
+                    birthDate = null,
+                    deathDate = null,
+                    website = null,
+                )
             roundTrip<MetadataContributorProfile>(minimal) shouldBe minimal
         }
 
@@ -182,5 +191,4 @@ class MetadataLookupContractTest :
         }
     })
 
-private inline fun <reified T : Any> roundTrip(value: T): T =
-    contractJson.decodeFromString<T>(contractJson.encodeToString(value))
+private inline fun <reified T : Any> roundTrip(value: T): T = contractJson.decodeFromString<T>(contractJson.encodeToString(value))

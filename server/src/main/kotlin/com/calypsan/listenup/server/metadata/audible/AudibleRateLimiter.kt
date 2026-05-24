@@ -44,15 +44,16 @@ open class AudibleRateLimiter(
      * Cancellation of the calling coroutine propagates through the [delay].
      */
     open suspend fun await(region: AudibleRegion) {
-        val waitFor = mutex.withLock {
-            val now = clock.now()
-            val next = nextAllowedAt[region] ?: now
-            val remaining = next - now
-            // Advance the bucket: next permitted time is whichever is later —
-            // the scheduled slot or now + interval (avoids drift on slow calls).
-            nextAllowedAt[region] = maxOf(next, now) + perRegionInterval
-            remaining
-        }
+        val waitFor =
+            mutex.withLock {
+                val now = clock.now()
+                val next = nextAllowedAt[region] ?: now
+                val remaining = next - now
+                // Advance the bucket: next permitted time is whichever is later —
+                // the scheduled slot or now + interval (avoids drift on slow calls).
+                nextAllowedAt[region] = maxOf(next, now) + perRegionInterval
+                remaining
+            }
         if (waitFor > Duration.ZERO) {
             delay(waitFor)
         }

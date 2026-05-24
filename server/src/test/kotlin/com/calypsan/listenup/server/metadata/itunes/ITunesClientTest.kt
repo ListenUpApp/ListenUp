@@ -18,18 +18,22 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 
 class ITunesClientTest :
     FunSpec({
-        val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        val json =
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            }
 
         fun makeClient(engine: MockEngine): ITunesClient {
-            val httpClient = HttpClient(engine) {
-                install(ContentNegotiation) { json(json) }
-            }
+            val httpClient =
+                HttpClient(engine) {
+                    install(ContentNegotiation) { json(json) }
+                }
             return ITunesClient(httpClient, json)
         }
 
@@ -37,13 +41,14 @@ class ITunesClientTest :
 
         test("findCover returns ITunesCoverHit for a matched result") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_WITH_RESULTS,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_WITH_RESULTS,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Project Hail Mary", "Andy Weir")
 
@@ -57,13 +62,14 @@ class ITunesClientTest :
 
         test("findCover returns Success(null) when resultCount is 0") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = """{"resultCount":0,"results":[]}""",
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = """{"resultCount":0,"results":[]}""",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Unknown Book", "Nobody")
 
@@ -74,13 +80,14 @@ class ITunesClientTest :
 
         test("findCover returns first result when no title+author match but results exist") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_NO_MATCH,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_NO_MATCH,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 // query that won't fuzzy-match "Some Other Title" but there is a result
                 val result = client.findCover("Completely Different", "Another Author")
@@ -95,13 +102,14 @@ class ITunesClientTest :
 
         test("maxSizeUrl replaces size fragment with 7000x7000bb.jpg") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_WITH_RESULTS,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_WITH_RESULTS,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Project Hail Mary", "Andy Weir")
 
@@ -113,13 +121,14 @@ class ITunesClientTest :
 
         test("maxSizeUrl transformation handles 60x60bb.jpg fallback URL") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = SEARCH_WITH_60PX_ONLY,
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = SEARCH_WITH_60PX_ONLY,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("A Book", "Author")
 
@@ -132,9 +141,10 @@ class ITunesClientTest :
 
         test("findCover returns ExternalRateLimited on HTTP 429") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.TooManyRequests)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.TooManyRequests)
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Any", "Author")
 
@@ -145,9 +155,10 @@ class ITunesClientTest :
 
         test("findCover returns ExternalUnavailable on HTTP 500") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.InternalServerError)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.InternalServerError)
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Any", "Author")
 
@@ -158,9 +169,10 @@ class ITunesClientTest :
 
         test("findCover returns ExternalUnavailable on HTTP 503") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(content = "", status = HttpStatusCode.ServiceUnavailable)
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(content = "", status = HttpStatusCode.ServiceUnavailable)
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Any", "Author")
 
@@ -171,13 +183,14 @@ class ITunesClientTest :
 
         test("findCover returns Malformed on invalid JSON") {
             runTest {
-                val engine = MockEngine { _ ->
-                    respond(
-                        content = """{"results": "not an array"}""",
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                }
+                val engine =
+                    MockEngine { _ ->
+                        respond(
+                            content = """{"results": "not an array"}""",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
                 val client = makeClient(engine)
                 val result = client.findCover("Any", "Author")
 
@@ -192,9 +205,10 @@ class ITunesClientTest :
             runTest {
                 // Simulate an engine that throws CancellationException internally
                 // (e.g. the job was cancelled while the request was in-flight).
-                val engine = MockEngine { _ ->
-                    throw CancellationException("simulated cancellation")
-                }
+                val engine =
+                    MockEngine { _ ->
+                        throw CancellationException("simulated cancellation")
+                    }
                 val client = makeClient(engine)
                 var threw = false
                 try {

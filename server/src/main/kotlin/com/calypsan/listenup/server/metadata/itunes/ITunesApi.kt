@@ -19,5 +19,8 @@ interface ITunesApi {
      *   matching audiobook is found, `null` when iTunes returns no results,
      *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
      */
-    suspend fun findCover(title: String, author: String): AppResult<ITunesCoverHit?>
+    suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?>
 }

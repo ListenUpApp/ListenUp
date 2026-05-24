@@ -45,20 +45,28 @@ class AudibleClient(
      * Endpoint: `GET /1.0/catalog/products`
      * Response: [RawSearchResponse]
      */
-    override suspend fun search(region: AudibleRegion, params: SearchParams): AppResult<List<AudibleSearchResult>> {
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> {
         rateLimiter.await(region)
-        return apiGet(region, "/1.0/catalog/products", buildMap {
-            params.keywords?.let { put("keywords", it) }
-            params.title?.let { put("title", it) }
-            params.author?.let { put("author", it) }
-            params.narrator?.let { put("narrator", it) }
-            val limit = params.limit.coerceIn(1, SearchParams.MAX_NUM_RESULTS)
-            put("num_results", limit.toString())
-            put("response_groups", RESPONSE_GROUPS)
-            put("image_sizes", IMAGE_SIZES)
-            put("products_sort_by", "Relevance")
-        }) { body ->
-            json.decodeFromString<RawSearchResponse>(body)
+        return apiGet(
+            region,
+            "/1.0/catalog/products",
+            buildMap {
+                params.keywords?.let { put("keywords", it) }
+                params.title?.let { put("title", it) }
+                params.author?.let { put("author", it) }
+                params.narrator?.let { put("narrator", it) }
+                val limit = params.limit.coerceIn(1, SearchParams.MAX_NUM_RESULTS)
+                put("num_results", limit.toString())
+                put(PARAM_RESPONSE_GROUPS, RESPONSE_GROUPS)
+                put("image_sizes", IMAGE_SIZES)
+                put("products_sort_by", "Relevance")
+            },
+        ) { body ->
+            json
+                .decodeFromString<RawSearchResponse>(body)
                 .products
                 .map { it.toSearchResult() }
         }
@@ -70,12 +78,19 @@ class AudibleClient(
      * Endpoint: `GET /1.0/catalog/products/{asin}`
      * Response: [RawBookResponse]
      */
-    override suspend fun getBook(region: AudibleRegion, asin: String): AppResult<AudibleBook?> {
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> {
         rateLimiter.await(region)
-        return apiGet(region, "/1.0/catalog/products/$asin", buildMap {
-            put("response_groups", RESPONSE_GROUPS)
-            put("image_sizes", IMAGE_SIZES)
-        }) { body ->
+        return apiGet(
+            region,
+            "/1.0/catalog/products/$asin",
+            buildMap {
+                put(PARAM_RESPONSE_GROUPS, RESPONSE_GROUPS)
+                put("image_sizes", IMAGE_SIZES)
+            },
+        ) { body ->
             json.decodeFromString<RawBookResponse>(body).product?.toBook()
         }
     }
@@ -86,10 +101,14 @@ class AudibleClient(
      * Endpoint: `GET /1.0/content/{asin}/metadata?response_groups=chapter_info`
      * Response: [RawChaptersResponse]
      */
-    override suspend fun getChapters(region: AudibleRegion, asin: String): AppResult<List<AudibleChapter>> {
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> {
         rateLimiter.await(region)
-        return apiGet(region, "/1.0/content/$asin/metadata", mapOf("response_groups" to "chapter_info")) { body ->
-            json.decodeFromString<RawChaptersResponse>(body)
+        return apiGet(region, "/1.0/content/$asin/metadata", mapOf(PARAM_RESPONSE_GROUPS to "chapter_info")) { body ->
+            json
+                .decodeFromString<RawChaptersResponse>(body)
                 .contentMetadata
                 .chapterInfo
                 .chapters
@@ -100,6 +119,34 @@ class AudibleClient(
                         durationMs = ch.lengthMs,
                     )
                 }
+        }
+    }
+
+    /**
+     * Fetches a contributor profile by scraping the Audible author page.
+     *
+     * Endpoint: `GET https://www.audible.{tld}/author/x/{asin}`
+     *
+     * Audible's catalog API no longer returns contributor images or biographies,
+     * so the author web page is the only reliable source — mirroring Go's
+     * `GetContributorProfile` in `server/internal/metadata/audible/contributor.go`.
+     * A placeholder name (`x`) is used in the URL because Audible redirects to
+     * the canonical slug regardless.
+     *
+     * The page is scraped with lightweight regex extraction:
+     *  - Name: `<h1 class="bc-heading...">` text content
+     *  - Biography: `<div class="bc-expander-content">` text content
+     *  - Image: `og:image` meta tag `content` attribute (falls back to
+     *    `author-image-outline` img `src`), filtered for the placeholder
+     *    image Audible uses when no author photo is available.
+     */
+    override suspend fun getContributor(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleContributorProfile?> {
+        rateLimiter.await(region)
+        return webGet(region, "/author/x/$asin") { body ->
+            parseContributorProfile(body, asin)
         }
     }
 
@@ -117,13 +164,14 @@ class AudibleClient(
         path: String,
         queryParams: Map<String, String>,
         decode: (String) -> T,
-    ): AppResult<T> {
-        return try {
-            val response = httpClient.get("https://${region.apiHost}$path") {
-                header("Accept", "application/json")
-                header("User-Agent", "ListenUp/1.0")
-                queryParams.forEach { (k, v) -> parameter(k, v) }
-            }
+    ): AppResult<T> =
+        try {
+            val response =
+                httpClient.get("https://${region.apiHost}$path") {
+                    header("Accept", "application/json")
+                    header("User-Agent", "ListenUp/1.0")
+                    queryParams.forEach { (k, v) -> parameter(k, v) }
+                }
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
@@ -135,11 +183,16 @@ class AudibleClient(
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     }
                 }
-                HttpStatusCode.NotFound ->
+
+                HttpStatusCode.NotFound -> {
                     AppResult.Failure(MetadataError.NotFound())
-                HttpStatusCode.TooManyRequests ->
+                }
+
+                HttpStatusCode.TooManyRequests -> {
                     AppResult.Failure(MetadataError.ExternalRateLimited())
-                else ->
+                }
+
+                else -> {
                     if (response.status.value in 500..599) {
                         AppResult.Failure(
                             MetadataError.ExternalUnavailable(
@@ -153,15 +206,67 @@ class AudibleClient(
                             ),
                         )
                     }
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
-    }
+
+    /**
+     * Issues a GET request to [path] on [region]'s **website** host
+     * (`www.audible.{tld}`) with browser-style headers, and maps the response
+     * body via [decode].
+     *
+     * Used by [getContributor] which scrapes the author page rather than
+     * calling the JSON API. [CancellationException] is always rethrown.
+     */
+    private suspend fun <T> webGet(
+        region: AudibleRegion,
+        path: String,
+        decode: (String) -> T?,
+    ): AppResult<T?> =
+        try {
+            val response =
+                httpClient.get("https://${region.webHost}$path") {
+                    header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    header("Accept-Language", "en-US,en;q=0.9")
+                    header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    )
+                }
+            when (response.status) {
+                HttpStatusCode.OK -> {
+                    AppResult.Success(decode(response.bodyAsText()))
+                }
+
+                HttpStatusCode.NotFound -> {
+                    AppResult.Success(null)
+                }
+
+                HttpStatusCode.TooManyRequests -> {
+                    AppResult.Failure(MetadataError.ExternalRateLimited())
+                }
+
+                else -> {
+                    val status = response.status.value
+                    AppResult.Failure(
+                        MetadataError.ExternalUnavailable(debugInfo = "HTTP $status"),
+                    )
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
+        }
 
     private companion object {
+        /** Query parameter key for Audible response groups. */
+        const val PARAM_RESPONSE_GROUPS = "response_groups"
+
         /**
          * Standard response_groups for product requests.
          * Matches Go's `responseGroups()` in `client.go`.
@@ -176,6 +281,90 @@ class AudibleClient(
         const val IMAGE_SIZES = "500,1024"
     }
 }
+
+// ─── Contributor HTML scraping ────────────────────────────────────────────────
+
+/**
+ * Extracts [AudibleContributorProfile] from an Audible author page HTML body.
+ *
+ * Returns `null` when the page contains no `<h1 class="bc-heading">` element —
+ * Audible serves a generic page for unknown ASINs rather than a 404.
+ *
+ * Uses regex extraction rather than a full HTML parser to avoid adding a
+ * non-Kotlin-native dependency. The patterns are robust to Audible's typical
+ * minification and attribute ordering because they target unique class names
+ * and meta-tag attributes rather than tag structure.
+ *
+ * Ported from Go's `parseContributorProfile` in `contributor.go`.
+ */
+internal fun parseContributorProfile(
+    html: String,
+    asin: String,
+): AudibleContributorProfile? {
+    // Name: first <h1> with class containing "bc-heading"
+    val name = extractH1Text(html, "bc-heading") ?: return null
+
+    // Biography: text inside the first element with class "bc-expander-content"
+    val biography = extractElementText(html, "bc-expander-content") ?: ""
+
+    // Image: prefer og:image meta tag; fall back to author-image-outline img src
+    val imageUrl =
+        extractOgImage(html)?.takeUnless { it.contains(PLACEHOLDER_IMAGE_FRAGMENT) }
+            ?: extractImgSrc(html, "author-image-outline") ?: ""
+
+    return AudibleContributorProfile(asin = asin, name = name, biography = biography, imageUrl = imageUrl)
+}
+
+private const val PLACEHOLDER_IMAGE_FRAGMENT = "Facebook_Placement"
+
+/** Extracts the trimmed text content of the first `<h1 class="...{cssClass}...">` element. */
+private fun extractH1Text(
+    html: String,
+    cssClass: String,
+): String? {
+    val pattern = Regex("""<h1[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</h1>""", RegexOption.DOT_MATCHES_ALL)
+    val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
+    return stripHtml(raw).takeIf { it.isNotBlank() }
+}
+
+/** Extracts the trimmed text content of the first element with [cssClass] as a class. */
+private fun extractElementText(
+    html: String,
+    cssClass: String,
+): String? {
+    val pattern = Regex("""class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</""", RegexOption.DOT_MATCHES_ALL)
+    val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
+    return stripHtml(raw).trim().takeIf { it.isNotBlank() }
+}
+
+/** Extracts the `content` attribute of `<meta property="og:image" ...>`. */
+private fun extractOgImage(html: String): String? {
+    val pattern = Regex("""<meta[^>]*property="og:image"[^>]*content="([^"]+)"""")
+    return pattern.find(html)?.groupValues?.get(1)
+        ?: Regex("""<meta[^>]*content="([^"]+)"[^>]*property="og:image"""").find(html)?.groupValues?.get(1)
+}
+
+/** Extracts the `src` attribute of the first `<img class="...{cssClass}...">`. */
+private fun extractImgSrc(
+    html: String,
+    cssClass: String,
+): String? {
+    val pattern = Regex("""<img[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*src="([^"]+)"""")
+    return pattern.find(html)?.groupValues?.get(1)
+        ?: Regex("""<img[^>]*src="([^"]+)"[^>]*class="[^"]*\b$cssClass\b[^"]*"""").find(html)?.groupValues?.get(1)
+}
+
+/** Removes HTML tags and decodes common HTML entities. */
+private fun stripHtml(html: String): String =
+    html
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ")
+        .trim()
 
 // ─── Raw → Domain mappers ─────────────────────────────────────────────────────
 
@@ -195,7 +384,11 @@ private fun RawProduct.toSearchResult(): AudibleSearchResult {
 
 private fun RawProduct.toBook(): AudibleBook {
     val (authors, narrators) = separateContributors(this.authors, this.narrators)
-    val rating = this.rating?.overallDistribution?.displayAverageRating?.value ?: 0f
+    val rating =
+        this.rating
+            ?.overallDistribution
+            ?.displayAverageRating
+            ?.value ?: 0f
     val ratingCount = this.rating?.overallDistribution?.numReviews ?: 0
     return AudibleBook(
         asin = asin,
@@ -208,9 +401,10 @@ private fun RawProduct.toBook(): AudibleBook {
         runtimeMinutes = runtimeLengthMin,
         description = stripHtmlTags(merchandisingSummary),
         coverUrl = selectCoverUrl(productImages),
-        series = this.series.map {
-            AudibleSeriesEntry(asin = it.asin, name = it.title, position = it.sequence)
-        },
+        series =
+            this.series.map {
+                AudibleSeriesEntry(asin = it.asin, name = it.title, position = it.sequence)
+            },
         genres = extractGenres(categoryLadders),
         language = language,
         rating = rating,
@@ -268,5 +462,4 @@ private fun extractGenres(ladders: List<RawCategoryLadder>): List<String> {
  * Removes HTML tags from Audible's `merchandising_summary` field.
  * Audible wraps descriptions in `<p>` tags; strip them for plain text.
  */
-private fun stripHtmlTags(html: String): String =
-    html.replace(Regex("<[^>]+>"), "").trim()
+private fun stripHtmlTags(html: String): String = html.replace(Regex("<[^>]+>"), "").trim()

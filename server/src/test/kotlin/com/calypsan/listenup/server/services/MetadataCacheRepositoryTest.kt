@@ -117,7 +117,12 @@ class MetadataCacheRepositoryTest :
 
 /** A mutable [Clock] for tests that need to advance time deterministically. */
 @kotlin.time.ExperimentalTime
-private class MutableClock(private var time: Instant) : Clock {
+private class MutableClock(
+    private var time: Instant,
+) : Clock {
     override fun now(): Instant = time
-    fun set(newTime: Instant) { time = newTime }
+
+    fun set(newTime: Instant) {
+        time = newTime
+    }
 }

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
+import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.SearchParams
@@ -60,8 +61,9 @@ internal class MetadataService(
         params: SearchParams,
         refresh: Boolean = false,
     ): AppResult<List<AudibleSearchResult>> {
-        val cacheKey = params.keywords?.takeIf { it.isNotBlank() }
-            ?: return audible.search(region, params) // non-keyword search — no cache
+        val cacheKey =
+            params.keywords?.takeIf { it.isNotBlank() }
+                ?: return audible.search(region, params) // non-keyword search — no cache
 
         return cached(
             region = region,
@@ -100,14 +102,15 @@ internal class MetadataService(
         region: AudibleRegion,
         asin: String,
         refresh: Boolean = false,
-    ): AppResult<AudibleBook?> = cachedNullable(
-        region = region,
-        cacheKey = "book:$asin",
-        ttl = BOOK_TTL,
-        refresh = refresh,
-        fetch = { audible.getBook(region, asin) },
-        serializer = AudibleBook.serializer(),
-    )
+    ): AppResult<AudibleBook?> =
+        cachedNullable(
+            region = region,
+            cacheKey = "book:$asin",
+            ttl = BOOK_TTL,
+            refresh = refresh,
+            fetch = { audible.getBook(region, asin) },
+            serializer = AudibleBook.serializer(),
+        )
 
     /**
      * Fetches the chapter list for an audiobook by [asin] in [region], caching
@@ -116,22 +119,46 @@ internal class MetadataService(
     suspend fun getBookChapters(
         region: AudibleRegion,
         asin: String,
-    ): AppResult<List<AudibleChapter>> = cached(
-        region = region,
-        cacheKey = "chapters:$asin",
-        ttl = CHAPTER_TTL,
-        refresh = false,
-        fetch = { audible.getChapters(region, asin) },
-        serializer = ListSerializer(AudibleChapter.serializer()),
-    )
+    ): AppResult<List<AudibleChapter>> =
+        cached(
+            region = region,
+            cacheKey = "chapters:$asin",
+            ttl = CHAPTER_TTL,
+            refresh = false,
+            fetch = { audible.getChapters(region, asin) },
+            serializer = ListSerializer(AudibleChapter.serializer()),
+        )
+
+    /**
+     * Fetches the contributor profile for [asin] in [region], caching the result
+     * (including `null` for unknown ASINs) for [ENTITY_TTL] (7 days).
+     *
+     * Pass [refresh] = `true` to bypass the cache and force a fresh page scrape.
+     * Cache key is `"contributor:$asin"`, scoped by region via the repository.
+     */
+    suspend fun getContributor(
+        region: AudibleRegion,
+        asin: String,
+        refresh: Boolean = false,
+    ): AppResult<AudibleContributorProfile?> =
+        cachedNullable(
+            region = region,
+            cacheKey = "contributor:$asin",
+            ttl = ENTITY_TTL,
+            refresh = refresh,
+            fetch = { audible.getContributor(region, asin) },
+            serializer = AudibleContributorProfile.serializer(),
+        )
 
     /**
      * Delegates cover-art lookup to [ITunesApi]. iTunes is uncached at this
      * layer — cover fetches are fast and are only called when the caller
      * explicitly wants to enrich a book's cover.
      */
-    suspend fun findCover(title: String, author: String): AppResult<ITunesCoverHit?> =
-        itunes.findCover(title, author)
+    suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = itunes.findCover(title, author)
 
     // ── Private caching helpers ───────────────────────────────────────────────
 
@@ -181,16 +208,34 @@ internal class MetadataService(
         if (!refresh) {
             val cachedJson = cache.get(cacheKey, region)
             if (cachedJson != null) {
-                return try {
-                    if (cachedJson == "null") AppResult.Success(null)
-                    else AppResult.Success(json.decodeFromString(serializer, cachedJson))
-                } catch (_: SerializationException) {
-                    fetchAndStoreNullable(region, cacheKey, ttl, fetch, serializer)
-                }
+                return decodeNullableOrRefetch(cachedJson, serializer, region, cacheKey, ttl, fetch)
             }
         }
         return fetchAndStoreNullable(region, cacheKey, ttl, fetch, serializer)
     }
+
+    /**
+     * Decodes [cachedJson] into [T?], treating the sentinel `"null"` as a cached
+     * null result. Falls back to [fetchAndStoreNullable] when the JSON is unparseable
+     * (stale schema in cache).
+     */
+    private suspend fun <T> decodeNullableOrRefetch(
+        cachedJson: String,
+        serializer: KSerializer<T>,
+        region: AudibleRegion,
+        cacheKey: String,
+        ttl: Duration,
+        fetch: suspend () -> AppResult<T?>,
+    ): AppResult<T?> =
+        try {
+            if (cachedJson == "null") {
+                AppResult.Success(null)
+            } else {
+                AppResult.Success(json.decodeFromString(serializer, cachedJson))
+            }
+        } catch (_: SerializationException) {
+            fetchAndStoreNullable(region, cacheKey, ttl, fetch, serializer)
+        }
 
     private suspend fun <T> fetchAndStore(
         region: AudibleRegion,
@@ -233,5 +278,11 @@ internal class MetadataService(
 
         /** Chapters: 30 days. Go: `chapterCacheDuration = 30 * 24 * time.Hour`. */
         val CHAPTER_TTL = 30.days
+
+        /**
+         * Contributor profiles: 7 days. Profiles change rarely; cached alongside
+         * book metadata at the same TTL for consistency.
+         */
+        val ENTITY_TTL = 7.days
     }
 }

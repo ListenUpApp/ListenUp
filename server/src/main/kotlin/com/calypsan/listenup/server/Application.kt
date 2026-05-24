@@ -2,6 +2,7 @@ package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SeriesService
@@ -13,6 +14,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
@@ -34,6 +36,7 @@ import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
+import com.calypsan.listenup.server.routes.metadataRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
@@ -97,6 +100,7 @@ fun Application.module() {
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+            modules += metadataModule(kotlinx.io.files.Path(resolvedLibraryPath.toString()))
             modules += playbackModule()
         }
         modules += embeddedmetaModule
@@ -144,13 +148,23 @@ fun Application.module() {
             inject<ContributorRepository>().value
         }
     val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
+    val metadataLookupService: MetadataLookupService? =
+        resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
 
     routing {
         healthRoutes()
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService, bookService, contributorService, seriesService, playbackService)
+        rpcRoutes(
+            authService,
+            scannerService,
+            bookService,
+            contributorService,
+            seriesService,
+            playbackService,
+            metadataLookupService,
+        )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
@@ -161,6 +175,7 @@ fun Application.module() {
             if (contributorRepository != null && seriesRepository != null) {
                 metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
             }
+            if (metadataLookupService != null) metadataRoutes(metadataLookupService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

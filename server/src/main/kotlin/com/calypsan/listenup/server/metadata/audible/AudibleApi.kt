@@ -18,7 +18,10 @@ interface AudibleApi {
      * @return [AppResult.Success] with the result list (possibly empty) on success,
      *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
      */
-    suspend fun search(region: AudibleRegion, params: SearchParams): AppResult<List<AudibleSearchResult>>
+    suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>>
 
     /**
      * Fetches full metadata for a single audiobook by [asin] in [region].
@@ -26,7 +29,10 @@ interface AudibleApi {
      * @return [AppResult.Success] with the book (or `null` for a 404),
      *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
      */
-    suspend fun getBook(region: AudibleRegion, asin: String): AppResult<AudibleBook?>
+    suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?>
 
     /**
      * Fetches the chapter list for a single audiobook by [asin] in [region].
@@ -34,5 +40,24 @@ interface AudibleApi {
      * @return [AppResult.Success] with the chapter list (possibly empty) on success,
      *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
      */
-    suspend fun getChapters(region: AudibleRegion, asin: String): AppResult<List<AudibleChapter>>
+    suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>>
+
+    /**
+     * Fetches the contributor profile for [asin] in [region] by scraping the
+     * Audible author page at `www.audible.{tld}/author/x/{asin}`.
+     *
+     * The official catalog API no longer returns contributor images or
+     * biographies, so web scraping is the only reliable source — mirroring
+     * Go's `GetContributorProfile` in `server/internal/metadata/audible/contributor.go`.
+     *
+     * @return [AppResult.Success] with the profile (or `null` for a 404),
+     *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
+     */
+    suspend fun getContributor(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleContributorProfile?>
 }

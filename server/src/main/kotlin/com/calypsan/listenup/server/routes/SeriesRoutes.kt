@@ -37,7 +37,10 @@ fun Route.seriesRoutes(seriesService: SeriesService) {
                 val payload = result.data
                 if (payload != null) call.respond(payload) else call.respond(HttpStatusCode.NotFound)
             }
-            is AppResult.Failure -> call.respondBareAppError(result.error)
+
+            is AppResult.Failure -> {
+                call.respondBareAppError(result.error)
+            }
         }
     }
 

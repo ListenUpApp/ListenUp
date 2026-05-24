@@ -33,7 +33,7 @@ import kotlinx.serialization.json.Json
 class ITunesClient(
     private val httpClient: HttpClient,
     private val json: Json,
-) {
+) : ITunesApi {
     /**
      * Searches iTunes for the best cover matching [title] + [author].
      *
@@ -50,13 +50,16 @@ class ITunesClient(
      * - 5xx or network failure → [MetadataError.ExternalUnavailable]
      * - unparseable response → [MetadataError.Malformed]
      */
-    suspend fun findCover(title: String, author: String): AppResult<ITunesCoverHit?> {
-        return try {
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> =
+        try {
             val response =
                 httpClient.get(SEARCH_BASE_URL) {
                     parameter("term", "$title $author")
-                    parameter("media", "audiobook")
-                    parameter("entity", "audiobook")
+                    parameter("media", AUDIOBOOK_MEDIA_TYPE)
+                    parameter("entity", AUDIOBOOK_MEDIA_TYPE)
                     parameter("limit", DEFAULT_LIMIT)
                 }
             when (response.status) {
@@ -72,19 +75,22 @@ class ITunesClient(
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
                     }
                 }
-                HttpStatusCode.TooManyRequests ->
+
+                HttpStatusCode.TooManyRequests -> {
                     AppResult.Failure(MetadataError.ExternalRateLimited())
-                else ->
+                }
+
+                else -> {
                     AppResult.Failure(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
-    }
 
     /**
      * Pick the best match from [results].
@@ -110,7 +116,7 @@ class ITunesClient(
     ): ITunesSearchResult? {
         val audiobooks =
             results.filter { r ->
-                r.wrapperType == "audiobook" || r.collectionType == "Audiobook"
+                r.wrapperType == AUDIOBOOK_MEDIA_TYPE || r.collectionType == AUDIOBOOK_COLLECTION_TYPE
             }
         val candidates = audiobooks.ifEmpty { results }
 
@@ -154,6 +160,8 @@ class ITunesClient(
     private companion object {
         const val SEARCH_BASE_URL = "https://itunes.apple.com/search"
         const val DEFAULT_LIMIT = 10
+        const val AUDIOBOOK_MEDIA_TYPE = "audiobook"
+        const val AUDIOBOOK_COLLECTION_TYPE = "Audiobook"
 
         /**
          * Matches iTunes artwork size fragments like `/100x100bb.jpg`, `/60x60bb.jpg`,
