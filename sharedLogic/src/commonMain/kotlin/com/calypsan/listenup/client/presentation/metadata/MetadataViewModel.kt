@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
 import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
 import com.calypsan.listenup.client.domain.usecase.metadata.MetadataMatchSelections
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -24,23 +25,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
-
-/** Available Audible regions for metadata lookup. */
-enum class AudibleRegion(
-    val code: String,
-    val displayName: String,
-) {
-    US("us", "United States"),
-    UK("uk", "United Kingdom"),
-    DE("de", "Germany"),
-    FR("fr", "France"),
-    AU("au", "Australia"),
-    CA("ca", "Canada"),
-    IT("it", "Italy"),
-    IN("in", "India"),
-    ES("es", "Spain"),
-    JP("jp", "Japan"),
-}
 
 /** Tracks which metadata fields the user has selected to apply. */
 data class MetadataSelections(

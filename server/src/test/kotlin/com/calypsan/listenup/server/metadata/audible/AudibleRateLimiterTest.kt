@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.metadata.audible
 
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe

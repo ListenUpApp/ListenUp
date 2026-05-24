@@ -1,0 +1,133 @@
+package com.calypsan.listenup.api.resources
+
+import io.ktor.resources.Resource
+
+/**
+ * REST mirror of the [com.calypsan.listenup.api.MetadataLookupService] RPC
+ * surface. All routes live under `/api/v1/metadata/`.
+ *
+ * Region values in query and path parameters are the short [AudibleRegion.code]
+ * strings (e.g. `"us"`, `"uk"`) rather than the enum name, matching the
+ * operator-facing convention used throughout the API. The server route handler
+ * is responsible for parsing via `AudibleRegion.fromCodeOrNull`.
+ *
+ * [Search] is the parent resource and doubles as the top-level collection route.
+ */
+@Resource("/api/v1/metadata/search")
+class MetadataResources(
+    /** Full-text search query. */
+    val query: String = "",
+    /**
+     * Optional region code (e.g. `"us"`, `"uk"`). When omitted the server uses
+     * its configured default region with US as a fallback.
+     *
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchBooks].
+     */
+    val region: String? = null,
+) {
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.getBookMetadata] —
+     * `GET /api/v1/metadata/book/{asin}?region=us` fetches the Audible book
+     * metadata for [asin] in the given [region]. Responds 200 with
+     * [com.calypsan.listenup.api.dto.MetadataBook] on success, 204 when the
+     * ASIN is unknown, or a typed
+     * [com.calypsan.listenup.api.error.MetadataError] on failure.
+     */
+    @Resource("/api/v1/metadata/book/{asin}")
+    class Book(
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.getBookChapters] —
+     * `GET /api/v1/metadata/book/{asin}/chapters?region=us` fetches the chapter
+     * list for [asin] in [region]. Responds 200 with
+     * [com.calypsan.listenup.api.dto.MetadataChapters], 204 when chapter data
+     * is unavailable, or a typed error on failure.
+     */
+    @Resource("/api/v1/metadata/book/{asin}/chapters")
+    class Chapters(
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.refreshBookMetadata] —
+     * `POST /api/v1/metadata/book/{asin}/refresh?region=us` bypasses the cache
+     * and forces a fresh fetch for [asin] in [region]. Responds 200 with the
+     * refreshed [com.calypsan.listenup.api.dto.MetadataBook] on success.
+     *
+     * Use sparingly — counts against the per-region rate limit.
+     */
+    @Resource("/api/v1/metadata/book/{asin}/refresh")
+    class BookRefresh(
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata] —
+     * `GET /api/v1/metadata/contributors/search?query=…` searches for
+     * contributors matching [query].
+     *
+     * **Currently returns an empty list** — the underlying implementation is
+     * stubbed pending an HTML-scraping or alternative-source implementation.
+     * See [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata]
+     * for the full deferral rationale.
+     */
+    @Resource("/api/v1/metadata/contributors/search")
+    class ContributorSearch(
+        /** Contributor name query, e.g. "Brandon Sanderson". */
+        val query: String = "",
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.getContributorMetadata] —
+     * `GET /api/v1/metadata/contributor/{asin}?region=us` fetches the Audible
+     * contributor profile for [asin] in [region]. Responds 200 with
+     * [com.calypsan.listenup.api.dto.MetadataContributorProfile], 204 when
+     * unknown, or a typed error on failure.
+     */
+    @Resource("/api/v1/metadata/contributor/{asin}")
+    class Contributor(
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.applyBookMetadata] —
+     * `POST /api/v1/metadata/apply/book/{bookId}?asin=…&region=us` applies the
+     * Audible metadata for [asin] to the book at [bookId]. Responds 200 on
+     * success or a typed error on failure.
+     */
+    @Resource("/api/v1/metadata/apply/book/{bookId}")
+    class ApplyBook(
+        /** Our internal book identifier. */
+        val bookId: String,
+        /** Audible ASIN of the metadata to apply. */
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.applyContributorMetadata] —
+     * `POST /api/v1/metadata/apply/contributor/{contributorId}?asin=…&region=us`
+     * applies the Audible contributor metadata for [asin] to the contributor at
+     * [contributorId]. Responds 200 on success or a typed error on failure.
+     */
+    @Resource("/api/v1/metadata/apply/contributor/{contributorId}")
+    class ApplyContributor(
+        /** Our internal contributor identifier. */
+        val contributorId: String,
+        /** Audible ASIN of the metadata to apply. */
+        val asin: String,
+        /** Region code (e.g. `"us"`). Required. */
+        val region: String,
+    )
+}

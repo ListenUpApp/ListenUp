@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.metadata.audible
 
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

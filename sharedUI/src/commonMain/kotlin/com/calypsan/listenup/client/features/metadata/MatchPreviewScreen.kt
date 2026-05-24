@@ -57,7 +57,7 @@ import com.calypsan.listenup.client.domain.repository.CoverOption
 import com.calypsan.listenup.client.domain.repository.MetadataBook
 import com.calypsan.listenup.client.domain.repository.MetadataContributor
 import com.calypsan.listenup.client.domain.repository.MetadataSeriesEntry
-import com.calypsan.listenup.client.presentation.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import org.jetbrains.compose.resources.stringResource

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.audible
 
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

@@ -506,15 +506,15 @@ class ContributorMetadataViewModelTest :
                 advanceUntilIdle()
 
                 // Verify initial region and results
-                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.client.presentation.metadata.AudibleRegion.US
+                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.api.metadata.AudibleRegion.US
                 viewModel.state.value.searchResults shouldBe usResults
 
                 // When
-                viewModel.changeRegion(com.calypsan.listenup.client.presentation.metadata.AudibleRegion.UK)
+                viewModel.changeRegion(com.calypsan.listenup.api.metadata.AudibleRegion.UK)
                 advanceUntilIdle()
 
                 // Then
-                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.client.presentation.metadata.AudibleRegion.UK
+                viewModel.state.value.selectedRegion shouldBe com.calypsan.listenup.api.metadata.AudibleRegion.UK
                 viewModel.state.value.searchResults shouldBe ukResults
             }
         }

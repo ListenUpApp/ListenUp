@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.db.MetadataCacheTable
-import com.calypsan.listenup.server.metadata.audible.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq

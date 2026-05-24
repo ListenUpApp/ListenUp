@@ -30,7 +30,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
-import com.calypsan.listenup.client.presentation.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
