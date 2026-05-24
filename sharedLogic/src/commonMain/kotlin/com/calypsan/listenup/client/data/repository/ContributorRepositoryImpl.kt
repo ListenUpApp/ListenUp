@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -12,7 +13,10 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
@@ -21,9 +25,12 @@ import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
 import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlin.time.measureTimedValue
 
@@ -39,12 +46,24 @@ private val logger = KotlinLogging.logger {}
  * - Search with "never stranded" pattern (server with local fallback)
  * - Delete operations
  *
+ * [observeById] layers a "Never Stranded" RPC-fallback on top of the Room
+ * observable: when Room yields `null` (the contributor is not cached yet) and
+ * the device is online, a single on-demand [ContributorService.getContributor]
+ * call is fired and the result is written through Room via
+ * [ContributorSyncDomainHandler.onCatchUpItem]. The Room Flow then re-emits
+ * with the now-present contributor. Offline cache misses skip the RPC entirely
+ * and stay `null`.
+ *
  * @property contributorDao Room DAO for contributor operations
  * @property bookDao Room DAO for book operations
  * @property searchDao Room DAO for FTS search
  * @property api Server API client for contributor operations
  * @property networkMonitor For checking online/offline status
  * @property imageStorage For resolving cover image paths
+ * @property rpcFactory Supplies the [com.calypsan.listenup.api.ContributorService]
+ *   RPC proxy for on-demand cache-miss fetches.
+ * @property contributorSyncHandler Owns the atomic aggregate write-through
+ *   used to cache an on-demand-fetched contributor into Room.
  */
 class ContributorRepositoryImpl(
     private val contributorDao: ContributorDao,
@@ -53,6 +72,8 @@ class ContributorRepositoryImpl(
     private val api: ContributorApiContract,
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
+    private val rpcFactory: ContributorRpcFactory,
+    private val contributorSyncHandler: SyncDomainHandler<ContributorSyncPayload>,
 ) : ContributorRepository {
     // ========== Basic Observation Methods ==========
 
@@ -61,10 +82,52 @@ class ContributorRepositoryImpl(
             rows.map { it.toDomain() }
         }
 
-    override fun observeById(id: String): Flow<Contributor?> =
-        contributorDao.observeByIdWithAliases(id).map { row ->
-            row?.toDomain()
+    /**
+     * Observe a contributor by id, with a never-stranded cache-miss fallback.
+     *
+     * When Room yields `null` (the contributor is not yet cached) and the device
+     * is online, fires a single on-demand [ContributorService.getContributor]
+     * fetch and writes the result through Room via
+     * [ContributorSyncDomainHandler]. The Room Flow then re-emits with the
+     * now-present contributor. The fetch is fired at most once per collection —
+     * [attemptedFetch] guards against a persistently-null emission re-firing the
+     * RPC on a loop. Offline cache misses and RPC failures degrade silently to
+     * continued `null` emissions ("Never Stranded").
+     */
+    override fun observeById(id: String): Flow<Contributor?> {
+        val contributorId = ContributorId(id)
+        var attemptedFetch = false
+        return contributorDao
+            .observeByIdWithAliases(id)
+            .onEach { row ->
+                if (row == null && !attemptedFetch && networkMonitor.isOnline()) {
+                    attemptedFetch = true
+                    fetchAndCacheContributor(contributorId)
+                }
+            }.map { row -> row?.toDomain() }
+    }
+
+    /**
+     * One-shot on-demand fetch for a cache-missing contributor. Resolves the
+     * [ContributorService] proxy, fetches the entity, and writes it through Room
+     * via the shared sync handler. Any failure is logged and swallowed — the
+     * observer keeps emitting `null` rather than crashing ("Never Stranded").
+     * [CancellationException] is re-thrown to preserve structured concurrency.
+     */
+    private suspend fun fetchAndCacheContributor(id: ContributorId) {
+        try {
+            val payload = rpcFactory.contributorService().getContributor(id).wireResultOrNull()
+            if (payload != null) {
+                contributorSyncHandler.onCatchUpItem(payload, isTombstone = false)
+            } else {
+                logger.debug { "getContributor returned no contributor for $id — leaving cache miss" }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "On-demand getContributor failed for $id, staying with cache miss" }
         }
+    }
 
     override suspend fun getById(id: String): Contributor? = contributorDao.getByIdWithAliases(id)?.toDomain()
 

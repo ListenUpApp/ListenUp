@@ -18,7 +18,13 @@ import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
@@ -866,6 +872,24 @@ val syncModule =
             )
         }
 
+        // ContributorRpcFactory - kotlinx.rpc proxy for ContributorService (cache-miss fetch).
+        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
+        single<ContributorRpcFactory> {
+            KtorContributorRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
+        // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
+        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
+        single<SeriesRpcFactory> {
+            KtorSeriesRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // BookRepository for UI data access
         single<BookRepository> {
             BookRepositoryImpl(
@@ -1078,6 +1102,8 @@ val syncModule =
                 api = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
+                rpcFactory = get(),
+                contributorSyncHandler = get<ContributorSyncDomainHandler>(),
             )
         }
 
@@ -1090,6 +1116,8 @@ val syncModule =
                 api = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
+                rpcFactory = get(),
+                seriesSyncHandler = get<SeriesSyncDomainHandler>(),
             )
         }
 

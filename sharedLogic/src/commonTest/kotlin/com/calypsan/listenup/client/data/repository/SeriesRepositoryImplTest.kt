@@ -10,7 +10,10 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
+import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.data.local.db.SeriesWithBooks as SeriesWithBooksRelation
@@ -45,15 +48,22 @@ class SeriesRepositoryImplTest :
 
         fun createMockDao(): SeriesDao = mock<SeriesDao>(MockMode.autoUnit)
 
-        fun createRepository(dao: SeriesDao): SeriesRepositoryImpl =
-            SeriesRepositoryImpl(
+        fun createRepository(dao: SeriesDao): SeriesRepositoryImpl {
+            val networkMonitor = mock<NetworkMonitor>()
+            // Stub isOnline() to false so the cache-miss RPC path is never triggered
+            // in these unit tests; the jvmTest RPC-fallback tests exercise that path.
+            every { networkMonitor.isOnline() } returns false
+            return SeriesRepositoryImpl(
                 seriesDao = dao,
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
                 api = mock<SeriesApiContract>(),
-                networkMonitor = mock<NetworkMonitor>(),
+                networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
+                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
+        }
 
         fun createTestSeriesEntity(
             id: String = "series-1",
@@ -78,13 +88,17 @@ class SeriesRepositoryImplTest :
         ): SeriesRepositoryImpl {
             val imageStorage = mock<ImageStorage>(MockMode.autoUnit)
             every { imageStorage.exists(any()) } returns false
+            val networkMonitor = mock<NetworkMonitor>()
+            every { networkMonitor.isOnline() } returns false
             return SeriesRepositoryImpl(
                 seriesDao = seriesDao,
                 bookDao = bookDao,
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
                 api = mock<SeriesApiContract>(),
-                networkMonitor = mock<NetworkMonitor>(),
+                networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
+                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
 
