@@ -81,7 +81,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
     setOf(
         // APIs (each typically pairs with a repo-impl below):
         "/data/remote/ActivityFeedApi.kt",
-        "/data/remote/MetadataApi.kt",
         "/data/remote/SearchApi.kt",
         "/data/remote/StatsApi.kt",
         // Auth / refresh / SSE infrastructure with throwing patterns that pre-date 27d:
@@ -96,7 +95,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
         "/data/repository/DownloadRepositoryImpl.kt",
         "/data/repository/InstanceRepositoryImpl.kt",
         "/data/repository/LeaderboardRepositoryImpl.kt",
-        "/data/repository/MetadataRepositoryImpl.kt",
         "/data/repository/RegistrationStatusStreamImpl.kt",
         "/data/repository/SearchRepositoryImpl.kt",
         "/data/repository/SeriesRepositoryImpl.kt",

@@ -231,7 +231,7 @@ fun ContributorMetadataPreviewScreen(
                         TextComparisonRow(
                             label = "Biography",
                             currentValue = currentContributor.description,
-                            newValue = profile.biography,
+                            newValue = profile.description,
                             isSelected = selections.biography,
                             onToggle = { onToggleField(ContributorMetadataField.BIOGRAPHY) },
                             isMultiline = true,

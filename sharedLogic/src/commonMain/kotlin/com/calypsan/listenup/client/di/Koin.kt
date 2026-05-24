@@ -38,8 +38,8 @@ import com.calypsan.listenup.client.data.remote.InviteApi
 import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.ShelfApi
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
-import com.calypsan.listenup.client.data.remote.MetadataApi
-import com.calypsan.listenup.client.data.remote.MetadataApiContract
+import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileApi
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.SearchApi
@@ -166,7 +166,6 @@ import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
-import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
@@ -431,13 +430,6 @@ val useCaseModule =
                 imageStagingRepository = get(),
             )
         }
-        // Metadata use cases
-        factory {
-            ApplyMetadataMatchUseCase(
-                metadataRepository = get(),
-                imageRepository = get(),
-            )
-        }
         // Contributor use cases
         factory {
             UpdateContributorUseCase(
@@ -452,8 +444,6 @@ val useCaseModule =
         factory {
             ApplyContributorMetadataUseCase(
                 metadataRepository = get(),
-                imageRepository = get(),
-                contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
             )
         }
         // Series use cases
@@ -730,14 +720,17 @@ val syncModule =
             ABSImportApi(clientFactory = get(), errorBus = get())
         } bind ABSImportApiContract::class
 
-        // MetadataApi for Audible metadata search and matching
-        single {
-            MetadataApi(clientFactory = get())
-        } bind MetadataApiContract::class
+        // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
+        single<MetadataLookupRpcFactory> {
+            KtorMetadataLookupRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
 
         // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.MetadataRepository> {
-            MetadataRepositoryImpl(metadataApi = get())
+            MetadataRepositoryImpl(rpcFactory = get())
         }
 
         // ImageRepositoryImpl — one concrete instance bound to both interfaces

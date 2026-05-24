@@ -38,6 +38,8 @@ data class MetadataBook(
     val narrators: List<MetadataContributorRef>,
     /** Series this book belongs to (may be empty). */
     val series: List<MetadataSeriesRef>,
+    /** Genre labels as returned by Audible (may be empty). */
+    val genres: List<String>,
     /** Audible cover thumbnail URL (typically 500×500). */
     val coverUrl: String?,
     /** High-resolution cover URL from iTunes (up to 7000×7000), or `null` if unavailable. */

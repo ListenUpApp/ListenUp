@@ -1,22 +1,21 @@
 package com.calypsan.listenup.client.presentation.metadata
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataContributorRef
+import com.calypsan.listenup.api.dto.MetadataSearchResults
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.metadata.AudibleRegion
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.client.domain.repository.CoverOption
-import com.calypsan.listenup.client.domain.repository.MetadataBook
-import com.calypsan.listenup.client.domain.repository.MetadataContributor
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
-import com.calypsan.listenup.client.domain.repository.MetadataSeriesEntry
-import com.calypsan.listenup.client.domain.usecase.metadata.ApplyMetadataMatchUseCase
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -24,391 +23,414 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import com.calypsan.listenup.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MetadataViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class MetadataViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val metadataRepository: MetadataRepository = mock()
-        val applyMetadataMatchUseCase: ApplyMetadataMatchUseCase = mock()
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun build(): MetadataViewModel =
-            MetadataViewModel(
-                metadataRepository = metadataRepository,
-                applyMetadataMatchUseCase = applyMetadataMatchUseCase,
-                errorBus = ErrorBus(),
+        fun makeBook(
+            asin: String = "B001",
+            title: String = "Test Book",
+            authorAsin: String? = "A1",
+        ): MetadataBook =
+            MetadataBook(
+                asin = asin,
+                title = title,
+                subtitle = "Subtitle",
+                description = "Description",
+                publisher = "Publisher",
+                releaseDate = "2024-01-01",
+                runtimeMinutes = 120,
+                language = "en",
+                authors = listOf(MetadataContributorRef(asin = authorAsin, name = "Author One")),
+                narrators = listOf(MetadataContributorRef(asin = "N1", name = "Narrator One")),
+                series = emptyList(),
+                genres = emptyList(),
+                coverUrl = "https://example.com/cover.jpg",
+                coverUrlMaxSize = "https://example.com/cover-max.jpg",
             )
-    }
 
-    private fun createSearchResult(
-        asin: String = "B001",
-        title: String = "Book One",
-    ): MetadataSearchResult =
-        MetadataSearchResult(
-            asin = asin,
-            title = title,
-            authors = listOf("Jane Doe"),
-            narrators = listOf("John Narrator"),
-            coverUrl = null,
-            runtimeMinutes = 120,
-            releaseDate = "2024-01-01",
-            rating = 4.5,
-            ratingCount = 10,
-            language = "en",
-        )
+        fun buildVm(repo: MetadataRepository): MetadataViewModel = MetadataViewModel(metadataRepository = repo, errorBus = ErrorBus())
 
-    private fun createPreview(
-        asin: String = "B001",
-        title: String = "Book One",
-        authors: List<MetadataContributor> = listOf(MetadataContributor(name = "Jane Doe", asin = "A1")),
-        narrators: List<MetadataContributor> = listOf(MetadataContributor(name = "John Narrator", asin = "N1")),
-        series: List<MetadataSeriesEntry> = emptyList(),
-        genres: List<String> = listOf("Fiction"),
-        coverUrl: String? = "https://example.com/cover.jpg",
-        description: String? = "A great book",
-    ): MetadataBook =
-        MetadataBook(
-            asin = asin,
-            title = title,
-            subtitle = "A subtitle",
-            authors = authors,
-            narrators = narrators,
-            series = series,
-            genres = genres,
-            coverUrl = coverUrl,
-            description = description,
-            publisher = "Pub",
-            releaseDate = "2024-01-01",
-            rating = 4.5,
-            ratingCount = 10,
-            language = "en",
-            runtimeMinutes = 120,
-        )
+        // ── Initial state ──────────────────────────────────────────────────────
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            val viewModel = TestFixture().build()
-            val state = assertIs<MetadataUiState.Idle>(viewModel.state.value)
-            assertEquals(AudibleRegion.US, state.region)
-        }
-
-    @Test
-    fun `initForBook transitions to Search Idle with seeded query`() =
-        runTest {
-            val viewModel = TestFixture().build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "Frank Herbert")
-
-            val state = assertIs<MetadataUiState.Search>(viewModel.state.value)
-            assertEquals("b-1", state.context.bookId)
-            assertEquals("Dune Frank Herbert", state.query)
-            assertEquals(SearchLoadState.Idle, state.loadState)
-        }
-
-    @Test
-    fun `search success transitions Search Idle to InFlight to Loaded`() =
-        runTest {
-            val fixture = TestFixture()
-            val results = listOf(createSearchResult())
-            everySuspend { fixture.metadataRepository.searchAudible(any(), any()) } returns results
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "Frank Herbert")
-            viewModel.search()
-            advanceUntilIdle()
-
-            val state = assertIs<MetadataUiState.Search>(viewModel.state.value)
-            val loaded = assertIs<SearchLoadState.Loaded>(state.loadState)
-            assertEquals(1, loaded.results.size)
-        }
-
-    @Test
-    fun `search failure transitions to SearchLoadState Failed`() =
-        runTest {
-            val fixture = TestFixture()
-            everySuspend {
-                fixture.metadataRepository.searchAudible(any(), any())
-            } throws RuntimeException("network down")
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "")
-            viewModel.search()
-            advanceUntilIdle()
-
-            val state = assertIs<MetadataUiState.Search>(viewModel.state.value)
-            val failed = assertIs<SearchLoadState.Failed>(state.loadState)
-            assertEquals("network down", failed.message)
-        }
-
-    @Test
-    fun `selectMatch transitions to Preview Loading then Ready`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult(asin = "B001", title = "Dune")
-            val preview = createPreview(asin = "B001", title = "Dune")
-            everySuspend { fixture.metadataRepository.searchAudible(any(), any()) } returns listOf(match)
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "Frank Herbert")
-            viewModel.search()
-            advanceUntilIdle()
-
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            val state = assertIs<MetadataUiState.Preview>(viewModel.state.value)
-            val ready = assertIs<PreviewLoadState.Ready>(state.loadState)
-            assertEquals("Dune", ready.preview.title)
-            // Selections initialized with fields that have data.
-            assertEquals(true, ready.selections.cover)
-            assertEquals(true, ready.selections.title)
-            assertEquals(setOf("A1"), ready.selections.selectedAuthors)
-        }
-
-    @Test
-    fun `selectMatch preview fetch failure falls back to search result data`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult(asin = "B001", title = "Fallback Title")
-            everySuspend { fixture.metadataRepository.searchAudible(any(), any()) } returns listOf(match)
-            everySuspend {
-                fixture.metadataRepository.getMetadataPreview(any(), any())
-            } throws RuntimeException("audible down")
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Fallback Title", author = "")
-            viewModel.search()
-            advanceUntilIdle()
-
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            val state = assertIs<MetadataUiState.Preview>(viewModel.state.value)
-            val ready = assertIs<PreviewLoadState.Ready>(state.loadState)
-            assertEquals("Fallback Title", ready.preview.title)
-        }
-
-    @Test
-    fun `selectMatch preview fetch failure with blank title emits Failed`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = MetadataSearchResult(asin = "B001", title = "")
-            everySuspend {
-                fixture.metadataRepository.getMetadataPreview(any(), any())
-            } throws RuntimeException("audible down")
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "", author = "")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            val state = assertIs<MetadataUiState.Preview>(viewModel.state.value)
-            val failed = assertIs<PreviewLoadState.Failed>(state.loadState)
-            assertEquals("audible down", failed.message)
-        }
-
-    @Test
-    fun `clearSelection returns to Search with results preserved`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val preview = createPreview()
-            everySuspend { fixture.metadataRepository.searchAudible(any(), any()) } returns listOf(match)
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.search()
-            advanceUntilIdle()
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            viewModel.clearSelection()
-
-            val state = assertIs<MetadataUiState.Search>(viewModel.state.value)
-            val loaded = assertIs<SearchLoadState.Loaded>(state.loadState)
-            assertEquals(1, loaded.results.size)
-        }
-
-    @Test
-    fun `toggleField flips the corresponding selection on Ready`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val preview = createPreview()
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            viewModel.toggleField(MetadataField.TITLE)
-
-            val state = assertIs<MetadataUiState.Preview>(viewModel.state.value)
-            val ready = assertIs<PreviewLoadState.Ready>(state.loadState)
-            // Was initially true (title has data); toggle flips it.
-            assertEquals(false, ready.selections.title)
-        }
-
-    @Test
-    fun `toggleAuthor adds and removes ASIN from selected set`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val preview = createPreview()
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            viewModel.toggleAuthor("A1") // Remove (was initialized with A1)
-            val afterRemove =
-                assertIs<PreviewLoadState.Ready>(
-                    (viewModel.state.value as MetadataUiState.Preview).loadState,
-                )
-            assertEquals(emptySet(), afterRemove.selections.selectedAuthors)
-
-            viewModel.toggleAuthor("A2") // Add
-            val afterAdd =
-                assertIs<PreviewLoadState.Ready>(
-                    (viewModel.state.value as MetadataUiState.Preview).loadState,
-                )
-            assertEquals(setOf("A2"), afterAdd.selections.selectedAuthors)
-        }
-
-    @Test
-    fun `applyMatch success emits MatchApplied and clears applyError`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val preview = createPreview()
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            everySuspend {
-                fixture.applyMetadataMatchUseCase(any(), any(), any(), any(), any(), any())
-            } returns Success(Unit)
-            val viewModel = fixture.build()
-
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-
-            viewModel.events.test {
-                viewModel.applyMatch()
-                advanceUntilIdle()
-                assertEquals(MetadataEvent.MatchApplied, awaitItem())
+        test("initial state is Idle with US region") {
+            runTest {
+                val vm = buildVm(mock())
+                val state = vm.state.value
+                state.shouldBeInstanceOf<MetadataUiState.Idle>()
+                state.region shouldBe AudibleRegion.US
             }
-
-            val ready =
-                assertIs<PreviewLoadState.Ready>(
-                    (viewModel.state.value as MetadataUiState.Preview).loadState,
-                )
-            assertEquals(false, ready.isApplying)
-            assertEquals(null, ready.applyError)
         }
 
-    @Test
-    fun `applyMatch failure sets applyError and stays in Ready`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val preview = createPreview()
-            everySuspend { fixture.metadataRepository.getMetadataPreview(any(), any()) } returns preview
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            everySuspend {
-                fixture.applyMetadataMatchUseCase(any(), any(), any(), any(), any(), any())
-            } returns AppResult.Failure(ValidationError(message = "server down"))
-            val viewModel = fixture.build()
+        // ── initForBook ────────────────────────────────────────────────────────
 
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
+        test("initForBook transitions to Search Idle with seeded query") {
+            runTest {
+                val vm = buildVm(mock())
+                vm.initForBook(bookId = "b1", title = "Dune", author = "Frank Herbert")
 
-            viewModel.applyMatch()
-            advanceUntilIdle()
-
-            val ready =
-                assertIs<PreviewLoadState.Ready>(
-                    (viewModel.state.value as MetadataUiState.Preview).loadState,
-                )
-            assertEquals(false, ready.isApplying)
-            assertNotNull(ready.applyError)
-            assertEquals("server down", ready.applyError)
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                state.context.bookId shouldBe "b1"
+                state.query shouldBe "Dune Frank Herbert"
+                state.loadState shouldBe SearchLoadState.Idle
+            }
         }
 
-    @Test
-    fun `changeRegion in Preview phase refetches with new region code`() =
-        runTest {
-            val fixture = TestFixture()
-            val match = createSearchResult()
-            val previewUs = createPreview(title = "US Edition")
-            val previewUk = createPreview(title = "UK Edition")
-            // First call (US region) and second call (UK) via the repeated mock.
-            everySuspend {
-                fixture.metadataRepository.getMetadataPreview(any(), "us")
-            } returns previewUs
-            everySuspend {
-                fixture.metadataRepository.getMetadataPreview(any(), "uk")
-            } returns previewUk
-            everySuspend { fixture.metadataRepository.searchCovers(any(), any()) } returns emptyList<CoverOption>()
-            val viewModel = fixture.build()
+        // ── search() ──────────────────────────────────────────────────────────
 
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.selectMatch(match)
-            advanceUntilIdle()
-            val usState = viewModel.state.value as MetadataUiState.Preview
-            assertEquals("US Edition", (usState.loadState as PreviewLoadState.Ready).preview.title)
+        test("search success transitions to SearchLoadState.Loaded") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(book)))
+                val vm = buildVm(repo)
 
-            viewModel.changeRegion(AudibleRegion.UK)
-            advanceUntilIdle()
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
 
-            val ukState = assertIs<MetadataUiState.Preview>(viewModel.state.value)
-            assertEquals(AudibleRegion.UK, ukState.region)
-            val ready = assertIs<PreviewLoadState.Ready>(ukState.loadState)
-            assertEquals("UK Edition", ready.preview.title)
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                val loaded = state.loadState.shouldBeInstanceOf<SearchLoadState.Loaded>()
+                loaded.results.size shouldBe 1
+            }
         }
 
-    @Test
-    fun `reset returns to Idle preserving region`() =
-        runTest {
-            val fixture = TestFixture()
-            everySuspend { fixture.metadataRepository.searchAudible(any(), any()) } returns emptyList()
-            val viewModel = fixture.build()
+        test("search failure transitions to SearchLoadState.Failed and emits to ErrorBus") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                val error = TransportError.NetworkUnavailable()
+                everySuspend { repo.searchBooks(any(), any()) } returns AppResult.Failure(error)
+                val vm = buildVm(repo)
 
-            viewModel.initForBook(bookId = "b-1", title = "Dune", author = "FH")
-            viewModel.changeRegion(AudibleRegion.DE)
-            viewModel.reset()
+                vm.initForBook("b1", "Dune", "")
+                vm.search()
+                advanceUntilIdle()
 
-            val state = assertIs<MetadataUiState.Idle>(viewModel.state.value)
-            assertEquals(AudibleRegion.DE, state.region)
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                val failed = state.loadState.shouldBeInstanceOf<SearchLoadState.Failed>()
+                failed.message shouldBe error.message
+            }
         }
-}
+
+        // ── selectMatch() ─────────────────────────────────────────────────────
+
+        test("selectMatch transitions to Preview.Ready when getBookMetadata succeeds") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.preview.title shouldBe "Dune"
+                ready.selections.cover shouldBe true
+                ready.selections.selectedAuthors shouldBe setOf("A1")
+            }
+        }
+
+        test("selectMatch null preview falls back to search result data") {
+            runTest {
+                val book = makeBook(title = "Fallback Title")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(null)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Fallback Title", "")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.preview.title shouldBe "Fallback Title"
+                ready.previewNotFound shouldBe true
+            }
+        }
+
+        test("selectMatch failure with non-blank title uses search result as fallback") {
+            runTest {
+                val book = makeBook(title = "Fallback Title")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Fallback Title", "")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.preview.title shouldBe "Fallback Title"
+            }
+        }
+
+        test("selectMatch failure with blank title transitions to PreviewLoadState.Failed") {
+            runTest {
+                val emptyBook =
+                    makeBook(asin = "B001", title = "").copy(
+                        authors = emptyList(),
+                        narrators = emptyList(),
+                    )
+                val repo = mock<MetadataRepository>()
+                val error = TransportError.NetworkUnavailable()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Failure(error)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "", "")
+                vm.selectMatch(emptyBook)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val failed = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Failed>()
+                failed.message shouldBe error.message
+            }
+        }
+
+        // ── clearSelection() ──────────────────────────────────────────────────
+
+        test("clearSelection returns to Search with results preserved") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.clearSelection()
+
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                val loaded = state.loadState.shouldBeInstanceOf<SearchLoadState.Loaded>()
+                loaded.results.size shouldBe 1
+            }
+        }
+
+        // ── toggleField() ─────────────────────────────────────────────────────
+
+        test("toggleField flips the corresponding selection on Ready") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.toggleField(MetadataField.TITLE)
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Ready>()
+                // Initially true (title has data), toggle flips it.
+                ready.selections.title shouldBe false
+            }
+        }
+
+        // ── toggleAuthor() ────────────────────────────────────────────────────
+
+        test("toggleAuthor adds and removes ASIN from selected set") {
+            runTest {
+                val book = makeBook(authorAsin = "A1")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                // A1 was initialized as selected; remove it
+                vm.toggleAuthor("A1")
+                val afterRemove =
+                    (
+                        vm.state.value
+                            .shouldBeInstanceOf<MetadataUiState.Preview>()
+                            .loadState
+                            .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                    )
+                afterRemove.selections.selectedAuthors shouldBe emptySet()
+
+                // Add A2
+                vm.toggleAuthor("A2")
+                val afterAdd =
+                    (
+                        vm.state.value
+                            .shouldBeInstanceOf<MetadataUiState.Preview>()
+                            .loadState
+                            .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                    )
+                afterAdd.selections.selectedAuthors shouldBe setOf("A2")
+            }
+        }
+
+        // ── applyMatch() ──────────────────────────────────────────────────────
+
+        test("applyMatch success emits MatchApplied event") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Success(Unit)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.events.test {
+                    vm.applyMatch()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe MetadataEvent.MatchApplied
+                }
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.isApplying shouldBe false
+                ready.applyError shouldBe null
+            }
+        }
+
+        test("applyMatch failure sets applyError and stays in Ready") {
+            runTest {
+                val book = makeBook()
+                val repo = mock<MetadataRepository>()
+                val error = TransportError.NetworkUnavailable()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.applyBookMetadata(any(), any(), any()) } returns AppResult.Failure(error)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                vm.applyMatch()
+                advanceUntilIdle()
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.isApplying shouldBe false
+                ready.applyError shouldBe error.message
+            }
+        }
+
+        // ── changeRegion() ────────────────────────────────────────────────────
+
+        test("changeRegion in Preview phase refetches with new region") {
+            runTest {
+                val usBook = makeBook(title = "US Edition")
+                val ukBook = makeBook(title = "UK Edition")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), AudibleRegion.US) } returns AppResult.Success(usBook)
+                everySuspend { repo.getBookMetadata(any(), AudibleRegion.UK) } returns AppResult.Success(ukBook)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(usBook)
+                advanceUntilIdle()
+
+                vm.changeRegion(AudibleRegion.UK)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                preview.region shouldBe AudibleRegion.UK
+                preview.loadState
+                    .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                    .preview.title shouldBe "UK Edition"
+            }
+        }
+
+        // ── reset() ───────────────────────────────────────────────────────────
+
+        test("reset returns to Idle preserving region") {
+            runTest {
+                val vm = buildVm(mock())
+                vm.initForBook("b1", "Dune", "FH")
+                vm.changeRegion(AudibleRegion.DE)
+                vm.reset()
+
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Idle>()
+                state.region shouldBe AudibleRegion.DE
+            }
+        }
+
+        // ── buildCoverEntries (via Ready.coverEntries) ────────────────────────
+
+        test("coverEntries includes iTunes HD and Audible options from preview") {
+            runTest {
+                val book =
+                    makeBook().copy(
+                        coverUrl = "https://audible.com/cover.jpg",
+                        coverUrlMaxSize = "https://itunes.com/cover-max.jpg",
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.coverEntries.size shouldBe 2
+                ready.coverEntries.any { it.label == "iTunes HD" } shouldBe true
+                ready.coverEntries.any { it.label == "Audible" } shouldBe true
+            }
+        }
+
+        test("coverEntries has only Audible option when coverUrlMaxSize is null") {
+            runTest {
+                val book = makeBook().copy(coverUrlMaxSize = null)
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "FH")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready =
+                    vm.state.value
+                        .shouldBeInstanceOf<MetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<PreviewLoadState.Ready>()
+                ready.coverEntries.size shouldBe 1
+                ready.coverEntries.single().label shouldBe "Audible"
+            }
+        }
+    })

@@ -37,15 +37,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
+import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import org.jetbrains.compose.resources.stringResource
@@ -73,7 +71,7 @@ fun ContributorMetadataSearchScreen(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onRegionSelected: (AudibleRegion) -> Unit,
-    onResultClick: (ContributorMetadataCandidate) -> Unit,
+    onResultClick: (MetadataContributorHit) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -272,10 +270,14 @@ private fun EmptyState(hasSearched: Boolean) {
 
 /**
  * Single contributor search result item.
+ *
+ * [MetadataContributorHit] carries only [asin] and [name]; no imageUrl or
+ * description is available at the search-results tier (the full profile is
+ * fetched on selection via [ContributorMetadataViewModel.selectCandidate]).
  */
 @Composable
 private fun ContributorSearchResultItem(
-    result: ContributorMetadataCandidate,
+    result: MetadataContributorHit,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -290,58 +292,33 @@ private fun ContributorSearchResultItem(
                     .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Profile image with placeholder
-            if (result.imageUrl.isNullOrBlank()) {
-                // Placeholder icon when no image
-                Surface(
-                    modifier =
-                        Modifier
-                            .size(56.dp)
-                            .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            // Placeholder icon — hit data carries no image; full profile loads on selection
+            Surface(
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .clip(CircleShape),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            } else {
-                AsyncImage(
-                    model = result.imageUrl,
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .size(56.dp)
-                            .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
             }
 
             Spacer(Modifier.width(16.dp))
 
-            // Name and description
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = result.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                result.description?.let { description ->
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            Text(
+                text = result.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

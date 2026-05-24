@@ -28,9 +28,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.BookDetail
-import com.calypsan.listenup.client.domain.repository.BookRepository
-import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
+import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
@@ -68,7 +68,24 @@ fun MatchPreviewRoute(
             current is MetadataUiState.Preview && current.match.asin == asin
         if (!alreadyOnThisMatch) {
             metadataViewModel.initForBook(bookId = bookId, title = "", author = "")
-            metadataViewModel.selectMatch(MetadataSearchResult(asin = asin, title = ""))
+            metadataViewModel.selectMatch(
+                MetadataBook(
+                    asin = asin,
+                    title = "",
+                    subtitle = null,
+                    description = null,
+                    publisher = null,
+                    releaseDate = null,
+                    runtimeMinutes = null,
+                    language = null,
+                    authors = emptyList(),
+                    narrators = emptyList(),
+                    series = emptyList(),
+                    genres = emptyList(),
+                    coverUrl = null,
+                    coverUrlMaxSize = null,
+                ),
+            )
         }
     }
 
@@ -110,8 +127,8 @@ fun MatchPreviewRoute(
                 applyError = ready.applyError,
                 previewNotFound = ready.previewNotFound,
                 selectedRegion = preview.region,
-                coverOptions = ready.coverOptions,
-                isLoadingCovers = ready.isLoadingCovers,
+                coverOptions = ready.coverEntries,
+                isLoadingCovers = false,
                 selectedCoverUrl = ready.selectedCoverUrl,
                 onSelectCover = metadataViewModel::selectCover,
                 onRegionSelected = metadataViewModel::changeRegion,

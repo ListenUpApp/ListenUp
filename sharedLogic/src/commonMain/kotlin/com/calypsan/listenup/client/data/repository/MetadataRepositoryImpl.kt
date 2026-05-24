@@ -1,273 +1,92 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.client.data.remote.MetadataApiContract
-import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
-import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
-import com.calypsan.listenup.client.domain.model.ContributorWithMetadata
-import com.calypsan.listenup.client.domain.repository.ApplyMatchRequest
-import com.calypsan.listenup.client.domain.repository.ContributorMetadataProfile
-import com.calypsan.listenup.client.domain.repository.CoverOption
-import com.calypsan.listenup.client.domain.repository.MatchFields
-import com.calypsan.listenup.client.domain.repository.MetadataBook
-import com.calypsan.listenup.client.domain.repository.MetadataContributor
+import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataChapters
+import com.calypsan.listenup.api.dto.MetadataContributorHit
+import com.calypsan.listenup.api.dto.MetadataContributorProfile
+import com.calypsan.listenup.api.dto.MetadataSearchResults
+import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
-import com.calypsan.listenup.client.domain.repository.MetadataSeriesEntry
-import com.calypsan.listenup.client.domain.repository.SeriesMatchEntry
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.withContext
-import com.calypsan.listenup.client.data.remote.ApplyContributorMetadataResult as ApiContributorMetadataResult
-import com.calypsan.listenup.client.data.remote.model.ApplyMatchRequest as DataApplyMatchRequest
-import com.calypsan.listenup.client.data.remote.model.CoverOption as DataCoverOption
-import com.calypsan.listenup.client.data.remote.model.MetadataBook as DataMetadataBook
-import com.calypsan.listenup.client.data.remote.model.MetadataSearchResult as DataMetadataSearchResult
-import com.calypsan.listenup.core.Success
-
-private val logger = KotlinLogging.logger {}
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.error.ErrorMapper
+import kotlinx.coroutines.CancellationException
 
 /**
- * Repository for Audible metadata operations.
+ * Repository implementation backing [MetadataRepository] against the
+ * [com.calypsan.listenup.api.MetadataLookupService] RPC contract.
  *
- * This is an online-only feature - there's no offline fallback
- * since we're fetching external metadata from Audible.
+ * Each method delegates to the RPC service obtained from [MetadataLookupRpcFactory].
+ * [CancellationException] is always re-thrown per the Error Architecture rule;
+ * other throwables are mapped to a typed [AppResult.Failure] via [ErrorMapper].
+ * Wire [WireAppResult] values are converted to [AppResult] at this boundary.
  *
- * Implements the domain MetadataRepository interface, converting
- * between data layer types and domain types.
+ * Pattern mirrors [ContributorRepositoryImpl]'s RPC fallback path from B2a-C.
  *
- * @property metadataApi Audible metadata API client
+ * @property rpcFactory Supplies the [com.calypsan.listenup.api.MetadataLookupService]
+ *   proxy, cached on first use with Mutex correctness.
  */
 class MetadataRepositoryImpl(
-    private val metadataApi: MetadataApiContract,
+    private val rpcFactory: MetadataLookupRpcFactory,
 ) : MetadataRepository {
-    /**
-     * Search Audible for matching audiobooks.
-     */
-    override suspend fun searchAudible(
+    override suspend fun searchBooks(
         query: String,
-        region: String,
-    ): List<MetadataSearchResult> =
-        withContext(IODispatcher) {
-            metadataApi.search(query, region).map { it.toDomain() }
-        }
+        region: AudibleRegion?,
+    ): AppResult<MetadataSearchResults> = wrap { rpcFactory.metadataLookupService().searchBooks(query, region) }
 
-    /**
-     * Get full metadata for a specific Audible book.
-     */
-    override suspend fun getMetadataPreview(
+    override suspend fun getBookMetadata(
         asin: String,
-        region: String,
-    ): MetadataBook =
-        withContext(IODispatcher) {
-            metadataApi.getBook(asin, region).toDomain()
-        }
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?> = wrap { rpcFactory.metadataLookupService().getBookMetadata(asin, region) }
 
-    /**
-     * Apply Audible metadata match to a book.
-     */
-    override suspend fun applyMatch(
-        bookId: String,
-        request: ApplyMatchRequest,
-    ) {
-        withContext(IODispatcher) {
-            metadataApi.applyMatch(bookId, request.toData())
-        }
-    }
+    override suspend fun getBookChapters(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataChapters?> = wrap { rpcFactory.metadataLookupService().getBookChapters(asin, region) }
 
-    /**
-     * Search for cover images from multiple sources.
-     */
-    override suspend fun searchCovers(
-        title: String,
-        author: String,
-    ): List<CoverOption> =
-        withContext(IODispatcher) {
-            metadataApi.searchCovers(title, author).map { it.toDomain() }
-        }
+    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
+        wrap { rpcFactory.metadataLookupService().searchContributorMetadata(query) }
 
-    /**
-     * Apply Audible metadata to a contributor.
-     */
+    override suspend fun getContributorMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataContributorProfile?> =
+        wrap { rpcFactory.metadataLookupService().getContributorMetadata(asin, region) }
+
+    override suspend fun refreshBookMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?> = wrap { rpcFactory.metadataLookupService().refreshBookMetadata(asin, region) }
+
+    override suspend fun applyBookMetadata(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<Unit> = wrap { rpcFactory.metadataLookupService().applyBookMetadata(bookId, asin, region) }
+
     override suspend fun applyContributorMetadata(
-        contributorId: String,
+        contributorId: ContributorId,
         asin: String,
-        imageUrl: String?,
-        applyName: Boolean,
-        applyBiography: Boolean,
-        applyImage: Boolean,
-    ): ContributorMetadataResult =
-        withContext(IODispatcher) {
-            try {
-                when (
-                    val result =
-                        metadataApi.applyContributorMetadata(
-                            contributorId = contributorId,
-                            asin = asin,
-                            imageUrl = imageUrl,
-                            applyName = applyName,
-                            applyBiography = applyBiography,
-                            applyImage = applyImage,
-                        )
-                ) {
-                    is ApiContributorMetadataResult.Success -> {
-                        logger.info { "Applied Audible metadata to contributor $contributorId" }
-                        val contributor = result.contributor
-                        ContributorMetadataResult.Success(
-                            contributor =
-                                ContributorWithMetadata(
-                                    id = contributor.id,
-                                    name = contributor.name,
-                                    biography = contributor.biography,
-                                    imageUrl = contributor.imageUrl,
-                                    imageBlurHash = contributor.imageBlurHash,
-                                ),
-                        )
-                    }
-
-                    is ApiContributorMetadataResult.NeedsDisambiguation -> {
-                        logger.debug {
-                            "Contributor metadata needs disambiguation: ${result.candidates.size} candidates"
-                        }
-                        ContributorMetadataResult.NeedsDisambiguation(
-                            options =
-                                result.candidates.map { candidate ->
-                                    ContributorMetadataCandidate(
-                                        asin = candidate.asin,
-                                        name = candidate.name,
-                                        imageUrl = candidate.imageUrl,
-                                        description = candidate.description,
-                                    )
-                                },
-                        )
-                    }
-
-                    is ApiContributorMetadataResult.Error -> {
-                        logger.warn { "Failed to apply contributor metadata: ${result.message}" }
-                        ContributorMetadataResult.Error(result.message)
-                    }
-                }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(e) { "Error applying contributor metadata" }
-                ContributorMetadataResult.Error(e.message ?: "Unknown error")
-            }
-        }
+        region: AudibleRegion,
+    ): AppResult<Unit> =
+        wrap { rpcFactory.metadataLookupService().applyContributorMetadata(contributorId, asin, region) }
 
     /**
-     * Search Audible for matching contributors.
+     * Wraps a RPC call, converting from the wire [WireAppResult] to the client [AppResult].
+     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure].
      */
-    override suspend fun searchContributors(
-        query: String,
-        region: String,
-    ): List<ContributorMetadataCandidate> =
-        withContext(IODispatcher) {
-            metadataApi.searchContributors(query, region).map { result ->
-                ContributorMetadataCandidate(
-                    asin = result.asin,
-                    name = result.name,
-                    imageUrl = result.imageUrl,
-                    description = result.description,
-                )
+    private suspend inline fun <T> wrap(block: () -> WireAppResult<T>): AppResult<T> =
+        try {
+            when (val result = block()) {
+                is WireAppResult.Success -> AppResult.Success(result.data)
+                is WireAppResult.Failure -> AppResult.Failure(result.error)
             }
-        }
-
-    /**
-     * Get full contributor profile from Audible.
-     */
-    override suspend fun getContributorProfile(asin: String): ContributorMetadataProfile =
-        withContext(IODispatcher) {
-            val profile = metadataApi.getContributorProfile(asin)
-            ContributorMetadataProfile(
-                asin = profile.asin,
-                name = profile.name,
-                biography = profile.biography,
-                imageUrl = profile.imageUrl,
-            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            AppResult.Failure(ErrorMapper.map(e))
         }
 }
-
-// ========== Type Conversions ==========
-
-/**
- * Convert data layer search result to domain type.
- */
-private fun DataMetadataSearchResult.toDomain(): MetadataSearchResult =
-    MetadataSearchResult(
-        asin = asin,
-        title = title,
-        subtitle = subtitle,
-        authors = authors.map { it.name },
-        narrators = narrators.map { it.name },
-        releaseDate = releaseDate,
-        runtimeMinutes = runtimeMinutes,
-        coverUrl = coverUrl,
-        publisher = null, // Data layer search result doesn't have publisher
-        language = language,
-        rating = rating,
-        ratingCount = ratingCount,
-    )
-
-/**
- * Convert data layer book metadata to domain type.
- */
-private fun DataMetadataBook.toDomain(): MetadataBook =
-    MetadataBook(
-        asin = asin,
-        title = title,
-        subtitle = subtitle,
-        description = description,
-        authors = authors.map { MetadataContributor(asin = it.asin, name = it.name) },
-        narrators = narrators.map { MetadataContributor(asin = it.asin, name = it.name) },
-        releaseDate = releaseDate,
-        runtimeMinutes = runtimeMinutes,
-        coverUrl = coverUrl,
-        publisher = publisher,
-        language = language,
-        series = series.map { MetadataSeriesEntry(asin = it.asin, name = it.name, position = it.position) },
-        genres = genres,
-        rating = rating,
-        ratingCount = ratingCount,
-    )
-
-/**
- * Convert data layer cover option to domain type.
- */
-private fun DataCoverOption.toDomain(): CoverOption =
-    CoverOption(
-        url = url,
-        source = source,
-        width = width,
-        height = height,
-    )
-
-/**
- * Convert domain apply match request to data layer type.
- */
-private fun ApplyMatchRequest.toData(): DataApplyMatchRequest =
-    DataApplyMatchRequest(
-        asin = asin,
-        region = region,
-        fields =
-            com.calypsan.listenup.client.data.remote.model.MatchFields(
-                title = fields.title,
-                subtitle = fields.subtitle,
-                description = fields.description,
-                publisher = fields.publisher,
-                releaseDate = fields.releaseDate,
-                language = fields.language,
-                cover = fields.cover,
-            ),
-        authors = authors,
-        narrators = narrators,
-        series =
-            series.map {
-                com.calypsan.listenup.client.data.remote.model.SeriesMatchEntry(
-                    asin = it.asin,
-                    applyName = it.applyName,
-                    applySequence = it.applySequence,
-                )
-            },
-        genres = genres,
-        coverUrl = coverUrl,
-    )
