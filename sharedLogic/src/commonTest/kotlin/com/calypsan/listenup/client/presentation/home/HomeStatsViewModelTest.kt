@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -45,7 +44,7 @@ class HomeStatsViewModelTest :
 
         test("emitting WeeklyStats.empty() transitions to Empty") {
             runTest {
-                val vm = HomeStatsViewModel(stubRepo(flowOf(WeeklyStats.empty())))
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(WeeklyStats.empty())))
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
                     awaitItem() shouldBe HomeStatsUiState.Empty
@@ -64,7 +63,7 @@ class HomeStatsViewModelTest :
                         topGenres = emptyList(),
                         totalSecondsThisWeek = 0L,
                     )
-                val vm = HomeStatsViewModel(stubRepo(flowOf(stats)))
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
                     awaitItem() shouldBe HomeStatsUiState.Empty
@@ -78,7 +77,7 @@ class HomeStatsViewModelTest :
         test("non-empty stats transition to Data") {
             runTest {
                 val stats = nonEmptyStats(totalSeconds = 3_600L, currentStreak = 2, longestStreak = 5)
-                val vm = HomeStatsViewModel(stubRepo(flowOf(stats)))
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
                     awaitItem() shouldBe HomeStatsUiState.Loading
                     val data = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
@@ -102,7 +101,7 @@ class HomeStatsViewModelTest :
                         topGenres = genres,
                         totalSecondsThisWeek = 2_700L,
                     )
-                val vm = HomeStatsViewModel(stubRepo(flowOf(stats)))
+                val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
                     awaitItem() // Loading
                     val data = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
