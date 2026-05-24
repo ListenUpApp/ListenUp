@@ -94,12 +94,12 @@ fun ContributorCoverImage(
                     val token = authSession.getAccessToken()?.value
                     logger.debug {
                         "ContributorCoverImage: fallback id=$contributorId " +
-                            "url=$baseUrl/api/v1/contributors/$contributorId/image"
+                            "url=$baseUrl/api/v1/contributors/$contributorId/photo"
                     }
                     if (baseUrl != null) {
                         ImageRequest
                             .Builder(context)
-                            .data("$baseUrl/api/v1/contributors/$contributorId/image")
+                            .data("$baseUrl/api/v1/contributors/$contributorId/photo")
                             .apply {
                                 if (token != null) {
                                     httpHeaders(
