@@ -265,4 +265,100 @@ class SeriesDetailViewModelTest :
                 second.seriesName shouldBe "Updated Name"
             }
         }
+
+        // ========== G2 — resolveCoverPath priority tests ==========
+
+        test("resolveCoverPath uses series.coverPath when no local file and no book covers") {
+            // No local disk file, series has coverPath → should surface series.coverPath.
+            runTest {
+                val fixture = createFixture()
+                every { fixture.imageRepository.seriesCoverExists(any()) } returns false
+                val series =
+                    Series(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-1"),
+                        name = "Stormlight",
+                        description = null,
+                        createdAt = Timestamp(0L),
+                        coverPath = ".listenup-meta/series/stormlight.jpg",
+                        coverBlurHash = null,
+                        asin = null,
+                    )
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value = createSeriesWithBooks(series = series, books = emptyList())
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.coverPath shouldBe ".listenup-meta/series/stormlight.jpg"
+            }
+        }
+
+        test("resolveCoverPath prefers local disk over series.coverPath") {
+            // Local file exists → use local path, not series.coverPath.
+            runTest {
+                val fixture = createFixture()
+                every { fixture.imageRepository.seriesCoverExists(any()) } returns true
+                every { fixture.imageRepository.getSeriesCoverPath(any()) } returns "/local/series-1.jpg"
+                val series =
+                    Series(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-1"),
+                        name = "Mistborn",
+                        description = null,
+                        createdAt = Timestamp(0L),
+                        coverPath = ".listenup-meta/series/mistborn.jpg",
+                        coverBlurHash = null,
+                        asin = null,
+                    )
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value = createSeriesWithBooks(series = series, books = emptyList())
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.coverPath shouldBe "/local/series-1.jpg"
+            }
+        }
+
+        test("resolveCoverPath falls back to first book cover when series has no coverPath") {
+            // No local file, series.coverPath is null → first book's coverPath.
+            runTest {
+                val fixture = createFixture()
+                every { fixture.imageRepository.seriesCoverExists(any()) } returns false
+                val series =
+                    Series(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-1"),
+                        name = "Cosmere",
+                        description = null,
+                        createdAt = Timestamp(0L),
+                        coverPath = null,
+                        coverBlurHash = null,
+                        asin = null,
+                    )
+                val book = createBook(id = "book-1", title = "Way of Kings").copy(coverPath = "/books/wok.jpg")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.seriesFlow.value =
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book),
+                        bookSequences = mapOf("book-1" to "1"),
+                    )
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.coverPath shouldBe "/books/wok.jpg"
+            }
+        }
     })
