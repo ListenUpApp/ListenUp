@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -29,11 +31,13 @@ import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
+import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
+import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
@@ -122,6 +126,8 @@ fun Application.module() {
     val scannerService: ScannerService? = resolvedLibraryPath?.let { inject<ScannerService>().value }
     val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
+    val contributorService: ContributorService? = resolvedLibraryPath?.let { inject<ContributorService>().value }
+    val seriesService: SeriesService? = resolvedLibraryPath?.let { inject<SeriesService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
     val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
     val backfillService: UserStatsBackfillService? =
@@ -136,10 +142,12 @@ fun Application.module() {
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService, bookService, playbackService)
+        rpcRoutes(authService, scannerService, bookService, contributorService, seriesService, playbackService)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
+            if (contributorService != null) contributorRoutes(contributorService)
+            if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
             if (backfillService != null) adminRoutes(backfillService)
         }

@@ -3,9 +3,11 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
@@ -46,6 +48,8 @@ fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     scannerService: ScannerService? = null,
     bookService: BookService? = null,
+    contributorService: ContributorService? = null,
+    seriesService: SeriesService? = null,
     playbackService: PlaybackService? = null,
 ) {
     rpc("/api/rpc/public") {
@@ -68,6 +72,12 @@ fun Route.rpcRoutes(
             }
             if (bookService != null) {
                 registerService<BookService> { guard(bookService) }
+            }
+            if (contributorService != null) {
+                registerService<ContributorService> { guard(contributorService) }
+            }
+            if (seriesService != null) {
+                registerService<SeriesService> { guard(seriesService) }
             }
             if (playbackService != null) {
                 registerService<PlaybackService> {
