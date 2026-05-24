@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.migrations.MIGRATION_15_16
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_16_17
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_17_18
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_18_19
+import com.calypsan.listenup.client.data.local.migrations.MIGRATION_19_20
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -42,7 +43,14 @@ actual val platformDatabaseModule: Module =
                     name = dbFile,
                 ).setDriver(BundledSQLiteDriver())
                 .setQueryCoroutineContext(Dispatchers.Default)
-                .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(
+                    MIGRATION_14_15,
+                    MIGRATION_15_16,
+                    MIGRATION_16_17,
+                    MIGRATION_17_18,
+                    MIGRATION_18_19,
+                    MIGRATION_19_20,
+                )
                 // No public installs yet — every schema change nukes and re-creates local
                 // data. Flip back to `false` + a proper Migration chain before launch.
                 .fallbackToDestructiveMigration(true)

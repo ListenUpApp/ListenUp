@@ -159,12 +159,14 @@ data class ChapterEntity(
  * Local database entity for series.
  *
  * Series sync as a first-class domain (Books-B1); `revision`/`deletedAt` carry
- * the substrate bookkeeping.
+ * the substrate bookkeeping. B2a adds [sortName] (previously on the wire payload
+ * only, now persisted locally so sort-by-series works offline).
  */
 @Entity(tableName = "series")
 data class SeriesEntity(
     @PrimaryKey val id: SeriesId,
     val name: String,
+    val sortName: String? = null,
     val description: String?,
     val asin: String? = null,
     val coverPath: String? = null,

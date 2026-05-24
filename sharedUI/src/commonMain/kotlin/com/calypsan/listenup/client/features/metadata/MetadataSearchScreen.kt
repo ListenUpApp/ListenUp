@@ -46,7 +46,7 @@ import coil3.compose.AsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
-import com.calypsan.listenup.client.presentation.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import org.jetbrains.compose.resources.stringResource

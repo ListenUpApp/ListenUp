@@ -47,7 +47,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
-import com.calypsan.listenup.client.presentation.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back

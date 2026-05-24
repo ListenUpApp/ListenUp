@@ -112,6 +112,7 @@ value class ChapterId(
 /**
  * Type-safe wrapper for Series IDs.
  */
+@Serializable
 @JvmInline
 value class SeriesId(
     val value: String,
@@ -126,6 +127,7 @@ value class SeriesId(
 /**
  * Type-safe wrapper for Contributor IDs.
  */
+@Serializable
 @JvmInline
 value class ContributorId(
     val value: String,

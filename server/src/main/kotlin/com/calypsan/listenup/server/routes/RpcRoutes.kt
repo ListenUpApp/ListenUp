@@ -3,9 +3,13 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
@@ -46,7 +50,11 @@ fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     scannerService: ScannerService? = null,
     bookService: BookService? = null,
+    contributorService: ContributorService? = null,
+    seriesService: SeriesService? = null,
     playbackService: PlaybackService? = null,
+    metadataLookupService: MetadataLookupService? = null,
+    searchService: SearchService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -69,6 +77,12 @@ fun Route.rpcRoutes(
             if (bookService != null) {
                 registerService<BookService> { guard(bookService) }
             }
+            if (contributorService != null) {
+                registerService<ContributorService> { guard(contributorService) }
+            }
+            if (seriesService != null) {
+                registerService<SeriesService> { guard(seriesService) }
+            }
             if (playbackService != null) {
                 registerService<PlaybackService> {
                     val p =
@@ -76,6 +90,12 @@ fun Route.rpcRoutes(
                             ?: error("authed RPC mount reached without a principal — auth wall regression")
                     guard((playbackService as PlaybackServiceImpl).copyWith(PrincipalProvider { p }))
                 }
+            }
+            if (metadataLookupService != null) {
+                registerService<MetadataLookupService> { guard(metadataLookupService) }
+            }
+            if (searchService != null) {
+                registerService<SearchService> { guard(searchService) }
             }
         }
     }

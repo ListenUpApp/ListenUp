@@ -7,6 +7,9 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import dev.mokkery.MockMode
@@ -40,15 +43,22 @@ class ContributorRepositoryImplTest :
 
         fun createMockDao(): ContributorDao = mock<ContributorDao>(MockMode.autoUnit)
 
-        fun createRepository(dao: ContributorDao): ContributorRepositoryImpl =
-            ContributorRepositoryImpl(
+        fun createRepository(dao: ContributorDao): ContributorRepositoryImpl {
+            val networkMonitor = mock<NetworkMonitor>()
+            // Stub isOnline() to false so the cache-miss RPC path is never triggered
+            // in these unit tests; the jvmTest RPC-fallback tests exercise that path.
+            every { networkMonitor.isOnline() } returns false
+            return ContributorRepositoryImpl(
                 contributorDao = dao,
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
                 api = mock<ContributorApiContract>(),
-                networkMonitor = mock<NetworkMonitor>(),
+                networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
+                rpcFactory = mock<ContributorRpcFactory>(MockMode.autoUnit),
+                contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit),
             )
+        }
 
         fun createTestContributorEntity(
             id: String = "contrib-1",

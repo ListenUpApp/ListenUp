@@ -1,0 +1,168 @@
+package com.calypsan.listenup.api.dto
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * Wire shape for an Audible book lookup result, projected to the minimal surface
+ * clients need. This is a subset of the server's internal `AudibleBook` type —
+ * the raw Audible response shape is never exposed across the contract boundary.
+ *
+ * [asin] is the Audible identifier; clients pass it back to refresh or apply
+ * metadata. [coverUrl] is Audible's own cover thumbnail; [coverUrlMaxSize] is
+ * the high-resolution iTunes variant (up to 7000×7000) when a cover enrichment
+ * lookup succeeded, or `null` if iTunes returned nothing.
+ */
+@Serializable
+@SerialName("MetadataBook")
+data class MetadataBook(
+    /** Audible Standard Identification Number — the stable external key. */
+    val asin: String,
+    /** Full book title. */
+    val title: String,
+    /** Optional subtitle (e.g. "Book One of the Stormlight Archive"). */
+    val subtitle: String?,
+    /** Plain-text description (HTML stripped by the server). */
+    val description: String?,
+    /** Publisher name, e.g. "Macmillan Audio". */
+    val publisher: String?,
+    /** Release date string as returned by Audible, e.g. "2010-08-31". */
+    val releaseDate: String?,
+    /** Audiobook runtime in minutes. */
+    val runtimeMinutes: Int?,
+    /** BCP-47 language tag, e.g. "en-US". */
+    val language: String?,
+    /** Authors and writers. */
+    val authors: List<MetadataContributorRef>,
+    /** Narrators. */
+    val narrators: List<MetadataContributorRef>,
+    /** Series this book belongs to (may be empty). */
+    val series: List<MetadataSeriesRef>,
+    /** Audible cover thumbnail URL (typically 500×500). */
+    val coverUrl: String?,
+    /** High-resolution cover URL from iTunes (up to 7000×7000), or `null` if unavailable. */
+    val coverUrlMaxSize: String?,
+)
+
+/**
+ * A contributor (author or narrator) reference within a [MetadataBook].
+ *
+ * [asin] is the Audible contributor identifier used to look up a full
+ * [MetadataContributorProfile]; it may be absent when Audible omits it.
+ */
+@Serializable
+@SerialName("MetadataContributorRef")
+data class MetadataContributorRef(
+    /** Audible contributor ASIN, or `null` when Audible omits it. */
+    val asin: String?,
+    /** Display name, e.g. "Brandon Sanderson". */
+    val name: String,
+)
+
+/**
+ * A series reference within a [MetadataBook].
+ *
+ * [sequence] is the position string from Audible — may be an integer ("1"),
+ * a decimal ("1.5"), or a range ("1-3").
+ */
+@Serializable
+@SerialName("MetadataSeriesRef")
+data class MetadataSeriesRef(
+    /** Audible series ASIN, or `null` when Audible omits it. */
+    val asin: String?,
+    /** Series title, e.g. "The Stormlight Archive". */
+    val title: String,
+    /** Position in the series, or `null` if Audible does not provide it. */
+    val sequence: String?,
+)
+
+/**
+ * A paginated or flat list of [MetadataBook] search hits.
+ *
+ * Wrapping in a container type (rather than returning `List<MetadataBook>`
+ * directly) keeps the wire shape extensible — pagination cursors, facet counts,
+ * or total-hit metadata can be added in a later revision without a breaking
+ * contract change.
+ */
+@Serializable
+@SerialName("MetadataSearchResults")
+data class MetadataSearchResults(
+    /** Matched books in Audible relevance order. */
+    val hits: List<MetadataBook>,
+)
+
+/**
+ * The full chapter list for an audiobook, as returned by Audible's
+ * content-metadata endpoint.
+ *
+ * Each [MetadataChapter] carries an absolute start offset and duration so
+ * clients can display the chapter list and seek to any chapter without
+ * additional computation.
+ */
+@Serializable
+@SerialName("MetadataChapters")
+data class MetadataChapters(
+    /** Chapters in playback order. */
+    val chapters: List<MetadataChapter>,
+)
+
+/**
+ * A single chapter marker within [MetadataChapters].
+ *
+ * [startMs] and [lengthMs] are absolute millisecond offsets from the start of
+ * the audiobook — they match Audible's `start_offset_ms` / `length_ms` fields.
+ */
+@Serializable
+@SerialName("MetadataChapter")
+data class MetadataChapter(
+    /** Chapter display title, e.g. "Chapter 1: The Way of Kings". */
+    val title: String,
+    /** Absolute start offset from the beginning of the audiobook, in milliseconds. */
+    val startMs: Long,
+    /** Chapter duration in milliseconds. */
+    val lengthMs: Long,
+)
+
+/**
+ * Full profile for an Audible contributor (author or narrator).
+ *
+ * Fetched via [com.calypsan.listenup.api.MetadataLookupService.getContributorMetadata].
+ * All fields except [asin] and [name] are optional because Audible's contributor
+ * API returns sparse data depending on the contributor's profile completeness.
+ */
+@Serializable
+@SerialName("MetadataContributorProfile")
+data class MetadataContributorProfile(
+    /** Audible contributor ASIN — the stable external key. */
+    val asin: String,
+    /** Display name, e.g. "Brandon Sanderson". */
+    val name: String,
+    /** Sort name for alphabetical ordering, e.g. "Sanderson, Brandon". */
+    val sortName: String?,
+    /** Plain-text biography. */
+    val description: String?,
+    /** Profile image URL. */
+    val imageUrl: String?,
+    /** Birth date string as returned by Audible, or `null`. */
+    val birthDate: String?,
+    /** Death date string as returned by Audible, or `null`. */
+    val deathDate: String?,
+    /** Official website URL, or `null`. */
+    val website: String?,
+)
+
+/**
+ * A lightweight contributor search hit returned by
+ * [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata].
+ *
+ * Clients use the [asin] to load the full [MetadataContributorProfile] on
+ * demand; the [name] is sufficient for a pick-list or auto-suggest UI.
+ */
+@Serializable
+@SerialName("MetadataContributorHit")
+data class MetadataContributorHit(
+    /** Audible contributor ASIN. */
+    val asin: String,
+    /** Display name, e.g. "Patrick Rothfuss". */
+    val name: String,
+)

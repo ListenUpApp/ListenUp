@@ -14,7 +14,7 @@ import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.MetadataFieldSelections
-import com.calypsan.listenup.client.presentation.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow

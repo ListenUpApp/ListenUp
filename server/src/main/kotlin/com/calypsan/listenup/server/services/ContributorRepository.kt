@@ -10,6 +10,7 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -66,6 +67,13 @@ class ContributorRepository(
                     updatedAt = row[ContributorTable.updatedAt],
                     createdAt = row[ContributorTable.createdAt],
                     deletedAt = row[ContributorTable.deletedAt],
+                    asin = row[ContributorTable.asin],
+                    description = row[ContributorTable.description],
+                    imagePath = row[ContributorTable.imagePath],
+                    imageBlurHash = row[ContributorTable.imageBlurHash],
+                    birthDate = row[ContributorTable.birthDate],
+                    deathDate = row[ContributorTable.deathDate],
+                    website = row[ContributorTable.website],
                 )
             }
 
@@ -83,6 +91,13 @@ class ContributorRepository(
                 stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
+                stmt[ContributorTable.asin] = value.asin
+                stmt[ContributorTable.description] = value.description
+                stmt[ContributorTable.imagePath] = value.imagePath
+                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
+                stmt[ContributorTable.birthDate] = value.birthDate
+                stmt[ContributorTable.deathDate] = value.deathDate
+                stmt[ContributorTable.website] = value.website
                 stmt[ContributorTable.revision] = rev
                 stmt[ContributorTable.updatedAt] = now
                 stmt[ContributorTable.deletedAt] = null
@@ -94,6 +109,13 @@ class ContributorRepository(
                 stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
+                stmt[ContributorTable.asin] = value.asin
+                stmt[ContributorTable.description] = value.description
+                stmt[ContributorTable.imagePath] = value.imagePath
+                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
+                stmt[ContributorTable.birthDate] = value.birthDate
+                stmt[ContributorTable.deathDate] = value.deathDate
+                stmt[ContributorTable.website] = value.website
                 stmt[ContributorTable.revision] = rev
                 stmt[ContributorTable.createdAt] = now
                 stmt[ContributorTable.updatedAt] = now
@@ -146,6 +168,22 @@ class ContributorRepository(
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): ContributorSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
+
+    /**
+     * Returns the raw id strings of all non-tombstoned contributors.
+     *
+     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask] to
+     * determine which contributor image files on disk still have a live entity.
+     * Tombstoned rows (`deletedAt IS NOT NULL`) are excluded — their images are
+     * eligible for cleanup.
+     */
+    suspend fun listLiveIds(): Set<String> =
+        suspendTransaction(db) {
+            ContributorTable
+                .selectAll()
+                .where { ContributorTable.deletedAt.isNull() }
+                .mapTo(HashSet()) { it[ContributorTable.id] }
+        }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: ContributorId): String = idAsString(id)

@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -11,6 +15,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
@@ -25,21 +30,30 @@ import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
+import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
+import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.metadataImageRoutes
+import com.calypsan.listenup.server.routes.metadataRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
+import com.calypsan.listenup.server.routes.searchRoutes
+import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
@@ -90,11 +104,18 @@ fun Application.module() {
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+            modules += metadataModule(kotlinx.io.files.Path(resolvedLibraryPath.toString()))
             modules += playbackModule()
         }
         modules += embeddedmetaModule
         modules += syncModule()
-        if (seedProfile == SEED_PROFILE_DEMO) modules += seedModule(hasPlaybackModule = resolvedLibraryPath != null)
+        if (seedProfile == SEED_PROFILE_DEMO) {
+            modules +=
+                seedModule(
+                    hasPlaybackModule = resolvedLibraryPath != null,
+                    hasBooksModule = resolvedLibraryPath != null,
+                )
+        }
         modules(modules)
     }
 
@@ -122,6 +143,8 @@ fun Application.module() {
     val scannerService: ScannerService? = resolvedLibraryPath?.let { inject<ScannerService>().value }
     val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
     val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
+    val contributorService: ContributorService? = resolvedLibraryPath?.let { inject<ContributorService>().value }
+    val seriesService: SeriesService? = resolvedLibraryPath?.let { inject<SeriesService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
     val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
     val backfillService: UserStatsBackfillService? =
@@ -130,18 +153,42 @@ fun Application.module() {
         }
     val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
     val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
+    val contributorRepository: ContributorRepository? =
+        resolvedLibraryPath?.let {
+            inject<ContributorRepository>().value
+        }
+    val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
+    val metadataLookupService: MetadataLookupService? =
+        resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
+    val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
 
     routing {
         healthRoutes()
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
-        rpcRoutes(authService, scannerService, bookService, playbackService)
+        rpcRoutes(
+            authService,
+            scannerService,
+            bookService,
+            contributorService,
+            seriesService,
+            playbackService,
+            metadataLookupService,
+            searchService,
+        )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
+            if (contributorService != null) contributorRoutes(contributorService)
+            if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
             if (backfillService != null) adminRoutes(backfillService)
+            if (contributorRepository != null && seriesRepository != null) {
+                metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
+            }
+            if (metadataLookupService != null) metadataRoutes(metadataLookupService)
+            if (searchService != null) searchRoutes(searchService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
@@ -155,6 +202,10 @@ fun Application.module() {
         bootstrapScannerOnStartup(applicationScope)
         val cleanupTask by inject<ActiveSessionCleanupTask>()
         cleanupTask.start(applicationScope)
+        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
+        metadataCacheCleanupTask.start(applicationScope)
+        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
+        orphanImageCleanupTask.start(applicationScope)
     } else {
         logger.warn {
             "scanner.libraryPath unset or invalid — server starts without scanning. " +

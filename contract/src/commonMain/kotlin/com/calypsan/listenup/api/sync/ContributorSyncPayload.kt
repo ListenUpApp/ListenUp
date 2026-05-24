@@ -8,10 +8,12 @@ import kotlinx.serialization.Serializable
  * first-class syncable domain.
  *
  * B1 carries only identity and display fields — `id`, `name`, `sortName` — plus
- * the substrate bookkeeping columns. Enrichment fields (`description`,
- * `imagePath`, `birthDate`, `asin`, …) are deliberately absent: B1 has no path
- * to populate them. Books-B2's match service extends this payload when it has
- * enrichment data to ship.
+ * the substrate bookkeeping columns.
+ *
+ * B2a adds enrichment fields (`asin`, `description`, `imagePath`, `imageBlurHash`,
+ * `birthDate`, `deathDate`, `website`). All are nullable with `null` defaults so
+ * existing fixtures and B1-era sync events remain forward-compatible; a receiver
+ * that omits them simply keeps whatever enrichment it already had.
  *
  * Implements [Tombstoned] so the substrate's soft-delete routing applies
  * uniformly. `@SerialName` is the wire-stable discriminator; field renames break
@@ -27,4 +29,12 @@ data class ContributorSyncPayload(
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
+    // B2a enrichment — null means "not enriched yet"; clients preserve existing value on null.
+    val asin: String? = null,
+    val description: String? = null,
+    val imagePath: String? = null,
+    val imageBlurHash: String? = null,
+    val birthDate: String? = null,
+    val deathDate: String? = null,
+    val website: String? = null,
 ) : Tombstoned

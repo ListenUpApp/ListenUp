@@ -11,7 +11,9 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
@@ -853,6 +855,43 @@ class BookRepository(
         }
         return nextRowid
     }
+
+    /**
+     * Returns the full book aggregates for every book that has a junction row for
+     * [contributorId] in [BookContributorTable]. Results are ordered by book
+     * [BookTable.createdAt] ascending (stable, scan-insertion order).
+     *
+     * Used by [com.calypsan.listenup.server.api.ContributorServiceImpl.listBooksByContributor].
+     * Opens its own read transaction — independent of the substrate's orchestration.
+     */
+    suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
+        suspendTransaction(db) {
+            val bookIds =
+                BookContributorTable
+                    .select(BookContributorTable.bookId)
+                    .where { BookContributorTable.contributorId eq contributorId.value }
+                    .map { it[BookContributorTable.bookId] }
+            bookIds.mapNotNull { readPayload(it) }
+        }
+
+    /**
+     * Returns the full book aggregates for every book that has a membership row for
+     * [seriesId] in [BookSeriesMembershipTable]. Results are ordered by
+     * [BookSeriesMembershipTable.ordinal] ascending (series-position order).
+     *
+     * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
+     * Opens its own read transaction — independent of the substrate's orchestration.
+     */
+    suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> =
+        suspendTransaction(db) {
+            val bookIds =
+                BookSeriesMembershipTable
+                    .select(BookSeriesMembershipTable.bookId)
+                    .where { BookSeriesMembershipTable.seriesId eq seriesId.value }
+                    .orderBy(BookSeriesMembershipTable.ordinal)
+                    .map { it[BookSeriesMembershipTable.bookId] }
+            bookIds.mapNotNull { readPayload(it) }
+        }
 
     /**
      * Test-only accessor for the protected [idAsString]. Used by

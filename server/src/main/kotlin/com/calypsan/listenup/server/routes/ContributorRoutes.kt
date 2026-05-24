@@ -1,0 +1,60 @@
+package com.calypsan.listenup.server.routes
+
+import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.resources.ContributorResources
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.withCorrelationId
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.call
+import io.ktor.server.plugins.callid.callId
+import io.ktor.server.resources.get
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+
+/**
+ * REST surface for [ContributorService]. Two endpoints:
+ *
+ *  - `GET /api/v1/contributors/{id}` — returns the full [ContributorSyncPayload]
+ *    for the given id, or null when no contributor with that id exists. HTTP 200
+ *    on both (null is a valid "not cached yet" response — clients show a stub
+ *    while sync catches up). Follows the third-party RESTful convention: responds
+ *    the unwrapped value, not the [AppResult] envelope.
+ *  - `GET /api/v1/contributors/{id}/books` — returns all [BookSyncPayload]s
+ *    associated with the contributor. HTTP 200 with an empty list when the
+ *    contributor has no books.
+ *
+ * All endpoints require JWT authentication (mounted inside the authenticate block
+ * in Application.kt).
+ */
+fun Route.contributorRoutes(contributorService: ContributorService) {
+    get<ContributorResources.Detail> { res ->
+        when (val result = contributorService.getContributor(ContributorId(res.id))) {
+            is AppResult.Success -> {
+                val payload = result.data
+                if (payload != null) call.respond(payload) else call.respond(HttpStatusCode.NotFound)
+            }
+
+            is AppResult.Failure -> {
+                call.respondBareAppError(result.error)
+            }
+        }
+    }
+
+    get<ContributorResources.Books> { res ->
+        when (val result = contributorService.listBooksByContributor(ContributorId(res.id))) {
+            is AppResult.Success -> call.respond(result.data)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+}
+
+private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
+    val typed = error.withCorrelationId(callId)
+    respond(typed.toHttpStatus(), typed)
+}

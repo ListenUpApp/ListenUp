@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
@@ -10,7 +11,10 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
+import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
@@ -18,10 +22,13 @@ import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlin.time.measureTimedValue
 
@@ -36,6 +43,13 @@ private val logger = KotlinLogging.logger {}
  * - Series detail methods
  * - Search with "never stranded" pattern (server with local fallback)
  *
+ * [observeById] layers a "Never Stranded" RPC-fallback on top of the Room
+ * observable: when Room yields `null` (the series is not cached yet) and the
+ * device is online, a single on-demand [SeriesService.getSeries] call is fired
+ * and the result is written through Room via
+ * [SeriesSyncDomainHandler.onCatchUpItem]. The Room Flow then re-emits with the
+ * now-present series. Offline cache misses skip the RPC entirely and stay `null`.
+ *
  * @property seriesDao Room DAO for series operations
  * @property bookDao Room DAO for book queries that include contributor joins,
  *   used to populate the [BookListItem]s carried by [SeriesWithBooks]
@@ -43,6 +57,10 @@ private val logger = KotlinLogging.logger {}
  * @property api Server API client for series search
  * @property networkMonitor For checking online/offline status
  * @property imageStorage For resolving cover image paths
+ * @property rpcFactory Supplies the [com.calypsan.listenup.api.SeriesService]
+ *   RPC proxy for on-demand cache-miss fetches.
+ * @property seriesSyncHandler Owns the atomic aggregate write-through used to
+ *   cache an on-demand-fetched series into Room.
  */
 class SeriesRepositoryImpl(
     private val seriesDao: SeriesDao,
@@ -51,6 +69,8 @@ class SeriesRepositoryImpl(
     private val api: SeriesApiContract,
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
+    private val rpcFactory: SeriesRpcFactory,
+    private val seriesSyncHandler: SyncDomainHandler<SeriesSyncPayload>,
 ) : SeriesRepository {
     // ========== Basic Observation Methods ==========
 
@@ -59,10 +79,51 @@ class SeriesRepositoryImpl(
             entities.map { it.toDomain() }
         }
 
-    override fun observeById(id: String): Flow<Series?> =
-        seriesDao.observeById(id).map { entity ->
-            entity?.toDomain()
+    /**
+     * Observe a series by id, with a never-stranded cache-miss fallback.
+     *
+     * When Room yields `null` (the series is not yet cached) and the device is
+     * online, fires a single on-demand [SeriesService.getSeries] fetch and writes
+     * the result through Room via [SeriesSyncDomainHandler]. The Room Flow then
+     * re-emits with the now-present series. The fetch is fired at most once per
+     * collection — [attemptedFetch] guards against a persistently-null emission
+     * re-firing the RPC on a loop. Offline cache misses and RPC failures degrade
+     * silently to continued `null` emissions ("Never Stranded").
+     */
+    override fun observeById(id: String): Flow<Series?> {
+        val seriesId = SeriesId(id)
+        var attemptedFetch = false
+        return seriesDao
+            .observeById(id)
+            .onEach { entity ->
+                if (entity == null && !attemptedFetch && networkMonitor.isOnline()) {
+                    attemptedFetch = true
+                    fetchAndCacheSeries(seriesId)
+                }
+            }.map { entity -> entity?.toDomain() }
+    }
+
+    /**
+     * One-shot on-demand fetch for a cache-missing series. Resolves the
+     * [SeriesService] proxy, fetches the entity, and writes it through Room via
+     * the shared sync handler. Any failure is logged and swallowed — the observer
+     * keeps emitting `null` rather than crashing ("Never Stranded").
+     * [CancellationException] is re-thrown to preserve structured concurrency.
+     */
+    private suspend fun fetchAndCacheSeries(id: SeriesId) {
+        try {
+            val payload = rpcFactory.seriesService().getSeries(id).wireResultOrNull()
+            if (payload != null) {
+                seriesSyncHandler.onCatchUpItem(payload, isTombstone = false)
+            } else {
+                logger.debug { "getSeries returned no series for $id — leaving cache miss" }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "On-demand getSeries failed for $id, staying with cache miss" }
         }
+    }
 
     override suspend fun getById(id: String): Series? = seriesDao.getById(id)?.toDomain()
 

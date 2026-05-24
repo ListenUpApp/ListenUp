@@ -81,17 +81,24 @@ class SeriesSyncDomainHandler(
             }
         }
 
-    /** Upsert the series row, preserving every enrichment column on an existing row. */
+    /**
+     * Upsert the series row.
+     *
+     * Enrichment fields are applied from the wire payload when non-null; when null
+     * (a B1-era event that predates enrichment), the existing row's value is
+     * preserved so a B1 sync never zeroes Books-B2 data.
+     */
     private suspend fun upsert(payload: SeriesSyncPayload) {
         val existing = database.seriesDao().getById(payload.id)
         database.seriesDao().upsert(
             SeriesEntity(
                 id = SeriesId(payload.id),
                 name = payload.name,
-                description = existing?.description,
-                asin = existing?.asin,
-                coverPath = existing?.coverPath,
-                coverBlurHash = existing?.coverBlurHash,
+                sortName = payload.sortName,
+                description = payload.description ?: existing?.description,
+                asin = payload.asin ?: existing?.asin,
+                coverPath = payload.coverPath ?: existing?.coverPath,
+                coverBlurHash = payload.coverBlurHash ?: existing?.coverBlurHash,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 createdAt = Timestamp(payload.createdAt),

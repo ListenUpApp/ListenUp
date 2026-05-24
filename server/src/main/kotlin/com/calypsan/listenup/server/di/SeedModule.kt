@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
@@ -18,13 +19,23 @@ import org.koin.dsl.module
  *   [com.calypsan.listenup.server.services.PlaybackPositionRepository] and
  *   [com.calypsan.listenup.server.services.ListeningEventRepository] which are only
  *   bound when the playback module is loaded.
+ * @param hasBooksModule whether the `:books` slice is active (i.e., a library
+ *   path is configured). When false, [ContributorEnrichmentSeeder] is omitted —
+ *   it depends on [com.calypsan.listenup.server.services.ContributorRepository]
+ *   which is only bound when the books module is loaded.
  */
-fun seedModule(hasPlaybackModule: Boolean = false): Module =
+fun seedModule(
+    hasPlaybackModule: Boolean = false,
+    hasBooksModule: Boolean = false,
+): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
         if (hasPlaybackModule) {
             single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }
+        }
+        if (hasBooksModule) {
+            single { ContributorEnrichmentSeeder(db = get(), contributorRepository = get()) }
         }
         single {
             val seeders =
@@ -33,6 +44,9 @@ fun seedModule(hasPlaybackModule: Boolean = false): Module =
                     if (hasPlaybackModule) {
                         add(get<PlaybackPositionDomainSeeder>())
                         add(get<ListeningEventDomainSeeder>())
+                    }
+                    if (hasBooksModule) {
+                        add(get<ContributorEnrichmentSeeder>())
                     }
                 }
             SeedRunner(seeders = seeders)
