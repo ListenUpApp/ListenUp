@@ -30,6 +30,8 @@ import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
+import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
@@ -194,6 +196,10 @@ fun Application.module() {
         bootstrapScannerOnStartup(applicationScope)
         val cleanupTask by inject<ActiveSessionCleanupTask>()
         cleanupTask.start(applicationScope)
+        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
+        metadataCacheCleanupTask.start(applicationScope)
+        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
+        orphanImageCleanupTask.start(applicationScope)
     } else {
         logger.warn {
             "scanner.libraryPath unset or invalid — server starts without scanning. " +

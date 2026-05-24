@@ -8,6 +8,8 @@ import com.calypsan.listenup.server.metadata.audible.AudibleClient
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
+import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
+import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import io.ktor.client.HttpClient
@@ -108,6 +110,16 @@ fun metadataModule(libraryPath: Path): Module =
                 contributorRepository = get(),
                 seriesRepository = get(),
                 imageStorage = get(),
+                libraryPath = libraryPath,
+            )
+        }
+
+        single { MetadataCacheCleanupTask(cache = get()) }
+
+        single {
+            OrphanImageCleanupTask(
+                contributorRepository = get(),
+                seriesRepository = get(),
                 libraryPath = libraryPath,
             )
         }

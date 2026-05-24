@@ -10,6 +10,7 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -167,6 +168,22 @@ class ContributorRepository(
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): ContributorSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
+
+    /**
+     * Returns the raw id strings of all non-tombstoned contributors.
+     *
+     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask] to
+     * determine which contributor image files on disk still have a live entity.
+     * Tombstoned rows (`deletedAt IS NOT NULL`) are excluded — their images are
+     * eligible for cleanup.
+     */
+    suspend fun listLiveIds(): Set<String> =
+        suspendTransaction(db) {
+            ContributorTable
+                .selectAll()
+                .where { ContributorTable.deletedAt.isNull() }
+                .mapTo(HashSet()) { it[ContributorTable.id] }
+        }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: ContributorId): String = idAsString(id)

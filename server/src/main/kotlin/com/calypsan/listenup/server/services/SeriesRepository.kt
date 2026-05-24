@@ -10,6 +10,7 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -148,6 +149,22 @@ class SeriesRepository(
 
     /** Reads a series by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): SeriesSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
+
+    /**
+     * Returns the raw id strings of all non-tombstoned series.
+     *
+     * Used by [com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask] to
+     * determine which series cover image files on disk still have a live entity.
+     * Tombstoned rows (`deletedAt IS NOT NULL`) are excluded — their images are
+     * eligible for cleanup.
+     */
+    suspend fun listLiveIds(): Set<String> =
+        suspendTransaction(db) {
+            BookSeriesTable
+                .selectAll()
+                .where { BookSeriesTable.deletedAt.isNull() }
+                .mapTo(HashSet()) { it[BookSeriesTable.id] }
+        }
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: SeriesId): String = idAsString(id)
