@@ -9,21 +9,25 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.components.SeriesCoverImage
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import org.koin.compose.koinInject
@@ -100,12 +104,26 @@ fun SeriesCard(
                     onClick = onClick,
                 ),
     ) {
-        // Animated cover stack (individual covers have their own shadows)
-        AnimatedCoverStack(
-            bookCovers = bookCovers,
-            coverHeight = 140.dp,
-            cycleDurationMs = 3000L,
-        )
+        // Series cover takes priority; animated book stack is the fallback.
+        if (series.coverPath != null) {
+            SeriesCoverImage(
+                seriesId = series.id.value,
+                coverPath = series.coverPath,
+                contentDescription = series.name,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            AnimatedCoverStack(
+                bookCovers = bookCovers,
+                coverHeight = 140.dp,
+                cycleDurationMs = 3000L,
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 

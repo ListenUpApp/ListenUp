@@ -853,4 +853,90 @@ class SeriesRepositoryImplTest :
                 result.bookSequences["book-2"] shouldBe "2"
             }
         }
+
+        // ========== B2a Enrichment Field Round-Trip Tests (M1) ==========
+
+        test("toDomain carries coverPath through entity→domain boundary") {
+            runTest {
+                val entity =
+                    SeriesEntity(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-cover"),
+                        name = "Stormlight Archive",
+                        description = null,
+                        coverPath = ".listenup-meta/series/stormlight.jpg",
+                        coverBlurHash = null,
+                        asin = null,
+                        createdAt = Timestamp(1000L),
+                        updatedAt = Timestamp(1000L),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getById("series-cover") } returns entity
+                val repository = createRepository(dao)
+
+                val result = repository.getById("series-cover")
+
+                result.shouldNotBeNull()
+                result.coverPath shouldBe ".listenup-meta/series/stormlight.jpg"
+                result.coverBlurHash shouldBe null
+                result.asin shouldBe null
+            }
+        }
+
+        test("toDomain carries coverBlurHash and asin through entity→domain boundary") {
+            runTest {
+                val entity =
+                    SeriesEntity(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-full"),
+                        name = "Mistborn",
+                        description = "Ash falls from the sky.",
+                        coverPath = ".listenup-meta/series/mistborn.jpg",
+                        coverBlurHash = "L6Pj0^jE.AyE_3t7t7R**0o#DgR4",
+                        asin = "B017V4IM1G",
+                        createdAt = Timestamp(2000L),
+                        updatedAt = Timestamp(2000L),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getById("series-full") } returns entity
+                val repository = createRepository(dao)
+
+                val result = repository.getById("series-full")
+
+                result.shouldNotBeNull()
+                result.coverPath shouldBe ".listenup-meta/series/mistborn.jpg"
+                result.coverBlurHash shouldBe "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+                result.asin shouldBe "B017V4IM1G"
+            }
+        }
+
+        test("toDomain maps null enrichment fields as null") {
+            runTest {
+                val entity =
+                    SeriesEntity(
+                        id =
+                            com.calypsan.listenup.core
+                                .SeriesId("series-bare"),
+                        name = "Bare Series",
+                        description = null,
+                        coverPath = null,
+                        coverBlurHash = null,
+                        asin = null,
+                        createdAt = Timestamp(1000L),
+                        updatedAt = Timestamp(1000L),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getById("series-bare") } returns entity
+                val repository = createRepository(dao)
+
+                val result = repository.getById("series-bare")
+
+                result.shouldNotBeNull()
+                result.coverPath shouldBe null
+                result.coverBlurHash shouldBe null
+                result.asin shouldBe null
+            }
+        }
     })

@@ -23,6 +23,10 @@ data class Contributor(
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")
     val aliases: List<String> = emptyList(),
+    /** Alternate sort key for the contributor (e.g., "King, Stephen"). */
+    val sortName: String? = null,
+    /** Audible ASIN for this contributor, set when metadata has been applied. */
+    val asin: String? = null,
 ) {
     /**
      * Check if a name matches this contributor (either primary name or alias).

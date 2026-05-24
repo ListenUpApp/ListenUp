@@ -51,13 +51,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataContributorRef
+import com.calypsan.listenup.api.dto.MetadataSeriesRef
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.domain.model.BookDetail
-import com.calypsan.listenup.client.domain.repository.CoverOption
-import com.calypsan.listenup.client.domain.repository.MetadataBook
-import com.calypsan.listenup.client.domain.repository.MetadataContributor
-import com.calypsan.listenup.client.domain.repository.MetadataSeriesEntry
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
 import com.calypsan.listenup.client.presentation.metadata.MetadataSelections
 import org.jetbrains.compose.resources.stringResource
@@ -96,7 +96,7 @@ fun MatchPreviewScreen(
     previewNotFound: Boolean,
     selectedRegion: AudibleRegion,
     // Cover selection
-    coverOptions: List<CoverOption>,
+    coverOptions: List<CoverEntry>,
     isLoadingCovers: Boolean,
     selectedCoverUrl: String?,
     onSelectCover: (String?) -> Unit,
@@ -392,7 +392,7 @@ private fun RegionSelector(
 @Composable
 private fun CoverSelectionRow(
     currentCoverPath: String?,
-    coverOptions: List<CoverOption>,
+    coverOptions: List<CoverEntry>,
     isLoading: Boolean,
     selectedUrl: String?,
     isCoverEnabled: Boolean,
@@ -443,19 +443,19 @@ private fun CoverSelectionRow(
                 }
             }
 
-            // Cover options from search
+            // Cover options derived from book metadata (Audible thumbnail + iTunes HD)
             items(coverOptions) { cover ->
                 CoverOptionCard(
-                    label = cover.source.replaceFirstChar { it.uppercase() },
-                    source = cover.source,
-                    width = cover.width,
-                    height = cover.height,
+                    label = cover.label,
+                    source = cover.label,
+                    width = null,
+                    height = null,
                     isSelected = selectedUrl == cover.url,
                     onClick = { onSelectCover(cover.url) },
                 ) {
                     AsyncImage(
                         model = cover.url,
-                        contentDescription = "Cover from ${cover.source}",
+                        contentDescription = "Cover from ${cover.label}",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
@@ -641,7 +641,7 @@ private fun SimpleFieldItem(
 @Composable
 private fun ContributorListItem(
     label: String,
-    contributors: List<MetadataContributor>,
+    contributors: List<MetadataContributorRef>,
     selectedAsins: Set<String>,
     onToggle: (String) -> Unit,
 ) {
@@ -676,7 +676,7 @@ private fun ContributorListItem(
  */
 @Composable
 private fun SeriesListItem(
-    series: List<MetadataSeriesEntry>,
+    series: List<MetadataSeriesRef>,
     selectedAsins: Set<String>,
     onToggle: (String) -> Unit,
 ) {
@@ -688,12 +688,12 @@ private fun SeriesListItem(
             modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
         )
         series.forEach { seriesEntry ->
-            val asin = seriesEntry.asin ?: seriesEntry.name // Fallback to name if no ASIN
+            val asin = seriesEntry.asin ?: seriesEntry.title // Fallback to title if no ASIN
             val displayText =
-                if (seriesEntry.position != null) {
-                    "${seriesEntry.name} #${seriesEntry.position}"
+                if (seriesEntry.sequence != null) {
+                    "${seriesEntry.title} #${seriesEntry.sequence}"
                 } else {
-                    seriesEntry.name
+                    seriesEntry.title
                 }
             Row(
                 modifier = Modifier.fillMaxWidth(),

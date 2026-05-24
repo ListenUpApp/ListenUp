@@ -287,7 +287,6 @@ val bookPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.metadata.MetadataViewModel(
                 metadataRepository = get(),
-                applyMetadataMatchUseCase = get(),
                 errorBus = get(),
             )
         }

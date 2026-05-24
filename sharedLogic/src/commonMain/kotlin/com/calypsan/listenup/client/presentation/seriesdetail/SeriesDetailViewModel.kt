@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.seriesdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,7 +45,7 @@ class SeriesDetailViewModel(
                             if (seriesWithBooks != null) {
                                 val books = seriesWithBooks.booksSortedBySequence()
                                 val totalDuration = books.sumOf { it.duration }.milliseconds
-                                val coverPath = resolveCoverPath(id, books)
+                                val coverPath = resolveCoverPath(seriesWithBooks.series, id, books)
 
                                 val ready: SeriesDetailUiState =
                                     SeriesDetailUiState.Ready(
@@ -73,14 +74,23 @@ class SeriesDetailViewModel(
         seriesIdFlow.value = seriesId
     }
 
+    /**
+     * Resolves the cover path to display on the series detail hero.
+     *
+     * Priority:
+     * 1. Local disk file (fastest — already downloaded)
+     * 2. Server-side canonical [Series.coverPath] (set when metadata was applied)
+     * 3. First book's cover as a visual fallback
+     */
     private fun resolveCoverPath(
+        series: Series,
         seriesId: String,
         books: List<BookListItem>,
     ): String? {
         if (imageRepository.seriesCoverExists(seriesId)) {
             return imageRepository.getSeriesCoverPath(seriesId)
         }
-        return books.firstOrNull()?.coverPath
+        return series.coverPath ?: books.firstOrNull()?.coverPath
     }
 }
 

@@ -303,6 +303,9 @@ private fun SeriesEntity.toDomain(): Series =
         name = name,
         description = description,
         createdAt = createdAt,
+        coverPath = coverPath,
+        coverBlurHash = coverBlurHash,
+        asin = asin,
     )
 
 private fun SeriesEntity.toSearchResult(): SeriesSearchResult =

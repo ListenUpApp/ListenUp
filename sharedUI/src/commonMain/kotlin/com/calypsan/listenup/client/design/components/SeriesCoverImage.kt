@@ -21,21 +21,21 @@ import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
 
-private fun contributorCacheKey(contributorId: String) = "$contributorId:contributor"
+private fun seriesCacheKey(seriesId: String) = "$seriesId:series-cover"
 
 /**
- * Smart contributor image with server URL fallback.
+ * Smart series cover image with server URL fallback.
  *
  * Loading strategy:
- * 1. If imagePath is provided -> pass directly to Coil (zero overhead, instant)
- * 2. If imagePath is null -> async check: local file exists? use disk. Otherwise server URL.
+ * 1. If [coverPath] is provided → pass directly to Coil (zero overhead, instant).
+ * 2. If [coverPath] is null → async check: local file exists? use disk. Otherwise server URL.
  *
- * Contributor images are NEVER blank when online.
+ * The server route for series covers is `GET /api/v1/series/{id}/cover`.
  */
 @Composable
-fun ContributorCoverImage(
-    contributorId: String,
-    imagePath: String?,
+fun SeriesCoverImage(
+    seriesId: String,
+    coverPath: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
@@ -43,26 +43,26 @@ fun ContributorCoverImage(
 ) {
     val context = LocalPlatformContext.current
 
-    // Fast path: imagePath provided means the file exists locally.
+    // Fast path: coverPath provided means the file exists locally.
     val syncRequest =
-        remember(contributorId, imagePath) {
-            imagePath?.let {
+        remember(seriesId, coverPath) {
+            coverPath?.let {
                 ImageRequest
                     .Builder(context)
                     .data(it)
-                    .memoryCacheKey(contributorCacheKey(contributorId))
-                    .diskCacheKey(contributorCacheKey(contributorId))
+                    .memoryCacheKey(seriesCacheKey(seriesId))
+                    .diskCacheKey(seriesCacheKey(seriesId))
                     .build()
             }
         }
 
-    // Slow path: no imagePath, need async resolution (check disk, fallback to server)
+    // Slow path: no coverPath, need async resolution (check disk, fallback to server)
     val asyncRequest by produceState<ImageRequest?>(
         initialValue = null,
-        key1 = contributorId,
-        key2 = imagePath,
+        key1 = seriesId,
+        key2 = coverPath,
     ) {
-        if (imagePath != null || contributorId.isBlank()) return@produceState
+        if (coverPath != null || seriesId.isBlank()) return@produceState
 
         val imageRepository: ImageRepository =
             org.koin.core.context.GlobalContext
@@ -79,27 +79,27 @@ fun ContributorCoverImage(
 
         value =
             withContext(Dispatchers.IO) {
-                val localPath = imageRepository.getContributorImagePath(contributorId)
-                val exists = imageRepository.contributorImageExists(contributorId)
+                val localPath = imageRepository.getSeriesCoverPath(seriesId)
+                val exists = imageRepository.seriesCoverExists(seriesId)
 
                 if (exists) {
                     ImageRequest
                         .Builder(context)
                         .data(localPath)
-                        .memoryCacheKey(contributorCacheKey(contributorId))
-                        .diskCacheKey(contributorCacheKey(contributorId))
+                        .memoryCacheKey(seriesCacheKey(seriesId))
+                        .diskCacheKey(seriesCacheKey(seriesId))
                         .build()
                 } else {
                     val baseUrl = serverConfig.getActiveUrl()?.value
                     val token = authSession.getAccessToken()?.value
                     logger.debug {
-                        "ContributorCoverImage: fallback id=$contributorId " +
-                            "url=$baseUrl/api/v1/contributors/$contributorId/photo"
+                        "SeriesCoverImage: fallback id=$seriesId " +
+                            "url=$baseUrl/api/v1/series/$seriesId/cover"
                     }
                     if (baseUrl != null) {
                         ImageRequest
                             .Builder(context)
-                            .data("$baseUrl/api/v1/contributors/$contributorId/photo")
+                            .data("$baseUrl/api/v1/series/$seriesId/cover")
                             .apply {
                                 if (token != null) {
                                     httpHeaders(

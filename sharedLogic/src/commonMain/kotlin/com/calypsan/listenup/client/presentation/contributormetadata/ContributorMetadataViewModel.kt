@@ -2,21 +2,18 @@ package com.calypsan.listenup.client.presentation.contributormetadata
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.api.dto.MetadataContributorHit
+import com.calypsan.listenup.api.dto.MetadataContributorProfile
+import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.model.Contributor
-import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
-import com.calypsan.listenup.client.domain.repository.ContributorMetadataProfile
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.MetadataFieldSelections
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -54,12 +51,12 @@ data class ContributorMetadataUiState(
     val selectedRegion: AudibleRegion = AudibleRegion.US,
     // Search state
     val searchQuery: String = "",
-    val searchResults: List<ContributorMetadataCandidate> = emptyList(),
+    val searchResults: List<MetadataContributorHit> = emptyList(),
     val isSearching: Boolean = false,
     val searchError: String? = null,
     // Preview state
-    val selectedCandidate: ContributorMetadataCandidate? = null,
-    val previewProfile: ContributorMetadataProfile? = null,
+    val selectedCandidate: MetadataContributorHit? = null,
+    val previewProfile: MetadataContributorProfile? = null,
     val isLoadingPreview: Boolean = false,
     val previewError: String? = null,
     // Field selections (for UI preview)
@@ -76,7 +73,14 @@ data class ContributorMetadataUiState(
  * Manages the full flow:
  * 1. Search Audible for contributor matches
  * 2. Select a match and preview the changes
- * 3. Apply the match to update the contributor via server API
+ * 3. Apply the match to update the contributor via server RPC
+ *
+ * Uses `:contract` DTOs ([MetadataContributorHit], [MetadataContributorProfile])
+ * directly — no parallel domain-DTO hierarchy (B2b "nuke legacy DTOs" decision).
+ *
+ * Note: [MetadataContributorProfile.description] corresponds to the biography
+ * field displayed in the UI; the legacy domain type used `biography` as the
+ * field name. UI references `previewProfile.description` now.
  */
 class ContributorMetadataViewModel(
     private val contributorRepository: ContributorRepository,
@@ -94,7 +98,7 @@ class ContributorMetadataViewModel(
      * visible during navigation transitions, then loads contributor data async.
      */
     fun init(contributorId: String) {
-        // Synchronous reset - prevents stale state (e.g., applySuccess=true from
+        // Synchronous reset — prevents stale state (e.g., applySuccess=true from
         // a previous contributor) from triggering side effects before async load
         state.value = ContributorMetadataUiState(contributorId = contributorId)
 
@@ -137,6 +141,11 @@ class ContributorMetadataViewModel(
 
     /**
      * Execute an Audible search with the current query.
+     *
+     * Note: [MetadataRepository.searchContributorMetadata] currently stubs to
+     * an empty list (no Audible contributor-search API in the contract yet —
+     * see MetadataLookupService KDoc). Results will appear transparently when
+     * the server implementation lands.
      */
     fun search() {
         val query = state.value.searchQuery.trim()
@@ -150,29 +159,26 @@ class ContributorMetadataViewModel(
                 )
             }
 
-            try {
-                val region = state.value.selectedRegion.code
-                val results = metadataRepository.searchContributors(query, region)
-                logger.debug { "Contributor search for '$query' in $region returned ${results.size} results" }
-
-                state.update {
-                    it.copy(
-                        searchResults = results,
-                        isSearching = false,
-                    )
+            when (val result = metadataRepository.searchContributorMetadata(query)) {
+                is AppResult.Success -> {
+                    logger.debug { "Contributor search for '$query' returned ${result.data.size} results" }
+                    state.update {
+                        it.copy(
+                            searchResults = result.data,
+                            isSearching = false,
+                        )
+                    }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Contributor metadata search failed" }
-                state.update {
-                    it.copy(
-                        isSearching = false,
-                        searchError = e.message ?: "Search failed",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Contributor metadata search failed: ${result.error.message}" }
+                    state.update {
+                        it.copy(
+                            isSearching = false,
+                            searchError = result.error.message,
+                        )
+                    }
                 }
             }
         }
@@ -181,7 +187,7 @@ class ContributorMetadataViewModel(
     /**
      * Select a candidate from search results and load its full profile.
      */
-    fun selectCandidate(result: ContributorMetadataCandidate) {
+    fun selectCandidate(result: MetadataContributorHit) {
         state.update {
             it.copy(
                 selectedCandidate = result,
@@ -192,32 +198,41 @@ class ContributorMetadataViewModel(
         }
 
         viewModelScope.launch {
-            try {
-                val profile = metadataRepository.getContributorProfile(result.asin)
-                logger.debug { "Loaded contributor profile for ${result.asin}: ${profile.name}" }
-
-                // Initialize selections based on available data
-                val selections = initializeSelections(profile)
-
-                state.update {
-                    it.copy(
-                        previewProfile = profile,
-                        isLoadingPreview = false,
-                        selections = selections,
-                    )
+            when (
+                val profileResult =
+                    metadataRepository.getContributorMetadata(result.asin, state.value.selectedRegion)
+            ) {
+                is AppResult.Success -> {
+                    val profile = profileResult.data
+                    if (profile != null) {
+                        logger.debug { "Loaded contributor profile for ${result.asin}: ${profile.name}" }
+                        state.update {
+                            it.copy(
+                                previewProfile = profile,
+                                isLoadingPreview = false,
+                                selections = initializeSelections(profile),
+                            )
+                        }
+                    } else {
+                        logger.debug { "No contributor profile found for ${result.asin}" }
+                        state.update {
+                            it.copy(
+                                isLoadingPreview = false,
+                                previewError = "No profile found on Audible.",
+                            )
+                        }
+                    }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load contributor profile" }
-                state.update {
-                    it.copy(
-                        isLoadingPreview = false,
-                        previewError = e.message ?: "Failed to load profile",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(profileResult.error)
+                    logger.error { "Failed to load contributor profile: ${profileResult.error.message}" }
+                    state.update {
+                        it.copy(
+                            isLoadingPreview = false,
+                            previewError = profileResult.error.message,
+                        )
+                    }
                 }
             }
         }
@@ -229,13 +244,7 @@ class ContributorMetadataViewModel(
     fun loadProfileByAsin(asin: String) {
         state.update {
             it.copy(
-                selectedCandidate =
-                    ContributorMetadataCandidate(
-                        asin = asin,
-                        name = "",
-                        imageUrl = null,
-                        description = null,
-                    ),
+                selectedCandidate = MetadataContributorHit(asin = asin, name = ""),
                 isLoadingPreview = true,
                 previewProfile = null,
                 previewError = null,
@@ -243,38 +252,45 @@ class ContributorMetadataViewModel(
         }
 
         viewModelScope.launch {
-            try {
-                val profile = metadataRepository.getContributorProfile(asin)
-                logger.debug { "Loaded contributor profile by ASIN $asin: ${profile.name}" }
-
-                val selections = initializeSelections(profile)
-
-                state.update {
-                    it.copy(
-                        selectedCandidate =
-                            ContributorMetadataCandidate(
-                                asin = asin,
-                                name = profile.name,
-                                imageUrl = profile.imageUrl,
-                                description = null,
-                            ),
-                        previewProfile = profile,
-                        isLoadingPreview = false,
-                        selections = selections,
-                    )
+            when (
+                val profileResult =
+                    metadataRepository.getContributorMetadata(asin, state.value.selectedRegion)
+            ) {
+                is AppResult.Success -> {
+                    val profile = profileResult.data
+                    if (profile != null) {
+                        logger.debug { "Loaded contributor profile by ASIN $asin: ${profile.name}" }
+                        state.update {
+                            it.copy(
+                                selectedCandidate =
+                                    MetadataContributorHit(
+                                        asin = asin,
+                                        name = profile.name,
+                                    ),
+                                previewProfile = profile,
+                                isLoadingPreview = false,
+                                selections = initializeSelections(profile),
+                            )
+                        }
+                    } else {
+                        state.update {
+                            it.copy(
+                                isLoadingPreview = false,
+                                previewError = "No profile found on Audible.",
+                            )
+                        }
+                    }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                errorBus.emit(ErrorMapper.map(e))
-                logger.error(e) { "Failed to load contributor profile by ASIN" }
-                state.update {
-                    it.copy(
-                        isLoadingPreview = false,
-                        previewError = e.message ?: "Failed to load profile",
-                    )
+
+                is AppResult.Failure -> {
+                    errorBus.emit(profileResult.error)
+                    logger.error { "Failed to load contributor profile by ASIN: ${profileResult.error.message}" }
+                    state.update {
+                        it.copy(
+                            isLoadingPreview = false,
+                            previewError = profileResult.error.message,
+                        )
+                    }
                 }
             }
         }
@@ -318,12 +334,12 @@ class ContributorMetadataViewModel(
     }
 
     /**
-     * Apply the selected metadata to the contributor via server API.
+     * Apply the selected metadata to the contributor via server RPC.
      *
-     * Delegates to the use case which handles:
-     * - API call to apply metadata
-     * - Image download and local storage
-     * - Database update
+     * Delegates to [ApplyContributorMetadataUseCase], which calls
+     * [MetadataRepository.applyContributorMetadata]. The server enriches the
+     * contributor entity and emits an SSE event; the updated contributor arrives
+     * in Room automatically — no explicit local update is needed here.
      */
     fun apply() {
         val currentState = state.value
@@ -344,7 +360,7 @@ class ContributorMetadataViewModel(
                 ApplyContributorMetadataRequest(
                     contributorId = currentState.contributorId,
                     asin = candidate.asin,
-                    imageUrl = candidate.imageUrl,
+                    region = currentState.selectedRegion,
                     selections =
                         MetadataFieldSelections(
                             name = selections.name,
@@ -354,21 +370,21 @@ class ContributorMetadataViewModel(
                 )
 
             when (val result = applyContributorMetadataUseCase(request)) {
-                is Success -> {
+                is AppResult.Success -> {
                     state.update {
                         it.copy(
                             isApplying = false,
                             applySuccess = true,
-                            currentContributor = result.data,
                         )
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
                     state.update {
                         it.copy(
                             isApplying = false,
-                            applyError = result.message,
+                            applyError = result.error.message,
                         )
                     }
                 }
@@ -385,11 +401,13 @@ class ContributorMetadataViewModel(
 
     /**
      * Initialize selections based on available profile data.
+     *
+     * Note: [MetadataContributorProfile.description] is the biography field.
      */
-    private fun initializeSelections(profile: ContributorMetadataProfile): ContributorMetadataSelections =
+    private fun initializeSelections(profile: MetadataContributorProfile): ContributorMetadataSelections =
         ContributorMetadataSelections(
             name = profile.name.isNotBlank(),
-            biography = !profile.biography.isNullOrBlank(),
+            biography = !profile.description.isNullOrBlank(),
             image = !profile.imageUrl.isNullOrBlank(),
         )
 }

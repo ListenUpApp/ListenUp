@@ -144,6 +144,7 @@ private fun AudibleSearchResult.toMetadataBook(): MetadataBook =
                 )
             },
         series = emptyList(),
+        genres = emptyList(),
         coverUrl = coverUrl.takeIf { it.isNotBlank() },
         coverUrlMaxSize = null,
     )
@@ -170,6 +171,7 @@ private fun AudibleBook.toMetadataBook(): MetadataBook =
                 )
             },
         series = series.map { it.toMetadataSeriesRef() },
+        genres = genres,
         coverUrl = coverUrl.takeIf { it.isNotBlank() },
         coverUrlMaxSize = null,
     )

@@ -966,4 +966,89 @@ class ContributorRepositoryImplTest :
                 (!result.matchesName("Random Name")) shouldBe true
             }
         }
+
+        // ========== B2a Enrichment Field Round-Trip Tests (M3, M4) ==========
+
+        test("toDomain carries sortName and asin through entity→domain boundary") {
+            runTest {
+                val row =
+                    createTestContributorWithAliases(
+                        entity =
+                            ContributorEntity(
+                                id =
+                                    com.calypsan.listenup.core
+                                        .ContributorId("contrib-enriched"),
+                                name = "Brandon Sanderson",
+                                sortName = "Sanderson, Brandon",
+                                asin = "B001H6UB8C",
+                                description = "Fantasy author",
+                                imagePath = null,
+                                createdAt = Timestamp(1000L),
+                                updatedAt = Timestamp(1000L),
+                            ),
+                        aliases = emptyList(),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getByIdWithAliases("contrib-enriched") } returns row
+                val repository = createRepository(dao)
+
+                val result = repository.getById("contrib-enriched")
+
+                result.shouldNotBeNull()
+                result.sortName shouldBe "Sanderson, Brandon"
+                result.asin shouldBe "B001H6UB8C"
+            }
+        }
+
+        test("toDomain maps null sortName and asin as null") {
+            runTest {
+                val row =
+                    createTestContributorWithAliases(
+                        entity =
+                            createTestContributorEntity(
+                                id = "contrib-bare",
+                                name = "Bare Author",
+                            ),
+                        aliases = emptyList(),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getByIdWithAliases("contrib-bare") } returns row
+                val repository = createRepository(dao)
+
+                val result = repository.getById("contrib-bare")
+
+                result.shouldNotBeNull()
+                result.sortName shouldBe null
+                result.asin shouldBe null
+            }
+        }
+
+        test("ContributorEntity-only toDomain carries sortName and asin") {
+            // The entity-only path (observeByBookId / getByBookId) must also carry
+            // the enrichment fields — the ContributorEntity.toDomain() private fn.
+            runTest {
+                val entity =
+                    ContributorEntity(
+                        id =
+                            com.calypsan.listenup.core
+                                .ContributorId("contrib-role"),
+                        name = "Michael Kramer",
+                        sortName = "Kramer, Michael",
+                        asin = "B0029Y7RL0",
+                        description = "Narrator",
+                        imagePath = null,
+                        createdAt = Timestamp(1000L),
+                        updatedAt = Timestamp(1000L),
+                    )
+                val dao = createMockDao()
+                everySuspend { dao.getByBookId("book-1") } returns listOf(entity)
+                val repository = createRepository(dao)
+
+                val result = repository.getByBookId("book-1")
+
+                result.size shouldBe 1
+                result[0].sortName shouldBe "Kramer, Michael"
+                result[0].asin shouldBe "B0029Y7RL0"
+            }
+        }
     })

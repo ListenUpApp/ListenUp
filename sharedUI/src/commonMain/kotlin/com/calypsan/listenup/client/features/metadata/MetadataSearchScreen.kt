@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.domain.repository.MetadataSearchResult
+import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
@@ -73,7 +72,7 @@ fun MetadataSearchScreen(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onRegionSelected: (AudibleRegion) -> Unit,
-    onResultClick: (MetadataSearchResult) -> Unit,
+    onResultClick: (MetadataBook) -> Unit,
     onBack: () -> Unit,
 ) {
     val isSearching = state.loadState is SearchLoadState.InFlight
@@ -274,7 +273,7 @@ private fun EmptyState(hasSearched: Boolean) {
  */
 @Composable
 private fun MetadataSearchResultItem(
-    result: MetadataSearchResult,
+    result: MetadataBook,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -311,7 +310,7 @@ private fun MetadataSearchResultItem(
                 // Author
                 if (result.authors.isNotEmpty()) {
                     Text(
-                        text = "by ${result.authors.joinToString()}",
+                        text = "by ${result.authors.joinToString { it.name }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -322,7 +321,7 @@ private fun MetadataSearchResultItem(
                 // Narrator - KEY DIFFERENTIATOR from local metadata!
                 if (result.narrators.isNotEmpty()) {
                     Text(
-                        text = "Narrated by ${result.narrators.joinToString()}",
+                        text = "Narrated by ${result.narrators.joinToString { it.name }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
@@ -330,35 +329,15 @@ private fun MetadataSearchResultItem(
                     )
                 }
 
-                // Duration and rating
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    val runtime = result.runtimeMinutes
-                    if (runtime != null && runtime > 0) {
-                        Text(
-                            text = formatDuration(runtime),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    val rating = result.rating
-                    if (rating != null && rating > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = "%.1f".format(rating),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                // Duration
+                val runtime = result.runtimeMinutes
+                if (runtime != null && runtime > 0) {
+                    Text(
+                        text = formatDuration(runtime),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
         }

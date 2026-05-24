@@ -1,224 +1,79 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.client.domain.model.ContributorMetadataCandidate
-import com.calypsan.listenup.client.domain.model.ContributorMetadataResult
+import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.MetadataChapters
+import com.calypsan.listenup.api.dto.MetadataContributorHit
+import com.calypsan.listenup.api.dto.MetadataContributorProfile
+import com.calypsan.listenup.api.dto.MetadataSearchResults
+import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 
 /**
- * Repository contract for metadata lookup operations.
+ * Repository over [com.calypsan.listenup.api.MetadataLookupService]. Methods
+ * mirror the RPC contract method-for-method — `:contract` DTOs are exposed
+ * directly to ViewModels (no parallel domain-DTO hierarchy).
  *
- * Provides Audible metadata search and book matching functionality.
- * Used by book edit screens for metadata enrichment.
- *
- * Part of the domain layer - implementations live in the data layer.
- * Note: Uses data layer types for metadata results since these are
- * tightly coupled to the API responses.
+ * Implementation delegates to [com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory]
+ * and wraps each call in a [kotlinx.coroutines.CancellationException]-preserving
+ * transport-error catch.
  */
 interface MetadataRepository {
-    /**
-     * Search Audible for matching audiobooks.
-     *
-     * @param query Search query (title, author, etc.)
-     * @param region Audible region code (default: "us")
-     * @return List of matching results
-     */
-    suspend fun searchAudible(
+    /** Searches the Audible catalog for books matching [query]. */
+    suspend fun searchBooks(
         query: String,
-        region: String = "us",
-    ): List<MetadataSearchResult>
+        region: AudibleRegion?,
+    ): AppResult<MetadataSearchResults>
 
-    /**
-     * Get full metadata for a specific Audible book.
-     *
-     * @param asin Audible Standard Identification Number
-     * @param region Audible region code (default: "us")
-     * @return Full book metadata
-     */
-    suspend fun getMetadataPreview(
+    /** Fetches the canonical metadata for the Audible book identified by [asin] in [region]. */
+    suspend fun getBookMetadata(
         asin: String,
-        region: String = "us",
-    ): MetadataBook
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?>
+
+    /** Fetches the chapter list for the Audible book identified by [asin] in [region]. */
+    suspend fun getBookChapters(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataChapters?>
+
+    /** Searches Audible for contributors matching [query]. */
+    suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>>
+
+    /** Fetches the canonical profile for the Audible contributor identified by [asin] in [region]. */
+    suspend fun getContributorMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataContributorProfile?>
+
+    /** Bypasses the cache and forces a fresh fetch of the Audible metadata for [asin] in [region]. */
+    suspend fun refreshBookMetadata(
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<MetadataBook?>
 
     /**
-     * Apply Audible metadata match to a book.
+     * Applies the canonical Audible metadata for [asin] to the book at [bookId].
      *
-     * Downloads cover art and updates book metadata from the matched
-     * Audible entry. After calling this, the caller should trigger
-     * a sync to get the updated book data.
-     *
-     * @param bookId Local book ID to update
-     * @param request Match request with field selections
+     * The server enriches the persisted book entity and emits an SSE event so
+     * connected clients' Room databases receive the update.
      */
-    suspend fun applyMatch(
-        bookId: String,
-        request: ApplyMatchRequest,
-    )
+    suspend fun applyBookMetadata(
+        bookId: BookId,
+        asin: String,
+        region: AudibleRegion,
+    ): AppResult<Unit>
 
     /**
-     * Search for cover images from multiple sources (iTunes, Audible).
+     * Applies the canonical Audible contributor metadata for [asin] to the
+     * contributor at [contributorId].
      *
-     * @param title Book title to search for
-     * @param author Author name (optional, improves results)
-     * @return List of cover options sorted by resolution (highest first)
-     */
-    suspend fun searchCovers(
-        title: String,
-        author: String,
-    ): List<CoverOption>
-
-    /**
-     * Apply Audible metadata to a contributor.
-     *
-     * @param contributorId Local contributor ID to update
-     * @param asin Audible ASIN for the contributor
-     * @param imageUrl Optional image URL to download
-     * @param applyName Whether to update the contributor name
-     * @param applyBiography Whether to update the biography
-     * @param applyImage Whether to update the image
-     * @return Result containing success, disambiguation options, or error
+     * The server enriches the persisted contributor entity and emits an SSE event.
      */
     suspend fun applyContributorMetadata(
-        contributorId: String,
+        contributorId: ContributorId,
         asin: String,
-        imageUrl: String?,
-        applyName: Boolean,
-        applyBiography: Boolean,
-        applyImage: Boolean,
-    ): ContributorMetadataResult
-
-    /**
-     * Search Audible for matching contributors.
-     *
-     * @param query Search query (contributor name)
-     * @param region Audible region code (e.g., "us", "uk", "de")
-     * @return List of matching contributor candidates
-     */
-    suspend fun searchContributors(
-        query: String,
-        region: String = "us",
-    ): List<ContributorMetadataCandidate>
-
-    /**
-     * Get full contributor profile from Audible.
-     *
-     * @param asin Audible Standard Identification Number
-     * @return Full contributor profile with biography
-     */
-    suspend fun getContributorProfile(asin: String): ContributorMetadataProfile
+        region: AudibleRegion,
+    ): AppResult<Unit>
 }
-
-/**
- * Full contributor profile from Audible.
- *
- * Contains complete metadata that can be applied to a local contributor.
- */
-data class ContributorMetadataProfile(
-    val asin: String,
-    val name: String,
-    val biography: String? = null,
-    val imageUrl: String? = null,
-)
-
-// Domain types for metadata operations
-// These mirror the API types but live in the domain layer
-
-/**
- * Result from Audible metadata search.
- */
-data class MetadataSearchResult(
-    val asin: String,
-    val title: String,
-    val subtitle: String? = null,
-    val authors: List<String> = emptyList(),
-    val narrators: List<String> = emptyList(),
-    val releaseDate: String? = null,
-    val runtimeMinutes: Int? = null,
-    val coverUrl: String? = null,
-    val publisher: String? = null,
-    val language: String? = null,
-    val rating: Double? = null,
-    val ratingCount: Int = 0,
-)
-
-/**
- * Full metadata for an Audible book.
- */
-data class MetadataBook(
-    val asin: String,
-    val title: String,
-    val subtitle: String? = null,
-    val description: String? = null,
-    val authors: List<MetadataContributor> = emptyList(),
-    val narrators: List<MetadataContributor> = emptyList(),
-    val releaseDate: String? = null,
-    val runtimeMinutes: Int = 0,
-    val coverUrl: String? = null,
-    val publisher: String? = null,
-    val language: String? = null,
-    val series: List<MetadataSeriesEntry> = emptyList(),
-    val genres: List<String> = emptyList(),
-    val rating: Double = 0.0,
-    val ratingCount: Int = 0,
-)
-
-/**
- * Contributor from metadata (author, narrator).
- */
-data class MetadataContributor(
-    val asin: String? = null,
-    val name: String,
-)
-
-/**
- * Series entry from metadata.
- */
-data class MetadataSeriesEntry(
-    val asin: String? = null,
-    val name: String,
-    val position: String? = null,
-)
-
-/**
- * Request to apply matched metadata to a book.
- */
-data class ApplyMatchRequest(
-    val asin: String,
-    val region: String = "us",
-    val fields: MatchFields = MatchFields(),
-    val authors: List<String> = emptyList(),
-    val narrators: List<String> = emptyList(),
-    val series: List<SeriesMatchEntry> = emptyList(),
-    val genres: List<String> = emptyList(),
-    val coverUrl: String? = null,
-)
-
-/**
- * Field selection flags for metadata matching.
- */
-data class MatchFields(
-    val title: Boolean = true,
-    val subtitle: Boolean = true,
-    val description: Boolean = true,
-    val publisher: Boolean = true,
-    val releaseDate: Boolean = true,
-    val language: Boolean = true,
-    val cover: Boolean = true,
-)
-
-/**
- * Series entry for metadata matching.
- */
-data class SeriesMatchEntry(
-    val asin: String,
-    val applyName: Boolean = true,
-    val applySequence: Boolean = true,
-)
-
-/**
- * A cover image option from search.
- */
-data class CoverOption(
-    val url: String,
-    val source: String,
-    val width: Int?,
-    val height: Int?,
-)
