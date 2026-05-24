@@ -313,6 +313,8 @@ private fun ContributorEntity.toDomain(): Contributor =
         birthDate = birthDate,
         deathDate = deathDate,
         aliases = emptyList(),
+        sortName = sortName,
+        asin = asin,
     )
 
 private fun ContributorWithAliases.toDomain(): Contributor =
@@ -326,6 +328,8 @@ private fun ContributorWithAliases.toDomain(): Contributor =
         birthDate = contributor.birthDate,
         deathDate = contributor.deathDate,
         aliases = aliases.sortedWith(String.CASE_INSENSITIVE_ORDER),
+        sortName = contributor.sortName,
+        asin = contributor.asin,
     )
 
 private fun ContributorEntity.toSearchResult(): ContributorSearchResult =
@@ -353,6 +357,8 @@ private fun Contributor.toEntity(): ContributorEntity {
     return ContributorEntity(
         id = id,
         name = name,
+        sortName = sortName,
+        asin = asin,
         description = description,
         imagePath = imagePath,
         imageBlurHash = imageBlurHash,
