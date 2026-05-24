@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
@@ -53,6 +54,7 @@ fun Route.rpcRoutes(
     seriesService: SeriesService? = null,
     playbackService: PlaybackService? = null,
     metadataLookupService: MetadataLookupService? = null,
+    searchService: SearchService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -91,6 +93,9 @@ fun Route.rpcRoutes(
             }
             if (metadataLookupService != null) {
                 registerService<MetadataLookupService> { guard(metadataLookupService) }
+            }
+            if (searchService != null) {
+                registerService<SearchService> { guard(searchService) }
             }
         }
     }

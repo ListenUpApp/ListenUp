@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
@@ -41,6 +42,7 @@ import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
+import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
@@ -150,6 +152,7 @@ fun Application.module() {
     val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
     val metadataLookupService: MetadataLookupService? =
         resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
+    val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
 
     routing {
         healthRoutes()
@@ -164,6 +167,7 @@ fun Application.module() {
             seriesService,
             playbackService,
             metadataLookupService,
+            searchService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -176,6 +180,7 @@ fun Application.module() {
                 metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
             }
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
+            if (searchService != null) searchRoutes(searchService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

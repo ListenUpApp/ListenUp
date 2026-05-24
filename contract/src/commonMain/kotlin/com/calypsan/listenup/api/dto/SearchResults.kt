@@ -1,0 +1,102 @@
+package com.calypsan.listenup.api.dto
+
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.SeriesId
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * Top-level search result envelope returned from
+ * [com.calypsan.listenup.api.SearchService.search].
+ *
+ * Contains hits across all three searchable domains. Each list is independently
+ * capped at the caller's `limit` parameter (default 20, max 100). An empty list
+ * for a category means no matches were found — it is never a failure.
+ */
+@Serializable
+@SerialName("SearchResults")
+data class SearchResults(
+    /** Books matching the search query, ranked by FTS5 relevance. */
+    val books: List<BookHit>,
+    /** Contributors matching the search query, ranked by FTS5 relevance. */
+    val contributors: List<ContributorHit>,
+    /** Series matching the search query, ranked by FTS5 relevance. */
+    val series: List<SeriesHit>,
+)
+
+/**
+ * A single book match within [SearchResults].
+ *
+ * [coverPath] and [coverBlurHash] are populated when cover enrichment has run;
+ * `null` values indicate no cover is available yet.
+ */
+@Serializable
+@SerialName("BookHit")
+data class BookHit(
+    /** Internal book identifier. */
+    val id: BookId,
+    /** Book title. */
+    val title: String,
+    /** Display names of all authors credited on this book. */
+    val authorNames: List<String>,
+    /** Server-relative path to the cover image, or `null` when unavailable. */
+    val coverPath: String?,
+    /** BlurHash placeholder for the cover image, or `null` when unavailable. */
+    val coverHash: String?,
+)
+
+/**
+ * A single contributor match within [SearchResults].
+ *
+ * [photoPath] and [photoBlurHash] are populated when contributor metadata
+ * enrichment has run; `null` values indicate no photo is available yet.
+ * [bookCount] reflects the number of books the contributor is credited on
+ * at search time.
+ */
+@Serializable
+@SerialName("ContributorHit")
+data class ContributorHit(
+    /** Internal contributor identifier. */
+    val id: ContributorId,
+    /** Display name of the contributor, e.g. "Brandon Sanderson". */
+    val name: String,
+    /**
+     * Sort key for the contributor name, e.g. "Sanderson, Brandon".
+     * `null` when no sort name has been set.
+     */
+    val sortName: String?,
+    /** Server-relative path to the contributor photo, or `null` when unavailable. */
+    val photoPath: String?,
+    /** BlurHash placeholder for the contributor photo, or `null` when unavailable. */
+    val photoBlurHash: String?,
+    /** Number of books this contributor is credited on in the library. */
+    val bookCount: Int,
+)
+
+/**
+ * A single series match within [SearchResults].
+ *
+ * [coverPath] and [coverBlurHash] are populated when series metadata enrichment
+ * has run; `null` values indicate no cover is available yet. [bookCount]
+ * reflects the number of books in the series at search time.
+ */
+@Serializable
+@SerialName("SeriesHit")
+data class SeriesHit(
+    /** Internal series identifier. */
+    val id: SeriesId,
+    /** Display name of the series, e.g. "The Stormlight Archive". */
+    val name: String,
+    /**
+     * Sort key for the series name, e.g. "Stormlight Archive, The".
+     * `null` when no sort name has been set.
+     */
+    val sortName: String?,
+    /** Server-relative path to the series cover image, or `null` when unavailable. */
+    val coverPath: String?,
+    /** BlurHash placeholder for the series cover image, or `null` when unavailable. */
+    val coverBlurHash: String?,
+    /** Number of books belonging to this series in the library. */
+    val bookCount: Int,
+)

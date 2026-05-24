@@ -2,10 +2,12 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
+import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
@@ -96,6 +98,7 @@ fun booksModule(
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
         single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
         single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
+        single<SearchService> { SearchServiceImpl(db = get()) }
 
         single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
         single {
