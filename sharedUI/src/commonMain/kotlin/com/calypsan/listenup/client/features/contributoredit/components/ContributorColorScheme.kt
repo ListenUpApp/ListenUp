@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.contributoredit.components
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import com.calypsan.listenup.client.design.components.avatarColorForUser
 
 /**
  * Rich color scheme derived from contributor's avatar hue.
@@ -19,7 +18,7 @@ data class ContributorColorScheme(
 @Composable
 fun rememberContributorColorScheme(contributorId: String): ContributorColorScheme =
     remember(contributorId) {
-        val baseColor = avatarColorForUser(contributorId)
+        val baseColor = Color.hsl((contributorId.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f)
 
         ContributorColorScheme(
             primary = baseColor,

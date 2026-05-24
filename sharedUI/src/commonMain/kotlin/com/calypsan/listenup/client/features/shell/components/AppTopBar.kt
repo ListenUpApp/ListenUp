@@ -36,7 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.components.UserAvatarMenu
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -167,7 +167,7 @@ fun AppTopBar(
 
             // Avatar (hidden on medium/expanded screens where it's in the rail/drawer)
             if (showAvatar) {
-                UserAvatar(
+                UserAvatarMenu(
                     user = user,
                     expanded = isAvatarMenuExpanded,
                     onExpandedChange = onAvatarMenuExpandedChange,

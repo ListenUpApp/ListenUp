@@ -70,6 +70,32 @@ interface ActiveSessionDao {
     fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSessionWithDetails>>
 
     /**
+     * Observe active sessions for a specific book, joined with user profile data.
+     *
+     * Used by [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl] to
+     * populate the "currently listening" slot in the Readers section of Book Detail.
+     *
+     * @param bookId The book to observe active listeners for
+     * @return Flow of active sessions with user display data for this book
+     */
+    @Query(
+        """
+        SELECT
+            s.sessionId, s.userId, s.bookId, s.startedAt, s.updatedAt,
+            COALESCE(u.displayName, 'User') AS displayName,
+            COALESCE(u.avatarType, 'auto') AS avatarType,
+            u.avatarValue AS avatarValue,
+            COALESCE(u.avatarColor, '#6B7280') AS avatarColor,
+            '' AS title, NULL AS coverBlurHash, NULL AS authorName
+        FROM active_sessions s
+        LEFT JOIN user_profiles u ON s.userId = u.id
+        WHERE s.bookId = :bookId
+        ORDER BY s.startedAt DESC
+        """,
+    )
+    fun observeForBook(bookId: String): Flow<List<ActiveSessionWithDetails>>
+
+    /**
      * Get all active sessions (without joins).
      * Used for debugging and staleness checks.
      */

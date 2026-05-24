@@ -36,8 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.design.components.ProfileAvatar
+import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
@@ -182,14 +183,10 @@ private fun ActivityItem(
                 ).padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // User avatar - uses ProfileAvatar for offline-first avatar display
-        ProfileAvatar(
+        // User avatar - activity feed row
+        UserAvatar(
             userId = activity.userId,
-            displayName = activity.userDisplayName,
-            avatarColor = activity.userAvatarColor,
-            avatarType = activity.userAvatarType,
-            avatarValue = activity.userAvatarValue,
-            size = 36.dp,
+            size = AvatarSize.Small,
         )
 
         Spacer(modifier = Modifier.width(12.dp))

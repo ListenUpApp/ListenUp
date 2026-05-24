@@ -18,26 +18,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.domain.repository.GenreListening
-import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.domain.GenreShare
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_top_genres
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Genre breakdown showing top genres with progress bars.
  *
- * Displays up to 3 genres with their percentage as a horizontal bar.
- * Each bar is scaled relative to the maximum percentage in the set.
+ * Displays up to 3 [GenreShare] entries with a horizontal bar scaled relative
+ * to the genre with the most listening seconds.
  *
- * @param genres List of genres with listening data (pre-sorted, max 3)
+ * @param genres List of genres with listening seconds (pre-sorted, max 3)
  * @param modifier Modifier from parent
  */
 @Composable
 fun GenreBreakdownBars(
-    genres: List<GenreListening>,
+    genres: List<GenreShare>,
     modifier: Modifier = Modifier,
 ) {
-    val maxPercentage = genres.maxOfOrNull { it.percentage } ?: 100.0
+    val maxSeconds = genres.maxOfOrNull { it.totalSeconds }?.toDouble() ?: 1.0
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -52,8 +52,7 @@ fun GenreBreakdownBars(
         genres.forEach { genre ->
             GenreBar(
                 genreName = genre.genreName,
-                percentage = genre.percentage,
-                maxPercentage = maxPercentage,
+                fraction = (genre.totalSeconds.toDouble() / maxSeconds).coerceIn(0.0, 1.0).toFloat(),
             )
         }
     }
@@ -65,12 +64,9 @@ fun GenreBreakdownBars(
 @Composable
 private fun GenreBar(
     genreName: String,
-    percentage: Double,
-    maxPercentage: Double,
+    fraction: Float,
     modifier: Modifier = Modifier,
 ) {
-    val fraction = (percentage / maxPercentage).coerceIn(0.0, 1.0).toFloat()
-
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -105,15 +101,5 @@ private fun GenreBar(
                         .background(MaterialTheme.colorScheme.primary),
             )
         }
-
-        Spacer(Modifier.width(8.dp))
-
-        // Percentage
-        Text(
-            text = "${percentage.toInt()}%",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(32.dp),
-        )
     }
 }

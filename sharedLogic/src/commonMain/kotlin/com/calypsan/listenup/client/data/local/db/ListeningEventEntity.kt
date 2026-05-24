@@ -128,6 +128,27 @@ interface ListeningEventDao {
     ): List<ListeningEventEntity>
 
     /**
+     * Observe all live events for a specific user and book, newest-first by [endedAt].
+     *
+     * Tombstoned events ([deletedAt] != null) are excluded. Re-emits whenever any
+     * row in `listening_events` changes — Room reactive semantics.
+     *
+     * @param userId The user whose events to observe.
+     * @param bookId The book whose history to stream.
+     */
+    @Query(
+        """
+        SELECT * FROM listening_events
+        WHERE userId = :userId AND bookId = :bookId AND deletedAt IS NULL
+        ORDER BY endedAt DESC
+    """,
+    )
+    fun observeByBookForUser(
+        userId: String,
+        bookId: String,
+    ): Flow<List<ListeningEventEntity>>
+
+    /**
      * Insert or update an event.
      */
     @Upsert
@@ -228,6 +249,74 @@ interface ListeningEventDao {
     fun observeDistinctDaysSince(sinceMs: Long): Flow<List<Long>>
 
     /**
+     * Observe events for a specific user within a time window (exclusive upper bound).
+     *
+     * Scoped to [userId] so cross-user events never contaminate stats. Tombstoned
+     * events ([deletedAt] != null) are excluded — they represent server-reconciled
+     * deletes and must not inflate stats.
+     *
+     * @param userId The user whose events to observe.
+     * @param startMs Inclusive lower bound (epoch ms) on [endedAt].
+     * @param endMs Exclusive upper bound (epoch ms) on [endedAt].
+     * @return Flow that re-emits the full matching list whenever any row in
+     *   [tableName] changes (Room reactive semantics).
+     */
+    @Query(
+        """
+        SELECT * FROM listening_events
+        WHERE userId = :userId
+          AND endedAt >= :startMs
+          AND endedAt < :endMs
+          AND deletedAt IS NULL
+        ORDER BY endedAt DESC
+    """,
+    )
+    fun observeWithinWindow(
+        userId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<ListeningEventEntity>>
+
+    /**
+     * Observe per-user total listening seconds within a time window, joined with
+     * display names from `user_profiles`.
+     *
+     * Groups by [userId], sums `(endPositionMs - startPositionMs) / 1000` with
+     * bounds-checking to prevent overflow from corrupted data. LEFT JOIN preserves
+     * users whose profile row hasn't synced yet; callers should fall back to
+     * `"User"` when [UserWindowAggregate.displayName] is null.
+     *
+     * @param startMs Inclusive lower bound (epoch ms) on [endedAt].
+     * @param endMs Exclusive upper bound (epoch ms) on [endedAt].
+     * @return Reactive flow re-emitting whenever either table changes.
+     */
+    @Query(
+        """
+        SELECT le.userId AS userId,
+               IFNULL(SUM(
+                   CASE WHEN le.endPositionMs > le.startPositionMs
+                             AND le.endPositionMs < 10000000000
+                             AND le.startPositionMs >= 0
+                             AND le.startPositionMs < 10000000000
+                        THEN (le.endPositionMs - le.startPositionMs) / 1000
+                        ELSE 0
+                   END
+               ), 0) AS totalSeconds,
+               up.displayName AS displayName
+        FROM listening_events le
+        LEFT JOIN user_profiles up ON up.id = le.userId
+        WHERE le.endedAt >= :startMs
+          AND le.endedAt < :endMs
+          AND le.deletedAt IS NULL
+        GROUP BY le.userId
+        """,
+    )
+    fun observeUsersWithinWindow(
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<UserWindowAggregate>>
+
+    /**
      * Get total duration grouped by book for a date range.
      * Uses bounds checking to prevent overflow from corrupted data.
      */
@@ -260,4 +349,20 @@ interface ListeningEventDao {
 data class BookDuration(
     val bookId: String,
     val totalMs: Long,
+)
+
+/**
+ * Per-user time aggregate for a bounded leaderboard window, joined with
+ * the user's display name from `user_profiles`.
+ *
+ * [displayName] is null when no matching profile row exists yet; callers
+ * should fall back to `"User"`.
+ *
+ * [totalSeconds] is the sum of `(endPositionMs - startPositionMs) / 1000`
+ * for all live events in the window.
+ */
+data class UserWindowAggregate(
+    val userId: String,
+    val totalSeconds: Long,
+    val displayName: String?,
 )

@@ -262,11 +262,16 @@ val bookPresentationModule =
                 errorBus = get(),
             )
         }
-        factory {
+        factory { params ->
             com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel(
-                sessionRepository = get(),
-                eventStreamRepository = get(),
-                userRepository = get(),
+                repo = get(),
+                bookId = params.get(),
+            )
+        }
+        factory { params ->
+            com.calypsan.listenup.client.presentation.bookdetail.BookListeningHistoryViewModel(
+                repo = get(),
+                bookId = params.get(),
             )
         }
         factory {
@@ -371,7 +376,7 @@ val discoverPresentationModule =
             )
         }
         // LeaderboardViewModel for discover screen leaderboard
-        factory { LeaderboardViewModel(leaderboardRepository = get()) }
+        factory { LeaderboardViewModel(repo = get()) }
         // ActivityFeedViewModel for discover screen activity feed
         factory { ActivityFeedViewModel(activityRepository = get(), fetchActivitiesUseCase = get()) }
     }

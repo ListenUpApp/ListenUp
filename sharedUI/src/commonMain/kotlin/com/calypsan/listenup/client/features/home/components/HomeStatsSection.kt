@@ -31,9 +31,11 @@ import org.koin.compose.viewmodel.koinViewModel
  * - Current streak indicator with fire emoji
  * - Top 3 genres breakdown
  *
- * Shows skeleton loading state while data is being fetched.
- * Shows error message when the stats flow fails.
- * Shows empty-state text when there's no data yet.
+ * Renders one of four states driven by [HomeStatsUiState]:
+ * - [HomeStatsUiState.Loading]: skeleton placeholder while Room query loads
+ * - [HomeStatsUiState.Empty]: friendly prompt before any listening history exists
+ * - [HomeStatsUiState.Data]: populated chart + streak + genres
+ * - [HomeStatsUiState.Error]: error message (retry is implicit — stateIn resubscribes)
  *
  * @param modifier Modifier from parent
  * @param viewModel HomeStatsViewModel injected via Koin
@@ -43,7 +45,7 @@ fun HomeStatsSection(
     modifier: Modifier = Modifier,
     viewModel: HomeStatsViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Card(
         modifier =
@@ -63,7 +65,7 @@ fun HomeStatsSection(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Section title
+            // Section title — always visible regardless of state
             Text(
                 text = stringResource(Res.string.home_this_week),
                 style = MaterialTheme.typography.titleMedium,
@@ -71,7 +73,7 @@ fun HomeStatsSection(
             )
 
             when (val s = state) {
-                is HomeStatsUiState.Loading -> {
+                HomeStatsUiState.Loading -> {
                     Text(
                         text = stringResource(Res.string.common_loading_item, "stats"),
                         style = MaterialTheme.typography.bodyMedium,
@@ -79,24 +81,24 @@ fun HomeStatsSection(
                     )
                 }
 
-                is HomeStatsUiState.Error -> {
+                HomeStatsUiState.Empty -> {
                     Text(
-                        text = s.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        text = stringResource(Res.string.home_start_listening_to_see_your),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                is HomeStatsUiState.Ready -> {
-                    if (s.hasData) {
-                        HomeStatsContent(state = s)
-                    } else {
-                        Text(
-                            text = stringResource(Res.string.home_start_listening_to_see_your),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                is HomeStatsUiState.Data -> {
+                    HomeStatsContent(state = s)
+                }
+
+                is HomeStatsUiState.Error -> {
+                    Text(
+                        text = "Couldn't load stats.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
@@ -104,18 +106,17 @@ fun HomeStatsSection(
 }
 
 /**
- * Stats content when data is available.
+ * Stats content when data is available and the user has listening history.
  */
 @Composable
-private fun HomeStatsContent(state: HomeStatsUiState.Ready) {
+private fun HomeStatsContent(state: HomeStatsUiState.Data) {
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // 7-day listening chart
-        if (state.dailyListening.isNotEmpty()) {
+        if (state.dailyBuckets.isNotEmpty()) {
             DailyListeningChart(
-                dailyListening = state.dailyListening,
-                maxListenTimeMs = state.maxDailyListenTimeMs,
+                dailyBuckets = state.dailyBuckets,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -131,7 +132,7 @@ private fun HomeStatsContent(state: HomeStatsUiState.Ready) {
         // Genre breakdown
         if (state.hasGenreData) {
             GenreBreakdownBars(
-                genres = state.genreBreakdown,
+                genres = state.topGenres,
             )
         }
     }

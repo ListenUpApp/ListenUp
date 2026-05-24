@@ -7,7 +7,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.calypsan.listenup.client.domain.repository.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 
 /**
  * Category tabs for switching between leaderboard rankings.
@@ -25,9 +25,9 @@ fun LeaderboardCategoryTabs(
 ) {
     val categories =
         listOf(
-            LeaderboardCategory.TIME to "Time",
-            LeaderboardCategory.BOOKS to "Books",
-            LeaderboardCategory.STREAK to "Streak",
+            LeaderboardCategory.Time to "Time",
+            LeaderboardCategory.Books to "Books",
+            LeaderboardCategory.Streak to "Streak",
         )
 
     val selectedIndex = categories.indexOfFirst { it.first == selectedCategory }

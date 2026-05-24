@@ -41,6 +41,7 @@ class PlaybackPositionRepository(
     registry: SyncRegistry,
     clock: Clock = Clock.System,
     private val userStatsUpdater: UserStatsUpdater? = null,
+    private val activeSessionRepo: ActiveSessionRepository? = null,
 ) : SyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         table = PlaybackPositionTable,
@@ -164,6 +165,7 @@ class PlaybackPositionRepository(
             // detecting the flip condition; the updater unconditionally increments booksFinished.
             if (result is AppResult.Success && finished && !priorFinished) {
                 userStatsUpdater?.onPositionFinishedFlip(userId)
+                activeSessionRepo?.deleteForUserBook(userId, bookId)
             }
             result
         }

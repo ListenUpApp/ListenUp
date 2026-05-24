@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 19,
-    "identityHash": "28503de6ed8073baae444107fac28a87",
+    "identityHash": "5bebc5e9dbb5ffa8c3b6f1a560a37665",
     "entities": [
       {
         "tableName": "users",
@@ -260,55 +260,6 @@
             "id"
           ]
         }
-      },
-      {
-        "tableName": "book_readers_summary",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `totalReaders` INTEGER NOT NULL, `totalCompletions` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`bookId`), FOREIGN KEY(`bookId`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "bookId",
-            "columnName": "bookId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "totalReaders",
-            "columnName": "totalReaders",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "totalCompletions",
-            "columnName": "totalCompletions",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updatedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "bookId"
-          ]
-        },
-        "foreignKeys": [
-          {
-            "table": "books",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "bookId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
       },
       {
         "tableName": "chapters",
@@ -2033,205 +1984,6 @@
         }
       },
       {
-        "tableName": "user_reading_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `bookId` TEXT NOT NULL, `userId` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, `isCompleted` INTEGER NOT NULL, `listenTimeMs` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`bookId`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "bookId",
-            "columnName": "bookId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userId",
-            "columnName": "userId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "startedAt",
-            "columnName": "startedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "finishedAt",
-            "columnName": "finishedAt",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "isCompleted",
-            "columnName": "isCompleted",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "listenTimeMs",
-            "columnName": "listenTimeMs",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updatedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "id"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_user_reading_sessions_bookId",
-            "unique": false,
-            "columnNames": [
-              "bookId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_user_reading_sessions_bookId` ON `${TABLE_NAME}` (`bookId`)"
-          },
-          {
-            "name": "index_user_reading_sessions_userId",
-            "unique": false,
-            "columnNames": [
-              "userId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_user_reading_sessions_userId` ON `${TABLE_NAME}` (`userId`)"
-          }
-        ],
-        "foreignKeys": [
-          {
-            "table": "books",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "bookId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
-      },
-      {
-        "tableName": "reader_sessions_cache",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `userId` TEXT NOT NULL, `userDisplayName` TEXT NOT NULL, `userAvatarColor` TEXT NOT NULL, `userAvatarType` TEXT NOT NULL, `userAvatarValue` TEXT, `isCurrentlyReading` INTEGER NOT NULL, `currentProgress` REAL NOT NULL, `startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, `completionCount` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`bookId`, `userId`), FOREIGN KEY(`bookId`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "bookId",
-            "columnName": "bookId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userId",
-            "columnName": "userId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userDisplayName",
-            "columnName": "userDisplayName",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userAvatarColor",
-            "columnName": "userAvatarColor",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userAvatarType",
-            "columnName": "userAvatarType",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "userAvatarValue",
-            "columnName": "userAvatarValue",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "isCurrentlyReading",
-            "columnName": "isCurrentlyReading",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "currentProgress",
-            "columnName": "currentProgress",
-            "affinity": "REAL",
-            "notNull": true
-          },
-          {
-            "fieldPath": "startedAt",
-            "columnName": "startedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "finishedAt",
-            "columnName": "finishedAt",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "completionCount",
-            "columnName": "completionCount",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "updatedAt",
-            "columnName": "updatedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "bookId",
-            "userId"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_reader_sessions_cache_userId",
-            "unique": false,
-            "columnNames": [
-              "userId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_reader_sessions_cache_userId` ON `${TABLE_NAME}` (`userId`)"
-          }
-        ],
-        "foreignKeys": [
-          {
-            "table": "books",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "bookId"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
-      },
-      {
         "tableName": "cover_download_queue",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `status` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `error` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`bookId`))",
         "fields": [
@@ -2396,7 +2148,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '28503de6ed8073baae444107fac28a87')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5bebc5e9dbb5ffa8c3b6f1a560a37665')"
     ]
   }
 }

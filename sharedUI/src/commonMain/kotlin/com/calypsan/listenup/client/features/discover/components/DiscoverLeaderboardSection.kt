@@ -17,8 +17,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.domain.repository.LeaderboardCategory
-import com.calypsan.listenup.client.domain.repository.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -30,15 +30,17 @@ import listenup.composeapp.generated.resources.discover_start_listening_to_join_
 /**
  * Discover screen leaderboard section.
  *
- * Displays a gamified leaderboard with:
- * - Period selector (Week/Month/Year/All Time)
- * - Category tabs (Time/Books/Streak)
- * - Ranked list of users
- * - Community aggregate stats
+ * Renders a sealed [LeaderboardUiState] from [LeaderboardViewModel]:
+ * - [LeaderboardUiState.Loading] — shows the header and a loading placeholder.
+ * - [LeaderboardUiState.Empty] — shows the header and an empty-state message.
+ * - [LeaderboardUiState.Data] — shows the full ranked list with category pager.
+ * - [LeaderboardUiState.Error] — shows the header and an error message.
  *
- * @param onUserClick Callback when a user is clicked (navigates to profile)
- * @param modifier Modifier from parent
- * @param viewModel LeaderboardViewModel injected via Koin
+ * Switching categories is a pure state filter in the ViewModel — no DB re-query.
+ *
+ * @param onUserClick Callback when a user row is clicked (navigates to profile).
+ * @param modifier Modifier from parent.
+ * @param viewModel LeaderboardViewModel injected via Koin.
  */
 @Composable
 fun DiscoverLeaderboardSection(
@@ -46,7 +48,7 @@ fun DiscoverLeaderboardSection(
     modifier: Modifier = Modifier,
     viewModel: LeaderboardViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Card(
         modifier =
@@ -68,8 +70,8 @@ fun DiscoverLeaderboardSection(
             when (val current = state) {
                 is LeaderboardUiState.Loading -> {
                     LeaderboardHeader(
-                        selectedPeriod = LeaderboardPeriod.WEEK,
-                        onPeriodSelected = { viewModel.selectPeriod(it) },
+                        selectedPeriod = LeaderboardPeriod.Week,
+                        onPeriodSelected = viewModel::selectPeriod,
                     )
                     Text(
                         text = stringResource(Res.string.discover_loading_leaderboard),
@@ -78,24 +80,36 @@ fun DiscoverLeaderboardSection(
                     )
                 }
 
-                is LeaderboardUiState.Error -> {
+                is LeaderboardUiState.Empty -> {
                     LeaderboardHeader(
-                        selectedPeriod = LeaderboardPeriod.WEEK,
-                        onPeriodSelected = { viewModel.selectPeriod(it) },
+                        selectedPeriod = LeaderboardPeriod.Week,
+                        onPeriodSelected = viewModel::selectPeriod,
                     )
                     Text(
-                        text = current.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        text = stringResource(Res.string.discover_start_listening_to_join_the),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                is LeaderboardUiState.Ready -> {
-                    ReadyContent(
-                        ready = current,
-                        onPeriodSelected = { viewModel.selectPeriod(it) },
-                        onCategorySelected = { viewModel.selectCategory(it) },
+                is LeaderboardUiState.Data -> {
+                    DataContent(
+                        data = current,
+                        onPeriodSelected = viewModel::selectPeriod,
+                        onCategorySelected = viewModel::selectCategory,
                         onUserClick = onUserClick,
+                    )
+                }
+
+                is LeaderboardUiState.Error -> {
+                    LeaderboardHeader(
+                        selectedPeriod = LeaderboardPeriod.Week,
+                        onPeriodSelected = viewModel::selectPeriod,
+                    )
+                    Text(
+                        text = "Could not load leaderboard.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
@@ -104,59 +118,44 @@ fun DiscoverLeaderboardSection(
 }
 
 @Composable
-private fun ReadyContent(
-    ready: LeaderboardUiState.Ready,
+private fun DataContent(
+    data: LeaderboardUiState.Data,
     onPeriodSelected: (LeaderboardPeriod) -> Unit,
     onCategorySelected: (LeaderboardCategory) -> Unit,
     onUserClick: (String) -> Unit,
 ) {
     LeaderboardHeader(
-        selectedPeriod = ready.selectedPeriod,
+        selectedPeriod = data.period,
         onPeriodSelected = onPeriodSelected,
     )
 
-    if (!ready.hasData) {
-        Text(
-            text = stringResource(Res.string.discover_start_listening_to_join_the),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        return
-    }
-
-    val categories =
-        listOf(
-            LeaderboardCategory.TIME,
-            LeaderboardCategory.BOOKS,
-            LeaderboardCategory.STREAK,
-        )
-
+    val categories = LeaderboardCategory.entries
     val pagerState =
         rememberPagerState(
-            initialPage = categories.indexOf(ready.selectedCategory).coerceAtLeast(0),
+            initialPage = categories.indexOf(data.category).coerceAtLeast(0),
             pageCount = { categories.size },
         )
 
-    // Sync pager with tab selection.
-    LaunchedEffect(ready.selectedCategory) {
-        val targetPage = categories.indexOf(ready.selectedCategory)
+    // Sync pager page to category state.
+    LaunchedEffect(data.category) {
+        val targetPage = categories.indexOf(data.category)
         if (targetPage >= 0 && pagerState.currentPage != targetPage) {
             pagerState.animateScrollToPage(targetPage)
         }
     }
 
-    // Sync tab selection with pager swipes.
+    // Sync category state to pager swipes.
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collect { page ->
             val category = categories.getOrNull(page)
-            if (category != null && category != ready.selectedCategory) {
+            if (category != null && category != data.category) {
                 onCategorySelected(category)
             }
         }
     }
 
     LeaderboardCategoryTabs(
-        selectedCategory = ready.selectedCategory,
+        selectedCategory = data.category,
         onCategorySelected = onCategorySelected,
     )
 
@@ -165,15 +164,16 @@ private fun ReadyContent(
         modifier = Modifier.fillMaxWidth(),
     ) { page ->
         val category = categories[page]
-        val entries = ready.entriesByCategory.getValue(category)
+        val entries =
+            when (category) {
+                LeaderboardCategory.Time -> data.snapshot.time
+                LeaderboardCategory.Books -> data.snapshot.books
+                LeaderboardCategory.Streak -> data.snapshot.streak
+            }
         LeaderboardList(
             entries = entries,
             category = category,
             onUserClick = onUserClick,
         )
-    }
-
-    if (ready.hasCommunityStats) {
-        CommunityStatsRow(stats = ready.communityStats!!)
     }
 }

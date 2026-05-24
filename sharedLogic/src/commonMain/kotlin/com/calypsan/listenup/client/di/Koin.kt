@@ -30,8 +30,6 @@ import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.InviteApi
 import com.calypsan.listenup.client.data.remote.InviteApiContract
-import com.calypsan.listenup.client.data.remote.LeaderboardApi
-import com.calypsan.listenup.client.data.remote.LeaderboardApiContract
 import com.calypsan.listenup.client.data.remote.ShelfApi
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
 import com.calypsan.listenup.client.data.remote.MetadataApi
@@ -78,7 +76,7 @@ import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerMigrationHelper
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerUrlChangeListener
-import com.calypsan.listenup.client.data.repository.SessionRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
@@ -116,7 +114,7 @@ import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerRepository
-import com.calypsan.listenup.client.domain.repository.SessionRepository
+import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -350,9 +348,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
-        single { get<ListenUpDatabase>().userReadingSessionDao() }
-        single { get<ListenUpDatabase>().readerSessionCacheDao() }
-        single { get<ListenUpDatabase>().bookReadersSummaryDao() }
 
         single<com.calypsan.listenup.client.data.local.db.TransactionRunner> {
             com.calypsan.listenup.client.data.local.db
@@ -703,11 +698,6 @@ val syncModule =
             StatsApi(clientFactory = get())
         } bind StatsApiContract::class
 
-        // LeaderboardApi for social leaderboard
-        single {
-            LeaderboardApi(clientFactory = get())
-        } bind LeaderboardApiContract::class
-
         // ActivityFeedApi for social activity feed
         single {
             ActivityFeedApi(clientFactory = get())
@@ -905,20 +895,17 @@ val syncModule =
         single<StatsRepository> {
             StatsRepositoryImpl(
                 listeningEventDao = get(),
+                userStatsDao = get(),
                 genreDao = get(),
+                authSession = get(),
             )
         }
 
-        // LeaderboardRepository for offline-first leaderboard (SOLID: interface in domain, impl in data)
-        // Combines local listening events (current user) with activities (others)
-        // Uses API only for initial All-time cache population
+        // LeaderboardRepository — Room-observed, offline-first; no API dependency
         single<com.calypsan.listenup.client.domain.repository.LeaderboardRepository> {
             LeaderboardRepositoryImpl(
-                listeningEventDao = get(),
-                activityDao = get(),
                 userStatsDao = get(),
-                userDao = get(),
-                leaderboardApi = get(),
+                listeningEventDao = get(),
             )
         }
 
@@ -1062,15 +1049,22 @@ val syncModule =
             )
         }
 
-        // SessionRepository for reading sessions (SOLID: interface in domain, impl in data)
-        // Offline-first: caches reader data in Room, syncs via API and SSE
-        single<SessionRepository> {
-            SessionRepositoryImpl(
-                sessionApi = get(),
-                userReadingSessionDao = get(),
-                readerSessionCacheDao = get(),
-                bookReadersSummaryDao = get(),
-                transactionRunner = get(),
+        // BookReadersRepository for Book Detail Readers section (SOLID: interface in domain, impl in data)
+        // Pure Room observation — no REST refresh, no debounce, no cache layer.
+        // active_sessions is kept current by SSE events; P3-B completion cascade deletes
+        // rows when a user finishes a book, so the table is always current without polling.
+        single<BookReadersRepository> {
+            BookReadersRepositoryImpl(
+                activeSessionDao = get(),
+                authSession = get(),
+            )
+        }
+
+        // BookListeningHistoryRepository for Book Detail listening-history section.
+        // Pure Room observation from listening_events, day-bucketed per the viewer's local TZ.
+        single<com.calypsan.listenup.client.domain.repository.BookListeningHistoryRepository> {
+            com.calypsan.listenup.client.data.repository.BookListeningHistoryRepositoryImpl(
+                listeningEventDao = get(),
                 authSession = get(),
             )
         }

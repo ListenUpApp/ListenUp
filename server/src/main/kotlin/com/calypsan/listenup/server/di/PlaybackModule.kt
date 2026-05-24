@@ -6,6 +6,8 @@ import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -21,9 +23,11 @@ import org.koin.dsl.module
  *  - [AudioFileLocator] — resolves `(bookId, fileId)` to an on-disk path for the audio route.
  *  - [AudioUrlSigner] — mints and verifies short-lived signed audio URLs. Derives its signing
  *    key from the JWT secret so operators manage no extra secret.
+ *  - [ActiveSessionRepository] — per-user active listening sessions; `createdAtStart = true`; injected into
+ *    [PlaybackPositionRepository] to cascade a hard-delete when a book's `finished` flag flips `false→true`.
  *  - [PlaybackPositionRepository] — per-user `(userId, bookId)` resume positions; `createdAtStart = true`
  *    so its `init` block registers `"playback_positions"` with [com.calypsan.listenup.server.sync.SyncRegistry]
- *    at bootstrap.
+ *    at bootstrap. Receives [ActiveSessionRepository] for the completion cascade.
  *  - [UserStatsUpdater] — incremental updater wired into [ListeningEventRepository] and
  *    [PlaybackPositionRepository]; drives the materialized `user_stats` row.
  *  - [UserStatsRepository] — materialized per-user stats; `createdAtStart = true`; receives
@@ -35,6 +39,8 @@ import org.koin.dsl.module
  *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
  *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`.
+ *  - [ActiveSessionCleanupTask] — periodic sweep that hard-deletes stale `active_sessions` rows
+ *    left by ungraceful disconnects. Started on the application scope in [Application.module].
  *  - [PlaybackService] / [PlaybackServiceImpl] — the RPC+REST implementation. Bound at module level
  *    with an unscoped [PrincipalProvider] placeholder; route handlers call [PlaybackServiceImpl.copyWith]
  *    to scope each request to the authenticated caller.
@@ -54,7 +60,16 @@ fun playbackModule(): Module =
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
-        single(createdAtStart = true) { PlaybackPositionRepository(get(), get(), get()) }
+        single(createdAtStart = true) { ActiveSessionRepository(get(), get(), get()) }
+        single(createdAtStart = true) {
+            PlaybackPositionRepository(
+                db = get(),
+                bus = get(),
+                registry = get(),
+                userStatsUpdater = get(),
+                activeSessionRepo = get(),
+            )
+        }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
         // UserStatsUpdater references UserStatsRepository (to write recomputed rows). The lazy
         // provider `{ get<UserStatsUpdater>() }` breaks the construction-time cycle: Koin resolves
@@ -73,6 +88,7 @@ fun playbackModule(): Module =
             ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
         }
         single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
+        single { ActiveSessionCleanupTask(db = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),

@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
+import com.calypsan.listenup.client.features.bookdetail.components.BookListeningHistorySection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
@@ -621,7 +622,15 @@ private fun ImmersiveBookDetail(
             )
         }
 
-        // 8. CHAPTERS - Deep dive
+        // 8. LISTENING HISTORY - Per-book session timeline (collapsible)
+        item {
+            BookListeningHistorySection(
+                bookId = bookId,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+
+        // 9. CHAPTERS - Deep dive
         item {
             Spacer(modifier = Modifier.height(16.dp))
             ChaptersHeader(

@@ -73,7 +73,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.getInitials
+
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
@@ -360,7 +360,17 @@ private fun AvatarSection(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = getInitials(user.displayName),
+                    text =
+                        user.displayName
+                            .trim()
+                            .split("\\s+".toRegex())
+                            .let { parts ->
+                                when {
+                                    parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                    user.displayName.length >= 2 -> user.displayName.take(2)
+                                    else -> user.displayName.take(1)
+                                }
+                            }.uppercase(),
                     color = Color.White,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,

@@ -233,7 +233,48 @@ interface GenreDao {
             insertAllBookGenres(crossRefs)
         }
     }
+
+    /**
+     * Fetch genre names for a batch of books in one query.
+     *
+     * Used by [com.calypsan.listenup.client.data.repository.StatsRepositoryImpl]
+     * to compute the genre breakdown for the home screen stats. A JOIN through
+     * the `book_genres` junction is more efficient than N separate
+     * [getGenresForBook] calls when the batch is large.
+     *
+     * Books with no genres are absent from the returned map. An empty [bookIds]
+     * set returns an empty map without touching the database.
+     *
+     * @param bookIds Set of book IDs to look up.
+     * @return Map from bookId (String) to the list of genre display names for
+     *   that book, ordered by [GenreEntity.path].
+     */
+    suspend fun getGenresForBooks(bookIds: Set<String>): Map<String, List<String>> {
+        if (bookIds.isEmpty()) return emptyMap()
+        return getBookGenreNamePairs(bookIds.toList())
+            .groupBy({ it.bookId }, { it.genreName })
+    }
+
+    @Query(
+        """
+        SELECT bg.bookId, g.name AS genreName
+        FROM book_genres bg
+        INNER JOIN genres g ON g.id = bg.genreId
+        WHERE bg.bookId IN (:bookIds)
+        ORDER BY bg.bookId, g.path ASC
+    """,
+    )
+    suspend fun getBookGenreNamePairs(bookIds: List<String>): List<BookGenreNamePair>
 }
+
+/**
+ * Projection used by [GenreDao.getGenresForBooks] to join the `book_genres`
+ * junction against `genres` and return one flat row per (book, genre) pair.
+ */
+data class BookGenreNamePair(
+    val bookId: String,
+    val genreName: String,
+)
 
 /**
  * Projection for resolving genre names to IDs during sync.

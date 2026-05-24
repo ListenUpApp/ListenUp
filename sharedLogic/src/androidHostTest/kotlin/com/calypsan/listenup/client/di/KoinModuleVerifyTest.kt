@@ -19,9 +19,7 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.ServerDao
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.local.db.BookReadersSummaryDao
 import com.calypsan.listenup.client.data.local.db.GenreDao
-import com.calypsan.listenup.client.data.local.db.ReaderSessionCacheDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -100,7 +98,6 @@ class KoinModuleVerifyTest {
                     AudioFileDao::class,
                     BookContributorDao::class,
                     BookDao::class,
-                    BookReadersSummaryDao::class,
                     BookSeriesDao::class,
                     ChapterDao::class,
                     CollectionDao::class,
@@ -110,7 +107,6 @@ class KoinModuleVerifyTest {
                     GenreDao::class,
                     ListeningEventDao::class,
                     PlaybackPositionDao::class,
-                    ReaderSessionCacheDao::class,
                     SearchDao::class,
                     SeriesDao::class,
                     ServerDao::class,

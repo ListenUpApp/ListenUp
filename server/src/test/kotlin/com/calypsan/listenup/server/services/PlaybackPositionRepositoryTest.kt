@@ -9,6 +9,8 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -250,6 +252,211 @@ class PlaybackPositionRepositoryTest :
                         currentChapterId = null,
                     )
                     statsRepo.getForUser("u-new-fin").shouldNotBeNull().booksFinished shouldBe 1
+                }
+            }
+        }
+
+        test("recordPosition: finished=false → finished=true flip hard-deletes the active_sessions row") {
+            withInMemoryDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activeSessionRepo = activeSessionRepo,
+                    )
+                runTest {
+                    // Seed an active session for (u1, book-flip)
+                    activeSessionRepo.upsert(
+                        com.calypsan.listenup.api.sync.ActiveSessionSyncPayload(
+                            sessionId = "sess-flip",
+                            bookId = "book-flip",
+                            startedAt = 1_730_000_000_000L,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                        userId = "u1",
+                    )
+
+                    // First record: finished=false — no flip, session survives
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-flip",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    activeSessionRepo.getForUser("u1") shouldHaveSize 1
+
+                    // Second record: finished=true — flip fires, session deleted
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-flip",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_999_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    activeSessionRepo.getForUser("u1").shouldBeEmpty()
+                }
+            }
+        }
+
+        test("recordPosition: finished=true on new (no prior position) also deletes the active_sessions row") {
+            withInMemoryDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activeSessionRepo = activeSessionRepo,
+                    )
+                runTest {
+                    activeSessionRepo.upsert(
+                        com.calypsan.listenup.api.sync.ActiveSessionSyncPayload(
+                            sessionId = "sess-new-fin",
+                            bookId = "book-new",
+                            startedAt = 1_730_000_000_000L,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                        userId = "u-new-fin",
+                    )
+
+                    repo.recordPosition(
+                        userId = "u-new-fin",
+                        bookId = "book-new",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    activeSessionRepo.getForUser("u-new-fin").shouldBeEmpty()
+                }
+            }
+        }
+
+        test("recordPosition: finished=true when priorFinished=true is a no-op for active_sessions") {
+            withInMemoryDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activeSessionRepo = activeSessionRepo,
+                    )
+                runTest {
+                    // Seed a position already at finished=true
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-already-done",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    // Seed a separate active session
+                    activeSessionRepo.upsert(
+                        com.calypsan.listenup.api.sync.ActiveSessionSyncPayload(
+                            sessionId = "sess-already-done",
+                            bookId = "book-already-done",
+                            startedAt = 1_730_000_000_000L,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                        userId = "u1",
+                    )
+
+                    // Re-record with finished=true (no flip — priorFinished was already true)
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-already-done",
+                        positionMs = 100_000L,
+                        lastPlayedAt = 1_730_000_999_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    // Session NOT deleted — no flip event fired
+                    activeSessionRepo.getForUser("u1") shouldHaveSize 1
+                }
+            }
+        }
+
+        test("recordPosition: finished=false does not touch active_sessions") {
+            withInMemoryDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activeSessionRepo = activeSessionRepo,
+                    )
+                runTest {
+                    activeSessionRepo.upsert(
+                        com.calypsan.listenup.api.sync.ActiveSessionSyncPayload(
+                            sessionId = "sess-still-active",
+                            bookId = "book-in-progress",
+                            startedAt = 1_730_000_000_000L,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                            deletedAt = null,
+                        ),
+                        userId = "u1",
+                    )
+
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-in-progress",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    activeSessionRepo.getForUser("u1") shouldHaveSize 1
+                }
+            }
+        }
+
+        test("recordPosition with activeSessionRepo=null does not throw on flip") {
+            withInMemoryDatabase {
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activeSessionRepo = null,
+                    )
+                runTest {
+                    // Should complete without throwing even though activeSessionRepo is null
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_000_000L,
+                            finished = true,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
         }

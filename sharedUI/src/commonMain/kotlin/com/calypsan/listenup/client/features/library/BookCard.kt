@@ -50,9 +50,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.ProfileAvatar
 import com.calypsan.listenup.client.design.components.ProgressOverlay
+import com.calypsan.listenup.client.design.components.UserAvatar
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -368,13 +369,10 @@ private fun BookCardCover(
                         .background(MaterialTheme.colorScheme.surface)
                         .padding(2.dp),
             ) {
-                ProfileAvatar(
+                // Mini badge on a book cover — Small fills the 32dp inner area
+                UserAvatar(
                     userId = avatarOverlay.userId,
-                    displayName = avatarOverlay.displayName,
-                    avatarColor = avatarOverlay.avatarColor,
-                    avatarType = avatarOverlay.avatarType,
-                    avatarValue = avatarOverlay.avatarValue,
-                    size = 32.dp,
+                    size = AvatarSize.Small,
                 )
             }
         }

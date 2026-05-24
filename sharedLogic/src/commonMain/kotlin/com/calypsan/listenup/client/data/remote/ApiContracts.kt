@@ -857,43 +857,14 @@ interface UserPreferencesApiContract {
 }
 
 /**
- * Contract interface for reading session API operations.
+ * Contract interface for user-profile API operations.
  *
- * Handles fetching reading history and session data for social features.
+ * Retains only the `getCurrentUser` endpoint. The `getBookReaders` and
+ * `getUserReadingHistory` endpoints were removed in P3: the Readers section
+ * now derives its data entirely from Room observation of `active_sessions` and
+ * `playback_positions` (populated by SSE events), with no REST fallback.
  */
 interface SessionApiContract {
-    /**
-     * Get list of readers for a specific book.
-     *
-     * Returns the current user's sessions along with other readers who
-     * have also read or are currently reading the book.
-     *
-     * Endpoint: GET /api/v1/sessions/books/{bookId}/readers
-     * Auth: Required
-     *
-     * @param bookId Book ID to get readers for
-     * @param limit Maximum number of other readers to return (default 10)
-     * @return Result containing BookReadersResponse or error
-     */
-    suspend fun getBookReaders(
-        bookId: String,
-        limit: Int = 10,
-    ): AppResult<BookReadersResponse>
-
-    /**
-     * Get the current user's reading history.
-     *
-     * Returns a list of all sessions for the current user,
-     * sorted by most recently started.
-     *
-     * Endpoint: GET /api/v1/sessions/history
-     * Auth: Required
-     *
-     * @param limit Maximum number of sessions to return (default 20)
-     * @return Result containing UserReadingHistoryResponse or error
-     */
-    suspend fun getUserReadingHistory(limit: Int = 20): AppResult<UserReadingHistoryResponse>
-
     /**
      * Get the current authenticated user's profile.
      *
@@ -1212,79 +1183,6 @@ data class ReleaseInboxBooksResponse(
 // =============================================================================
 // Session API Response Types
 // =============================================================================
-
-/**
- * Response from book readers endpoint.
- *
- * Contains the current user's sessions and other readers for a book.
- */
-data class BookReadersResponse(
-    /** User's own sessions for this book */
-    val yourSessions: List<SessionSummary>,
-    /** Other users who have read this book */
-    val otherReaders: List<ReaderSummary>,
-    /** Total number of unique readers */
-    val totalReaders: Int,
-    /** Total number of completions across all readers */
-    val totalCompletions: Int,
-)
-
-/**
- * Summary of a single reading session.
- */
-data class SessionSummary(
-    val id: String,
-    val startedAt: String,
-    val finishedAt: String? = null,
-    val isCompleted: Boolean,
-    val listenTimeMs: Long,
-)
-
-/**
- * Summary of another reader for a book.
- */
-data class ReaderSummary(
-    val userId: String,
-    val displayName: String,
-    val avatarType: String = "auto",
-    val avatarValue: String? = null,
-    val avatarColor: String,
-    val isCurrentlyReading: Boolean,
-    val currentProgress: Double = 0.0,
-    val startedAt: String,
-    val finishedAt: String? = null,
-    val lastActivityAt: String,
-    val completionCount: Int,
-)
-
-/**
- * Response from user reading history endpoint.
- */
-data class UserReadingHistoryResponse(
-    /** List of sessions for the current user */
-    val sessions: List<ReadingHistorySession>,
-    /** Total number of sessions */
-    val totalSessions: Int,
-    /** Total number of completed books */
-    val totalCompleted: Int,
-)
-
-/**
- * A session in the user's reading history.
- *
- * Contains embedded book details for display.
- */
-data class ReadingHistorySession(
-    val id: String,
-    val bookId: String,
-    val bookTitle: String,
-    val bookAuthor: String = "",
-    val coverPath: String? = null,
-    val startedAt: String,
-    val finishedAt: String? = null,
-    val isCompleted: Boolean,
-    val listenTimeMs: Long,
-)
 
 // =============================================================================
 // Listening Events API Response Types

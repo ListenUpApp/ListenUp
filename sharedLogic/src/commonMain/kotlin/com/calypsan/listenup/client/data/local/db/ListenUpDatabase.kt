@@ -23,7 +23,6 @@ import androidx.room.TypeConverters
         UserEntity::class,
         UserProfileEntity::class,
         BookEntity::class,
-        BookReadersSummaryEntity::class, // Phase E
         ChapterEntity::class,
         SeriesEntity::class,
         ContributorEntity::class,
@@ -46,8 +45,6 @@ import androidx.room.TypeConverters
         ActivityEntity::class,
         UserStatsEntity::class,
         TentativeSpanEntity::class,
-        UserReadingSessionEntity::class,
-        ReaderSessionCacheEntity::class,
         CoverDownloadTaskEntity::class,
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
@@ -112,13 +109,7 @@ abstract class ListenUpDatabase : RoomDatabase() {
 
     abstract fun tentativeSpanDao(): TentativeSpanDao
 
-    abstract fun userReadingSessionDao(): UserReadingSessionDao
-
-    abstract fun readerSessionCacheDao(): ReaderSessionCacheDao
-
     abstract fun coverDownloadDao(): CoverDownloadDao
-
-    abstract fun bookReadersSummaryDao(): BookReadersSummaryDao
 
     abstract fun syncCursorDao(): SyncCursorDao
 

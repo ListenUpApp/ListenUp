@@ -81,7 +81,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
     setOf(
         // APIs (each typically pairs with a repo-impl below):
         "/data/remote/ActivityFeedApi.kt",
-        "/data/remote/LeaderboardApi.kt",
         "/data/remote/MetadataApi.kt",
         "/data/remote/SearchApi.kt",
         "/data/remote/StatsApi.kt",

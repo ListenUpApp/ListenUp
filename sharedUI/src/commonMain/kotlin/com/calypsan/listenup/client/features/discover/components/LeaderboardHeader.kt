@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.domain.repository.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_leaderboard
@@ -45,18 +45,18 @@ fun LeaderboardHeader(
         ) {
             PeriodChip(
                 label = "Week",
-                selected = selectedPeriod == LeaderboardPeriod.WEEK,
-                onClick = { onPeriodSelected(LeaderboardPeriod.WEEK) },
+                selected = selectedPeriod == LeaderboardPeriod.Week,
+                onClick = { onPeriodSelected(LeaderboardPeriod.Week) },
             )
             PeriodChip(
                 label = "Month",
-                selected = selectedPeriod == LeaderboardPeriod.MONTH,
-                onClick = { onPeriodSelected(LeaderboardPeriod.MONTH) },
+                selected = selectedPeriod == LeaderboardPeriod.Month,
+                onClick = { onPeriodSelected(LeaderboardPeriod.Month) },
             )
             PeriodChip(
                 label = "All",
-                selected = selectedPeriod == LeaderboardPeriod.ALL,
-                onClick = { onPeriodSelected(LeaderboardPeriod.ALL) },
+                selected = selectedPeriod == LeaderboardPeriod.AllTime,
+                onClick = { onPeriodSelected(LeaderboardPeriod.AllTime) },
             )
         }
     }

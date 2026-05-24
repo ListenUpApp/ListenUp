@@ -1,388 +1,238 @@
 package com.calypsan.listenup.client.presentation.discover
 
-import com.calypsan.listenup.client.domain.repository.CommunityStats
-import com.calypsan.listenup.client.domain.repository.LeaderboardCategory
-import com.calypsan.listenup.client.domain.repository.LeaderboardEntry
-import com.calypsan.listenup.client.domain.repository.LeaderboardPeriod
+import app.cash.turbine.test
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
-import dev.mokkery.answering.returns
-import dev.mokkery.every
-import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
-import dev.mokkery.matcher.matches
-import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
-import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Tests for [LeaderboardViewModel].
  *
+ * Uses a hand-written [FakeLeaderboardRepository] backed by [MutableSharedFlow]s so
+ * we can push targeted emissions without Mokkery's overhead. All indefinitely-running
+ * coroutines (keeping [LeaderboardViewModel.uiState] hot) are launched in
+ * [backgroundScope] so they do not cause [UncompletedCoroutinesError].
+ *
  * Covers:
- * - Initial `Loading` before subscription (asserted on the `stateIn`
- *   `initialValue`, before any collector starts).
- * - Transition to `Ready` with defaults (TIME / WEEK) once flows emit.
- * - `selectCategory` re-selects the pre-sorted slice without upstream reload.
- * - `selectCategory(same)` is a no-op.
- * - `selectPeriod` swaps upstream observations via `flatMapLatest`.
- * - `selectPeriod(same)` is a no-op.
- * - Per-upstream `.catch` absorbs an upstream failure into an empty list so
- *   the pipeline degrades to `Ready` with empty entries rather than `Error`.
- * - Cache-fetch init gate: fetches when empty, skips when populated.
+ * 1. Initial state is [LeaderboardUiState.Loading] (stateIn initial value).
+ * 2. First repo emission → [LeaderboardUiState.Data] with correct period / category.
+ * 3. Selecting category Books without a new repo emit → category changes, snapshot unchanged.
+ * 4. Selecting period Month → repo re-subscribes → [LeaderboardUiState.Data] with new snapshot.
+ * 5. Empty snapshot (all three lists empty) → [LeaderboardUiState.Empty].
+ * 6. Repo throws → [LeaderboardUiState.Error] with isRetryable = true.
+ * 7. Single emission carries all three category lists pre-computed.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class LeaderboardViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class LeaderboardViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixture ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val leaderboardRepository: LeaderboardRepository = mock()
+        beforeEach { Dispatchers.setMain(testDispatcher) }
+        afterEach { Dispatchers.resetMain() }
 
-        // One flow per (period, category) combination so we can push targeted
-        // updates in tests that care about period transitions.
-        val timeEntriesFlow = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
-        val booksEntriesFlow = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
-        val streakEntriesFlow = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
-        val communityStatsFlow = MutableStateFlow(DEFAULT_STATS)
+        // ── Helpers ───────────────────────────────────────────────────────────
 
-        fun build(): LeaderboardViewModel = LeaderboardViewModel(leaderboardRepository)
-    }
-
-    private fun createFixture(isCacheEmpty: Boolean = false): TestFixture {
-        val fixture = TestFixture()
-
-        every {
-            fixture.leaderboardRepository.observeLeaderboard(
-                any(),
-                matches { it == LeaderboardCategory.TIME },
-                any(),
-            )
-        } returns fixture.timeEntriesFlow
-        every {
-            fixture.leaderboardRepository.observeLeaderboard(
-                any(),
-                matches { it == LeaderboardCategory.BOOKS },
-                any(),
-            )
-        } returns fixture.booksEntriesFlow
-        every {
-            fixture.leaderboardRepository.observeLeaderboard(
-                any(),
-                matches { it == LeaderboardCategory.STREAK },
-                any(),
-            )
-        } returns fixture.streakEntriesFlow
-        every { fixture.leaderboardRepository.observeCommunityStats(any()) } returns fixture.communityStatsFlow
-
-        everySuspend { fixture.leaderboardRepository.isUserStatsCacheEmpty() } returns isCacheEmpty
-        everySuspend { fixture.leaderboardRepository.fetchAndCacheUserStats() } returns true
-
-        return fixture
-    }
-
-    private fun TestScope.keepStateHot(viewModel: LeaderboardViewModel) {
-        backgroundScope.launch { viewModel.state.collect { } }
-    }
-
-    // ========== Test Data Factories ==========
-
-    companion object {
-        private val DEFAULT_STATS = CommunityStats(totalTimeMs = 0L, totalBooks = 0, activeUsers = 0)
-
-        private fun entry(
+        fun entry(
             userId: String,
-            timeMs: Long = 0L,
-            booksCount: Int = 0,
-            streakDays: Int = 0,
-            rank: Int = 0,
-            isCurrentUser: Boolean = false,
-        ): LeaderboardEntry =
-            LeaderboardEntry(
-                rank = rank,
-                userId = userId,
-                displayName = userId,
-                avatarColor = "#FF0000",
-                avatarType = "initials",
-                avatarValue = null,
-                timeMs = timeMs,
-                booksCount = booksCount,
-                streakDays = streakDays,
-                isCurrentUser = isCurrentUser,
-            )
-    }
+            totalSeconds: Long = 100L,
+        ) = LeaderboardEntry(
+            rank = 1,
+            userId = userId,
+            displayName = userId,
+            totalSeconds = totalSeconds,
+            booksFinished = 0,
+            currentStreakDays = 0,
+            longestStreakDays = 0,
+        )
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
+        fun snapshot(
+            timeUserId: String = "u-time",
+            booksUserId: String = "u-books",
+            streakUserId: String = "u-streak",
+        ) = LeaderboardSnapshot(
+            time = listOf(entry(timeUserId)),
+            books = listOf(entry(booksUserId)),
+            streak = listOf(entry(streakUserId)),
+        )
 
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+        val emptySnapshot = LeaderboardSnapshot(emptyList(), emptyList(), emptyList())
 
-    // ========== Initial State ==========
-
-    @Test
-    fun `initial state is Loading before pipeline subscribes`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-
-            // When — do NOT start collecting; stateIn initialValue is what we assert.
-            val viewModel = fixture.build()
-
-            // Then
-            assertIs<LeaderboardUiState.Loading>(viewModel.state.value)
+        // Simple fake — swappable per-test
+        class FakeLeaderboardRepository(
+            private val flowForPeriod: (LeaderboardPeriod) -> Flow<LeaderboardSnapshot>,
+        ) : LeaderboardRepository {
+            override fun observeSnapshot(
+                period: LeaderboardPeriod,
+                limit: Int,
+            ): Flow<LeaderboardSnapshot> = flowForPeriod(period)
         }
 
-    // ========== Reactive Observation ==========
+        // ── 1. Initial state ──────────────────────────────────────────────────
 
-    @Test
-    fun `Ready emitted with TIME WEEK defaults when flows emit`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            fixture.timeEntriesFlow.value =
-                listOf(entry(userId = "u-time", timeMs = 100L, rank = 1))
-            fixture.booksEntriesFlow.value =
-                listOf(entry(userId = "u-books", booksCount = 5, rank = 1))
-            fixture.streakEntriesFlow.value =
-                listOf(entry(userId = "u-streak", streakDays = 3, rank = 1))
-
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(LeaderboardPeriod.WEEK, ready.selectedPeriod)
-            assertEquals(LeaderboardCategory.TIME, ready.selectedCategory)
-            assertEquals("u-time", ready.entries.single().userId)
-            assertTrue(ready.hasData)
-        }
-
-    // ========== Category Selection ==========
-
-    @Test
-    fun `selectCategory switches the visible slice without upstream reload`() =
-        runTest {
-            // Given — entries pre-populated per category.
-            val fixture = createFixture()
-            fixture.timeEntriesFlow.value = listOf(entry(userId = "u-time", timeMs = 100L))
-            fixture.booksEntriesFlow.value = listOf(entry(userId = "u-books", booksCount = 5))
-            fixture.streakEntriesFlow.value = listOf(entry(userId = "u-streak", streakDays = 3))
-
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
-
-            // When
-            viewModel.selectCategory(LeaderboardCategory.BOOKS)
-            advanceUntilIdle()
-
-            // Then
-            val ready = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(LeaderboardCategory.BOOKS, ready.selectedCategory)
-            assertEquals("u-books", ready.entries.single().userId)
-
-            // And — no NEW observeLeaderboard call per category (subscribed once at startup).
-            // Mokkery defaults to exactly(1); that holds precisely because category change does not reload.
-            verifySuspend {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    any(),
-                    matches { it == LeaderboardCategory.BOOKS },
-                    any(),
-                )
+        test("initial state is Loading before any collector") {
+            runTest {
+                val repo = FakeLeaderboardRepository { MutableSharedFlow() }
+                val vm = LeaderboardViewModel(repo)
+                vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Loading>()
             }
         }
 
-    @Test
-    fun `selectCategory with same category is a no-op`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
+        // ── 2. First emission → Data ──────────────────────────────────────────
 
-            val ready = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(LeaderboardCategory.TIME, ready.selectedCategory)
+        test("first repo emission transitions to Data with Week and Time defaults") {
+            runTest {
+                val snapFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                val repo = FakeLeaderboardRepository { snapFlow }
+                val vm = LeaderboardViewModel(repo)
 
-            // When — selecting the current category.
-            viewModel.selectCategory(LeaderboardCategory.TIME)
-            advanceUntilIdle()
+                // Keep the StateFlow hot without blocking runTest completion.
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                snapFlow.emit(snapshot("alice"))
+                advanceUntilIdle()
 
-            // Then — state is unchanged and each upstream only ever subscribed once.
-            val after = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(LeaderboardCategory.TIME, after.selectedCategory)
-            verifySuspend {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    any(),
-                    matches { it == LeaderboardCategory.TIME },
-                    any(),
-                )
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.period shouldBe LeaderboardPeriod.Week
+                data.category shouldBe LeaderboardCategory.Time
+                data.snapshot.time
+                    .single()
+                    .userId shouldBe "alice"
             }
         }
 
-    // ========== Period Selection ==========
+        // ── 3. Category change — no re-fetch ─────────────────────────────────
 
-    @Test
-    fun `selectPeriod triggers new upstream observations`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
+        test("selectCategory updates category without triggering a new repo subscription") {
+            runTest {
+                val snapFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                var subscribeCount = 0
+                val repo =
+                    FakeLeaderboardRepository {
+                        subscribeCount++
+                        snapFlow
+                    }
+                val vm = LeaderboardViewModel(repo)
 
-            // When
-            viewModel.selectPeriod(LeaderboardPeriod.MONTH)
-            advanceUntilIdle()
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                snapFlow.emit(snapshot(booksUserId = "bob"))
+                advanceUntilIdle()
 
-            // Then — each per-category observation invoked again with MONTH,
-            // and community stats re-subscribed with MONTH.
-            verifySuspend {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    matches { it == LeaderboardPeriod.MONTH },
-                    matches { it == LeaderboardCategory.TIME },
-                    any(),
-                )
-            }
-            verifySuspend {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    matches { it == LeaderboardPeriod.MONTH },
-                    matches { it == LeaderboardCategory.BOOKS },
-                    any(),
-                )
-            }
-            verifySuspend {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    matches { it == LeaderboardPeriod.MONTH },
-                    matches { it == LeaderboardCategory.STREAK },
-                    any(),
-                )
-            }
-            verifySuspend {
-                fixture.leaderboardRepository.observeCommunityStats(
-                    matches { it == LeaderboardPeriod.MONTH },
-                )
-            }
+                val before = subscribeCount
 
-            val ready = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(LeaderboardPeriod.MONTH, ready.selectedPeriod)
-        }
+                vm.selectCategory(LeaderboardCategory.Books)
+                advanceUntilIdle()
 
-    @Test
-    fun `selectPeriod with same period is a no-op`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
-
-            // When — selecting the current (default) period.
-            viewModel.selectPeriod(LeaderboardPeriod.WEEK)
-            advanceUntilIdle()
-
-            // Then — no MONTH-level observation ever happened.
-            verifySuspend(VerifyMode.not) {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    matches { it == LeaderboardPeriod.MONTH },
-                    any(),
-                    any(),
-                )
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.category shouldBe LeaderboardCategory.Books
+                data.snapshot.books
+                    .single()
+                    .userId shouldBe "bob"
+                // No new subscription — same count
+                subscribeCount shouldBe before
             }
         }
 
-    // ========== Per-upstream Catch ==========
+        // ── 4. Period change — re-subscribes ──────────────────────────────────
 
-    @Test
-    fun `per-upstream catch absorbs failure into empty entries without tripping Error`() =
-        runTest {
-            // Given — the TIME upstream throws immediately.
-            val fixture = TestFixture()
-            every {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    any(),
-                    matches { it == LeaderboardCategory.TIME },
-                    any(),
-                )
-            } returns flow { throw RuntimeException("boom") }
-            every {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    any(),
-                    matches { it == LeaderboardCategory.BOOKS },
-                    any(),
-                )
-            } returns fixture.booksEntriesFlow
-            every {
-                fixture.leaderboardRepository.observeLeaderboard(
-                    any(),
-                    matches { it == LeaderboardCategory.STREAK },
-                    any(),
-                )
-            } returns fixture.streakEntriesFlow
-            every { fixture.leaderboardRepository.observeCommunityStats(any()) } returns fixture.communityStatsFlow
-            everySuspend { fixture.leaderboardRepository.isUserStatsCacheEmpty() } returns false
-            everySuspend { fixture.leaderboardRepository.fetchAndCacheUserStats() } returns true
+        test("selectPeriod re-subscribes with the new period and emits Data") {
+            runTest {
+                val weekFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                val monthFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                val repo =
+                    FakeLeaderboardRepository { period ->
+                        when (period) {
+                            LeaderboardPeriod.Week -> weekFlow
+                            LeaderboardPeriod.Month -> monthFlow
+                            else -> MutableSharedFlow()
+                        }
+                    }
+                val vm = LeaderboardViewModel(repo)
 
-            fixture.booksEntriesFlow.value = listOf(entry(userId = "u-books", booksCount = 5))
-            fixture.streakEntriesFlow.value = listOf(entry(userId = "u-streak", streakDays = 7))
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                weekFlow.emit(snapshot("week-user"))
+                advanceUntilIdle()
 
-            // When
-            val viewModel = fixture.build().also { keepStateHot(it) }
-            advanceUntilIdle()
+                vm.selectPeriod(LeaderboardPeriod.Month)
+                monthFlow.emit(snapshot("month-user"))
+                advanceUntilIdle()
 
-            // Then — Ready with empty TIME entries; BOOKS and STREAK are still populated,
-            // proving each upstream has its own independent catch.
-            val ready = assertIs<LeaderboardUiState.Ready>(viewModel.state.value)
-            assertEquals(0, ready.entriesByCategory.getValue(LeaderboardCategory.TIME).size)
-            assertEquals(1, ready.entriesByCategory.getValue(LeaderboardCategory.BOOKS).size)
-            assertEquals(1, ready.entriesByCategory.getValue(LeaderboardCategory.STREAK).size)
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.period shouldBe LeaderboardPeriod.Month
+                data.snapshot.time
+                    .single()
+                    .userId shouldBe "month-user"
+            }
         }
 
-    // ========== Initial Cache Fetch Gate ==========
+        // ── 5. Empty snapshot → Empty ─────────────────────────────────────────
 
-    @Test
-    fun `cache fetch runs when user stats cache is empty`() =
-        runTest {
-            // Given
-            val fixture = createFixture(isCacheEmpty = true)
+        test("empty snapshot transitions to Empty state") {
+            runTest {
+                val snapFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                val repo = FakeLeaderboardRepository { snapFlow }
+                val vm = LeaderboardViewModel(repo)
 
-            // When — init runs.
-            fixture.build()
-            advanceUntilIdle()
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                snapFlow.emit(emptySnapshot)
+                advanceUntilIdle()
 
-            // Then
-            verifySuspend { fixture.leaderboardRepository.fetchAndCacheUserStats() }
+                vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Empty>()
+            }
         }
 
-    @Test
-    fun `cache fetch skipped when user stats cache is populated`() =
-        runTest {
-            // Given
-            val fixture = createFixture(isCacheEmpty = false)
+        // ── 6. Repo throws → Error ────────────────────────────────────────────
 
-            // When
-            fixture.build()
-            advanceUntilIdle()
+        test("repo flow throwing emits Error with isRetryable = true") {
+            runTest {
+                val repo = FakeLeaderboardRepository { flow { throw RuntimeException("db error") } }
+                val vm = LeaderboardViewModel(repo)
 
-            // Then
-            verifySuspend(VerifyMode.not) { fixture.leaderboardRepository.fetchAndCacheUserStats() }
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                advanceUntilIdle()
+
+                val error = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Error>()
+                error.isRetryable shouldBe true
+            }
         }
-}
+
+        // ── 7. Single emission carries all three lists ────────────────────────
+
+        test("single snapshot emission contains all three pre-computed category lists") {
+            runTest {
+                val snapFlow = MutableSharedFlow<LeaderboardSnapshot>(replay = 1)
+                val repo = FakeLeaderboardRepository { snapFlow }
+                val vm = LeaderboardViewModel(repo)
+
+                backgroundScope.launch(testDispatcher) { vm.uiState.collect {} }
+                snapFlow.emit(snapshot("t", "b", "s"))
+                advanceUntilIdle()
+
+                val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
+                data.snapshot.time
+                    .single()
+                    .userId shouldBe "t"
+                data.snapshot.books
+                    .single()
+                    .userId shouldBe "b"
+                data.snapshot.streak
+                    .single()
+                    .userId shouldBe "s"
+            }
+        }
+    })

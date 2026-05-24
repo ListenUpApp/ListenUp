@@ -18,7 +18,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.domain.repository.DailyListening
+import com.calypsan.listenup.client.domain.DayBucket
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.TimeZone
@@ -31,42 +31,37 @@ import kotlin.time.ExperimentalTime
  * 7-day bar chart showing daily listening time.
  *
  * Draws bars using Compose Canvas — no external charting library needed.
- * Always shows the previous 7 days (today and 6 days before), filling in
- * zeros for days without listening data.
+ * Renders one bar per [DayBucket], where index 0 is today and index 6 is
+ * six days ago, so the chart always fills exactly 7 columns.
  *
- * @param dailyListening List of daily listening data
- * @param maxListenTimeMs Maximum listen time for scaling (unused, auto-scales)
+ * @param dailyBuckets 7-element list of day buckets, index 0 = today.
  * @param modifier Modifier from parent
  */
 @Composable
 fun DailyListeningChart(
-    dailyListening: List<DailyListening>,
-    @Suppress("UnusedParameter") maxListenTimeMs: Long,
+    dailyBuckets: List<DayBucket>,
     modifier: Modifier = Modifier,
 ) {
     val barColor = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
 
-    // Generate the last 7 days and compute minutes per day
+    // Map dayOffset → day-of-week label. Today (offset 0) is the rightmost bar.
     val chartData =
-        remember(dailyListening) {
+        remember(dailyBuckets) {
             val today =
                 Clock.System
                     .now()
                     .toLocalDateTime(TimeZone.currentSystemDefault())
                     .date
-            val last7Days =
-                (6 downTo 0).map { daysAgo ->
-                    today.minus(daysAgo, DateTimeUnit.DAY)
-                }
 
-            val listeningByDate = dailyListening.associate { it.date to it.listenTimeMs }
-
-            last7Days.map { date ->
-                val minutes = (listeningByDate[date.toString()] ?: 0L) / 60_000f
-                val label = date.dayOfWeek.narrow()
-                ChartBar(label = label, minutes = minutes)
+            // Buckets are today-first (index 0 = today), so reverse for left-to-right display.
+            dailyBuckets.reversed().map { bucket ->
+                val date = today.minus(bucket.dayOffsetFromToday, DateTimeUnit.DAY)
+                ChartBar(
+                    label = date.dayOfWeek.narrow(),
+                    minutes = bucket.totalSeconds / 60f,
+                )
             }
         }
 

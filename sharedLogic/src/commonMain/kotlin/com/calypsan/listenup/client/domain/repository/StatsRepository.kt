@@ -1,54 +1,28 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.client.domain.WeeklyStats
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository contract for listening statistics.
  *
- * Computes and provides listening statistics from local data.
- * All stats are derived from listening events stored in Room.
+ * Computes and provides listening statistics from local Room data, augmented
+ * by server-maintained streak counters from `user_stats`. All computation is
+ * local-first: the flow emits without network access and updates reactively as
+ * new events land.
  *
- * Part of the domain layer - implementations live in the data layer.
+ * Part of the domain layer — implementations live in the data layer.
  */
 interface StatsRepository {
     /**
-     * Observe weekly stats (7 days) for the home screen.
+     * Observe 7-day listening stats for the home screen.
      *
-     * Emits new values whenever listening events are added or modified.
+     * Emits [WeeklyStats.empty] when no user is signed in. Re-emits whenever
+     * the local `listening_events` table changes or `user_stats` is updated by
+     * sync. Day buckets roll over at local midnight without requiring a
+     * manual refresh.
      *
-     * @return Flow emitting HomeStats whenever listening events change
+     * @return Flow emitting [WeeklyStats] whenever underlying data changes.
      */
-    fun observeWeeklyStats(): Flow<HomeStats>
+    fun observeWeeklyStats(): Flow<WeeklyStats>
 }
-
-/**
- * Computed stats for the home screen.
- *
- * All stats are computed locally from listening events.
- */
-data class HomeStats(
-    val totalListenTimeMs: Long,
-    val currentStreakDays: Int,
-    val longestStreakDays: Int,
-    val dailyListening: List<DailyListening>,
-    val genreBreakdown: List<GenreListening>,
-)
-
-/**
- * Daily listening summary.
- */
-data class DailyListening(
-    val date: String,
-    val listenTimeMs: Long,
-    val booksListened: Int,
-)
-
-/**
- * Genre listening breakdown.
- */
-data class GenreListening(
-    val genreSlug: String,
-    val genreName: String,
-    val listenTimeMs: Long,
-    val percentage: Double,
-)

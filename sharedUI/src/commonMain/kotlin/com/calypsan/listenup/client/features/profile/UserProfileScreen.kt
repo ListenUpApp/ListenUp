@@ -63,7 +63,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.getInitials
+
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -357,7 +357,17 @@ private fun ProfileHeader(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = getInitials(displayName),
+                        text =
+                            displayName
+                                .trim()
+                                .split("\\s+".toRegex())
+                                .let { parts ->
+                                    when {
+                                        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+                                        displayName.length >= 2 -> displayName.take(2)
+                                        else -> displayName.take(1)
+                                    }
+                                }.uppercase(),
                         color = Color.White,
                         fontSize = 42.sp,
                         fontWeight = FontWeight.Bold,
