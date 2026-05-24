@@ -12,7 +12,6 @@ import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -33,8 +32,8 @@ import org.jetbrains.exposed.v1.jdbc.update
  *
  * [deleteForUserBook] is the completion cascade entry point: when
  * [PlaybackPositionRepository.recordPosition] detects a `finished` flip it calls
- * this method inside the same outer `suspendTransaction` to delete the active
- * session row atomically with the position write.
+ * this method to soft-delete the active session row(s) and publish a [SyncEvent.Deleted]
+ * SSE event so SSE-connected clients can remove the row reactively.
  */
 class ActiveSessionRepository(
     db: Database,
@@ -112,34 +111,41 @@ class ActiveSessionRepository(
     }
 
     /**
-     * Delete the active-session row(s) for the `(userId, bookId)` pair. Idempotent:
-     * a delete when no matching row exists is a no-op. Does NOT publish a substrate
-     * event — the caller (`PlaybackPositionRepository.recordPosition`) is already
-     * inside an outer `suspendTransaction` and the row is hard-deleted (not
-     * soft-deleted) so there is no revision bump to announce. Clients observe the
-     * absence via the next digest / pull cycle.
+     * Soft-delete all active-session row(s) for the `(userId, bookId)` pair,
+     * publishing a [SyncEvent.Deleted] SSE event for each. Idempotent: no matching
+     * row is a no-op.
      *
      * Called from [PlaybackPositionRepository.recordPosition]'s atomic side-effect
-     * branch when a book's `finished` flag flips `false→true`. The outer
-     * `suspendTransaction(db)` makes this hard-delete atomic with the position write.
+     * branch when a book's `finished` flag flips `false→true`. Using soft-delete
+     * (rather than a hard `DELETE`) ensures the substrate event is published so
+     * SSE-connected clients can remove the row from their local `active_sessions`
+     * table reactively, without waiting for the next digest / pull cycle.
      */
     suspend fun deleteForUserBook(
         userId: String,
         bookId: String,
-    ): AppResult<Unit> =
-        suspendTransaction(db) {
-            ActiveSessionTable.deleteWhere {
-                (ActiveSessionTable.userId eq userId) and
-                    (ActiveSessionTable.bookId eq bookId)
+    ): AppResult<Unit> {
+        val sessionIds =
+            suspendTransaction(db) {
+                ActiveSessionTable
+                    .selectAll()
+                    .where {
+                        (ActiveSessionTable.userId eq userId) and
+                            (ActiveSessionTable.bookId eq bookId) and
+                            (ActiveSessionTable.deletedAt eq null)
+                    }.map { it[ActiveSessionTable.sessionId] }
             }
-            AppResult.Success(Unit)
+        for (sessionId in sessionIds) {
+            softDelete(id = sessionId, userId = userId)
         }
+        return AppResult.Success(Unit)
+    }
 
     /**
      * Return all active sessions for the given user, excluding soft-deleted rows.
-     * Used in tests to assert repository state.
+     * Used in tests and diagnostics to assert repository state.
      */
-    internal suspend fun getForUser(userId: String): List<ActiveSessionSyncPayload> =
+    suspend fun getForUser(userId: String): List<ActiveSessionSyncPayload> =
         suspendTransaction(db) {
             ActiveSessionTable
                 .selectAll()

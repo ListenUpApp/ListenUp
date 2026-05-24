@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
@@ -29,6 +30,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
+import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -87,6 +89,11 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * @property serverSeriesRepository the server-side series repository; use
  *   [com.calypsan.listenup.server.services.SeriesRepository.resolveOrCreate]
  *   to seed a series and publish a `series` [com.calypsan.listenup.server.sync.SyncEvent]
+ * @property serverActiveSessionRepository the server-side active-session repository; use
+ *   [com.calypsan.listenup.server.services.ActiveSessionRepository.upsert] to seed a session
+ *   row that other users can observe, and [ActiveSessionRepository.deleteForUserBook] to
+ *   simulate the completion cascade (which soft-deletes the row and publishes an SSE event).
+ *   Use [ActiveSessionRepository.getForUser] to assert server-side state after the cascade.
  * @property serverPlaybackPositionRepository the server-side playback-position repository; use
  *   [com.calypsan.listenup.server.services.PlaybackPositionRepository.recordPosition] to write
  *   a position server-side and assert its SSE event lands in the client Room DB (server→client
@@ -113,6 +120,7 @@ data class ClientEngineScope(
     val serverBookRepository: BookRepository,
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
+    val serverActiveSessionRepository: ActiveSessionRepository,
     val serverPlaybackPositionRepository: PlaybackPositionRepository,
     val serverListeningEventRepository: ListeningEventRepository,
     val serverUserStatsRepository: UserStatsRepository,
@@ -164,6 +172,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                         single { syncRegistry }
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
+                        single(createdAtStart = true) { serverRepos.activeSessionRepo }
                         single(createdAtStart = true) { serverRepos.playbackPositionRepo }
                         single(createdAtStart = true) { serverRepos.listeningEventRepo }
                         single(createdAtStart = true) { serverRepos.userStatsRepo }
@@ -266,6 +275,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverBookRepository = serverRepos.bookRepo,
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
+                    serverActiveSessionRepository = serverRepos.activeSessionRepo,
                     serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
                     serverListeningEventRepository = serverRepos.listeningEventRepo,
                     serverUserStatsRepository = serverRepos.userStatsRepo,
@@ -298,22 +308,28 @@ private data class ServerRepositories(
     val contributorRepo: ContributorRepository,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
+    val activeSessionRepo: ActiveSessionRepository,
     val playbackPositionRepo: PlaybackPositionRepository,
     val listeningEventRepo: ListeningEventRepository,
     val userStatsRepo: UserStatsRepository,
 )
 
 /**
- * Constructs and registers the real [BookSyncDomainHandler], [ContributorSyncDomainHandler],
- * [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler], [ListeningEventSyncDomainHandler],
- * and [UserStatsSyncDomainHandler] into [registry]. Each handler self-registers under its
- * `domainName` on construction, so the client dispatcher routes domain SSE frames here, applying
- * them into [clientDb] exactly as production does.
+ * Constructs and registers the real [ActiveSessionSyncDomainHandler], [BookSyncDomainHandler],
+ * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
+ * [ListeningEventSyncDomainHandler], and [UserStatsSyncDomainHandler] into [registry]. Each
+ * handler self-registers under its `domainName` on construction, so the client dispatcher routes
+ * domain SSE frames here, applying them into [clientDb] exactly as production does.
  */
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
 ) {
+    ActiveSessionSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
     BookSyncDomainHandler(
         database = clientDb,
         mapper = BookEntityMapper(),
@@ -381,7 +397,9 @@ private fun buildServerRepositories(
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
-    val playbackPositionRepo = PlaybackPositionRepository(serverDb, bus, registry)
+    val activeSessionRepo = ActiveSessionRepository(serverDb, bus, registry)
+    val playbackPositionRepo =
+        PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)
 
     // P2: break the UserStatsRepository ↔ UserStatsUpdater cycle with a lateinit, matching
     // the pattern in SyncTestApplication.
@@ -410,6 +428,7 @@ private fun buildServerRepositories(
         contributorRepo,
         seriesRepo,
         bookRepo,
+        activeSessionRepo,
         playbackPositionRepo,
         listeningEventRepo,
         userStatsRepo,
