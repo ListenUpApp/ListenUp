@@ -33,6 +33,7 @@ import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
@@ -44,6 +45,8 @@ import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
@@ -136,6 +139,11 @@ fun Application.module() {
         }
     val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
     val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
+    val contributorRepository: ContributorRepository? =
+        resolvedLibraryPath?.let {
+            inject<ContributorRepository>().value
+        }
+    val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
 
     routing {
         healthRoutes()
@@ -150,6 +158,9 @@ fun Application.module() {
             if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
             if (backfillService != null) adminRoutes(backfillService)
+            if (contributorRepository != null && seriesRepository != null) {
+                metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
+            }
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

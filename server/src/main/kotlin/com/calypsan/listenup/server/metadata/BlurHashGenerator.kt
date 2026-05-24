@@ -65,28 +65,12 @@ object BlurHashGenerator {
         }
 
         // Step 1: compute all (componentsX * componentsY) DCT factors
-        val factors = Array(componentsX * componentsY) { FloatArray(3) }
-        for (j in 0 until componentsY) {
-            for (i in 0 until componentsX) {
-                val normalisation = if (i == 0 && j == 0) 1f else 2f
-                val factor = FloatArray(3)
-                for (y in 0 until height) {
-                    for (x in 0 until width) {
-                        val basis = normalisation *
-                            cos(PI * i * x / width).toFloat() *
-                            cos(PI * j * y / height).toFloat()
-                        val pixel = pixels[y * width + x]
-                        factor[0] += basis * sRgbToLinear((pixel shr 16) and 0xFF)
-                        factor[1] += basis * sRgbToLinear((pixel shr 8) and 0xFF)
-                        factor[2] += basis * sRgbToLinear(pixel and 0xFF)
-                    }
-                }
-                val scale = 1f / (width * height)
-                factors[j * componentsX + i][0] = factor[0] * scale
-                factors[j * componentsX + i][1] = factor[1] * scale
-                factors[j * componentsX + i][2] = factor[2] * scale
+        val factors =
+            Array(componentsX * componentsY) { idx ->
+                val i = idx % componentsX
+                val j = idx / componentsX
+                computeDctFactor(pixels, width, height, i, j)
             }
-        }
 
         val dc = factors[0]
         val ac = factors.drop(1)
@@ -102,12 +86,12 @@ object BlurHashGenerator {
         result.append(encodeBase83(sizeFlag, 1))
 
         // Quantised AC maximum: one base-83 digit
-        val quantisedMaximumValue: Int
-        if (ac.isEmpty()) {
-            quantisedMaximumValue = 0
-        } else {
-            quantisedMaximumValue = max(0, (maxAcComponent * 166 - 0.5f).roundToInt().coerceIn(0, 82))
-        }
+        val quantisedMaximumValue =
+            if (ac.isEmpty()) {
+                0
+            } else {
+                max(0, (maxAcComponent * 166 - 0.5f).roundToInt().coerceIn(0, 82))
+            }
         result.append(encodeBase83(quantisedMaximumValue, 1))
 
         // DC component: 4 base-83 digits
@@ -123,6 +107,39 @@ object BlurHashGenerator {
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Computes the (i, j) DCT factor over [pixels]. The normalisation
+     * coefficient is 1 for the DC component (i=0, j=0) and 2 for all AC
+     * components, per the BlurHash spec.
+     */
+    private fun computeDctFactor(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        i: Int,
+        j: Int,
+    ): FloatArray {
+        val normalisation = if (i == 0 && j == 0) 1f else 2f
+        val factor = FloatArray(3)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val basis =
+                    normalisation *
+                        cos(PI * i * x / width).toFloat() *
+                        cos(PI * j * y / height).toFloat()
+                val pixel = pixels[y * width + x]
+                factor[0] += basis * sRgbToLinear((pixel shr 16) and 0xFF)
+                factor[1] += basis * sRgbToLinear((pixel shr 8) and 0xFF)
+                factor[2] += basis * sRgbToLinear(pixel and 0xFF)
+            }
+        }
+        val scale = 1f / (width * height)
+        factor[0] *= scale
+        factor[1] *= scale
+        factor[2] *= scale
+        return factor
+    }
 
     /** Converts a single sRGB channel value (0–255) to linear light. */
     private fun sRgbToLinear(value: Int): Float {
@@ -166,7 +183,7 @@ object BlurHashGenerator {
     ): String {
         val result = CharArray(length)
         for (i in 1..length) {
-            val digit = (value / pow83(length - i)) % 83
+            val digit = value / pow83(length - i) % 83
             result[i - 1] = BASE83_CHARS[digit]
         }
         return String(result)
