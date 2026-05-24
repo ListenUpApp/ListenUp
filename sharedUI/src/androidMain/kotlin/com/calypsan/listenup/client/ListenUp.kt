@@ -63,7 +63,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -126,8 +125,6 @@ internal fun checkCriticalKoinBindings(resolvers: List<Pair<String, () -> Unit>>
  */
 val androidModule =
     module {
-        viewModelOf(::InstanceViewModel)
-
         // Background sync scheduler
         single<BackgroundSyncScheduler> { AndroidBackgroundSyncScheduler(androidContext()) }
 
