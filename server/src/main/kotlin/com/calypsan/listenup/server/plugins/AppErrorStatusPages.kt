@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ScanError
@@ -68,6 +69,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is AudioMetadataError -> toHttpStatus()
 
+        is LibraryError -> toHttpStatus()
+
         is MetadataError -> toHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
@@ -93,6 +96,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is ServerConnectError -> withCorrelationId(id)
         is SyncError -> withCorrelationId(id)
         is AudioMetadataError -> withCorrelationId(id)
+        is LibraryError -> withCorrelationId(id)
         is MetadataError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
@@ -275,4 +279,20 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.ExternalUnavailable -> copy(correlationId = id)
         is MetadataError.NotFound -> copy(correlationId = id)
         is MetadataError.Malformed -> copy(correlationId = id)
+    }
+
+private fun LibraryError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryError.NotFound -> HttpStatusCode.NotFound
+        is LibraryError.InvalidPath -> HttpStatusCode.BadRequest
+        is LibraryError.DuplicateFolder -> HttpStatusCode.Conflict
+        is LibraryError.FolderNotFound -> HttpStatusCode.NotFound
+    }
+
+private fun LibraryError.withCorrelationId(id: String?): LibraryError =
+    when (this) {
+        is LibraryError.NotFound -> copy(correlationId = id)
+        is LibraryError.InvalidPath -> copy(correlationId = id)
+        is LibraryError.DuplicateFolder -> copy(correlationId = id)
+        is LibraryError.FolderNotFound -> copy(correlationId = id)
     }
