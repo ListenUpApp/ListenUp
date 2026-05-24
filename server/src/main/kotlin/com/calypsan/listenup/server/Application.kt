@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
@@ -197,6 +198,10 @@ fun Application.module() {
             audioRoutes(audioFileLocator, audioUrlSigner)
         }
     }
+
+    // Session cleanup runs unconditionally — sessions exist regardless of library config.
+    val expiredSessionCleanupTask by inject<ExpiredSessionCleanupTask>()
+    expiredSessionCleanupTask.start(applicationScope)
 
     if (resolvedLibraryPath != null) {
         bootstrapScannerOnStartup(applicationScope)

@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.auth.RegistrationPolicy
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import io.ktor.server.config.ApplicationConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
@@ -72,6 +73,8 @@ fun authModule(config: ApplicationConfig): Module =
                 registrationPolicy = config.registrationPolicy(),
             )
         }
+
+        single { ExpiredSessionCleanupTask(sessionService = get(), clock = get()) }
     }
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
