@@ -271,6 +271,11 @@ private class SingleBookFakeAudibleApi(
         region: AudibleRegion,
         asin: String,
     ): AppResult<AudibleContributorProfile?> = AppResult.Success(null)
+
+    override suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
 }
 
 /** Stub [ITunesApi] that never finds a cover. */

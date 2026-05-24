@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.metadata.audible
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -150,6 +151,20 @@ class AudibleClient(
         }
     }
 
+    override suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>> {
+        rateLimiter.await(region)
+        // webGet returns AppResult<List<AudibleContributorProfile>?> — the search page always
+        // returns 200, so null is not expected; map it to an empty list as a safe fallback.
+        val raw: AppResult<List<AudibleContributorProfile>?> =
+            webGet(region, "/search", queryParams = mapOf("searchAuthor" to name)) { body ->
+                parseContributorSearch(body)
+            }
+        return raw.map { it ?: emptyList() }
+    }
+
     // ─── Private infrastructure ───────────────────────────────────────────────
 
     /**
@@ -219,12 +234,14 @@ class AudibleClient(
      * (`www.audible.{tld}`) with browser-style headers, and maps the response
      * body via [decode].
      *
-     * Used by [getContributor] which scrapes the author page rather than
-     * calling the JSON API. [CancellationException] is always rethrown.
+     * Used by [getContributor] and [searchContributors] which scrape Audible
+     * web pages rather than calling the JSON API. Optional [queryParams] are
+     * appended to the URL. [CancellationException] is always rethrown.
      */
     private suspend fun <T> webGet(
         region: AudibleRegion,
         path: String,
+        queryParams: Map<String, String> = emptyMap(),
         decode: (String) -> T?,
     ): AppResult<T?> =
         try {
@@ -236,6 +253,7 @@ class AudibleClient(
                         "User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     )
+                    queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
             when (response.status) {
                 HttpStatusCode.OK -> {
@@ -365,6 +383,47 @@ private fun stripHtml(html: String): String =
         .replace("&#39;", "'")
         .replace("&nbsp;", " ")
         .trim()
+
+// ─── Contributor search HTML scraping ────────────────────────────────────────
+
+/**
+ * Extracts [AudibleContributorProfile] list from an Audible search-by-author
+ * page (`/search?searchAuthor=...`).
+ *
+ * The page includes author links of the form `/author/{slug}/{ASIN}`. Each
+ * unique ASIN is deduplicated; the same author often appears across multiple
+ * product listings on the page.
+ *
+ * Returns an empty list when no author links match — not null — because the
+ * search endpoint always returns HTTP 200.
+ *
+ * Uses regex extraction matching the approach in [parseContributorProfile]:
+ * no full HTML parser to avoid a non-Kotlin-native dependency.
+ *
+ * Ported from Go's `parseContributorSearch` in `contributor.go`.
+ */
+internal fun parseContributorSearch(html: String): List<AudibleContributorProfile> {
+    // Pattern: href="/author/{slug}/{ASIN}" — ASIN is all-caps alphanumeric.
+    val linkPattern = Regex("""href="/author/[^/]+/([A-Z0-9]+)"""")
+    // Within an <a href="/author/..."> ... </a> block, extract the name from
+    // the first non-blank text. The block may contain nested tags (span, img).
+    val nameInLinkPattern = Regex("""href="/author/[^/]+/[A-Z0-9]+"[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+
+    val seen = mutableSetOf<String>()
+    val results = mutableListOf<AudibleContributorProfile>()
+
+    nameInLinkPattern.findAll(html).forEach { match ->
+        val rawInner = match.groupValues[1]
+        // Extract ASIN from the href — re-match the anchor opening tag portion.
+        val asin = linkPattern.find(match.value)?.groupValues?.get(1) ?: return@forEach
+        if (!seen.add(asin)) return@forEach // deduplicate
+
+        val name = stripHtml(rawInner).trim().takeIf { it.isNotBlank() } ?: return@forEach
+        results += AudibleContributorProfile(asin = asin, name = name, biography = "", imageUrl = "")
+    }
+
+    return results
+}
 
 // ─── Raw → Domain mappers ─────────────────────────────────────────────────────
 
