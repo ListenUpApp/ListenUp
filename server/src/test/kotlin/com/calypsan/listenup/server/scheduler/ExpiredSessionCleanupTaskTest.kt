@@ -13,7 +13,6 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -24,6 +23,12 @@ class ExpiredSessionCleanupTaskTest :
 
         val pepper = "x".repeat(32).toByteArray()
         val now = Instant.parse("2026-05-24T12:00:00Z")
+
+        fun makeTask(db: org.jetbrains.exposed.v1.jdbc.Database) =
+            ExpiredSessionCleanupTask(
+                sessionService = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now)),
+                clock = FixedClock(now),
+            )
 
         fun seedUser(
             db: org.jetbrains.exposed.v1.jdbc.Database,
@@ -49,29 +54,28 @@ class ExpiredSessionCleanupTaskTest :
                 seedUser(this, "u-2")
 
                 // Expired session: born with a -1ms TTL so it expires immediately.
-                val expiredSvc = SessionService(
-                    this,
-                    RefreshTokenHasher(pepper),
-                    RefreshTokenGenerator(),
-                    refreshTtl = (-1).milliseconds,
-                    clock = FixedClock(now),
-                )
+                val expiredSvc =
+                    SessionService(
+                        this,
+                        RefreshTokenHasher(pepper),
+                        RefreshTokenGenerator(),
+                        refreshTtl = (-1).milliseconds,
+                        clock = FixedClock(now),
+                    )
                 // Fresh session: born with a 1-hour TTL so it expires in the future.
-                val freshSvc = SessionService(
-                    this,
-                    RefreshTokenHasher(pepper),
-                    RefreshTokenGenerator(),
-                    clock = FixedClock(now),
-                )
+                val freshSvc =
+                    SessionService(
+                        this,
+                        RefreshTokenHasher(pepper),
+                        RefreshTokenGenerator(),
+                        clock = FixedClock(now),
+                    )
 
                 runTest {
                     val expired = expiredSvc.createSession(UserId("u-1"))
                     val fresh = freshSvc.createSession(UserId("u-2"))
 
-                    val task = ExpiredSessionCleanupTask(
-                        sessionService = SessionService(this@withInMemoryDatabase, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now)),
-                        clock = FixedClock(now),
-                    )
+                    val task = makeTask(this@withInMemoryDatabase)
                     val removed = task.runOnce()
 
                     removed shouldBe 1
@@ -85,11 +89,7 @@ class ExpiredSessionCleanupTaskTest :
         test("runOnce on an empty table returns 0 without throwing") {
             withInMemoryDatabase {
                 runTest {
-                    val task = ExpiredSessionCleanupTask(
-                        sessionService = SessionService(this@withInMemoryDatabase, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now)),
-                        clock = FixedClock(now),
-                    )
-                    task.runOnce() shouldBe 0
+                    makeTask(this@withInMemoryDatabase).runOnce() shouldBe 0
                 }
             }
         }
@@ -104,11 +104,7 @@ class ExpiredSessionCleanupTaskTest :
                     svc.createSession(UserId("u-1"))
                     svc.createSession(UserId("u-2"))
 
-                    val task = ExpiredSessionCleanupTask(
-                        sessionService = SessionService(this@withInMemoryDatabase, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = FixedClock(now)),
-                        clock = FixedClock(now),
-                    )
-                    task.runOnce() shouldBe 0
+                    makeTask(this@withInMemoryDatabase).runOnce() shouldBe 0
                 }
             }
         }

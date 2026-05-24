@@ -48,10 +48,11 @@ class MetadataLookupServiceImplTest :
 
         test("searchContributorMetadata wires through to AudibleApi.searchContributors") {
             withInMemoryDatabase {
-                val canned = listOf(
-                    AudibleContributorProfile(asin = "B001H6L8VC", name = "Stephen King", biography = "", imageUrl = ""),
-                    AudibleContributorProfile(asin = "B002ABCDEF", name = "Stephen King Jr.", biography = "", imageUrl = ""),
-                )
+                val canned =
+                    listOf(
+                        AudibleContributorProfile(asin = "B001H6L8VC", name = "Stephen King", biography = "", imageUrl = ""),
+                        AudibleContributorProfile(asin = "B002ABCDEF", name = "Stephen King Jr.", biography = "", imageUrl = ""),
+                    )
                 val audible = StubAudibleApi(contributorSearchResult = AppResult.Success(canned))
                 val service = makeService(audible = audible, db = this)
 
@@ -68,9 +69,10 @@ class MetadataLookupServiceImplTest :
 
         test("searchContributorMetadata propagates Failure from AudibleApi") {
             withInMemoryDatabase {
-                val audible = StubAudibleApi(
-                    contributorSearchResult = AppResult.Failure(MetadataError.ExternalUnavailable()),
-                )
+                val audible =
+                    StubAudibleApi(
+                        contributorSearchResult = AppResult.Failure(MetadataError.ExternalUnavailable()),
+                    )
                 val service = makeService(audible = audible, db = this)
 
                 runTest {
@@ -88,7 +90,8 @@ class MetadataLookupServiceImplTest :
 
                 runTest {
                     val result = service.searchContributorMetadata("unknown author xyz")
-                    result.shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
+                    result
+                        .shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
                         .data shouldHaveSize 0
                 }
             }
@@ -102,25 +105,27 @@ private fun makeService(
     db: Database,
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toString()
-    val metadataService = MetadataService(
-        audible = audible,
-        itunes = NoOpITunesApi(),
-        cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
-    )
+    val metadataService =
+        MetadataService(
+            audible = audible,
+            itunes = NoOpITunesApi(),
+            cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
+        )
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, syncRegistry)
     val seriesRepo = SeriesRepository(db, bus, syncRegistry)
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
-        bookRepository = BookRepository(
-            db = db,
-            bus = bus,
-            registry = syncRegistry,
-            libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to tempDir)),
-            contributorRepository = contributorRepo,
-            seriesRepository = seriesRepo,
-        ),
+        bookRepository =
+            BookRepository(
+                db = db,
+                bus = bus,
+                registry = syncRegistry,
+                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to tempDir)),
+                contributorRepository = contributorRepo,
+                seriesRepository = seriesRepo,
+            ),
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
@@ -131,17 +136,25 @@ private fun makeService(
 private class StubAudibleApi(
     val contributorSearchResult: AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList()),
 ) : AudibleApi {
-    override suspend fun search(region: AudibleRegion, params: SearchParams): AppResult<List<AudibleSearchResult>> =
-        AppResult.Success(emptyList())
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
 
-    override suspend fun getBook(region: AudibleRegion, asin: String): AppResult<AudibleBook?> =
-        AppResult.Success(null)
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> = AppResult.Success(null)
 
-    override suspend fun getChapters(region: AudibleRegion, asin: String): AppResult<List<AudibleChapter>> =
-        AppResult.Success(emptyList())
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
 
-    override suspend fun getContributor(region: AudibleRegion, asin: String): AppResult<AudibleContributorProfile?> =
-        AppResult.Success(null)
+    override suspend fun getContributor(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleContributorProfile?> = AppResult.Success(null)
 
     override suspend fun searchContributors(
         region: AudibleRegion,
@@ -150,6 +163,8 @@ private class StubAudibleApi(
 }
 
 private class NoOpITunesApi : ITunesApi {
-    override suspend fun findCover(title: String, author: String): AppResult<ITunesCoverHit?> =
-        AppResult.Success(null)
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
 }

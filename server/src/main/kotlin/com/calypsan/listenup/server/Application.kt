@@ -199,24 +199,7 @@ fun Application.module() {
         }
     }
 
-    // Session cleanup runs unconditionally — sessions exist regardless of library config.
-    val expiredSessionCleanupTask by inject<ExpiredSessionCleanupTask>()
-    expiredSessionCleanupTask.start(applicationScope)
-
-    if (resolvedLibraryPath != null) {
-        bootstrapScannerOnStartup(applicationScope)
-        val cleanupTask by inject<ActiveSessionCleanupTask>()
-        cleanupTask.start(applicationScope)
-        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
-        metadataCacheCleanupTask.start(applicationScope)
-        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
-        orphanImageCleanupTask.start(applicationScope)
-    } else {
-        logger.warn {
-            "scanner.libraryPath unset or invalid — server starts without scanning. " +
-                "Set LISTENUP_LIBRARY_PATH to enable."
-        }
-    }
+    startBackgroundTasks(applicationScope, resolvedLibraryPath != null)
 }
 
 /**
@@ -313,6 +296,34 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
     }
     logger.info { "seed.profile=demo — scanning the generated synthetic library at '$candidate'" }
     return candidate
+}
+
+/**
+ * Starts all background scheduler tasks and, when a library path is configured,
+ * kicks off the initial scan and folder watcher. Session cleanup runs
+ * unconditionally; scanner-dependent tasks only start when the library is present.
+ */
+private fun Application.startBackgroundTasks(
+    scope: CoroutineScope,
+    hasLibrary: Boolean,
+) {
+    // Session cleanup runs unconditionally — sessions exist regardless of library config.
+    inject<ExpiredSessionCleanupTask>().value.start(scope)
+
+    if (hasLibrary) {
+        bootstrapScannerOnStartup(scope)
+        val cleanupTask by inject<ActiveSessionCleanupTask>()
+        cleanupTask.start(scope)
+        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
+        metadataCacheCleanupTask.start(scope)
+        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
+        orphanImageCleanupTask.start(scope)
+    } else {
+        logger.warn {
+            "scanner.libraryPath unset or invalid — server starts without scanning. " +
+                "Set LISTENUP_LIBRARY_PATH to enable."
+        }
+    }
 }
 
 /**

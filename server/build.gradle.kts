@@ -128,7 +128,11 @@ tasks.test {
     useJUnitPlatform()
     // Redirect the working directory so any Ktor testApplication classpath-extraction
     // artefacts (META-INF/, io/) land under build/ rather than the project root.
-    workingDir = layout.buildDirectory.dir("test-cwd").get().asFile
+    workingDir =
+        layout.buildDirectory
+            .dir("test-cwd")
+            .get()
+            .asFile
     doFirst { workingDir.mkdirs() }
 }
 

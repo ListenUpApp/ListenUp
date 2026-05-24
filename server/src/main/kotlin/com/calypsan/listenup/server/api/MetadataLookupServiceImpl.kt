@@ -83,7 +83,8 @@ internal class MetadataLookupServiceImpl(
      * so repeated queries for the same name avoid redundant scraping.
      */
     override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        metadataService.searchContributors(defaultRegion, query)
+        metadataService
+            .searchContributors(defaultRegion, query)
             .map { profiles -> profiles.map { MetadataContributorHit(asin = it.asin, name = it.name) } }
 
     override suspend fun getContributorMetadata(
