@@ -84,7 +84,13 @@ class ContributorSyncDomainHandler(
             }
         }
 
-    /** Upsert the contributor row, preserving every enrichment column on an existing row. */
+    /**
+     * Upsert the contributor row.
+     *
+     * Enrichment fields are applied from the wire payload when non-null; when null
+     * (a B1-era event that predates enrichment), the existing row's value is
+     * preserved so a B1 sync never zeroes Books-B2 data.
+     */
     private suspend fun upsert(payload: ContributorSyncPayload) {
         val existing = database.contributorDao().getById(payload.id)
         database.contributorDao().upsert(
@@ -92,13 +98,13 @@ class ContributorSyncDomainHandler(
                 id = ContributorId(payload.id),
                 name = payload.name,
                 sortName = payload.sortName,
-                asin = existing?.asin,
-                description = existing?.description,
-                imagePath = existing?.imagePath,
-                imageBlurHash = existing?.imageBlurHash,
-                website = existing?.website,
-                birthDate = existing?.birthDate,
-                deathDate = existing?.deathDate,
+                asin = payload.asin ?: existing?.asin,
+                description = payload.description ?: existing?.description,
+                imagePath = payload.imagePath ?: existing?.imagePath,
+                imageBlurHash = payload.imageBlurHash ?: existing?.imageBlurHash,
+                website = payload.website ?: existing?.website,
+                birthDate = payload.birthDate ?: existing?.birthDate,
+                deathDate = payload.deathDate ?: existing?.deathDate,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 createdAt = Timestamp(payload.createdAt),

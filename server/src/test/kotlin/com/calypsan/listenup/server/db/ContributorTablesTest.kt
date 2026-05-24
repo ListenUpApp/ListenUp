@@ -7,7 +7,7 @@ import io.kotest.matchers.shouldBe
 class ContributorTablesTest :
     FunSpec({
 
-        test("ContributorTable has id, normalized_name, name, sort_name + sync columns") {
+        test("ContributorTable has id, normalized_name, name, sort_name + sync columns + B2a enrichment columns") {
             ContributorTable.columns.map { it.name } shouldContainExactlyInAnyOrder
                 listOf(
                     "id",
@@ -19,6 +19,14 @@ class ContributorTablesTest :
                     "updated_at",
                     "deleted_at",
                     "client_op_id",
+                    // B2a enrichment
+                    "asin",
+                    "description",
+                    "image_path",
+                    "image_blur_hash",
+                    "birth_date",
+                    "death_date",
+                    "website",
                 )
         }
 

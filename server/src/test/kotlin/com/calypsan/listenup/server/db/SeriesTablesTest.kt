@@ -7,7 +7,7 @@ import io.kotest.matchers.shouldBe
 class SeriesTablesTest :
     FunSpec({
 
-        test("BookSeriesTable has id, normalized_name, name, sort_name + sync columns") {
+        test("BookSeriesTable has id, normalized_name, name, sort_name + sync columns + B2a enrichment columns") {
             BookSeriesTable.columns.map { it.name } shouldContainExactlyInAnyOrder
                 listOf(
                     "id",
@@ -19,6 +19,11 @@ class SeriesTablesTest :
                     "updated_at",
                     "deleted_at",
                     "client_op_id",
+                    // B2a enrichment
+                    "asin",
+                    "description",
+                    "cover_path",
+                    "cover_blur_hash",
                 )
         }
 

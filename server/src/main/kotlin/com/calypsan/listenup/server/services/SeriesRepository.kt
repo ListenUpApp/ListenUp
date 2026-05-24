@@ -60,6 +60,10 @@ class SeriesRepository(
                     updatedAt = row[BookSeriesTable.updatedAt],
                     createdAt = row[BookSeriesTable.createdAt],
                     deletedAt = row[BookSeriesTable.deletedAt],
+                    asin = row[BookSeriesTable.asin],
+                    description = row[BookSeriesTable.description],
+                    coverPath = row[BookSeriesTable.coverPath],
+                    coverBlurHash = row[BookSeriesTable.coverBlurHash],
                 )
             }
 
@@ -77,6 +81,10 @@ class SeriesRepository(
                 stmt[BookSeriesTable.normalizedName] = normalized
                 stmt[BookSeriesTable.name] = value.name
                 stmt[BookSeriesTable.sortName] = value.sortName
+                stmt[BookSeriesTable.asin] = value.asin
+                stmt[BookSeriesTable.description] = value.description
+                stmt[BookSeriesTable.coverPath] = value.coverPath
+                stmt[BookSeriesTable.coverBlurHash] = value.coverBlurHash
                 stmt[BookSeriesTable.revision] = rev
                 stmt[BookSeriesTable.updatedAt] = now
                 stmt[BookSeriesTable.deletedAt] = null
@@ -88,6 +96,10 @@ class SeriesRepository(
                 stmt[BookSeriesTable.normalizedName] = normalized
                 stmt[BookSeriesTable.name] = value.name
                 stmt[BookSeriesTable.sortName] = value.sortName
+                stmt[BookSeriesTable.asin] = value.asin
+                stmt[BookSeriesTable.description] = value.description
+                stmt[BookSeriesTable.coverPath] = value.coverPath
+                stmt[BookSeriesTable.coverBlurHash] = value.coverBlurHash
                 stmt[BookSeriesTable.revision] = rev
                 stmt[BookSeriesTable.createdAt] = now
                 stmt[BookSeriesTable.updatedAt] = now

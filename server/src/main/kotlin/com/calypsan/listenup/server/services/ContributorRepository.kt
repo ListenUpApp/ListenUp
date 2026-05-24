@@ -66,6 +66,13 @@ class ContributorRepository(
                     updatedAt = row[ContributorTable.updatedAt],
                     createdAt = row[ContributorTable.createdAt],
                     deletedAt = row[ContributorTable.deletedAt],
+                    asin = row[ContributorTable.asin],
+                    description = row[ContributorTable.description],
+                    imagePath = row[ContributorTable.imagePath],
+                    imageBlurHash = row[ContributorTable.imageBlurHash],
+                    birthDate = row[ContributorTable.birthDate],
+                    deathDate = row[ContributorTable.deathDate],
+                    website = row[ContributorTable.website],
                 )
             }
 
@@ -83,6 +90,13 @@ class ContributorRepository(
                 stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
+                stmt[ContributorTable.asin] = value.asin
+                stmt[ContributorTable.description] = value.description
+                stmt[ContributorTable.imagePath] = value.imagePath
+                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
+                stmt[ContributorTable.birthDate] = value.birthDate
+                stmt[ContributorTable.deathDate] = value.deathDate
+                stmt[ContributorTable.website] = value.website
                 stmt[ContributorTable.revision] = rev
                 stmt[ContributorTable.updatedAt] = now
                 stmt[ContributorTable.deletedAt] = null
@@ -94,6 +108,13 @@ class ContributorRepository(
                 stmt[ContributorTable.normalizedName] = normalized
                 stmt[ContributorTable.name] = value.name
                 stmt[ContributorTable.sortName] = value.sortName
+                stmt[ContributorTable.asin] = value.asin
+                stmt[ContributorTable.description] = value.description
+                stmt[ContributorTable.imagePath] = value.imagePath
+                stmt[ContributorTable.imageBlurHash] = value.imageBlurHash
+                stmt[ContributorTable.birthDate] = value.birthDate
+                stmt[ContributorTable.deathDate] = value.deathDate
+                stmt[ContributorTable.website] = value.website
                 stmt[ContributorTable.revision] = rev
                 stmt[ContributorTable.createdAt] = now
                 stmt[ContributorTable.updatedAt] = now
