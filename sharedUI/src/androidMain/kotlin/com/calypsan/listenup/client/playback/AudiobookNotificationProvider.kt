@@ -105,8 +105,9 @@ class AudiobookNotificationProvider(
         metadata.artworkUri?.let { uri ->
             val bitmap =
                 try {
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    android.graphics.BitmapFactory.decodeStream(inputStream)
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        android.graphics.BitmapFactory.decodeStream(stream)
+                    }
                 } catch (e: Exception) {
                     null
                 }

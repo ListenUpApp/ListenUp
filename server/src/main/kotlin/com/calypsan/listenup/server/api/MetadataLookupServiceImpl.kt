@@ -45,6 +45,7 @@ internal class MetadataLookupServiceImpl(
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
     private val libraryPath: Path,
+    private val defaultRegion: AudibleRegion = AudibleRegion.US,
 ) : MetadataLookupService {
     override suspend fun searchBooks(
         query: String,
@@ -73,14 +74,18 @@ internal class MetadataLookupServiceImpl(
             if (chapters.isEmpty()) null else MetadataChapters(chapters = chapters.map { it.toMetadataChapter() })
         }
 
-    // Stub: Audible has no official contributor-search API. The Go reference uses
-    // HTML scraping of /search?searchAuthor=, which requires complex JS-rendered
-    // page parsing beyond the lightweight regex approach used for contributor
-    // profiles. A later phase will land a proper implementation.
-    // The method signature is included in the contract so client UI can be built
-    // against it now.
+    /**
+     * Searches Audible for contributors matching [query] using HTML scraping of
+     * `www.audible.com/search?searchAuthor={query}`. Results are deduplicated by
+     * ASIN and mapped to [MetadataContributorHit] wire DTOs.
+     *
+     * Backed by [MetadataService.searchContributors], which adds TTL caching
+     * so repeated queries for the same name avoid redundant scraping.
+     */
     override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        AppResult.Success(emptyList())
+        metadataService
+            .searchContributors(defaultRegion, query)
+            .map { profiles -> profiles.map { MetadataContributorHit(asin = it.asin, name = it.name) } }
 
     override suspend fun getContributorMetadata(
         asin: String,

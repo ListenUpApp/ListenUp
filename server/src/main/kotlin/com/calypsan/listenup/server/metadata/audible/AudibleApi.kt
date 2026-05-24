@@ -60,4 +60,22 @@ interface AudibleApi {
         region: AudibleRegion,
         asin: String,
     ): AppResult<AudibleContributorProfile?>
+
+    /**
+     * Searches Audible's contributor catalog by [name] using HTML scraping of
+     * `www.audible.{tld}/search?searchAuthor={name}`.
+     *
+     * The official catalog API offers no contributor-search endpoint — HTML
+     * scraping mirrors Go's `SearchContributors` in
+     * `server/internal/metadata/audible/contributor.go`.
+     *
+     * Results are deduplicated by ASIN and ranked by name-similarity to [name].
+     *
+     * @return [AppResult.Success] with a (possibly empty) result list on success,
+     *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
+     */
+    suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>>
 }

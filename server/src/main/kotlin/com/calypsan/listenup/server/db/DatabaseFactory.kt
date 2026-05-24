@@ -44,6 +44,11 @@ object DatabaseFactory {
                     // because SQLite ignores `PRAGMA foreign_keys` inside an active transaction,
                     // and `isAutoCommit = false` opens one before that SQL would run.
                     addDataSourceProperty("foreign_keys", "true")
+                    // WAL mode allows concurrent readers alongside a writer, eliminating the
+                    // SQLITE_BUSY contention that arises when :server:test runs multiple
+                    // testApplication instances in parallel. The pragma key is accepted by
+                    // sqlite-jdbc's SQLiteConfig and applied at connection-open time.
+                    addDataSourceProperty("journal_mode", "wal")
                     validate()
                 },
             )

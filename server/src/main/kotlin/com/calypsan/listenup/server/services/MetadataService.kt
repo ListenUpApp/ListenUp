@@ -151,6 +151,26 @@ internal class MetadataService(
         )
 
     /**
+     * Searches Audible for contributors matching [name] in [region], caching
+     * the result for [SEARCH_TTL].
+     *
+     * Uses HTML scraping at `www.audible.{tld}/search?searchAuthor={name}` — the
+     * official catalog API offers no contributor-search endpoint.
+     */
+    suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>> =
+        cached(
+            region = region,
+            cacheKey = "contributor-search:${name.trim().lowercase()}",
+            ttl = SEARCH_TTL,
+            refresh = false,
+            fetch = { audible.searchContributors(region, name) },
+            serializer = ListSerializer(AudibleContributorProfile.serializer()),
+        )
+
+    /**
      * Delegates cover-art lookup to [ITunesApi]. iTunes is uncached at this
      * layer — cover fetches are fast and are only called when the caller
      * explicitly wants to enrich a book's cover.

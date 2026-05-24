@@ -334,11 +334,13 @@ private open class FakeAudibleApi(
     var bookResult: AppResult<AudibleBook?> = AppResult.Success(null),
     var chaptersResult: AppResult<List<AudibleChapter>> = AppResult.Success(emptyList()),
     var contributorResult: AppResult<AudibleContributorProfile?> = AppResult.Success(null),
+    var contributorSearchResult: AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList()),
 ) : AudibleApi {
     var searchCalls = 0
     var bookCalls = 0
     var chapterCalls = 0
     var contributorCalls = 0
+    var contributorSearchCalls = 0
 
     override suspend fun search(
         region: AudibleRegion,
@@ -374,6 +376,15 @@ private open class FakeAudibleApi(
         run {
             contributorCalls++
             contributorResult
+        }
+
+    override suspend fun searchContributors(
+        region: AudibleRegion,
+        name: String,
+    ): AppResult<List<AudibleContributorProfile>> =
+        run {
+            contributorSearchCalls++
+            contributorSearchResult
         }
 }
 

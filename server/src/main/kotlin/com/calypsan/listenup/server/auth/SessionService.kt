@@ -11,7 +11,9 @@ import com.calypsan.listenup.server.db.UserEntity
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.util.UUID
@@ -185,6 +187,17 @@ class SessionService(
                         (SessionTable.expiresAt greater clock.now().toEpochMilliseconds())
                 }.sortedByDescending { it.lastUsedAt }
                 .toList()
+        }
+
+    /**
+     * Hard-deletes all session rows whose [SessionTable.expiresAt] timestamp is
+     * strictly less than [beforeMs] (epoch milliseconds). Returns the count of
+     * deleted rows. Called by [com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask]
+     * on a periodic schedule.
+     */
+    suspend fun deleteExpired(beforeMs: Long): Int =
+        suspendTransaction(db) {
+            SessionTable.deleteWhere { SessionTable.expiresAt less beforeMs }
         }
 
     private fun newSessionId(): String = UUID.randomUUID().toString()
