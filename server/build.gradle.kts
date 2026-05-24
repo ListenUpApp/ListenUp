@@ -81,6 +81,11 @@ dependencies {
     // Phase 2 scanner — filesystem watching across Linux/macOS/Windows.
     implementation(libs.kfswatch)
 
+    // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+
     // Test deps
     // In-process client<->server end-to-end fixtures (server/src/test/.../e2e/) drive the
     // real client auth stack against the embedded server. Test classpath only — the
@@ -100,6 +105,8 @@ dependencies {
     // for the DI-wired client graph that exercises the contract end-to-end.
     testImplementation(libs.ktor.client.cio)
     testImplementation(libs.ktor.client.auth)
+    // MockEngine for AudibleClient unit tests.
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mokkery.runtime)
 
     // Turbine — Flow assertions for the watcher tests.

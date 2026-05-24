@@ -25,7 +25,7 @@ import kotlin.time.Instant
  * matches the steady-state behaviour: 1 request per second per region, with the
  * first call per region always returning immediately.
  */
-class AudibleRateLimiter(
+open class AudibleRateLimiter(
     /** Minimum gap between successive calls to the same region. */
     private val perRegionInterval: Duration = 1.seconds,
     private val clock: Clock = Clock.System,
@@ -42,7 +42,7 @@ class AudibleRateLimiter(
      *
      * Cancellation of the calling coroutine propagates through the [delay].
      */
-    suspend fun await(region: AudibleRegion) {
+    open suspend fun await(region: AudibleRegion) {
         val waitFor = mutex.withLock {
             val now = clock.now()
             val next = nextAllowedAt[region] ?: now
