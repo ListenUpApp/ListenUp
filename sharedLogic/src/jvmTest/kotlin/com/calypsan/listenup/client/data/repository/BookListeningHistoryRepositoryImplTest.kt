@@ -93,9 +93,10 @@ class BookListeningHistoryRepositoryImplTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val history = repo.observeFor("bookA").first()
@@ -116,9 +117,10 @@ class BookListeningHistoryRepositoryImplTest :
                     val endedAt = nowMs - 3_600_000L
                     db.listeningEventDao().upsert(makeEvent("e1", startedAt = endedAt - 1_800_000L, endedAt = endedAt))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val history = repo.observeFor("bookA").first()
@@ -139,14 +141,15 @@ class BookListeningHistoryRepositoryImplTest :
             try {
                 runTest {
                     // Both end today; e2 ends later than e1
-                    val e1EndedAt = nowMs - 7_200_000L   // 2h ago
-                    val e2EndedAt = nowMs - 3_600_000L   // 1h ago
+                    val e1EndedAt = nowMs - 7_200_000L // 2h ago
+                    val e2EndedAt = nowMs - 3_600_000L // 1h ago
                     db.listeningEventDao().upsert(makeEvent("e1", startedAt = e1EndedAt - 600_000L, endedAt = e1EndedAt))
                     db.listeningEventDao().upsert(makeEvent("e2", startedAt = e2EndedAt - 1_200_000L, endedAt = e2EndedAt))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val history = repo.observeFor("bookA").first()
@@ -180,9 +183,10 @@ class BookListeningHistoryRepositoryImplTest :
                         dao.upsert(makeEvent("e-$daysAgo", startedAt = endedAt - 60_000L, endedAt = endedAt))
                     }
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val history = repo.observeFor("bookA").first()
@@ -218,9 +222,10 @@ class BookListeningHistoryRepositoryImplTest :
                         ),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     // Viewer is in New York but the event was recorded in London
                     val repo = buildRepo(db, authFlow, viewerTz = TimeZone.of("America/New_York"))
 
@@ -253,9 +258,10 @@ class BookListeningHistoryRepositoryImplTest :
                     val oldEndedAt = nowMs - 10 * msPerDay
                     dao.upsert(makeEvent("old", startedAt = oldEndedAt - 60_000L, endedAt = oldEndedAt, tz = "UTC"))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow, viewerTz = utc)
 
                     val history = repo.observeFor("bookA").first()
@@ -283,9 +289,10 @@ class BookListeningHistoryRepositoryImplTest :
                         makeEvent("e1", startedAt = endedAt - 60_000L, endedAt = endedAt, tz = "Not/A/Real/TZ"),
                     )
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow, viewerTz = utc)
 
                     val history = repo.observeFor("bookA").first()
@@ -311,9 +318,10 @@ class BookListeningHistoryRepositoryImplTest :
                     // u2 event for bookA — must be excluded
                     dao.upsert(makeEvent("e2", userId = "u2", startedAt = endedAt - 120_000L, endedAt = endedAt - 60_000L))
 
-                    val authFlow = MutableStateFlow<AuthState>(
-                        AuthState.Authenticated(UserId("u1"), SessionId("s1")),
-                    )
+                    val authFlow =
+                        MutableStateFlow<AuthState>(
+                            AuthState.Authenticated(UserId("u1"), SessionId("s1")),
+                        )
                     val repo = buildRepo(db, authFlow)
 
                     val history = repo.observeFor("bookA").first()

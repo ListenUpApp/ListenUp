@@ -7,7 +7,9 @@ import kotlinx.datetime.LocalDate
  * `listening_events` table via [com.calypsan.listenup.client.domain.repository.BookListeningHistoryRepository].
  * Day buckets are sorted newest-first.
  */
-data class BookListeningHistory(val daily: List<DayBucket>)
+data class BookListeningHistory(
+    val daily: List<DayBucket>,
+)
 
 /**
  * One day in the history timeline. [relativeLabel] is "Today" / "Yesterday" /

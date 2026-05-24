@@ -23,12 +23,21 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 
-private val MONTH_LABELS = mapOf(
-    "JANUARY" to "Jan", "FEBRUARY" to "Feb", "MARCH" to "Mar",
-    "APRIL" to "Apr", "MAY" to "May", "JUNE" to "Jun",
-    "JULY" to "Jul", "AUGUST" to "Aug", "SEPTEMBER" to "Sep",
-    "OCTOBER" to "Oct", "NOVEMBER" to "Nov", "DECEMBER" to "Dec",
-)
+private val MONTH_LABELS =
+    mapOf(
+        "JANUARY" to "Jan",
+        "FEBRUARY" to "Feb",
+        "MARCH" to "Mar",
+        "APRIL" to "Apr",
+        "MAY" to "May",
+        "JUNE" to "Jun",
+        "JULY" to "Jul",
+        "AUGUST" to "Aug",
+        "SEPTEMBER" to "Sep",
+        "OCTOBER" to "Oct",
+        "NOVEMBER" to "Nov",
+        "DECEMBER" to "Dec",
+    )
 
 /**
  * [BookListeningHistoryRepository] that derives day-grouped per-book history from
@@ -55,7 +64,6 @@ class BookListeningHistoryRepositoryImpl(
     private val clock: Clock = Clock.System,
     private val viewerTimeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
 ) : BookListeningHistoryRepository {
-
     override fun observeFor(bookId: String): Flow<BookListeningHistory> =
         authSession.authState
             .map { state ->
@@ -63,10 +71,10 @@ class BookListeningHistoryRepositoryImpl(
                     is AuthState.Authenticated -> state.userId.value
                     else -> null
                 }
-            }
-            .flatMapLatest { userId ->
+            }.flatMapLatest { userId ->
                 if (userId == null) return@flatMapLatest flowOf(BookListeningHistory(emptyList()))
-                listeningEventDao.observeByBookForUser(userId, bookId)
+                listeningEventDao
+                    .observeByBookForUser(userId, bookId)
                     .map { events -> groupByDay(events) }
             }
 
@@ -75,46 +83,64 @@ class BookListeningHistoryRepositoryImpl(
         val today = clock.now().toLocalDateTime(viewerTz).date
         val yesterday = today.minus(DatePeriod(days = 1))
 
-        val byDate: Map<LocalDate, List<ListeningEventEntity>> = events.groupBy { event ->
-            val eventTz = runCatching { TimeZone.of(event.tz) }.getOrDefault(viewerTz)
-            Instant.fromEpochMilliseconds(event.endedAt).toLocalDateTime(eventTz).date
-        }
-
-        val daily = byDate.entries
-            .sortedByDescending { it.key }
-            .map { (date, dayEvents) ->
-                DayBucket(
-                    date = date,
-                    relativeLabel = relativeLabel(date, today, yesterday),
-                    totalSeconds = dayEvents.sumOf { (it.endedAt - it.startedAt) / 1000L },
-                    events = dayEvents
-                        .sortedByDescending { it.endedAt }
-                        .map { it.toEventEntry() },
-                )
+        val byDate: Map<LocalDate, List<ListeningEventEntity>> =
+            events.groupBy { event ->
+                val eventTz = runCatching { TimeZone.of(event.tz) }.getOrDefault(viewerTz)
+                Instant.fromEpochMilliseconds(event.endedAt).toLocalDateTime(eventTz).date
             }
+
+        val daily =
+            byDate.entries
+                .sortedByDescending { it.key }
+                .map { (date, dayEvents) ->
+                    DayBucket(
+                        date = date,
+                        relativeLabel = relativeLabel(date, today, yesterday),
+                        totalSeconds = dayEvents.sumOf { (it.endedAt - it.startedAt) / 1000L },
+                        events =
+                            dayEvents
+                                .sortedByDescending { it.endedAt }
+                                .map { it.toEventEntry() },
+                    )
+                }
         return BookListeningHistory(daily)
     }
 
-    private fun relativeLabel(date: LocalDate, today: LocalDate, yesterday: LocalDate): String =
+    private fun relativeLabel(
+        date: LocalDate,
+        today: LocalDate,
+        yesterday: LocalDate,
+    ): String =
         when (date) {
             today -> "Today"
             yesterday -> "Yesterday"
             else -> formatDate(date, today)
         }
 
-    private fun formatDate(date: LocalDate, today: LocalDate): String {
-        val month = MONTH_LABELS[date.month.name] ?: date.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
-        return if (date.year == today.year) "$month ${date.day}"
-        else "$month ${date.day}, ${date.year}"
+    private fun formatDate(
+        date: LocalDate,
+        today: LocalDate,
+    ): String {
+        val month =
+            MONTH_LABELS[date.month.name] ?: date.month.name
+                .lowercase()
+                .replaceFirstChar { it.uppercase() }
+                .take(3)
+        return if (date.year == today.year) {
+            "$month ${date.day}"
+        } else {
+            "$month ${date.day}, ${date.year}"
+        }
     }
 
-    private fun ListeningEventEntity.toEventEntry() = EventEntry(
-        id = id,
-        startedAt = startedAt,
-        endedAt = endedAt,
-        startPositionMs = startPositionMs,
-        endPositionMs = endPositionMs,
-        playbackSpeed = playbackSpeed,
-        deviceLabel = deviceLabel,
-    )
+    private fun ListeningEventEntity.toEventEntry() =
+        EventEntry(
+            id = id,
+            startedAt = startedAt,
+            endedAt = endedAt,
+            startPositionMs = startPositionMs,
+            endPositionMs = endPositionMs,
+            playbackSpeed = playbackSpeed,
+            deviceLabel = deviceLabel,
+        )
 }
