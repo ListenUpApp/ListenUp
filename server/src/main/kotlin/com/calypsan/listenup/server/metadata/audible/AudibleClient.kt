@@ -37,14 +37,14 @@ class AudibleClient(
     private val httpClient: HttpClient,
     private val rateLimiter: AudibleRateLimiter,
     private val json: Json,
-) {
+) : AudibleApi {
     /**
      * Searches the Audible catalog.
      *
      * Endpoint: `GET /1.0/catalog/products`
      * Response: [RawSearchResponse]
      */
-    suspend fun search(region: AudibleRegion, params: SearchParams): AppResult<List<AudibleSearchResult>> {
+    override suspend fun search(region: AudibleRegion, params: SearchParams): AppResult<List<AudibleSearchResult>> {
         rateLimiter.await(region)
         return apiGet(region, "/1.0/catalog/products", buildMap {
             params.keywords?.let { put("keywords", it) }
@@ -69,7 +69,7 @@ class AudibleClient(
      * Endpoint: `GET /1.0/catalog/products/{asin}`
      * Response: [RawBookResponse]
      */
-    suspend fun getBook(region: AudibleRegion, asin: String): AppResult<AudibleBook?> {
+    override suspend fun getBook(region: AudibleRegion, asin: String): AppResult<AudibleBook?> {
         rateLimiter.await(region)
         return apiGet(region, "/1.0/catalog/products/$asin", buildMap {
             put("response_groups", RESPONSE_GROUPS)
@@ -85,7 +85,7 @@ class AudibleClient(
      * Endpoint: `GET /1.0/content/{asin}/metadata?response_groups=chapter_info`
      * Response: [RawChaptersResponse]
      */
-    suspend fun getChapters(region: AudibleRegion, asin: String): AppResult<List<AudibleChapter>> {
+    override suspend fun getChapters(region: AudibleRegion, asin: String): AppResult<List<AudibleChapter>> {
         rateLimiter.await(region)
         return apiGet(region, "/1.0/content/$asin/metadata", mapOf("response_groups" to "chapter_info")) { body ->
             json.decodeFromString<RawChaptersResponse>(body)

@@ -197,14 +197,21 @@ data class RawChaptersResponse(
 // ─── Domain output types ──────────────────────────────────────────────────────
 // These are the shapes that AudibleClient returns — clean domain types
 // independent of wire format details.
+//
+// @Serializable is applied here so MetadataService can cache these values as
+// JSON in MetadataCacheRepository. This is a server-internal serialization
+// concern; these types do NOT cross the RPC wire (MetadataDtos.kt carries
+// the contract-level projections).
 
 /** A contributor (author or narrator) after role separation. */
+@Serializable
 data class AudibleContributor(
     val asin: String,
     val name: String,
 )
 
 /** A book's position in a series. */
+@Serializable
 data class AudibleSeriesEntry(
     val asin: String,
     val name: String,
@@ -213,6 +220,7 @@ data class AudibleSeriesEntry(
 )
 
 /** Full audiobook metadata from Audible (single-book lookup). */
+@Serializable
 data class AudibleBook(
     val asin: String,
     val title: String,
@@ -232,6 +240,7 @@ data class AudibleBook(
 )
 
 /** A lighter search-result entry (not all fields populated). */
+@Serializable
 data class AudibleSearchResult(
     val asin: String,
     val title: String,
@@ -244,6 +253,7 @@ data class AudibleSearchResult(
 )
 
 /** A chapter marker. */
+@Serializable
 data class AudibleChapter(
     val title: String,
     val startMs: Long,
