@@ -12,6 +12,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.transformWhile
@@ -109,13 +110,17 @@ private suspend fun waitForLibraryReady(
     val deadline = System.currentTimeMillis() + timeoutMs
 
     // Step 1: POST /scan until the library is registered (Success = scan started).
+    // Guard against non-200 responses (e.g. 404 during server startup races on CI).
     while (System.currentTimeMillis() < deadline) {
-        val body: AppResult<ScanResultSummary> =
-            contractJson.decodeFromString(
-                AppResult.serializer(ScanResultSummary.serializer()),
-                fix.client.post("${fix.baseUrl}/api/v1/scan").body<String>(),
-            )
-        if (body is AppResult.Success) break
+        val response = fix.client.post("${fix.baseUrl}/api/v1/scan")
+        if (response.status == HttpStatusCode.OK) {
+            val body: AppResult<ScanResultSummary> =
+                contractJson.decodeFromString(
+                    AppResult.serializer(ScanResultSummary.serializer()),
+                    response.body<String>(),
+                )
+            if (body is AppResult.Success) break
+        }
         delay(50)
     }
 

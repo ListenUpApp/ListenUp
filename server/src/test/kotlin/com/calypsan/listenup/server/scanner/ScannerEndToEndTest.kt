@@ -10,6 +10,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 
 /**
@@ -114,6 +115,10 @@ class ScannerEndToEndTest :
  * No auto-scan on boot (Task 18): `bootstrapLibraries` registers the library
  * with the orchestrator but does not scan. This helper bridges the gap for
  * tests that need a populated scan result.
+ *
+ * Step 1 retries on any non-200 response (including 404) to tolerate startup
+ * races on slow CI environments where the bootstrap coroutine may not have
+ * registered the library with the orchestrator before the first POST fires.
  */
 private suspend fun triggerScanAndWait(
     fix: ScannerEndToEndFixture,
@@ -121,11 +126,15 @@ private suspend fun triggerScanAndWait(
 ): ScanResult {
     val deadline = System.currentTimeMillis() + timeoutMs
 
-    // Step 1: POST /scan until the library is registered (not AlreadyRunning means the orchestrator
-    // knows the library; we need at least one Success response to confirm scanning happened).
+    // Step 1: POST /scan until the library is registered and the scan succeeds.
+    // Guard against non-200 responses (e.g. 404 during server startup races on CI)
+    // by checking HTTP status before attempting AppResult deserialization.
     while (System.currentTimeMillis() < deadline) {
-        val postBody = fix.client.post("${fix.baseUrl}/api/v1/scan").bodyAsAppResult<ScanResultSummary>()
-        if (postBody is AppResult.Success) break
+        val response = fix.client.post("${fix.baseUrl}/api/v1/scan")
+        if (response.status == HttpStatusCode.OK) {
+            val postBody = response.bodyAsAppResult<ScanResultSummary>()
+            if (postBody is AppResult.Success) break
+        }
         delay(100)
     }
 
