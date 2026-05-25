@@ -47,8 +47,6 @@ import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.SearchApi
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SetupApi
-import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
@@ -797,11 +795,6 @@ val syncModule =
         single {
             ProfileApi(clientFactory = get())
         } bind ProfileApiContract::class
-
-        // SetupApi for library setup operations
-        single {
-            SetupApi(clientFactory = get())
-        } bind SetupApiContract::class
 
         // FtsPopulator for rebuilding FTS tables after sync
         single {

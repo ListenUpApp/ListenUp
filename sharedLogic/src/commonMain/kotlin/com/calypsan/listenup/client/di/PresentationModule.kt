@@ -471,7 +471,7 @@ val startupPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
                 userRepository = get(),
-                setupApi = get(),
+                libraryAdminRpcFactory = get(),
             )
         }
     }

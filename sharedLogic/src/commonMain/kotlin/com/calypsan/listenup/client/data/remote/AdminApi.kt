@@ -643,3 +643,24 @@ data class UpdateLibraryRequest(
     @SerialName("skip_inbox") val skipInbox: Boolean? = null,
     @SerialName("access_mode") val accessMode: String? = null,
 )
+
+/**
+ * Response from GET /api/v1/filesystem endpoint.
+ * Lists directories available for selection as scan paths.
+ */
+@Serializable
+data class BrowseFilesystemResponse(
+    @SerialName("path") val path: String,
+    @SerialName("parent") val parent: String? = null,
+    @SerialName("entries") val entries: List<DirectoryEntryResponse> = emptyList(),
+    @SerialName("is_root") val isRoot: Boolean = false,
+)
+
+/**
+ * A directory entry in the filesystem browser.
+ */
+@Serializable
+data class DirectoryEntryResponse(
+    @SerialName("name") val name: String,
+    @SerialName("path") val path: String,
+)

@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.presentation.startup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.data.remote.SetupApiContract
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +44,7 @@ data class AppStartupState(
  */
 class AppStartupViewModel(
     private val userRepository: UserRepository,
-    private val setupApi: SetupApiContract,
+    private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AppStartupState())
     val state: StateFlow<AppStartupState> = _state.asStateFlow()
@@ -94,7 +94,7 @@ class AppStartupViewModel(
 
                 val needsSetup =
                     if (user?.isAdmin == true) {
-                        when (val result = setupApi.getLibraryStatus()) {
+                        when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
                             is AppResult.Success -> {
                                 logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
                                 result.data.needsSetup

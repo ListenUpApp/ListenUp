@@ -223,7 +223,7 @@ private fun LibrarySettingsContent(
         }
 
         item {
-            // TODO(LIB-G): scanPaths removed from Library domain in LIB-E; rewire to LibraryFolder entities
+            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
             ScanPathsCard(
                 scanPaths = emptyList(),
                 isSaving = state.isSaving,
@@ -281,7 +281,7 @@ private fun LibrarySettingsContent(
         }
 
         item {
-            // TODO(LIB-G): skipInbox removed from Library domain in LIB-E; inbox semantics pending
+            // skipInbox not carried by the new Library domain; toggle is a no-op pending Task 25 schema work.
             InboxSettingsCard(
                 skipInbox = false,
                 isSaving = state.isSaving,
@@ -340,7 +340,7 @@ private fun LibraryInfoCard(
                 }
             }
 
-            // TODO(LIB-G): scanPaths display removed — Library domain no longer carries scan paths
+            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
         }
     }
 }
