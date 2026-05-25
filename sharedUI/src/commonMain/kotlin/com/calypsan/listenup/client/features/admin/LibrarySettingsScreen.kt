@@ -223,8 +223,9 @@ private fun LibrarySettingsContent(
         }
 
         item {
+            // TODO(LIB-G): scanPaths removed from Library domain in LIB-E; rewire to LibraryFolder entities
             ScanPathsCard(
-                scanPaths = library.scanPaths,
+                scanPaths = emptyList(),
                 isSaving = state.isSaving,
                 onRemovePath = onRemoveScanPath,
                 onAddFolder = onAddFolder,
@@ -280,8 +281,9 @@ private fun LibrarySettingsContent(
         }
 
         item {
+            // TODO(LIB-G): skipInbox removed from Library domain in LIB-E; inbox semantics pending
             InboxSettingsCard(
-                skipInbox = state.skipInbox,
+                skipInbox = false,
                 isSaving = state.isSaving,
                 onToggleSkipInbox = onToggleSkipInbox,
             )
@@ -338,30 +340,7 @@ private fun LibraryInfoCard(
                 }
             }
 
-            if (library.scanPaths.isNotEmpty()) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                )
-
-                // Scan paths
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.admin_scan_paths),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    library.scanPaths.forEach { path ->
-                        Text(
-                            text = path,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
+            // TODO(LIB-G): scanPaths display removed — Library domain no longer carries scan paths
         }
     }
 }
