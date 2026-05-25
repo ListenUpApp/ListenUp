@@ -150,9 +150,10 @@ class PlaybackPositionDaoTest :
 
         test("observeRecentPositions respects LIMIT") {
             runTest {
-                val positions = (1..15).map { i ->
-                    position(id = "p$i", positionMs = 100L, lastPlayedAt = i.toLong() * 1_000L, updatedAt = i.toLong() * 1_000L)
-                }
+                val positions =
+                    (1..15).map { i ->
+                        position(id = "p$i", positionMs = 100L, lastPlayedAt = i.toLong() * 1_000L, updatedAt = i.toLong() * 1_000L)
+                    }
                 dao.saveAll(positions)
 
                 dao.observeRecentPositions(limit = 5).test {
