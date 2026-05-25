@@ -56,6 +56,7 @@ internal class ScanOrchestrator(
 ) {
     private val mutex = Mutex()
     private val bundlesByLibrary = mutableMapOf<LibraryId, ScannerBundle>()
+
     // Folder-to-library reverse index for scanFolder lookups.
     private val libraryByFolder = mutableMapOf<FolderId, LibraryId>()
 
@@ -80,7 +81,9 @@ internal class ScanOrchestrator(
                 onFileChanged(libId, path)
             }
         }
-        logger.info { "Library registered: id=${library.id.value} name='${library.name}' folders=${library.folders.size}" }
+        logger.info {
+            "Library registered: id=${library.id.value} name='${library.name}' folders=${library.folders.size}"
+        }
     }
 
     /**
@@ -113,7 +116,9 @@ internal class ScanOrchestrator(
         watcherSupervisor.mount(libraryId, folder) { libId, path ->
             onFileChanged(libId, path)
         }
-        logger.info { "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}" }
+        logger.info {
+            "Folder registered: library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}"
+        }
     }
 
     /**
@@ -149,12 +154,16 @@ internal class ScanOrchestrator(
      * Returns [LibraryError.FolderNotFound] when [folderId] is not registered.
      */
     fun scanFolder(folderId: FolderId) {
-        val libraryId = libraryByFolder[folderId] ?: run {
-            logger.warn { "scanFolder: folderId=${folderId.value} not registered — ignoring" }
-            return
-        }
+        val libraryId =
+            libraryByFolder[folderId] ?: run {
+                logger.warn { "scanFolder: folderId=${folderId.value} not registered — ignoring" }
+                return
+            }
         val bundle = bundlesByLibrary[libraryId] ?: return
-        val folderPath = bundle.library.folders.firstOrNull { it.id == folderId }?.rootPath ?: return
+        val folderPath =
+            bundle.library.folders
+                .firstOrNull { it.id == folderId }
+                ?.rootPath ?: return
         bundle.coordinator.reanalyze(Path.of(folderPath))
     }
 
@@ -197,7 +206,7 @@ internal class ScanOrchestrator(
  * [ScannerResultPort.lastResult] without coupling to the concrete [Scanner]
  * class — tests inject a fake instead.
  */
-internal class ScannerBundle(
+internal data class ScannerBundle(
     val library: Library,
     val scanner: ScannerResultPort,
     val coordinator: ScanCoordinator,
@@ -230,6 +239,5 @@ internal fun WatcherSupervisor.asPort(): WatcherSupervisorPort =
 
         override suspend fun unmount(folderId: FolderId) = this@asPort.unmount(folderId)
 
-        override suspend fun unmountAllForLibrary(libraryId: LibraryId) =
-            this@asPort.unmountAllForLibrary(libraryId)
+        override suspend fun unmountAllForLibrary(libraryId: LibraryId) = this@asPort.unmountAllForLibrary(libraryId)
     }

@@ -398,36 +398,55 @@ internal suspend fun bootstrapLibraries(
             logger.info { "bootstrap: ${existing.size} library(s) already configured; env var ignored" }
             existing.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
         }
+
         libraryPath != null -> {
-            logger.info { "bootstrap: no libraries configured; creating default from env var path=$libraryPath" }
-            val created =
-                runCatching {
-                    libraryAdminService.createLibrary(
-                        CreateLibraryRequest(name = "My Library", folderPaths = listOf(libraryPath)),
-                    )
-                }.onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e }
-                    .getOrNull()
-            when {
-                created is AppResult.Success ->
-                    logger.info { "bootstrap: default library created id=${created.data.id.value}" }
-                else -> {
-                    // Either createLibrary returned Failure or threw — re-check the DB.
-                    // A concurrent insert (test fixture race) may have already added a library.
-                    if (created is AppResult.Failure) {
-                        logger.warn { "bootstrap: createLibrary returned ${created.error.code} — re-checking" }
-                    } else {
-                        logger.warn { "bootstrap: createLibrary threw — re-checking for concurrent inserts" }
-                    }
-                    val recheck = libraryAdminService.listLibraries()
-                    if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
-                        logger.info { "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator" }
-                        recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
-                    }
-                }
+            bootstrapCreateDefaultLibrary(libraryAdminService, scanOrchestrator, libraryPath)
+        }
+
+        else -> {
+            logger.info {
+                "bootstrap: no libraries and no env var; awaiting client onboarding via LibraryAdminService.createLibrary"
             }
         }
-        else -> {
-            logger.info { "bootstrap: no libraries and no env var; awaiting client onboarding via LibraryAdminService.createLibrary" }
+    }
+}
+
+/**
+ * Creates the "My Library" default library from [libraryPath] and registers it with
+ * the [scanOrchestrator]. A `runCatching` guard handles the narrow race where a
+ * concurrent caller inserts the same root path between the `listLibraries` check and
+ * this insert — on any error the DB is re-read and whatever ended up there is
+ * registered instead.
+ */
+private suspend fun bootstrapCreateDefaultLibrary(
+    libraryAdminService: LibraryAdminService,
+    scanOrchestrator: ScanOrchestrator,
+    libraryPath: String,
+) {
+    logger.info { "bootstrap: no libraries configured; creating default from env var path=$libraryPath" }
+    val created =
+        runCatching {
+            libraryAdminService.createLibrary(
+                CreateLibraryRequest(name = "My Library", folderPaths = listOf(libraryPath)),
+            )
+        }.onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e }
+            .getOrNull()
+    if (created is AppResult.Success) {
+        logger.info { "bootstrap: default library created id=${created.data.id.value}" }
+    } else {
+        // Either createLibrary returned Failure or threw — re-check the DB.
+        // A concurrent insert (test fixture race) may have already added a library.
+        if (created is AppResult.Failure) {
+            logger.warn { "bootstrap: createLibrary returned ${created.error.code} — re-checking" }
+        } else {
+            logger.warn { "bootstrap: createLibrary threw — re-checking for concurrent inserts" }
+        }
+        val recheck = libraryAdminService.listLibraries()
+        if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
+            logger.info {
+                "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator"
+            }
+            recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
         }
     }
 }

@@ -111,7 +111,9 @@ fun scannerModule(
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            val msg = "FolderWatcher failed to start for ${folder.rootPath}: ${e.message} — watcher disabled for this folder"
+                            val msg =
+                                "FolderWatcher failed to start for ${folder.rootPath}: " +
+                                    "${e.message} — watcher disabled for this folder"
                             logger.warn(msg)
                             return@launch
                         }

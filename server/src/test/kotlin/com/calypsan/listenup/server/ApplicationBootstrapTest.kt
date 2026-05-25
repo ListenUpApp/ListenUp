@@ -52,7 +52,11 @@ class ApplicationBootstrapTest :
                     libraries shouldHaveSize 1
                     libraries.first().name shouldBe "My Library"
                     libraries.first().folders shouldHaveSize 1
-                    libraries.first().folders.first().rootPath shouldBe tempDir
+                    libraries
+                        .first()
+                        .folders
+                        .first()
+                        .rootPath shouldBe tempDir
                 }
             }
         }
@@ -81,7 +85,11 @@ class ApplicationBootstrapTest :
                     val libraries = (result as AppResult.Success).data
                     // Still exactly one library from the first bootstrap
                     libraries shouldHaveSize 1
-                    libraries.first().folders.first().rootPath shouldBe existingDir
+                    libraries
+                        .first()
+                        .folders
+                        .first()
+                        .rootPath shouldBe existingDir
                 }
             }
         }
@@ -134,7 +142,9 @@ class ApplicationBootstrapTest :
         test("bootstrap does NOT auto-scan on boot") {
             withInMemoryDatabase {
                 val tempDir = Files.createTempDirectory("bootstrap-noscan-").toString()
-                val (service, orchestrator, _, scanLibraryCalls) = makeServiceAndOrchestrator(this)
+                val fixture = makeServiceAndOrchestrator(this)
+                val (service, orchestrator) = fixture
+                val scanLibraryCalls = fixture.scanLibraryCalls
                 runTest {
                     bootstrapLibraries(
                         libraryAdminService = service,
@@ -186,7 +196,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             db = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
-            libraryRegistry = libraryRegistry,
+            _libraryRegistry = libraryRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
         )
@@ -196,7 +206,6 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
-            db = db,
         )
 
     return ServiceFixture(service, orchestrator, onLibraryAddedCalls, scanLibraryCalls)

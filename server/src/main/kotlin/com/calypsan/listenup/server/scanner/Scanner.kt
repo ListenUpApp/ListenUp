@@ -107,8 +107,9 @@ internal class Scanner(
         // those roots — the Grouper preserves absolute relPath for multi-folder
         // libraries. Using the first folder root is consistent with what the
         // watcher supplies to runIncremental.
-        val primaryRoot = library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
-            ?: Path.of(library.id.value)
+        val primaryRoot =
+            library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
+                ?: Path.of(library.id.value)
         val analyzer =
             Analyzer(
                 primaryRoot,
@@ -172,9 +173,10 @@ internal class Scanner(
             library.folders.firstOrNull { folder ->
                 bookRoot.startsWith(Path.of(folder.rootPath))
             }
-        val folderRoot = owningFolder?.let { Path.of(it.rootPath) }
-            ?: library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
-            ?: bookRoot
+        val folderRoot =
+            owningFolder?.let { Path.of(it.rootPath) }
+                ?: library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
+                ?: bookRoot
 
         val walker = Walker()
         val rawFiles = walker.walk(bookRoot).toList()
@@ -207,7 +209,12 @@ internal class Scanner(
                 .onFailure { errors += toScanError(it, folderRoot) }
         }
 
-        val (previousAffected, previousUntouched) = partitionBooksUnder(bookRoot, folderRoot, lastResult?.books.orEmpty())
+        val (previousAffected, previousUntouched) =
+            partitionBooksUnder(
+                bookRoot,
+                folderRoot,
+                lastResult?.books.orEmpty(),
+            )
         val changes = Differ().diff(books.asFlow(), previousAffected).toList()
         changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
@@ -294,12 +301,6 @@ internal class Scanner(
         )
     }
 }
-
-private data class SubtreeAnalysis(
-    val books: List<AnalyzedBook>,
-    val errors: List<ScanError>,
-    val filesWalked: Int,
-)
 
 internal fun ScanResult.toSummary(): ScanResultSummary =
     ScanResultSummary(

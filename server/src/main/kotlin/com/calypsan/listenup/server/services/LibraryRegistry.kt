@@ -5,7 +5,6 @@ import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import java.util.UUID
-import org.jetbrains.exposed.v1.core.SortOrder
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.isNull

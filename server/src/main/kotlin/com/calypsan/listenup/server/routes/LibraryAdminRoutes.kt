@@ -43,6 +43,12 @@ import kotlinx.serialization.Serializable
  * - `POST /api/v1/libraries/folders/{folderId}/scan` → [LibraryAdminService.scanFolder]
  */
 fun Route.libraryAdminRoutes(service: LibraryAdminService) {
+    libraryCollectionRoutes(service)
+    libraryDetailRoutes(service)
+    libraryFolderRoutes(service)
+}
+
+private fun Route.libraryCollectionRoutes(service: LibraryAdminService) {
     // GET /api/v1/libraries — list all non-deleted libraries
     get<LibraryResources.Collection> {
         when (val result = service.listLibraries()) {
@@ -75,7 +81,9 @@ fun Route.libraryAdminRoutes(service: LibraryAdminService) {
             is AppResult.Failure -> call.respondLibraryError(result.error)
         }
     }
+}
 
+private fun Route.libraryDetailRoutes(service: LibraryAdminService) {
     // GET /api/v1/libraries/{id}
     get<LibraryResources.Detail> { resource ->
         when (val result = service.getLibrary(LibraryId(resource.id))) {
@@ -114,7 +122,9 @@ fun Route.libraryAdminRoutes(service: LibraryAdminService) {
             is AppResult.Failure -> call.respondLibraryError(result.error)
         }
     }
+}
 
+private fun Route.libraryFolderRoutes(service: LibraryAdminService) {
     // POST /api/v1/libraries/{id}/folders
     post<LibraryResources.Folders> { resource ->
         val body = call.receive<AddFolderBody>()

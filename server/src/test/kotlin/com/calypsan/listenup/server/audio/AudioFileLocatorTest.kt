@@ -60,7 +60,7 @@ class AudioFileLocatorTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to folderPath)),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to folderPath)),
                         contributorRepository = ContributorRepository(db, bus, registry),
                         seriesRepository = SeriesRepository(db, bus, registry),
                     )

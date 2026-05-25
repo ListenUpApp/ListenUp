@@ -175,7 +175,7 @@ internal fun withTestApplication(
                     db = db,
                     bus = bus,
                     registry = sharedRegistry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake")),
+                    _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake")),
                     contributorRepository = ContributorRepository(db, bus, sharedRegistry),
                     seriesRepository = SeriesRepository(db, bus, sharedRegistry),
                 )

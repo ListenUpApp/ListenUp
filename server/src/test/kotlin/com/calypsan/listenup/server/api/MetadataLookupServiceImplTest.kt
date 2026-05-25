@@ -122,7 +122,7 @@ private fun makeService(
                 db = db,
                 bus = bus,
                 registry = syncRegistry,
-                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to tempDir)),
+                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to tempDir)),
                 contributorRepository = contributorRepo,
                 seriesRepository = seriesRepo,
             ),

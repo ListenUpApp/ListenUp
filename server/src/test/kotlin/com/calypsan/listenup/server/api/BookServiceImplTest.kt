@@ -39,7 +39,7 @@ class BookServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
@@ -67,7 +67,7 @@ class BookServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
@@ -94,7 +94,7 @@ class BookServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
@@ -123,7 +123,7 @@ class BookServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
@@ -152,7 +152,7 @@ class BookServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )

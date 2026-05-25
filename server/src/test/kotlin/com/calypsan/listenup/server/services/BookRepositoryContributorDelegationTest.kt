@@ -39,19 +39,20 @@ class BookRepositoryContributorDelegationTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributors,
                         seriesRepository = series,
                     )
                 runTest {
                     val analyzed = analyzedFor("Sanderson/Way of Kings", author = "Brandon Sanderson")
 
-                    val result = bookRepo.upsertFromAnalyzed(
-                        BookId("b1"),
-                        LibraryId("test-library"),
-                        FolderId("test-folder"),
-                        analyzed,
-                    )
+                    val result =
+                        bookRepo.upsertFromAnalyzed(
+                            BookId("b1"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
+                            analyzed,
+                        )
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                     contributors
@@ -74,7 +75,7 @@ class BookRepositoryContributorDelegationTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributors,
                         seriesRepository = series,
                     )

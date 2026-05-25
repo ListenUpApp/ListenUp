@@ -7,7 +7,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,7 +29,7 @@ class WatcherSupervisorTest :
                 val factory = FakeFolderWatcherFactory()
                 val supervisor = WatcherSupervisor(factory::create)
 
-                val folder = folderRef("lib-1", "f-1", "/tmp/books")
+                val folder = folderRef("f-1", "/tmp/books")
                 supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> }
 
                 factory.watchers.size shouldBe 1
@@ -43,7 +42,7 @@ class WatcherSupervisorTest :
                 val factory = FakeFolderWatcherFactory()
                 val supervisor = WatcherSupervisor(factory::create)
 
-                val folder = folderRef("lib-1", "f-1", "/tmp/books")
+                val folder = folderRef("f-1", "/tmp/books")
                 supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> }
                 supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> }
 
@@ -56,7 +55,7 @@ class WatcherSupervisorTest :
                 val factory = FakeFolderWatcherFactory()
                 val supervisor = WatcherSupervisor(factory::create)
 
-                val folder = folderRef("lib-1", "f-1", "/tmp/books")
+                val folder = folderRef("f-1", "/tmp/books")
                 supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> }
                 supervisor.unmount(FolderId("f-1"))
 
@@ -77,9 +76,9 @@ class WatcherSupervisorTest :
                 val factory = FakeFolderWatcherFactory()
                 val supervisor = WatcherSupervisor(factory::create)
 
-                supervisor.mount(LibraryId("lib-1"), folderRef("lib-1", "f-1", "/a")) { _, _ -> }
-                supervisor.mount(LibraryId("lib-1"), folderRef("lib-1", "f-2", "/b")) { _, _ -> }
-                supervisor.mount(LibraryId("lib-2"), folderRef("lib-2", "f-3", "/c")) { _, _ -> }
+                supervisor.mount(LibraryId("lib-1"), folderRef("f-1", "/a")) { _, _ -> }
+                supervisor.mount(LibraryId("lib-1"), folderRef("f-2", "/b")) { _, _ -> }
+                supervisor.mount(LibraryId("lib-2"), folderRef("f-3", "/c")) { _, _ -> }
 
                 supervisor.unmountAllForLibrary(LibraryId("lib-1"))
 
@@ -96,16 +95,17 @@ class WatcherSupervisorTest :
                 val supervisor = WatcherSupervisor(factory::create)
 
                 // 16 concurrent mount/unmount cycles on 4 folders
-                val jobs = (1..4).flatMap { i ->
-                    val folderId = "f-$i"
-                    val folder = folderRef("lib-1", folderId, "/dir/$i")
-                    listOf(
-                        launch { supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> } },
-                        launch { supervisor.unmount(FolderId(folderId)) },
-                        launch { supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> } },
-                        launch { supervisor.unmount(FolderId(folderId)) },
-                    )
-                }
+                val jobs =
+                    (1..4).flatMap { i ->
+                        val folderId = "f-$i"
+                        val folder = folderRef(folderId, "/dir/$i")
+                        listOf(
+                            launch { supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> } },
+                            launch { supervisor.unmount(FolderId(folderId)) },
+                            launch { supervisor.mount(LibraryId("lib-1"), folder) { _, _ -> } },
+                            launch { supervisor.unmount(FolderId(folderId)) },
+                        )
+                    }
                 jobs.forEach { it.join() }
                 // No assertion on exact state — just assert no exceptions were thrown
                 // and the internal map is consistent (no dangling references).
@@ -121,7 +121,7 @@ class WatcherSupervisorTest :
                 val mutex = Mutex()
                 val supervisor = WatcherSupervisor(factory::create)
 
-                val folder = folderRef("lib-1", "f-1", "/tmp/books")
+                val folder = folderRef("f-1", "/tmp/books")
                 supervisor.mount(LibraryId("lib-1"), folder) { libId, path ->
                     mutex.withLock { emittedEvents += libId to path }
                 }
@@ -142,7 +142,6 @@ class WatcherSupervisorTest :
 // --- Helpers ----------------------------------------------------------------
 
 private fun folderRef(
-    libraryId: String,
     folderId: String,
     path: String,
 ): LibraryFolderRef = LibraryFolderRef(FolderId(folderId), path)

@@ -22,7 +22,6 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import org.jetbrains.exposed.v1.jdbc.Database
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
@@ -44,7 +43,6 @@ internal class LibraryAdminServiceImpl(
     private val libraryFolderRepository: LibraryFolderRepository,
     private val bookRepository: BookRepository,
     private val scanOrchestrator: ScanOrchestrator,
-    private val db: Database,
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
 
@@ -312,10 +310,9 @@ internal class LibraryAdminServiceImpl(
 
     // ── Scan triggers ────────────────────────────────────────────────────────
 
-    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
-        // TODO: gate by user permissions when Multi-user lands
-        return scanOrchestrator.scanLibrary(libraryId).map { }
-    }
+    // TODO: gate by user permissions when Multi-user lands
+    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> =
+        scanOrchestrator.scanLibrary(libraryId).map {}
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {
         // TODO: gate by user permissions when Multi-user lands
@@ -340,11 +337,8 @@ internal class LibraryAdminServiceImpl(
                 .filter { it.deletedAt == null }
                 .map { it.rootPath }
                 .toSet()
-        val duplicate = paths.firstOrNull { it in activePaths }
-        return if (duplicate != null) {
+        return paths.firstOrNull { it in activePaths }?.let { duplicate ->
             AppResult.Failure(LibraryError.DuplicateFolder(debugInfo = "Path already registered: $duplicate"))
-        } else {
-            null
         }
     }
 

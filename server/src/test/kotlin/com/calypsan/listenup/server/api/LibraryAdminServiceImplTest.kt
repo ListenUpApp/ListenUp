@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
@@ -134,9 +133,9 @@ class LibraryAdminServiceImplTest :
                 val (service) = makeService(db = this)
                 runTest {
                     val parent = createTempDir()
-                    val child1 = parent.resolve("alpha").also { it.mkdir() }
-                    val child2 = parent.resolve("beta").also { it.mkdir() }
-                    parent.resolve("file.txt").also { it.createNewFile() } // not a dir
+                    parent.resolve("alpha").apply { mkdir() }
+                    parent.resolve("beta").apply { mkdir() }
+                    parent.resolve("file.txt").apply { createNewFile() } // not a dir
 
                     val result = service.browseFilesystem(parent.absolutePath)
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -364,7 +363,10 @@ class LibraryAdminServiceImplTest :
                 runTest {
                     val dir1 = createTempDir()
                     val dir2 = createTempDir()
-                    val created = service.createLibrary(CreateLibraryRequest(name = "Lib", folderPaths = listOf(dir1.absolutePath, dir2.absolutePath)))
+                    val created =
+                        service.createLibrary(
+                            CreateLibraryRequest(name = "Lib", folderPaths = listOf(dir1.absolutePath, dir2.absolutePath)),
+                        )
                     val folders = (created as AppResult.Success).data.folders
                     val folderToRemove = folders.first { it.rootPath == dir2.absolutePath }
 
@@ -487,7 +489,7 @@ private fun makeService(
             db = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
-            libraryRegistry = libraryRegistry,
+            _libraryRegistry = libraryRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
         )
@@ -497,7 +499,6 @@ private fun makeService(
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
-            db = db,
         )
     return ServiceFixture(service, libraryRepo, folderRepo)
 }
@@ -554,4 +555,4 @@ private fun noOpOrchestrator(
         watcherSupervisor = fakeWatcher(),
     )
 
-private fun createTempDir(): java.io.File = Files.createTempDirectory("listenup-test-").toFile().also { it.deleteOnExit() }
+private fun createTempDir(): java.io.File = Files.createTempDirectory("listenup-test-").toFile().apply { deleteOnExit() }

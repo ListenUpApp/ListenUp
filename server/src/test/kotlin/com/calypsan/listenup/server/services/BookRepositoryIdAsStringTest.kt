@@ -20,7 +20,7 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(this, bus, registry),
                         seriesRepository = SeriesRepository(this, bus, registry),
                     )
@@ -37,7 +37,7 @@ class BookRepositoryIdAsStringTest :
                         db = this,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(this, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = ContributorRepository(this, bus, registry),
                         seriesRepository = SeriesRepository(this, bus, registry),
                     )

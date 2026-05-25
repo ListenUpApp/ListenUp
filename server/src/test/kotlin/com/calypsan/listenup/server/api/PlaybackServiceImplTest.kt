@@ -62,7 +62,7 @@ class PlaybackServiceImplTest :
                     db = db,
                     bus = bus,
                     registry = registry,
-                    libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake/library")),
+                    _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake/library")),
                     contributorRepository = ContributorRepository(db, bus, registry),
                     seriesRepository = SeriesRepository(db, bus, registry),
                 )

@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException

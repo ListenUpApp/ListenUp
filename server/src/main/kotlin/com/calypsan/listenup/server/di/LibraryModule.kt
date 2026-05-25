@@ -41,7 +41,6 @@ fun libraryModule(): Module =
                 libraryFolderRepository = get(),
                 bookRepository = get(),
                 scanOrchestrator = get(),
-                db = get(),
             )
         }
     }
