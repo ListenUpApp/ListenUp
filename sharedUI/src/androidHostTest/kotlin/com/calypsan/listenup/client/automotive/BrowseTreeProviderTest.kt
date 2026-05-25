@@ -489,8 +489,7 @@ private class FakeHomeRepository(
 ) : HomeRepository {
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = Success(books.take(limit))
 
-    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
-        flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
+    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
 }
 
 private class FakeBookDao(

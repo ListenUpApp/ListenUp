@@ -12,6 +12,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import kotlinx.coroutines.flow.first
@@ -424,9 +425,11 @@ class HomeRepositoryTest {
         }
 
     @Test
-    fun `observeContinueListening calls getBooks once per emission, not per book`() =
+    fun `observeContinueListening subscribes to observeBookListItems, not getBookListItems`() =
         runTest {
-            // Given: Three positions emitted as a single list
+            // Given: Three positions emitted as a single list.
+            // The new reactive implementation uses observeBookListItems (Flow) so the book side
+            // stays live — one subscription per position emission, never a per-book suspend call.
             val fixture = createFixture()
             val positions =
                 listOf(
@@ -442,13 +445,13 @@ class HomeRepositoryTest {
                 )
 
             every { fixture.playbackPositionDao.observeRecentPositions(any()) } returns flowOf(positions)
-            everySuspend { fixture.bookRepository.getBookListItems(any()) } returns books
+            every { fixture.bookRepository.observeBookListItems(any()) } returns flowOf(books)
             val repository = fixture.build()
 
             // When: collect one emission
             repository.observeContinueListening(10).first()
 
-            // Then: getBookListItems called exactly once (batched)
-            verifySuspend(VerifyMode.exactly(1)) { fixture.bookRepository.getBookListItems(any()) }
+            // Then: observeBookListItems was called once (batched — all ids in one subscription)
+            verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeBookListItems(any()) }
         }
 }

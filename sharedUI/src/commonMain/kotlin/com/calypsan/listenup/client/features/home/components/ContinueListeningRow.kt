@@ -67,7 +67,7 @@ fun ContinueListeningRow(
                 key = { it.bookId },
             ) { item ->
                 when (item) {
-                    is ContinueListeningItem.Ready ->
+                    is ContinueListeningItem.Ready -> {
                         BookCard(
                             bookId = item.book.bookId,
                             title = item.book.title,
@@ -79,9 +79,11 @@ fun ContinueListeningRow(
                             timeRemaining = item.book.timeRemainingFormatted,
                             cardWidth = 140.dp,
                         )
+                    }
 
-                    is ContinueListeningItem.Loading ->
+                    is ContinueListeningItem.Loading -> {
                         ContinueListeningSkeletonCard()
+                    }
                 }
             }
         }

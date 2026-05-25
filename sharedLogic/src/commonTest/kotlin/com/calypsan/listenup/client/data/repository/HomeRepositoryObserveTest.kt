@@ -83,8 +83,7 @@ class HomeRepositoryObserveTest :
         fun book(
             id: String,
             duration: Long = 10_000L,
-        ): BookListItem =
-            TestData.bookListItem(id = id, duration = duration)
+        ): BookListItem = TestData.bookListItem(id = id, duration = duration)
 
         // ====================================================================
         // A) Defense-in-depth: isFinished=true → excluded regardless of progress

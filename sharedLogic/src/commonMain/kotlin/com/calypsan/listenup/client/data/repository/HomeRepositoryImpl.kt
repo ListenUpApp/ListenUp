@@ -173,7 +173,8 @@ class HomeRepositoryImpl(
     ): List<ContinueListeningItem> {
         val bookMap = books.associateBy { it.id.value }
         val result =
-            positions.asSequence()
+            positions
+                .asSequence()
                 .mapNotNull { pos ->
                     val book = bookMap[pos.bookId.value]
                     if (book == null) {
@@ -193,8 +194,7 @@ class HomeRepositoryImpl(
                             )
                         }
                     }
-                }
-                .take(limit)
+                }.take(limit)
                 .toList()
 
         logger.info { "observeContinueListening: returning ${result.size} items" }

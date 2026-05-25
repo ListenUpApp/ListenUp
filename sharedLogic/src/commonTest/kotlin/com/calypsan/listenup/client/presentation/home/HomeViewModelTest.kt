@@ -144,14 +144,15 @@ class HomeViewModelTest {
     ): ContinueListeningItem.Ready =
         ContinueListeningItem.Ready(
             bookId = bookId,
-            book = createContinueListeningBook(
-                bookId = bookId,
-                title = title,
-                authorNames = authorNames,
-                progress = progress,
-                currentPositionMs = currentPositionMs,
-                totalDurationMs = totalDurationMs,
-            ),
+            book =
+                createContinueListeningBook(
+                    bookId = bookId,
+                    title = title,
+                    authorNames = authorNames,
+                    progress = progress,
+                    currentPositionMs = currentPositionMs,
+                    totalDurationMs = totalDurationMs,
+                ),
         )
 
     @BeforeTest

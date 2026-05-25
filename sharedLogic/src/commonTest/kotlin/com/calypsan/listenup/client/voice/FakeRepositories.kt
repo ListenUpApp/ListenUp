@@ -143,7 +143,8 @@ class FakeBookRepository : BookRepository {
 
     override fun observeBookListItems(): Flow<List<BookListItem>> = flowOf(books.values.toList())
 
-    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> = flowOf(ids.mapNotNull { books[it] })
+    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> =
+        flowOf(ids.mapNotNull { books[it] })
 
     override suspend fun getBookListItem(id: String): BookListItem? = books[id]
 
