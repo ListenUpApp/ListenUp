@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -19,6 +21,10 @@ import kotlinx.serialization.Serializable
 @SerialName("BookSyncPayload")
 data class BookSyncPayload(
     val id: String,
+    /** The library this book belongs to. */
+    val libraryId: LibraryId,
+    /** The folder within [libraryId] where this book's files were discovered. */
+    val folderId: FolderId,
     val title: String,
     val sortTitle: String?,
     val subtitle: String?,
