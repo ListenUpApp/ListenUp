@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -30,6 +32,8 @@ class BookListItemTest :
         ): BookListItem =
             BookListItem(
                 id = BookId("book-1"),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Test Book",
                 subtitle = null,
                 authors = authors,

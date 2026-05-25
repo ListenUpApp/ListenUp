@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -63,6 +65,8 @@ object TestData {
         val narrator = contributor(id = "narrator-$id", name = narratorName, roles = listOf("Narrator"))
         return BookDetail(
             id = BookId(id),
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
             title = title,
             subtitle = subtitle,
             authors = listOf(author),
@@ -123,6 +127,8 @@ object TestData {
         val narrator = contributor(id = "narrator-$id", name = narratorName, roles = listOf("Narrator"))
         return BookListItem(
             id = BookId(id),
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
             title = title,
             subtitle = subtitle,
             authors = listOf(author),

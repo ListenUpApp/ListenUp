@@ -285,6 +285,44 @@ class BookWithContributorsMapperTest :
             result.allContributors.first().name shouldBe "Brandon Sanderson"
         }
 
+        test("toListItem carries libraryId and folderId from BookEntity") {
+            val imageStorage = mock<ImageStorage>()
+            every { imageStorage.exists(any()) } returns false
+
+            val bookWithContributors =
+                BookWithContributors(
+                    book = makeBook(),
+                    contributors = emptyList(),
+                    contributorRoles = emptyList(),
+                    series = emptyList(),
+                    seriesSequences = emptyList(),
+                )
+
+            val result = bookWithContributors.toListItem(imageStorage)
+
+            result.libraryId shouldBe LibraryId("test-library")
+            result.folderId shouldBe FolderId("test-folder")
+        }
+
+        test("toDetail carries libraryId and folderId from BookEntity") {
+            val imageStorage = mock<ImageStorage>()
+            every { imageStorage.exists(any()) } returns false
+
+            val bookWithContributors =
+                BookWithContributors(
+                    book = makeBook(),
+                    contributors = emptyList(),
+                    contributorRoles = emptyList(),
+                    series = emptyList(),
+                    seriesSequences = emptyList(),
+                )
+
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+
+            result.libraryId shouldBe LibraryId("test-library")
+            result.folderId shouldBe FolderId("test-folder")
+        }
+
         test("toDetail then toListItem equals toListItem for same input") {
             val imageStorage = mock<ImageStorage>()
             every { imageStorage.exists(any()) } returns false

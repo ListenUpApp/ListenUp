@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import app.cash.turbine.test
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.data.remote.PreparePlaybackResponse
@@ -215,6 +217,8 @@ class DownloadRepositoryImplTest {
     ): BookListItem =
         BookListItem(
             id = BookId(id),
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
             title = title,
             authors =
                 authors.mapIndexed { index, name ->

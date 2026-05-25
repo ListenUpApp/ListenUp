@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.presentation.library
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -82,6 +84,8 @@ class LibraryViewModelTest :
                 }
             return BookListItem(
                 id = BookId(id),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = title,
                 authors = authors,
                 narrators = emptyList(),
@@ -135,6 +139,8 @@ class LibraryViewModelTest :
                 )
             return BookListItem(
                 id = BookId(id),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Book $id",
                 coverPath = null,
                 duration = 3600000L,

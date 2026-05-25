@@ -135,6 +135,8 @@ fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
 
     return BookListItem(
         id = book.id,
+        libraryId = book.libraryId,
+        folderId = book.folderId,
         title = book.title,
         sortTitle = book.sortTitle,
         subtitle = book.subtitle,
@@ -205,6 +207,8 @@ fun BookWithContributors.toDetail(
 
     return BookDetail(
         id = book.id,
+        libraryId = book.libraryId,
+        folderId = book.folderId,
         title = book.title,
         sortTitle = book.sortTitle,
         subtitle = book.subtitle,

@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.voice
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
@@ -263,6 +265,8 @@ fun testBook(
 
     return BookListItem(
         id = BookId(id),
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         authors = listOf(BookContributor(id = "author-1", name = authorName, roles = listOf("author"))),
         narrators = listOf(BookContributor(id = "narrator-1", name = narratorName, roles = listOf("narrator"))),
