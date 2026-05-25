@@ -156,6 +156,13 @@ class BookRepositoryImpl(
             .map { it.toListItem(imageStorage) }
     }
 
+    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> {
+        if (ids.isEmpty()) return kotlinx.coroutines.flow.flowOf(emptyList())
+        return bookDao
+            .observeByIdsWithContributors(ids.map { BookId(it) })
+            .map { rows -> rows.map { it.toListItem(imageStorage) } }
+    }
+
     /**
      * Observe a book's detail, with a never-stranded cache-miss fallback.
      *
