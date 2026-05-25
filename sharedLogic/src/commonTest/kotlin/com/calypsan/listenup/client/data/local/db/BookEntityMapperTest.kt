@@ -106,6 +106,8 @@ class BookEntityMapperTest :
         ): BookEntity =
             BookEntity(
                 id = id,
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Old Title",
                 totalDuration = 1_000L,
                 dominantColor = dominantColor,

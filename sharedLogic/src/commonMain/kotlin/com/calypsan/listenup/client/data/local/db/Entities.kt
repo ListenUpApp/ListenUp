@@ -10,6 +10,8 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 
 /**
  * Room entity representing a user in the local database.
@@ -104,9 +106,19 @@ data class UserProfileEntity(
  * Uses type-safe value classes (BookId, Timestamp) for compile-time safety
  * with zero runtime overhead via inline classes.
  */
-@Entity(tableName = "books")
+@Entity(
+    tableName = "books",
+    indices = [
+        Index(value = ["libraryId"]),
+        Index(value = ["folderId"]),
+    ],
+)
 data class BookEntity(
     @PrimaryKey val id: BookId,
+    /** The library this book belongs to. */
+    val libraryId: LibraryId,
+    /** The folder within the library where this book's audio files were scanned from. */
+    val folderId: FolderId,
     // Core book metadata
     val title: String,
     val sortTitle: String? = null, // Title used for sorting (e.g., "Lord of the Rings, The")

@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -31,6 +33,8 @@ class BookWithContributorsMapperTest :
         fun makeBook() =
             BookEntity(
                 id = bookId,
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "The Way of Kings",
                 sortTitle = "Way of Kings, The",
                 subtitle = "The Stormlight Archive",

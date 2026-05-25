@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.TypeConverter
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -89,6 +91,30 @@ class ValueClassConverters {
      */
     @TypeConverter
     fun stringToUserId(value: String?): UserId? = value?.let { UserId(it) }
+
+    /**
+     * Convert LibraryId value class to String for database storage.
+     */
+    @TypeConverter
+    fun libraryIdToString(id: LibraryId): String = id.value
+
+    /**
+     * Convert String from database to LibraryId value class.
+     */
+    @TypeConverter
+    fun stringToLibraryId(value: String): LibraryId = LibraryId(value)
+
+    /**
+     * Convert FolderId value class to String for database storage.
+     */
+    @TypeConverter
+    fun folderIdToString(id: FolderId): String = id.value
+
+    /**
+     * Convert String from database to FolderId value class.
+     */
+    @TypeConverter
+    fun stringToFolderId(value: String): FolderId = FolderId(value)
 }
 
 /**

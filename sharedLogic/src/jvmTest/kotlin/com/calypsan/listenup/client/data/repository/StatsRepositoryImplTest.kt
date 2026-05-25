@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -332,6 +334,8 @@ class StatsRepositoryImplTest :
 private fun seedBook(id: String): BookEntity =
     BookEntity(
         id = BookId(id),
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "Book $id",
         sortTitle = null,
         subtitle = null,

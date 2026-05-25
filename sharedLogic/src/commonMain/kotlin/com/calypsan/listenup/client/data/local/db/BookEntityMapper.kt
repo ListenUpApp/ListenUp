@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -48,6 +50,9 @@ class BookEntityMapper {
     ): BookEntity =
         BookEntity(
             id = BookId(payload.id),
+            // Library membership — wire-authoritative, taken from the payload.
+            libraryId = payload.libraryId,
+            folderId = payload.folderId,
             // Wire-authoritative fields — always taken from the payload.
             title = payload.title,
             sortTitle = payload.sortTitle,
