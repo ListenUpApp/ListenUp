@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -182,7 +183,7 @@ private fun newScanner(fixture: AudioLibraryFixture): Pair<Scanner, MutableShare
         )
     val scanner =
         Scanner(
-            rootPath = fixture.root,
+            library = testLibrary(folders = listOf(fixture.root.toString())),
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser = parser,
             eventBus = eventBus,

@@ -11,8 +11,11 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -26,6 +29,7 @@ class BookRepositoryContributorDelegationTest :
         test("upsertFromAnalyzed resolves the author through ContributorRepository") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
@@ -42,7 +46,12 @@ class BookRepositoryContributorDelegationTest :
                 runTest {
                     val analyzed = analyzedFor("Sanderson/Way of Kings", author = "Brandon Sanderson")
 
-                    val result = bookRepo.upsertFromAnalyzed(BookId("b1"), analyzed)
+                    val result = bookRepo.upsertFromAnalyzed(
+                        BookId("b1"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzed,
+                    )
                     result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                     contributors
@@ -55,6 +64,7 @@ class BookRepositoryContributorDelegationTest :
         test("upsertFromAnalyzed resolves the series through SeriesRepository") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val contributors = ContributorRepository(db, bus, registry)
@@ -76,7 +86,12 @@ class BookRepositoryContributorDelegationTest :
                             seriesName = "The Stormlight Archive",
                         )
 
-                    bookRepo.upsertFromAnalyzed(BookId("b1"), analyzed)
+                    bookRepo.upsertFromAnalyzed(
+                        BookId("b1"),
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        analyzed,
+                    )
 
                     series
                         .findById(series.resolveOrCreate("The Stormlight Archive").value)

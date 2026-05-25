@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -69,7 +70,7 @@ private fun newService(
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 0, extraBufferCapacity = 64)
     val scanner =
         Scanner(
-            rootPath = fixture.root,
+            library = testLibrary(folders = listOf(fixture.root.toString())),
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser =
                 com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser(

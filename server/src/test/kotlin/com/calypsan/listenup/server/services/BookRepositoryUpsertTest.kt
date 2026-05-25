@@ -256,6 +256,8 @@ class BookRepositoryUpsertTest :
                     val warned =
                         repo.upsertFromAnalyzed(
                             BookId("warned"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
                             analyzedFixture(rootRelPath = "books/warned", hasScanWarning = true),
                         )
                     warned.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
@@ -265,6 +267,8 @@ class BookRepositoryUpsertTest :
                     val clean =
                         repo.upsertFromAnalyzed(
                             BookId("clean"),
+                            LibraryId("test-library"),
+                            FolderId("test-folder"),
                             analyzedFixture(rootRelPath = "books/clean", hasScanWarning = false),
                         )
                     clean.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()

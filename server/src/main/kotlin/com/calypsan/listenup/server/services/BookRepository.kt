@@ -320,12 +320,13 @@ class BookRepository(
      */
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
+        folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookId> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, analyzed).map { existing }
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
         }
 
         analyzed.candidate.files
@@ -335,12 +336,12 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, analyzed).map { existing }
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, analyzed).map { newId }
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed).map { newId }
     }
 
     /**
@@ -412,6 +413,8 @@ class BookRepository(
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
+        libraryId: LibraryId,
+        folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookSyncPayload> {
         val candidate = analyzed.candidate
@@ -425,14 +428,11 @@ class BookRepository(
             buildSeries(analyzed).map { s ->
                 s.copy(id = seriesRepository.resolveOrCreate(s.name).value)
             }
-        // TODO: thread libraryId/folderId from Scanner (closed in LIB-C Task 10).
-        // Bootstrap library/folder placeholder until Scanner reshape lands.
-        val resolvedLibraryId = libraryRegistry.currentLibrary()
         val payload =
             BookSyncPayload(
                 id = bookId.value,
-                libraryId = resolvedLibraryId,
-                folderId = FolderId("PENDING-LIB-C"),
+                libraryId = libraryId,
+                folderId = folderId,
                 title = analyzed.title,
                 sortTitle = null,
                 subtitle = analyzed.subtitle,

@@ -113,6 +113,7 @@ fun booksModule(
             BookPersister(
                 ingest = get(),
                 libraryRegistry = get(),
+                db = get(),
                 scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
                 scope = get(),
                 metrics = get(),

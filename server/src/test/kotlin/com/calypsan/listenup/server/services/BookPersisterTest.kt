@@ -139,6 +139,7 @@ private class FakeBookIngest(
 
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
+        folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookId> {
         val path = analyzed.candidate.rootRelPath
@@ -171,6 +172,7 @@ private fun persister(
     BookPersister(
         ingest = ingest,
         libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+        db = db,
         scanResultBus = MutableSharedFlow(),
         scope = scope,
         metrics = metrics,
