@@ -49,4 +49,17 @@ interface LibraryDao {
      */
     @Upsert
     suspend fun upsert(entity: LibraryEntity)
+
+    /**
+     * Apply a server tombstone: set the soft-delete timestamp and revision.
+     *
+     * The `updatedAt` column is also advanced to [deletedAt] so live queries
+     * that filter on `deletedAt IS NULL` correctly exclude this row.
+     */
+    @Query("UPDATE libraries SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
 }

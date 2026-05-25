@@ -59,4 +59,14 @@ interface LibraryFolderDao {
      */
     @Upsert
     suspend fun upsert(entity: LibraryFolderEntity)
+
+    /**
+     * Apply a server tombstone: set the soft-delete timestamp and revision.
+     */
+    @Query("UPDATE library_folders SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
 }
