@@ -72,7 +72,7 @@ val authPresentationModule =
         // LibrarySetupViewModel for initial library configuration
         factory {
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
-                setupApi = get(),
+                libraryAdminRpcFactory = get(),
                 errorBus = get(),
             )
         }

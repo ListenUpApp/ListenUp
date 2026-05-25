@@ -38,7 +38,9 @@ import com.calypsan.listenup.client.data.remote.InviteApi
 import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.ShelfApi
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
+import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileApi
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
@@ -719,6 +721,14 @@ val syncModule =
         single {
             ABSImportApi(clientFactory = get(), errorBus = get())
         } bind ABSImportApiContract::class
+
+        // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
+        single<LibraryAdminRpcFactory> {
+            KtorLibraryAdminRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
 
         // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
         single<MetadataLookupRpcFactory> {

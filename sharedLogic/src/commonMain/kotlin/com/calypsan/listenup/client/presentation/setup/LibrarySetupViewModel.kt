@@ -2,34 +2,66 @@ package com.calypsan.listenup.client.presentation.setup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.dto.CreateLibraryRequest
+import com.calypsan.listenup.api.dto.DirectoryEntry
+import com.calypsan.listenup.api.dto.Library
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
-import com.calypsan.listenup.client.data.remote.SetupApiContract
-import com.calypsan.listenup.client.data.remote.SetupLibraryRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
+private const val DEFAULT_LIBRARY_NAME = "My Library"
+
 /**
- * ViewModel for the library setup screen.
+ * One-shot navigation events emitted by [LibrarySetupViewModel].
  *
- * Manages the initial library configuration flow:
- * - Checking if library setup is needed
- * - Browsing the server filesystem
- * - Selecting a folder for the library
+ * [LibraryCreated] fires after each successful library creation — the wizard
+ * loops back to allow adding another. [Finished] fires when [LibrarySetupViewModel.finishOnboarding]
+ * is called, signalling the host to navigate away from the wizard.
+ */
+sealed interface LibrarySetupNavAction {
+    /** A library was successfully created. The wizard may loop for another. */
+    data class LibraryCreated(val library: Library) : LibrarySetupNavAction
+
+    /** The user tapped "Done" — all library setup is complete. */
+    data object Finished : LibrarySetupNavAction
+}
+
+/**
+ * ViewModel for the library setup wizard.
+ *
+ * Manages the initial library configuration flow, supporting creation of multiple
+ * libraries in a single onboarding session:
+ * - Checking if library setup is needed ([getSetupStatus])
+ * - Browsing the server filesystem ([browseFilesystem])
+ * - Selecting one or more folders for the library
  * - Creating the library with the chosen configuration
+ * - Looping back for another library or finishing
+ *
+ * Replaces the legacy [com.calypsan.listenup.client.data.remote.SetupApiContract] surface
+ * with [LibraryAdminRpcFactory] backed by the [com.calypsan.listenup.api.LibraryAdminService] RPC.
  */
 class LibrarySetupViewModel(
-    private val setupApi: SetupApiContract,
+    private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
+
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
+
+    private val _navActions = Channel<LibrarySetupNavAction>(Channel.BUFFERED)
+
+    /** One-shot navigation events. Collect via [Flow.collect] in a [LaunchedEffect]. */
+    val navActions: Flow<LibrarySetupNavAction> = _navActions.receiveAsFlow()
 
     init {
         checkLibraryStatus()
@@ -43,10 +75,10 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCheckingStatus = true, error = null) }
 
-            when (val result = setupApi.getLibraryStatus()) {
+            when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
                 is AppResult.Success -> {
                     val status = result.data
-                    logger.info { "Library status: exists=${status.exists}, needsSetup=${status.needsSetup}" }
+                    logger.info { "Setup status: needsSetup=${status.needsSetup}, libraryCount=${status.libraryCount}" }
                     state.update {
                         it.copy(
                             isCheckingStatus = false,
@@ -60,7 +92,7 @@ class LibrarySetupViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to check library status: ${result.error.message}" }
+                    logger.error { "Failed to check setup status: ${result.error.message}" }
                     state.update {
                         it.copy(
                             isCheckingStatus = false,
@@ -74,23 +106,36 @@ class LibrarySetupViewModel(
 
     /**
      * Load the contents of a directory from the server filesystem.
+     *
+     * Sets [LibrarySetupUiState.currentPath] to [path], derives [LibrarySetupUiState.parentPath]
+     * client-side (parent segment of [path]), and sets [LibrarySetupUiState.isRoot] when
+     * [path] is "/".
+     *
      * @param path The directory path to load
      */
     fun loadDirectory(path: String) {
         viewModelScope.launch {
             state.update { it.copy(isLoadingDirectories = true, error = null) }
 
-            when (val result = setupApi.browseFilesystem(path)) {
+            when (val result = libraryAdminRpcFactory.get().browseFilesystem(path)) {
                 is AppResult.Success -> {
-                    val response = result.data
-                    logger.debug { "Loaded directory: ${response.path}, entries=${response.entries.size}" }
+                    val entries = result.data
+                    val isRoot = path == "/"
+                    val parentPath =
+                        if (isRoot) {
+                            null
+                        } else {
+                            val lastSlash = path.lastIndexOf('/')
+                            if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
+                        }
+                    logger.debug { "Loaded directory: $path, entries=${entries.size}" }
                     state.update {
                         it.copy(
                             isLoadingDirectories = false,
-                            currentPath = response.path,
-                            parentPath = response.parent,
-                            directories = response.entries,
-                            isRoot = response.isRoot,
+                            currentPath = path,
+                            parentPath = parentPath,
+                            directories = entries,
+                            isRoot = isRoot,
                         )
                     }
                 }
@@ -161,16 +206,21 @@ class LibrarySetupViewModel(
     }
 
     /**
-     * Update the skip inbox setting.
-     * @param skip Whether to skip the inbox for new books
+     * Clear the error state.
      */
-    fun setSkipInbox(skip: Boolean) {
-        state.update { it.copy(skipInbox = skip) }
+    fun clearError() {
+        state.update { it.copy(error = null) }
     }
 
     /**
      * Create the library with the current configuration.
-     * Requires a selected path.
+     *
+     * On success, appends the created library to [LibrarySetupUiState.createdLibraries],
+     * resets folder selection and library name for the next entry, and emits a
+     * [LibrarySetupNavAction.LibraryCreated] nav action. Does NOT flip
+     * [LibrarySetupUiState.setupComplete] — only [finishOnboarding] does that.
+     *
+     * Requires at least one selected path and a non-blank library name.
      */
     fun createLibrary() {
         val currentState = state.value
@@ -188,23 +238,25 @@ class LibrarySetupViewModel(
             state.update { it.copy(isCreatingLibrary = true, error = null) }
 
             val request =
-                SetupLibraryRequest(
+                CreateLibraryRequest(
                     name = currentState.libraryName.trim(),
-                    scanPaths = currentState.selectedPaths.toList(),
-                    skipInbox = currentState.skipInbox,
+                    folderPaths = currentState.selectedPaths.toList(),
                 )
 
-            when (val result = setupApi.setupLibrary(request)) {
+            when (val result = libraryAdminRpcFactory.get().createLibrary(request)) {
                 is AppResult.Success -> {
-                    val response = result.data
-                    logger.info { "Library created: id=${response.id}, name=${response.name}" }
+                    val library = result.data
+                    logger.info { "Library created: id=${library.id}, name=${library.name}" }
                     state.update {
                         it.copy(
                             isCreatingLibrary = false,
-                            setupComplete = true,
-                            needsSetup = false,
+                            createdLibraries = it.createdLibraries + library,
+                            selectedPaths = emptySet(),
+                            libraryName = DEFAULT_LIBRARY_NAME,
+                            error = null,
                         )
                     }
+                    _navActions.trySend(LibrarySetupNavAction.LibraryCreated(library))
                 }
 
                 is AppResult.Failure -> {
@@ -222,15 +274,20 @@ class LibrarySetupViewModel(
     }
 
     /**
-     * Clear the error state.
+     * Signal that onboarding is complete — the user is done adding libraries.
+     *
+     * Flips [LibrarySetupUiState.setupComplete] and emits [LibrarySetupNavAction.Finished]
+     * so the host screen can navigate away. Only call this after at least one library
+     * has been created.
      */
-    fun clearError() {
-        state.update { it.copy(error = null) }
+    fun finishOnboarding() {
+        state.update { it.copy(setupComplete = true) }
+        _navActions.trySend(LibrarySetupNavAction.Finished)
     }
 }
 
 /**
- * UI state for the library setup screen.
+ * UI state for the library setup wizard.
  */
 data class LibrarySetupUiState(
     // Status check
@@ -239,16 +296,16 @@ data class LibrarySetupUiState(
     // Folder browser
     val currentPath: String = "/",
     val parentPath: String? = null,
-    val directories: List<DirectoryEntryResponse> = emptyList(),
+    val directories: List<DirectoryEntry> = emptyList(),
     val isLoadingDirectories: Boolean = false,
     val isRoot: Boolean = true,
     // Selection
     val selectedPaths: Set<String> = emptySet(),
     // Setup
-    val libraryName: String = "My Library",
-    val skipInbox: Boolean = false,
+    val libraryName: String = DEFAULT_LIBRARY_NAME,
     val isCreatingLibrary: Boolean = false,
     // Results
+    val createdLibraries: List<Library> = emptyList(),
     val setupComplete: Boolean = false,
     val error: String? = null,
 )
