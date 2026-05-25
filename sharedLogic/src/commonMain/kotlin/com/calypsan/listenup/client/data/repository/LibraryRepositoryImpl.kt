@@ -25,8 +25,7 @@ class LibraryRepositoryImpl(
     override fun observeAll(): Flow<List<Library>> =
         libraryDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
-    override fun observeById(id: String): Flow<Library?> =
-        libraryDao.observeById(id).map { it?.toDomain() }
+    override fun observeById(id: String): Flow<Library?> = libraryDao.observeById(id).map { it?.toDomain() }
 
     override fun observeFolders(libraryId: String): Flow<List<LibraryFolder>> =
         libraryFolderDao.observeForLibrary(libraryId).map { entities -> entities.map { it.toDomain() } }

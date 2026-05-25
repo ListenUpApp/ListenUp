@@ -100,7 +100,10 @@ fun LibrarySetupScreen(
                     // VM already resets selection and resets libraryName.
                     // UiState.createdLibraries gains the new library automatically.
                 }
-                LibrarySetupNavAction.Finished -> onSetupComplete()
+
+                LibrarySetupNavAction.Finished -> {
+                    onSetupComplete()
+                }
             }
         }
     }
@@ -210,7 +213,14 @@ private fun CreatedLibrariesSummary(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = if (createdLibraries.size == 1) "Library created!" else "${createdLibraries.size} libraries created!",
+            text =
+                if (createdLibraries.size ==
+                    1
+                ) {
+                    "Library created!"
+                } else {
+                    "${createdLibraries.size} libraries created!"
+                },
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -381,7 +391,14 @@ private fun CreatedLibrariesHeader(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = if (createdLibraries.size == 1) "1 library created" else "${createdLibraries.size} libraries created",
+            text =
+                if (createdLibraries.size ==
+                    1
+                ) {
+                    "1 library created"
+                } else {
+                    "${createdLibraries.size} libraries created"
+                },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )

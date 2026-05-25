@@ -30,7 +30,9 @@ private const val DEFAULT_LIBRARY_NAME = "My Library"
  */
 sealed interface LibrarySetupNavAction {
     /** A library was successfully created. The wizard may loop for another. */
-    data class LibraryCreated(val library: Library) : LibrarySetupNavAction
+    data class LibraryCreated(
+        val library: Library,
+    ) : LibrarySetupNavAction
 
     /** The user tapped "Done" — all library setup is complete. */
     data object Finished : LibrarySetupNavAction
@@ -54,7 +56,6 @@ class LibrarySetupViewModel(
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
 

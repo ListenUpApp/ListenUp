@@ -60,11 +60,13 @@ internal class LibraryDomainSeeder(
                     ),
                 )
         ) {
-            is AppResult.Success ->
+            is AppResult.Success -> {
                 logger.info { "seed [$domainName]: Demo Library created id=${result.data.id.value}" }
+            }
 
-            is AppResult.Failure ->
+            is AppResult.Failure -> {
                 logger.warn { "seed [$domainName]: createLibrary returned ${result.error.code} — skipping" }
+            }
         }
     }
 

@@ -15,7 +15,6 @@ import io.ktor.resources.Resource
  */
 @Resource("/api/v1/libraries")
 class LibraryResources {
-
     /**
      * REST mirror of [com.calypsan.listenup.api.LibraryAdminService.listLibraries] —
      * `GET /api/v1/libraries` returns all non-deleted libraries with folders.
@@ -25,14 +24,18 @@ class LibraryResources {
      * [com.calypsan.listenup.api.dto.CreateLibraryRequest] body.
      */
     @Resource("")
-    class Collection(val parent: LibraryResources = LibraryResources())
+    class Collection(
+        val parent: LibraryResources = LibraryResources(),
+    )
 
     /**
      * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.getSetupStatus] —
      * `GET /api/v1/libraries/setup-status` returns whether onboarding is needed.
      */
     @Resource("setup-status")
-    class SetupStatus(val parent: LibraryResources = LibraryResources())
+    class SetupStatus(
+        val parent: LibraryResources = LibraryResources(),
+    )
 
     /**
      * REST mirror for [com.calypsan.listenup.api.LibraryAdminService.browseFilesystem] —

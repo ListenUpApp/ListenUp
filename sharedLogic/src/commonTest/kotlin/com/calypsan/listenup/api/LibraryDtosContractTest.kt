@@ -160,5 +160,4 @@ class LibraryDtosContractTest :
         }
     })
 
-private inline fun <reified T : Any> roundTrip(value: T): T =
-    contractJson.decodeFromString<T>(contractJson.encodeToString(value))
+private inline fun <reified T : Any> roundTrip(value: T): T = contractJson.decodeFromString<T>(contractJson.encodeToString(value))

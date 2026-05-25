@@ -43,8 +43,14 @@ class LibrarySyncDomainHandler(
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
-                is SyncEvent.Created -> upsert(event.payload)
-                is SyncEvent.Updated -> upsert(event.payload)
+                is SyncEvent.Created -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Updated -> {
+                    upsert(event.payload)
+                }
+
                 is SyncEvent.Deleted -> {
                     database.libraryDao().softDelete(
                         id = event.id,

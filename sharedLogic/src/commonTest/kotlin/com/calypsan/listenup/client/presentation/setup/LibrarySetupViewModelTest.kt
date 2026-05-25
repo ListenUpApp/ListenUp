@@ -125,7 +125,6 @@ class LibrarySetupViewModelTest :
             }
         }
 
-
         // ── loadDirectory ────────────────────────────────────────────────────
 
         test("loadDirectory sets currentPath and directories from RPC response") {
@@ -264,7 +263,8 @@ class LibrarySetupViewModelTest :
 
                 vm.state.value.isCreatingLibrary shouldBe false
                 vm.state.value.createdLibraries.size shouldBe 1
-                vm.state.value.createdLibraries.first() shouldBe library
+                vm.state.value.createdLibraries
+                    .first() shouldBe library
                 // Selection resets for the next library
                 vm.state.value.selectedPaths shouldBe emptySet()
                 vm.state.value.libraryName shouldBe "My Library"

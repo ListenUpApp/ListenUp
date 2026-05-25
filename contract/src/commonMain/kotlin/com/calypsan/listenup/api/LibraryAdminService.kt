@@ -34,7 +34,6 @@ import kotlinx.rpc.annotations.Rpc
  */
 @Rpc
 interface LibraryAdminService {
-
     // ── Observation ──────────────────────────────────────────────────────────
 
     /**

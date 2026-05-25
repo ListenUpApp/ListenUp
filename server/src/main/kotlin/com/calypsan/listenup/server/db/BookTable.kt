@@ -15,11 +15,13 @@ import com.calypsan.listenup.server.sync.SyncableTable
  */
 internal object BookTable : SyncableTable("books") {
     val id = varchar("id", 36)
+
     /** FK to [LibraryTable] — stored as a plain varchar (not `reference()`) so
      *  test code can insert books using fixture library ids without seeding a
      *  matching library row. SQLite FK enforcement is off by default in tests;
      *  the application layer enforces the FK at the service boundary. */
     val libraryId = varchar("library_id", 36)
+
     /** FK to [LibraryFolderTable] — stored as a plain varchar to avoid
      *  Exposed reference constraints in test code that inserts books without
      *  seeding the folder row (SQLite FK enforcement is off by default). */

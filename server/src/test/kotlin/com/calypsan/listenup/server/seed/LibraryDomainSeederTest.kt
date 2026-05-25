@@ -56,7 +56,10 @@ class LibraryDomainSeederTest :
                 runTest {
                     seeder.seed()
                     fake.createCalls.size shouldBe 1
-                    fake.createCalls.single().folderPaths.single() shouldBe demoPath
+                    fake.createCalls
+                        .single()
+                        .folderPaths
+                        .single() shouldBe demoPath
                 }
             }
         }
@@ -142,9 +145,10 @@ private class FakeLibraryAdminService(
             Library(
                 id = LibraryId("lib-${createCalls.size}"),
                 name = request.name,
-                folders = request.folderPaths.mapIndexed { i, path ->
-                    LibraryFolderRef(id = FolderId("folder-$i"), rootPath = path)
-                },
+                folders =
+                    request.folderPaths.mapIndexed { i, path ->
+                        LibraryFolderRef(id = FolderId("folder-$i"), rootPath = path)
+                    },
                 metadataPrecedence = "embedded,abs,sidecar",
                 accessMode = AccessMode.SHARED,
                 createdByUserId = null,
@@ -157,11 +161,9 @@ private class FakeLibraryAdminService(
 
     override suspend fun getLibrary(id: LibraryId): AppResult<Library?> = AppResult.Success(null)
 
-    override suspend fun getSetupStatus(): AppResult<SetupStatus> =
-        AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+    override suspend fun getSetupStatus(): AppResult<SetupStatus> = AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
-    override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> =
-        AppResult.Success(emptyList())
+    override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> = AppResult.Success(emptyList())
 
     override suspend fun renameLibrary(
         id: LibraryId,

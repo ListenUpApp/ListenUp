@@ -27,7 +27,10 @@ private val logger = KotlinLogging.logger {}
  *   The factory's [onEvent] callback receives the subtree [Path] that changed.
  */
 internal class WatcherSupervisor(
-    private val folderWatcherFactory: suspend (folder: LibraryFolderRef, onEvent: suspend (Path) -> Unit) -> WatcherHandle,
+    private val folderWatcherFactory: suspend (
+        folder: LibraryFolderRef,
+        onEvent: suspend (Path) -> Unit,
+    ) -> WatcherHandle,
 ) {
     private val mutex = Mutex()
 
@@ -62,7 +65,9 @@ internal class WatcherSupervisor(
             }
         watchersByFolder[folder.id] = handle
         foldersByLibrary.getOrPut(libraryId) { mutableSetOf() } += folder.id
-        logger.info { "Mounted watcher for library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}" }
+        logger.info {
+            "Mounted watcher for library=${libraryId.value} folder=${folder.id.value} path=${folder.rootPath}"
+        }
     }
 
     /**
@@ -70,26 +75,28 @@ internal class WatcherSupervisor(
      *
      * No-op when no watcher is registered for [folderId].
      */
-    suspend fun unmount(folderId: FolderId) = mutex.withLock {
-        val handle = watchersByFolder.remove(folderId) ?: return@withLock
-        handle.close()
-        foldersByLibrary.values.forEach { it -= folderId }
-        logger.info { "Unmounted watcher for folder=${folderId.value}" }
-    }
+    suspend fun unmount(folderId: FolderId) =
+        mutex.withLock {
+            val handle = watchersByFolder.remove(folderId) ?: return@withLock
+            handle.close()
+            foldersByLibrary.values.forEach { it -= folderId }
+            logger.info { "Unmounted watcher for folder=${folderId.value}" }
+        }
 
     /**
      * Stops and removes all watchers registered under [libraryId].
      *
      * Called when a library is deleted or on server shutdown.
      */
-    suspend fun unmountAllForLibrary(libraryId: LibraryId) = mutex.withLock {
-        val folderIds = foldersByLibrary.remove(libraryId) ?: return@withLock
-        for (folderId in folderIds) {
-            val handle = watchersByFolder.remove(folderId) ?: continue
-            handle.close()
+    suspend fun unmountAllForLibrary(libraryId: LibraryId) =
+        mutex.withLock {
+            val folderIds = foldersByLibrary.remove(libraryId) ?: return@withLock
+            for (folderId in folderIds) {
+                val handle = watchersByFolder.remove(folderId) ?: continue
+                handle.close()
+            }
+            logger.info { "Unmounted ${folderIds.size} watcher(s) for library=${libraryId.value}" }
         }
-        logger.info { "Unmounted ${folderIds.size} watcher(s) for library=${libraryId.value}" }
-    }
 }
 
 /**

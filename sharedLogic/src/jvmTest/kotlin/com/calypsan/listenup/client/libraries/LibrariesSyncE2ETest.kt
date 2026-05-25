@@ -141,7 +141,12 @@ class LibrariesSyncE2ETest :
 
                 // Library row is tombstoned.
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (clientDatabase.libraryDao().findAll().firstOrNull { it.id == "lib5" }?.deletedAt == null) {
+                    while (clientDatabase
+                            .libraryDao()
+                            .findAll()
+                            .firstOrNull { it.id == "lib5" }
+                            ?.deletedAt == null
+                    ) {
                         // Poll until the library tombstone arrives.
                     }
                 }

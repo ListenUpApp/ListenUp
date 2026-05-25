@@ -24,7 +24,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface LibraryError : AppError {
-
     /**
      * No library exists with the given id.
      *
