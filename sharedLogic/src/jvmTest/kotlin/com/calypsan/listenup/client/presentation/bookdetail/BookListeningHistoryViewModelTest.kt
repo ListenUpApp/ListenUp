@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.history.BookListeningHistory
 import com.calypsan.listenup.client.domain.history.DayBucket
@@ -9,8 +10,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 
@@ -28,11 +29,11 @@ class BookListeningHistoryViewModelTest :
 
         test("when repo emits empty history, state transitions to Empty") {
             runTest {
-                val repo = stubRepo(flowOf(BookListeningHistory(daily = emptyList())))
+                val repo = stubRepo(MutableStateFlow(BookListeningHistory(daily = emptyList())))
                 val vm = BookListeningHistoryViewModel(repo, bookId = "bookA")
                 vm.uiState.test {
-                    awaitItem() shouldBe BookListeningHistoryUiState.Loading
-                    awaitItem() shouldBe BookListeningHistoryUiState.Empty
+                    awaitUntil { it is BookListeningHistoryUiState.Empty }
+                    cancelAndIgnoreRemainingEvents()
                 }
             }
         }
@@ -51,13 +52,13 @@ class BookListeningHistoryViewModelTest :
                                 ),
                             ),
                     )
-                val repo = stubRepo(flowOf(history))
+                val repo = stubRepo(MutableStateFlow(history))
                 val vm = BookListeningHistoryViewModel(repo, bookId = "bookA")
                 vm.uiState.test {
-                    awaitItem() shouldBe BookListeningHistoryUiState.Loading
-                    val data = awaitItem()
-                    data.shouldBeInstanceOf<BookListeningHistoryUiState.Data>()
+                    val data = awaitUntil { it is BookListeningHistoryUiState.Data }
+                        .shouldBeInstanceOf<BookListeningHistoryUiState.Data>()
                     data.history shouldBe history
+                    cancelAndIgnoreRemainingEvents()
                 }
             }
         }
@@ -73,10 +74,10 @@ class BookListeningHistoryViewModelTest :
                     }
                 val vm = BookListeningHistoryViewModel(repo, bookId = "bookA")
                 vm.uiState.test {
-                    awaitItem() shouldBe BookListeningHistoryUiState.Loading
-                    val error = awaitItem()
-                    error.shouldBeInstanceOf<BookListeningHistoryUiState.Error>()
+                    val error = awaitUntil { it is BookListeningHistoryUiState.Error }
+                        .shouldBeInstanceOf<BookListeningHistoryUiState.Error>()
                     error.isRetryable shouldBe true
+                    cancelAndIgnoreRemainingEvents()
                 }
             }
         }
@@ -86,3 +87,17 @@ private fun stubRepo(events: Flow<BookListeningHistory>): BookListeningHistoryRe
     object : BookListeningHistoryRepository {
         override fun observeFor(bookId: String): Flow<BookListeningHistory> = events
     }
+
+/**
+ * Drains items from this Turbine until [predicate] matches, then returns the matching item.
+ * Robust against the `stateIn(WhileSubscribed, initial)` collapse race where the initial
+ * state may or may not emit separately from the first upstream value under CI parallelism.
+ *
+ * Per memory `test-stateflow-use-mutablestateflow` Rule 2.
+ */
+private suspend fun <T> ReceiveTurbine<T>.awaitUntil(predicate: (T) -> Boolean): T {
+    while (true) {
+        val item = awaitItem()
+        if (predicate(item)) return item
+    }
+}
