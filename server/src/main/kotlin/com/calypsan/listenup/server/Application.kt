@@ -120,6 +120,7 @@ fun Application.module() {
                 seedModule(
                     hasPlaybackModule = resolvedLibraryPath != null,
                     hasBooksModule = resolvedLibraryPath != null,
+                    demoLibraryPath = resolvedLibraryPath?.toString(),
                 )
         }
         modules(modules)
