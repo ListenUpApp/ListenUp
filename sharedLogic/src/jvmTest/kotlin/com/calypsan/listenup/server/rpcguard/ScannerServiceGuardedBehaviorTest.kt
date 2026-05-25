@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.core.LibraryId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
@@ -19,7 +20,7 @@ class ScannerServiceGuardedBehaviorTest :
     FunSpec({
 
         test("Flow that throws RuntimeException emits Data, then RpcEvent.Error, then completes") {
-            val startedEvent = ScanEvent.Started(correlationId = "test-cid", rootPath = "/audiobooks")
+            val startedEvent = ScanEvent.Started(correlationId = "test-cid", libraryId = LibraryId("lib-1"), rootPath = "/audiobooks")
             val brokenFlow =
                 flow<RpcEvent<ScanEvent>> {
                     emit(RpcEvent.Data(startedEvent))

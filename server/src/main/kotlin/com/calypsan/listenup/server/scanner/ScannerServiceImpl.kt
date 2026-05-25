@@ -8,8 +8,10 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.core.LibraryId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 
 /**
@@ -33,7 +35,7 @@ import kotlinx.coroutines.flow.map
  */
 internal class ScannerServiceImpl(
     private val orchestrator: ScanOrchestrator,
-    private val resolveLibraryId: suspend () -> com.calypsan.listenup.core.LibraryId,
+    private val resolveLibraryId: suspend () -> LibraryId,
     private val eventBus: SharedFlow<ScanEvent>,
 ) : ScannerService {
     override suspend fun scanFull(): AppResult<ScanResultSummary> =
@@ -43,5 +45,8 @@ internal class ScannerServiceImpl(
         orchestrator.lastResult(resolveLibraryId())?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ScanError.LibraryPathNotConfigured())
 
-    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = eventBus.map { RpcEvent.Data(it) }
+    override fun observeProgress(libraryId: LibraryId?): Flow<RpcEvent<ScanEvent>> =
+        eventBus
+            .let { bus -> if (libraryId != null) bus.filter { it.libraryId == libraryId } else bus }
+            .map { RpcEvent.Data(it) }
 }

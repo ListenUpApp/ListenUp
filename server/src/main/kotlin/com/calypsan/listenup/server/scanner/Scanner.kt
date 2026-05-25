@@ -79,7 +79,7 @@ internal class Scanner(
         // Use the first folder path as the canonical rootPath for the ScanResult
         // and event label; all folders are walked but share a single correlation id.
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
-        eventBus.emit(ScanEvent.Started(correlationId, primaryRootPath))
+        eventBus.emit(ScanEvent.Started(correlationId, library.id, primaryRootPath))
 
         // Walk each folder, rebase its files onto its folder-relative prefix,
         // then aggregate into a single flat list for the pipeline.
@@ -127,7 +127,7 @@ internal class Scanner(
         emitProgress(correlationId, ScanPhase.DIFFING, allFiles.size, books.size, errors.size)
         val previous = lastResult?.books.orEmpty()
         val changes = Differ().diff(books.asFlow(), previous).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, it)) }
+        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
         val result =
             ScanResult(
@@ -144,7 +144,7 @@ internal class Scanner(
         lastResult = result
         scanResultBus.emit(result)
         val summary = result.toSummary()
-        eventBus.emit(ScanEvent.Completed(correlationId, summary))
+        eventBus.emit(ScanEvent.Completed(correlationId, library.id, summary))
         logger.info { "scan complete [library=${library.id.value}]: ${formatScanCompleteLog(summary)}" }
         return result
     }
@@ -165,7 +165,7 @@ internal class Scanner(
     suspend fun runIncremental(bookRoot: Path) {
         val correlationId = correlationIdFactory()
         val started = clock()
-        eventBus.emit(ScanEvent.Started(correlationId, bookRoot.toString()))
+        eventBus.emit(ScanEvent.Started(correlationId, library.id, bookRoot.toString()))
 
         // Identify which folder owns this subtree to compute the relative path.
         val owningFolder =
@@ -209,7 +209,7 @@ internal class Scanner(
 
         val (previousAffected, previousUntouched) = partitionBooksUnder(bookRoot, folderRoot, lastResult?.books.orEmpty())
         val changes = Differ().diff(books.asFlow(), previousAffected).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, it)) }
+        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
         val patched = previousUntouched + books
         val durationMs = clock() - started
@@ -236,7 +236,7 @@ internal class Scanner(
                 scope = subtreeScope,
             )
         scanResultBus.emit(lastResult!!)
-        eventBus.emit(ScanEvent.Completed(correlationId, lastResult!!.toSummary()))
+        eventBus.emit(ScanEvent.Completed(correlationId, library.id, lastResult!!.toSummary()))
     }
 
     private fun partitionBooksUnder(
@@ -265,6 +265,7 @@ internal class Scanner(
         eventBus.emit(
             ScanEvent.Progress(
                 correlationId = correlationId,
+                libraryId = library.id,
                 phase = phase,
                 filesWalked = filesWalked,
                 booksAnalyzed = booksAnalyzed,
