@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
@@ -84,6 +85,7 @@ private fun newService(
         )
     val coordinator =
         ScanCoordinator(
+            libraryId = LibraryId("test-lib"),
             runFullScan = { scanner.runFullScan() },
             runIncremental = { scanner.runIncremental(it) },
             scope = scope.backgroundScope,

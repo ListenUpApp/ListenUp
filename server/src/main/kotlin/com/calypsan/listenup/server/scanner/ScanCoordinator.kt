@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.LibraryId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +17,12 @@ import java.util.concurrent.ConcurrentHashMap
 private val logger = KotlinLogging.logger {}
 
 /**
- * Single-flight coordinator for full scans and incremental re-analysis.
+ * Per-library single-flight coordinator for full scans and incremental re-analysis.
+ *
+ * Each [ScanCoordinator] instance owns exactly one library (identified by
+ * [libraryId]). The [ScanOrchestrator] manages one coordinator per library,
+ * allowing concurrent scans of different libraries while serialising concurrent
+ * scans of the same library.
  *
  * One [Mutex] serialises every scan operation — a full scan and an
  * incremental re-analysis cannot overlap, because both mutate the
@@ -46,6 +52,7 @@ private val logger = KotlinLogging.logger {}
  * swallows it.
  */
 internal class ScanCoordinator(
+    val libraryId: LibraryId,
     private val runFullScan: suspend () -> ScanResult,
     private val runIncremental: suspend (Path) -> Unit,
     scope: CoroutineScope,

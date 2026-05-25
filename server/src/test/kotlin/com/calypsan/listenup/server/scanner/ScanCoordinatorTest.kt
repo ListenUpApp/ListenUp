@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.LibraryId
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -30,6 +31,7 @@ class ScanCoordinatorTest :
                 val gate = CompletableDeferred<Unit>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = {
                             gate.await()
                             emptyResult()
@@ -56,6 +58,7 @@ class ScanCoordinatorTest :
                 val gate = CompletableDeferred<Unit>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = {
                             gate.await()
                             emptyResult()
@@ -86,6 +89,7 @@ class ScanCoordinatorTest :
                 val invocations = AtomicInteger(0)
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { invocations.incrementAndGet() },
                         scope = backgroundScope,
@@ -104,6 +108,7 @@ class ScanCoordinatorTest :
                 val invocations = AtomicInteger(0)
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { invocations.incrementAndGet() },
                         scope = backgroundScope,
@@ -128,6 +133,7 @@ class ScanCoordinatorTest :
                 val seen = mutableListOf<Path>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { p -> seen.add(p) },
                         scope = backgroundScope,
@@ -150,6 +156,7 @@ class ScanCoordinatorTest :
                 val seen = mutableListOf<Path>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { p ->
                             if (p == Path.of("/boom")) error("simulated failure")
@@ -173,6 +180,7 @@ class ScanCoordinatorTest :
                 val started = CompletableDeferred<Unit>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = {
                             started.complete(Unit)
                             try {
@@ -207,6 +215,7 @@ class ScanCoordinatorTest :
                 val incrementalGate = CompletableDeferred<Unit>()
                 val coordinator =
                     ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { incrementalGate.await() },
                         scope = backgroundScope,
