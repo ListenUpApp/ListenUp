@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
@@ -11,7 +12,6 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
 import io.ktor.client.request.post
-import io.ktor.client.statement.HttpResponse
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.transformWhile
@@ -45,11 +45,10 @@ class ScannerSseRouteTest :
                         },
                     )
 
-                // Wait for the bootstrap scan to finish so we have a stable
-                // mutex state — otherwise the manual scan we trigger below
-                // could race against bootstrap and return AlreadyRunning,
-                // generating no events for the SSE stream.
-                waitForBootstrap(fix)
+                // Wait until the library is registered with the orchestrator
+                // (bootstrap is async). Without this, the POST /scan below
+                // may return LibraryNotFound before the orchestrator is ready.
+                waitForLibraryReady(fix)
 
                 // Subscribe to the SSE stream, collect events as they arrive.
                 val collected = mutableListOf<ScanEvent>()
@@ -95,22 +94,40 @@ class ScannerSseRouteTest :
         }
     })
 
-private suspend fun waitForBootstrap(fix: ScannerEndToEndFixture) {
-    val deadline = System.currentTimeMillis() + 10_000
+/**
+ * Triggers a scan and waits for it to complete so the orchestrator is warm
+ * and no scan is in progress. This replaces the old `waitForBootstrap` which
+ * polled `GET /scan/last` waiting for an auto-scan that no longer happens
+ * (Task 18: no auto-scan on boot).
+ *
+ * On return: library is registered with the orchestrator, no scan in flight.
+ */
+private suspend fun waitForLibraryReady(
+    fix: ScannerEndToEndFixture,
+    timeoutMs: Long = 10_000,
+) {
+    val deadline = System.currentTimeMillis() + timeoutMs
+
+    // Step 1: POST /scan until the library is registered (Success = scan started).
     while (System.currentTimeMillis() < deadline) {
-        val response = fix.client.get("${fix.baseUrl}/api/v1/scan/last")
+        val body: AppResult<ScanResultSummary> =
+            contractJson.decodeFromString(
+                AppResult.serializer(ScanResultSummary.serializer()),
+                fix.client.post("${fix.baseUrl}/api/v1/scan").body<String>(),
+            )
+        if (body is AppResult.Success) break
+        delay(50)
+    }
+
+    // Step 2: Wait for that scan to complete (no scan in progress when SSE test fires).
+    while (System.currentTimeMillis() < deadline) {
         val body: AppResult<ScanResult> =
             contractJson.decodeFromString(
                 AppResult.serializer(ScanResult.serializer()),
-                response.body<String>(),
+                fix.client.get("${fix.baseUrl}/api/v1/scan/last").body<String>(),
             )
         if (body is AppResult.Success) return
         delay(50)
     }
-    error("bootstrap scan did not complete within 10s")
-}
-
-@Suppress("unused")
-private suspend fun HttpResponse.discard() {
-    body<String>()
+    error("library not ready within ${timeoutMs}ms")
 }

@@ -53,25 +53,10 @@ import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.dto.AccessMode
-import com.calypsan.listenup.api.dto.Library
-import com.calypsan.listenup.api.dto.LibraryFolderRef
-import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.LibraryFolderTable
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
-import com.calypsan.listenup.server.services.LibraryRegistry
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
@@ -96,7 +81,6 @@ import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -324,9 +308,13 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
 }
 
 /**
- * Starts all background scheduler tasks and, when a library path is configured,
- * kicks off the initial scan and folder watcher. Session cleanup runs
- * unconditionally; scanner-dependent tasks only start when the library is present.
+ * Starts all background scheduler tasks. Session cleanup runs unconditionally;
+ * scanner-dependent cleanup tasks and library bootstrap are gated on
+ * [libraryPath] because those Koin modules are only loaded when a library path
+ * is configured — injecting them without the module would throw [NoDefinitionFoundException].
+ *
+ * [bootstrapLibraries] is launched in the background — callers should not
+ * assume it has completed when this function returns.
  */
 private fun Application.startBackgroundTasks(
     scope: CoroutineScope,
@@ -336,13 +324,33 @@ private fun Application.startBackgroundTasks(
     inject<ExpiredSessionCleanupTask>().value.start(scope)
 
     if (libraryPath != null) {
-        bootstrapScannerOnStartup(scope, libraryPath)
+        val orchestrator by inject<ScanOrchestrator>()
+        val bookPersister by inject<BookPersister>()
+        val libraryAdminService by inject<LibraryAdminService>()
+
+        // BookPersister must be started before the first scan result can arrive so it
+        // is subscribed to the scanResultBus before any ScanResult is emitted.
+        bookPersister.start()
+
         val cleanupTask by inject<ActiveSessionCleanupTask>()
         cleanupTask.start(scope)
         val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
         metadataCacheCleanupTask.start(scope)
         val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
         orphanImageCleanupTask.start(scope)
+
+        scope.launch {
+            runCatching {
+                bootstrapLibraries(
+                    libraryAdminService = libraryAdminService,
+                    scanOrchestrator = orchestrator,
+                    libraryPath = libraryPath.toString(),
+                )
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                logger.error(e) { "library bootstrap failed — server keeps running" }
+            }
+        }
     } else {
         logger.warn {
             "scanner.libraryPath unset or invalid — server starts without scanning. " +
@@ -352,89 +360,73 @@ private fun Application.startBackgroundTasks(
 }
 
 /**
- * Kicks off the initial scan and starts the [FolderWatcher] and
- * [BookPersister]. Runs on the supplied [scope] so cancellation flows through
- * structured concurrency when the application shuts down.
+ * One-shot library bootstrap called at server startup and in [ApplicationBootstrapTest].
  *
- * The [BookPersister] collector is started *before* the initial full scan is
- * launched so the persister has subscribed to the `scanResultBus` by the time
- * the first [com.calypsan.listenup.api.dto.scanner.ScanResult] is emitted. The
- * bus replays its last value, so a late subscriber would still catch up — but
- * starting first avoids relying on replay timing.
+ * Rules (Task 18):
+ *  - If libraries already exist → register each with [scanOrchestrator] via
+ *    [ScanOrchestrator.onLibraryAdded] so the watcher and scanner bundle are
+ *    warmed up. No scan is triggered.
+ *  - If no libraries exist and [libraryPath] is non-null → create a single
+ *    default "My Library" pointing at that path. [LibraryAdminServiceImpl.createLibrary]
+ *    internally calls [ScanOrchestrator.onLibraryAdded], so we don't need to.
+ *    The `runCatching` guard handles the narrow race where a concurrent caller
+ *    (e.g. a test fixture seeding the DB) inserts the same root_path between
+ *    our `listLibraries` check and the `createLibrary` insert. On any error,
+ *    we re-read the table and call `onLibraryAdded` for whatever ended up there.
+ *  - If no libraries exist and [libraryPath] is null → log and return; the
+ *    operator must create a library via the LibraryAdmin REST surface.
  *
- * The initial scan failures don't bubble — we log and continue. The user
- * can re-trigger via the scanner RPC surface.
+ * **No auto-scan is ever triggered.** Scans are user-initiated (POST /scan) or
+ * file-watcher-triggered. This keeps startup fast and avoids racing against
+ * test fixtures that insert their own library rows.
  */
-private fun Application.bootstrapScannerOnStartup(
-    scope: CoroutineScope,
-    libraryPath: Path,
+internal suspend fun bootstrapLibraries(
+    libraryAdminService: LibraryAdminService,
+    scanOrchestrator: ScanOrchestrator,
+    libraryPath: String?,
 ) {
-    val orchestrator by inject<ScanOrchestrator>()
-    val bookPersister by inject<BookPersister>()
-    val libraryRegistry by inject<LibraryRegistry>()
-    val db by inject<Database>()
+    val existingResult = libraryAdminService.listLibraries()
+    if (existingResult is AppResult.Failure) {
+        logger.warn { "bootstrap: could not list libraries — ${existingResult.error.message}" }
+        return
+    }
+    val existing = (existingResult as AppResult.Success).data
 
-    bookPersister.start()
-
-    scope.launch {
-        runCatching {
-            val library = loadLibraryFromDb(libraryRegistry, db, libraryPath)
-            orchestrator.onLibraryAdded(library)
-            orchestrator
-                .scanLibrary(library.id)
-                .also { result ->
-                    if (result is AppResult.Failure) {
-                        logger.warn { "initial scan returned failure: ${result.error}" }
+    when {
+        existing.isNotEmpty() -> {
+            logger.info { "bootstrap: ${existing.size} library(s) already configured; env var ignored" }
+            existing.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
+        }
+        libraryPath != null -> {
+            logger.info { "bootstrap: no libraries configured; creating default from env var path=$libraryPath" }
+            val created =
+                runCatching {
+                    libraryAdminService.createLibrary(
+                        CreateLibraryRequest(name = "My Library", folderPaths = listOf(libraryPath)),
+                    )
+                }.onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e }
+                    .getOrNull()
+            when {
+                created is AppResult.Success ->
+                    logger.info { "bootstrap: default library created id=${created.data.id.value}" }
+                else -> {
+                    // Either createLibrary returned Failure or threw — re-check the DB.
+                    // A concurrent insert (test fixture race) may have already added a library.
+                    if (created is AppResult.Failure) {
+                        logger.warn { "bootstrap: createLibrary returned ${created.error.code} — re-checking" }
+                    } else {
+                        logger.warn { "bootstrap: createLibrary threw — re-checking for concurrent inserts" }
+                    }
+                    val recheck = libraryAdminService.listLibraries()
+                    if (recheck is AppResult.Success && recheck.data.isNotEmpty()) {
+                        logger.info { "bootstrap: found ${recheck.data.size} library(s) after re-check; registering with orchestrator" }
+                        recheck.data.forEach { library -> scanOrchestrator.onLibraryAdded(library) }
                     }
                 }
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.error(e) { "initial scan failed — server keeps running" }
+            }
         }
-    }
-}
-
-/**
- * Builds a [Library] DTO from the `libraries` and `library_folders` tables
- * for the single library managed by this process.
- *
- * [LibraryRegistry.currentLibrary] bootstraps the library row and its
- * folder row atomically on first call; by the time this function reads the
- * tables the rows are guaranteed to exist. This shim is removed in Task 18
- * when full multi-library admin wires bootstrap from `LibraryAdminServiceImpl`.
- */
-private suspend fun loadLibraryFromDb(
-    libraryRegistry: LibraryRegistry,
-    db: Database,
-    @Suppress("UNUSED_PARAMETER") libraryPath: Path,
-): Library {
-    val libraryId = libraryRegistry.currentLibrary()
-    return suspendTransaction(db) {
-        val libraryRow =
-            LibraryTable
-                .selectAll()
-                .where { LibraryTable.id eq libraryId.value }
-                .first()
-        val folders =
-            LibraryFolderTable
-                .selectAll()
-                .where { LibraryFolderTable.libraryId eq libraryId.value and LibraryFolderTable.deletedAt.isNull() }
-                .map { row ->
-                    LibraryFolderRef(
-                        id = FolderId(row[LibraryFolderTable.id]),
-                        rootPath = row[LibraryFolderTable.rootPath],
-                    )
-                }
-        Library(
-            id = libraryId,
-            name = libraryRow[LibraryTable.name],
-            folders = folders,
-            metadataPrecedence = libraryRow[LibraryTable.metadataPrecedence],
-            accessMode =
-                runCatching { AccessMode.valueOf(libraryRow[LibraryTable.accessMode].uppercase()) }
-                    .getOrDefault(AccessMode.SHARED),
-            createdByUserId = libraryRow[LibraryTable.createdByUserId]?.let { UserId(it) },
-            createdAt = libraryRow[LibraryTable.createdAt],
-        )
+        else -> {
+            logger.info { "bootstrap: no libraries and no env var; awaiting client onboarding via LibraryAdminService.createLibrary" }
+        }
     }
 }

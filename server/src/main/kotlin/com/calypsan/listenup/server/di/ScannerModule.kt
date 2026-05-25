@@ -22,6 +22,8 @@ import com.calypsan.listenup.server.scanner.watcher.WatcherHandle
 import com.calypsan.listenup.server.scanner.watcher.WatcherSupervisor
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.services.LibraryRegistry
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -33,6 +35,8 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.nio.file.Path
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Koin module for the scanner slice. Wires:
@@ -102,7 +106,15 @@ fun scannerModule(
                     )
                 val job: Job =
                     scope.launch {
-                        watcher.start()
+                        try {
+                            watcher.start()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            val msg = "FolderWatcher failed to start for ${folder.rootPath}: ${e.message} — watcher disabled for this folder"
+                            logger.warn(msg)
+                            return@launch
+                        }
                         watcher.events.collect { path -> onEvent(path) }
                     }
                 object : WatcherHandle {
