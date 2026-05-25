@@ -3,27 +3,32 @@ package com.calypsan.listenup.client.domain.model
 /**
  * Domain model representing a library.
  *
- * A library is a collection of audiobooks managed by a server.
- * Access to books is controlled by the access mode setting.
+ * A library is a named, operator-configured collection of zero-or-more
+ * [LibraryFolder] roots. Libraries are server-wide (cross-user) in the
+ * current single-user model.
  *
- * @property id Unique library identifier
- * @property name Display name of the library
- * @property ownerId ID of the library owner
- * @property scanPaths File system paths included in this library
- * @property skipInbox Whether new books skip inbox review
- * @property accessMode Controls default book visibility
- * @property createdAt Creation timestamp as ISO string
- * @property updatedAt Last update timestamp as ISO string
+ * `metadataPrecedence` governs which metadata source wins when multiple
+ * sources exist for the same field (e.g. `"embedded,abs,sidecar"`).
+ *
+ * `createdByUserId` is forward-staged for the multi-user phase; it is
+ * present today but not enforced client-side.
+ *
+ * @property id Unique library identifier.
+ * @property name Display name of the library.
+ * @property metadataPrecedence Comma-separated source list for metadata resolution.
+ * @property accessMode Controls default book visibility.
+ * @property createdByUserId User ID of the library creator, null until multi-user enforcement.
+ * @property createdAt Creation timestamp as Unix epoch milliseconds.
+ * @property revision Monotonic server revision, advanced on every committed change.
  */
 data class Library(
     val id: String,
     val name: String,
-    val ownerId: String,
-    val scanPaths: List<String>,
-    val skipInbox: Boolean,
+    val metadataPrecedence: String,
     val accessMode: AccessMode,
-    val createdAt: String,
-    val updatedAt: String,
+    val createdByUserId: String?,
+    val createdAt: Long,
+    val revision: Long,
 )
 
 /**

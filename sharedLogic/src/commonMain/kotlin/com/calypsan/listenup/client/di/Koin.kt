@@ -1126,6 +1126,14 @@ val syncModule =
             com.calypsan.listenup.client.data.repository
                 .PendingOperationRepositoryImpl()
         }
+
+        // LibraryRepository — observation-only Room-backed view of the libraries domain
+        single<com.calypsan.listenup.client.domain.repository.LibraryRepository> {
+            com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl(
+                libraryDao = get<com.calypsan.listenup.client.data.local.db.ListenUpDatabase>().libraryDao(),
+                libraryFolderDao = get<com.calypsan.listenup.client.data.local.db.ListenUpDatabase>().libraryFolderDao(),
+            )
+        }
     }
 
 /**
