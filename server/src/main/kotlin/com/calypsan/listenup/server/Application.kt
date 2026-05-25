@@ -2,6 +2,7 @@ package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
@@ -15,6 +16,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
@@ -39,6 +41,7 @@ import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.libraryAdminRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.metadataRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
@@ -124,6 +127,7 @@ fun Application.module() {
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
             modules += metadataModule(kotlinx.io.files.Path(resolvedLibraryPath.toString()))
             modules += playbackModule()
+            modules += libraryModule()
         }
         modules += embeddedmetaModule
         modules += syncModule()
@@ -179,6 +183,8 @@ fun Application.module() {
     val metadataLookupService: MetadataLookupService? =
         resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
     val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
+    val libraryAdminService: LibraryAdminService? =
+        resolvedLibraryPath?.let { inject<LibraryAdminService>().value }
 
     routing {
         healthRoutes()
@@ -194,9 +200,11 @@ fun Application.module() {
             playbackService,
             metadataLookupService,
             searchService,
+            libraryAdminService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
+            if (libraryAdminService != null) libraryAdminRoutes(libraryAdminService)
             if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
             if (contributorService != null) contributorRoutes(contributorService)
             if (seriesService != null) seriesRoutes(seriesService)
@@ -372,7 +380,8 @@ private fun Application.bootstrapScannerOnStartup(
         runCatching {
             val library = loadLibraryFromDb(libraryRegistry, db, libraryPath)
             orchestrator.onLibraryAdded(library)
-            orchestrator.scanLibrary(library.id)
+            orchestrator
+                .scanLibrary(library.id)
                 .also { result ->
                     if (result is AppResult.Failure) {
                         logger.warn { "initial scan returned failure: ${result.error}" }
