@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.home
 
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -60,7 +61,7 @@ class HomeViewModelTest {
         val shelfRepository: ShelfRepository = mock()
         val syncRepository: SyncRepository = mock()
         val userFlow = MutableStateFlow<User?>(null)
-        val continueListeningFlow = MutableStateFlow<List<ContinueListeningBook>>(emptyList())
+        val continueListeningFlow = MutableStateFlow<List<ContinueListeningItem>>(emptyList())
         val scanProgressFlow =
             MutableStateFlow<com.calypsan.listenup.client.domain.model.ScanProgressState?>(null)
         val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
@@ -133,6 +134,26 @@ class HomeViewModelTest {
             lastPlayedAt = "2024-01-01T00:00:00Z",
         )
 
+    private fun createReadyItem(
+        bookId: String = "book-1",
+        title: String = "Test Book",
+        authorNames: String = "Test Author",
+        progress: Float = 0.5f,
+        currentPositionMs: Long = 1_800_000L,
+        totalDurationMs: Long = 3_600_000L,
+    ): ContinueListeningItem.Ready =
+        ContinueListeningItem.Ready(
+            bookId = bookId,
+            book = createContinueListeningBook(
+                bookId = bookId,
+                title = title,
+                authorNames = authorNames,
+                progress = progress,
+                currentPositionMs = currentPositionMs,
+                totalDurationMs = totalDurationMs,
+            ),
+        )
+
     @BeforeTest
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -172,19 +193,19 @@ class HomeViewModelTest {
             assertTrue(initial.continueListening.isEmpty())
 
             // When - flow emits new data
-            val books =
+            val items =
                 listOf(
-                    createContinueListeningBook(bookId = "book-1", title = "Book 1"),
-                    createContinueListeningBook(bookId = "book-2", title = "Book 2"),
+                    createReadyItem(bookId = "book-1", title = "Book 1"),
+                    createReadyItem(bookId = "book-2", title = "Book 2"),
                 )
-            fixture.continueListeningFlow.value = books
+            fixture.continueListeningFlow.value = items
             advanceUntilIdle()
 
             // Then - state should update reactively
             val ready = assertIs<HomeUiState.Ready>(viewModel.state.value)
             assertFalse(ready.isLoading)
             assertEquals(2, ready.continueListening.size)
-            assertEquals("Book 1", ready.continueListening[0].title)
+            assertEquals("Book 1", (ready.continueListening[0] as ContinueListeningItem.Ready).book.title)
         }
 
     @Test
@@ -194,7 +215,7 @@ class HomeViewModelTest {
             val fixture = createFixture()
             fixture.continueListeningFlow.value =
                 listOf(
-                    createContinueListeningBook(bookId = "book-1", title = "Original Book"),
+                    createReadyItem(bookId = "book-1", title = "Original Book"),
                 )
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
@@ -206,15 +227,15 @@ class HomeViewModelTest {
             // When - new book is played (Flow emits updated list)
             fixture.continueListeningFlow.value =
                 listOf(
-                    createContinueListeningBook(bookId = "book-new", title = "New Book"),
-                    createContinueListeningBook(bookId = "book-1", title = "Original Book"),
+                    createReadyItem(bookId = "book-new", title = "New Book"),
+                    createReadyItem(bookId = "book-1", title = "Original Book"),
                 )
             advanceUntilIdle()
 
             // Then - UI updates immediately without manual refresh
             val ready = assertIs<HomeUiState.Ready>(viewModel.state.value)
             assertEquals(2, ready.continueListening.size)
-            assertEquals("New Book", ready.continueListening[0].title)
+            assertEquals("New Book", (ready.continueListening[0] as ContinueListeningItem.Ready).book.title)
         }
 
     // ========== User Observation Tests ==========
@@ -351,7 +372,7 @@ class HomeViewModelTest {
         runTest {
             // Given
             val fixture = createFixture()
-            fixture.continueListeningFlow.value = listOf(createContinueListeningBook())
+            fixture.continueListeningFlow.value = listOf(createReadyItem())
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 

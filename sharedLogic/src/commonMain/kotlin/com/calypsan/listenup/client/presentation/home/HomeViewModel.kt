@@ -6,7 +6,7 @@ import com.calypsan.listenup.core.currentHourOfDay
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ScanProgressState
-import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -54,7 +54,7 @@ sealed interface HomeUiState {
     data class Ready(
         val userName: String,
         val timeGreeting: String,
-        val continueListening: List<ContinueListeningBook>,
+        val continueListening: List<ContinueListeningItem>,
         val myShelves: List<Shelf>,
         val isSyncing: Boolean,
         val scanProgress: ScanProgressState?,
@@ -106,7 +106,7 @@ class HomeViewModel(
             shelfRepository.observeMyShelves(userId)
         }
 
-    private val continueListeningFlow: Flow<List<ContinueListeningBook>> =
+    private val continueListeningFlow: Flow<List<ContinueListeningItem>> =
         homeRepository
             .observeContinueListening(CONTINUE_LISTENING_LIMIT)
             .catch { e ->
