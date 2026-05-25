@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.scanner
 
+import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.EmbeddedScanCounters
@@ -31,21 +32,21 @@ import java.util.UUID
 private val logger = KotlinLogging.logger {}
 
 /**
- * Top-level scanner orchestrator. Wires the four pipeline stages
- * (Walker → Grouper → Analyzer → Differ) and tracks the most recent scan
- * result in memory for cross-scan diffing.
+ * Top-level scanner orchestrator for a single [Library]. Wires the four
+ * pipeline stages (Walker → Grouper → Analyzer → Differ) and tracks the
+ * most recent scan result in memory for cross-scan diffing.
  *
  * The Scanner exposes two work methods:
  *
- *  - [runFullScan] — walks the entire library, analyzes every book,
- *    diffs against the previous full scan's snapshot, and updates
- *    [lastResult]. Emits `Started → Progress* → Change* → Completed`
- *    events on the [eventBus].
- *  - [runIncremental] — walks just one book-root subtree, analyzes only
- *    those books, diffs against the matching subset of the previous
- *    snapshot, and patches the affected entries in [lastResult] in place.
- *    Lets the watcher trigger fast per-book updates without paying for a
- *    full library walk.
+ *  - [runFullScan] — walks every folder registered under [library],
+ *    aggregates the results, diffs against the previous full scan's
+ *    snapshot, and updates [lastResult]. Emits
+ *    `Started → Progress* → Change* → Completed` events on the [eventBus].
+ *  - [runIncremental] — walks just one book-root subtree (belonging to one
+ *    of the library's folders), analyzes only those books, diffs against the
+ *    matching subset of the previous snapshot, and patches [lastResult] in
+ *    place. Lets the watcher trigger fast per-book updates without paying for
+ *    a full library walk.
  *
  * **Concurrency.** Both work methods assume they're called serially — the
  * single-flight guarantee comes from [ScanCoordinator]. The Scanner does
@@ -56,7 +57,7 @@ private val logger = KotlinLogging.logger {}
  * threads; written only from inside the coordinator's mutex.
  */
 internal class Scanner(
-    private val rootPath: Path,
+    private val library: Library,
     private val metadataReader: AbsMetadataReader,
     private val embeddedMetadataParser: EmbeddedMetadataParser,
     private val eventBus: MutableSharedFlow<ScanEvent>,
@@ -66,41 +67,86 @@ internal class Scanner(
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
-) {
+) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
 
-    fun lastResult(): ScanResult? = lastResult
+    override fun lastResult(): ScanResult? = lastResult
 
     suspend fun runFullScan(): ScanResult {
         val correlationId = correlationIdFactory()
         val started = clock()
-        eventBus.emit(ScanEvent.Started(correlationId, rootPath.toString()))
+        // Use the first folder path as the canonical rootPath for the ScanResult
+        // and event label; all folders are walked but share a single correlation id.
+        val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
+        eventBus.emit(ScanEvent.Started(correlationId, library.id, primaryRootPath))
 
-        val (books, errors, filesWalked) = analyzeSubtree(bookRoot = rootPath, correlationId = correlationId)
+        // Walk each folder, rebase its files onto its folder-relative prefix,
+        // then aggregate into a single flat list for the pipeline.
+        val allFiles =
+            library.folders.flatMap { folder ->
+                val folderRoot = Path.of(folder.rootPath)
+                val walker = Walker()
+                walker
+                    .walk(folderRoot)
+                    .toList()
+            }
 
-        emitProgress(correlationId, ScanPhase.DIFFING, filesWalked, books.size, errors.size)
+        emitProgress(correlationId, ScanPhase.WALKING, allFiles.size, 0, 0)
+
+        val grouper = Grouper()
+        emitProgress(correlationId, ScanPhase.GROUPING, allFiles.size, 0, 0)
+        val candidates = grouper.group(allFiles.asFlow()).toList()
+
+        emitProgress(correlationId, ScanPhase.ANALYZING, allFiles.size, 0, 0)
+        val books = mutableListOf<AnalyzedBook>()
+        val errors = mutableListOf<ScanError>()
+        // Analyzer uses the first folder root as the libraryRoot anchor for
+        // computing rootRelPath and resolving error paths. When the library has
+        // multiple folders, each folder's books will be at absolute paths inside
+        // those roots — the Grouper preserves absolute relPath for multi-folder
+        // libraries. Using the first folder root is consistent with what the
+        // watcher supplies to runIncremental.
+        val primaryRoot =
+            library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
+                ?: Path.of(library.id.value)
+        val analyzer =
+            Analyzer(
+                primaryRoot,
+                metadataReader,
+                embeddedMetadataParser,
+                parseSubtitle,
+                sidecarParsers,
+                metadataPrecedence,
+            )
+        analyzer.analyze(candidates.asFlow()).toList().forEach { result ->
+            result
+                .onSuccess { books += it }
+                .onFailure { errors += toScanError(it, primaryRoot) }
+        }
+
+        emitProgress(correlationId, ScanPhase.DIFFING, allFiles.size, books.size, errors.size)
         val previous = lastResult?.books.orEmpty()
         val changes = Differ().diff(books.asFlow(), previous).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, it)) }
+        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
         val result =
             ScanResult(
                 correlationId = correlationId,
-                rootPath = rootPath.toString(),
+                rootPath = primaryRootPath,
                 books = books,
                 changes = changes,
                 errors = errors,
                 durationMs = clock() - started,
-                filesWalked = filesWalked,
+                filesWalked = allFiles.size,
                 filesSkipped = 0,
                 scope = ScanScope.Full,
             )
         lastResult = result
         scanResultBus.emit(result)
         val summary = result.toSummary()
-        eventBus.emit(ScanEvent.Completed(correlationId, summary))
-        logger.info { "scan complete: ${formatScanCompleteLog(summary)}" }
+        eventBus.emit(ScanEvent.Completed(correlationId, library.id, summary))
+        logger.info { "scan complete [library=${library.id.value}]: ${formatScanCompleteLog(summary)}" }
         return result
     }
 
@@ -111,101 +157,105 @@ internal class Scanner(
      * emissions are correctly scoped — a previously-analyzed book that
      * disappeared during the incremental shows up as `Removed`.
      *
+     * Identifies which library folder owns [bookRoot] to compute the
+     * relative path prefix. Falls back to the first folder when none match.
+     *
      * If the bookRoot directory no longer exists, all previously-known
      * books at or under that path are emitted as Removed.
      */
     suspend fun runIncremental(bookRoot: Path) {
         val correlationId = correlationIdFactory()
         val started = clock()
-        eventBus.emit(ScanEvent.Started(correlationId, bookRoot.toString()))
+        eventBus.emit(ScanEvent.Started(correlationId, library.id, bookRoot.toString()))
 
-        val (books, errors, filesWalked) = analyzeSubtree(bookRoot = bookRoot, correlationId = correlationId)
+        // Identify which folder owns this subtree to compute the relative path.
+        val owningFolder =
+            library.folders.firstOrNull { folder ->
+                bookRoot.startsWith(Path.of(folder.rootPath))
+            }
+        val folderRoot =
+            owningFolder?.let { Path.of(it.rootPath) }
+                ?: library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
+                ?: bookRoot
 
-        val (previousAffected, previousUntouched) = partitionBooksUnder(bookRoot, lastResult?.books.orEmpty())
-        val changes = Differ().diff(books.asFlow(), previousAffected).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, it)) }
-
-        val patched = previousUntouched + books
-        val durationMs = clock() - started
-        // Subtree path relative to the library root — mirrors the prefix
-        // computation in analyzeSubtree so the persister can scope its diff.
-        val rootRelPath = rootPath.relativize(bookRoot).toString().replace('\\', '/')
-        val subtreeScope = ScanScope.Subtree(rootRelPath)
-        lastResult =
-            lastResult?.copy(
-                books = patched,
-                changes = changes,
-                errors = errors,
-                durationMs = durationMs,
-                filesWalked = filesWalked,
-                scope = subtreeScope,
-            ) ?: ScanResult(
-                correlationId = correlationId,
-                rootPath = rootPath.toString(),
-                books = patched,
-                changes = changes,
-                errors = errors,
-                durationMs = durationMs,
-                filesWalked = filesWalked,
-                filesSkipped = 0,
-                scope = subtreeScope,
-            )
-        scanResultBus.emit(lastResult!!)
-        eventBus.emit(ScanEvent.Completed(correlationId, lastResult!!.toSummary()))
-    }
-
-    private suspend fun analyzeSubtree(
-        bookRoot: Path,
-        correlationId: String,
-    ): SubtreeAnalysis {
-        val prefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
         val walker = Walker()
+        val rawFiles = walker.walk(bookRoot).toList()
+        val prefix = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
+        val rebasedFiles =
+            rawFiles.map { entry ->
+                if (prefix.isEmpty()) entry else entry.copy(relPath = "$prefix/${entry.relPath}")
+            }
+
+        emitProgress(correlationId, ScanPhase.WALKING, rebasedFiles.size, 0, 0)
         val grouper = Grouper()
+        emitProgress(correlationId, ScanPhase.GROUPING, rebasedFiles.size, 0, 0)
+        val candidates = grouper.group(rebasedFiles.asFlow()).toList()
+
+        emitProgress(correlationId, ScanPhase.ANALYZING, rebasedFiles.size, 0, 0)
         val analyzer =
             Analyzer(
-                rootPath,
+                folderRoot,
                 metadataReader,
                 embeddedMetadataParser,
                 parseSubtitle,
                 sidecarParsers,
                 metadataPrecedence,
             )
-
-        emitProgress(correlationId, ScanPhase.WALKING, 0, 0, 0)
-        val rebasedFiles =
-            walker
-                .walk(bookRoot)
-                .map { entry ->
-                    if (prefix.isEmpty()) {
-                        entry
-                    } else {
-                        entry.copy(relPath = "$prefix/${entry.relPath}")
-                    }
-                }.toList()
-
-        emitProgress(correlationId, ScanPhase.GROUPING, rebasedFiles.size, 0, 0)
-        val candidates = grouper.group(rebasedFiles.asFlow()).toList()
-
-        emitProgress(correlationId, ScanPhase.ANALYZING, rebasedFiles.size, 0, 0)
         val books = mutableListOf<AnalyzedBook>()
         val errors = mutableListOf<ScanError>()
         analyzer.analyze(candidates.asFlow()).toList().forEach { result ->
             result
                 .onSuccess { books += it }
-                .onFailure { errors += toScanError(it) }
+                .onFailure { errors += toScanError(it, folderRoot) }
         }
-        return SubtreeAnalysis(books = books, errors = errors, filesWalked = rebasedFiles.size)
+
+        val (previousAffected, previousUntouched) =
+            partitionBooksUnder(
+                bookRoot,
+                folderRoot,
+                lastResult?.books.orEmpty(),
+            )
+        val changes = Differ().diff(books.asFlow(), previousAffected).toList()
+        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
+
+        val patched = previousUntouched + books
+        val durationMs = clock() - started
+        val rootRelPath = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
+        val subtreeScope = ScanScope.Subtree(rootRelPath)
+        val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
+        lastResult =
+            lastResult?.copy(
+                books = patched,
+                changes = changes,
+                errors = errors,
+                durationMs = durationMs,
+                filesWalked = rebasedFiles.size,
+                scope = subtreeScope,
+            ) ?: ScanResult(
+                correlationId = correlationId,
+                rootPath = primaryRootPath,
+                books = patched,
+                changes = changes,
+                errors = errors,
+                durationMs = durationMs,
+                filesWalked = rebasedFiles.size,
+                filesSkipped = 0,
+                scope = subtreeScope,
+            )
+        scanResultBus.emit(lastResult!!)
+        eventBus.emit(ScanEvent.Completed(correlationId, library.id, lastResult!!.toSummary()))
     }
 
     private fun partitionBooksUnder(
         bookRoot: Path,
+        folderRoot: Path,
         books: List<AnalyzedBook>,
     ): Pair<List<AnalyzedBook>, List<AnalyzedBook>> {
-        val rootPrefix = rootPath.relativize(bookRoot).toString().replace('\\', '/')
+        val rootPrefix = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
         return books.partition { book ->
             val rel = book.candidate.rootRelPath
             if (rootPrefix.isEmpty()) {
-                true // bookRoot is the library root → all books are affected (a full reanalysis was triggered)
+                true // bookRoot is the folder root → all books in this folder are affected
             } else {
                 rel == rootPrefix || rel.startsWith("$rootPrefix/")
             }
@@ -222,6 +272,7 @@ internal class Scanner(
         eventBus.emit(
             ScanEvent.Progress(
                 correlationId = correlationId,
+                libraryId = library.id,
                 phase = phase,
                 filesWalked = filesWalked,
                 booksAnalyzed = booksAnalyzed,
@@ -234,25 +285,22 @@ internal class Scanner(
      * Maps a per-book analysis failure to a [ScanError.FileUnreadable]. When the
      * throwable is a [BookAnalysisFailure] it carries the candidate's
      * `rootRelPath`, so the error names the *failing book's* directory rather
-     * than the library root — the operator can navigate straight to it.
+     * than the folder root — the operator can navigate straight to it.
      */
-    private fun toScanError(t: Throwable): ScanError {
+    private fun toScanError(
+        t: Throwable,
+        folderRoot: Path,
+    ): ScanError {
         val path =
             (t as? BookAnalysisFailure)
-                ?.let { rootPath.resolve(it.rootRelPath).toString() }
-                ?: rootPath.toString()
+                ?.let { folderRoot.resolve(it.rootRelPath).toString() }
+                ?: folderRoot.toString()
         return ScanError.FileUnreadable(
             path = path,
             debugInfo = t.message ?: "unknown error",
         )
     }
 }
-
-private data class SubtreeAnalysis(
-    val books: List<AnalyzedBook>,
-    val errors: List<ScanError>,
-    val filesWalked: Int,
-)
 
 internal fun ScanResult.toSummary(): ScanResultSummary =
     ScanResultSummary(

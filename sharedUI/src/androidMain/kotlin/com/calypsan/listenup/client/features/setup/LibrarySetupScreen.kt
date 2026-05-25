@@ -22,11 +22,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,21 +53,34 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.api.dto.DirectoryEntry
+import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.client.composeapp.R
-import com.calypsan.listenup.client.design.theme.LocalDarkTheme
-import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.theme.LocalDarkTheme
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Library setup screen for initial library configuration.
+ * Library setup wizard screen for initial library configuration.
  *
- * Allows users to browse the server filesystem and select a folder
- * for their audiobook library. Shows a folder browser with navigation
- * and a bottom bar for confirming the selection.
+ * Supports a multi-library onboarding loop:
+ * - Browse the server filesystem and select one or more folders
+ * - Create a library with the selected folders
+ * - Loop back to add another library (or tap "Done" to finish)
+ *
+ * Navigation is driven by [LibrarySetupViewModel.navActions]:
+ * - [LibrarySetupNavAction.LibraryCreated] — wizard loops; shows created-libraries list
+ *   at the top with a "Done" button + "+ Add another library" affordance.
+ * - [LibrarySetupNavAction.Finished] — navigates away via [onSetupComplete].
+ *
+ * The `skipInbox` toggle is intentionally hidden: the field is preserved on the wire
+ * ([com.calypsan.listenup.api.dto.CreateLibraryRequest.skipInbox]) but has no active
+ * server-side behaviour in the Kotlin server. It can be re-surfaced when inbox semantics
+ * are implemented.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,10 +92,19 @@ fun LibrarySetupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle setup completion
-    LaunchedEffect(state.setupComplete) {
-        if (state.setupComplete) {
-            onSetupComplete()
+    // Collect one-shot nav actions from the ViewModel.
+    LaunchedEffect(Unit) {
+        viewModel.navActions.collect { action ->
+            when (action) {
+                is LibrarySetupNavAction.LibraryCreated -> {
+                    // VM already resets selection and resets libraryName.
+                    // UiState.createdLibraries gains the new library automatically.
+                }
+
+                LibrarySetupNavAction.Finished -> {
+                    onSetupComplete()
+                }
+            }
         }
     }
 
@@ -98,7 +122,7 @@ fun LibrarySetupScreen(
             TopAppBar(
                 title = { Text("Library Setup") },
                 navigationIcon = {
-                    if (!state.isRoot) {
+                    if (!state.isRoot && state.createdLibraries.isEmpty()) {
                         IconButton(onClick = { viewModel.navigateUp() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -122,9 +146,19 @@ fun LibrarySetupScreen(
                     FullScreenLoadingIndicator()
                 }
 
-                !state.needsSetup -> {
-                    // Library already set up, wait for navigation
+                !state.needsSetup && state.createdLibraries.isEmpty() -> {
+                    // Library already set up server-side, wait for navigation
                     FullScreenLoadingIndicator()
+                }
+
+                state.createdLibraries.isNotEmpty() && state.selectedPaths.isEmpty() -> {
+                    // After creating one or more libraries, show the "Done or add another" view
+                    CreatedLibrariesSummary(
+                        createdLibraries = state.createdLibraries,
+                        onAddAnother = { viewModel.loadDirectory("/") },
+                        onFinish = { viewModel.finishOnboarding() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
 
                 else -> {
@@ -151,10 +185,113 @@ fun LibrarySetupScreen(
                 SelectionBottomBar(
                     selectedCount = state.selectedPaths.size,
                     isCreating = state.isCreatingLibrary,
+                    hasExistingLibraries = state.createdLibraries.isNotEmpty(),
                     onCreateLibrary = viewModel::createLibrary,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Summary screen shown after one or more libraries have been created.
+ *
+ * Lists all created libraries and offers two choices:
+ * - "Done" — finishes onboarding and navigates away.
+ * - "+ Add another library" — loops back to the folder picker.
+ */
+@Composable
+private fun CreatedLibrariesSummary(
+    createdLibraries: List<Library>,
+    onAddAnother: () -> Unit,
+    onFinish: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text =
+                if (createdLibraries.size ==
+                    1
+                ) {
+                    "Library created!"
+                } else {
+                    "${createdLibraries.size} libraries created!"
+                },
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "Your audiobooks will be scanned and available shortly.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // List of created libraries
+        createdLibraries.forEach { library ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Column {
+                    Text(
+                        text = library.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    val folderCount = library.folders.size
+                    if (folderCount > 0) {
+                        Text(
+                            text = if (folderCount == 1) "1 folder" else "$folderCount folders",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        ListenUpButton(
+            text = "Done",
+            onClick = onFinish,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onAddAnother)
+                    .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Add another library",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }
@@ -169,14 +306,26 @@ private fun LibrarySetupContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        // Welcome header (only at root with nothing selected)
-        if (state.isRoot && state.selectedPaths.isEmpty()) {
+        // Welcome header (only at root with nothing selected and no libraries yet)
+        if (state.isRoot && state.selectedPaths.isEmpty() && state.createdLibraries.isEmpty()) {
             WelcomeHeader(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 24.dp),
             )
+        }
+
+        // Previously created libraries (shown when looping for more)
+        if (state.createdLibraries.isNotEmpty()) {
+            CreatedLibrariesHeader(
+                createdLibraries = state.createdLibraries,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
 
         // Path breadcrumb
@@ -226,6 +375,49 @@ private fun LibrarySetupContent(
                 item {
                     Spacer(modifier = Modifier.height(100.dp))
                 }
+            }
+        }
+    }
+}
+
+/** Compact summary of previously created libraries, shown while looping for more. */
+@Composable
+private fun CreatedLibrariesHeader(
+    createdLibraries: List<Library>,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text =
+                if (createdLibraries.size ==
+                    1
+                ) {
+                    "1 library created"
+                } else {
+                    "${createdLibraries.size} libraries created"
+                },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        createdLibraries.forEach { library ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = library.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -292,7 +484,7 @@ private fun PathBreadcrumb(
 
 @Composable
 private fun DirectoryListItem(
-    directory: DirectoryEntryResponse,
+    directory: DirectoryEntry,
     isSelected: Boolean,
     onNavigate: () -> Unit,
     onSelect: () -> Unit,
@@ -352,13 +544,15 @@ private fun DirectoryListItem(
                             },
                     )
                 }
-                // Chevron to navigate into folder
-                IconButton(onClick = onNavigate) {
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = "Open folder",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                // Chevron to navigate into folder (only when directory has children)
+                if (directory.hasChildren) {
+                    IconButton(onClick = onNavigate) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = "Open folder",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         },
@@ -410,6 +604,7 @@ private fun EmptyDirectoryMessage(
 private fun SelectionBottomBar(
     selectedCount: Int,
     isCreating: Boolean,
+    hasExistingLibraries: Boolean,
     onCreateLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -446,7 +641,7 @@ private fun SelectionBottomBar(
 
             // Create library button
             ListenUpButton(
-                text = "Create Library",
+                text = if (hasExistingLibraries) "Create Another Library" else "Create Library",
                 onClick = onCreateLibrary,
                 isLoading = isCreating,
                 modifier = Modifier.fillMaxWidth(),

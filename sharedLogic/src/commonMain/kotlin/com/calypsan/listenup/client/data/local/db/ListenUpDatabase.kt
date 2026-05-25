@@ -5,13 +5,17 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
+import com.calypsan.listenup.client.data.local.db.dao.LibraryFolderDao
+import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
+import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
 
 /**
  * Room database for ListenUp client.
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v20. Migrations live in the `data/local/migrations/` package
+ * Schema is at v21. Migrations live in the `data/local/migrations/` package
  * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
@@ -22,6 +26,8 @@ import androidx.room.TypeConverters
     entities = [
         UserEntity::class,
         UserProfileEntity::class,
+        LibraryEntity::class,
+        LibraryFolderEntity::class,
         BookEntity::class,
         ChapterEntity::class,
         SeriesEntity::class,
@@ -49,7 +55,7 @@ import androidx.room.TypeConverters
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @TypeConverters(
@@ -64,6 +70,10 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
 
     abstract fun userProfileDao(): UserProfileDao
+
+    abstract fun libraryDao(): LibraryDao
+
+    abstract fun libraryFolderDao(): LibraryFolderDao
 
     abstract fun bookDao(): BookDao
 

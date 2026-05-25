@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -35,8 +36,8 @@ class BookRepositoryResolveTest :
                 runTest {
                     val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val firstId = repo.resolveOrInsert(libId, analyzed).resolved()
-                    val secondId = repo.resolveOrInsert(libId, analyzed).resolved()
+                    val firstId = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed).resolved()
+                    val secondId = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed).resolved()
                     secondId shouldBe firstId
                 }
             }
@@ -49,13 +50,13 @@ class BookRepositoryResolveTest :
                 runTest {
                     val libId = registry.currentLibrary()
                     val original = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
-                    val originalId = repo.resolveOrInsert(libId, original).resolved()
+                    val originalId = repo.resolveOrInsert(libId, TEST_FOLDER_ID, original).resolved()
 
                     val moved =
                         original.copy(
                             candidate = original.candidate.copy(rootRelPath = "Sanderson/WayOfKings"),
                         )
-                    val movedId = repo.resolveOrInsert(libId, moved).resolved()
+                    val movedId = repo.resolveOrInsert(libId, TEST_FOLDER_ID, moved).resolved()
 
                     movedId shouldBe originalId
                     repo.findById(originalId)?.rootRelPath shouldBe "Sanderson/WayOfKings"
@@ -71,8 +72,8 @@ class BookRepositoryResolveTest :
                     val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = 1L)
                     val b = analyzedFor(rootRelPath = "b", inode = 2L)
-                    val idA = repo.resolveOrInsert(libId, a).resolved()
-                    val idB = repo.resolveOrInsert(libId, b).resolved()
+                    val idA = repo.resolveOrInsert(libId, TEST_FOLDER_ID, a).resolved()
+                    val idB = repo.resolveOrInsert(libId, TEST_FOLDER_ID, b).resolved()
                     idA shouldNotBe idB
                 }
             }
@@ -86,8 +87,8 @@ class BookRepositoryResolveTest :
                     val libId = registry.currentLibrary()
                     val a = analyzedFor(rootRelPath = "a", inode = null)
                     val b = analyzedFor(rootRelPath = "b", inode = null)
-                    val idA = repo.resolveOrInsert(libId, a).resolved()
-                    val idB = repo.resolveOrInsert(libId, b).resolved()
+                    val idA = repo.resolveOrInsert(libId, TEST_FOLDER_ID, a).resolved()
+                    val idB = repo.resolveOrInsert(libId, TEST_FOLDER_ID, b).resolved()
                     idA shouldNotBe idB
                 }
             }
@@ -100,7 +101,7 @@ class BookRepositoryResolveTest :
                 runTest {
                     val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Mistborn", inode = 5005L)
-                    val result = repo.resolveOrInsert(libId, analyzed)
+                    val result = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed)
                     result.shouldBeInstanceOf<AppResult.Success<BookId>>()
                 }
             }
@@ -115,13 +116,13 @@ class BookRepositoryResolveTest :
                     val appender = attachRootAppender()
                     try {
                         val original = analyzedFor(rootRelPath = "old/path", inode = 7777L)
-                        repo.resolveOrInsert(libId, original)
+                        repo.resolveOrInsert(libId, TEST_FOLDER_ID, original)
 
                         val moved =
                             original.copy(
                                 candidate = original.candidate.copy(rootRelPath = "new/path"),
                             )
-                        repo.resolveOrInsert(libId, moved)
+                        repo.resolveOrInsert(libId, TEST_FOLDER_ID, moved)
 
                         val moveEvent =
                             appender.list
@@ -157,6 +158,10 @@ private fun detachRootAppender(appender: ListAppender<ILoggingEvent>) {
     appender.stop()
 }
 
+// --- Constants --------------------------------------------------------------
+
+private val TEST_FOLDER_ID = FolderId("test-folder")
+
 // --- Result unwrapping ------------------------------------------------------
 
 /**
@@ -190,7 +195,7 @@ private fun repository(db: Database): ResolveRepoFixture {
             db = db,
             bus = bus,
             registry = syncRegistry,
-            libraryRegistry = registry,
+            _libraryRegistry = registry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
         )

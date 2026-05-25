@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.PingService
@@ -55,6 +56,7 @@ fun Route.rpcRoutes(
     playbackService: PlaybackService? = null,
     metadataLookupService: MetadataLookupService? = null,
     searchService: SearchService? = null,
+    libraryAdminService: LibraryAdminService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -96,6 +98,10 @@ fun Route.rpcRoutes(
             }
             if (searchService != null) {
                 registerService<SearchService> { guard(searchService) }
+            }
+            if (libraryAdminService != null) {
+                // TODO: gate by user permissions when Multi-user lands
+                registerService<LibraryAdminService> { guard(libraryAdminService) }
             }
         }
     }

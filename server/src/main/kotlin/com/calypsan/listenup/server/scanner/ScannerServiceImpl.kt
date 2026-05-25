@@ -8,14 +8,23 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.core.LibraryId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 
 /**
- * Thin [ScannerService] implementation. The work lives in [Scanner];
- * the coordinator enforces single-flight; this class just translates
- * between the wire contract and the internal types.
+ * Thin [ScannerService] implementation. The work lives in [ScanOrchestrator];
+ * the orchestrator's per-library [ScanCoordinator] enforces single-flight;
+ * this class just translates between the wire contract and the internal types.
+ *
+ * [resolveLibraryId] is a suspend function that returns the single library id
+ * for this process. It is called on every `scanFull` and `lastScanResult` call
+ * so the implementation stays correct even when the id is resolved lazily
+ * (e.g. from [com.calypsan.listenup.server.services.LibraryRegistry]). The
+ * result is stable for the process lifetime so the underlying query is cheap
+ * after the first call (LibraryRegistry caches it).
  *
  * `lastScanResult()` returns [ScanError.LibraryPathNotConfigured] when no
  * scan has run yet — a slightly stretched semantic, but the existing
@@ -25,15 +34,19 @@ import kotlinx.coroutines.flow.map
  * lumping "not yet" in is acceptable.
  */
 internal class ScannerServiceImpl(
-    private val scanner: Scanner,
-    private val coordinator: ScanCoordinator,
+    private val orchestrator: ScanOrchestrator,
+    private val resolveLibraryId: suspend () -> LibraryId,
     private val eventBus: SharedFlow<ScanEvent>,
 ) : ScannerService {
-    override suspend fun scanFull(): AppResult<ScanResultSummary> = coordinator.scanFull().map { it.toSummary() }
+    override suspend fun scanFull(): AppResult<ScanResultSummary> =
+        orchestrator.scanLibrary(resolveLibraryId()).map { it.toSummary() }
 
     override suspend fun lastScanResult(): AppResult<ScanResult> =
-        scanner.lastResult()?.let { AppResult.Success(it) }
+        orchestrator.lastResult(resolveLibraryId())?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ScanError.LibraryPathNotConfigured())
 
-    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = eventBus.map { RpcEvent.Data(it) }
+    override fun observeProgress(libraryId: LibraryId?): Flow<RpcEvent<ScanEvent>> =
+        eventBus
+            .let { bus -> if (libraryId != null) bus.filter { it.libraryId == libraryId } else bus }
+            .map { RpcEvent.Data(it) }
 }

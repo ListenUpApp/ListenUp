@@ -1,9 +1,10 @@
 package com.calypsan.listenup.client.presentation.startup
 
+import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.client.data.remote.LibraryStatusResponse
-import com.calypsan.listenup.client.data.remote.SetupApiContract
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
@@ -54,7 +55,11 @@ class AppStartupViewModelTest {
 
     private fun createMockUserRepository(): UserRepository = mock<UserRepository>()
 
-    private fun createMockSetupApi(): SetupApiContract = mock<SetupApiContract>()
+    private fun createMockLibraryAdminRpcFactory(service: LibraryAdminService = mock()): LibraryAdminRpcFactory {
+        val factory = mock<LibraryAdminRpcFactory>()
+        everySuspend { factory.get() } returns service
+        return factory
+    }
 
     private fun createTestUser(
         id: String = "user-001",
@@ -92,12 +97,12 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
 
             // Then - initial state before coroutine completes
             assertTrue(viewModel.state.value.isChecking)
@@ -108,13 +113,13 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val factory = createMockLibraryAdminRpcFactory()
             val regularUser = createTestUser(isAdmin = false)
             everySuspend { userRepository.refreshCurrentUser() } returns regularUser
             everySuspend { userRepository.getCurrentUser() } returns regularUser
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // Then
@@ -127,23 +132,16 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
             val adminUser = createTestUser(isAdmin = true)
             everySuspend { userRepository.refreshCurrentUser() } returns adminUser
             everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { setupApi.getLibraryStatus() } returns
-                AppResult.Success(
-                    LibraryStatusResponse(
-                        exists = false,
-                        library = null,
-                        needsSetup = true,
-                        bookCount = 0,
-                        isScanning = false,
-                    ),
-                )
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // Then
@@ -158,10 +156,10 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // When
@@ -178,10 +176,10 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // Verify backgroundedAtMs is null before the call
@@ -201,10 +199,10 @@ class AppStartupViewModelTest {
         runTest {
             // Given
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // Initial check is complete, isChecking should be false
@@ -226,22 +224,15 @@ class AppStartupViewModelTest {
         runTest {
             // Given - admin user with library needing setup
             val userRepository = createMockUserRepository()
-            val setupApi = createMockSetupApi()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
             val adminUser = createTestUser(isAdmin = true)
             everySuspend { userRepository.refreshCurrentUser() } returns adminUser
             everySuspend { userRepository.getCurrentUser() } returns adminUser
-            everySuspend { setupApi.getLibraryStatus() } returns
-                AppResult.Success(
-                    LibraryStatusResponse(
-                        exists = false,
-                        library = null,
-                        needsSetup = true,
-                        bookCount = 0,
-                        isScanning = false,
-                    ),
-                )
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
-            val viewModel = AppStartupViewModel(userRepository, setupApi)
+            val viewModel = AppStartupViewModel(userRepository, factory)
             advanceUntilIdle()
 
             // Verify initial state

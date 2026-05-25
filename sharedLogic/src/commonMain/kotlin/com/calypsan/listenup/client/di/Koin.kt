@@ -38,15 +38,15 @@ import com.calypsan.listenup.client.data.remote.InviteApi
 import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.ShelfApi
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
+import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileApi
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.SearchApi
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SetupApi
-import com.calypsan.listenup.client.data.remote.SetupApiContract
 import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
@@ -720,6 +720,14 @@ val syncModule =
             ABSImportApi(clientFactory = get(), errorBus = get())
         } bind ABSImportApiContract::class
 
+        // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
+        single<LibraryAdminRpcFactory> {
+            KtorLibraryAdminRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
         single<MetadataLookupRpcFactory> {
             KtorMetadataLookupRpcFactory(
@@ -787,11 +795,6 @@ val syncModule =
         single {
             ProfileApi(clientFactory = get())
         } bind ProfileApiContract::class
-
-        // SetupApi for library setup operations
-        single {
-            SetupApi(clientFactory = get())
-        } bind SetupApiContract::class
 
         // FtsPopulator for rebuilding FTS tables after sync
         single {
@@ -1125,6 +1128,14 @@ val syncModule =
         single<com.calypsan.listenup.client.domain.repository.PendingOperationRepository> {
             com.calypsan.listenup.client.data.repository
                 .PendingOperationRepositoryImpl()
+        }
+
+        // LibraryRepository — observation-only Room-backed view of the libraries domain
+        single<com.calypsan.listenup.client.domain.repository.LibraryRepository> {
+            com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl(
+                libraryDao = get<com.calypsan.listenup.client.data.local.db.ListenUpDatabase>().libraryDao(),
+                libraryFolderDao = get<com.calypsan.listenup.client.data.local.db.ListenUpDatabase>().libraryFolderDao(),
+            )
         }
     }
 

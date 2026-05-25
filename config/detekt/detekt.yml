@@ -197,7 +197,7 @@ naming:
     classPattern: '[A-Z][a-zA-Z0-9]*'
   ConstructorParameterNaming:
     active: true
-    parameterPattern: '[a-z][A-Za-z0-9]*'
+    parameterPattern: '_?[a-z][A-Za-z0-9]*'  # Allow _prefix for intentionally-unused compat params
     privateParameterPattern: '_?[a-z][A-Za-z0-9]*'  # Allow _prefix for backing fields
     excludeClassPattern: '.*(Request|Response|Dto)$'  # API DTOs use snake_case for JSON
   EnumNaming:
@@ -433,7 +433,7 @@ style:
     maxJumpCount: 3  # Media playback loops may have multiple break/continue
   MagicNumber:
     active: true
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
     ignoreNumbers:
       - '-1'
       - '0'

@@ -274,15 +274,18 @@ private fun CollectionRef.toDomain(): StagedCollection =
 
 /**
  * Convert LibraryResponse API model to Library domain model.
+ *
+ * Legacy Go REST response: `metadataPrecedence`, `createdByUserId`, and `revision`
+ * are not present on the wire. Defaults apply until the Kotlin server RPC
+ * path replaces this code in the LibraryAdminService rewire (Task 25+).
  */
 private fun LibraryResponse.toDomain(): Library =
     Library(
         id = id,
         name = name,
-        ownerId = ownerId,
-        scanPaths = scanPaths,
-        skipInbox = skipInbox,
+        metadataPrecedence = "embedded,abs",
         accessMode = AccessMode.fromString(accessMode),
-        createdAt = createdAt,
-        updatedAt = updatedAt,
+        createdByUserId = null,
+        createdAt = 0L,
+        revision = 0L,
     )

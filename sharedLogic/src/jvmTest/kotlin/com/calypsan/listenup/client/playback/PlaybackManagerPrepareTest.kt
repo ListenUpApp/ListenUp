@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -69,6 +71,8 @@ class PlaybackManagerPrepareTest {
         db.bookDao().upsert(
             BookEntity(
                 id = BookId("book-1"),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Test Book",
                 sortTitle = "Test Book",
                 subtitle = null,

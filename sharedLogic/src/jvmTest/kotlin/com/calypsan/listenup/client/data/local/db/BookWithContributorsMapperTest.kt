@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -31,6 +33,8 @@ class BookWithContributorsMapperTest :
         fun makeBook() =
             BookEntity(
                 id = bookId,
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "The Way of Kings",
                 sortTitle = "Way of Kings, The",
                 subtitle = "The Stormlight Archive",
@@ -279,6 +283,44 @@ class BookWithContributorsMapperTest :
             val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
 
             result.allContributors.first().name shouldBe "Brandon Sanderson"
+        }
+
+        test("toListItem carries libraryId and folderId from BookEntity") {
+            val imageStorage = mock<ImageStorage>()
+            every { imageStorage.exists(any()) } returns false
+
+            val bookWithContributors =
+                BookWithContributors(
+                    book = makeBook(),
+                    contributors = emptyList(),
+                    contributorRoles = emptyList(),
+                    series = emptyList(),
+                    seriesSequences = emptyList(),
+                )
+
+            val result = bookWithContributors.toListItem(imageStorage)
+
+            result.libraryId shouldBe LibraryId("test-library")
+            result.folderId shouldBe FolderId("test-folder")
+        }
+
+        test("toDetail carries libraryId and folderId from BookEntity") {
+            val imageStorage = mock<ImageStorage>()
+            every { imageStorage.exists(any()) } returns false
+
+            val bookWithContributors =
+                BookWithContributors(
+                    book = makeBook(),
+                    contributors = emptyList(),
+                    contributorRoles = emptyList(),
+                    series = emptyList(),
+                    seriesSequences = emptyList(),
+                )
+
+            val result = bookWithContributors.toDetail(imageStorage, emptyList(), emptyList())
+
+            result.libraryId shouldBe LibraryId("test-library")
+            result.folderId shouldBe FolderId("test-folder")
         }
 
         test("toDetail then toListItem equals toListItem for same input") {

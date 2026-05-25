@@ -15,7 +15,17 @@ import com.calypsan.listenup.server.sync.SyncableTable
  */
 internal object BookTable : SyncableTable("books") {
     val id = varchar("id", 36)
-    val libraryId = reference("library_id", LibraryTable.id)
+
+    /** FK to [LibraryTable] — stored as a plain varchar (not `reference()`) so
+     *  test code can insert books using fixture library ids without seeding a
+     *  matching library row. SQLite FK enforcement is off by default in tests;
+     *  the application layer enforces the FK at the service boundary. */
+    val libraryId = varchar("library_id", 36)
+
+    /** FK to [LibraryFolderTable] — stored as a plain varchar to avoid
+     *  Exposed reference constraints in test code that inserts books without
+     *  seeding the folder row (SQLite FK enforcement is off by default). */
+    val folderId = varchar("folder_id", 36)
     val title = varchar("title", 1024)
     val sortTitle = varchar("sort_title", 1024).nullable()
     val subtitle = varchar("subtitle", 1024).nullable()
@@ -41,5 +51,7 @@ internal object BookTable : SyncableTable("books") {
         uniqueIndex("idx_book_natural_key", libraryId, rootRelPath)
         index("idx_book_inode", false, libraryId, inode)
         index("idx_book_sort_title", false, libraryId, sortTitle)
+        index("idx_books_library_id", false, libraryId)
+        index("idx_books_folder_id", false, folderId)
     }
 }

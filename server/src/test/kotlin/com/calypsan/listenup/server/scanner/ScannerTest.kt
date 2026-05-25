@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -288,7 +289,7 @@ private fun newScanner(
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)
     val scanner =
         Scanner(
-            rootPath = fixture.root,
+            library = testLibrary(folders = listOf(fixture.root.toString())),
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser = noOpEmbeddedParser(),
             eventBus = eventBus,

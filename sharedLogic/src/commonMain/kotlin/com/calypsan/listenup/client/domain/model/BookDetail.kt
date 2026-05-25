@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 
 /**
@@ -15,6 +17,10 @@ import com.calypsan.listenup.core.Timestamp
  */
 data class BookDetail(
     val id: BookId,
+    /** Library that owns this book. */
+    val libraryId: LibraryId,
+    /** Library folder that contains this book's audio files. */
+    val folderId: FolderId,
     val title: String,
     val sortTitle: String? = null,
     val subtitle: String? = null,
@@ -45,6 +51,8 @@ data class BookDetail(
     fun toListItem(): BookListItem =
         BookListItem(
             id = id,
+            libraryId = libraryId,
+            folderId = folderId,
             title = title,
             sortTitle = sortTitle,
             subtitle = subtitle,

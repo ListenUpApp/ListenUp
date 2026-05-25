@@ -7,6 +7,8 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.services.BookRepository
@@ -15,6 +17,7 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -30,6 +33,7 @@ class SeriesServiceImplTest :
         test("getSeries returns Success with the payload for an existing series") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
@@ -41,7 +45,7 @@ class SeriesServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = seriesRepo,
                             ),
@@ -62,6 +66,7 @@ class SeriesServiceImplTest :
         test("getSeries returns Success(null) for a non-existent series id") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
@@ -73,7 +78,7 @@ class SeriesServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = seriesRepo,
                             ),
@@ -90,6 +95,7 @@ class SeriesServiceImplTest :
         test("listBooksBySeries returns all books belonging to the series in position order") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db = db, bus = bus, registry = syncRegistry)
@@ -99,7 +105,7 @@ class SeriesServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                     )
@@ -120,6 +126,7 @@ class SeriesServiceImplTest :
         test("listBooksBySeries returns empty list when series has no books") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val seriesRepo = SeriesRepository(db = db, bus = bus, registry = syncRegistry)
@@ -131,7 +138,7 @@ class SeriesServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
+                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = ContributorRepository(db, bus, syncRegistry),
                                 seriesRepository = seriesRepo,
                             ),
@@ -157,6 +164,8 @@ private fun bookFixtureWithSeries(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

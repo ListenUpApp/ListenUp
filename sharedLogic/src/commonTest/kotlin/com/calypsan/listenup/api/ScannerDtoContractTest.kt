@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.external.abs.AbsChapter
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.external.abs.AbsMetadata
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -200,11 +201,13 @@ class ScannerDtoContractTest :
         }
 
         test("ScanEvent variants round-trip") {
-            val started: ScanEvent = ScanEvent.Started("c", "/library")
-            val progress: ScanEvent = ScanEvent.Progress("c", ScanPhase.ANALYZING, 100, 10, 0)
+            val libId = LibraryId("lib-1")
+            val started: ScanEvent = ScanEvent.Started("c", libId, "/library")
+            val progress: ScanEvent = ScanEvent.Progress("c", libId, ScanPhase.ANALYZING, 100, 10, 0)
             val change: ScanEvent =
                 ScanEvent.Change(
                     "c",
+                    libId,
                     ChangeEventDto.Added(
                         AnalyzedBook(CandidateBook("Book", false, emptyList()), "T"),
                     ),
@@ -212,6 +215,7 @@ class ScannerDtoContractTest :
             val completed: ScanEvent =
                 ScanEvent.Completed(
                     "c",
+                    libId,
                     ScanResultSummary("c", 1, 1, 0, 0, 0, 0, 100, 10),
                 )
             listOf(started, progress, change, completed).forEach {

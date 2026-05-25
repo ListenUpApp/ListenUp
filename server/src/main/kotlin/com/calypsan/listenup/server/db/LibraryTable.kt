@@ -1,25 +1,45 @@
 package com.calypsan.listenup.server.db
 
-import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
-import org.jetbrains.exposed.v1.core.Table
+import com.calypsan.listenup.server.sync.SyncableTable
 
 /**
- * Server-internal `libraries` table. Single-bootstrap row keyed off
- * `LISTENUP_LIBRARY_PATH`. Not syncable in Books-A; future multi-library
- * support reshapes the wire to include `libraryId` per book.
+ * The `libraries` table — each row represents one user-named library with
+ * N folders (see [LibraryFolderTable]).
+ *
+ * Extends [SyncableTable] — every row carries `revision`, `created_at`,
+ * `updated_at`, `deleted_at`, `client_op_id`. Libraries are server-wide
+ * (cross-user) in the current single-user model; `access_mode` and
+ * `created_by_user_id` are forward-staged for the future Multi-user phase
+ * and not enforced today.
+ *
+ * The old single-bootstrap-row shape with `root_path` was replaced in
+ * Flyway V20 (Libraries phase). `LibraryRegistry` is the Books-A relic
+ * that resolved the single path; it is superseded by `LibraryRepository`
+ * + `LibraryAdminServiceImpl`.
  */
-internal object LibraryTable : Table("libraries") {
+internal object LibraryTable : SyncableTable("libraries") {
     val id = varchar("id", 36)
     val name = varchar("name", 256)
-    val rootPath = varchar("root_path", 1024)
 
     /**
-     * The operator-configured textual-metadata precedence serialized as a
-     * comma-separated source list. The running scanner uses the env-resolved
-     * `LISTENUP_METADATA_PRECEDENCE` value, threaded directly to the `Analyzer`.
-     * This column persists that value on the `libraries` row as forward-storage
-     * for the future per-library Libraries domain phase; it is not read back today.
+     * Operator-configured textual-metadata precedence, stored as a
+     * comma-separated source list (e.g. `"embedded,abs,sidecar"`).
+     * Default matches `MetadataPrecedence.DEFAULT`.
      */
-    val metadataPrecedence = varchar("metadata_precedence", 256).default(MetadataPrecedence.DEFAULT.serialize())
+    val metadataPrecedence = varchar("metadata_precedence", 256).default("embedded,abs,sidecar")
+
+    /**
+     * Forward-staged multi-user access policy. Default `"shared"` means
+     * visible to all authenticated users. Enforcement is deferred to the
+     * Multi-user phase.
+     */
+    val accessMode = varchar("access_mode", 16).default("shared")
+
+    /**
+     * Forward-staged owner reference. Null in the current single-user model.
+     * Set at creation time in the Multi-user phase.
+     */
+    val createdByUserId = varchar("created_by_user_id", 36).nullable()
+
     override val primaryKey = PrimaryKey(id)
 }

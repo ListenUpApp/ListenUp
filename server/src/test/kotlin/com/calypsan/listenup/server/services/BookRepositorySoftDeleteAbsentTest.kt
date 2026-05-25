@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.BusEvent
@@ -32,9 +33,9 @@ class BookRepositorySoftDeleteAbsentTest :
                 val (repo, registry) = repository(db, ChangeBus())
                 runTest {
                     val libId = registry.currentLibrary()
-                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
-                    val b = repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
-                    val c = repo.resolveOrInsert(libId, analyzedFor("c", inode = 3L)).resolved()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
+                    val c = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("c", inode = 3L)).resolved()
 
                     repo.softDeleteAbsent(libId, seenIds = setOf(a, c))
 
@@ -52,8 +53,8 @@ class BookRepositorySoftDeleteAbsentTest :
                 val (repo, registry) = repository(db, bus)
                 runTest {
                     val libId = registry.currentLibrary()
-                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
-                    repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
 
                     val received = mutableListOf<BusEvent<*>>()
                     val collector = launch { bus.subscribe().collect { received += it } }
@@ -77,8 +78,8 @@ class BookRepositorySoftDeleteAbsentTest :
                 val (repo, registry) = repository(db, bus)
                 runTest {
                     val libId = registry.currentLibrary()
-                    val a = repo.resolveOrInsert(libId, analyzedFor("a", inode = 1L)).resolved()
-                    val b = repo.resolveOrInsert(libId, analyzedFor("b", inode = 2L)).resolved()
+                    val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
+                    val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
 
                     repo.softDeleteAbsent(libId, seenIds = setOf(a))
                     val firstRevision = repo.findById(b)?.revision
@@ -100,6 +101,10 @@ class BookRepositorySoftDeleteAbsentTest :
             }
         }
     })
+
+// --- Constants --------------------------------------------------------------
+
+private val TEST_FOLDER_ID = FolderId("test-folder")
 
 // --- Result unwrapping ------------------------------------------------------
 
@@ -136,7 +141,7 @@ private fun repository(
             db = db,
             bus = bus,
             registry = syncRegistry,
-            libraryRegistry = registry,
+            _libraryRegistry = registry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
         )

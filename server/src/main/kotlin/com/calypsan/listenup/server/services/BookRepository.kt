@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.BookAudioFileTable
@@ -22,7 +23,7 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -66,16 +67,13 @@ private val log = KotlinLogging.logger {}
  * corrupt every column the id is written to. The Konsist rule
  * `IdAsStringRequiredForValueClassIdsRule` enforces this override at build time.
  *
- * Books-A is single-library. The repository takes a [libraryRegistry] rather
- * than a resolved [LibraryId] because the only source of that id —
- * `LibraryRegistry.currentLibrary()` — is a `suspend` function (it does a DB
- * read), and Koin `single { }` definitions cannot suspend. The library id is
- * therefore resolved lazily inside the `suspend` write path; the registry
- * caches the result after the first call, so the per-write cost is negligible.
+ * Books-A was single-library. `_libraryRegistry` is retained in the constructor
+ * signature for compatibility with the many callers that still pass it; it is no
+ * longer read on the write path (library and folder ids are now carried in the
+ * [com.calypsan.listenup.api.sync.BookSyncPayload] and written directly from the payload).
  *
- * @param libraryRegistry resolves the single library id for this process; the
- *   INSERT branch of [writePayload] reads it to stamp a fresh book's
- *   `library_id` column.
+ * @param _libraryRegistry kept for constructor compatibility; no longer used on the
+ *   write path. Callers may pass any [LibraryRegistry] instance.
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
  *   stable [com.calypsan.listenup.core.ContributorId] before the aggregate write.
@@ -87,7 +85,7 @@ class BookRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val libraryRegistry: LibraryRegistry,
+    _libraryRegistry: LibraryRegistry,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     clock: Clock = Clock.System,
@@ -195,6 +193,8 @@ class BookRepository(
 
         return BookSyncPayload(
             id = bookRow[BookTable.id],
+            libraryId = LibraryId(bookRow[BookTable.libraryId]),
+            folderId = FolderId(bookRow[BookTable.folderId]),
             title = bookRow[BookTable.title],
             sortTitle = bookRow[BookTable.sortTitle],
             subtitle = bookRow[BookTable.subtitle],
@@ -260,15 +260,13 @@ class BookRepository(
                 stmt[BookTable.clientOpId] = clientOpId
             }
         } else {
-            // Resolved before the insert block — Exposed's `insert { }` lambda is
-            // not a suspend context, so `currentLibrary()` (suspend) cannot be
-            // called inside it. The registry caches after first call; its first-call
-            // `suspendTransaction` joins this writePayload's open transaction (same
-            // Database, Exposed reuses the connection) — no nested-connection hazard.
-            val resolvedLibraryId = libraryRegistry.currentLibrary().value
             BookTable.insert { stmt ->
                 stmt[BookTable.id] = value.id
-                stmt[BookTable.libraryId] = resolvedLibraryId
+                // libraryId + folderId come from the payload; the legacy registry
+                // was the Books-A single-library resolver and is no longer the
+                // source of truth here.
+                stmt[BookTable.libraryId] = value.libraryId.value
+                stmt[BookTable.folderId] = value.folderId.value
                 applyBookFields(stmt, value)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
@@ -318,12 +316,13 @@ class BookRepository(
      */
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
+        folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookId> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, analyzed).map { existing }
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
         }
 
         analyzed.candidate.files
@@ -333,12 +332,12 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, analyzed).map { existing }
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, analyzed).map { newId }
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed).map { newId }
     }
 
     /**
@@ -410,6 +409,8 @@ class BookRepository(
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
+        libraryId: LibraryId,
+        folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookSyncPayload> {
         val candidate = analyzed.candidate
@@ -426,6 +427,8 @@ class BookRepository(
         val payload =
             BookSyncPayload(
                 id = bookId.value,
+                libraryId = libraryId,
+                folderId = folderId,
                 title = analyzed.title,
                 sortTitle = null,
                 subtitle = analyzed.subtitle,
@@ -496,11 +499,15 @@ class BookRepository(
                         .firstOrNull() ?: return@suspendTransaction null
                 val source = bookRow[BookTable.coverSource] ?: return@suspendTransaction null
                 val rootRelPath = bookRow[BookTable.rootRelPath]
-                val libraryRoot =
-                    LibraryTable
+                // Resolve the folder root path via the book's folder_id column.
+                // TODO: surface a typed error (LIB-C) if the folder row is missing.
+                val folderRoot =
+                    LibraryFolderTable
                         .selectAll()
-                        .where { LibraryTable.id eq bookRow[BookTable.libraryId] }
-                        .first()[LibraryTable.rootPath]
+                        .where { LibraryFolderTable.id eq bookRow[BookTable.folderId] }
+                        .firstOrNull()
+                        ?.get(LibraryFolderTable.rootPath)
+                        ?: return@suspendTransaction null
                 val primaryFilename =
                     BookAudioFileTable
                         .selectAll()
@@ -508,7 +515,7 @@ class BookRepository(
                         .orderBy(BookAudioFileTable.ordinal)
                         .firstOrNull()
                         ?.get(BookAudioFileTable.filename)
-                ResolvedCover(source, libraryRoot, rootRelPath, primaryFilename)
+                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename)
             } ?: return null
 
         val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)

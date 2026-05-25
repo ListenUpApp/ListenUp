@@ -74,22 +74,49 @@ value class BookId(
 /**
  * Type-safe wrapper for Library IDs.
  *
- * A library is the root path the scanner walks; every book belongs to exactly
- * one. Wrapping the id prevents it being confused with a [BookId] or any other
- * string id at call sites that thread both — notably the scanner's
- * `resolveOrInsert(libraryId, analyzed)`.
+ * A library groups N root folders under a single named collection. Every book
+ * belongs to exactly one library. Wrapping the id prevents it being confused
+ * with a [BookId], [FolderId], or any other string id at call sites that thread
+ * both — notably the scanner's `resolveOrInsert(libraryId, analyzed)`.
  *
  * Value class compiles to primitive String with zero runtime overhead while
  * maintaining compile-time type checking.
  *
- * @property value The underlying library ID string.
+ * @property value The underlying library ID string (UUIDv7 at the storage layer).
  */
+@Serializable
 @JvmInline
 value class LibraryId(
     val value: String,
 ) {
     init {
         require(value.isNotBlank()) { "Library ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
+ * Type-safe wrapper for LibraryFolder IDs.
+ *
+ * A library folder is one of N root paths registered under a [LibraryId].
+ * The scanner walks each folder independently and aggregates results into the
+ * parent library's book list. Wrapping the id prevents it being confused with
+ * [LibraryId] or [BookId] at call sites that manage both folder and library
+ * lifecycles — notably [WatcherSupervisor] and [ScanOrchestrator].
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying folder ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class FolderId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Folder ID cannot be blank" }
     }
 
     override fun toString(): String = value

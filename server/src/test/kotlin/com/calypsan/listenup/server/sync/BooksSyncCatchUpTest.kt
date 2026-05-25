@@ -10,11 +10,14 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -65,6 +68,7 @@ class BooksSyncCatchUpTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repeat(150) { i -> repo.upsert(bookSyncFixture(id = "book-$i", title = "Book $i")) }
@@ -94,6 +98,7 @@ class BooksSyncCatchUpTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repeat(150) { i -> repo.upsert(bookSyncFixture(id = "book-$i", title = "Book $i")) }
@@ -136,6 +141,7 @@ class BooksSyncCatchUpTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     val contributors by application.inject<ContributorRepository>()
@@ -208,6 +214,8 @@ private fun bookSyncFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

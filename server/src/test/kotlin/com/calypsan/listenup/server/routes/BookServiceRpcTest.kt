@@ -10,8 +10,11 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -78,6 +81,7 @@ class BookServiceRpcTest :
                     // Mint JWT via REST — same pattern as BookRoutesTest.
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = restClient.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     // Seed the book directly through the Koin-resolved repository.
                     val repo by application.inject<BookRepository>()
@@ -117,6 +121,7 @@ class BookServiceRpcTest :
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = restClient.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(bookRpcFixture(id = "rpc-s1", title = "The Well of Ascension"))
@@ -186,6 +191,8 @@ private fun bookRpcFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

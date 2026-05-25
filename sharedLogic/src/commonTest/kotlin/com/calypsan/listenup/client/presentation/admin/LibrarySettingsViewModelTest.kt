@@ -35,16 +35,14 @@ class LibrarySettingsViewModelTest {
         id: String = "lib-1",
         name: String = "Main Library",
         accessMode: AccessMode = AccessMode.OPEN,
-        skipInbox: Boolean = false,
     ) = Library(
         id = id,
         name = name,
-        ownerId = "owner-1",
-        scanPaths = listOf("/path/to/audiobooks"),
-        skipInbox = skipInbox,
+        metadataPrecedence = "embedded,abs",
         accessMode = accessMode,
-        createdAt = "2024-01-01T00:00:00Z",
-        updatedAt = "2024-01-01T00:00:00Z",
+        createdByUserId = null,
+        createdAt = 0L,
+        revision = 1L,
     )
 
     private fun networkFailure() = AppResult.Failure(TransportError.NetworkUnavailable())
@@ -79,7 +77,7 @@ class LibrarySettingsViewModelTest {
     fun `loadLibrary transitions to Ready with library details`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            val library = createLibrary(accessMode = AccessMode.RESTRICTED, skipInbox = true)
+            val library = createLibrary(accessMode = AccessMode.RESTRICTED)
             everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
 
             val viewModel =
@@ -93,7 +91,6 @@ class LibrarySettingsViewModelTest {
             val ready = assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
             assertEquals(library, ready.library)
             assertEquals(AccessMode.RESTRICTED, ready.accessMode)
-            assertTrue(ready.skipInbox)
         }
 
     @Test
@@ -146,18 +143,11 @@ class LibrarySettingsViewModelTest {
         }
 
     @Test
-    fun `toggleSkipInbox updates state and saves`() =
+    fun `toggleSkipInbox is a no-op until LibraryAdminService rewire`() =
         runTest {
             val adminRepository: AdminRepository = mock()
-            val library = createLibrary(skipInbox = false)
-            val updatedLibrary = library.copy(skipInbox = true)
+            val library = createLibrary()
             everySuspend { adminRepository.getLibrary("lib-1") } returns AppResult.Success(library)
-            everySuspend {
-                adminRepository.updateLibrary(
-                    libraryId = "lib-1",
-                    skipInbox = true,
-                )
-            } returns AppResult.Success(updatedLibrary)
 
             val viewModel =
                 LibrarySettingsViewModel(
@@ -167,14 +157,11 @@ class LibrarySettingsViewModelTest {
                 )
             advanceUntilIdle()
 
+            // Should not throw or change state — no-op until Task 25 rewire.
             viewModel.toggleSkipInbox()
             advanceUntilIdle()
 
-            val ready = assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
-            assertTrue(ready.skipInbox)
-            verifySuspend(VerifyMode.atLeast(1)) {
-                adminRepository.updateLibrary(libraryId = "lib-1", skipInbox = true)
-            }
+            assertIs<LibrarySettingsUiState.Ready>(viewModel.state.value)
         }
 
     @Test

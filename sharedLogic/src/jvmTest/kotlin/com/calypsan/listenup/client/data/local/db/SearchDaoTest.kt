@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -39,6 +41,8 @@ class SearchDaoTest {
         bookDao.upsert(
             BookEntity(
                 id = BookId(id),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Test $id",
                 sortTitle = "Test $id",
                 subtitle = null,

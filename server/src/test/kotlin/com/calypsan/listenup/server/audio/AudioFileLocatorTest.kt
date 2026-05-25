@@ -3,6 +3,10 @@ package com.calypsan.listenup.server.audio
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -16,6 +20,8 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class AudioFileLocatorTest :
     FunSpec({
@@ -23,27 +29,59 @@ class AudioFileLocatorTest :
         test("locate returns AudioFileLocation with correct path, format, and sizeBytes") {
             withInMemoryDatabase {
                 val db = this
-                val libraryPath = "/fake/library"
+                val folderPath = "/fake/library"
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
+                val now = System.currentTimeMillis()
+
+                // Seed a library + folder row so AudioFileLocator can resolve the path.
+                transaction(db) {
+                    LibraryTable.insert {
+                        it[LibraryTable.id] = "test-library"
+                        it[LibraryTable.name] = "Test Library"
+                        it[LibraryTable.createdAt] = now
+                        it[LibraryTable.updatedAt] = now
+                        it[LibraryTable.revision] = 0L
+                        it[LibraryTable.deletedAt] = null
+                    }
+                    LibraryFolderTable.insert {
+                        it[LibraryFolderTable.id] = "test-folder"
+                        it[LibraryFolderTable.libraryId] = "test-library"
+                        it[LibraryFolderTable.rootPath] = folderPath
+                        it[LibraryFolderTable.createdAt] = now
+                        it[LibraryFolderTable.updatedAt] = now
+                        it[LibraryFolderTable.revision] = 0L
+                        it[LibraryFolderTable.deletedAt] = null
+                    }
+                }
+
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = registry,
-                        libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to libraryPath)),
+                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to folderPath)),
                         contributorRepository = ContributorRepository(db, bus, registry),
                         seriesRepository = SeriesRepository(db, bus, registry),
                     )
 
                 runTest {
-                    repo.upsert(locatorFixture(bookId = "b1", fileId = "af1", rootRelPath = "Sanderson/WayOfKings", filename = "01.m4b", format = "m4b", size = 500_000_000L))
+                    repo.upsert(
+                        locatorFixture(
+                            bookId = "b1",
+                            fileId = "af1",
+                            rootRelPath = "Sanderson/WayOfKings",
+                            filename = "01.m4b",
+                            format = "m4b",
+                            size = 500_000_000L,
+                        ),
+                    )
 
                     val locator = AudioFileLocator(db)
                     val result = locator.locate("b1", "af1")
 
                     result.shouldNotBeNull()
-                    result.path shouldBe Path(libraryPath, "Sanderson/WayOfKings", "01.m4b")
+                    result.path shouldBe Path(folderPath, "Sanderson/WayOfKings", "01.m4b")
                     result.format shouldBe "m4b"
                     result.sizeBytes shouldBe 500_000_000L
                 }
@@ -72,6 +110,8 @@ private fun locatorFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = bookId,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "Test Book",
         sortTitle = "Test Book",
         subtitle = null,

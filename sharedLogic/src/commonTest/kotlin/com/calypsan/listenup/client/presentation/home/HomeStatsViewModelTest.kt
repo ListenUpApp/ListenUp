@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.home
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
@@ -46,8 +47,7 @@ class HomeStatsViewModelTest :
             runTest {
                 val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(WeeklyStats.empty())))
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    awaitItem() shouldBe HomeStatsUiState.Empty
+                    awaitUntil { it is HomeStatsUiState.Empty }
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -65,8 +65,7 @@ class HomeStatsViewModelTest :
                     )
                 val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    awaitItem() shouldBe HomeStatsUiState.Empty
+                    awaitUntil { it is HomeStatsUiState.Empty }
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -79,8 +78,7 @@ class HomeStatsViewModelTest :
                 val stats = nonEmptyStats(totalSeconds = 3_600L, currentStreak = 2, longestStreak = 5)
                 val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    val data = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    val data = awaitUntil { it is HomeStatsUiState.Data }.shouldBeInstanceOf<HomeStatsUiState.Data>()
                     data.totalSecondsThisWeek shouldBe 3_600L
                     data.currentStreakDays shouldBe 2
                     data.longestStreakDays shouldBe 5
@@ -103,8 +101,7 @@ class HomeStatsViewModelTest :
                     )
                 val vm = HomeStatsViewModel(stubRepo(MutableStateFlow(stats)))
                 vm.uiState.test {
-                    awaitItem() // Loading
-                    val data = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    val data = awaitUntil { it is HomeStatsUiState.Data }.shouldBeInstanceOf<HomeStatsUiState.Data>()
                     data.dailyBuckets shouldBe buckets
                     data.topGenres shouldBe genres
                     cancelAndIgnoreRemainingEvents()
@@ -119,11 +116,10 @@ class HomeStatsViewModelTest :
                 val flow = MutableStateFlow(WeeklyStats.empty())
                 val vm = HomeStatsViewModel(stubRepo(flow))
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    awaitItem() shouldBe HomeStatsUiState.Empty
+                    awaitUntil { it is HomeStatsUiState.Empty }
 
                     flow.value = nonEmptyStats(totalSeconds = 7_200L)
-                    val data = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    val data = awaitUntil { it is HomeStatsUiState.Data }.shouldBeInstanceOf<HomeStatsUiState.Data>()
                     data.totalSecondsThisWeek shouldBe 7_200L
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -135,15 +131,14 @@ class HomeStatsViewModelTest :
                 val flow = MutableStateFlow(WeeklyStats.empty())
                 val vm = HomeStatsViewModel(stubRepo(flow))
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    awaitItem() shouldBe HomeStatsUiState.Empty
+                    awaitUntil { it is HomeStatsUiState.Empty }
 
                     flow.value = nonEmptyStats(totalSeconds = 600L, longestStreak = 1)
-                    awaitItem().shouldBeInstanceOf<HomeStatsUiState.Data>()
+                    awaitUntil { it is HomeStatsUiState.Data }
 
                     // Reset back to all-zero (isEverEmpty = true)
                     flow.value = WeeklyStats.empty()
-                    awaitItem() shouldBe HomeStatsUiState.Empty
+                    awaitUntil { it is HomeStatsUiState.Empty }
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -162,8 +157,7 @@ class HomeStatsViewModelTest :
                     }
                 val vm = HomeStatsViewModel(repo)
                 vm.uiState.test {
-                    awaitItem() shouldBe HomeStatsUiState.Loading
-                    val error = awaitItem().shouldBeInstanceOf<HomeStatsUiState.Error>()
+                    val error = awaitUntil { it is HomeStatsUiState.Error }.shouldBeInstanceOf<HomeStatsUiState.Error>()
                     error.isRetryable shouldBe true
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -341,3 +335,18 @@ private fun nonEmptyStats(
         topGenres = emptyList(),
         totalSecondsThisWeek = totalSeconds,
     )
+
+/**
+ * Drains items from this Turbine until [predicate] matches, then returns the matching item.
+ *
+ * Robust against the `stateIn(WhileSubscribed, initialValue)` collapse race where the initial
+ * Loading state may or may not emit separately from the first upstream value under CI parallelism.
+ * The emission count is non-deterministic (1 or 2 items depending on scheduler timing), so tests
+ * must not assume a fixed count — instead drain until the desired state is seen.
+ */
+private suspend fun <T> ReceiveTurbine<T>.awaitUntil(predicate: (T) -> Boolean): T {
+    while (true) {
+        val item = awaitItem()
+        if (predicate(item)) return item
+    }
+}

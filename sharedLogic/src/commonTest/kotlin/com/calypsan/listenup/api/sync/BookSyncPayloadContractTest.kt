@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -49,11 +51,32 @@ class BookSyncPayloadContractTest :
             val tombstoned: Tombstoned = bookSyncPayloadMinimal().copy(deletedAt = 100L)
             tombstoned.deletedAt shouldBe 100L
         }
+
+        test("BookSyncPayload round-trips with libraryId and folderId populated") {
+            val original =
+                bookSyncPayloadMinimal().copy(
+                    libraryId = LibraryId("lib-001"),
+                    folderId = FolderId("folder-001"),
+                )
+            val json = contractJson.encodeToString(BookSyncPayload.serializer(), original)
+            val decoded = contractJson.decodeFromString(BookSyncPayload.serializer(), json)
+            decoded shouldBe original
+            decoded.libraryId shouldBe LibraryId("lib-001")
+            decoded.folderId shouldBe FolderId("folder-001")
+        }
+
+        test("BookSyncPayload wire shape includes libraryId and folderId field names") {
+            val json = contractJson.encodeToString(BookSyncPayload.serializer(), bookSyncPayloadFull())
+            json shouldContain "\"libraryId\""
+            json shouldContain "\"folderId\""
+        }
     })
 
 private fun bookSyncPayloadMinimal(): BookSyncPayload =
     BookSyncPayload(
         id = "book-1",
+        libraryId = LibraryId("lib-001"),
+        folderId = FolderId("folder-001"),
         title = "The Way of Kings",
         sortTitle = null,
         subtitle = null,
@@ -83,6 +106,8 @@ private fun bookSyncPayloadMinimal(): BookSyncPayload =
 private fun bookSyncPayloadFull(): BookSyncPayload =
     BookSyncPayload(
         id = "book-2",
+        libraryId = LibraryId("lib-001"),
+        folderId = FolderId("folder-001"),
         title = "Words of Radiance",
         sortTitle = "Words of Radiance",
         subtitle = "Book Two of The Stormlight Archive",

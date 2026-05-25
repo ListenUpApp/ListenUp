@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -35,6 +37,8 @@ class NowPlayingStateMapperTest {
     ): BookListItem =
         BookListItem(
             id = BookId(id),
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
             title = title,
             authors = listOf(BookContributor(id = "author-1", name = "Test Author", roles = listOf("Author"))),
             narrators = listOf(BookContributor(id = "narrator-1", name = "Test Narrator", roles = listOf("Narrator"))),

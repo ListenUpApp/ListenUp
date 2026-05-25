@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.presentation.contributordetail
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -101,6 +103,8 @@ class ContributorDetailViewModelTest :
         ): BookListItem =
             BookListItem(
                 id = BookId(id),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = title,
                 coverPath = coverPath,
                 duration = duration,

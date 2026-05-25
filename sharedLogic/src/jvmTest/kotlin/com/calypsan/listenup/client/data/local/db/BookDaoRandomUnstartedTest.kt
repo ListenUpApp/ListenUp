@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.local.db
 
 import app.cash.turbine.test
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -79,6 +81,8 @@ private suspend fun randomUnstartedSeedBook(
     bookDao.upsert(
         BookEntity(
             id = BookId(id),
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
             title = "Book $id",
             sortTitle = "Book $id",
             subtitle = null,

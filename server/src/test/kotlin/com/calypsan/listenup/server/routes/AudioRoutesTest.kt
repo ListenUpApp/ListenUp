@@ -6,9 +6,12 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -57,6 +60,7 @@ class AudioRoutesTest :
 
                     // Trigger application startup before inject
                     client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     // Write a small fixture audio file under the book's rootRelPath
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -89,6 +93,7 @@ class AudioRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
                     val audioBytes = ByteArray(256) { it.toByte() }
@@ -140,6 +145,7 @@ class AudioRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
                     Files.write(bookDir.resolve("01.m4b"), ByteArray(64))
@@ -189,6 +195,7 @@ class AudioRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
                     val audioBytes = ByteArray(256) { it.toByte() }
@@ -220,6 +227,8 @@ private fun audioFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = bookId,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "Audio Test Book",
         sortTitle = "Audio Test Book",
         subtitle = null,

@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -26,6 +28,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -75,6 +78,7 @@ class B2aMetadataApplyE2ETest :
             withInMemoryDatabase {
                 val tempDir = Files.createTempDirectory("b2a-e2e-").toString()
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
@@ -175,6 +179,7 @@ class B2aMetadataApplyE2ETest :
             withInMemoryDatabase {
                 val tempDir = Files.createTempDirectory("b2a-e2e-notfound-").toString()
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
@@ -218,6 +223,8 @@ class B2aMetadataApplyE2ETest :
 private fun minimalBook(id: String): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "The Way of Kings (untagged)",
         sortTitle = null,
         subtitle = null,

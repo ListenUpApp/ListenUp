@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 
 /**
@@ -17,6 +18,7 @@ interface BookIngestPort {
     /** Resolve-or-insert a scanned book; see [BookRepository.resolveOrInsert]. */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
+        folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookId>
 

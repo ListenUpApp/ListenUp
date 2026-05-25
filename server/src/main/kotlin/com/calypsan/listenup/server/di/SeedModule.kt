@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
+import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
@@ -23,13 +24,22 @@ import org.koin.dsl.module
  *   path is configured). When false, [ContributorEnrichmentSeeder] is omitted —
  *   it depends on [com.calypsan.listenup.server.services.ContributorRepository]
  *   which is only bound when the books module is loaded.
+ * @param demoLibraryPath absolute path to the pre-generated synthetic library
+ *   (typically `build/seed-library`). When non-null, [LibraryDomainSeeder] is
+ *   registered and seeds a "Demo Library" pointing at that path. When null
+ *   (synthetic library not yet generated), the library seeder is omitted and
+ *   the library will be empty until the next restart after generation.
  */
 fun seedModule(
     hasPlaybackModule: Boolean = false,
     hasBooksModule: Boolean = false,
+    demoLibraryPath: String? = null,
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
+        if (demoLibraryPath != null) {
+            single { LibraryDomainSeeder(db = get(), libraryAdminService = get(), demoLibraryPath = demoLibraryPath) }
+        }
         if (hasPlaybackModule) {
             single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }
@@ -41,6 +51,9 @@ fun seedModule(
             val seeders =
                 buildList {
                     add(get<UserDomainSeeder>())
+                    if (demoLibraryPath != null) {
+                        add(get<LibraryDomainSeeder>())
+                    }
                     if (hasPlaybackModule) {
                         add(get<PlaybackPositionDomainSeeder>())
                         add(get<ListeningEventDomainSeeder>())

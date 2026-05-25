@@ -48,6 +48,9 @@ class BookEntityMapper {
     ): BookEntity =
         BookEntity(
             id = BookId(payload.id),
+            // Library membership — wire-authoritative, taken from the payload.
+            libraryId = payload.libraryId,
+            folderId = payload.folderId,
             // Wire-authoritative fields — always taken from the payload.
             title = payload.title,
             sortTitle = payload.sortTitle,
@@ -130,6 +133,8 @@ fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
 
     return BookListItem(
         id = book.id,
+        libraryId = book.libraryId,
+        folderId = book.folderId,
         title = book.title,
         sortTitle = book.sortTitle,
         subtitle = book.subtitle,
@@ -200,6 +205,8 @@ fun BookWithContributors.toDetail(
 
     return BookDetail(
         id = book.id,
+        libraryId = book.libraryId,
+        folderId = book.folderId,
         title = book.title,
         sortTitle = book.sortTitle,
         subtitle = book.subtitle,

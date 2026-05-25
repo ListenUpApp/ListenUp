@@ -54,14 +54,12 @@ class LibrarySettingsViewModel(
                             current.copy(
                                 library = library,
                                 accessMode = library.accessMode,
-                                skipInbox = library.skipInbox,
                                 error = null,
                             )
                         } else {
                             LibrarySettingsUiState.Ready(
                                 library = library,
                                 accessMode = library.accessMode,
-                                skipInbox = library.skipInbox,
                             )
                         }
                     }
@@ -131,45 +129,11 @@ class LibrarySettingsViewModel(
     /**
      * Toggle the skip inbox setting.
      *
-     * Optimistically updates the UI state, then saves to server.
-     * Reverts on failure.
+     * No-op until LibraryAdminService RPC rewire lands in Task 25.
+     * `skipInbox` was a Go-era concept not carried by the new schema.
      */
     fun toggleSkipInbox() {
-        val ready = state.value as? LibrarySettingsUiState.Ready ?: return
-        val previousValue = ready.skipInbox
-        val newValue = !previousValue
-
-        // Optimistic update
-        updateReady { it.copy(skipInbox = newValue, isSaving = true) }
-
-        viewModelScope.launch {
-            when (val result = adminRepository.updateLibrary(libraryId = libraryId, skipInbox = newValue)) {
-                is AppResult.Success -> {
-                    val updatedLibrary = result.data
-                    logger.info { "Updated skip inbox for library $libraryId to $newValue" }
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            library = updatedLibrary,
-                            skipInbox = updatedLibrary.skipInbox,
-                        )
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to update skip inbox for library: $libraryId — ${result.error}" }
-                    // Revert to previous value
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            skipInbox = previousValue,
-                            error = userMessageFor(result.error),
-                        )
-                    }
-                }
-            }
-        }
+        // TODO: rewire to LibraryAdminService RPC when Task 25 lands
     }
 
     /**
@@ -375,7 +339,6 @@ sealed interface LibrarySettingsUiState {
     data class Ready(
         val library: Library,
         val accessMode: AccessMode,
-        val skipInbox: Boolean,
         val isSaving: Boolean = false,
         val isScanning: Boolean = false,
         val error: String? = null,

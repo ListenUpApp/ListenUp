@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.remote.model
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import kotlin.time.ExperimentalTime
@@ -25,6 +27,10 @@ import kotlin.time.Instant
 fun BookResponse.toEntity(): BookEntity =
     BookEntity(
         id = BookId(id),
+        // The legacy REST BookResponse predates the Library domain — libraryId/folderId are not on the wire.
+        // Use sentinel placeholders; this path is superseded by the BookService RPC (Books-C).
+        libraryId = LibraryId("unknown"),
+        folderId = FolderId("unknown"),
         title = title,
         sortTitle = sortTitle,
         subtitle = subtitle,

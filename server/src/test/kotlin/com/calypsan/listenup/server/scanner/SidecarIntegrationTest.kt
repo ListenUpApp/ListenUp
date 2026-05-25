@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
 import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
+import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -51,7 +52,7 @@ class SidecarIntegrationTest :
 private fun newScannerWithSidecars(fixture: AudioLibraryFixture): Scanner {
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)
     return Scanner(
-        rootPath = fixture.root,
+        library = testLibrary(folders = listOf(fixture.root.toString())),
         metadataReader = AbsMetadataReader(contractJson),
         embeddedMetadataParser =
             com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser(

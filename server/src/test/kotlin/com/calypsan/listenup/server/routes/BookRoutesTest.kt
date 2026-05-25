@@ -9,8 +9,11 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -73,6 +76,7 @@ class BookRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(bookRouteFixture(id = "b1", title = "The Way of Kings"))
@@ -138,6 +142,7 @@ class BookRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(bookRouteFixture(id = "b1", title = "The Way of Kings"))
@@ -196,6 +201,8 @@ private fun bookRouteFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

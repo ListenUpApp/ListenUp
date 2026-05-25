@@ -223,8 +223,9 @@ private fun LibrarySettingsContent(
         }
 
         item {
+            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
             ScanPathsCard(
-                scanPaths = library.scanPaths,
+                scanPaths = emptyList(),
                 isSaving = state.isSaving,
                 onRemovePath = onRemoveScanPath,
                 onAddFolder = onAddFolder,
@@ -280,8 +281,9 @@ private fun LibrarySettingsContent(
         }
 
         item {
+            // skipInbox not carried by the new Library domain; toggle is a no-op pending Task 25 schema work.
             InboxSettingsCard(
-                skipInbox = state.skipInbox,
+                skipInbox = false,
                 isSaving = state.isSaving,
                 onToggleSkipInbox = onToggleSkipInbox,
             )
@@ -338,30 +340,7 @@ private fun LibraryInfoCard(
                 }
             }
 
-            if (library.scanPaths.isNotEmpty()) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                )
-
-                // Scan paths
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.admin_scan_paths),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    library.scanPaths.forEach { path ->
-                        Text(
-                            text = path,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
+            // Folder paths shown once AdminRepository.getLibrary returns LibraryFolder entities (Task 25).
         }
     }
 }

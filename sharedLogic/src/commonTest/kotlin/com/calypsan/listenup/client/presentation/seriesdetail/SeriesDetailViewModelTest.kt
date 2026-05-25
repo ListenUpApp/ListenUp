@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -74,6 +76,8 @@ class SeriesDetailViewModelTest :
         ): BookListItem =
             BookListItem(
                 id = BookId(id),
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = title,
                 subtitle = null,
                 authors = listOf(BookContributor(id = "author-1", name = "Author", roles = listOf("Author"))),

@@ -9,8 +9,11 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -29,6 +32,7 @@ import io.ktor.server.testing.testApplication
 import io.ktor.sse.ServerSentEvent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -66,6 +70,7 @@ class BooksSyncFirehoseTest :
                         }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
 
                     val events = mutableListOf<ServerSentEvent>()
@@ -75,8 +80,8 @@ class BooksSyncFirehoseTest :
                         request = { bearerAuth(token) },
                     ) {
                         coroutineScope {
-                            // Collect exactly 3 events: Created, Updated, Deleted
-                            val deferred = async { incoming.take(3).toList() }
+                            // Collect exactly 3 books domain events: Created, Updated, Deleted
+                            val deferred = async { incoming.filter { it.event == "books" }.take(3).toList() }
 
                             // Create
                             repo.upsert(bookSyncFixture(id = "fh-book", title = "Original Title"))
@@ -124,6 +129,7 @@ class BooksSyncFirehoseTest :
                         }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
 
                     client.sse(
@@ -131,12 +137,11 @@ class BooksSyncFirehoseTest :
                         request = { bearerAuth(token) },
                     ) {
                         coroutineScope {
-                            val deferred = async { incoming.first() }
+                            val deferred = async { incoming.first { it.event == "books" } }
                             repo.upsert(bookSyncFixture(id = "domain-book", title = "Domain Test"))
                             val event = deferred.await()
 
                             event.event shouldBe "books"
-                            event.id shouldBe "1" // first revision across all domains
                             event.data!! shouldContain """"type":"SyncEvent.Created""""
                             event.data!! shouldContain """"id":"domain-book""""
                         }
@@ -172,6 +177,8 @@ private fun bookSyncFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,
