@@ -5,13 +5,17 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
+import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -59,11 +63,6 @@ class HomeRepositoryImpl(
     private suspend fun fetchFromLocal(limit: Int): AppResult<List<ContinueListeningBook>> {
         val positions = playbackPositionDao.getRecentPositions(limit)
         logger.info { "fetchFromLocal: found ${positions.size} playback positions" }
-        positions.forEachIndexed { index, pos ->
-            logger.debug {
-                "  position[$index]: bookId=${pos.bookId.value}, positionMs=${pos.positionMs}, lastPlayedAt=${pos.lastPlayedAt}"
-            }
-        }
 
         if (positions.isEmpty()) {
             return Success(emptyList())
@@ -136,74 +135,93 @@ class HomeRepositoryImpl(
     }
 
     /**
-     * Observe continue listening books from local database.
+     * Observe continue listening items from local database.
      *
-     * Transforms playback positions into ContinueListeningBook objects
-     * by joining with book details. Provides real-time updates when
-     * positions change locally (instant, no sync delay).
+     * Uses [BookRepository.observeBookListItems] for a fully reactive join: when positions
+     * change, the book side re-subscribes; when books change (sync in-flight), the book Flow
+     * re-emits — eliminating the race where stale book data was captured once per position
+     * emission.
      *
-     * @param limit Maximum number of books to return
-     * @return Flow emitting list of ContinueListeningBook whenever positions change
+     * Items are [ContinueListeningItem.Ready] when the book is hydrated, or
+     * [ContinueListeningItem.Loading] when the book has not yet arrived in Room (brief
+     * sync-window — silently dropping those rows made the shelf appear half-empty).
+     *
+     * @param limit Maximum number of items to return
+     * @return Flow emitting list of [ContinueListeningItem] whenever positions or books change
      */
-    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningBook>> =
-        // Push the sort + limit + "started" filter to SQL (Finding 09). Room still
+    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
+        // Push the sort + limit + isFinished=0 filter to SQL (Finding 09). Room still
         // re-emits on any row change, so the Home shelf stays reactive without
-        // pulling every position to the client. The finished-check stays in
-        // Kotlin because it requires each book's duration, which Room doesn't
-        // have in this query's projection.
+        // pulling every position to the client.
         playbackPositionDao
             .observeRecentPositions(limit)
-            .onEach { positions ->
-                val finishedCount = positions.count { it.isFinished }
-                logger.info {
-                    "Room EMITTED: ${positions.size} positions (finished=$finishedCount)"
-                }
-            }.mapLatest { positions ->
-                val result = mutableListOf<ContinueListeningBook>()
-                val bookMap =
+            .flatMapLatest { positions ->
+                if (positions.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    val bookIds = positions.map { it.bookId.value }
                     bookRepository
-                        .getBookListItems(
-                            positions.map { it.bookId.value },
-                        ).associateBy { it.id.value }
-                for (position in positions) {
-                    val bookIdStr = position.bookId.value
-                    val book = bookMap[bookIdStr] ?: continue
-
-                    val effectivelyFinished =
-                        book.duration > 0 && (
-                            position.positionMs >= book.duration ||
-                                (
-                                    position.isFinished &&
-                                        position.positionMs.toFloat() / book.duration >= 0.95f
-                                )
-                        )
-                    if (effectivelyFinished) continue
-
-                    val progress =
-                        if (book.duration > 0) {
-                            (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
-                        } else {
-                            0f
-                        }
-
-                    val lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt
-                    val lastPlayedAtIso = Instant.fromEpochMilliseconds(lastPlayedAtMs).toString()
-
-                    result.add(
-                        ContinueListeningBook(
-                            bookId = bookIdStr,
-                            title = book.title,
-                            authorNames = book.authorNames,
-                            coverPath = book.coverPath,
-                            coverBlurHash = book.coverBlurHash,
-                            progress = progress,
-                            currentPositionMs = position.positionMs,
-                            totalDurationMs = book.duration,
-                            lastPlayedAt = lastPlayedAtIso,
-                        ),
-                    )
+                        .observeBookListItems(bookIds)
+                        .map { books -> buildContinueListeningItems(positions, books, limit) }
                 }
-                logger.info { "observeContinueListening: returning ${result.size} books" }
-                result
             }
+
+    private fun buildContinueListeningItems(
+        positions: List<PlaybackPositionEntity>,
+        books: List<BookListItem>,
+        limit: Int,
+    ): List<ContinueListeningItem> {
+        val bookMap = books.associateBy { it.id.value }
+        val result =
+            positions.asSequence()
+                .mapNotNull { pos ->
+                    val book = bookMap[pos.bookId.value]
+                    if (book == null) {
+                        // D: sync in-flight — show Loading placeholder so shelf size stays stable
+                        ContinueListeningItem.Loading(pos.bookId.value)
+                    } else {
+                        // A: trust isFinished (authoritative from server); defense-in-depth on
+                        // positionMs >= duration to catch the in-flight finished edge case
+                        val effectivelyFinished =
+                            pos.isFinished || (book.duration > 0 && pos.positionMs >= book.duration)
+                        if (effectivelyFinished) {
+                            null // exclude
+                        } else {
+                            ContinueListeningItem.Ready(
+                                bookId = pos.bookId.value,
+                                book = toContinueListeningBook(pos, book),
+                            )
+                        }
+                    }
+                }
+                .take(limit)
+                .toList()
+
+        logger.info { "observeContinueListening: returning ${result.size} items" }
+        return result
+    }
+
+    private fun toContinueListeningBook(
+        position: PlaybackPositionEntity,
+        book: BookListItem,
+    ): ContinueListeningBook {
+        val progress =
+            if (book.duration > 0) {
+                (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+        val lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt
+        return ContinueListeningBook(
+            bookId = position.bookId.value,
+            title = book.title,
+            authorNames = book.authorNames,
+            coverPath = book.coverPath,
+            coverBlurHash = book.coverBlurHash,
+            progress = progress,
+            currentPositionMs = position.positionMs,
+            totalDurationMs = book.duration,
+            lastPlayedAt = Instant.fromEpochMilliseconds(lastPlayedAtMs).toString(),
+        )
+    }
 }
