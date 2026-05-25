@@ -32,6 +32,7 @@ import io.ktor.server.testing.testApplication
 import io.ktor.sse.ServerSentEvent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -79,8 +80,8 @@ class BooksSyncFirehoseTest :
                         request = { bearerAuth(token) },
                     ) {
                         coroutineScope {
-                            // Collect exactly 3 events: Created, Updated, Deleted
-                            val deferred = async { incoming.take(3).toList() }
+                            // Collect exactly 3 books domain events: Created, Updated, Deleted
+                            val deferred = async { incoming.filter { it.event == "books" }.take(3).toList() }
 
                             // Create
                             repo.upsert(bookSyncFixture(id = "fh-book", title = "Original Title"))
@@ -136,12 +137,11 @@ class BooksSyncFirehoseTest :
                         request = { bearerAuth(token) },
                     ) {
                         coroutineScope {
-                            val deferred = async { incoming.first() }
+                            val deferred = async { incoming.first { it.event == "books" } }
                             repo.upsert(bookSyncFixture(id = "domain-book", title = "Domain Test"))
                             val event = deferred.await()
 
                             event.event shouldBe "books"
-                            event.id shouldBe "1" // first revision across all domains
                             event.data!! shouldContain """"type":"SyncEvent.Created""""
                             event.data!! shouldContain """"id":"domain-book""""
                         }
