@@ -49,10 +49,26 @@ import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
-import com.calypsan.listenup.server.scanner.Scanner
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.dto.AccessMode
+import com.calypsan.listenup.api.dto.Library
+import com.calypsan.listenup.api.dto.LibraryFolderRef
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
-import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.LibraryRegistry
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
@@ -77,6 +93,7 @@ import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -199,7 +216,7 @@ fun Application.module() {
         }
     }
 
-    startBackgroundTasks(applicationScope, resolvedLibraryPath != null)
+    startBackgroundTasks(applicationScope, resolvedLibraryPath)
 }
 
 /**
@@ -305,13 +322,13 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
  */
 private fun Application.startBackgroundTasks(
     scope: CoroutineScope,
-    hasLibrary: Boolean,
+    libraryPath: Path?,
 ) {
     // Session cleanup runs unconditionally — sessions exist regardless of library config.
     inject<ExpiredSessionCleanupTask>().value.start(scope)
 
-    if (hasLibrary) {
-        bootstrapScannerOnStartup(scope)
+    if (libraryPath != null) {
+        bootstrapScannerOnStartup(scope, libraryPath)
         val cleanupTask by inject<ActiveSessionCleanupTask>()
         cleanupTask.start(scope)
         val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
@@ -340,26 +357,75 @@ private fun Application.startBackgroundTasks(
  * The initial scan failures don't bubble — we log and continue. The user
  * can re-trigger via the scanner RPC surface.
  */
-private fun Application.bootstrapScannerOnStartup(scope: CoroutineScope) {
-    val scanner by inject<Scanner>()
-    val watcher by inject<FolderWatcher>()
+private fun Application.bootstrapScannerOnStartup(
+    scope: CoroutineScope,
+    libraryPath: Path,
+) {
+    val orchestrator by inject<ScanOrchestrator>()
     val bookPersister by inject<BookPersister>()
+    val libraryRegistry by inject<LibraryRegistry>()
+    val db by inject<Database>()
 
     bookPersister.start()
 
     scope.launch {
-        runCatching { scanner.runFullScan() }
-            .onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                logger.error(e) { "initial scan failed — server keeps running" }
-            }
+        runCatching {
+            val library = loadLibraryFromDb(libraryRegistry, db, libraryPath)
+            orchestrator.onLibraryAdded(library)
+            orchestrator.scanLibrary(library.id)
+                .also { result ->
+                    if (result is AppResult.Failure) {
+                        logger.warn { "initial scan returned failure: ${result.error}" }
+                    }
+                }
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.error(e) { "initial scan failed — server keeps running" }
+        }
     }
+}
 
-    scope.launch {
-        runCatching { watcher.start() }
-            .onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                logger.error(e) { "folder watcher failed to start — real-time updates disabled" }
-            }
+/**
+ * Builds a [Library] DTO from the `libraries` and `library_folders` tables
+ * for the single library managed by this process.
+ *
+ * [LibraryRegistry.currentLibrary] bootstraps the library row and its
+ * folder row atomically on first call; by the time this function reads the
+ * tables the rows are guaranteed to exist. This shim is removed in Task 18
+ * when full multi-library admin wires bootstrap from `LibraryAdminServiceImpl`.
+ */
+private suspend fun loadLibraryFromDb(
+    libraryRegistry: LibraryRegistry,
+    db: Database,
+    @Suppress("UNUSED_PARAMETER") libraryPath: Path,
+): Library {
+    val libraryId = libraryRegistry.currentLibrary()
+    return suspendTransaction(db) {
+        val libraryRow =
+            LibraryTable
+                .selectAll()
+                .where { LibraryTable.id eq libraryId.value }
+                .first()
+        val folders =
+            LibraryFolderTable
+                .selectAll()
+                .where { LibraryFolderTable.libraryId eq libraryId.value and LibraryFolderTable.deletedAt.isNull() }
+                .map { row ->
+                    LibraryFolderRef(
+                        id = FolderId(row[LibraryFolderTable.id]),
+                        rootPath = row[LibraryFolderTable.rootPath],
+                    )
+                }
+        Library(
+            id = libraryId,
+            name = libraryRow[LibraryTable.name],
+            folders = folders,
+            metadataPrecedence = libraryRow[LibraryTable.metadataPrecedence],
+            accessMode =
+                runCatching { AccessMode.valueOf(libraryRow[LibraryTable.accessMode].uppercase()) }
+                    .getOrDefault(AccessMode.SHARED),
+            createdByUserId = libraryRow[LibraryTable.createdByUserId]?.let { UserId(it) },
+            createdAt = libraryRow[LibraryTable.createdAt],
+        )
     }
 }

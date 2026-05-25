@@ -15,6 +15,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 
@@ -26,7 +27,7 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 2) }
                 }.use { fixture ->
-                    val service = newService(fixture, scope = this)
+                    val (service, _) = newService(fixture, scope = this)
                     val result = service.scanFull()
                     val success = result.shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
                     success.data.totalBooks shouldBe 1
@@ -39,7 +40,7 @@ class ScannerServiceImplTest :
         test("lastScanResult returns LibraryPathNotConfigured before any scan has run") {
             runTest {
                 audioLibrary {}.use { fixture ->
-                    val service = newService(fixture, scope = this)
+                    val (service, _) = newService(fixture, scope = this)
                     val result = service.lastScanResult()
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<ScanError.LibraryPathNotConfigured>()
@@ -52,7 +53,7 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    val service = newService(fixture, scope = this)
+                    val (service, _) = newService(fixture, scope = this)
                     service.scanFull()
 
                     val result = service.lastScanResult()
@@ -63,15 +64,18 @@ class ScannerServiceImplTest :
         }
     })
 
+private val TEST_LIBRARY_ID = LibraryId("test-lib")
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-private fun newService(
+private suspend fun newService(
     fixture: AudioLibraryFixture,
     scope: TestScope,
-): ScannerServiceImpl {
+): Pair<ScannerServiceImpl, ScanOrchestrator> {
     val eventBus = MutableSharedFlow<ScanEvent>(replay = 0, extraBufferCapacity = 64)
+    val library = testLibrary(id = TEST_LIBRARY_ID.value, folders = listOf(fixture.root.toString()))
     val scanner =
         Scanner(
-            library = testLibrary(folders = listOf(fixture.root.toString())),
+            library = library,
             metadataReader = AbsMetadataReader(contractJson),
             embeddedMetadataParser =
                 com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser(
@@ -85,10 +89,31 @@ private fun newService(
         )
     val coordinator =
         ScanCoordinator(
-            libraryId = LibraryId("test-lib"),
+            libraryId = TEST_LIBRARY_ID,
             runFullScan = { scanner.runFullScan() },
             runIncremental = { scanner.runIncremental(it) },
             scope = scope.backgroundScope,
         )
-    return ScannerServiceImpl(scanner, coordinator, eventBus)
+    val bundle = ScannerBundle(library, scanner, coordinator)
+    val orchestrator =
+        ScanOrchestrator(
+            scannerFactory = { bundle },
+            watcherSupervisor = NoOpWatcherSupervisor,
+        )
+    orchestrator.onLibraryAdded(library)
+    val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow())
+    return service to orchestrator
+}
+
+/** Watcher supervisor that does nothing — used when the test doesn't need FS events. */
+private object NoOpWatcherSupervisor : WatcherSupervisorPort {
+    override suspend fun mount(
+        libraryId: com.calypsan.listenup.core.LibraryId,
+        folder: com.calypsan.listenup.api.dto.LibraryFolderRef,
+        onEvent: suspend (com.calypsan.listenup.core.LibraryId, java.nio.file.Path) -> Unit,
+    ) = Unit
+
+    override suspend fun unmount(folderId: com.calypsan.listenup.core.FolderId) = Unit
+
+    override suspend fun unmountAllForLibrary(libraryId: com.calypsan.listenup.core.LibraryId) = Unit
 }

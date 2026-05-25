@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import java.util.UUID
@@ -68,17 +69,34 @@ class LibraryRegistry(
 
     // TODO: remove when Task 18 (Application.kt bootstrap) lands — LIB-C.
     private fun bootstrapLibrary(): String {
+        val libraryPath = env["LISTENUP_LIBRARY_PATH"]
         val newId = UUID.randomUUID().toString()
         val now = clock.now().toEpochMilliseconds()
         val serializedPrecedence = metadataPrecedence.serialize()
         LibraryTable.insert {
             it[LibraryTable.id] = newId
-            it[LibraryTable.name] = env["LISTENUP_LIBRARY_PATH"] ?: "Default Library"
+            it[LibraryTable.name] = libraryPath ?: "Default Library"
             it[LibraryTable.metadataPrecedence] = serializedPrecedence
             it[LibraryTable.createdAt] = now
             it[LibraryTable.updatedAt] = now
             it[LibraryTable.revision] = 0L
             it[LibraryTable.deletedAt] = null
+        }
+        // Also insert a folder row so loadLibraryFromDb finds the path without racing
+        // the test seed. The LibraryFolderTable.rootPath unique index prevents duplicates;
+        // if the folder already exists, the insert is skipped (no-op via runCatching).
+        if (libraryPath != null) {
+            runCatching {
+                LibraryFolderTable.insert {
+                    it[LibraryFolderTable.id] = UUID.randomUUID().toString()
+                    it[LibraryFolderTable.libraryId] = newId
+                    it[LibraryFolderTable.rootPath] = libraryPath
+                    it[LibraryFolderTable.createdAt] = now
+                    it[LibraryFolderTable.updatedAt] = now
+                    it[LibraryFolderTable.revision] = 0L
+                    it[LibraryFolderTable.deletedAt] = null
+                }
+            }
         }
         return newId
     }

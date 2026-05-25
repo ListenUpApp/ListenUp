@@ -67,11 +67,11 @@ internal class Scanner(
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
-) {
+) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
 
-    fun lastResult(): ScanResult? = lastResult
+    override fun lastResult(): ScanResult? = lastResult
 
     suspend fun runFullScan(): ScanResult {
         val correlationId = correlationIdFactory()

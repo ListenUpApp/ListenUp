@@ -4,7 +4,9 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
@@ -46,6 +48,10 @@ fun Database.seedTestLibraryAndFolder(
             it[LibraryTable.revision] = 0L
             it[LibraryTable.deletedAt] = null
         }
+        // Bootstrap (LibraryRegistry) may have already inserted a folder at this
+        // path. Remove it so we can insert the test-controlled row with the
+        // canonical id ("test-folder") that book fixtures reference via folderId.
+        LibraryFolderTable.deleteWhere { LibraryFolderTable.rootPath eq folderPath }
         LibraryFolderTable.insert {
             it[LibraryFolderTable.id] = folderId
             it[LibraryFolderTable.libraryId] = libraryId

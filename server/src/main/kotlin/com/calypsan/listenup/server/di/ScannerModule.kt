@@ -6,7 +6,10 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.Scanner
+import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
+import com.calypsan.listenup.server.scanner.ScanOrchestrator
+import com.calypsan.listenup.server.scanner.asPort
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
@@ -15,11 +18,17 @@ import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.scanner.watcher.StableSizeDebouncer
+import com.calypsan.listenup.server.scanner.watcher.WatcherHandle
+import com.calypsan.listenup.server.scanner.watcher.WatcherSupervisor
+import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
+import com.calypsan.listenup.server.services.LibraryRegistry
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -30,8 +39,8 @@ import java.nio.file.Path
  *
  *  - The [ScanEvent] event bus (writable [MutableSharedFlow] for the
  *    Scanner; read-only [SharedFlow] view for the RPC service and SSE).
- *  - [AbsMetadataReader], [Scanner], [ScanCoordinator], [ScannerServiceImpl].
- *  - [FolderWatcher] for real-time updates.
+ *  - [AbsMetadataReader], [ScanOrchestrator], [ScannerServiceImpl].
+ *  - [WatcherSupervisor] backed by [FolderWatcher] for real-time updates.
  *
  * The [applicationScope] parameter is the long-lived coroutine scope
  * (typically `Application.coroutineContext + SupervisorJob`) — owns the
@@ -75,42 +84,78 @@ fun scannerModule(
 
         single { AbsMetadataReader(contractJson) }
 
-        single {
-            Scanner(
-                rootPath = get(),
-                metadataReader = get(),
-                embeddedMetadataParser = get(),
-                eventBus = get<MutableSharedFlow<ScanEvent>>(),
-                scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
-                sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
-                metadataPrecedence = metadataPrecedence,
-            )
+        single { StableSizeDebouncer() }
+
+        // WatcherSupervisor — creates one FolderWatcher per registered folder.
+        // The factory lambda starts the watcher, subscribes to its event flow,
+        // and forwards events to the caller's onEvent callback.
+        single<WatcherSupervisorPort> {
+            val scope: CoroutineScope = get()
+            val debouncer: StableSizeDebouncer = get()
+            WatcherSupervisor { folder, onEvent ->
+                val folderPath = Path.of(folder.rootPath)
+                val watcher =
+                    FolderWatcher(
+                        libraryRoot = folderPath,
+                        scope = scope,
+                        debouncer = debouncer,
+                    )
+                val job: Job =
+                    scope.launch {
+                        watcher.start()
+                        watcher.events.collect { path -> onEvent(path) }
+                    }
+                object : WatcherHandle {
+                    override suspend fun close() {
+                        job.cancel()
+                        watcher.close()
+                    }
+                }
+            }.asPort()
         }
 
+        // ScanOrchestrator — one Scanner + ScanCoordinator bundle per library.
+        // Currently the server runs with a single library (multi-library support
+        // lands in Task 18). The factory lambda is called once per onLibraryAdded().
         single {
-            val scanner: Scanner = get()
-            ScanCoordinator(
-                runFullScan = { scanner.runFullScan() },
-                runIncremental = { scanner.runIncremental(it) },
-                scope = get(),
+            val scope: CoroutineScope = get()
+            val eventBus: MutableSharedFlow<ScanEvent> = get()
+            val scanResultBus: MutableSharedFlow<ScanResult> = get(named("scanResultBus"))
+            val metadataReader: AbsMetadataReader = get()
+            val embeddedMetadataParser: com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser = get()
+            ScanOrchestrator(
+                scannerFactory = { library ->
+                    val scanner =
+                        Scanner(
+                            library = library,
+                            metadataReader = metadataReader,
+                            embeddedMetadataParser = embeddedMetadataParser,
+                            eventBus = eventBus,
+                            scanResultBus = scanResultBus,
+                            sidecarParsers = listOf(NfoParser(), OpfParser(), ReaderTxtParser(), DescTxtParser()),
+                            metadataPrecedence = metadataPrecedence,
+                        )
+                    val coordinator =
+                        ScanCoordinator(
+                            libraryId = library.id,
+                            runFullScan = { scanner.runFullScan() },
+                            runIncremental = { scanner.runIncremental(it) },
+                            scope = scope,
+                        )
+                    ScannerBundle(library, scanner, coordinator)
+                },
+                watcherSupervisor = get<WatcherSupervisorPort>(),
             )
         }
 
         single<ScannerService> {
+            val libraryRegistry: LibraryRegistry = get()
             ScannerServiceImpl(
-                scanner = get(),
-                coordinator = get(),
+                orchestrator = get(),
+                // LibraryRegistry caches the id after the first DB look-up; calling
+                // it per-request is safe and keeps the binding synchronous.
+                resolveLibraryId = { libraryRegistry.currentLibrary() },
                 eventBus = get<SharedFlow<ScanEvent>>(),
-            )
-        }
-
-        single { StableSizeDebouncer() }
-
-        single {
-            FolderWatcher(
-                libraryRoot = get(),
-                scope = get(),
-                debouncer = get(),
             )
         }
     }

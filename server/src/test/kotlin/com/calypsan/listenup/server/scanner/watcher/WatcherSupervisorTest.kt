@@ -152,9 +152,13 @@ private fun folderRef(
 /**
  * Fake watcher handle that records close calls and lets tests simulate events.
  * Implements [WatcherHandle] so the [WatcherSupervisor] can close it.
+ *
+ * [onClose] is set by [FakeFolderWatcherFactory] to update the factory's
+ * closed counter and remove the entry from the active-watchers map.
  */
 internal class FakeFolderWatcher : WatcherHandle {
     var closed = false
+    var onClose: (() -> Unit)? = null
     private var onEvent: (suspend (Path) -> Unit)? = null
 
     fun setOnEvent(callback: suspend (Path) -> Unit) {
@@ -167,26 +171,35 @@ internal class FakeFolderWatcher : WatcherHandle {
 
     override suspend fun close() {
         closed = true
+        onClose?.invoke()
     }
 }
 
 /**
  * Factory that creates [FakeFolderWatcher]s keyed by [FolderId].
+ *
+ * [watchers] holds only **active** (not yet closed) fakes so tests can
+ * assert that [WatcherSupervisor.unmount] actually removes entries.
+ * [closedCount] is a separate counter so closed fakes removed from the map
+ * are still counted.
  */
 internal class FakeFolderWatcherFactory {
     val watchers = mutableMapOf<FolderId, FakeFolderWatcher>()
-
-    // Counts the number of close() calls across all fakes created by this factory.
-    val closedCount: Int
-        get() = watchers.values.count { it.closed }
+    private var _closedCount = 0
+    val closedCount: Int get() = _closedCount
 
     suspend fun create(
         folder: LibraryFolderRef,
         onEvent: suspend (Path) -> Unit,
     ): FakeFolderWatcher {
+        val folderId = folder.id
         val fake = FakeFolderWatcher()
         fake.setOnEvent(onEvent)
-        watchers[folder.id] = fake
+        fake.onClose = {
+            _closedCount++
+            watchers.remove(folderId)
+        }
+        watchers[folderId] = fake
         return fake
     }
 }
