@@ -22,6 +22,8 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
@@ -34,7 +36,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -108,6 +112,12 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * @property serverUserStatsRepository the server-side user-stats repository; use
  *   [com.calypsan.listenup.server.services.UserStatsRepository.getForUser] to assert that
  *   [UserStatsUpdater] populated the materialized stats row when a listening event was recorded.
+ * @property serverLibraryRepository the server-side library repository; use [LibraryRepository.upsert]
+ *   to create or update a library row and publish its SSE event, and [LibraryRepository.softDelete]
+ *   to tombstone it. The client [LibrarySyncDomainHandler] applies these events into Room.
+ * @property serverLibraryFolderRepository the server-side library-folder repository; use
+ *   [LibraryFolderRepository.upsert] to add folders and [LibraryFolderRepository.softDelete] to
+ *   remove them. Folder SSE events arrive via [LibraryFolderSyncDomainHandler] into Room.
  * @property clientDatabase the client-side in-memory Room DB the real
  *   [BookSyncDomainHandler] applies Books events into; tests read it back
  * @property state observable engine state for ambient assertions
@@ -125,6 +135,8 @@ data class ClientEngineScope(
     val serverPlaybackPositionRepository: PlaybackPositionRepository,
     val serverListeningEventRepository: ListeningEventRepository,
     val serverUserStatsRepository: UserStatsRepository,
+    val serverLibraryRepository: LibraryRepository,
+    val serverLibraryFolderRepository: LibraryFolderRepository,
     val clientDatabase: ListenUpDatabase,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -280,6 +292,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
                     serverListeningEventRepository = serverRepos.listeningEventRepo,
                     serverUserStatsRepository = serverRepos.userStatsRepo,
+                    serverLibraryRepository = serverRepos.libraryRepo,
+                    serverLibraryFolderRepository = serverRepos.libraryFolderRepo,
                     clientDatabase = clientDb,
                     state = state,
                     dispatcher = dispatcher,
@@ -313,19 +327,32 @@ private data class ServerRepositories(
     val playbackPositionRepo: PlaybackPositionRepository,
     val listeningEventRepo: ListeningEventRepository,
     val userStatsRepo: UserStatsRepository,
+    val libraryRepo: LibraryRepository,
+    val libraryFolderRepo: LibraryFolderRepository,
 )
 
 /**
  * Constructs and registers the real [ActiveSessionSyncDomainHandler], [BookSyncDomainHandler],
  * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
- * [ListeningEventSyncDomainHandler], and [UserStatsSyncDomainHandler] into [registry]. Each
- * handler self-registers under its `domainName` on construction, so the client dispatcher routes
- * domain SSE frames here, applying them into [clientDb] exactly as production does.
+ * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
+ * and [LibraryFolderSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
+ * applying them into [clientDb] exactly as production does.
  */
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
 ) {
+    LibrarySyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    LibraryFolderSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
     ActiveSessionSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
@@ -410,6 +437,10 @@ private fun buildServerRepositories(
             db = serverDb,
             env = mapOf("LISTENUP_LIBRARY_PATH" to libraryDir.absolutePath),
         )
+    // Library and folder repos use their own bus+registry so their SSE events are published
+    // on the shared bus and routed by the SyncRegistry to the catch-up / SSE subscriber.
+    val libraryRepo = LibraryRepository(serverDb, bus, registry)
+    val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
@@ -448,6 +479,8 @@ private fun buildServerRepositories(
         playbackPositionRepo,
         listeningEventRepo,
         userStatsRepo,
+        libraryRepo,
+        libraryFolderRepo,
     )
 }
 
