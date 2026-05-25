@@ -9,8 +9,11 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -66,6 +69,7 @@ class BooksSyncFirehoseTest :
                         }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
 
                     val events = mutableListOf<ServerSentEvent>()
@@ -124,6 +128,7 @@ class BooksSyncFirehoseTest :
                         }
 
                     val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
 
                     client.sse(
@@ -172,6 +177,8 @@ private fun bookSyncFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

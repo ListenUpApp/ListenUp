@@ -12,6 +12,8 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -30,6 +32,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -97,6 +100,7 @@ class PlaybackServiceImplTest :
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -126,6 +130,7 @@ class PlaybackServiceImplTest :
         test("prepare returns the caller's resume position when one exists") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -154,6 +159,7 @@ class PlaybackServiceImplTest :
         test("prepare returns a signed URL for each audio file that the signer verifies") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -182,6 +188,7 @@ class PlaybackServiceImplTest :
         test("getPosition returns null for a book the user has never played") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -198,6 +205,7 @@ class PlaybackServiceImplTest :
         test("getPosition returns the stored position after recordPosition") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -228,6 +236,7 @@ class PlaybackServiceImplTest :
         test("recordPosition stores the position using the principal's userId, not any request field") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -258,6 +267,7 @@ class PlaybackServiceImplTest :
         test("per-user isolation: two users' prepare calls return independent positions") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
@@ -279,6 +289,7 @@ class PlaybackServiceImplTest :
         test("prepare returns SyncError.NotFound for an unknown bookId") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     val service = deps.service(db, "u1")
@@ -294,6 +305,7 @@ class PlaybackServiceImplTest :
         test("getStats returns Success(null) for a user with no listening history") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     val service = deps.service(db, "u1")
@@ -308,6 +320,7 @@ class PlaybackServiceImplTest :
         test("getStats returns non-null stats after recordListeningEvent with correct totalSecondsAllTime") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     val service = deps.service(db, "u1")
@@ -339,6 +352,7 @@ class PlaybackServiceImplTest :
         test("recordListeningEvent stores event under the authenticated principal's userId") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     val service = deps.service(db, "u1")
@@ -369,6 +383,7 @@ class PlaybackServiceImplTest :
         test("re-recording the same event id is idempotent: payload fields unchanged, revision advances") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
                     val service = deps.service(db, "u1")
@@ -418,6 +433,8 @@ class PlaybackServiceImplTest :
 private fun bookWithThreeFiles(bookId: String): BookSyncPayload =
     BookSyncPayload(
         id = bookId,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "Test Book",
         sortTitle = "Test Book",
         subtitle = null,

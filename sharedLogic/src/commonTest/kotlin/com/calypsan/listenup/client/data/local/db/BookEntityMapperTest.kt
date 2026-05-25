@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -67,6 +69,8 @@ class BookEntityMapperTest :
         ): BookSyncPayload =
             BookSyncPayload(
                 id = id,
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = title,
                 sortTitle = sortTitle,
                 subtitle = subtitle,

@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -149,13 +150,27 @@ private fun seedLibrary(
     db: org.jetbrains.exposed.v1.jdbc.Database,
     libraryId: String = "lib1",
     path: String = "/tmp/testlibrary",
+    folderId: String = "folder1",
 ): String {
+    val now = System.currentTimeMillis()
     transaction(db) {
         LibraryTable.insert {
             it[LibraryTable.id] = libraryId
             it[LibraryTable.name] = "Test Library"
-            it[LibraryTable.rootPath] = path
             it[LibraryTable.metadataPrecedence] = "embedded"
+            it[LibraryTable.createdAt] = now
+            it[LibraryTable.updatedAt] = now
+            it[LibraryTable.revision] = 0L
+            it[LibraryTable.deletedAt] = null
+        }
+        LibraryFolderTable.insert {
+            it[LibraryFolderTable.id] = folderId
+            it[LibraryFolderTable.libraryId] = libraryId
+            it[LibraryFolderTable.rootPath] = path
+            it[LibraryFolderTable.createdAt] = now
+            it[LibraryFolderTable.updatedAt] = now
+            it[LibraryFolderTable.revision] = 0L
+            it[LibraryFolderTable.deletedAt] = null
         }
     }
     return libraryId
@@ -167,6 +182,7 @@ private fun seedBook(
     title: String,
     libraryId: String,
     deleted: Boolean = false,
+    folderId: String = "folder1",
 ) {
     val now = System.currentTimeMillis()
     val rowid = (bookId.hashCode().toLong().let { if (it < 0) -it else it } % 999_999L) + 1L
@@ -174,6 +190,7 @@ private fun seedBook(
         BookTable.insert {
             it[BookTable.id] = bookId
             it[BookTable.libraryId] = libraryId
+            it[BookTable.folderId] = folderId
             it[BookTable.title] = title
             it[BookTable.totalDuration] = 3_600_000L
             it[BookTable.rootRelPath] = "$bookId/book.mp3"

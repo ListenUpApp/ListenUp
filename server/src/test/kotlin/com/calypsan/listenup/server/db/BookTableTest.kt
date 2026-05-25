@@ -22,6 +22,7 @@ class BookTableTest :
                 listOf(
                     "id",
                     "library_id",
+                    "folder_id",
                     "title",
                     "sort_title",
                     "subtitle",

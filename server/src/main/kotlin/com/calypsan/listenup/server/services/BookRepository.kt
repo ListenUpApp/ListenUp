@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.BookAudioFileTable
@@ -22,6 +23,7 @@ import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -195,6 +197,8 @@ class BookRepository(
 
         return BookSyncPayload(
             id = bookRow[BookTable.id],
+            libraryId = LibraryId(bookRow[BookTable.libraryId]),
+            folderId = FolderId(bookRow[BookTable.folderId]),
             title = bookRow[BookTable.title],
             sortTitle = bookRow[BookTable.sortTitle],
             subtitle = bookRow[BookTable.subtitle],
@@ -260,15 +264,13 @@ class BookRepository(
                 stmt[BookTable.clientOpId] = clientOpId
             }
         } else {
-            // Resolved before the insert block — Exposed's `insert { }` lambda is
-            // not a suspend context, so `currentLibrary()` (suspend) cannot be
-            // called inside it. The registry caches after first call; its first-call
-            // `suspendTransaction` joins this writePayload's open transaction (same
-            // Database, Exposed reuses the connection) — no nested-connection hazard.
-            val resolvedLibraryId = libraryRegistry.currentLibrary().value
             BookTable.insert { stmt ->
                 stmt[BookTable.id] = value.id
-                stmt[BookTable.libraryId] = resolvedLibraryId
+                // libraryId + folderId come from the payload; the legacy registry
+                // was the Books-A single-library resolver and is no longer the
+                // source of truth here.
+                stmt[BookTable.libraryId] = value.libraryId.value
+                stmt[BookTable.folderId] = value.folderId.value
                 applyBookFields(stmt, value)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
@@ -423,9 +425,14 @@ class BookRepository(
             buildSeries(analyzed).map { s ->
                 s.copy(id = seriesRepository.resolveOrCreate(s.name).value)
             }
+        // TODO: thread libraryId/folderId from Scanner (closed in LIB-C Task 10).
+        // Bootstrap library/folder placeholder until Scanner reshape lands.
+        val resolvedLibraryId = libraryRegistry.currentLibrary()
         val payload =
             BookSyncPayload(
                 id = bookId.value,
+                libraryId = resolvedLibraryId,
+                folderId = FolderId("PENDING-LIB-C"),
                 title = analyzed.title,
                 sortTitle = null,
                 subtitle = analyzed.subtitle,
@@ -496,11 +503,15 @@ class BookRepository(
                         .firstOrNull() ?: return@suspendTransaction null
                 val source = bookRow[BookTable.coverSource] ?: return@suspendTransaction null
                 val rootRelPath = bookRow[BookTable.rootRelPath]
-                val libraryRoot =
-                    LibraryTable
+                // Resolve the folder root path via the book's folder_id column.
+                // TODO: surface a typed error (LIB-C) if the folder row is missing.
+                val folderRoot =
+                    LibraryFolderTable
                         .selectAll()
-                        .where { LibraryTable.id eq bookRow[BookTable.libraryId] }
-                        .first()[LibraryTable.rootPath]
+                        .where { LibraryFolderTable.id eq bookRow[BookTable.folderId] }
+                        .firstOrNull()
+                        ?.get(LibraryFolderTable.rootPath)
+                        ?: return@suspendTransaction null
                 val primaryFilename =
                     BookAudioFileTable
                         .selectAll()
@@ -508,7 +519,7 @@ class BookRepository(
                         .orderBy(BookAudioFileTable.ordinal)
                         .firstOrNull()
                         ?.get(BookAudioFileTable.filename)
-                ResolvedCover(source, libraryRoot, rootRelPath, primaryFilename)
+                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename)
             } ?: return null
 
         val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)

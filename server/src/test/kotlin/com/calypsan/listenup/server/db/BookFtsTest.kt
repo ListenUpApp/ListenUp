@@ -23,7 +23,7 @@ class BookFtsTest :
         test("FTS index returns matching book rowids in rank order") {
             withInMemoryDatabase {
                 transaction(this) {
-                    exec("INSERT INTO libraries(id, name, root_path) VALUES ('lib1', 'Default', '/lib')")
+                    exec("INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)")
                     exec(
                         """
                         INSERT INTO books(
@@ -54,7 +54,7 @@ class BookFtsTest :
         test("FTS index searches multiple columns and ranks results") {
             withInMemoryDatabase {
                 transaction(this) {
-                    exec("INSERT INTO libraries(id, name, root_path) VALUES ('lib1', 'Default', '/lib')")
+                    exec("INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)")
                     exec(
                         """
                         INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at,

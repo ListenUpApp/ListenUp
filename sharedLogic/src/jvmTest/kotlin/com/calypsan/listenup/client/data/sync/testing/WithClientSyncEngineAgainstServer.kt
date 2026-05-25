@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -387,6 +388,21 @@ private fun buildServerRepositories(
     bus: ChangeBus,
     registry: SyncRegistry,
 ): ServerRepositories {
+    // Seed the library + folder rows that BookSyncPayload fixtures reference via
+    // libraryId = LibraryId("test-library") and folderId = FolderId("test-folder").
+    // Required to satisfy the library_id FK on the books table (FK enforcement is on).
+    // LibraryTable and LibraryFolderTable are `internal` — use raw SQL to insert.
+    val now = System.currentTimeMillis()
+    transaction(serverDb) {
+        exec(
+            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+        )
+        exec(
+            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
+        )
+    }
     val tagRepo = TagRepository(serverDb, bus, registry)
     val libraryDir = Files.createTempDirectory("listenup-c3-library-").toFile().apply { deleteOnExit() }
     val libraryRegistry =

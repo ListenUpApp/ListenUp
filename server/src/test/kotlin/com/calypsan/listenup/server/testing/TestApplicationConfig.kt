@@ -1,8 +1,14 @@
 package com.calypsan.listenup.server.testing
 
+import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.LibraryTable
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.ApplicationTestBuilder
 import java.nio.file.Files
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.koin.ktor.ext.inject
 
 /**
  * Wires a per-test application config matching `application.conf`'s shape but
@@ -42,4 +48,25 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 if (seedProfile != null) put("seed.profile", seedProfile)
             }
     }
+}
+
+/**
+ * Seeds a library row with id `"test-library"` and a folder row with id
+ * `"test-folder"` into the application's Koin-wired database.
+ *
+ * Call this inside a `testApplication { }` block after `application { module() }`,
+ * so the Koin container and schema are already initialized. Tests that call
+ * [com.calypsan.listenup.server.services.BookRepository.upsert] with
+ * `libraryId = LibraryId("test-library")` and `folderId = FolderId("test-folder")`
+ * need this to satisfy the `library_id` FK on the `books` table.
+ *
+ * @param folderPath the root filesystem path for the test folder (default `/tmp/test-library`).
+ */
+fun ApplicationTestBuilder.seedTestLibraryAndFolder(
+    libraryId: String = "test-library",
+    folderId: String = "test-folder",
+    folderPath: String = "/tmp/test-library",
+) {
+    val db by application.inject<Database>()
+    db.seedTestLibraryAndFolder(libraryId = libraryId, folderId = folderId, folderPath = folderPath)
 }

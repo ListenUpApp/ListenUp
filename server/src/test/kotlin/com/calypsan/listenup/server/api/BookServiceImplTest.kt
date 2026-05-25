@@ -8,12 +8,15 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -28,6 +31,7 @@ class BookServiceImplTest :
         test("getBook returns Success with the aggregate for a seeded book") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -55,6 +59,7 @@ class BookServiceImplTest :
         test("getBook returns SyncError.NotFound for an absent book id") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -81,6 +86,7 @@ class BookServiceImplTest :
         test("searchBooks returns matching book ids in FTS rank order") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -109,6 +115,7 @@ class BookServiceImplTest :
         test("searchBooks returns only the id whose title matches the query") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -137,6 +144,7 @@ class BookServiceImplTest :
         test("searchBooks with blank query returns empty list without querying all books") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -169,6 +177,8 @@ private fun bookFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

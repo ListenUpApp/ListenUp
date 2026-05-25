@@ -17,11 +17,14 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -41,6 +44,7 @@ class BookRepositoryUpsertTest :
         test("upsert of fresh book inserts row + all children atomically; emits SyncEvent.Created") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -110,6 +114,7 @@ class BookRepositoryUpsertTest :
         test("upsert replaces child rows wholesale on second call") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -178,6 +183,7 @@ class BookRepositoryUpsertTest :
         test("FTS row is upserted in book_search and mapped via book_search_map") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -234,6 +240,7 @@ class BookRepositoryUpsertTest :
         test("upsertFromAnalyzed persists and round-trips hasScanWarning") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -270,6 +277,7 @@ class BookRepositoryUpsertTest :
         test("update re-uses existing rowid; book_search has exactly one row per book") {
             withInMemoryDatabase {
                 val db = this
+                seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val repo =
@@ -374,6 +382,8 @@ private fun bookPayloadFixture(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = null,
         subtitle = null,

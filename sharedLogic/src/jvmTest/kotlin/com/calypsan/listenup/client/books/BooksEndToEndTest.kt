@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -200,6 +202,8 @@ private fun bookPayload(
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = title,
         sortTitle = title,
         subtitle = null,

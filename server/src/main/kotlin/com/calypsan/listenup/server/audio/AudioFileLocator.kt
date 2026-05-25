@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.audio
 
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.LibraryFolderTable
 import kotlinx.io.files.Path
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -63,18 +63,19 @@ class AudioFileLocator(
                     .firstOrNull() ?: return@suspendTransaction null
 
             val rootRelPath = bookRow[BookTable.rootRelPath]
-            val libraryId = bookRow[BookTable.libraryId]
+            val folderId = bookRow[BookTable.folderId]
 
-            val libraryRoot =
-                LibraryTable
+            // Resolve the folder root path via the book's folder_id column.
+            val folderRoot =
+                LibraryFolderTable
                     .selectAll()
-                    .where { LibraryTable.id eq libraryId }
+                    .where { LibraryFolderTable.id eq folderId }
                     .firstOrNull()
-                    ?.get(LibraryTable.rootPath)
+                    ?.get(LibraryFolderTable.rootPath)
                     ?: return@suspendTransaction null
 
             AudioFileLocation(
-                path = Path(libraryRoot, rootRelPath, filename),
+                path = Path(folderRoot, rootRelPath, filename),
                 format = format,
                 sizeBytes = size,
             )
