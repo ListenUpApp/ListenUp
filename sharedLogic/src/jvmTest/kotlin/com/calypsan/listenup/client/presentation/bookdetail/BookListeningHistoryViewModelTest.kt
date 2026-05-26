@@ -55,8 +55,9 @@ class BookListeningHistoryViewModelTest :
                 val repo = stubRepo(MutableStateFlow(history))
                 val vm = BookListeningHistoryViewModel(repo, bookId = "bookA")
                 vm.uiState.test {
-                    val data = awaitUntil { it is BookListeningHistoryUiState.Data }
-                        .shouldBeInstanceOf<BookListeningHistoryUiState.Data>()
+                    val data =
+                        awaitUntil { it is BookListeningHistoryUiState.Data }
+                            .shouldBeInstanceOf<BookListeningHistoryUiState.Data>()
                     data.history shouldBe history
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -74,8 +75,9 @@ class BookListeningHistoryViewModelTest :
                     }
                 val vm = BookListeningHistoryViewModel(repo, bookId = "bookA")
                 vm.uiState.test {
-                    val error = awaitUntil { it is BookListeningHistoryUiState.Error }
-                        .shouldBeInstanceOf<BookListeningHistoryUiState.Error>()
+                    val error =
+                        awaitUntil { it is BookListeningHistoryUiState.Error }
+                            .shouldBeInstanceOf<BookListeningHistoryUiState.Error>()
                     error.isRetryable shouldBe true
                     cancelAndIgnoreRemainingEvents()
                 }
