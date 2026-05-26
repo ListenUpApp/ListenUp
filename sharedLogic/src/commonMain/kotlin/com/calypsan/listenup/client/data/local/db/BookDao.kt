@@ -132,6 +132,23 @@ interface BookDao {
     suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors>
 
     /**
+     * Reactive counterpart to [getByIdsWithContributors] — emits whenever any of
+     * the requested book rows (or their contributor cross-refs) change.
+     *
+     * Used by [com.calypsan.listenup.client.data.repository.BookRepositoryImpl.observeBookListItems]
+     * (ids overload) to power the Home → Continue Listening join: once position IDs
+     * are known, this Flow keeps the book projections live so `flatMapLatest` in
+     * [com.calypsan.listenup.client.data.repository.HomeRepositoryImpl] produces a stable
+     * `List<ContinueListeningItem>` that updates as books sync into Room.
+     *
+     * @param ids List of type-safe book IDs to observe
+     * @return Flow emitting the current set of matching books with contributors; re-emits on any change
+     */
+    @Transaction
+    @Query("SELECT * FROM books WHERE id IN (:ids)")
+    fun observeByIdsWithContributors(ids: List<BookId>): Flow<List<BookWithContributors>>
+
+    /**
      * Hard-delete a book row by ID.
      *
      * Removes the row entirely. Use [softDelete] for server-originated tombstones,

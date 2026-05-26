@@ -90,6 +90,20 @@ interface BookRepository {
     suspend fun getBookListItems(ids: List<String>): List<BookListItem>
 
     /**
+     * Reactive counterpart to [getBookListItems] — emits whenever any of the
+     * requested book rows change in Room.
+     *
+     * Used by [HomeRepository.observeContinueListening] to join position IDs to
+     * book projections reactively: positions emit first, then this Flow keeps the
+     * book side live so the Continue Listening shelf updates as books sync into
+     * Room without an explicit re-subscription.
+     *
+     * @param ids Book IDs to observe. Empty input emits an empty list immediately.
+     * @return Flow emitting the current set of matching [BookListItem]s; re-emits on any row change.
+     */
+    fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>>
+
+    /**
      * Observe a single book's [BookDetail] reactively.
      *
      * Emits null if the book is absent; emits a [BookDetail] when the row

@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -102,8 +103,12 @@ class FakeHomeRepository : HomeRepository {
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
         Success(continueListeningBooks.take(limit))
 
-    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningBook>> =
-        flowOf(continueListeningBooks.take(limit))
+    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
+        flowOf(
+            continueListeningBooks.take(limit).map { book ->
+                ContinueListeningItem.Ready(bookId = book.bookId, book = book)
+            },
+        )
 }
 
 // ========== Fake Book Repository ==========
@@ -137,6 +142,9 @@ class FakeBookRepository : BookRepository {
     override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
 
     override fun observeBookListItems(): Flow<List<BookListItem>> = flowOf(books.values.toList())
+
+    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> =
+        flowOf(ids.mapNotNull { books[it] })
 
     override suspend fun getBookListItem(id: String): BookListItem? = books[id]
 

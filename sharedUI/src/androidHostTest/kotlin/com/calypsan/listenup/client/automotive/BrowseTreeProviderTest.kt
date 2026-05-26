@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -488,7 +489,7 @@ private class FakeHomeRepository(
 ) : HomeRepository {
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = Success(books.take(limit))
 
-    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningBook>> = flowOf(books.take(limit))
+    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
 }
 
 private class FakeBookDao(

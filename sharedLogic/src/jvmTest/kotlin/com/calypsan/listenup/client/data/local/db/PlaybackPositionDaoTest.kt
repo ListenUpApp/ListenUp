@@ -17,6 +17,7 @@ class PlaybackPositionDaoTest :
         val db: ListenUpDatabase = createInMemoryTestDatabase()
         val dao: PlaybackPositionDao = db.playbackPositionDao()
 
+        beforeEach { dao.deleteAll() }
         afterSpec { db.close() }
 
         fun position(
@@ -74,6 +75,89 @@ class PlaybackPositionDaoTest :
                     dao.save(position(id = "b", positionMs = 200L, lastPlayedAt = 2_000L, updatedAt = 2_000L))
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("b", "a")
 
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                dao.deleteAll()
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Fix B: SQL-side isFinished = 0 filter (Continue Listening reliability)
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("observeRecentPositions excludes isFinished=true positions") {
+            runTest {
+                dao.saveAll(
+                    listOf(
+                        // p1: started, not finished → INCLUDED
+                        position(id = "p1", positionMs = 1_000L, lastPlayedAt = 2_000L, updatedAt = 2_000L, isFinished = false),
+                        // p2: started, finished → EXCLUDED by SQL
+                        position(id = "p2", positionMs = 1_000L, lastPlayedAt = 1_000L, updatedAt = 1_000L, isFinished = true),
+                    ),
+                )
+
+                dao.observeRecentPositions(limit = 10).test {
+                    awaitItem().map { it.bookId.value } shouldContainExactly listOf("p1")
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                dao.deleteAll()
+            }
+        }
+
+        test("observeRecentPositions still excludes positionMs=0 (unstarted) positions") {
+            runTest {
+                dao.saveAll(
+                    listOf(
+                        // unstarted → EXCLUDED by positionMs > 0 filter
+                        position(id = "unstarted", positionMs = 0L, lastPlayedAt = 9_000L, updatedAt = 9_000L),
+                        // started, not finished → INCLUDED
+                        position(id = "started", positionMs = 500L, lastPlayedAt = 1_000L, updatedAt = 1_000L),
+                    ),
+                )
+
+                dao.observeRecentPositions(limit = 10).test {
+                    awaitItem().map { it.bookId.value } shouldContainExactly listOf("started")
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                dao.deleteAll()
+            }
+        }
+
+        test("observeRecentPositions ordering: COALESCE(lastPlayedAt, updatedAt) DESC") {
+            runTest {
+                dao.saveAll(
+                    listOf(
+                        // null lastPlayedAt falls back to updatedAt=3000 → most recent
+                        position(id = "legacy", positionMs = 100L, lastPlayedAt = null, updatedAt = 3_000L),
+                        // explicit lastPlayedAt=2000 → second
+                        position(id = "mid", positionMs = 100L, lastPlayedAt = 2_000L, updatedAt = 500L),
+                        // lastPlayedAt=1000 → third
+                        position(id = "old", positionMs = 100L, lastPlayedAt = 1_000L, updatedAt = 100L),
+                    ),
+                )
+
+                dao.observeRecentPositions(limit = 10).test {
+                    awaitItem().map { it.bookId.value } shouldContainExactly listOf("legacy", "mid", "old")
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                dao.deleteAll()
+            }
+        }
+
+        test("observeRecentPositions respects LIMIT") {
+            runTest {
+                val positions =
+                    (1..15).map { i ->
+                        position(id = "p$i", positionMs = 100L, lastPlayedAt = i.toLong() * 1_000L, updatedAt = i.toLong() * 1_000L)
+                    }
+                dao.saveAll(positions)
+
+                dao.observeRecentPositions(limit = 5).test {
+                    awaitItem().size shouldBe 5
                     cancelAndIgnoreRemainingEvents()
                 }
 

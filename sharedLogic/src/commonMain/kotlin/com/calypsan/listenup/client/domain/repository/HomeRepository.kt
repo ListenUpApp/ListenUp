@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -27,8 +28,12 @@ interface HomeRepository {
      * Provides real-time updates when playback positions change locally.
      * This is local-first: changes appear immediately without waiting for sync.
      *
+     * Items are [ContinueListeningItem.Ready] when the book is hydrated, or
+     * [ContinueListeningItem.Loading] when the position row arrived before the
+     * corresponding book has synced into Room (brief sync-window placeholder).
+     *
      * @param limit Maximum number of books to return
-     * @return Flow emitting list of ContinueListeningBook whenever positions change
+     * @return Flow emitting list of [ContinueListeningItem] whenever positions change
      */
-    fun observeContinueListening(limit: Int = 10): Flow<List<ContinueListeningBook>>
+    fun observeContinueListening(limit: Int = 10): Flow<List<ContinueListeningItem>>
 }

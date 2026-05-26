@@ -53,6 +53,11 @@ class FakeBookRepository(
 
     override fun observeBookListItems(): Flow<List<BookListItem>> = books.asStateFlow()
 
+    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> {
+        val wanted = ids.map(::BookId).toSet()
+        return books.asStateFlow().map { list -> list.filter { it.id in wanted } }
+    }
+
     override suspend fun getBookListItem(id: String): BookListItem? = books.value.firstOrNull { it.id == BookId(id) }
 
     override suspend fun getBookListItems(ids: List<String>): List<BookListItem> {

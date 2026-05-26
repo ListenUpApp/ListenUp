@@ -154,7 +154,7 @@ private fun HomeContent(
 
             if (state.hasContinueListening) {
                 ContinueListeningRow(
-                    books = state.continueListening,
+                    items = state.continueListening,
                     onBookClick = onBookClick,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
