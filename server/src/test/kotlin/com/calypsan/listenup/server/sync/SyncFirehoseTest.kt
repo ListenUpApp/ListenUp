@@ -21,7 +21,7 @@ class SyncFirehoseTest :
                     coroutineScope {
                         val deferred = async { incoming.first() }
                         // Trigger a write that publishes to the bus
-                        tagRepo.upsert(Tag("a", "alpha", 0, 0))
+                        tagRepo.upsert(Tag("a", "alpha", "alpha", 0, 0))
                         val event = deferred.await()
                         event.event shouldBe "tags"
                         event.id shouldBe "1" // first revision
@@ -36,7 +36,7 @@ class SyncFirehoseTest :
             withTestApplication {
                 // Publish 300 events to overflow the 256-event replay buffer.
                 // After overflow, the buffer holds revisions 45–300; revision 1 is evicted.
-                repeat(300) { i -> tagRepo.upsert(Tag("tag-$i", "label-$i", 0, 0)) }
+                repeat(300) { i -> tagRepo.upsert(Tag("tag-$i", "label-$i", "label-$i", 0, 0)) }
 
                 // Connect with Last-Event-Id=1 — older than the buffer floor (~45).
                 // client cursor < oldestRetained → stale.

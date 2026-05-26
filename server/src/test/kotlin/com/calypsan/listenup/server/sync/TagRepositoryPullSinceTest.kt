@@ -16,9 +16,9 @@ class TagRepositoryPullSinceTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0))
-                    repo.upsert(Tag("b", "beta", 0, 0))
-                    repo.upsert(Tag("c", "gamma", 0, 0))
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0))
+                    repo.upsert(Tag("c", "gamma", "gamma", 0, 0))
                     val page = repo.pullSince(userId = null, cursor = 0L, limit = 100)
                     page.items shouldHaveSize 3
                     page.items.map { it.id } shouldBe listOf("a", "b", "c")
@@ -33,9 +33,9 @@ class TagRepositoryPullSinceTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0)) // revision 1
-                    repo.upsert(Tag("b", "beta", 0, 0)) // revision 2
-                    repo.upsert(Tag("c", "gamma", 0, 0)) // revision 3
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0)) // revision 1
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0)) // revision 2
+                    repo.upsert(Tag("c", "gamma", "gamma", 0, 0)) // revision 3
                     val page = repo.pullSince(userId = null, cursor = 1L, limit = 100)
                     page.items.map { it.id } shouldBe listOf("b", "c")
                 }
@@ -47,7 +47,7 @@ class TagRepositoryPullSinceTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    (1..5).forEach { repo.upsert(Tag(id = "id-$it", name = "n$it", revision = 0, updatedAt = 0)) }
+                    (1..5).forEach { repo.upsert(Tag(id = "id-$it", name = "n$it", slug = "n$it", revision = 0, updatedAt = 0)) }
                     val first = repo.pullSince(userId = null, cursor = 0L, limit = 2)
                     first.items shouldHaveSize 2
                     first.hasMore shouldBe true
@@ -69,7 +69,7 @@ class TagRepositoryPullSinceTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
                     repo.softDelete("a")
                     val page = repo.pullSince(userId = null, cursor = 0L, limit = 100)
                     page.items shouldHaveSize 1

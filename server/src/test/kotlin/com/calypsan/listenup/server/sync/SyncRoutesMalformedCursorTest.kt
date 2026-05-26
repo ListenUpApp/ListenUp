@@ -45,7 +45,7 @@ class SyncRoutesMalformedCursorTest :
                         // Drive a write so the firehose has something to emit; if the route
                         // were misclassifying a missing header as malformed, the first frame
                         // would be a control/CursorStale instead of a tags event.
-                        tagRepo.upsert(Tag("a", "alpha", 0, 0))
+                        tagRepo.upsert(Tag("a", "alpha", "alpha", 0, 0))
                         val event = deferred.await()
                         event.event shouldBe "tags"
                         event.data!! shouldContain """"type":"SyncEvent.Created""""

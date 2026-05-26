@@ -28,7 +28,7 @@ class TagSyncDomainHandlerTest :
                         revision = firstRev,
                         occurredAt = firstUpdated,
                         clientOpId = null,
-                        payload = Tag(id = "t1", name = "alpha", revision = firstRev, updatedAt = firstUpdated),
+                        payload = Tag(id = "t1", name = "alpha", slug = "alpha", revision = firstRev, updatedAt = firstUpdated),
                     )
                 handler.onEvent(event, isOwnEcho = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
@@ -39,7 +39,7 @@ class TagSyncDomainHandlerTest :
                 val handler = TagSyncDomainHandler(registry = ClientSyncDomainRegistry())
                 val rev = 1L
                 val updated = 1L
-                val tag = Tag(id = "t1", name = "alpha", revision = rev, updatedAt = updated)
+                val tag = Tag(id = "t1", name = "alpha", slug = "alpha", revision = rev, updatedAt = updated)
                 handler.onCatchUpItem(tag, isTombstone = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }

@@ -41,12 +41,12 @@ internal class SearchServiceImpl(
         limit: Int,
     ): AppResult<SearchResults> {
         if (query.isBlank()) {
-            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList()))
+            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
         }
         val safeLimit = limit.coerceIn(1, MAX_LIMIT)
         val ftsQuery = sanitizeFts5Query(query)
         if (ftsQuery.isBlank()) {
-            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList()))
+            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
         }
         return coroutineScope {
             val booksDeferred = async { searchBooks(ftsQuery, safeLimit) }
@@ -57,6 +57,7 @@ internal class SearchServiceImpl(
                     books = booksDeferred.await(),
                     contributors = contributorsDeferred.await(),
                     series = seriesDeferred.await(),
+                    tags = emptyList(), // TODO: Tag search via tag_search FTS5 added in TAG-C (Task 14)
                 ),
             )
         }

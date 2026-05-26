@@ -30,7 +30,7 @@ class BusEventTypedTest :
                     val deferredBusEvent = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
-                    repo.upsert(Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0))
 
                     val busEvent = deferredBusEvent.await()
 

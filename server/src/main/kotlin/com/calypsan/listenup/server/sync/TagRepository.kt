@@ -35,6 +35,9 @@ class TagRepository(
                 Tag(
                     id = row[TagTable.id],
                     name = row[TagTable.name],
+                    // slug column added in Flyway V21 + TagTable extension (Task 5/6).
+                    // Empty string placeholder until the column is available.
+                    slug = "",
                     revision = row[TagTable.revision],
                     updatedAt = row[TagTable.updatedAt],
                     deletedAt = row[TagTable.deletedAt],

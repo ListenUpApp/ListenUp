@@ -63,7 +63,7 @@ class SyncEventDispatcherTest :
                         revision = revision,
                         occurredAt = occurredAt,
                         clientOpId = null,
-                        payload = Tag("t1", "alpha", revision, occurredAt),
+                        payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
                     )
                 val frame =
                     ParsedSseFrame(
@@ -108,7 +108,7 @@ class SyncEventDispatcherTest :
                         revision = revision,
                         occurredAt = occurredAt,
                         clientOpId = opId,
-                        payload = Tag("t1", "alpha", revision, occurredAt),
+                        payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
                     )
                 val frame =
                     ParsedSseFrame(

@@ -206,6 +206,31 @@ value class UserStatsId(
 )
 
 /**
+ * Type-safe wrapper for Tag IDs.
+ *
+ * Tags are server-wide (global, not user-scoped). Wrapping the id prevents
+ * accidentally passing a [BookId] or any other string id where a tag id is
+ * expected — particularly at [com.calypsan.listenup.api.TagService] call sites
+ * that thread both.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying tag ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class TagId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Tag ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Unix epoch millisecond timestamps.
  *
  * Prevents accidentally comparing timestamps with durations or other numeric values.

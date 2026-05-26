@@ -15,8 +15,8 @@ class SyncCatchUpRouteTest :
 
         test("GET /api/v1/sync/tags?since=0 returns all rows") {
             withTestApplication {
-                tagRepo.upsert(Tag("a", "alpha", 0, 0))
-                tagRepo.upsert(Tag("b", "beta", 0, 0))
+                tagRepo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                tagRepo.upsert(Tag("b", "beta", "beta", 0, 0))
 
                 val response = client.get("/api/v1/sync/tags?since=0")
                 response.status shouldBe HttpStatusCode.OK
