@@ -90,6 +90,41 @@ class BookSearchReindexer(
         }
     }
 
+    /**
+     * Reindexes every book that currently has a live junction row referencing
+     * [contributorId]. Called by
+     * [com.calypsan.listenup.server.api.ContributorServiceImpl.updateContributor]
+     * (on name / sortName change) and `deleteContributor` (after junction hard-delete).
+     *
+     * Reads affected book IDs from [com.calypsan.listenup.server.db.BookContributorTable].
+     * Each per-book reindex re-pulls `contributor_names` from source via the existing
+     * [reindexBookTags] machinery — the FTS row picks up the current contributor list.
+     *
+     * **Naming note:** [reindexBookTags] is historical; the function actually reindexes
+     * the entire `book_search` row. Rename deferred to a future cleanup.
+     */
+    suspend fun reindexAllBooksForContributor(contributorId: String) {
+        val bookIds = suspendTransaction(db) {
+            com.calypsan.listenup.server.db.BookContributorTable.bookIdsForContributor(contributorId)
+        }
+        for (bookId in bookIds) {
+            reindexBookTags(bookId)
+        }
+    }
+
+    /**
+     * Mirror for series — reindexes every book that currently has a live
+     * junction row referencing [seriesId].
+     */
+    suspend fun reindexAllBooksForSeries(seriesId: String) {
+        val bookIds = suspendTransaction(db) {
+            com.calypsan.listenup.server.db.BookSeriesMembershipTable.bookIdsForSeries(seriesId)
+        }
+        for (bookId in bookIds) {
+            reindexBookTags(bookId)
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private fun resolveRowid(
