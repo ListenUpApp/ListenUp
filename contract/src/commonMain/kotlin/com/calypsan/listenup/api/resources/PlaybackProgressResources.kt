@@ -31,7 +31,9 @@ class PlaybackProgressResources {
      * matches — only positions that exist for the requested book IDs.
      */
     @Resource("batch")
-    class Batch(val parent: PlaybackProgressResources = PlaybackProgressResources())
+    class Batch(
+        val parent: PlaybackProgressResources = PlaybackProgressResources(),
+    )
 
     /**
      * REST mirror of [com.calypsan.listenup.api.PlaybackProgressService.getRecentlyListened]:
