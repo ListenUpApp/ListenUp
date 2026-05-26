@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.services.AnalyzedBookMapper
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
@@ -98,8 +99,9 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
+        single { AnalyzedBookMapper() }
         single(createdAtStart = true) {
-            BookRepository(get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
+            BookRepository(get(), get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
         }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }

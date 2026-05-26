@@ -88,6 +88,7 @@ class BookRepository(
     _libraryRegistry: LibraryRegistry,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
+    private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
 ) : SyncableRepository<BookSyncPayload, BookId>(
@@ -437,47 +438,22 @@ class BookRepository(
         folderId: FolderId,
         analyzed: AnalyzedBook,
     ): AppResult<BookSyncPayload> {
-        val candidate = analyzed.candidate
-        val inode = candidate.files.firstOrNull()?.inode
-        val totalDuration = analyzed.embedded?.durationMs ?: 0L
         val resolvedContributors =
-            buildContributors(analyzed).map { c ->
+            analyzedBookMapper.buildContributors(analyzed).map { c ->
                 c.copy(id = contributorRepository.resolveOrCreate(c.name).value)
             }
         val resolvedSeries =
-            buildSeries(analyzed).map { s ->
+            analyzedBookMapper.buildSeries(analyzed).map { s ->
                 s.copy(id = seriesRepository.resolveOrCreate(s.name).value)
             }
         val payload =
-            BookSyncPayload(
-                id = bookId.value,
+            analyzedBookMapper.toBookSyncPayload(
+                bookId = bookId,
                 libraryId = libraryId,
                 folderId = folderId,
-                title = analyzed.title,
-                sortTitle = null,
-                subtitle = analyzed.subtitle,
-                description = analyzed.description,
-                publishYear = analyzed.publishedYear,
-                publisher = analyzed.publisher,
-                language = analyzed.language,
-                isbn = analyzed.isbn,
-                asin = analyzed.asin,
-                abridged = analyzed.abridged ?: false,
-                explicit = analyzed.explicit ?: false,
-                hasScanWarning = analyzed.hasScanWarning,
-                totalDuration = totalDuration,
-                cover = null,
-                rootRelPath = candidate.rootRelPath,
-                inode = inode,
-                scannedAt = clock.now().toEpochMilliseconds(),
-                contributors = resolvedContributors,
-                series = resolvedSeries,
-                audioFiles = buildAudioFiles(analyzed),
-                chapters = buildChapters(analyzed),
-                revision = 0L,
-                updatedAt = 0L,
-                createdAt = 0L,
-                deletedAt = null,
+                analyzed = analyzed,
+                resolvedContributors = resolvedContributors,
+                resolvedSeries = resolvedSeries,
             )
         return upsert(payload, clientOpId = null)
     }
@@ -667,56 +643,6 @@ class BookRepository(
                 log.warn { "Multiple books share inode $inode in library ${libraryId.value}; picking first" }
             }
             matches.firstOrNull()?.let { BookId(it) }
-        }
-
-    // --- AnalyzedBook → BookSyncPayload mapping ------------------------------
-
-    private fun buildContributors(analyzed: AnalyzedBook): List<BookContributorPayload> =
-        analyzed.authors.map { contributorPayload(it, role = "author") } +
-            analyzed.narrators.map { contributorPayload(it, role = "narrator") }
-
-    private fun contributorPayload(
-        name: String,
-        role: String,
-    ): BookContributorPayload =
-        BookContributorPayload(
-            id = "",
-            name = name,
-            sortName = null,
-            role = role,
-            creditedAs = null,
-        )
-
-    private fun buildSeries(analyzed: AnalyzedBook): List<BookSeriesPayload> =
-        analyzed.series.map { entry ->
-            BookSeriesPayload(id = "", name = entry.name, sequence = entry.sequence)
-        }
-
-    private fun buildAudioFiles(analyzed: AnalyzedBook): List<BookAudioFilePayload> {
-        // Only the primary (first) audio file has an authoritative duration —
-        // see the duration caveat on `upsertFromAnalyzed`.
-        val primaryDuration = analyzed.embedded?.durationMs ?: 0L
-        return analyzed.tracks.mapIndexed { index, track ->
-            BookAudioFilePayload(
-                id = "",
-                index = index,
-                filename = track.file.name,
-                format = track.file.ext,
-                codec = "",
-                duration = if (index == 0) primaryDuration else 0L,
-                size = track.file.size,
-            )
-        }
-    }
-
-    private fun buildChapters(analyzed: AnalyzedBook): List<BookChapterPayload> =
-        analyzed.chapters.map { chapter ->
-            BookChapterPayload(
-                id = "",
-                title = chapter.title,
-                duration = chapter.endMs - chapter.startMs,
-                startTime = chapter.startMs,
-            )
         }
 
     private fun applyBookFields(
