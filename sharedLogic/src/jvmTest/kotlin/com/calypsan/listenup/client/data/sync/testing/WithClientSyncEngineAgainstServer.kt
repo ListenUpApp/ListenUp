@@ -37,7 +37,6 @@ import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -431,19 +430,13 @@ private fun buildServerRepositories(
         )
     }
     val tagRepo = TagRepository(serverDb, bus, registry)
-    val libraryDir = Files.createTempDirectory("listenup-c3-library-").toFile().apply { deleteOnExit() }
-    val libraryRegistry =
-        LibraryRegistry(
-            db = serverDb,
-            env = mapOf("LISTENUP_LIBRARY_PATH" to libraryDir.absolutePath),
-        )
     // Library and folder repos use their own bus+registry so their SSE events are published
     // on the shared bus and routed by the SyncRegistry to the catch-up / SSE subscriber.
     val libraryRepo = LibraryRepository(serverDb, bus, registry)
     val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
-    val bookRepo = BookRepository(serverDb, bus, registry, libraryRegistry, contributorRepo, seriesRepo)
+    val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo)
     val activeSessionRepo = ActiveSessionRepository(serverDb, bus, registry)
     val playbackPositionRepo =
         PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)
