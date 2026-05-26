@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
@@ -13,6 +14,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.rpcguard.guard
@@ -29,6 +31,9 @@ import kotlinx.rpc.registerService
 private class PingServiceImpl : PingService {
     override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
 }
+
+private const val AUTH_WALL_REGRESSION_MSG =
+    "authed RPC mount reached without a principal — auth wall regression"
 
 /**
  * Mounts kRPC at two endpoints:
@@ -47,6 +52,7 @@ private class PingServiceImpl : PingService {
  * service (bugs, infra faults), logs it server-side with the correlation id,
  * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
  */
+@Suppress("CognitiveComplexMethod", "LongParameterList")
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     scannerService: ScannerService? = null,
@@ -54,6 +60,7 @@ fun Route.rpcRoutes(
     contributorService: ContributorService? = null,
     seriesService: SeriesService? = null,
     playbackService: PlaybackService? = null,
+    playbackProgressService: PlaybackProgressService? = null,
     metadataLookupService: MetadataLookupService? = null,
     searchService: SearchService? = null,
     libraryAdminService: LibraryAdminService? = null,
@@ -73,7 +80,7 @@ fun Route.rpcRoutes(
             registerService<AuthServiceAuthed> {
                 val p =
                     call.userPrincipalOrNull()
-                        ?: error("authed RPC mount reached without a principal — auth wall regression")
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
                 guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
             }
             if (bookService != null) {
@@ -89,8 +96,16 @@ fun Route.rpcRoutes(
                 registerService<PlaybackService> {
                     val p =
                         call.userPrincipalOrNull()
-                            ?: error("authed RPC mount reached without a principal — auth wall regression")
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
                     guard((playbackService as PlaybackServiceImpl).copyWith(PrincipalProvider { p }))
+                }
+            }
+            if (playbackProgressService != null) {
+                registerService<PlaybackProgressService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((playbackProgressService as PlaybackProgressServiceImpl).copyWith(PrincipalProvider { p }))
                 }
             }
             if (metadataLookupService != null) {

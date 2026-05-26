@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.PlaybackProgressService
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -25,37 +26,33 @@ internal class PlaybackProgressServiceImpl(
     private val repository: PlaybackPositionRepository,
     private val principal: PrincipalProvider,
 ) : PlaybackProgressService {
-
     override suspend fun listProgress(limit: Int): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId =
-            principal.current()?.userId
-                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val userId = resolveUser() ?: return noPrincipal()
         val clamped = limit.coerceIn(LIST_PROGRESS_MIN, LIST_PROGRESS_MAX)
         return AppResult.Success(repository.listForUser(userId, clamped))
     }
 
     override suspend fun getProgressBatch(bookIds: List<BookId>): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId =
-            principal.current()?.userId
-                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val userId = resolveUser() ?: return noPrincipal()
         return AppResult.Success(repository.findByBookIds(userId, bookIds))
     }
 
     override suspend fun getRecentlyListened(limit: Int): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId =
-            principal.current()?.userId
-                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val userId = resolveUser() ?: return noPrincipal()
         val clamped = limit.coerceIn(RECENT_MIN, RECENT_MAX)
         return AppResult.Success(repository.recentlyListenedForUser(userId, clamped))
     }
 
     override suspend fun getCompletedBooks(limit: Int): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId =
-            principal.current()?.userId
-                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val userId = resolveUser() ?: return noPrincipal()
         val clamped = limit.coerceIn(COMPLETED_MIN, COMPLETED_MAX)
         return AppResult.Success(repository.completedForUser(userId, clamped))
     }
+
+    private fun resolveUser(): UserId? = principal.current()?.userId
+
+    private fun noPrincipal(): AppResult.Failure =
+        AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): PlaybackProgressServiceImpl =

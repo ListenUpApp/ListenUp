@@ -87,8 +87,10 @@ class PlaybackProgressServiceImplTest :
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getProgressBatch(listOf(BookId("book-1")))
-                    result.shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<SyncError.NotFound>()
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<SyncError.NotFound>()
                 }
             }
         }
@@ -99,8 +101,10 @@ class PlaybackProgressServiceImplTest :
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getRecentlyListened(20)
-                    result.shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<SyncError.NotFound>()
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<SyncError.NotFound>()
                 }
             }
         }
@@ -111,8 +115,10 @@ class PlaybackProgressServiceImplTest :
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getCompletedBooks(50)
-                    result.shouldBeInstanceOf<AppResult.Failure>()
-                        .error.shouldBeInstanceOf<SyncError.NotFound>()
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<SyncError.NotFound>()
                 }
             }
         }
@@ -337,7 +343,8 @@ class PlaybackProgressServiceImplTest :
                         currentChapterId = null,
                     )
                     val result = scoped.listProgress(100)
-                    result.shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
+                    result
+                        .shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
                         .data.size shouldBe 1
                 }
             }
