@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -101,6 +103,17 @@ fun playbackModule(): Module =
                     PrincipalProvider {
                         error(
                             "Unscoped PlaybackService — call copyWith(PrincipalProvider) at the route",
+                        )
+                    },
+            )
+        }
+        single<PlaybackProgressService> {
+            PlaybackProgressServiceImpl(
+                repository = get(),
+                principal =
+                    PrincipalProvider {
+                        error(
+                            "Unscoped PlaybackProgressService — call copyWith(PrincipalProvider) at the route",
                         )
                     },
             )
