@@ -90,6 +90,7 @@ internal fun MediaSession.buildConnectionResultFor(
             ControllerTrust.OWN_APP,
             ControllerTrust.AUTO_OR_AUTOMOTIVE,
             -> MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+
             ControllerTrust.MEDIA_NOTIFICATION,
             ControllerTrust.TRUSTED_SYSTEM,
             ControllerTrust.UNKNOWN,
