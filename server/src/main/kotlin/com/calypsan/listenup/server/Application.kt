@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
+import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
@@ -45,6 +46,7 @@ import com.calypsan.listenup.server.routes.libraryAdminRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.metadataRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
+import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
@@ -154,6 +156,8 @@ fun Application.module() {
     val seriesService: SeriesService? = resolvedLibraryPath?.let { inject<SeriesService>().value }
     val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
     val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
+    val playbackProgressService: PlaybackProgressService? =
+        resolvedLibraryPath?.let { inject<PlaybackProgressService>().value }
     val backfillService: UserStatsBackfillService? =
         resolvedLibraryPath?.let {
             inject<UserStatsBackfillService>().value
@@ -183,6 +187,7 @@ fun Application.module() {
             contributorService,
             seriesService,
             playbackService,
+            playbackProgressService,
             metadataLookupService,
             searchService,
             libraryAdminService,
@@ -194,6 +199,7 @@ fun Application.module() {
             if (contributorService != null) contributorRoutes(contributorService)
             if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
+            if (playbackProgressService != null) playbackProgressRoutes(playbackProgressService)
             if (backfillService != null) adminRoutes(backfillService)
             if (contributorRepository != null && seriesRepository != null) {
                 metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)

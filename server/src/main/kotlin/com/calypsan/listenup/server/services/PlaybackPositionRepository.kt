@@ -4,7 +4,9 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.PlaybackPositionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.db.PlaybackPositionTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -12,8 +14,12 @@ import com.calypsan.listenup.server.sync.SyncableRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -205,4 +211,103 @@ class PlaybackPositionRepository(
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: PlaybackPositionId): String = idAsString(id)
+
+    /**
+     * All non-tombstoned positions for [userId], up to [limit] rows.
+     * Order is unspecified — callers sort if needed.
+     */
+    suspend fun listForUser(
+        userId: UserId,
+        limit: Int,
+    ): List<PlaybackPositionSyncPayload> =
+        suspendTransaction(db) {
+            PlaybackPositionTable
+                .selectAll()
+                .where {
+                    (PlaybackPositionTable.userId eq userId.value) and
+                        PlaybackPositionTable.deletedAt.isNull()
+                }.limit(limit)
+                .map { row -> row.toSyncPayload() }
+        }
+
+    /**
+     * Sparse batch lookup — returns only the positions that exist for the given [bookIds].
+     * Missing positions (no progress recorded) are silently omitted. Returns an empty list
+     * when [bookIds] is empty.
+     */
+    suspend fun findByBookIds(
+        userId: UserId,
+        bookIds: List<BookId>,
+    ): List<PlaybackPositionSyncPayload> {
+        if (bookIds.isEmpty()) return emptyList()
+        return suspendTransaction(db) {
+            PlaybackPositionTable
+                .selectAll()
+                .where {
+                    (PlaybackPositionTable.userId eq userId.value) and
+                        (PlaybackPositionTable.bookId inList bookIds.map { it.value }) and
+                        PlaybackPositionTable.deletedAt.isNull()
+                }.map { row -> row.toSyncPayload() }
+        }
+    }
+
+    /**
+     * Continue-listening semantics — books the user has started but not finished
+     * (`isFinished = false`, `positionMs > 0`), ordered by `lastPlayedAt DESC`.
+     * Matches the client Continue Listening shelf's filter.
+     *
+     * Note: [PlaybackPositionTable.lastPlayedAt] is non-null (the column has no `.nullable()`
+     * modifier), so a plain `lastPlayedAt DESC` sort is sufficient — no COALESCE needed.
+     */
+    suspend fun recentlyListenedForUser(
+        userId: UserId,
+        limit: Int,
+    ): List<PlaybackPositionSyncPayload> =
+        suspendTransaction(db) {
+            PlaybackPositionTable
+                .selectAll()
+                .where {
+                    (PlaybackPositionTable.userId eq userId.value) and
+                        PlaybackPositionTable.deletedAt.isNull() and
+                        (PlaybackPositionTable.finished eq false) and
+                        (PlaybackPositionTable.positionMs greater 0L)
+                }.orderBy(PlaybackPositionTable.lastPlayedAt, SortOrder.DESC)
+                .limit(limit)
+                .map { row -> row.toSyncPayload() }
+        }
+
+    /**
+     * Books the user finished (`isFinished = true`, not tombstoned), ordered by
+     * `lastPlayedAt DESC` (most-recently-finished first).
+     */
+    suspend fun completedForUser(
+        userId: UserId,
+        limit: Int,
+    ): List<PlaybackPositionSyncPayload> =
+        suspendTransaction(db) {
+            PlaybackPositionTable
+                .selectAll()
+                .where {
+                    (PlaybackPositionTable.userId eq userId.value) and
+                        PlaybackPositionTable.deletedAt.isNull() and
+                        (PlaybackPositionTable.finished eq true)
+                }.orderBy(PlaybackPositionTable.lastPlayedAt, SortOrder.DESC)
+                .limit(limit)
+                .map { row -> row.toSyncPayload() }
+        }
+
+    private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): PlaybackPositionSyncPayload =
+        PlaybackPositionSyncPayload(
+            id = this[PlaybackPositionTable.id],
+            bookId = this[PlaybackPositionTable.bookId],
+            positionMs = this[PlaybackPositionTable.positionMs],
+            lastPlayedAt = this[PlaybackPositionTable.lastPlayedAt],
+            finished = this[PlaybackPositionTable.finished],
+            playbackSpeed = this[PlaybackPositionTable.playbackSpeed],
+            currentChapterId = this[PlaybackPositionTable.currentChapterId],
+            revision = this[PlaybackPositionTable.revision],
+            updatedAt = this[PlaybackPositionTable.updatedAt],
+            createdAt = this[PlaybackPositionTable.createdAt],
+            deletedAt = this[PlaybackPositionTable.deletedAt],
+        )
 }
