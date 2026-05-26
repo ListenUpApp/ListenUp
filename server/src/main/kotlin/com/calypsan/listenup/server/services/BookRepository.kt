@@ -67,13 +67,6 @@ private val log = KotlinLogging.logger {}
  * corrupt every column the id is written to. The Konsist rule
  * `IdAsStringRequiredForValueClassIdsRule` enforces this override at build time.
  *
- * Books-A was single-library. `_libraryRegistry` is retained in the constructor
- * signature for compatibility with the many callers that still pass it; it is no
- * longer read on the write path (library and folder ids are now carried in the
- * [com.calypsan.listenup.api.sync.BookSyncPayload] and written directly from the payload).
- *
- * @param _libraryRegistry kept for constructor compatibility; no longer used on the
- *   write path. Callers may pass any [LibraryRegistry] instance.
  * @param contributorRepository the syncable contributors catalogue;
  *   [upsertFromAnalyzed] resolves each author/narrator name through it to a
  *   stable [com.calypsan.listenup.core.ContributorId] before the aggregate write.
@@ -85,7 +78,6 @@ class BookRepository(
     db: Database,
     bus: ChangeBus,
     registry: SyncRegistry,
-    _libraryRegistry: LibraryRegistry,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),

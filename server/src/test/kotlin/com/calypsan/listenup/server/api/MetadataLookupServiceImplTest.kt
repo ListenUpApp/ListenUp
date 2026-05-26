@@ -17,7 +17,6 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -122,7 +121,6 @@ private fun makeService(
                 db = db,
                 bus = bus,
                 registry = syncRegistry,
-                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to tempDir)),
                 contributorRepository = contributorRepo,
                 seriesRepository = seriesRepo,
             ),

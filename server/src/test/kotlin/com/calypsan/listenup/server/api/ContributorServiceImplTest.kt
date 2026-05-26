@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -45,7 +44,6 @@ class ContributorServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = contributorRepo,
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
                             ),
@@ -78,7 +76,6 @@ class ContributorServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = contributorRepo,
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
                             ),
@@ -105,7 +102,6 @@ class ContributorServiceImplTest :
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                     )
@@ -138,7 +134,6 @@ class ContributorServiceImplTest :
                                 db = db,
                                 bus = bus,
                                 registry = syncRegistry,
-                                _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                                 contributorRepository = contributorRepo,
                                 seriesRepository = SeriesRepository(db, bus, syncRegistry),
                             ),

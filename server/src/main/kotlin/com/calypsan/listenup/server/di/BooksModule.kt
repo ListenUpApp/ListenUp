@@ -108,7 +108,6 @@ fun booksModule(
                 get(),
                 get(),
                 get(),
-                get(),
                 clock = get(),
                 bookTagRepository = getOrNull(),
             )

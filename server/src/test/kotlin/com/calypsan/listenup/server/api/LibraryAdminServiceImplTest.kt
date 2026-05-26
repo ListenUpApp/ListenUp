@@ -479,17 +479,11 @@ private fun makeService(
             bus = ChangeBus(),
             registry = SyncRegistry(),
         )
-    val libraryRegistry =
-        com.calypsan.listenup.server.services.LibraryRegistry(
-            db = db,
-            env = emptyMap(),
-        )
     val bookRepo =
         BookRepository(
             db = db,
             bus = ChangeBus(),
             registry = SyncRegistry(),
-            _libraryRegistry = libraryRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
         )
