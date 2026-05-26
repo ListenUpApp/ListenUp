@@ -92,8 +92,20 @@ class ChangeBusTest :
             withInMemoryDatabase {
                 val bus = ChangeBus()
                 val fakeRepo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
-                val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", slug = "e1", revision = 1, updatedAt = 0))
-                val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", slug = "e2", revision = 2, updatedAt = 0))
+                val fakeEvent =
+                    SyncEvent.Created(
+                        id = "x",
+                        revision = 1L,
+                        occurredAt = 0L,
+                        payload = Tag(id = "x", name = "e1", slug = "e1", revision = 1, updatedAt = 0),
+                    )
+                val fakeEvent2 =
+                    SyncEvent.Created(
+                        id = "y",
+                        revision = 2L,
+                        occurredAt = 0L,
+                        payload = Tag(id = "y", name = "e2", slug = "e2", revision = 2, updatedAt = 0),
+                    )
                 runTest {
                     val sub = async { bus.subscribe().take(2).toList() }
                     advanceUntilIdle()
