@@ -5,10 +5,12 @@ import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.dto.SeriesHit
+import com.calypsan.listenup.api.dto.TagHit
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.TagId
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.jetbrains.exposed.v1.core.IntegerColumnType
@@ -52,12 +54,13 @@ internal class SearchServiceImpl(
             val booksDeferred = async { searchBooks(ftsQuery, safeLimit) }
             val contributorsDeferred = async { searchContributors(ftsQuery, safeLimit) }
             val seriesDeferred = async { searchSeries(ftsQuery, safeLimit) }
+            val tagsDeferred = async { searchTags(ftsQuery, safeLimit) }
             AppResult.Success(
                 SearchResults(
                     books = booksDeferred.await(),
                     contributors = contributorsDeferred.await(),
                     series = seriesDeferred.await(),
-                    tags = emptyList(), // TODO: Tag search via tag_search FTS5 added in TAG-C (Task 14)
+                    tags = tagsDeferred.await(),
                 ),
             )
         }
@@ -136,7 +139,7 @@ internal class SearchServiceImpl(
                             sortName = rs.getString("sort_name"),
                             photoPath = rs.getString("image_path"),
                             photoBlurHash = rs.getString("image_blur_hash"),
-                            bookCount = rs.getInt("book_count"),
+                            bookCount = rs.getInt(COL_BOOK_COUNT),
                         )
                 }
             }
@@ -172,7 +175,46 @@ internal class SearchServiceImpl(
                             sortName = rs.getString("sort_name"),
                             coverPath = rs.getString("cover_path"),
                             coverBlurHash = rs.getString("cover_blur_hash"),
-                            bookCount = rs.getInt("book_count"),
+                            bookCount = rs.getInt(COL_BOOK_COUNT),
+                        )
+                }
+            }
+            results
+        }
+
+    private suspend fun searchTags(
+        ftsQuery: String,
+        limit: Int,
+    ): List<TagHit> =
+        suspendTransaction(db) {
+            val results = mutableListOf<TagHit>()
+            // JOIN tag_search → tags; COUNT(*) sub-select computes live bookCount
+            // without a denormalized column — correctness over cleverness at our scale.
+            // Soft-deleted tags (t.deleted_at IS NULL) and soft-deleted junction rows
+            // (bt.deleted_at IS NULL) are both excluded so the count reflects live state.
+            TransactionManager.current().exec(
+                stmt =
+                    "SELECT t.id, t.name, t.slug, " +
+                        "(SELECT COUNT(*) FROM book_tags bt " +
+                        " WHERE bt.tag_id = t.id AND bt.deleted_at IS NULL) AS book_count " +
+                        "FROM tag_search ts " +
+                        "JOIN tags t ON t.rowid = ts.rowid " +
+                        "WHERE tag_search MATCH ? " +
+                        "AND t.deleted_at IS NULL " +
+                        "ORDER BY ts.rank LIMIT ?",
+                args =
+                    listOf(
+                        TextColumnType() to ftsQuery,
+                        IntegerColumnType() to limit,
+                    ),
+            ) { rs ->
+                while (rs.next()) {
+                    results +=
+                        TagHit(
+                            id = TagId(rs.getString("id")),
+                            name = rs.getString("name"),
+                            slug = rs.getString("slug"),
+                            bookCount = rs.getLong(COL_BOOK_COUNT),
                         )
                 }
             }
@@ -181,6 +223,7 @@ internal class SearchServiceImpl(
 
     private companion object {
         const val MAX_LIMIT = 100
+        const val COL_BOOK_COUNT = "book_count"
 
         /**
          * Strips any character that FTS5 treats as a query operator.
