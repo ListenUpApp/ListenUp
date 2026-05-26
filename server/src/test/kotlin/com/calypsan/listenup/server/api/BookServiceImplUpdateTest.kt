@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -48,6 +49,7 @@ class BookServiceImplUpdateTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
                         db = db,
                     )
                 runTest {
@@ -88,6 +90,7 @@ class BookServiceImplUpdateTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
                         db = db,
                     )
                 runTest {
@@ -134,6 +137,7 @@ class BookServiceImplUpdateTest :
                         repo = repo,
                         contributorRepo = contributorRepo,
                         seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
                         db = db,
                     )
                 runTest {

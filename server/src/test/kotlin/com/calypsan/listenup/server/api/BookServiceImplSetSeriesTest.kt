@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -48,7 +49,13 @@ class BookServiceImplSetSeriesTest :
                         seriesRepository = seriesRepo,
                     )
                 val service =
-                    BookServiceImpl(repo = repo, contributorRepo = contributorRepo, seriesRepo = seriesRepo, db = db)
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        db = db,
+                    )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
                     val s2 = seriesRepo.resolveOrCreate("The Cosmere")
@@ -94,7 +101,13 @@ class BookServiceImplSetSeriesTest :
                         seriesRepository = seriesRepo,
                     )
                 val service =
-                    BookServiceImpl(repo = repo, contributorRepo = contributorRepo, seriesRepo = seriesRepo, db = db)
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        db = db,
+                    )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -138,7 +151,13 @@ class BookServiceImplSetSeriesTest :
                         seriesRepository = seriesRepo,
                     )
                 val service =
-                    BookServiceImpl(repo = repo, contributorRepo = contributorRepo, seriesRepo = seriesRepo, db = db)
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        db = db,
+                    )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
                     val s2 = seriesRepo.resolveOrCreate("The Cosmere")
@@ -179,7 +198,13 @@ class BookServiceImplSetSeriesTest :
                         seriesRepository = seriesRepo,
                     )
                 val service =
-                    BookServiceImpl(repo = repo, contributorRepo = contributorRepo, seriesRepo = seriesRepo, db = db)
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        db = db,
+                    )
                 runTest {
                     val result =
                         service.setBookSeries(
@@ -211,7 +236,13 @@ class BookServiceImplSetSeriesTest :
                         seriesRepository = seriesRepo,
                     )
                 val service =
-                    BookServiceImpl(repo = repo, contributorRepo = contributorRepo, seriesRepo = seriesRepo, db = db)
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        db = db,
+                    )
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
                     val tooMany =

@@ -11,6 +11,9 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.error.CoverError
+import com.calypsan.listenup.server.cover.CoverInfo
+import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -39,14 +42,23 @@ private const val MAX_SERIES_PER_BOOK = 200
  * [suspendTransaction] so any auto-created child rolls back if the book upsert
  * fails. List position carries on the list index — `BookRepository.replaceSeries`
  * stamps `ordinal` from the index, so callers sort by [BookSeriesInput.position]
- * before mapping to the wire payload. The remaining mutation method
- * ([deleteBookCover]) is a stub returning [BookError.NotFound] until Task 16
- * replaces it with real logic.
+ * before mapping to the wire payload.
+ *
+ * [deleteBookCover] is the one mutation that touches the filesystem.
+ * It resolves the cover file path via [BookRepository.coverInfo] up front,
+ * nullifies the book's cover columns inside a [suspendTransaction] (the
+ * revision-bump and change-bus fire atomically with the row update), then
+ * delegates the file delete to [CoverStorage] **after** the transaction
+ * commits — the DB row is the source of truth, and a flaky filesystem can't
+ * roll back a successful nullify. Embedded covers carry no file of their own
+ * (the artwork lives inside the audio file), so the post-commit delete is a
+ * no-op for them.
  */
 internal class BookServiceImpl(
     private val repo: BookRepository,
     private val contributorRepo: ContributorRepository,
     private val seriesRepo: SeriesRepository,
+    private val coverStorage: CoverStorage,
     private val db: Database,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
@@ -152,8 +164,32 @@ internal class BookServiceImpl(
         }
     }
 
-    override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
-        AppResult.Failure(BookError.NotFound(debugInfo = "deleteBookCover not yet implemented (Books-C1 Task 16)"))
+    override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
+        // Resolve the on-disk cover file (if any) BEFORE the transaction so
+        // we can best-effort delete it post-commit. Embedded covers have no
+        // file of their own — the artwork is inside the audio file — so they
+        // surface as Embedded here and are deliberately ignored.
+        val pathToDelete = (repo.coverInfo(id) as? CoverInfo.Filesystem)?.path
+        val result: AppResult<Unit> =
+            suspendTransaction(db) {
+                val current =
+                    repo.findById(id)
+                        ?: return@suspendTransaction bookNotFound(id)
+                if (current.cover == null) {
+                    return@suspendTransaction AppResult.Failure(
+                        CoverError.NotPresent(debugInfo = "bookId=${id.value}"),
+                    )
+                }
+                when (val upsertResult = repo.upsert(current.copy(cover = null))) {
+                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+                }
+            }
+        if (result is AppResult.Success && pathToDelete != null) {
+            coverStorage.delete(pathToDelete)
+        }
+        return result
+    }
 }
 
 private fun bookNotFound(id: BookId): AppResult.Failure =

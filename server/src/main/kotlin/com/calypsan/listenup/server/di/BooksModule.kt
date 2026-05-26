@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
@@ -56,6 +57,7 @@ import java.nio.file.Path
  *  - [CoverResponder] — serves cover bytes for `GET /api/v1/books/{id}/cover`;
  *    pulls [EmbeddedMetadataParser] from the separately-installed
  *    `embeddedmetaModule`.
+ *  - [CoverStorage] — filesystem-side counterpart for `BookService.deleteBookCover`.
  *
  * Exposed as a **function** rather than a top-level `val` for the same reason
  * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
@@ -113,11 +115,13 @@ fun booksModule(
             )
         }
         single<BookIngestPort> { get<BookRepository>() }
+        single { CoverStorage() }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
                 contributorRepo = get<ContributorRepository>(),
                 seriesRepo = get<SeriesRepository>(),
+                coverStorage = get<CoverStorage>(),
                 db = get(),
             )
         }
