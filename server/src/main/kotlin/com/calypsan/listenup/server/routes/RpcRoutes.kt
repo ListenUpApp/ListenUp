@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
@@ -64,6 +65,7 @@ fun Route.rpcRoutes(
     metadataLookupService: MetadataLookupService? = null,
     searchService: SearchService? = null,
     libraryAdminService: LibraryAdminService? = null,
+    tagService: TagService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -117,6 +119,10 @@ fun Route.rpcRoutes(
             if (libraryAdminService != null) {
                 // TODO: gate by user permissions when Multi-user lands
                 registerService<LibraryAdminService> { guard(libraryAdminService) }
+            }
+            if (tagService != null) {
+                // TODO: gate by user permissions when Multi-user lands
+                registerService<TagService> { guard(tagService) }
             }
         }
     }

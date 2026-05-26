@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -53,6 +54,7 @@ import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
+import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
@@ -174,6 +176,7 @@ fun Application.module() {
     val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
     val libraryAdminService: LibraryAdminService? =
         resolvedLibraryPath?.let { inject<LibraryAdminService>().value }
+    val tagService: TagService? = resolvedLibraryPath?.let { inject<TagService>().value }
 
     routing {
         healthRoutes()
@@ -191,6 +194,7 @@ fun Application.module() {
             metadataLookupService,
             searchService,
             libraryAdminService,
+            tagService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -206,6 +210,7 @@ fun Application.module() {
             }
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
             if (searchService != null) searchRoutes(searchService)
+            if (tagService != null) tagRoutes(tagService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
