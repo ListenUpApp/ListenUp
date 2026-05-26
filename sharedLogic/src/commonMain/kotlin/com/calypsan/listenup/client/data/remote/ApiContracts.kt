@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.data.remote.model.SyncContributorsResponse
 import com.calypsan.listenup.client.data.remote.model.SyncManifestResponse
 import com.calypsan.listenup.client.data.remote.model.SyncSeriesResponse
 import com.calypsan.listenup.client.domain.model.Instance
-import com.calypsan.listenup.client.domain.model.Tag
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -270,68 +269,6 @@ interface SyncApiContract {
      * @return Result containing updated PlaybackProgressResponse or error
      */
     suspend fun restartBook(bookId: String): AppResult<PlaybackProgressResponse>
-}
-
-/**
- * Contract interface for global tag API operations.
- *
- * Tags are community-wide content descriptors (e.g., "found-family", "slow-burn").
- * Any user can add/remove tags from books they have access to.
- *
- * Extracted to enable mocking in tests. Production implementation
- * is [TagApi], test implementation can be a mock or fake.
- */
-interface TagApiContract {
-    /**
-     * Get all global tags ordered by popularity (book count).
-     *
-     * @return [AppResult.Success] containing the tag list, or [AppResult.Failure] on error
-     */
-    suspend fun listTags(): AppResult<List<Tag>>
-
-    /**
-     * Get a specific tag by its slug.
-     *
-     * @param slug The tag slug (e.g., "found-family")
-     * @return [AppResult.Success] containing the tag, or [AppResult.Failure] on error
-     *   (including 404 Not Found, which maps to [com.calypsan.listenup.api.error.TransportError.Server4xx])
-     */
-    suspend fun getTagBySlug(slug: String): AppResult<Tag>
-
-    /**
-     * Get tags for a specific book.
-     *
-     * @param bookId The book ID
-     * @return [AppResult.Success] containing the tag list, or [AppResult.Failure] on error
-     */
-    suspend fun getBookTags(bookId: String): AppResult<List<Tag>>
-
-    /**
-     * Add a tag to a book. Creates the tag if it doesn't exist.
-     *
-     * The raw input will be normalized to a slug by the server
-     * (e.g., "Found Family" -> "found-family").
-     *
-     * @param bookId The book ID
-     * @param rawInput The tag text (will be normalized to slug)
-     * @return [AppResult.Success] containing the tag that was added (or created), or [AppResult.Failure] on error
-     */
-    suspend fun addTagToBook(
-        bookId: String,
-        rawInput: String,
-    ): AppResult<Tag>
-
-    /**
-     * Remove a tag from a book.
-     *
-     * @param bookId The book ID
-     * @param slug The tag slug to remove
-     * @return [AppResult.Success] with Unit on success, or [AppResult.Failure] on error
-     */
-    suspend fun removeTagFromBook(
-        bookId: String,
-        slug: String,
-    ): AppResult<Unit>
 }
 
 /**

@@ -51,7 +51,7 @@ class CursorStaleLifecycleTest :
                 // replay buffer, anything earlier than (SEEDED_COUNT - 256) is evicted —
                 // realistically reproducing the production stale-cursor condition.
                 repeat(SEEDED_COUNT) { i ->
-                    tagRepo.upsert(Tag(id = "t$i", name = "name-$i", revision = 0L, updatedAt = 0L))
+                    tagRepo.upsert(Tag(id = "t$i", name = "name-$i", slug = "name-$i", revision = 0L, updatedAt = 0L))
                 }
 
                 val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

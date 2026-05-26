@@ -10,9 +10,12 @@ import kotlinx.serialization.Serializable
  * Top-level search result envelope returned from
  * [com.calypsan.listenup.api.SearchService.search].
  *
- * Contains hits across all three searchable domains. Each list is independently
+ * Contains hits across all four searchable domains. Each list is independently
  * capped at the caller's `limit` parameter (default 20, max 100). An empty list
  * for a category means no matches were found — it is never a failure.
+ *
+ * Books matched by embedded tag names (via the `book_search.tags` FTS5 column)
+ * appear in the [books] list — no separate query path for that case.
  */
 @Serializable
 @SerialName("SearchResults")
@@ -23,6 +26,8 @@ data class SearchResults(
     val contributors: List<ContributorHit>,
     /** Series matching the search query, ranked by FTS5 relevance. */
     val series: List<SeriesHit>,
+    /** Tags matching the search query, ranked by FTS5 relevance. */
+    val tags: List<TagHit>,
 )
 
 /**

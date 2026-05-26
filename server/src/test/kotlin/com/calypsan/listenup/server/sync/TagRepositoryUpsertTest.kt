@@ -39,7 +39,7 @@ class TagRepositoryUpsertTest :
                     val deferredBusEvent = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
-                    val initial = Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0)
+                    val initial = Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0)
                     val result = repo.upsert(initial, clientOpId = "op-1")
 
                     result.shouldBeInstanceOf<AppResult.Success<Tag>>()
@@ -67,7 +67,7 @@ class TagRepositoryUpsertTest :
                 val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
-                    val initial = Tag(id = "t1", name = "sci-fi", revision = 0, updatedAt = 0)
+                    val initial = Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0)
                     repo.upsert(initial)
 
                     // With replay=256, the subscriber immediately sees the replay cache.
@@ -95,7 +95,7 @@ class TagRepositoryUpsertTest :
                     val deferredBusEvent = async { bus.subscribe().first() }
                     advanceUntilIdle()
 
-                    repo.upsert(Tag(id = "t2", name = "x", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "t2", name = "x", slug = "x", revision = 0, updatedAt = 0))
 
                     val busEvent = deferredBusEvent.await()
                     busEvent.event.clientOpId shouldBe null
@@ -109,9 +109,9 @@ class TagRepositoryUpsertTest :
                 val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
 
                 runTest {
-                    val r1 = (repo.upsert(Tag("a", "n1", 0, 0)) as AppResult.Success).data.revision
-                    val r2 = (repo.upsert(Tag("b", "n2", 0, 0)) as AppResult.Success).data.revision
-                    val r3 = (repo.upsert(Tag("a", "n1-updated", 0, 0)) as AppResult.Success).data.revision
+                    val r1 = (repo.upsert(Tag("a", "n1", "n1", 0, 0)) as AppResult.Success).data.revision
+                    val r2 = (repo.upsert(Tag("b", "n2", "n2", 0, 0)) as AppResult.Success).data.revision
+                    val r3 = (repo.upsert(Tag("a", "n1-updated", "n1-updated", 0, 0)) as AppResult.Success).data.revision
 
                     listOf(r1, r2, r3).distinct().size shouldBe 3
                     (r2 > r1) shouldBe true

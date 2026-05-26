@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.TagApiContract
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -139,7 +138,6 @@ class KoinModuleVerifyTest {
                     SearchApiContract::class,
                     ImageApiContract::class,
                     GenreApiContract::class,
-                    TagApiContract::class,
                     UserPreferencesApiContract::class,
                     ServerDiscoveryService::class,
                 ),

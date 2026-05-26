@@ -81,8 +81,8 @@ class SyncCatchUpClientTest :
                                     Page(
                                         items =
                                             listOf(
-                                                Tag("a", "alpha", 1L, 100L),
-                                                Tag("b", "beta", 2L, 200L),
+                                                Tag("a", "alpha", "alpha", 1L, 100L),
+                                                Tag("b", "beta", "beta", 2L, 200L),
                                             ),
                                         nextCursor = 2L,
                                         hasMore = true,
@@ -94,7 +94,7 @@ class SyncCatchUpClientTest :
                                 contractJson.encodeToString(
                                     Page.serializer(Tag.serializer()),
                                     Page(
-                                        items = listOf(Tag("c", "gamma", 3L, 300L, deletedAt = 300L)),
+                                        items = listOf(Tag("c", "gamma", "gamma", 3L, 300L, deletedAt = 300L)),
                                         nextCursor = 3L,
                                         hasMore = false,
                                     ),
@@ -134,8 +134,8 @@ class SyncCatchUpClientTest :
                             Page(
                                 items =
                                     listOf(
-                                        Tag("alive", "current", 10L, 1000L, deletedAt = null),
-                                        Tag("dead", "removed", 11L, 1100L, deletedAt = 1100L),
+                                        Tag("alive", "current", "current", 10L, 1000L, deletedAt = null),
+                                        Tag("dead", "removed", "removed", 11L, 1100L, deletedAt = 1100L),
                                     ),
                                 nextCursor = 11L,
                                 hasMore = false,

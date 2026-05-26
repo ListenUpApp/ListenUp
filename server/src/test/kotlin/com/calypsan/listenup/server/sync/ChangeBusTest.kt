@@ -31,7 +31,7 @@ class ChangeBusTest :
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
-                    repo.upsert(Tag(id = "a", name = "n", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "a", name = "n", slug = "n", revision = 0, updatedAt = 0))
                     val busEvent = deferred.await()
                     busEvent.repo.domainName shouldBe "tags"
                     busEvent.event.id shouldBe "a"
@@ -47,8 +47,8 @@ class ChangeBusTest :
                     val sub1 = async { bus.subscribe().take(2).toList() }
                     val sub2 = async { bus.subscribe().take(2).toList() }
                     advanceUntilIdle()
-                    repo.upsert(Tag(id = "a", name = "n1", revision = 0, updatedAt = 0))
-                    repo.upsert(Tag(id = "b", name = "n2", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "a", name = "n1", slug = "n1", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "b", name = "n2", slug = "n2", revision = 0, updatedAt = 0))
 
                     val r1 = sub1.await()
                     val r2 = sub2.await()
@@ -66,8 +66,8 @@ class ChangeBusTest :
                 val repo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
                 runTest {
                     bus.oldestRetainedRevision() shouldBe null
-                    repo.upsert(Tag(id = "a", name = "x", revision = 0, updatedAt = 0))
-                    repo.upsert(Tag(id = "b", name = "y", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "a", name = "x", slug = "x", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "b", name = "y", slug = "y", revision = 0, updatedAt = 0))
                     bus.oldestRetainedRevision()!! shouldBeGreaterThanOrEqual 1L
                 }
             }
@@ -80,7 +80,7 @@ class ChangeBusTest :
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
-                    repo.upsert(Tag(id = "a", name = "n", revision = 0, updatedAt = 0))
+                    repo.upsert(Tag(id = "a", name = "n", slug = "n", revision = 0, updatedAt = 0))
                     val busEvent = deferred.await()
                     busEvent.repo.shouldBeInstanceOf<TagRepository>()
                     busEvent.repo shouldBe repo
@@ -92,8 +92,20 @@ class ChangeBusTest :
             withInMemoryDatabase {
                 val bus = ChangeBus()
                 val fakeRepo = TagRepository(db = this, bus = bus, registry = SyncRegistry())
-                val fakeEvent = SyncEvent.Created(id = "x", revision = 1L, occurredAt = 0L, payload = Tag(id = "x", name = "e1", revision = 1, updatedAt = 0))
-                val fakeEvent2 = SyncEvent.Created(id = "y", revision = 2L, occurredAt = 0L, payload = Tag(id = "y", name = "e2", revision = 2, updatedAt = 0))
+                val fakeEvent =
+                    SyncEvent.Created(
+                        id = "x",
+                        revision = 1L,
+                        occurredAt = 0L,
+                        payload = Tag(id = "x", name = "e1", slug = "e1", revision = 1, updatedAt = 0),
+                    )
+                val fakeEvent2 =
+                    SyncEvent.Created(
+                        id = "y",
+                        revision = 2L,
+                        occurredAt = 0L,
+                        payload = Tag(id = "y", name = "e2", slug = "e2", revision = 2, updatedAt = 0),
+                    )
                 runTest {
                     val sub = async { bus.subscribe().take(2).toList() }
                     advanceUntilIdle()

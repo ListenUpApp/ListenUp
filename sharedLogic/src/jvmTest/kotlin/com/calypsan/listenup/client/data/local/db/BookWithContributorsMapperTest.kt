@@ -171,7 +171,7 @@ class BookWithContributorsMapperTest :
             every { imageStorage.exists(any()) } returns false
 
             val genres = listOf(Genre(id = "genre-1", name = "Fantasy", slug = "fantasy", path = "/fantasy"))
-            val tags = listOf(Tag(id = "tag-1", slug = "epic"))
+            val tags = listOf(Tag(id = "tag-1", name = "Epic", slug = "epic"))
 
             val bookWithContributors =
                 BookWithContributors(

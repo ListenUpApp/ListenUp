@@ -1,207 +1,143 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.RewriteQueriesToDropUnusedColumns
-import androidx.room.Transaction
 import androidx.room.Upsert
-import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Room DAO for [TagEntity] and [BookTagCrossRef] operations.
+ * Room DAO for [TagEntity] sync-substrate operations (Tags — Room v22).
  *
- * Provides both reactive (Flow-based) and one-shot queries for tags.
- * Tags are community-wide content descriptors (e.g., "found-family", "slow-burn").
+ * Tombstones are soft-deletes: [TagEntity.deletedAt] is set to a non-null epoch-ms
+ * value when a tag is removed. All observation queries exclude tombstones. The
+ * [softDelete] method applies a server tombstone without removing the row, so the
+ * sync engine can track deletions across devices.
  */
 @Dao
 interface TagDao {
-    // ========== Tag Entity Operations ==========
-
     /**
-     * Get all tags ordered by book count (most popular first).
-     *
-     * @return Flow emitting list of all tags
-     */
-    @Query("SELECT * FROM tags ORDER BY bookCount DESC, slug ASC")
-    fun observeAllTags(): Flow<List<TagEntity>>
-
-    /**
-     * Get all tags synchronously, ordered by book count.
-     *
-     * @return List of all tags
-     */
-    @Query("SELECT * FROM tags ORDER BY bookCount DESC, slug ASC")
-    suspend fun getAllTags(): List<TagEntity>
-
-    /**
-     * Get a tag by ID.
-     *
-     * @param id The tag ID
-     * @return The tag entity or null if not found
-     */
-    @Query("SELECT * FROM tags WHERE id = :id")
-    suspend fun getById(id: String): TagEntity?
-
-    /**
-     * Get a tag by slug.
-     *
-     * @param slug The tag slug
-     * @return The tag entity or null if not found
-     */
-    @Query("SELECT * FROM tags WHERE slug = :slug")
-    suspend fun getBySlug(slug: String): TagEntity?
-
-    /**
-     * Insert or update a tag entity.
-     *
-     * @param tag The tag entity to upsert
+     * Insert or update a tag entity. Replaces on conflict using the primary key.
      */
     @Upsert
     suspend fun upsert(tag: TagEntity)
 
     /**
-     * Insert or update multiple tag entities.
-     *
-     * @param tags List of tag entities to upsert
+     * Insert or update multiple tag entities in one operation.
      */
     @Upsert
     suspend fun upsertAll(tags: List<TagEntity>)
 
     /**
-     * Delete a tag by ID.
-     *
-     * @param id The tag ID to delete
+     * Apply a server tombstone: set [TagEntity.deletedAt] and advance [TagEntity.revision].
      */
-    @Query("DELETE FROM tags WHERE id = :id")
-    suspend fun deleteById(id: String)
-
-    /**
-     * Delete all tags.
-     * Used for testing and full re-sync scenarios.
-     */
-    @Query("DELETE FROM tags")
-    suspend fun deleteAll()
-
-    // ========== Book-Tag Relationship Operations ==========
-
-    /**
-     * Insert a book-tag relationship.
-     *
-     * @param crossRef The book-tag relationship to insert
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBookTag(crossRef: BookTagCrossRef)
-
-    /**
-     * Insert multiple book-tag relationships.
-     *
-     * @param crossRefs List of book-tag relationships to insert
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAllBookTags(crossRefs: List<BookTagCrossRef>)
-
-    /**
-     * Delete a book-tag relationship.
-     *
-     * @param bookId The book ID
-     * @param tagId The tag ID
-     */
-    @Query("DELETE FROM book_tags WHERE bookId = :bookId AND tagId = :tagId")
-    suspend fun deleteBookTag(
-        bookId: BookId,
-        tagId: String,
+    @Query("UPDATE tags SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id")
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
     )
 
     /**
-     * Delete all tags for a book.
-     * Used when syncing to replace all tags.
-     *
-     * @param bookId The book ID
+     * Retrieve a single non-tombstoned tag by its primary key, or null if absent or deleted.
      */
-    @Query("DELETE FROM book_tags WHERE bookId = :bookId")
-    suspend fun deleteTagsForBook(bookId: BookId)
+    @Query("SELECT * FROM tags WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getById(id: String): TagEntity?
 
     /**
-     * Delete all tags for multiple books.
-     * Used by sync to batch-delete before re-inserting.
-     *
-     * @param bookIds List of book IDs
+     * Observe a single tag by its primary key, emitting [TagEntity] or null when the tag
+     * is absent or tombstoned. Re-emits on any change to the row.
      */
-    @Query("DELETE FROM book_tags WHERE bookId IN (:bookIds)")
-    suspend fun deleteTagsForBooks(bookIds: List<BookId>)
-
-    /**
-     * Get all tags for a book.
-     *
-     * @param bookId The book ID
-     * @return List of tags for the book
-     */
-    @RewriteQueriesToDropUnusedColumns
-    @Transaction
-    @Query(
-        """
-        SELECT * FROM tags
-        INNER JOIN book_tags ON tags.id = book_tags.tagId
-        WHERE book_tags.bookId = :bookId
-        ORDER BY tags.slug ASC
-    """,
-    )
-    suspend fun getTagsForBook(bookId: BookId): List<TagEntity>
-
-    /**
-     * Observe all tags for a book reactively.
-     *
-     * @param bookId The book ID
-     * @return Flow emitting list of tags for the book
-     */
-    @RewriteQueriesToDropUnusedColumns
-    @Transaction
-    @Query(
-        """
-        SELECT * FROM tags
-        INNER JOIN book_tags ON tags.id = book_tags.tagId
-        WHERE book_tags.bookId = :bookId
-        ORDER BY tags.slug ASC
-    """,
-    )
-    fun observeTagsForBook(bookId: BookId): Flow<List<TagEntity>>
-
-    /**
-     * Delete all book-tag relationships.
-     * Used for testing and full re-sync scenarios.
-     */
-    @Query("DELETE FROM book_tags")
-    suspend fun deleteAllBookTags()
-
-    // ========== Tag Detail Screen Queries ==========
-
-    /**
-     * Observe a tag by ID reactively.
-     *
-     * @param id The tag ID
-     * @return Flow emitting the tag entity or null
-     */
-    @Query("SELECT * FROM tags WHERE id = :id")
+    @Query("SELECT * FROM tags WHERE id = :id AND deletedAt IS NULL LIMIT 1")
     fun observeById(id: String): Flow<TagEntity?>
 
     /**
-     * Observe all book IDs for a tag reactively.
-     *
-     * @param tagId The tag ID
-     * @return Flow emitting list of book IDs
+     * Retrieve a single non-tombstoned tag by its URL-safe slug, or null if absent or deleted.
      */
-    @Query("SELECT bookId FROM book_tags WHERE tagId = :tagId")
-    fun observeBookIdsForTag(tagId: String): Flow<List<BookId>>
+    @Query("SELECT * FROM tags WHERE slug = :slug AND deletedAt IS NULL LIMIT 1")
+    suspend fun findBySlug(slug: String): TagEntity?
 
     /**
-     * Get all book IDs for a tag.
-     *
-     * @param tagId The tag ID
-     * @return List of book IDs
+     * Observe all non-tombstoned tags ordered by name ascending.
      */
-    @Query("SELECT bookId FROM book_tags WHERE tagId = :tagId")
-    suspend fun getBookIdsForTag(tagId: String): List<BookId>
+    @Query("SELECT * FROM tags WHERE deletedAt IS NULL ORDER BY name ASC")
+    fun observeAll(): Flow<List<TagEntity>>
+
+    /**
+     * Observe all non-tombstoned tags currently applied to [bookId], ordered by name ascending.
+     *
+     * Excludes tags whose [TagEntity.deletedAt] is non-null AND junction rows whose
+     * [BookTagEntity.deletedAt] is non-null, so a removed tag disappears reactively.
+     */
+    @Query(
+        """
+        SELECT t.* FROM tags t
+        INNER JOIN book_tags bt ON bt.tagId = t.id
+        WHERE bt.bookId = :bookId
+          AND bt.deletedAt IS NULL
+          AND t.deletedAt IS NULL
+        ORDER BY t.name ASC
+        """,
+    )
+    fun observeForBook(bookId: String): Flow<List<TagEntity>>
+
+    /**
+     * Delete all tag rows (used in tests and full re-sync scenarios).
+     */
+    @Query("DELETE FROM tags")
+    suspend fun deleteAll()
+}
+
+/**
+ * Room DAO for [BookTagEntity] junction sync operations (Tags — Room v22).
+ *
+ * The junction is global (cross-user curator model): one book has one shared tag set.
+ * Soft-deletes are tombstoned via [BookTagEntity.deletedAt]; observation queries exclude
+ * tombstoned rows so the UI reactively reflects removals.
+ */
+@Dao
+interface BookTagDao {
+    /**
+     * Insert or update a junction row. Replaces on conflict using the composite primary key.
+     */
+    @Upsert
+    suspend fun upsert(entity: BookTagEntity)
+
+    /**
+     * Tombstone a junction row: set [BookTagEntity.deletedAt] and advance [BookTagEntity.revision].
+     */
+    @Query(
+        "UPDATE book_tags SET deletedAt = :deletedAt, revision = revision + 1 WHERE bookId = :bookId AND tagId = :tagId",
+    )
+    suspend fun tombstone(
+        bookId: String,
+        tagId: String,
+        deletedAt: Long,
+    )
+
+    /**
+     * Return the junction row for the given [bookId]/[tagId] pair, or null if absent.
+     */
+    @Query("SELECT * FROM book_tags WHERE bookId = :bookId AND tagId = :tagId LIMIT 1")
+    suspend fun findByKey(
+        bookId: String,
+        tagId: String,
+    ): BookTagEntity?
+
+    /**
+     * Observe all live (non-tombstoned) junction rows for a given [bookId].
+     */
+    @Query("SELECT * FROM book_tags WHERE bookId = :bookId AND deletedAt IS NULL")
+    fun observeForBook(bookId: String): Flow<List<BookTagEntity>>
+
+    /**
+     * Observe all live (non-tombstoned) junction rows for a given [tagId].
+     */
+    @Query("SELECT * FROM book_tags WHERE tagId = :tagId AND deletedAt IS NULL")
+    fun observeForTag(tagId: String): Flow<List<BookTagEntity>>
+
+    /**
+     * Delete all junction rows (used in tests and full re-sync scenarios).
+     */
+    @Query("DELETE FROM book_tags")
+    suspend fun deleteAll()
 }

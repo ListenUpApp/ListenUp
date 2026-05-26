@@ -81,7 +81,6 @@ class BookEditViewModel(
     private val genreTagDelegate =
         GenreTagEditDelegate(
             state = _state,
-            tagApi = Unit, // Legacy parameter, not used
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
         )

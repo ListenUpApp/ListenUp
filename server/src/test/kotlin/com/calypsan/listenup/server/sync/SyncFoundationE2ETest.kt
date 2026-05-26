@@ -32,7 +32,7 @@ class SyncFoundationE2ETest :
                 client.sse("/api/v1/sync/events") {
                     coroutineScope {
                         val deferred = async { incoming.first() }
-                        tagRepo.upsert(Tag("t1", "alpha", 0, 0))
+                        tagRepo.upsert(Tag("t1", "alpha", "alpha", 0, 0))
                         val event = deferred.await()
                         event.event shouldBe "tags"
                         event.data!! shouldContain """"type":"SyncEvent.Created""""
@@ -42,7 +42,7 @@ class SyncFoundationE2ETest :
                 }
 
                 // ---- Phase 2: Write while disconnected ----
-                tagRepo.upsert(Tag("t2", "beta", 0, 0))
+                tagRepo.upsert(Tag("t2", "beta", "beta", 0, 0))
 
                 // ---- Phase 3: Reconnect with Last-Event-Id, verify replay + live tail ----
                 // With replay=256, reconnecting with Last-Event-Id=1 delivers t2 (missed while
@@ -57,7 +57,7 @@ class SyncFoundationE2ETest :
                     coroutineScope {
                         // Collect two events: the replayed t2 + the live t3
                         val deferred = async { incoming.take(2).toList() }
-                        tagRepo.upsert(Tag("t3", "gamma", 0, 0))
+                        tagRepo.upsert(Tag("t3", "gamma", "gamma", 0, 0))
                         val events = deferred.await()
                         events[0].data!! shouldContain """"id":"t2""""
                         events[1].data!! shouldContain """"id":"t3""""

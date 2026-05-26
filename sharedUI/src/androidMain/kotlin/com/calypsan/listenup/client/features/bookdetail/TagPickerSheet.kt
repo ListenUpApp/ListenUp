@@ -109,12 +109,7 @@ fun TagPickerSheet(
                     items(availableTags) { tag ->
                         ListItem(
                             headlineContent = { Text(tag.displayName()) },
-                            supportingContent =
-                                if (tag.bookCount > 0) {
-                                    { Text("${tag.bookCount} book${if (tag.bookCount != 1) "s" else ""}") }
-                                } else {
-                                    null
-                                },
+                            supportingContent = null,
                             modifier =
                                 Modifier.clickable {
                                     onTagSelected(tag)

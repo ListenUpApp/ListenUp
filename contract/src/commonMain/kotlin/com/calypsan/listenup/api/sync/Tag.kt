@@ -4,20 +4,27 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Validation-domain DTO for the Sync Foundation phase. Tags has no public write API
- * in this phase — the repository is exercised by integration tests only. Future phases
- * (likely Books-C, when users tag books) add the user-facing API.
+ * Wire DTO for a tag synced between server and client.
  *
- * Carries the canonical sync-discipline fields every domain DTO will surface from
- * Books-A onwards: `revision`, `updatedAt`, `deletedAt`. `clientOpId` is NOT on the
- * payload — it lives on the wrapping [SyncEvent] for echo matching.
+ * Tags are global (cross-user, single server). [slug] is the canonical URL-safe
+ * identity — computed from [name] on first write and immutable thereafter, so
+ * renames change [name] but never [slug]. [id] is the stable storage row identity
+ * (UUIDv7).
+ *
+ * Carries the canonical sync-discipline fields: [revision], [updatedAt], [deletedAt].
+ * [clientOpId] lives on the wrapping [SyncEvent], not here.
  */
 @Serializable
 @SerialName("Tag")
 data class Tag(
-    val id: String,
-    val name: String,
-    val revision: Long,
-    val updatedAt: Long,
-    override val deletedAt: Long? = null,
+    @SerialName("id") val id: String,
+    @SerialName("name") val name: String,
+    /**
+     * URL-safe slug derived from [name] at creation time (e.g. `"sci-fi"` for `"Sci-Fi"`).
+     * Immutable — renames update [name] only; slug is stable URL identity.
+     */
+    @SerialName("slug") val slug: String,
+    @SerialName("revision") val revision: Long,
+    @SerialName("updatedAt") val updatedAt: Long,
+    @SerialName("deletedAt") override val deletedAt: Long? = null,
 ) : Tombstoned

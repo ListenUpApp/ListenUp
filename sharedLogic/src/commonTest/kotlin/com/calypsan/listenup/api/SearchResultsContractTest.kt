@@ -4,9 +4,11 @@ import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.dto.SeriesHit
+import com.calypsan.listenup.api.dto.TagHit
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.TagId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -18,7 +20,7 @@ import io.kotest.matchers.shouldBe
 class SearchResultsContractTest :
     FunSpec({
 
-        test("SearchResults round-trips with all three categories populated") {
+        test("SearchResults round-trips with all four categories populated") {
             val original =
                 SearchResults(
                     books =
@@ -53,12 +55,22 @@ class SearchResultsContractTest :
                                 bookCount = 5,
                             ),
                         ),
+                    tags =
+                        listOf(
+                            TagHit(
+                                id = TagId("tag-1"),
+                                slug = "sci-fi",
+                                name = "Sci-Fi",
+                                bookCount = 12L,
+                            ),
+                        ),
                 )
             roundTrip<SearchResults>(original) shouldBe original
         }
 
-        test("SearchResults round-trips when all three categories are empty") {
-            val empty = SearchResults(books = emptyList(), contributors = emptyList(), series = emptyList())
+        test("SearchResults round-trips when all four categories are empty") {
+            val empty =
+                SearchResults(books = emptyList(), contributors = emptyList(), series = emptyList(), tags = emptyList())
             roundTrip<SearchResults>(empty) shouldBe empty
         }
 

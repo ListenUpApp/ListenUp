@@ -4,11 +4,16 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
+import com.calypsan.listenup.server.api.TagServiceImpl
+import com.calypsan.listenup.server.sync.BookSearchReindexer
+import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
@@ -93,12 +98,23 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
-        single(createdAtStart = true) { BookRepository(get(), get(), get(), get(), get(), get()) }
+        single(createdAtStart = true) {
+            BookRepository(get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
+        }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
         single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
         single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
         single<SearchService> { SearchServiceImpl(db = get()) }
+        single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
+        single<TagService> {
+            TagServiceImpl(
+                get<TagRepository>(),
+                get<BookTagRepository>(),
+                get<BookSearchReindexer>(),
+                get(),
+            )
+        }
 
         single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
         single {

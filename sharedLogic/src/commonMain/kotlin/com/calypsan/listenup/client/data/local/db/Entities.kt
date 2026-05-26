@@ -340,39 +340,33 @@ data class ServerEntity(
 }
 
 /**
- * Local database entity for tags.
+ * Local database entity for tags (Tags sync substrate — Room v22).
  *
- * Tags are community-wide content descriptors that any user can apply to books
- * (e.g., "found-family", "slow-burn", "unreliable-narrator").
+ * Tags are global (cross-user) content descriptors applied to books by curators.
+ * [slug] is the stable URL-safe identity derived from [name] at creation time;
+ * renames change [name] but never [slug].
  *
- * The slug is the source of truth - there is no separate name field.
- * Display names are computed by converting slug to title case.
+ * Carries the sync substrate ([revision], [deletedAt], [updatedAt]) required by
+ * [com.calypsan.listenup.client.data.sync.TagSyncDomainHandler] for catch-up and
+ * SSE event application.
  */
 @Entity(
     tableName = "tags",
-    indices = [Index(value = ["slug"], unique = true)],
+    indices = [Index(value = ["slug"])],
 )
 data class TagEntity(
     @PrimaryKey val id: String,
-    /** Slug is the canonical identifier (e.g., "found-family") */
+    /** Human-readable display name, e.g. "Sci-Fi". Mutable via rename. */
+    val name: String,
+    /** URL-safe slug derived from [name] at creation time, e.g. "sci-fi". Immutable. */
     val slug: String,
-    /** Number of books with this tag (denormalized for sorting) */
-    val bookCount: Int = 0,
-    /** Creation timestamp */
-    val createdAt: Timestamp,
-) {
-    /**
-     * Converts the slug to a human-readable display name.
-     *
-     * Transformation: "found-family" -> "Found Family"
-     */
-    fun displayName(): String =
-        slug
-            .split("-")
-            .joinToString(" ") { word ->
-                word.replaceFirstChar { it.titlecase() }
-            }
-}
+    /** Monotonic server revision, advanced on every committed change. */
+    val revision: Long = 0,
+    /** Epoch ms tombstone; null when the tag is live. */
+    val deletedAt: Long? = null,
+    /** Last server update timestamp in epoch milliseconds. */
+    val updatedAt: Long,
+)
 
 /**
  * Genre entity for offline-first genre display.

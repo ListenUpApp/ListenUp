@@ -1,28 +1,32 @@
 package com.calypsan.listenup.client.domain.model
 
-import com.calypsan.listenup.core.Timestamp
-
 /**
- * Domain model for a global tag.
+ * Domain model for a global (cross-user) tag.
  *
- * Tags are community-wide content descriptors that any user can apply to books
- * they can access. Examples: "found-family", "slow-burn", "unreliable-narrator".
+ * Tags are community-wide content descriptors curators apply to books.
+ * Examples: "Sci-Fi", "Found Family", "Slow Burn", "Unreliable Narrator".
  *
- * The slug is the source of truth - there is no separate name field.
- * Use [displayName] to get a human-readable version for UI display.
+ * [slug] is the canonical URL-safe identity derived from [name] at creation time
+ * (e.g. `"sci-fi"` from `"Sci-Fi"`). The slug is immutable — renames update [name]
+ * but never [slug], so deep links remain stable.
+ *
+ * Use [displayName] to derive the legacy title-case representation from [slug]
+ * when backward compatibility is required; prefer [name] for all new UI code.
  */
 data class Tag(
     val id: String,
+    /** Human-readable display name as stored server-side, e.g. "Sci-Fi". */
+    val name: String,
+    /** URL-safe slug derived from [name] at creation time, e.g. "sci-fi". Immutable. */
     val slug: String,
-    val bookCount: Int = 0,
-    val createdAt: Timestamp? = null,
 ) {
     /**
-     * Converts the slug to a human-readable display name.
+     * Derives a title-case human-readable display name from [slug].
      *
-     * Transformation: "found-family" -> "Found Family"
+     * Transformation: `"found-family"` → `"Found Family"`.
      *
-     * @return The slug converted to title case with hyphens replaced by spaces
+     * Prefer [name] for new code; this method is retained for legacy callers that
+     * depended on slug-derived display names.
      */
     fun displayName(): String =
         slug

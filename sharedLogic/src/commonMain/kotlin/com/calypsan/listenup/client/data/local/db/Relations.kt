@@ -224,38 +224,36 @@ data class RoleWithBookCount(
 )
 
 /**
- * Cross-reference entity for the many-to-many relationship between Books and Tags.
+ * Sync-substrate junction entity for the many-to-many relationship between books and tags.
  *
- * A book can have multiple tags, and a tag can be applied to multiple books.
+ * A book can have multiple tags; a tag can be applied to multiple books (curator model —
+ * the tag set is global, not per-user). Soft-deletes are tombstoned via [deletedAt]; the
+ * sync engine applies tombstones from [BookTagSyncPayload] into this table.
  *
- * @property bookId Foreign key to the book
- * @property tagId Foreign key to the tag
+ * No [ForeignKey] constraints are declared — junction integrity is maintained by the sync
+ * handlers, which process parent (tags, books) events before junction events during catch-up.
+ * This avoids FK-constraint failures when event ordering is not guaranteed.
+ *
+ * @property bookId The book this tag is applied to.
+ * @property tagId The tag applied to [bookId].
+ * @property createdAt Epoch millis when this junction row was first created.
+ * @property revision Monotonic server revision, bumped on create or soft-delete.
+ * @property deletedAt Epoch ms tombstone; null when the junction row is live.
  */
 @Entity(
     tableName = "book_tags",
     primaryKeys = ["bookId", "tagId"],
-    foreignKeys = [
-        ForeignKey(
-            entity = BookEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["bookId"],
-            onDelete = ForeignKey.CASCADE, // If book is deleted, remove relation
-        ),
-        ForeignKey(
-            entity = TagEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["tagId"],
-            onDelete = ForeignKey.CASCADE, // If tag is deleted, remove relation
-        ),
-    ],
     indices = [
-        Index(value = ["bookId"]),
         Index(value = ["tagId"]),
+        Index(value = ["deletedAt"]),
     ],
 )
-data class BookTagCrossRef(
-    val bookId: BookId,
+data class BookTagEntity(
+    val bookId: String,
     val tagId: String,
+    val createdAt: Long,
+    val revision: Long = 0,
+    val deletedAt: Long? = null,
 )
 
 /**
@@ -292,10 +290,11 @@ data class BookGenreCrossRef(
 )
 
 /**
- * Relation POJO for loading a book with all its tags in a single query.
+ * Relation POJO for loading a book with all its live (non-tombstoned) tags in a single query.
  *
  * Uses Room's @Relation with Junction to handle the many-to-many relationship
- * through the book_tags table.
+ * through the book_tags table. Note: Room's Junction does not filter by [BookTagEntity.deletedAt];
+ * consumers should call [TagDao.observeForBook] for tombstone-aware observation instead.
  */
 data class BookWithTags(
     @Embedded val book: BookEntity,
@@ -305,7 +304,7 @@ data class BookWithTags(
         entityColumn = "id",
         associateBy =
             Junction(
-                value = BookTagCrossRef::class,
+                value = BookTagEntity::class,
                 parentColumn = "bookId",
                 entityColumn = "tagId",
             ),

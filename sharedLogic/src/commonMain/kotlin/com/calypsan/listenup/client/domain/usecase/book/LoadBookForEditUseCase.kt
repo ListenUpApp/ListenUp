@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.core.notFoundError
+import kotlinx.coroutines.flow.first
 
 private val logger = KotlinLogging.logger {}
 
@@ -112,7 +113,7 @@ open class LoadBookForEditUseCase(
 
     private suspend fun loadAllTags(): List<EditableTag> =
         try {
-            tagRepository.getAll().map { it.toEditable() }
+            tagRepository.observeAllTags().first().map { it.toEditable() }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -122,7 +123,7 @@ open class LoadBookForEditUseCase(
 
     private suspend fun loadBookTags(bookId: String): List<EditableTag> =
         try {
-            tagRepository.getTagsForBook(bookId).map { it.toEditable() }
+            tagRepository.observeTagsForBook(bookId).first().map { it.toEditable() }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {

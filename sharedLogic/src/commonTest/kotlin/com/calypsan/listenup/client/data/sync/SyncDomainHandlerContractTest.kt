@@ -35,7 +35,7 @@ class SyncDomainHandlerContractTest :
                         revision = 1L,
                         occurredAt = 100L,
                         clientOpId = null,
-                        payload = Tag(id = "t1", name = "alpha", revision = 1L, updatedAt = 100L),
+                        payload = Tag(id = "t1", name = "alpha", slug = "alpha", revision = 1L, updatedAt = 100L),
                     )
                 val result = handler.onEvent(event, isOwnEcho = false)
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -64,7 +64,7 @@ class SyncDomainHandlerContractTest :
                         }
                     }
 
-                val tombstone = Tag(id = "t1", name = "alpha", revision = 5L, updatedAt = 100L, deletedAt = 100L)
+                val tombstone = Tag(id = "t1", name = "alpha", slug = "alpha", revision = 5L, updatedAt = 100L, deletedAt = 100L)
                 handler.onCatchUpItem(tombstone, isTombstone = true)
                 tombstoneSeen shouldBe true
             }

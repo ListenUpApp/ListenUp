@@ -28,8 +28,8 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0))
-                    repo.upsert(Tag("b", "beta", 0, 0))
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0))
                     val d1 = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     val d2 = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d1 shouldBe d2
@@ -45,9 +45,9 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
                     val before = repo.digest(userId = null, cursor = Long.MAX_VALUE)
-                    repo.upsert(Tag("a", "alpha-updated", 0, 0))
+                    repo.upsert(Tag("a", "alpha-updated", "alpha-updated", 0, 0))
                     val after = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     (before.hash != after.hash) shouldBe true
                     before.count shouldBe after.count // still one row
@@ -60,9 +60,9 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0)) // rev 1
-                    repo.upsert(Tag("b", "beta", 0, 0)) // rev 2
-                    repo.upsert(Tag("c", "gamma", 0, 0)) // rev 3
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0)) // rev 1
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0)) // rev 2
+                    repo.upsert(Tag("c", "gamma", "gamma", 0, 0)) // rev 3
                     val d = repo.digest(userId = null, cursor = 2L)
                     d.count shouldBe 2 // only a, b
                 }
@@ -74,7 +74,7 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0))
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
                     repo.softDelete("a")
                     val d = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d.count shouldBe 1
@@ -87,8 +87,8 @@ class TagRepositoryDigestTest :
                 val db = this
                 val repo = TagRepository(db, ChangeBus(), SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("a", "alpha", 0, 0)) // revision 1
-                    repo.upsert(Tag("b", "beta", 0, 0)) // revision 2
+                    repo.upsert(Tag("a", "alpha", "alpha", 0, 0)) // revision 1
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0)) // revision 2
                     // Canonical layout: <id>|<revision>\n per row, sorted by id, trailing \n
                     // Input bytes: "a|1\nb|2\n"
                     val expectedInput = "a|1\nb|2\n"

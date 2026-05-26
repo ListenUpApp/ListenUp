@@ -155,6 +155,7 @@
     <ID>LateinitUsage:WithClientSyncEngineAgainstServer.kt$lateinit var statsUpdater: UserStatsUpdater</ID>
     <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
+    <ID>LongMethod:WithTagSyncEngineAgainstServer.kt$fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -&gt; Unit)</ID>
     <ID>LongParameterList:ContributorDetailScreen.kt$( name: String, aliases: List&lt;String&gt;, imagePath: String?, contributorId: String, colorScheme: ContributorColorScheme, birthDate: String?, deathDate: String?, website: String?, description: String?, isDescriptionExpanded: Boolean, onToggleDescription: () -&gt; Unit, onBackClick: () -&gt; Unit, onEditClick: () -&gt; Unit, onDownloadMetadata: () -&gt; Unit, onDeleteClick: () -&gt; Unit, )</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>

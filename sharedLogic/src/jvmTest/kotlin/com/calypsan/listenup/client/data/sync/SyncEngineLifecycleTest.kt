@@ -65,8 +65,8 @@ class SyncEngineLifecycleTest :
                     )
                 val items =
                     listOf(
-                        Tag(id = "a", name = "x", revision = FIRST_REVISION, updatedAt = FIRST_UPDATED_AT),
-                        Tag(id = "b", name = "y", revision = SECOND_REVISION, updatedAt = SECOND_UPDATED_AT),
+                        Tag(id = "a", name = "x", slug = "x", revision = FIRST_REVISION, updatedAt = FIRST_UPDATED_AT),
+                        Tag(id = "b", name = "y", slug = "y", revision = SECOND_REVISION, updatedAt = SECOND_UPDATED_AT),
                     )
                 val fakeCatchUp = FakeCatchUp(items = items, store = store)
                 val fakeSse = FakeSse()
@@ -205,7 +205,7 @@ class SyncEngineLifecycleTest :
                                     revision = 3L,
                                     occurredAt = 300L,
                                     clientOpId = null,
-                                    payload = Tag(id = "t3", name = "z", revision = 3L, updatedAt = 300L),
+                                    payload = Tag(id = "t3", name = "z", slug = "z", revision = 3L, updatedAt = 300L),
                                 ),
                             ),
                     ),
@@ -289,7 +289,7 @@ class SyncEngineLifecycleTest :
                                             revision = 1L,
                                             occurredAt = 100L,
                                             clientOpId = null,
-                                            payload = Tag(id = "t1", name = "alpha", revision = 1L, updatedAt = 100L),
+                                            payload = Tag(id = "t1", name = "alpha", slug = "alpha", revision = 1L, updatedAt = 100L),
                                         ),
                                     ),
                             ),

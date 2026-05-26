@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
@@ -73,6 +74,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is MetadataError -> toHttpStatus()
 
+        is TagError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
@@ -98,6 +101,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is AudioMetadataError -> withCorrelationId(id)
         is LibraryError -> withCorrelationId(id)
         is MetadataError -> withCorrelationId(id)
+        is TagError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -295,4 +299,20 @@ private fun LibraryError.withCorrelationId(id: String?): LibraryError =
         is LibraryError.InvalidPath -> copy(correlationId = id)
         is LibraryError.DuplicateFolder -> copy(correlationId = id)
         is LibraryError.FolderNotFound -> copy(correlationId = id)
+    }
+
+private fun TagError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is TagError.NotFound -> HttpStatusCode.NotFound
+        is TagError.BookNotFound -> HttpStatusCode.NotFound
+        is TagError.InvalidName -> HttpStatusCode.BadRequest
+        is TagError.NameTooLong -> HttpStatusCode.BadRequest
+    }
+
+private fun TagError.withCorrelationId(id: String?): TagError =
+    when (this) {
+        is TagError.NotFound -> copy(correlationId = id)
+        is TagError.BookNotFound -> copy(correlationId = id)
+        is TagError.InvalidName -> copy(correlationId = id)
+        is TagError.NameTooLong -> copy(correlationId = id)
     }

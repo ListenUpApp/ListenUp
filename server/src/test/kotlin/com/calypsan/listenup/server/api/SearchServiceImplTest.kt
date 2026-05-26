@@ -6,9 +6,11 @@ import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.BookTagsTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.TagTable
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -142,6 +144,101 @@ class SearchServiceImplTest :
                 }
             }
         }
+
+        // ── tag search tests ──────────────────────────────────────────────────
+
+        test("search returns tag hits when a matching tag exists") {
+            withInMemoryDatabase {
+                val db = this
+                val libId = seedLibrary(db)
+                seedBook(db = db, bookId = "b1", title = "Project Hail Mary", libraryId = libId)
+                seedTag(db = db, tagId = "t1", name = "Sci-Fi", slug = "sci-fi")
+                seedBookTag(db = db, bookId = "b1", tagId = "t1")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "Sci", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.tags shouldHaveSize 1
+                    result.data.tags[0].name shouldBe "Sci-Fi"
+                    result.data.tags[0].slug shouldBe "sci-fi"
+                    result.data.tags[0].bookCount shouldBe 1L
+                }
+            }
+        }
+
+        test("search returns empty tag list when no matching tag exists") {
+            withInMemoryDatabase {
+                val db = this
+                seedTag(db = db, tagId = "t1", name = "Fantasy", slug = "fantasy")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "xyznosuchterm", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.tags.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("search excludes soft-deleted tags") {
+            withInMemoryDatabase {
+                val db = this
+                seedTag(db = db, tagId = "t1", name = "Mystery", slug = "mystery", deleted = true)
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "Mystery", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.tags.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("tag with no books returns bookCount of zero") {
+            withInMemoryDatabase {
+                val db = this
+                seedTag(db = db, tagId = "t1", name = "Non-Fiction", slug = "non-fiction")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "Non", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.tags shouldHaveSize 1
+                    result.data.tags[0].bookCount shouldBe 0L
+                }
+            }
+        }
+
+        test("bookCount excludes soft-deleted book_tags junctions") {
+            withInMemoryDatabase {
+                val db = this
+                val libId = seedLibrary(db)
+                seedBook(db = db, bookId = "b1", title = "Book One", libraryId = libId)
+                seedBook(db = db, bookId = "b2", title = "Book Two", libraryId = libId)
+                seedTag(db = db, tagId = "t1", name = "Classics", slug = "classics")
+                seedBookTag(db = db, bookId = "b1", tagId = "t1")
+                seedBookTag(db = db, bookId = "b2", tagId = "t1", deleted = true)
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "Classics", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.tags shouldHaveSize 1
+                    // Only the live junction row counts.
+                    result.data.tags[0].bookCount shouldBe 1L
+                }
+            }
+        }
+
+        test("search returns all four arrays in one call") {
+            withInMemoryDatabase {
+                val db = this
+                val libId = seedLibrary(db)
+                seedBook(db = db, bookId = "bx", title = "Dragon Fire", libraryId = libId)
+                seedContributor(db = db, contributorId = "cx", name = "Dragon Author")
+                seedSeries(db = db, seriesId = "sx", name = "Dragon Chronicles")
+                seedTag(db = db, tagId = "tx", name = "Dragon Age", slug = "dragon-age")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val result = service.search(query = "Dragon", limit = 20) as AppResult.Success<SearchResults>
+                    result.data.books shouldHaveSize 1
+                    result.data.contributors shouldHaveSize 1
+                    result.data.series shouldHaveSize 1
+                    result.data.tags shouldHaveSize 1
+                }
+            }
+        }
     })
 
 // ── test data helpers ──────────────────────────────────────────────────────────
@@ -272,6 +369,60 @@ private fun seedBookContributor(
             it[BookContributorTable.role] = role
             it[BookContributorTable.creditedAs] = null
             it[BookContributorTable.ordinal] = ordinal
+        }
+    }
+}
+
+/**
+ * Seeds a tag row. The [TagTable]'s `tags_ai` trigger automatically populates
+ * [tag_search] on INSERT, so no manual FTS write is needed.
+ *
+ * Soft-deleted tags are excluded from search via `t.deleted_at IS NULL` in the
+ * [SearchServiceImpl.searchTags] query.
+ */
+private fun seedTag(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    tagId: String,
+    name: String,
+    slug: String,
+    deleted: Boolean = false,
+) {
+    val now = System.currentTimeMillis()
+    transaction(db) {
+        TagTable.insert {
+            it[TagTable.id] = tagId
+            it[TagTable.name] = name
+            it[TagTable.slug] = slug
+            it[TagTable.createdAt] = now
+            it[TagTable.updatedAt] = now
+            it[TagTable.revision] = 1L
+            it[TagTable.deletedAt] = if (deleted) now else null
+        }
+    }
+}
+
+/**
+ * Seeds a book_tags junction row.
+ *
+ * [deleted] = true simulates a soft-deleted junction that [SearchServiceImpl.searchTags]
+ * excludes from the [bookCount] sub-query.
+ */
+private fun seedBookTag(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    bookId: String,
+    tagId: String,
+    deleted: Boolean = false,
+) {
+    val now = System.currentTimeMillis()
+    transaction(db) {
+        BookTagsTable.insert {
+            it[BookTagsTable.id] = "$bookId:$tagId"
+            it[BookTagsTable.bookId] = bookId
+            it[BookTagsTable.tagId] = tagId
+            it[BookTagsTable.createdAt] = now
+            it[BookTagsTable.updatedAt] = now
+            it[BookTagsTable.revision] = 1L
+            it[BookTagsTable.deletedAt] = if (deleted) now else null
         }
     }
 }

@@ -25,7 +25,7 @@ class TagRepositorySoftDeleteTest :
                 val bus = ChangeBus()
                 val repo = TagRepository(db, bus, SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("t1", "sci-fi", 0, 0))
+                    repo.upsert(Tag("t1", "sci-fi", "sci-fi", 0, 0))
                     // With replay=256, the subscriber sees the cached Created event first.
                     // Drop it to observe only the Deleted event from softDelete.
                     val deferredBusEvent = async { bus.subscribe().drop(1).first() }
@@ -66,14 +66,14 @@ class TagRepositorySoftDeleteTest :
                 val bus = ChangeBus()
                 val repo = TagRepository(db, bus, SyncRegistry())
                 runTest {
-                    repo.upsert(Tag("t1", "sci-fi", 0, 0))
+                    repo.upsert(Tag("t1", "sci-fi", "sci-fi", 0, 0))
                     repo.softDelete("t1")
                     // With replay=256, the subscriber sees both cached events (Created + Deleted).
                     // Drop them to observe only the Updated event from the resurrection upsert.
                     val deferredBusEvent = async { bus.subscribe().drop(2).first() }
                     advanceUntilIdle()
 
-                    val resurrected = repo.upsert(Tag("t1", "sci-fi-resurrected", 0, 0))
+                    val resurrected = repo.upsert(Tag("t1", "sci-fi-resurrected", "sci-fi-resurrected", 0, 0))
                     resurrected.shouldBeInstanceOf<AppResult.Success<Tag>>()
                     (resurrected as AppResult.Success).data.deletedAt shouldBe null
 

@@ -1,0 +1,281 @@
+package com.calypsan.listenup.client.data.sync.testing
+
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
+import com.calypsan.listenup.client.data.sync.SyncCursorStore
+import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
+import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.server.db.DatabaseConfig
+import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.syncRoutes
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.authenticate
+import io.ktor.server.routing.routing
+import io.ktor.server.sse.SSE as ServerSSE
+import io.ktor.server.testing.testApplication
+import java.nio.file.Files
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.koin.core.context.GlobalContext
+import org.koin.dsl.module
+import org.koin.ktor.plugin.Koin
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
+
+/**
+ * Test scope for [TagSyncE2ETest][com.calypsan.listenup.client.data.sync.TagSyncE2ETest].
+ *
+ * Exposes the real server-side [TagRepository] and [BookTagRepository] for
+ * triggering writes that publish SSE events, and the client [ListenUpDatabase]
+ * for asserting that events landed in Room.
+ */
+data class TagSyncEngineScope(
+    val engine: SyncEngine,
+    val tagRepo: TagRepository,
+    val bookTagRepo: BookTagRepository,
+    val clientDatabase: ListenUpDatabase,
+)
+
+/**
+ * Boots a real `:server` test application AND the client engine in one process,
+ * with a real in-memory Room DB on the client side.
+ *
+ * Unlike [withClientSyncEngineAgainstServer], this harness registers the real
+ * [TagSyncDomainHandler] and [BookTagSyncDomainHandler] instead of
+ * [RecordingTagSyncDomainHandler]. This lets tests assert that tag and book_tag
+ * SSE events land directly in Room rather than being captured in a recording
+ * buffer. The two harnesses cannot be combined because [ClientSyncDomainRegistry]
+ * enforces a single handler per domain name.
+ *
+ * Pre-seeds two book rows (`book-a`, `book-b`) and the required library/folder
+ * rows so `book_tags` FK constraints are satisfied throughout the test session.
+ */
+fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit) {
+    testApplication {
+        // ---- Server side: temp-file SQLite + tag domains ----
+        val tmp = Files.createTempFile("listenup-tags-e2e-", ".db").toFile().apply { deleteOnExit() }
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val bus = ChangeBus()
+        val syncRegistry = SyncRegistry()
+
+        val now = System.currentTimeMillis()
+        transaction(serverDb) {
+            exec(
+                "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                    "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+            )
+            exec(
+                "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+                    "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
+            )
+            // Seed book rows so book_tags FK constraints are satisfied.
+            exec(
+                "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
+                    "revision, created_at, updated_at) VALUES " +
+                    "('book-a', 'test-library', 'Test Book A', 0, 'book-a', $now, 0, $now, $now)",
+            )
+            exec(
+                "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
+                    "revision, created_at, updated_at) VALUES " +
+                    "('book-b', 'test-library', 'Test Book B', 0, 'book-b', $now, 0, $now, $now)",
+            )
+        }
+
+        val tagRepo = TagRepository(serverDb, bus, syncRegistry)
+        val bookTagRepo = BookTagRepository(serverDb, bus, syncRegistry)
+
+        application {
+            install(ServerContentNegotiation) { json(contractJson) }
+            install(ServerSSE)
+            install(Authentication) { testAuth(defaultUserId = "u1") }
+            install(Koin) {
+                modules(
+                    module {
+                        single { serverDb }
+                        single { bus }
+                        single { syncRegistry }
+                        single(createdAtStart = true) { tagRepo }
+                        single(createdAtStart = true) { bookTagRepo }
+                    },
+                )
+            }
+            routing {
+                authenticate(JWT_PROVIDER) { syncRoutes() }
+            }
+        }
+
+        // ---- Client side ----
+        val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val clientDb = createInMemoryTestDatabase()
+        val testClient: HttpClient =
+            createClient {
+                install(ContentNegotiation) { json(contractJson) }
+                install(SSE)
+            }
+
+        try {
+            val registry = ClientSyncDomainRegistry()
+
+            // Register the REAL tag handlers — not the recording fixture.
+            TagSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            BookTagSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+
+            // Register remaining handlers so SSE events on other domains don't
+            // get logged as "unhandled" warnings during the test.
+            ActiveSessionSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            LibrarySyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            LibraryFolderSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            BookSyncDomainHandler(
+                database = clientDb,
+                mapper = BookEntityMapper(),
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            ContributorSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            SeriesSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            PlaybackPositionSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            ListeningEventSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+            UserStatsSyncDomainHandler(
+                database = clientDb,
+                transactionRunner = RoomTransactionRunner(clientDb),
+                registry = registry,
+            )
+
+            val state = SyncEngineState()
+            val store = SyncCursorStore(clientDb.syncCursorDao())
+            val queue =
+                PendingOperationQueue(
+                    dao = clientDb.pendingOperationV2Dao(),
+                    sender = DomainPendingOperationSender(emptyMap()),
+                )
+
+            val catchUp =
+                SyncCatchUpClient(
+                    httpClientProvider = { testClient },
+                    serverUrlProvider = { "" },
+                    store = store,
+                )
+
+            val sseClient =
+                SyncSseClient(
+                    serverUrlProvider = { "" },
+                    streamingClientProvider = { testClient },
+                    state = state,
+                    scope = clientScope,
+                )
+
+            var engineRef: SyncEngine? = null
+            val dispatcher =
+                SyncEventDispatcher(
+                    registry = registry,
+                    queue = queue,
+                    state = state,
+                    cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                    onCursorStale = { lastKnown ->
+                        checkNotNull(engineRef) { "SyncEngine not yet constructed" }
+                            .handleCursorStale(lastKnown)
+                    },
+                )
+
+            val engine =
+                SyncEngine(
+                    registry = registry,
+                    queue = queue,
+                    state = state,
+                    store = store,
+                    catchUp = catchUp,
+                    sseClient = sseClient,
+                    dispatcher = dispatcher,
+                    downloadRepository = FakeDownloadRepository(),
+                    scope = clientScope,
+                )
+            engineRef = engine
+
+            try {
+                TagSyncEngineScope(
+                    engine = engine,
+                    tagRepo = tagRepo,
+                    bookTagRepo = bookTagRepo,
+                    clientDatabase = clientDb,
+                ).block()
+            } finally {
+                engine.stopAndJoin()
+            }
+        } finally {
+            clientScope.cancel()
+            clientDb.close()
+            if (GlobalContext.getKoinApplicationOrNull() != null) {
+                GlobalContext.stopKoin()
+            }
+        }
+    }
+}

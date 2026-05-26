@@ -7,11 +7,12 @@ import io.kotest.matchers.shouldBe
 class TagContractTest :
     FunSpec({
 
-        test("Tag round-trips with all fields") {
+        test("Tag round-trips with all fields including slug") {
             val original =
                 Tag(
                     id = "tag-1",
-                    name = "sci-fi",
+                    name = "Sci-Fi",
+                    slug = "sci-fi",
                     revision = 42,
                     updatedAt = 1730000000000L,
                     deletedAt = null,
@@ -25,7 +26,8 @@ class TagContractTest :
             val original =
                 Tag(
                     id = "tag-2",
-                    name = "fantasy",
+                    name = "Fantasy",
+                    slug = "fantasy",
                     revision = 50,
                     updatedAt = 1730000000000L,
                     deletedAt = 1730000005000L,

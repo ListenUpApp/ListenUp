@@ -37,9 +37,9 @@ class ClientSyncEngineE2ETest :
         test("engine starts → silent catch-up → SSE tail picks up subsequent writes") {
             withClientSyncEngineAgainstServer {
                 // Pre-populate the server with PRE_POPULATED_COUNT tags.
-                tagRepo.upsert(Tag(id = "t1", name = "alpha", revision = 0L, updatedAt = 0L))
-                tagRepo.upsert(Tag(id = "t2", name = "beta", revision = 0L, updatedAt = 0L))
-                tagRepo.upsert(Tag(id = "t3", name = "gamma", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t1", name = "alpha", slug = "alpha", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t2", name = "beta", slug = "beta", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t3", name = "gamma", slug = "gamma", revision = 0L, updatedAt = 0L))
 
                 // Subscribe before start so emissions during catch-up reach the collector.
                 val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -56,7 +56,7 @@ class ClientSyncEngineE2ETest :
                     caughtUp.map { it.first.id }.toSet() shouldBe setOf("t1", "t2", "t3")
 
                     // Server-side write after catch-up should arrive via SSE tail.
-                    tagRepo.upsert(Tag(id = "t4", name = "delta", revision = 0L, updatedAt = 0L))
+                    tagRepo.upsert(Tag(id = "t4", name = "delta", slug = "delta", revision = 0L, updatedAt = 0L))
                     val sseEvent =
                         withTimeout(OPERATION_TIMEOUT_SECONDS.seconds) {
                             recording.observed.first { it.first.id == "t4" }
@@ -72,20 +72,20 @@ class ClientSyncEngineE2ETest :
         test("reconnect after disconnect: missed events arrive after catch-up + SSE") {
             withClientSyncEngineAgainstServer {
                 // First connection: catch-up + observe one live event.
-                tagRepo.upsert(Tag(id = "t1", name = "alpha", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t1", name = "alpha", slug = "alpha", revision = 0L, updatedAt = 0L))
                 engine.start(currentUserId = "u1")
 
                 withTimeout(OPERATION_TIMEOUT_SECONDS.seconds) {
                     recording.catchUpObserved.first { it.first.id == "t1" }
                 }
-                tagRepo.upsert(Tag(id = "t2", name = "beta", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t2", name = "beta", slug = "beta", revision = 0L, updatedAt = 0L))
                 withTimeout(OPERATION_TIMEOUT_SECONDS.seconds) {
                     recording.observed.first { it.first.id == "t2" }
                 }
 
                 // Disconnect SSE. Server-side write happens while disconnected.
                 engine.stop()
-                tagRepo.upsert(Tag(id = "t3", name = "gamma", revision = 0L, updatedAt = 0L))
+                tagRepo.upsert(Tag(id = "t3", name = "gamma", slug = "gamma", revision = 0L, updatedAt = 0L))
 
                 // Reconnect — the engine's start() always runs catch-up first, so t3
                 // (written while disconnected, revision > stored cursor) arrives via
@@ -106,7 +106,7 @@ class ClientSyncEngineE2ETest :
                 // Pre-populate LARGE_CATCH_UP_COUNT tags before the engine starts.
                 repeat(LARGE_CATCH_UP_COUNT) { i ->
                     tagRepo.upsert(
-                        Tag(id = "t$i", name = "name-$i", revision = 0L, updatedAt = 0L),
+                        Tag(id = "t$i", name = "name-$i", slug = "name-$i", revision = 0L, updatedAt = 0L),
                     )
                 }
 

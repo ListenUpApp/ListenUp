@@ -70,8 +70,8 @@ class SyncRoutesUserScopingTest :
 
         test("(c) global domain catch-up and firehose are unaffected by user scoping") {
             withTestApplication(userScoped = true) {
-                tagRepo.upsert(Tag("a", "alpha", 0, 0))
-                tagRepo.upsert(Tag("b", "beta", 0, 0))
+                tagRepo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                tagRepo.upsert(Tag("b", "beta", "beta", 0, 0))
 
                 // Catch-up: both users see every global row.
                 val u1Tags: Page<Tag> =
@@ -92,7 +92,7 @@ class SyncRoutesUserScopingTest :
                                     it.event == "tags" && it.data!!.contains(""""name":"gamma"""")
                                 }
                             }
-                        tagRepo.upsert(Tag("c", "gamma", 0, 0))
+                        tagRepo.upsert(Tag("c", "gamma", "gamma", 0, 0))
                         val event = deferred.await()
                         event.event shouldBe "tags"
                     }
