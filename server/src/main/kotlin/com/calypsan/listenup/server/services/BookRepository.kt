@@ -89,6 +89,7 @@ class BookRepository(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     clock: Clock = Clock.System,
+    private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
 ) : SyncableRepository<BookSyncPayload, BookId>(
         db = db,
         table = BookTable,
@@ -361,6 +362,29 @@ class BookRepository(
      * then opens its own transaction. `softDelete` is not wrapped in an outer
      * transaction here — doing so would nest transactions needlessly.
      */
+    /**
+     * Tombstones this book and cascade-soft-deletes all of its `book_tags` junction
+     * rows so clients receive per-row tombstones for the orphaned junctions.
+     *
+     * The cascade runs after the book row is tombstoned — the `book_tags` soft-deletes
+     * each bump their own revision and publish [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
+     * to the change bus, matching the behaviour of an explicit tag removal.
+     *
+     * The book's FTS row is excluded by the existing `books_ad` trigger; no explicit
+     * `book_search` reindex is needed here.
+     */
+    override suspend fun softDelete(
+        id: BookId,
+        clientOpId: String?,
+        userId: String?,
+    ): AppResult<Unit> {
+        val result = super.softDelete(id, clientOpId, userId)
+        if (result is AppResult.Success) {
+            bookTagRepository?.softDeleteAllForBook(id.value)
+        }
+        return result
+    }
+
     override suspend fun softDeleteAbsent(
         libraryId: LibraryId,
         seenIds: Set<BookId>,

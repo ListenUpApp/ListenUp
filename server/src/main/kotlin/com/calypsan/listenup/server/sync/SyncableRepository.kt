@@ -248,7 +248,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
      * @param userId owning user for a per-user domain (`userScoped = true`);
      *   threaded into the published [BusEvent]. Global domains omit it.
      */
-    suspend fun softDelete(
+    open suspend fun softDelete(
         id: ID,
         clientOpId: String? = null,
         userId: String? = null,

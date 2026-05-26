@@ -93,7 +93,9 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
-        single(createdAtStart = true) { BookRepository(get(), get(), get(), get(), get(), get()) }
+        single(createdAtStart = true) {
+            BookRepository(get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
+        }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
         single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
