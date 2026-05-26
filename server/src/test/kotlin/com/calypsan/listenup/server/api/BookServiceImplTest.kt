@@ -41,7 +41,7 @@ class BookServiceImplTest :
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo)
+                val service = BookServiceImpl(repo = repo, db = db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
 
@@ -68,7 +68,7 @@ class BookServiceImplTest :
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo)
+                val service = BookServiceImpl(repo = repo, db = db)
                 runTest {
                     val result = service.getBook(BookId("nonexistent"))
 
@@ -94,7 +94,7 @@ class BookServiceImplTest :
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo)
+                val service = BookServiceImpl(repo = repo, db = db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
                     repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
@@ -122,7 +122,7 @@ class BookServiceImplTest :
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo)
+                val service = BookServiceImpl(repo = repo, db = db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
                     repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
@@ -150,7 +150,7 @@ class BookServiceImplTest :
                         contributorRepository = ContributorRepository(db, bus, syncRegistry),
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo)
+                val service = BookServiceImpl(repo = repo, db = db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
                     repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))

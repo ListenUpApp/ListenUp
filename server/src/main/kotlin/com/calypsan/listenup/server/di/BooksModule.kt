@@ -113,7 +113,7 @@ fun booksModule(
             )
         }
         single<BookIngestPort> { get<BookRepository>() }
-        single<BookService> { BookServiceImpl(get<BookRepository>()) }
+        single<BookService> { BookServiceImpl(repo = get<BookRepository>(), db = get()) }
         single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
         single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
         single<SearchService> { SearchServiceImpl(db = get()) }

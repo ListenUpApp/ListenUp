@@ -10,6 +10,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.services.BookRepository
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_SEARCH_LIMIT = 200
 
@@ -17,12 +19,18 @@ private const val MAX_SEARCH_LIMIT = 200
  * Thin [BookService] implementation. The work lives in [BookRepository]; this
  * class translates between the wire contract and the repository's public API.
  *
- * Mutation methods ([updateBook], [setBookContributors], [setBookSeries],
- * [deleteBookCover]) are stub implementations returning [BookError.NotFound]
- * until Tasks 13–16 replace them with real logic.
+ * [updateBook] reads the current aggregate, applies the [BookUpdate] patch
+ * field-by-field (null means "don't touch"), and writes the patched payload
+ * through the syncable substrate so the revision bumps and the change-bus
+ * fires uniformly. The read-then-write straddles two repository calls; both
+ * run inside the same [suspendTransaction] so the substrate's own transaction
+ * nests cleanly. The remaining mutation methods ([setBookContributors],
+ * [setBookSeries], [deleteBookCover]) are stub implementations returning
+ * [BookError.NotFound] until Tasks 14–16 replace them with real logic.
  */
 internal class BookServiceImpl(
     private val repo: BookRepository,
+    private val db: Database,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val payload = repo.findById(id)
@@ -45,7 +53,17 @@ internal class BookServiceImpl(
         id: BookId,
         patch: BookUpdate,
     ): AppResult<Unit> =
-        AppResult.Failure(BookError.NotFound(debugInfo = "updateBook not yet implemented (Books-C1 Task 13)"))
+        suspendTransaction(db) {
+            val current =
+                repo.findById(id)
+                    ?: return@suspendTransaction AppResult.Failure(
+                        BookError.NotFound(debugInfo = "bookId=${id.value}"),
+                    )
+            when (val upsertResult = repo.upsert(current.applyPatch(patch))) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            }
+        }
 
     override suspend fun setBookContributors(
         id: BookId,
@@ -62,3 +80,17 @@ internal class BookServiceImpl(
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
         AppResult.Failure(BookError.NotFound(debugInfo = "deleteBookCover not yet implemented (Books-C1 Task 16)"))
 }
+
+private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
+    copy(
+        title = patch.title ?: title,
+        sortTitle = patch.sortTitle ?: sortTitle,
+        subtitle = patch.subtitle ?: subtitle,
+        description = patch.description ?: description,
+        publisher = patch.publisher ?: publisher,
+        publishYear = patch.publishYear ?: publishYear,
+        language = patch.language ?: language,
+        isbn = patch.isbn ?: isbn,
+        asin = patch.asin ?: asin,
+        abridged = patch.abridged ?: abridged,
+    )

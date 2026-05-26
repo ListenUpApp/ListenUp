@@ -1,0 +1,176 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
+package com.calypsan.listenup.server.api
+
+import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookChapterPayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.runTest
+
+class BookServiceImplUpdateTest :
+    FunSpec({
+
+        test("updateBook applies the title patch and bumps the revision") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                val service = BookServiceImpl(repo = repo, db = db)
+                runTest {
+                    val initialUpsert =
+                        repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val initialRevision =
+                        initialUpsert.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>().data.revision
+
+                    val result = service.updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById(BookId("b1"))
+                    updated?.title shouldBe "Words of Radiance"
+                    (updated?.revision ?: -1L) shouldBe initialRevision + 1L
+                }
+            }
+        }
+
+        test("updateBook preserves unchanged fields when patch carries only one field") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                val service = BookServiceImpl(repo = repo, db = db)
+                runTest {
+                    repo.upsert(
+                        bookFixture(
+                            id = "b2",
+                            title = "Original Title",
+                            subtitle = "Original Subtitle",
+                            description = "Original Description",
+                        ),
+                    )
+
+                    val result = service.updateBook(BookId("b2"), BookUpdate(publishYear = 2026))
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById(BookId("b2"))
+                    updated?.title shouldBe "Original Title"
+                    updated?.subtitle shouldBe "Original Subtitle"
+                    updated?.description shouldBe "Original Description"
+                    updated?.publishYear shouldBe 2026
+                }
+            }
+        }
+
+        test("updateBook returns BookError.NotFound when the book does not exist") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                val service = BookServiceImpl(repo = repo, db = db)
+                runTest {
+                    val result =
+                        service.updateBook(BookId("does-not-exist"), BookUpdate(title = "Anything"))
+
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    val error = failure.error.shouldBeInstanceOf<BookError.NotFound>()
+                    (error.debugInfo ?: "") shouldContain "does-not-exist"
+                }
+            }
+        }
+    })
+
+private fun bookFixture(
+    id: String,
+    title: String,
+    subtitle: String? = null,
+    description: String? = null,
+    rootRelPath: String = "Sanderson/$id",
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        sortTitle = title,
+        subtitle = subtitle,
+        description = description,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        totalDuration = 3_600_000L,
+        cover = null,
+        rootRelPath = rootRelPath,
+        inode = null,
+        scannedAt = 1_730_000_000_000L,
+        contributors = emptyList(),
+        series = emptyList(),
+        audioFiles =
+            listOf(
+                BookAudioFilePayload(
+                    id = "af-$id",
+                    index = 0,
+                    filename = "01.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 3_600_000L,
+                    size = 500_000_000L,
+                ),
+            ),
+        chapters =
+            listOf(
+                BookChapterPayload(id = "ch-$id", title = "Prologue", duration = 1_000_000L, startTime = 0L),
+            ),
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )
