@@ -44,4 +44,30 @@ class BookResources(
         val id: BookId,
         val v: String? = null,
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookContributors] —
+     * `PUT /api/v1/books/{id}/contributors` replaces the full contributor list
+     * for a book. Body is a JSON array of [com.calypsan.listenup.api.dto.BookContributorInput].
+     * Responds 204 on success, 404 when no book with the given id exists,
+     * 400 when the input fails server-side validation. Requires JWT authentication.
+     */
+    @Resource("{id}/contributors")
+    class Contributors(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookSeries] —
+     * `PUT /api/v1/books/{id}/series` replaces the full series list for a book.
+     * Body is a JSON array of [com.calypsan.listenup.api.dto.BookSeriesInput].
+     * Responds 204 on success, 404 when no book with the given id exists,
+     * 400 when the input fails server-side validation. Requires JWT authentication.
+     */
+    @Resource("{id}/series")
+    class Series(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
 }
