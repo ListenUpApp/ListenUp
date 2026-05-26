@@ -292,7 +292,7 @@ private fun TagEntity.toSearchHit(): SearchHit =
     SearchHit(
         id = id,
         type = SearchHitType.TAG,
-        name = displayName(),
-        bookCount = bookCount,
+        name = name,
+        bookCount = null,
         score = 1.0f,
     )

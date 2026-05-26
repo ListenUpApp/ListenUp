@@ -101,10 +101,10 @@ interface SearchDao {
     ): List<SeriesEntity>
 
     /**
-     * Search tags by slug.
+     * Search tags by name or slug (LIKE).
      *
-     * Uses simple LIKE query since tags are just slugs (e.g., "slow-burn").
-     * Searches for slugs containing the query, ordered by book count.
+     * Excludes tombstoned tags ([TagEntity.deletedAt] non-null).
+     * Ordered by name for stable presentation.
      *
      * @param query Search pattern (will be wrapped in % for LIKE)
      * @param limit Max results to return
@@ -112,8 +112,9 @@ interface SearchDao {
     @Query(
         """
         SELECT * FROM tags
-        WHERE slug LIKE '%' || :query || '%'
-        ORDER BY bookCount DESC, slug ASC
+        WHERE (name LIKE '%' || :query || '%' OR slug LIKE '%' || :query || '%')
+          AND deletedAt IS NULL
+        ORDER BY name ASC
         LIMIT :limit
     """,
     )
