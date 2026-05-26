@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.services.BookRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
@@ -52,8 +53,21 @@ class CoverResponder internal constructor(
         call: ApplicationCall,
         id: BookId,
     ) {
-        when (val info = repository.coverInfo(id)) {
-            null -> call.respond(HttpStatusCode.NotFound)
+        val info = repository.coverInfo(id)
+        if (info == null) {
+            call.respond(HttpStatusCode.NotFound)
+            return
+        }
+        val etag = info.hash?.let { "\"$it\"" }
+        if (etag != null) {
+            if (call.request.headers[HttpHeaders.IfNoneMatch] == etag) {
+                call.respond(HttpStatusCode.NotModified)
+                return
+            }
+            call.response.headers.append(HttpHeaders.ETag, etag)
+            call.response.headers.append(HttpHeaders.CacheControl, CACHE_CONTROL_IMMUTABLE)
+        }
+        when (info) {
             is CoverInfo.Filesystem -> respondFilesystem(call, info.path)
             is CoverInfo.Embedded -> respondEmbedded(call, id, info.audioFilePath)
         }
@@ -120,4 +134,13 @@ class CoverResponder internal constructor(
             "webp" -> ContentType.parse("image/webp")
             else -> ContentType.Image.JPEG
         }
+
+    private companion object {
+        /**
+         * One-year `private` cache with `immutable` so clients never revalidate.
+         * Safe because the URL is keyed by book id and the ETag is keyed by the
+         * cover bytes' content hash — any cover change becomes a new ETag.
+         */
+        const val CACHE_CONTROL_IMMUTABLE = "private, max-age=31536000, immutable"
+    }
 }

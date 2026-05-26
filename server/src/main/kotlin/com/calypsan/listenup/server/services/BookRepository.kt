@@ -492,6 +492,7 @@ class BookRepository(
                         .firstOrNull() ?: return@suspendTransaction null
                 val source = bookRow[BookTable.coverSource] ?: return@suspendTransaction null
                 val rootRelPath = bookRow[BookTable.rootRelPath]
+                val hash = bookRow[BookTable.coverHash]
                 // Resolve the folder root path via the book's folder_id column.
                 // TODO: surface a typed error (LIB-C) if the folder row is missing.
                 val folderRoot =
@@ -508,7 +509,7 @@ class BookRepository(
                         .orderBy(BookAudioFileTable.ordinal)
                         .firstOrNull()
                         ?.get(BookAudioFileTable.filename)
-                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename)
+                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash)
             } ?: return null
 
         val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)
@@ -517,14 +518,14 @@ class BookRepository(
                 ?: return null
         return when (source) {
             CoverSource.FILESYSTEM -> {
-                resolveFilesystemCover(bookDir)?.let(CoverInfo::Filesystem)
+                resolveFilesystemCover(bookDir)?.let { CoverInfo.Filesystem(it, resolved.hash) }
             }
 
             CoverSource.EMBEDDED -> {
                 resolved.primaryFilename
                     ?.let { bookDir.resolve(it) }
                     ?.takeIf { withContext(Dispatchers.IO) { Files.isRegularFile(it) } }
-                    ?.let(CoverInfo::Embedded)
+                    ?.let { CoverInfo.Embedded(it, resolved.hash) }
             }
         }
     }
@@ -567,6 +568,7 @@ class BookRepository(
         val libraryRoot: String,
         val rootRelPath: String,
         val primaryFilename: String?,
+        val hash: String?,
     )
 
     /**
