@@ -88,7 +88,7 @@ class TagDetailViewModelTest {
         runTest {
             // Given
             val fixture = createFixture()
-            val tag = Tag(id = "tag-1", slug = "found-family", bookCount = 2)
+            val tag = Tag(id = "tag-1", name = "Found Family", slug = "found-family")
             val books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2"))
 
             every { fixture.tagRepository.observeById("tag-1") } returns flowOf(tag)
@@ -113,7 +113,7 @@ class TagDetailViewModelTest {
         runTest {
             // Given: tag with three book IDs — verifies batched call replaces per-book loop
             val fixture = createFixture()
-            val tag = Tag(id = "tag-1", slug = "mystery", bookCount = 3)
+            val tag = Tag(id = "tag-1", name = "Mystery", slug = "mystery")
             val bookIds = listOf("book-1", "book-2", "book-3")
             val books = bookIds.map { TestData.bookListItem(id = it) }
 

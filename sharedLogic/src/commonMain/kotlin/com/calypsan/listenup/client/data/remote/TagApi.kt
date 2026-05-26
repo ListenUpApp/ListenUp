@@ -13,8 +13,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import com.calypsan.listenup.core.Timestamp
-import kotlin.time.Instant
 
 /**
  * API client for global tag operations.
@@ -124,22 +122,27 @@ internal data class GetBookTagsResponse(
 
 /**
  * Tag API response DTO.
+ *
+ * Legacy Go-era REST DTO — the production path now uses [TagRpcFactory] / [TagRepositoryImpl].
+ * The [name] field is optional here for backward compatibility with older server responses
+ * that only carried [slug]; consumers that need a display name should use [name] when
+ * present and fall back to slug-derived title-case via [Tag.displayName].
  */
 @Serializable
 internal data class TagResponse(
     val id: String,
     val slug: String,
+    val name: String? = null,
     @SerialName("book_count")
     val bookCount: Int = 0,
-    @SerialName("created_at")
-    val createdAt: String? = null,
 ) {
     fun toDomain() =
         Tag(
             id = id,
+            // Prefer the server-supplied name; fall back to title-casing the slug for
+            // legacy responses that pre-date the name column.
+            name = name ?: slug.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } },
             slug = slug,
-            bookCount = bookCount,
-            createdAt = createdAt?.let { Timestamp(Instant.parse(it).toEpochMilliseconds()) },
         )
 }
 

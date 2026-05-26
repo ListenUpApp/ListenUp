@@ -12,9 +12,11 @@ import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import kotlinx.coroutines.flow.flowOf
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -57,8 +59,8 @@ class LoadBookForEditUseCaseTest :
             // Default stubs for successful operations
             everySuspend { fixture.genreRepository.getAll() } returns emptyList()
             everySuspend { fixture.genreRepository.getGenresForBook(any()) } returns emptyList()
-            everySuspend { fixture.tagRepository.getAll() } returns emptyList()
-            everySuspend { fixture.tagRepository.getTagsForBook(any()) } returns emptyList()
+            every { fixture.tagRepository.observeAllTags() } returns flowOf(emptyList())
+            every { fixture.tagRepository.observeTagsForBook(any()) } returns flowOf(emptyList())
 
             return fixture
         }
@@ -374,7 +376,7 @@ class LoadBookForEditUseCaseTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val fixture = createFixture()
                 everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-                everySuspend { fixture.tagRepository.getAll() } returns allTags
+                every { fixture.tagRepository.observeAllTags() } returns flowOf(allTags)
                 val useCase = fixture.build()
 
                 // When
@@ -401,7 +403,7 @@ class LoadBookForEditUseCaseTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val fixture = createFixture()
                 everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-                everySuspend { fixture.tagRepository.getTagsForBook("book-1") } returns bookTags
+                every { fixture.tagRepository.observeTagsForBook("book-1") } returns flowOf(bookTags)
                 val useCase = fixture.build()
 
                 // When
@@ -423,8 +425,8 @@ class LoadBookForEditUseCaseTest :
                 val book = TestData.bookDetail(id = "book-1")
                 val fixture = createFixture()
                 everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
-                everySuspend { fixture.tagRepository.getAll() } throws Exception("Network error")
-                everySuspend { fixture.tagRepository.getTagsForBook(any()) } throws Exception("Network error")
+                every { fixture.tagRepository.observeAllTags() } throws Exception("Network error")
+                every { fixture.tagRepository.observeTagsForBook(any()) } throws Exception("Network error")
                 val useCase = fixture.build()
 
                 // When
@@ -529,8 +531,8 @@ class LoadBookForEditUseCaseTest :
                 everySuspend { fixture.bookRepository.getBookDetail("stormlight-1") } returns book
                 everySuspend { fixture.genreRepository.getAll() } returns allGenres
                 everySuspend { fixture.genreRepository.getGenresForBook("stormlight-1") } returns bookGenres
-                everySuspend { fixture.tagRepository.getAll() } returns allTags
-                everySuspend { fixture.tagRepository.getTagsForBook("stormlight-1") } returns bookTags
+                every { fixture.tagRepository.observeAllTags() } returns flowOf(allTags)
+                every { fixture.tagRepository.observeTagsForBook("stormlight-1") } returns flowOf(bookTags)
                 val useCase = fixture.build()
 
                 // When

@@ -51,8 +51,10 @@ import com.calypsan.listenup.client.data.remote.StatsApi
 import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
 import com.calypsan.listenup.client.data.remote.SyncApiContract
+import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
 import com.calypsan.listenup.client.data.remote.TagApi
 import com.calypsan.listenup.client.data.remote.TagApiContract
+import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesApi
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.remote.api.ListenUpApi
@@ -736,6 +738,14 @@ val syncModule =
             )
         }
 
+        // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
+        single<TagRpcFactory> {
+            KtorTagRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.MetadataRepository> {
             MetadataRepositoryImpl(rpcFactory = get())
@@ -1016,9 +1026,13 @@ val syncModule =
             )
         }
 
-        // TagRepository for community tags (SOLID: interface in domain, impl in data)
+        // TagRepository — observations from Room, mutations via RPC (Tags phase)
         single<TagRepository> {
-            TagRepositoryImpl(dao = get(), tagApi = get())
+            TagRepositoryImpl(
+                tagRpcFactory = get(),
+                tagDao = get<ListenUpDatabase>().tagDao(),
+                bookTagDao = get<ListenUpDatabase>().bookTagDao(),
+            )
         }
 
         // GenreRepository for hierarchical genres (SOLID: interface in domain, impl in data)

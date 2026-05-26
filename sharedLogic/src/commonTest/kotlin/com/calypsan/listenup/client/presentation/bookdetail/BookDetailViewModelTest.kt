@@ -613,12 +613,12 @@ class BookDetailViewModelTest :
                 val fixture = createTestFixture()
                 val bookTags =
                     listOf(
-                        Tag(id = "tag-1", slug = "favorites", bookCount = 5),
+                        Tag(id = "tag-1", name = "Favorites", slug = "favorites"),
                     )
                 val allTags =
                     listOf(
-                        Tag(id = "tag-1", slug = "favorites", bookCount = 5),
-                        Tag(id = "tag-2", slug = "to-read", bookCount = 3),
+                        Tag(id = "tag-1", name = "Favorites", slug = "favorites"),
+                        Tag(id = "tag-2", name = "To Read", slug = "to-read"),
                     )
                 val book = TestData.bookDetail(tags = bookTags)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
@@ -679,7 +679,7 @@ class BookDetailViewModelTest :
                 // Given - need tags in state for removeTag to find the tag by slug
                 val fixture = createTestFixture()
                 val bookTags =
-                    listOf(Tag(id = "tag-1", slug = "favorites", bookCount = 5))
+                    listOf(Tag(id = "tag-1", name = "Favorites", slug = "favorites"))
                 val book = TestData.bookDetail(id = "book-1", tags = bookTags)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()

@@ -203,12 +203,12 @@ object TestData {
     fun tag(
         id: String = "tag-1",
         slug: String = "favorites",
-        bookCount: Int = 10,
+        name: String = slug.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } },
     ): Tag =
         Tag(
             id = id,
+            name = name,
             slug = slug,
-            bookCount = bookCount,
         )
 
     /**

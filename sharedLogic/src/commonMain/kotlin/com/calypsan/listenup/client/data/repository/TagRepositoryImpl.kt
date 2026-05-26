@@ -1,102 +1,142 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.api.result.map as wireMap
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Timestamp
-import com.calypsan.listenup.client.data.local.db.BookTagCrossRef
+import com.calypsan.listenup.core.TagId
+import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.BookTagDao
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity
-import com.calypsan.listenup.client.data.remote.TagApiContract
+import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.TagRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+private val logger = KotlinLogging.logger {}
+
 /**
- * Implementation of TagRepository using Room and TagApi.
+ * Production implementation of [TagRepository].
  *
- * Handles tag operations with API calls and local Room updates
- * for immediate reactivity.
+ * **Observation** (Room-backed, offline-first): all `observe*` and `getTagBySlug` calls
+ * read from Room. The SSE sync engine writes server-committed state into Room via
+ * [com.calypsan.listenup.client.data.sync.TagSyncDomainHandler] and
+ * [com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler], so the
+ * UI reacts without explicit network polling.
  *
- * @property dao Room DAO for tag operations
- * @property tagApi API client for server tag operations
+ * **Mutation** (RPC-backed): `addTagToBook`, `removeTagFromBook`, `renameTag`, `deleteTag`
+ * delegate to the [TagRpcFactory] WebSocket proxy. There are no optimistic Room writes —
+ * the SSE echo from the server is the single write path back into Room, keeping state
+ * consistent across devices.
+ *
+ * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
+ * [AppResult] at this boundary, following the same pattern as [MetadataRepositoryImpl].
  */
 class TagRepositoryImpl(
-    private val dao: TagDao,
-    private val tagApi: TagApiContract,
+    private val tagRpcFactory: TagRpcFactory,
+    private val tagDao: TagDao,
+    private val bookTagDao: BookTagDao,
 ) : TagRepository {
-    override fun observeAll(): Flow<List<Tag>> =
-        dao.observeAllTags().map { entities ->
-            entities.map { it.toDomain() }
-        }
 
-    override suspend fun getAll(): List<Tag> = dao.getAllTags().map { it.toDomain() }
+    // ── Observation (Room-backed) ─────────────────────────────────────────────
 
-    override suspend fun getById(id: String): Tag? = dao.getById(id)?.toDomain()
-
-    override fun observeById(id: String): Flow<Tag?> = dao.observeById(id).map { it?.toDomain() }
-
-    override suspend fun getBySlug(slug: String): Tag? = dao.getBySlug(slug)?.toDomain()
+    override fun observeAllTags(): Flow<List<Tag>> =
+        tagDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
     override fun observeTagsForBook(bookId: String): Flow<List<Tag>> =
-        dao.observeTagsForBook(BookId(bookId)).map { entities ->
-            entities.map { it.toDomain() }
+        tagDao.observeForBook(bookId).map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun getTagBySlug(slug: String): AppResult<Tag?> =
+        try {
+            val entity = tagDao.findBySlug(slug)
+            AppResult.Success(entity?.toDomain())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "getTagBySlug($slug) failed" }
+            AppResult.Failure(ErrorMapper.map(e))
         }
 
-    override suspend fun getTagsForBook(bookId: String): List<Tag> =
-        dao.getTagsForBook(BookId(bookId)).map { it.toDomain() }
-
-    override suspend fun getBookIdsForTag(tagId: String): List<String> = dao.getBookIdsForTag(tagId).map { it.value }
+    override fun observeById(id: String): Flow<Tag?> =
+        tagDao.observeById(id).map { it?.toDomain() }
 
     override fun observeBookIdsForTag(tagId: String): Flow<List<String>> =
-        dao.observeBookIdsForTag(tagId).map { bookIds ->
-            bookIds.map { it.value }
-        }
+        bookTagDao.observeForTag(tagId).map { rows -> rows.map { it.bookId } }
+
+    // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
     override suspend fun addTagToBook(
         bookId: String,
-        tagSlugOrName: String,
-    ): AppResult<Tag> {
-        // Call API to add tag (creates if doesn't exist)
-        val result = tagApi.addTagToBook(bookId, tagSlugOrName)
-        if (result is AppResult.Success) {
-            val tag = result.data
-            // Update local Room for immediate reactivity
-            val entity =
-                TagEntity(
-                    id = tag.id,
-                    slug = tag.slug,
-                    bookCount = tag.bookCount,
-                    createdAt = tag.createdAt ?: Timestamp.now(),
-                )
-            dao.upsert(entity)
-            dao.insertBookTag(BookTagCrossRef(bookId = BookId(bookId), tagId = tag.id))
+        name: String,
+    ): AppResult<Tag> =
+        rpcCall {
+            tagRpcFactory.get().addTagToBook(BookId(bookId), name).wireMap { it.toDomain() }
         }
-        return result
-    }
 
     override suspend fun removeTagFromBook(
         bookId: String,
-        tagSlug: String,
         tagId: String,
-    ): AppResult<Unit> {
-        // Call API to remove tag
-        val result = tagApi.removeTagFromBook(bookId, tagSlug)
-        if (result is AppResult.Success) {
-            // Update local Room for immediate reactivity
-            dao.deleteBookTag(BookId(bookId), tagId)
+    ): AppResult<Unit> =
+        rpcCallUnit { tagRpcFactory.get().removeTagFromBook(BookId(bookId), TagId(tagId)) }
+
+    override suspend fun renameTag(
+        tagId: String,
+        newName: String,
+    ): AppResult<Tag> =
+        rpcCall {
+            tagRpcFactory.get().renameTag(TagId(tagId), newName).wireMap { it.toDomain() }
         }
-        return result
-    }
+
+    override suspend fun deleteTag(tagId: String): AppResult<Unit> =
+        rpcCallUnit { tagRpcFactory.get().deleteTag(TagId(tagId)) }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Run an RPC call that returns a data value, converting [WireAppResult] → [AppResult].
+     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure].
+     */
+    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
+        try {
+            when (val result = block()) {
+                is WireAppResult.Success -> AppResult.Success(result.data)
+                is WireAppResult.Failure -> AppResult.Failure(result.error)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            AppResult.Failure(ErrorMapper.map(e))
+        }
+
+    /**
+     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
+     */
+    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> =
+        rpcCall(block)
 }
 
+// ── Mapping ───────────────────────────────────────────────────────────────────
+
 /**
- * Convert TagEntity to Tag domain model.
+ * Map a Room [TagEntity] to the domain [Tag].
  */
 private fun TagEntity.toDomain(): Tag =
     Tag(
         id = id,
+        name = name,
         slug = slug,
-        bookCount = bookCount,
-        createdAt = createdAt,
+    )
+
+/**
+ * Map the wire [com.calypsan.listenup.api.sync.Tag] to the domain [Tag].
+ */
+private fun com.calypsan.listenup.api.sync.Tag.toDomain(): Tag =
+    Tag(
+        id = id,
+        name = name,
+        slug = slug,
     )
