@@ -133,7 +133,14 @@ fun booksModule(
                 db = get(),
             )
         }
-        single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
+        single<SeriesService> {
+            SeriesServiceImpl(
+                seriesRepo = get(),
+                bookRepo = get(),
+                reindexer = get(),
+                db = get(),
+            )
+        }
         single<SearchService> { SearchServiceImpl(db = get()) }
         single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
         single<TagService> {
