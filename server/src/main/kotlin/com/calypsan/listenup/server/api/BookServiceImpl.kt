@@ -10,13 +10,16 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SeriesRepository
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_SEARCH_LIMIT = 200
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
+private const val MAX_SERIES_PER_BOOK = 200
 
 /**
  * Thin [BookService] implementation. The work lives in [BookRepository]; this
@@ -29,18 +32,21 @@ private const val MAX_CONTRIBUTORS_PER_BOOK = 200
  * run inside the same [suspendTransaction] so the substrate's own transaction
  * nests cleanly.
  *
- * [setBookContributors] follows the same shape — read the aggregate, resolve
- * each [BookContributorInput] to a stable `contributor_id` (passing through
- * [ContributorRepository.resolveOrCreate] when the input's id is null), write
- * the patched aggregate back through `repo.upsert`. The whole flow runs in one
- * [suspendTransaction] so an auto-created contributor rolls back if the book
- * upsert fails. The remaining mutation methods ([setBookSeries],
- * [deleteBookCover]) are stub implementations returning [BookError.NotFound]
- * until Tasks 15–16 replace them with real logic.
+ * [setBookContributors] and [setBookSeries] follow the same shape — read the
+ * aggregate, resolve each input row to a stable child id (passing through the
+ * corresponding `resolveOrCreate` when the input's id is null), write the
+ * patched aggregate back through `repo.upsert`. The whole flow runs in one
+ * [suspendTransaction] so any auto-created child rolls back if the book upsert
+ * fails. List position carries on the list index — `BookRepository.replaceSeries`
+ * stamps `ordinal` from the index, so callers sort by [BookSeriesInput.position]
+ * before mapping to the wire payload. The remaining mutation method
+ * ([deleteBookCover]) is a stub returning [BookError.NotFound] until Task 16
+ * replaces it with real logic.
  */
 internal class BookServiceImpl(
     private val repo: BookRepository,
     private val contributorRepo: ContributorRepository,
+    private val seriesRepo: SeriesRepository,
     private val db: Database,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
@@ -67,9 +73,7 @@ internal class BookServiceImpl(
         suspendTransaction(db) {
             val current =
                 repo.findById(id)
-                    ?: return@suspendTransaction AppResult.Failure(
-                        BookError.NotFound(debugInfo = "bookId=${id.value}"),
-                    )
+                    ?: return@suspendTransaction bookNotFound(id)
             when (val upsertResult = repo.upsert(current.applyPatch(patch))) {
                 is AppResult.Success -> AppResult.Success(Unit)
                 is AppResult.Failure -> AppResult.Failure(upsertResult.error)
@@ -90,9 +94,7 @@ internal class BookServiceImpl(
         return suspendTransaction(db) {
             val current =
                 repo.findById(id)
-                    ?: return@suspendTransaction AppResult.Failure(
-                        BookError.NotFound(debugInfo = "bookId=${id.value}"),
-                    )
+                    ?: return@suspendTransaction bookNotFound(id)
             val resolved =
                 contributors
                     .sortedBy { it.position }
@@ -118,12 +120,44 @@ internal class BookServiceImpl(
     override suspend fun setBookSeries(
         id: BookId,
         series: List<BookSeriesInput>,
-    ): AppResult<Unit> =
-        AppResult.Failure(BookError.NotFound(debugInfo = "setBookSeries not yet implemented (Books-C1 Task 15)"))
+    ): AppResult<Unit> {
+        if (series.size > MAX_SERIES_PER_BOOK) {
+            return AppResult.Failure(
+                BookError.InvalidInput(
+                    debugInfo = "series: size ${series.size} exceeds max $MAX_SERIES_PER_BOOK",
+                ),
+            )
+        }
+        return suspendTransaction(db) {
+            val current =
+                repo.findById(id)
+                    ?: return@suspendTransaction bookNotFound(id)
+            val resolved =
+                series
+                    .sortedWith(compareBy(nullsLast()) { it.position })
+                    .map { input ->
+                        val resolvedId =
+                            input.id?.value
+                                ?: seriesRepo.resolveOrCreate(input.name).value
+                        BookSeriesPayload(
+                            id = resolvedId,
+                            name = input.name,
+                            sequence = input.position?.toString(),
+                        )
+                    }
+            when (val upsertResult = repo.upsert(current.copy(series = resolved))) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            }
+        }
+    }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
         AppResult.Failure(BookError.NotFound(debugInfo = "deleteBookCover not yet implemented (Books-C1 Task 16)"))
 }
+
+private fun bookNotFound(id: BookId): AppResult.Failure =
+    AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))
 
 private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
     copy(

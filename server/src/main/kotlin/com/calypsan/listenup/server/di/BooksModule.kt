@@ -117,6 +117,7 @@ fun booksModule(
             BookServiceImpl(
                 repo = get<BookRepository>(),
                 contributorRepo = get<ContributorRepository>(),
+                seriesRepo = get<SeriesRepository>(),
                 db = get(),
             )
         }

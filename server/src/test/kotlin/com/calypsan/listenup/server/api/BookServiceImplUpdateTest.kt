@@ -34,15 +34,22 @@ class BookServiceImplUpdateTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        seriesRepository = seriesRepo,
                     )
-                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        db = db,
+                    )
                 runTest {
                     val initialUpsert =
                         repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -67,15 +74,22 @@ class BookServiceImplUpdateTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        seriesRepository = seriesRepo,
                     )
-                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        db = db,
+                    )
                 runTest {
                     repo.upsert(
                         bookFixture(
@@ -106,15 +120,22 @@ class BookServiceImplUpdateTest :
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
                         contributorRepository = contributorRepo,
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                        seriesRepository = seriesRepo,
                     )
-                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        db = db,
+                    )
                 runTest {
                     val result =
                         service.updateBook(BookId("does-not-exist"), BookUpdate(title = "Anything"))
