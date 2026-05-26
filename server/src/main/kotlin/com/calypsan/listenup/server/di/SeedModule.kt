@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
+import com.calypsan.listenup.server.seed.TagDomainSeeder
 import com.calypsan.listenup.server.seed.UserDomainSeeder
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -29,11 +30,15 @@ import org.koin.dsl.module
  *   registered and seeds a "Demo Library" pointing at that path. When null
  *   (synthetic library not yet generated), the library seeder is omitted and
  *   the library will be empty until the next restart after generation.
+ * @param hasTagsModule whether the `:tags` slice is active. When true, [TagDomainSeeder]
+ *   is registered to seed a curated set of demo tags. Tags are independent of the
+ *   scanner, so this can be true even without a library configured.
  */
 fun seedModule(
     hasPlaybackModule: Boolean = false,
     hasBooksModule: Boolean = false,
     demoLibraryPath: String? = null,
+    hasTagsModule: Boolean = false,
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
@@ -46,6 +51,9 @@ fun seedModule(
         }
         if (hasBooksModule) {
             single { ContributorEnrichmentSeeder(db = get(), contributorRepository = get()) }
+        }
+        if (hasTagsModule) {
+            single { TagDomainSeeder(db = get(), tagRepository = get()) }
         }
         single {
             val seeders =
@@ -60,6 +68,9 @@ fun seedModule(
                     }
                     if (hasBooksModule) {
                         add(get<ContributorEnrichmentSeeder>())
+                    }
+                    if (hasTagsModule) {
+                        add(get<TagDomainSeeder>())
                     }
                 }
             SeedRunner(seeders = seeders)
