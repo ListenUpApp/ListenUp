@@ -33,15 +33,16 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        contributorRepository = contributorRepo,
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo = repo, db = db)
+                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
                     val initialUpsert =
                         repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
@@ -65,15 +66,16 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        contributorRepository = contributorRepo,
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo = repo, db = db)
+                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
                     repo.upsert(
                         bookFixture(
@@ -103,15 +105,16 @@ class BookServiceImplUpdateTest :
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val repo =
                     BookRepository(
                         db = db,
                         bus = bus,
                         registry = syncRegistry,
-                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        contributorRepository = contributorRepo,
                         seriesRepository = SeriesRepository(db, bus, syncRegistry),
                     )
-                val service = BookServiceImpl(repo = repo, db = db)
+                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
                     val result =
                         service.updateBook(BookId("does-not-exist"), BookUpdate(title = "Anything"))

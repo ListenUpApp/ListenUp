@@ -2,12 +2,15 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
+import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.services.BookRepository
@@ -19,15 +22,16 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class BookServiceImplTest :
+class BookServiceImplSetContributorsTest :
     FunSpec({
 
-        test("getBook returns Success with the aggregate for a seeded book") {
+        test("setBookContributors replaces the contributor list with all-existing ids") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -44,18 +48,32 @@ class BookServiceImplTest :
                     )
                 val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer")
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
 
-                    val result = service.getBook(BookId("b1"))
+                    val result =
+                        service.setBookContributors(
+                            BookId("b1"),
+                            listOf(
+                                BookContributorInput(id = c1, name = "Brandon Sanderson", role = "author", position = 0),
+                                BookContributorInput(id = c2, name = "Michael Kramer", role = "narrator", position = 1),
+                            ),
+                        )
 
-                    val success = result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    success.data.id shouldBe "b1"
-                    success.data.title shouldBe "The Way of Kings"
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById(BookId("b1"))!!
+                    updated.contributors shouldHaveSize 2
+                    updated.contributors[0].id shouldBe c1.value
+                    updated.contributors[0].role shouldBe "author"
+                    updated.contributors[1].id shouldBe c2.value
+                    updated.contributors[1].role shouldBe "narrator"
                 }
             }
         }
 
-        test("getBook returns SyncError.NotFound for an absent book id") {
+        test("setBookContributors auto-creates an unknown contributor in the same transaction when id is null") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -72,17 +90,113 @@ class BookServiceImplTest :
                     )
                 val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
-                    val result = service.getBook(BookId("nonexistent"))
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val preCount = contributorRepo.listLiveIds().size
+
+                    val result =
+                        service.setBookContributors(
+                            BookId("b1"),
+                            listOf(
+                                BookContributorInput(id = c1, name = "Brandon Sanderson", role = "author", position = 0),
+                                BookContributorInput(id = null, name = "Brand New Author", role = "narrator", position = 1),
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    contributorRepo.listLiveIds().size shouldBe preCount + 1
+
+                    val updated = repo.findById(BookId("b1"))!!
+                    updated.contributors shouldHaveSize 2
+                    updated.contributors[1].name shouldBe "Brand New Author"
+                    updated.contributors[1].role shouldBe "narrator"
+                }
+            }
+        }
+
+        test("setBookContributors reduces the contributors to an empty list") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
+                runTest {
+                    val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
+                    val c2 = contributorRepo.resolveOrCreate("Michael Kramer")
+                    repo.upsert(
+                        bookFixture(id = "b1", title = "The Way of Kings").copy(
+                            contributors =
+                                listOf(
+                                    BookContributorPayload(
+                                        id = c1.value,
+                                        name = "Brandon Sanderson",
+                                        sortName = null,
+                                        role = "author",
+                                        creditedAs = null,
+                                    ),
+                                    BookContributorPayload(
+                                        id = c2.value,
+                                        name = "Michael Kramer",
+                                        sortName = null,
+                                        role = "narrator",
+                                        creditedAs = null,
+                                    ),
+                                ),
+                        ),
+                    )
+
+                    val result = service.setBookContributors(BookId("b1"), emptyList())
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val updated = repo.findById(BookId("b1"))
+                    updated?.contributors?.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("setBookContributors returns BookError.NotFound when the book does not exist") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
+                runTest {
+                    val result =
+                        service.setBookContributors(
+                            BookId("does-not-exist"),
+                            listOf(BookContributorInput(name = "Brandon Sanderson", role = "author", position = 0)),
+                        )
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    val error = failure.error.shouldBeInstanceOf<SyncError.NotFound>()
-                    error.domain shouldBe "book"
-                    error.entityId shouldBe "nonexistent"
+                    val error = failure.error.shouldBeInstanceOf<BookError.NotFound>()
+                    (error.debugInfo ?: "") shouldContain "does-not-exist"
                 }
             }
         }
 
-        test("searchBooks returns matching book ids in FTS rank order") {
+        test("setBookContributors returns BookError.InvalidInput when contributors size exceeds 200") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -100,70 +214,16 @@ class BookServiceImplTest :
                 val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
-                    repo.upsert(bookFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
+                    val tooMany =
+                        (0 until 201).map { i ->
+                            BookContributorInput(id = ContributorId("c-$i"), name = "Author $i", role = "author", position = i)
+                        }
 
-                    val result = service.searchBooks("Kings", limit = 50)
+                    val result = service.setBookContributors(BookId("b1"), tooMany)
 
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data shouldContainExactlyInAnyOrder listOf(BookId("b1"))
-                }
-            }
-        }
-
-        test("searchBooks returns only the id whose title matches the query") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val repo =
-                    BookRepository(
-                        db = db,
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = contributorRepo,
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                    )
-                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
-                runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
-                    repo.upsert(bookFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
-
-                    val result = service.searchBooks("Radiance", limit = 50)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data shouldContainExactlyInAnyOrder listOf(BookId("b2"))
-                }
-            }
-        }
-
-        test("searchBooks with blank query returns empty list without querying all books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val bus = ChangeBus()
-                val syncRegistry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
-                val repo =
-                    BookRepository(
-                        db = db,
-                        bus = bus,
-                        registry = syncRegistry,
-                        contributorRepository = contributorRepo,
-                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
-                    )
-                val service = BookServiceImpl(repo = repo, contributorRepo = contributorRepo, db = db)
-                runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
-
-                    val result = service.searchBooks("", limit = 50)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data.shouldBeEmpty()
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    val error = failure.error.shouldBeInstanceOf<BookError.InvalidInput>()
+                    (error.debugInfo ?: "") shouldContain "201"
                 }
             }
         }
@@ -172,7 +232,7 @@ class BookServiceImplTest :
 private fun bookFixture(
     id: String,
     title: String,
-    rootRelPath: String = "Sanderson/Way of Kings",
+    rootRelPath: String = "Sanderson/$id",
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
@@ -194,16 +254,12 @@ private fun bookFixture(
         rootRelPath = rootRelPath,
         inode = null,
         scannedAt = 1_730_000_000_000L,
-        // Contributors/series are left empty: these tests assert only on book
-        // identity and FTS title search. Junction-row writes require pre-resolved
-        // catalogue ids (see BookRepository.replaceContributors precondition);
-        // dedup-by-name coverage lives in ContributorRepositoryTest / SeriesRepositoryTest.
         contributors = emptyList(),
         series = emptyList(),
         audioFiles =
             listOf(
                 BookAudioFilePayload(
-                    id = "af1",
+                    id = "af-$id",
                     index = 0,
                     filename = "01.m4b",
                     format = "m4b",
@@ -214,7 +270,7 @@ private fun bookFixture(
             ),
         chapters =
             listOf(
-                BookChapterPayload(id = "ch1", title = "Prologue", duration = 1_000_000L, startTime = 0L),
+                BookChapterPayload(id = "ch-$id", title = "Prologue", duration = 1_000_000L, startTime = 0L),
             ),
         revision = 0L,
         updatedAt = 0L,
