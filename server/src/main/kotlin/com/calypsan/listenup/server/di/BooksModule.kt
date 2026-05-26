@@ -125,7 +125,14 @@ fun booksModule(
                 db = get(),
             )
         }
-        single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
+        single<ContributorService> {
+            ContributorServiceImpl(
+                contributorRepo = get(),
+                bookRepo = get(),
+                reindexer = get(),
+                db = get(),
+            )
+        }
         single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
         single<SearchService> { SearchServiceImpl(db = get()) }
         single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
