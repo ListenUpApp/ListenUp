@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.db.BookTagsTable
-import com.calypsan.listenup.server.db.TagTable
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -21,7 +20,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_LIMIT = 1000
@@ -238,13 +236,11 @@ internal class TagServiceImpl(
 
     private suspend fun TagRepository.softDelete(tagId: String): AppResult<Unit> = softDelete(tagId, clientOpId = null)
 
-    private suspend fun BookTagRepository.softDeleteAllForTag(tagId: String): Int {
-        // Delegate to existing bulk helper — but we need it within the open
-        // suspendTransaction. The helper opens its own transaction; for simplicity
-        // we accept the nested semantics — both operate on the same underlying
-        // JDBC connection and SQLite in WAL mode handles this correctly.
-        return this.softDeleteAllForTag(tagId)
-    }
+    // Delegate to existing bulk helper — but we need it within the open
+    // suspendTransaction. The helper opens its own transaction; for simplicity
+    // we accept the nested semantics — both operate on the same underlying
+    // JDBC connection and SQLite in WAL mode handles this correctly.
+    private suspend fun BookTagRepository.softDeleteAllForTag(tagId: String): Int = this.softDeleteAllForTag(tagId)
 
     private suspend fun BookTagRepository.softDelete(
         bookId: String,

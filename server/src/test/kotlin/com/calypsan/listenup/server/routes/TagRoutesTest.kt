@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.sync.BookSearchReindexer

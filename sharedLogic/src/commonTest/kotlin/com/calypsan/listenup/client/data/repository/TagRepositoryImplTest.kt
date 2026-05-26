@@ -41,17 +41,20 @@ class TagRepositoryImplTest :
             slug: String,
         ) = TagEntity(id = id, name = name, slug = slug, revision = 1L, updatedAt = 100L)
 
-        fun bookTagEntity(bookId: String, tagId: String) =
-            BookTagEntity(bookId = bookId, tagId = tagId, createdAt = 1L)
+        fun bookTagEntity(
+            bookId: String,
+            tagId: String,
+        ) = BookTagEntity(bookId = bookId, tagId = tagId, createdAt = 1L)
 
         // ── observeAllTags ────────────────────────────────────────────────────
 
         test("observeAllTags delegates to TagDao.observeAll and maps to domain") {
             runTest {
                 val dao = mock<TagDao>()
-                every { dao.observeAll() } returns flowOf(
-                    listOf(tagEntity("t1", "Sci-Fi", "sci-fi"), tagEntity("t2", "Fantasy", "fantasy")),
-                )
+                every { dao.observeAll() } returns
+                    flowOf(
+                        listOf(tagEntity("t1", "Sci-Fi", "sci-fi"), tagEntity("t2", "Fantasy", "fantasy")),
+                    )
                 val result = repo(tagDao = dao).observeAllTags().first()
                 result.map { it.id } shouldContainExactly listOf("t1", "t2")
                 result.map { it.name } shouldContainExactly listOf("Sci-Fi", "Fantasy")
@@ -72,9 +75,10 @@ class TagRepositoryImplTest :
         test("observeAll is an alias for observeAllTags") {
             runTest {
                 val dao = mock<TagDao>()
-                every { dao.observeAll() } returns flowOf(
-                    listOf(tagEntity("t1", "Sci-Fi", "sci-fi")),
-                )
+                every { dao.observeAll() } returns
+                    flowOf(
+                        listOf(tagEntity("t1", "Sci-Fi", "sci-fi")),
+                    )
                 val result = repo(tagDao = dao).observeAll().first()
                 result.map { it.id } shouldContainExactly listOf("t1")
             }
@@ -85,9 +89,10 @@ class TagRepositoryImplTest :
         test("observeTagsForBook delegates to TagDao.observeForBook with the raw bookId") {
             runTest {
                 val dao = mock<TagDao>()
-                every { dao.observeForBook("b1") } returns flowOf(
-                    listOf(tagEntity("t1", "Sci-Fi", "sci-fi")),
-                )
+                every { dao.observeForBook("b1") } returns
+                    flowOf(
+                        listOf(tagEntity("t1", "Sci-Fi", "sci-fi")),
+                    )
                 val result = repo(tagDao = dao).observeTagsForBook("b1").first()
                 result.map { it.id } shouldContainExactly listOf("t1")
             }
@@ -127,9 +132,10 @@ class TagRepositoryImplTest :
         test("observeBookIdsForTag delegates to BookTagDao.observeForTag and extracts bookIds") {
             runTest {
                 val bookTagDao = mock<BookTagDao>()
-                every { bookTagDao.observeForTag("t1") } returns flowOf(
-                    listOf(bookTagEntity("b1", "t1"), bookTagEntity("b2", "t1")),
-                )
+                every { bookTagDao.observeForTag("t1") } returns
+                    flowOf(
+                        listOf(bookTagEntity("b1", "t1"), bookTagEntity("b2", "t1")),
+                    )
                 val result = repo(bookTagDao = bookTagDao).observeBookIdsForTag("t1").first()
                 result shouldContainExactly listOf("b1", "b2")
             }
@@ -148,9 +154,10 @@ class TagRepositoryImplTest :
         test("toDomain preserves id, name, and slug from entity") {
             runTest {
                 val dao = mock<TagDao>()
-                every { dao.observeAll() } returns flowOf(
-                    listOf(TagEntity(id = "x", name = "Found Family", slug = "found-family", revision = 7L, updatedAt = 999L)),
-                )
+                every { dao.observeAll() } returns
+                    flowOf(
+                        listOf(TagEntity(id = "x", name = "Found Family", slug = "found-family", revision = 7L, updatedAt = 999L)),
+                    )
                 val tag = repo(tagDao = dao).observeAllTags().first().first()
                 tag shouldBe Tag(id = "x", name = "Found Family", slug = "found-family")
             }
@@ -159,9 +166,10 @@ class TagRepositoryImplTest :
         test("Tag.displayName() derives from slug for backward-compat callers") {
             runTest {
                 val dao = mock<TagDao>()
-                every { dao.observeAll() } returns flowOf(
-                    listOf(tagEntity("t1", "Found Family", "found-family")),
-                )
+                every { dao.observeAll() } returns
+                    flowOf(
+                        listOf(tagEntity("t1", "Found Family", "found-family")),
+                    )
                 val tag = repo(tagDao = dao).observeAllTags().first().first()
                 tag.displayName() shouldBe "Found Family"
             }

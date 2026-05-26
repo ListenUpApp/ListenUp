@@ -54,10 +54,11 @@ class TagSyncDomainHandlerTest :
         test("Deleted event soft-deletes the tag row") {
             withHandler { handler, db ->
                 handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
-                handler.onEvent(
-                    SyncEvent.Deleted(id = "t1", revision = 2L, occurredAt = 500L),
-                    isOwnEcho = false,
-                ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler
+                    .onEvent(
+                        SyncEvent.Deleted(id = "t1", revision = 2L, occurredAt = 500L),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 // getById filters tombstones — should return null after soft-delete
                 db.tagDao().getById("t1") shouldBe null
             }

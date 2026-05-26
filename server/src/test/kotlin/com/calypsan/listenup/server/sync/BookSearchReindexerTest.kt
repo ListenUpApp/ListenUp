@@ -71,7 +71,8 @@ class BookSearchReindexerTest :
         ): Boolean {
             // Wrap term in double quotes so FTS5 treats it as a phrase, not an expression.
             // e.g. "Sci-Fi" → '"Sci-Fi"' so the dash isn't parsed as an FTS5 operator.
-            val quotedTerm = "\"${searchTerm.replace("\"", "\"\"")}\""
+            val dq = '"'
+            val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
             var found = false
             suspendTransaction(db) {
                 val tx = TransactionManager.current()

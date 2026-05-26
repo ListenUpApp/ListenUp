@@ -342,27 +342,6 @@ class BookRepository(
     }
 
     /**
-     * Tombstones every non-deleted book in [libraryId] that a completed FULL
-     * scan did not see — the book's directory was deleted or moved out of the
-     * library tree (spec §5.4).
-     *
-     * **Full-scan only.** A book's absence from [seenIds] is meaningful only
-     * when the scanner walked the entire library: an incremental scan visits a
-     * subtree, so books outside that subtree are absent for a benign reason and
-     * must not be swept. Incremental scans must never call this method.
-     *
-     * Each swept book is removed through the substrate's [softDelete], so every
-     * sweep emits exactly one [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
-     * per book on the change bus, with a bumped revision — clients apply the
-     * tombstone like any other delete. Books already carrying a `deletedAt`
-     * tombstone are excluded by the query, so a re-sweep neither re-bumps a
-     * revision nor re-emits a Deleted event.
-     *
-     * The to-delete ids are read in one short transaction; each [softDelete]
-     * then opens its own transaction. `softDelete` is not wrapped in an outer
-     * transaction here — doing so would nest transactions needlessly.
-     */
-    /**
      * Tombstones this book and cascade-soft-deletes all of its `book_tags` junction
      * rows so clients receive per-row tombstones for the orphaned junctions.
      *
@@ -385,6 +364,27 @@ class BookRepository(
         return result
     }
 
+    /**
+     * Tombstones every non-deleted book in [libraryId] that a completed FULL
+     * scan did not see — the book's directory was deleted or moved out of the
+     * library tree (spec §5.4).
+     *
+     * **Full-scan only.** A book's absence from [seenIds] is meaningful only
+     * when the scanner walked the entire library: an incremental scan visits a
+     * subtree, so books outside that subtree are absent for a benign reason and
+     * must not be swept. Incremental scans must never call this method.
+     *
+     * Each swept book is removed through the substrate's [softDelete], so every
+     * sweep emits exactly one [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
+     * per book on the change bus, with a bumped revision — clients apply the
+     * tombstone like any other delete. Books already carrying a `deletedAt`
+     * tombstone are excluded by the query, so a re-sweep neither re-bumps a
+     * revision nor re-emits a Deleted event.
+     *
+     * The to-delete ids are read in one short transaction; each [softDelete]
+     * then opens its own transaction. `softDelete` is not wrapped in an outer
+     * transaction here — doing so would nest transactions needlessly.
+     */
     override suspend fun softDeleteAbsent(
         libraryId: LibraryId,
         seenIds: Set<BookId>,

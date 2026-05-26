@@ -41,7 +41,6 @@ class TagRepositoryImpl(
     private val tagDao: TagDao,
     private val bookTagDao: BookTagDao,
 ) : TagRepository {
-
     // ── Observation (Room-backed) ─────────────────────────────────────────────
 
     override fun observeAllTags(): Flow<List<Tag>> =
@@ -61,8 +60,7 @@ class TagRepositoryImpl(
             AppResult.Failure(ErrorMapper.map(e))
         }
 
-    override fun observeById(id: String): Flow<Tag?> =
-        tagDao.observeById(id).map { it?.toDomain() }
+    override fun observeById(id: String): Flow<Tag?> = tagDao.observeById(id).map { it?.toDomain() }
 
     override fun observeBookIdsForTag(tagId: String): Flow<List<String>> =
         bookTagDao.observeForTag(tagId).map { rows -> rows.map { it.bookId } }
@@ -80,8 +78,7 @@ class TagRepositoryImpl(
     override suspend fun removeTagFromBook(
         bookId: String,
         tagId: String,
-    ): AppResult<Unit> =
-        rpcCallUnit { tagRpcFactory.get().removeTagFromBook(BookId(bookId), TagId(tagId)) }
+    ): AppResult<Unit> = rpcCallUnit { tagRpcFactory.get().removeTagFromBook(BookId(bookId), TagId(tagId)) }
 
     override suspend fun renameTag(
         tagId: String,
@@ -115,8 +112,7 @@ class TagRepositoryImpl(
     /**
      * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
      */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> =
-        rpcCall(block)
+    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> = rpcCall(block)
 }
 
 // ── Mapping ───────────────────────────────────────────────────────────────────

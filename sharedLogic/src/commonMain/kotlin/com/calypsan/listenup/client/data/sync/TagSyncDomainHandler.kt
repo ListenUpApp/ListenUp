@@ -41,14 +41,21 @@ class TagSyncDomainHandler(
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             when (event) {
-                is SyncEvent.Created -> upsert(event.payload)
-                is SyncEvent.Updated -> upsert(event.payload)
-                is SyncEvent.Deleted ->
+                is SyncEvent.Created -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Updated -> {
+                    upsert(event.payload)
+                }
+
+                is SyncEvent.Deleted -> {
                     database.tagDao().softDelete(
                         id = event.id,
                         deletedAt = event.occurredAt,
                         revision = event.revision,
                     )
+                }
             }
         }
 

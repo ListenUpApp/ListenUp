@@ -59,10 +59,11 @@ class BookTagSyncDomainHandlerTest :
         test("Deleted event tombstones the junction row via synthetic id") {
             withHandler { handler, db ->
                 handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)), isOwnEcho = false)
-                handler.onEvent(
-                    SyncEvent.Deleted(id = "b1:t1", revision = 2L, occurredAt = 800L),
-                    isOwnEcho = false,
-                ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler
+                    .onEvent(
+                        SyncEvent.Deleted(id = "b1:t1", revision = 2L, occurredAt = 800L),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.bookTagDao().findByKey("b1", "t1")!!
                 row.deletedAt shouldBe 800L
             }
@@ -71,10 +72,11 @@ class BookTagSyncDomainHandlerTest :
         test("Deleted event with malformed id logs warning and returns Success") {
             withHandler { handler, _ ->
                 // Should not throw — just log and return Success
-                handler.onEvent(
-                    SyncEvent.Deleted(id = "invalid-no-colon", revision = 1L, occurredAt = 100L),
-                    isOwnEcho = false,
-                ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler
+                    .onEvent(
+                        SyncEvent.Deleted(id = "invalid-no-colon", revision = 1L, occurredAt = 100L),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
 
