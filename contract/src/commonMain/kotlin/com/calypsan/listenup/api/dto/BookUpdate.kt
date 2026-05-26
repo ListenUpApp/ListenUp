@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,17 +14,18 @@ import kotlinx.serialization.Serializable
  * `publishYear` validation is the same range the scanner accepts.
  */
 @Serializable
+@SerialName("BookUpdate")
 data class BookUpdate(
-    val title: String? = null,
-    val sortTitle: String? = null,
-    val subtitle: String? = null,
-    val description: String? = null,
-    val publisher: String? = null,
-    val publishYear: Int? = null,
-    val language: String? = null,
-    val isbn: String? = null,
-    val asin: String? = null,
-    val abridged: Boolean? = null,
+    @SerialName("title") val title: String? = null,
+    @SerialName("sortTitle") val sortTitle: String? = null,
+    @SerialName("subtitle") val subtitle: String? = null,
+    @SerialName("description") val description: String? = null,
+    @SerialName("publisher") val publisher: String? = null,
+    @SerialName("publishYear") val publishYear: Int? = null,
+    @SerialName("language") val language: String? = null,
+    @SerialName("isbn") val isbn: String? = null,
+    @SerialName("asin") val asin: String? = null,
+    @SerialName("abridged") val abridged: Boolean? = null,
 ) {
     init {
         title?.let { require(it.isNotBlank() && it.length <= MAX_TITLE) { "title must be 1..$MAX_TITLE chars" } }

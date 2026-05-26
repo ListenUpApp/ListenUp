@@ -22,6 +22,10 @@ class BookResources(
      * `GET /api/v1/books/{id}` returns the full book aggregate as a
      * [com.calypsan.listenup.api.sync.BookSyncPayload]. Responds 200 on success,
      * 404 when no book with the given id exists. Requires JWT authentication.
+     *
+     * Also serves [com.calypsan.listenup.api.BookService.updateBook] —
+     * `PATCH /api/v1/books/{id}` applies a [com.calypsan.listenup.api.dto.BookUpdate]
+     * patch and responds 204 on success.
      */
     @Resource("{id}")
     class Detail(
@@ -37,6 +41,10 @@ class BookResources(
      * absent or has no cover. The optional [v] query parameter is a cache
      * buster — clients pass the cover hash so a changed cover bypasses any
      * intermediary cache. Requires JWT authentication.
+     *
+     * Also serves [com.calypsan.listenup.api.BookService.deleteBookCover] —
+     * `DELETE /api/v1/books/{id}/cover` removes the book's cover (DB null-out
+     * + post-commit file delete) and responds 204 on success.
      */
     @Resource("{id}/cover")
     class Cover(

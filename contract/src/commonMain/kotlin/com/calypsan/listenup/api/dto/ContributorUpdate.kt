@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,15 +11,16 @@ import kotlinx.serialization.Serializable
  * the C2 phase introduces the `contributor_aliases` server substrate.
  */
 @Serializable
+@SerialName("ContributorUpdate")
 data class ContributorUpdate(
-    val name: String? = null,
-    val sortName: String? = null,
-    val asin: String? = null,
-    val description: String? = null,
-    val imagePath: String? = null,
-    val birthDate: String? = null,
-    val deathDate: String? = null,
-    val website: String? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("sortName") val sortName: String? = null,
+    @SerialName("asin") val asin: String? = null,
+    @SerialName("description") val description: String? = null,
+    @SerialName("imagePath") val imagePath: String? = null,
+    @SerialName("birthDate") val birthDate: String? = null,
+    @SerialName("deathDate") val deathDate: String? = null,
+    @SerialName("website") val website: String? = null,
 ) {
     init {
         name?.let { require(it.isNotBlank() && it.length <= MAX_NAME) { "name must be 1..$MAX_NAME chars" } }

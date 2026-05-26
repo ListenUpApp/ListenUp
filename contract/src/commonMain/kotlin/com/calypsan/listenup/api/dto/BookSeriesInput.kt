@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api.dto
 
 import com.calypsan.listenup.core.SeriesId
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,11 +11,12 @@ import kotlinx.serialization.Serializable
  * When [id] is null, the server resolves via `SeriesRepository.resolveOrCreate`.
  */
 @Serializable
+@SerialName("BookSeriesInput")
 data class BookSeriesInput(
-    val id: SeriesId? = null,
-    val name: String,
-    val position: Double? = null,
-    val isPrimary: Boolean = false,
+    @SerialName("id") val id: SeriesId? = null,
+    @SerialName("name") val name: String,
+    @SerialName("position") val position: Double? = null,
+    @SerialName("isPrimary") val isPrimary: Boolean = false,
 ) {
     init {
         require(name.isNotBlank()) { "name must not be blank" }

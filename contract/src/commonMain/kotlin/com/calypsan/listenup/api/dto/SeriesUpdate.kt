@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -8,12 +9,13 @@ import kotlinx.serialization.Serializable
  * Every field is nullable — `null` means "don't touch."
  */
 @Serializable
+@SerialName("SeriesUpdate")
 data class SeriesUpdate(
-    val name: String? = null,
-    val sortName: String? = null,
-    val description: String? = null,
-    val coverPath: String? = null,
-    val asin: String? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("sortName") val sortName: String? = null,
+    @SerialName("description") val description: String? = null,
+    @SerialName("coverPath") val coverPath: String? = null,
+    @SerialName("asin") val asin: String? = null,
 ) {
     init {
         name?.let { require(it.isNotBlank() && it.length <= MAX_NAME) { "name must be 1..$MAX_NAME chars" } }

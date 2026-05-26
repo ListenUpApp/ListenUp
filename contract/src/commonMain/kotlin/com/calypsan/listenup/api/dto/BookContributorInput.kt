@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api.dto
 
 import com.calypsan.listenup.core.ContributorId
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -14,12 +15,13 @@ import kotlinx.serialization.Serializable
  * specific book.
  */
 @Serializable
+@SerialName("BookContributorInput")
 data class BookContributorInput(
-    val id: ContributorId? = null,
-    val name: String,
-    val role: String,
-    val creditedAs: String? = null,
-    val position: Int,
+    @SerialName("id") val id: ContributorId? = null,
+    @SerialName("name") val name: String,
+    @SerialName("role") val role: String,
+    @SerialName("creditedAs") val creditedAs: String? = null,
+    @SerialName("position") val position: Int,
 ) {
     init {
         require(name.isNotBlank()) { "name must not be blank" }
