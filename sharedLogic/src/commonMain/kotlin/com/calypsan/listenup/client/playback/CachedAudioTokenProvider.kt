@@ -97,7 +97,16 @@ class CachedAudioTokenProvider(
         }
     }
 
-    private suspend fun refreshToken() {
+    /**
+     * Refreshes the cached token, blocking on the [refreshMutex] so concurrent
+     * triggers coalesce. Public because it's the synchronous seam for OkHttp's
+     * [okhttp3.Authenticator] contract — the Android Authenticator wraps this
+     * in `runBlocking` to satisfy OkHttp's blocking-thread expectation while
+     * still routing through the shared refresh path used by the proactive loop
+     * and `prepareForPlayback`. On success, [getToken] returns the new token;
+     * on failure, [fallbackToStored] surfaces whatever's in [AuthSession].
+     */
+    suspend fun refreshToken() {
         refreshMutex.withLock {
             when (val result = authRepository.refreshAccessToken()) {
                 is AppResult.Success -> {

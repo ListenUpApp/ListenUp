@@ -153,6 +153,7 @@ class PlaybackService : MediaLibraryService() {
             OkHttpClient
                 .Builder()
                 .addInterceptor(tokenProvider.createInterceptor())
+                .authenticator(tokenProvider.createAuthenticator())
                 .connectTimeout(30.seconds.toJavaDuration())
                 .readTimeout(0.seconds.toJavaDuration()) // No read timeout for streaming
                 .writeTimeout(30.seconds.toJavaDuration())
