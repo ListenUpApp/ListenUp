@@ -2,6 +2,9 @@ package com.calypsan.listenup.server.db
 
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /**
  * Junction table between books and series, with optional [sequence].
@@ -20,4 +23,23 @@ internal object BookSeriesMembershipTable : Table("book_series_memberships") {
     init {
         index("idx_bsm_series", false, seriesId)
     }
+
+    /**
+     * Distinct book IDs currently linked to the series identified by [id].
+     * Used by Books-C1's deleteSeries cascade and updateSeries reindex flow.
+     *
+     * Must be called inside a `suspendTransaction { ... }` block.
+     */
+    fun bookIdsForSeries(id: String): List<String> =
+        selectAll()
+            .where { seriesId eq id }
+            .map { it[bookId] }
+            .distinct()
+
+    /**
+     * Hard-deletes every junction row referencing [id]. Returns row count.
+     *
+     * Must be called inside a `suspendTransaction { ... }` block.
+     */
+    fun deleteAllForSeries(id: String): Int = deleteWhere { seriesId eq id }
 }
