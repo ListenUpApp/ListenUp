@@ -38,7 +38,7 @@ class AnalyzedBookMapperTest :
         val fixedNow = Instant.fromEpochMilliseconds(1_700_000_000_000L)
         val mapper = AnalyzedBookMapper(clock = FixedClock(fixedNow))
 
-        test("minimal AnalyzedBook → BookSyncPayload populates identity + defaults") {
+        test("should populate identity and defaults when AnalyzedBook is minimal") {
             val analyzed =
                 AnalyzedBook(
                     candidate =
@@ -86,7 +86,7 @@ class AnalyzedBookMapperTest :
             payload.deletedAt shouldBe null
         }
 
-        test("AnalyzedBook with one contributor → payload reflects resolved contributor list") {
+        test("should reflect the resolved contributor list when AnalyzedBook has one contributor") {
             val analyzed =
                 AnalyzedBook(
                     candidate =
@@ -125,7 +125,7 @@ class AnalyzedBookMapperTest :
             payload.contributors shouldBe resolvedContributors
         }
 
-        test("buildContributors maps authors and narrators to role-tagged payloads with blank ids") {
+        test("should tag authors and narrators with correct roles when contributors list is non-empty") {
             val analyzed =
                 AnalyzedBook(
                     candidate =
@@ -165,7 +165,7 @@ class AnalyzedBookMapperTest :
                 )
         }
 
-        test("buildSeries maps series entries to payloads with blank ids") {
+        test("should map series entries to payloads with blank ids") {
             val analyzed =
                 AnalyzedBook(
                     candidate =
@@ -184,7 +184,7 @@ class AnalyzedBookMapperTest :
                 )
         }
 
-        test("buildAudioFiles assigns embedded duration only to the primary track") {
+        test("should assign embedded duration only to the primary track when multiple tracks are present") {
             val firstFile =
                 FileEntry(
                     relPath = "books/x/01.m4b",
@@ -232,7 +232,7 @@ class AnalyzedBookMapperTest :
             audioFiles[1].size shouldBe 2048L
         }
 
-        test("buildChapters maps chapters with duration = end - start") {
+        test("should compute chapter duration as end minus start") {
             val analyzed =
                 AnalyzedBook(
                     candidate =
@@ -259,7 +259,7 @@ class AnalyzedBookMapperTest :
             chapters[1].duration shouldBe 120_000L
         }
 
-        test("toBookSyncPayload carries inode from the first track file") {
+        test("should carry inode from the first track file") {
             val file =
                 FileEntry(
                     relPath = "books/x/01.m4b",

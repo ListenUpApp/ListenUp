@@ -40,10 +40,10 @@ import kotlin.time.Clock
  * `revision` / `updatedAt` / `createdAt` placeholders are overwritten by
  * `upsert`.
  *
- * Extracted from [BookRepository] (Books-C1, Task 2) so the repository file
- * stays focused on aggregate persistence; this class owns the pure
- * scanner-to-wire transformation and is exercised by [BookRepository] for
- * the resolution+write path and by `AnalyzedBookMapperTest` for the shape.
+ * Extracted from [BookRepository] so the repository file stays focused on
+ * aggregate persistence; this class owns the pure scanner-to-wire
+ * transformation and is exercised by [BookRepository] for the
+ * resolution+write path and by `AnalyzedBookMapperTest` for the shape.
  */
 class AnalyzedBookMapper(
     private val clock: Clock = Clock.System,

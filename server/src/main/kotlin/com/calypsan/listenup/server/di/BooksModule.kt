@@ -99,9 +99,19 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
-        single { AnalyzedBookMapper() }
+        single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
-            BookRepository(get(), get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
+            BookRepository(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                clock = get(),
+                bookTagRepository = getOrNull(),
+            )
         }
         single<BookIngestPort> { get<BookRepository>() }
         single<BookService> { BookServiceImpl(get<BookRepository>()) }
