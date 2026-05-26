@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -107,7 +106,6 @@ private fun makeTracker(repo: PlaybackPositionRepository): ProgressTracker =
     object : ProgressTracker(
         downloadRepository = ThrowingDownloadRepository2,
         listeningEventRepository = ThrowingListeningEventRepository2,
-        syncApi = ThrowingSyncApiContract2,
         positionRepository = repo,
         scope = CoroutineScope(Dispatchers.Unconfined),
     ) {}
@@ -240,73 +238,4 @@ private object ThrowingListeningEventRepository2 : ListeningEventRepository {
         startMs: Long,
         endMs: Long,
     ) = TODO("not used")
-}
-
-private object ThrowingSyncApiContract2 : SyncApiContract {
-    override suspend fun getManifest() = TODO("not used")
-
-    override suspend fun getBooks(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun getAllBooks(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun getSeries(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun getAllSeries(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun getContributors(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun getAllContributors(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used")
-
-    override suspend fun submitListeningEvents(events: List<com.calypsan.listenup.client.data.remote.ListeningEventRequest>) = TODO("not used")
-
-    override suspend fun getContinueListening(limit: Int) = TODO("not used")
-
-    override suspend fun getAllProgress(updatedAfter: String?) = TODO("not used")
-
-    override suspend fun getBook(bookId: String) = TODO("not used")
-
-    override suspend fun getListeningEvents(sinceMs: Long?) = TODO("not used")
-
-    override suspend fun endPlaybackSession(
-        bookId: String,
-        durationMs: Long,
-    ) = TODO("not used")
-
-    override suspend fun getActiveSessions() = TODO("not used")
-
-    override suspend fun getReadingSessions() = TODO("not used")
-
-    override suspend fun markComplete(
-        bookId: String,
-        startedAt: String?,
-        finishedAt: String?,
-    ) = TODO("not used")
-
-    override suspend fun discardProgress(
-        bookId: String,
-        keepHistory: Boolean,
-    ) = TODO("not used")
-
-    override suspend fun restartBook(bookId: String) = TODO("not used")
 }

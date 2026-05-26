@@ -4,6 +4,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Success
@@ -421,6 +423,8 @@ class BrowseTreeProviderTest {
         title: String,
     ) = BookEntity(
         id = BookId(id),
+        libraryId = TEST_LIBRARY_ID,
+        folderId = TEST_FOLDER_ID,
         title = title,
         sortTitle = null,
         subtitle = null,
@@ -477,6 +481,8 @@ class BrowseTreeProviderTest {
 
     companion object {
         private val EPOCH = Timestamp(0L)
+        private val TEST_LIBRARY_ID = LibraryId("test-library")
+        private val TEST_FOLDER_ID = FolderId("test-folder")
     }
 }
 
@@ -515,6 +521,8 @@ private class FakeBookDao(
     override fun observeByIdWithContributors(id: BookId): Flow<BookWithContributors?> = flowOf(null)
 
     override suspend fun getByIdsWithContributors(ids: List<BookId>): List<BookWithContributors> = emptyList()
+
+    override fun observeByIdsWithContributors(ids: List<BookId>): Flow<List<BookWithContributors>> = flowOf(emptyList())
 
     override suspend fun deleteById(id: BookId) = Unit
 
