@@ -26,15 +26,15 @@ struct SeriesDetailView: View {
         .background(Color(.systemBackground))
         .navigationTitle(observer?.seriesName ?? String(localized: "common.series"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            if observer == nil {
-                let vm = deps.createSeriesDetailViewModel()
-                observer = SeriesDetailObserver(viewModel: vm)
-                observer?.loadSeries(seriesId: seriesId)
-            }
+        .task(id: seriesId) {
+            let vm = deps.createSeriesDetailViewModel()
+            let obs = SeriesDetailObserver(viewModel: vm)
+            observer = obs
+            obs.loadSeries(seriesId: seriesId)
         }
         .onDisappear {
             observer?.stopObserving()
+            observer = nil
         }
     }
 

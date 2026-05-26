@@ -59,15 +59,15 @@ struct ContributorDetailView: View {
         } message: {
             Text(String(localized: "contributor.remove_from_library"))
         }
-        .onAppear {
-            if observer == nil {
-                let vm = deps.createContributorDetailViewModel()
-                observer = ContributorDetailObserver(viewModel: vm)
-                observer?.loadContributor(contributorId: contributorId)
-            }
+        .task(id: contributorId) {
+            let vm = deps.createContributorDetailViewModel()
+            let obs = ContributorDetailObserver(viewModel: vm)
+            observer = obs
+            obs.loadContributor(contributorId: contributorId)
         }
         .onDisappear {
             observer?.stopObserving()
+            observer = nil
         }
     }
 
