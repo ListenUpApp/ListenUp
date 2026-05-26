@@ -21,7 +21,10 @@ private val logger = KotlinLogging.logger {}
  *  - "Mystery" / "mystery"
  *  - "Non-Fiction" / "non-fiction"
  */
-private data class SeedTag(val name: String, val slug: String)
+private data class SeedTag(
+    val name: String,
+    val slug: String,
+)
 
 private val DEMO_TAGS =
     listOf(
