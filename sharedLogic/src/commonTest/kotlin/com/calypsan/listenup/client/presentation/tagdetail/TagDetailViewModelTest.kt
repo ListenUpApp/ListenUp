@@ -11,19 +11,17 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertIs
 
 /**
  * Tests for TagDetailViewModel.
@@ -34,101 +32,72 @@ import kotlin.test.assertIs
  * - N+1 regression: getBooks called once with full list, not per-book getBook
  *
  * Uses Mokkery for mocking domain repositories.
+ * Uses MutableStateFlow (not flowOf) as upstream per test_stateflow_use_mutablestateflow memory.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class TagDetailViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class TagDetailViewModelTest :
+    FunSpec({
 
-    // ========== Test Fixtures ==========
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val tagRepository: TagRepository = mock()
-        val bookRepository: BookRepository = mock()
+        beforeEach { Dispatchers.setMain(testDispatcher) }
+        afterEach { Dispatchers.resetMain() }
 
-        fun build(): TagDetailViewModel =
-            TagDetailViewModel(
-                tagRepository = tagRepository,
-                bookRepository = bookRepository,
-            )
-    }
-
-    private fun createFixture(): TestFixture {
-        val fixture = TestFixture()
-
-        every { fixture.tagRepository.observeById(any()) } returns flowOf(null)
-        every { fixture.tagRepository.observeBookIdsForTag(any()) } returns flowOf(emptyList())
-        everySuspend { fixture.bookRepository.getBookListItems(any()) } returns emptyList()
-
-        return fixture
-    }
-
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun teardown() {
-        Dispatchers.resetMain()
-    }
-
-    // ========== Basic State Tests ==========
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            val fixture = createFixture()
-            val viewModel = fixture.build()
-
-            assertIs<TagDetailUiState.Idle>(viewModel.state.value)
+        fun createFixture(): Triple<TagRepository, BookRepository, TagDetailViewModel> {
+            val tagRepository: TagRepository = mock()
+            val bookRepository: BookRepository = mock()
+            every { tagRepository.observeById(any()) } returns MutableStateFlow(null)
+            every { tagRepository.observeBookIdsForTag(any()) } returns MutableStateFlow(emptyList())
+            everySuspend { bookRepository.getBookListItems(any()) } returns emptyList()
+            val vm = TagDetailViewModel(tagRepository = tagRepository, bookRepository = bookRepository)
+            return Triple(tagRepository, bookRepository, vm)
         }
 
-    @Test
-    fun `loadTag transitions to Ready when tag and books are found`() =
-        runTest {
-            // Given
-            val fixture = createFixture()
-            val tag = Tag(id = "tag-1", name = "Found Family", slug = "found-family")
-            val books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2"))
-
-            every { fixture.tagRepository.observeById("tag-1") } returns flowOf(tag)
-            every { fixture.tagRepository.observeBookIdsForTag("tag-1") } returns flowOf(listOf("book-1", "book-2"))
-            everySuspend { fixture.bookRepository.getBookListItems(any()) } returns books
-
-            val viewModel = fixture.build()
-            backgroundScope.launch { viewModel.state.collect { } }
-
-            // When
-            viewModel.loadTag("tag-1")
-            advanceUntilIdle()
-
-            // Then
-            assertIs<TagDetailUiState.Ready>(viewModel.state.value)
+        test("initial state is Idle") {
+            runTest {
+                val (_, _, vm) = createFixture()
+                vm.state.value.shouldBeInstanceOf<TagDetailUiState.Idle>()
+            }
         }
 
-    // ========== Regression Test: N+1 fix — getBookListItems called once with full list ==========
+        test("loadTag transitions to Ready when tag and books are found") {
+            runTest {
+                val (tagRepo, bookRepo, vm) = createFixture()
+                val tag = Tag(id = "tag-1", name = "Found Family", slug = "found-family")
+                val books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2"))
 
-    @Test
-    fun `observeBooksForTag calls getBookListItems once with full list, not per book`() =
-        runTest {
-            // Given: tag with three book IDs — verifies batched call replaces per-book loop
-            val fixture = createFixture()
-            val tag = Tag(id = "tag-1", name = "Mystery", slug = "mystery")
-            val bookIds = listOf("book-1", "book-2", "book-3")
-            val books = bookIds.map { TestData.bookListItem(id = it) }
+                every { tagRepo.observeById("tag-1") } returns MutableStateFlow(tag)
+                every { tagRepo.observeBookIdsForTag("tag-1") } returns MutableStateFlow(listOf("book-1", "book-2"))
+                everySuspend { bookRepo.getBookListItems(any()) } returns books
 
-            every { fixture.tagRepository.observeById("tag-1") } returns flowOf(tag)
-            every { fixture.tagRepository.observeBookIdsForTag("tag-1") } returns flowOf(bookIds)
-            everySuspend { fixture.bookRepository.getBookListItems(any()) } returns books
+                backgroundScope.launch { vm.state.collect { } }
 
-            val viewModel = fixture.build()
-            backgroundScope.launch { viewModel.state.collect { } }
+                vm.loadTag("tag-1")
+                advanceUntilIdle()
 
-            // When
-            viewModel.loadTag("tag-1")
-            advanceUntilIdle()
-
-            // Then: getBookListItems called exactly once (batched)
-            verifySuspend(VerifyMode.exactly(1)) { fixture.bookRepository.getBookListItems(any()) }
+                vm.state.value.shouldBeInstanceOf<TagDetailUiState.Ready>()
+            }
         }
-}
+
+        test("observeBooksForTag calls getBookListItems once with full list, not per book") {
+            runTest {
+                // Given: tag with three book IDs — verifies batched call replaces per-book loop
+                val (tagRepo, bookRepo, vm) = createFixture()
+                val tag = Tag(id = "tag-1", name = "Mystery", slug = "mystery")
+                val bookIds = listOf("book-1", "book-2", "book-3")
+                val books = bookIds.map { TestData.bookListItem(id = it) }
+
+                every { tagRepo.observeById("tag-1") } returns MutableStateFlow(tag)
+                every { tagRepo.observeBookIdsForTag("tag-1") } returns MutableStateFlow(bookIds)
+                everySuspend { bookRepo.getBookListItems(any()) } returns books
+
+                backgroundScope.launch { vm.state.collect { } }
+
+                vm.loadTag("tag-1")
+                advanceUntilIdle()
+
+                // getBookListItems called exactly once (batched)
+                verifySuspend(VerifyMode.exactly(1)) { bookRepo.getBookListItems(any()) }
+            }
+        }
+    })

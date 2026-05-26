@@ -43,8 +43,6 @@ private const val SEARCH_LIMIT = 10
  */
 class GenreTagEditDelegate(
     private val state: MutableStateFlow<BookEditUiState>,
-    @Suppress("UnusedPrivateMember")
-    private val tagApi: Any, // Kept for interface compatibility, not used
     private val scope: CoroutineScope,
     private val onChangesMade: () -> Unit,
 ) {

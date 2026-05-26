@@ -52,8 +52,6 @@ import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.remote.SyncApi
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
-import com.calypsan.listenup.client.data.remote.TagApi
-import com.calypsan.listenup.client.data.remote.TagApiContract
 import com.calypsan.listenup.client.data.remote.TagRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesApi
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
@@ -680,11 +678,6 @@ val syncModule =
         single<SearchApiContract> {
             SearchApi(clientFactory = get())
         }
-
-        // TagApi for user tag operations
-        single {
-            TagApi(clientFactory = get())
-        } bind TagApiContract::class
 
         // GenreApi for genre operations
         single {
