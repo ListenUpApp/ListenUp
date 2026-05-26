@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
@@ -117,7 +118,20 @@ val clientSyncRenovationModule =
 
         single { BookEntityMapper() }
 
-        single(createdAtStart = true) { TagSyncDomainHandler(registry = get()) }
+        single(createdAtStart = true) {
+            TagSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            BookTagSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
         single(createdAtStart = true) {
             ActiveSessionSyncDomainHandler(
                 database = get(),
