@@ -179,10 +179,11 @@ class BookRepository(
 
         val cover =
             bookRow[BookTable.coverHash]?.let { hash ->
-                CoverPayload(
-                    source = CoverSource.valueOf(bookRow[BookTable.coverSource]!!.uppercase()),
-                    hash = hash,
-                )
+                val coverSrc =
+                    bookRow[BookTable.coverSource]?.let { raw ->
+                        CoverSource.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+                    }
+                coverSrc?.let { CoverPayload(source = it, hash = hash) }
             }
 
         return BookSyncPayload(

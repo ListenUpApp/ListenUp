@@ -21,6 +21,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesTable
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -28,6 +29,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -270,6 +272,66 @@ class BookRepositoryUpsertTest :
                     clean.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     clean.data.hasScanWarning shouldBe false
                     repo.findById(BookId("clean"))?.hasScanWarning shouldBe false
+                }
+            }
+        }
+
+        test("findById returns book with null cover when cover_source column holds an unrecognised value") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val repo =
+                    BookRepository(
+                        db = db,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                        seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                    )
+                runTest {
+                    // Insert a book row directly with a bogus cover_source value that
+                    // is not a valid CoverSource enum constant.  This simulates a
+                    // partially-migrated or corrupt row.
+                    transaction(db) {
+                        BookTable.insert { stmt ->
+                            stmt[BookTable.id] = "corrupt-cover"
+                            stmt[BookTable.libraryId] = "test-library"
+                            stmt[BookTable.folderId] = "test-folder"
+                            stmt[BookTable.title] = "Corrupt Cover Book"
+                            stmt[BookTable.sortTitle] = null
+                            stmt[BookTable.subtitle] = null
+                            stmt[BookTable.description] = null
+                            stmt[BookTable.publishYear] = null
+                            stmt[BookTable.publisher] = null
+                            stmt[BookTable.language] = null
+                            stmt[BookTable.isbn] = null
+                            stmt[BookTable.asin] = null
+                            stmt[BookTable.abridged] = false
+                            stmt[BookTable.explicit] = false
+                            stmt[BookTable.hasScanWarning] = false
+                            stmt[BookTable.totalDuration] = 0L
+                            stmt[BookTable.coverSource] = "TOTALLY_INVALID_VALUE"
+                            stmt[BookTable.coverHash] = "somehash"
+                            stmt[BookTable.rootRelPath] = "books/corrupt-cover"
+                            stmt[BookTable.inode] = null
+                            stmt[BookTable.scannedAt] = 1_730_000_000_000L
+                            stmt[BookTable.revision] = 1L
+                            stmt[BookTable.createdAt] = 0L
+                            stmt[BookTable.updatedAt] = 0L
+                            stmt[BookTable.deletedAt] = null
+                            stmt[BookTable.clientOpId] = null
+                        }
+                    }
+
+                    val payload = repo.findById(BookId("corrupt-cover"))
+
+                    // The row is readable — corrupt cover_source falls back to null
+                    // rather than throwing IllegalArgumentException.
+                    payload shouldNotBe null
+                    payload!!.title shouldBe "Corrupt Cover Book"
+                    payload.cover shouldBe null
                 }
             }
         }
