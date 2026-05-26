@@ -58,7 +58,7 @@ class TagRepositorySlugTest :
                         runCatching {
                             repo.upsert(Tag(id = "t2", name = "Science Fiction", slug = "sci-fi", revision = 0, updatedAt = 0))
                         }
-                    (ex.isFailure) shouldBe true
+                    ex.isFailure shouldBe true
                 }
             }
         }

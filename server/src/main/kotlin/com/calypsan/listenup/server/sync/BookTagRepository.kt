@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -136,7 +135,7 @@ class BookTagRepository(
         suspendTransaction(db) {
             BookTagsTable
                 .selectAll()
-                .where { (BookTagsTable.bookId eq bookId) and (BookTagsTable.deletedAt.isNull()) }
+                .where { (BookTagsTable.bookId eq bookId) and BookTagsTable.deletedAt.isNull() }
                 .orderBy(BookTagsTable.createdAt)
                 .map { row ->
                     BookTagSyncPayload(
@@ -156,7 +155,7 @@ class BookTagRepository(
         suspendTransaction(db) {
             BookTagsTable
                 .selectAll()
-                .where { (BookTagsTable.tagId eq tagId) and (BookTagsTable.deletedAt.isNull()) }
+                .where { (BookTagsTable.tagId eq tagId) and BookTagsTable.deletedAt.isNull() }
                 .map { row ->
                     BookTagSyncPayload(
                         bookId = row[BookTagsTable.bookId],
@@ -177,7 +176,7 @@ class BookTagRepository(
         suspendTransaction(db) {
             BookTagsTable
                 .selectAll()
-                .where { (BookTagsTable.tagId eq tagId) and (BookTagsTable.deletedAt.isNull()) }
+                .where { (BookTagsTable.tagId eq tagId) and BookTagsTable.deletedAt.isNull() }
                 .map { row -> row[BookTagsTable.bookId] }
         }
 
