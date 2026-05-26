@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.testing
 
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.LibraryFolderTable
@@ -60,6 +61,38 @@ fun Database.seedTestLibraryAndFolder(
             it[LibraryFolderTable.updatedAt] = now
             it[LibraryFolderTable.revision] = 0L
             it[LibraryFolderTable.deletedAt] = null
+        }
+    }
+}
+
+/**
+ * Seeds a minimal book row with the given [bookId] into the receiver database.
+ *
+ * Used in tests that insert `book_tags` rows — the junction table's FK
+ * `book_id REFERENCES books(id)` requires the parent row to exist when FK
+ * enforcement is enabled.
+ *
+ * @param libraryId the [BookTable.libraryId] value (default `"test-library"`).
+ * @param folderId the [BookTable.folderId] value (default `"test-folder"`).
+ */
+fun Database.seedTestBook(
+    bookId: String,
+    libraryId: String = "test-library",
+    folderId: String = "test-folder",
+) {
+    val now = System.currentTimeMillis()
+    transaction(this) {
+        BookTable.insert {
+            it[BookTable.id] = bookId
+            it[BookTable.libraryId] = libraryId
+            it[BookTable.folderId] = folderId
+            it[BookTable.title] = "Test Book $bookId"
+            it[BookTable.totalDuration] = 0L
+            it[BookTable.rootRelPath] = "$bookId/book.m4b"
+            it[BookTable.scannedAt] = now
+            it[BookTable.revision] = 1L
+            it[BookTable.createdAt] = now
+            it[BookTable.updatedAt] = now
         }
     }
 }

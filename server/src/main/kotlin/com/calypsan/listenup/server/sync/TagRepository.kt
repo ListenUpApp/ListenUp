@@ -11,8 +11,11 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Validation-domain repository. Tags has no public write API in this phase;
- * tests exercise the substrate directly through this class.
+ * Syncable repository for tags.
+ *
+ * Handles the full tag aggregate: read/write of [Tag] via [TagTable], including
+ * [Tag.slug] which is the canonical URL-safe identity for each tag. Slug is
+ * written on insert and included in every payload read.
  */
 class TagRepository(
     db: Database,
@@ -35,9 +38,7 @@ class TagRepository(
                 Tag(
                     id = row[TagTable.id],
                     name = row[TagTable.name],
-                    // slug column added in Flyway V21 + TagTable extension (Task 5/6).
-                    // Empty string placeholder until the column is available.
-                    slug = "",
+                    slug = row[TagTable.slug],
                     revision = row[TagTable.revision],
                     updatedAt = row[TagTable.updatedAt],
                     deletedAt = row[TagTable.deletedAt],
@@ -55,6 +56,7 @@ class TagRepository(
         if (existed) {
             TagTable.update({ TagTable.id eq value.id }) { stmt ->
                 stmt[TagTable.name] = value.name
+                stmt[TagTable.slug] = value.slug
                 stmt[TagTable.revision] = rev
                 stmt[TagTable.updatedAt] = now
                 stmt[TagTable.deletedAt] = null
@@ -64,6 +66,7 @@ class TagRepository(
             TagTable.insert { stmt ->
                 stmt[TagTable.id] = value.id
                 stmt[TagTable.name] = value.name
+                stmt[TagTable.slug] = value.slug
                 stmt[TagTable.revision] = rev
                 stmt[TagTable.createdAt] = now
                 stmt[TagTable.updatedAt] = now
