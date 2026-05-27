@@ -192,6 +192,21 @@ internal class BookServiceImpl(
     }
 }
 
+/**
+ * Constructs a [BookService] backed by [BookServiceImpl]. Public so cross-module
+ * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`)
+ * can build the service without depending on the Koin graph or piercing the
+ * `internal` access on [BookServiceImpl]. Production wiring continues to construct
+ * the impl directly inside the books Koin module.
+ */
+fun createBookService(
+    repo: BookRepository,
+    contributorRepo: ContributorRepository,
+    seriesRepo: SeriesRepository,
+    coverStorage: CoverStorage,
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db)
+
 private fun bookNotFound(id: BookId): AppResult.Failure =
     AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))
 
