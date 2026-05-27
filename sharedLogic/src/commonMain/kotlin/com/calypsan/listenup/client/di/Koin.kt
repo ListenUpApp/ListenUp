@@ -173,7 +173,7 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.calypsan.listenup.client.data.repository.ContributorEditRepository as ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepository as SeriesEditRepositoryImpl
 
 /**
@@ -963,13 +963,10 @@ val syncModule =
             )
         }
 
-        // ContributorEditRepository for contributor editing operations (offline-first, SOLID: domain interface)
+        // ContributorEditRepository — pure RPC dispatcher (Books-C1).
         single<ContributorEditRepository> {
             ContributorEditRepositoryImpl(
-                transactionRunner = get(),
-                contributorDao = get(),
-                contributorAliasDao = get(),
-                bookContributorDao = get(),
+                contributorRpcFactory = get(),
             )
         }
 

@@ -334,7 +334,6 @@ val contributorPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel(
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
-                contributorEditRepository = get(),
                 updateContributorUseCase = get(),
                 imageRepository = get(),
             )
