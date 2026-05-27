@@ -1,13 +1,15 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
 import app.cash.turbine.test
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -21,6 +23,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -40,6 +43,11 @@ class SeriesEditViewModelTest :
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val seriesEditRepository: SeriesEditRepository = mock()
+            val seriesDao: SeriesDao =
+                mock {
+                    every { observeAll() } returns flowOf(emptyList())
+                }
             val errorBus: ErrorBus = ErrorBus()
 
             fun build(): SeriesEditViewModel =
@@ -48,6 +56,8 @@ class SeriesEditViewModelTest :
                     updateSeriesUseCase = updateSeriesUseCase,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    seriesEditRepository = seriesEditRepository,
+                    seriesDao = seriesDao,
                     errorBus = errorBus,
                 )
         }

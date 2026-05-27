@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.db.ContributorAliasTable
 import com.calypsan.listenup.server.db.ContributorTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -74,6 +75,7 @@ class ContributorRepository(
                     birthDate = row[ContributorTable.birthDate],
                     deathDate = row[ContributorTable.deathDate],
                     website = row[ContributorTable.website],
+                    aliases = ContributorAliasTable.aliasesFor(row[ContributorTable.id]),
                 )
             }
 
@@ -123,6 +125,7 @@ class ContributorRepository(
                 stmt[ContributorTable.clientOpId] = clientOpId
             }
         }
+        ContributorAliasTable.replaceForContributor(value.id, value.aliases)
     }
 
     /**

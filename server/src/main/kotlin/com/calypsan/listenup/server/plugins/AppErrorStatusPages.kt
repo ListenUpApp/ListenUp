@@ -359,22 +359,28 @@ private fun ContributorError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ContributorError.NotFound -> HttpStatusCode.NotFound
         is ContributorError.InvalidInput -> HttpStatusCode.BadRequest
+        is ContributorError.MergeSelfTarget -> HttpStatusCode.BadRequest
+        is ContributorError.AliasNotFound -> HttpStatusCode.NotFound
     }
 
 private fun ContributorError.withCorrelationId(id: String?): ContributorError =
     when (this) {
         is ContributorError.NotFound -> copy(correlationId = id)
         is ContributorError.InvalidInput -> copy(correlationId = id)
+        is ContributorError.MergeSelfTarget -> copy(correlationId = id)
+        is ContributorError.AliasNotFound -> copy(correlationId = id)
     }
 
 private fun SeriesError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is SeriesError.NotFound -> HttpStatusCode.NotFound
         is SeriesError.InvalidInput -> HttpStatusCode.BadRequest
+        is SeriesError.MergeSelfTarget -> HttpStatusCode.BadRequest
     }
 
 private fun SeriesError.withCorrelationId(id: String?): SeriesError =
     when (this) {
         is SeriesError.NotFound -> copy(correlationId = id)
         is SeriesError.InvalidInput -> copy(correlationId = id)
+        is SeriesError.MergeSelfTarget -> copy(correlationId = id)
     }

@@ -70,4 +70,24 @@ interface SeriesService {
      * lose their series association stay as books.
      */
     suspend fun deleteSeries(id: SeriesId): AppResult<Unit>
+
+    /**
+     * Merges series [source] into series [target]. After this call:
+     * - All `book_series_memberships` rows referencing [source] are re-linked to [target].
+     * - All affected books are re-upserted with the new series reference.
+     * - [source] is soft-deleted.
+     *
+     * Returns [com.calypsan.listenup.api.error.SeriesError.MergeSelfTarget] when
+     * `source == target`. Returns [com.calypsan.listenup.api.error.SeriesError.NotFound]
+     * when either is missing.
+     *
+     * Unlike contributor merge, series merge has no `credited_as` equivalent — the
+     * canonical name change is the intended semantic ("these were always the same series").
+     *
+     * // TODO: gate by user permissions when Multi-user lands
+     */
+    suspend fun mergeSeries(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit>
 }

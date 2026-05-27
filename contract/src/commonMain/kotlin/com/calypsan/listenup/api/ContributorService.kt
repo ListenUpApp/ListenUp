@@ -71,4 +71,53 @@ interface ContributorService {
      * contributor stay as books with empty author lists.
      */
     suspend fun deleteContributor(id: ContributorId): AppResult<Unit>
+
+    /**
+     * Merges contributor [source] into contributor [target]. After this call:
+     * - All `book_contributors` rows referencing [source] are re-linked to [target],
+     *   with `credited_as` set to source's display name where it was previously NULL
+     *   (preserves per-book credit history — books published as "Robert Galbraith"
+     *   stay credited that way even after Galbraith merges into J.K. Rowling).
+     * - All affected books are re-upserted with the new contributor reference.
+     * - [target]'s aliases gain source's name + source's existing aliases (deduped
+     *   case-insensitively; target's own name is excluded).
+     * - [source] is soft-deleted.
+     *
+     * Returns [com.calypsan.listenup.api.error.ContributorError.MergeSelfTarget] when
+     * `source == target`. Returns [com.calypsan.listenup.api.error.ContributorError.NotFound]
+     * when either is missing or already tombstoned.
+     *
+     * On success the server emits one `book.Updated` per affected book, plus
+     * `contributor.Updated(target)` and `contributor.Deleted(source)`.
+     *
+     * // TODO: gate by user permissions when Multi-user lands
+     */
+    suspend fun mergeContributors(
+        source: ContributorId,
+        target: ContributorId,
+    ): AppResult<Unit>
+
+    /**
+     * Unmerges [aliasName] back out of the contributor identified by [contributorId].
+     * Creates a fresh contributor with `name = aliasName`, re-links every
+     * `book_contributors` row where `(contributor_id = contributorId AND credited_as = aliasName)`
+     * to the new contributor (clearing `credited_as` so the new contributor's canonical
+     * name displays), removes [aliasName] from the target's aliases, and re-upserts
+     * affected books.
+     *
+     * Returns [com.calypsan.listenup.api.error.ContributorError.NotFound] when no
+     * contributor with the given id exists. Returns
+     * [com.calypsan.listenup.api.error.ContributorError.AliasNotFound] when the alias
+     * isn't on the contributor. Returns the new contributor's [ContributorId] on Success.
+     *
+     * Zero-book edge case: if no `book_contributors` rows match the alias-creditedAs
+     * combination, the new contributor is still created (with no linked books) and the
+     * alias is removed from the target.
+     *
+     * // TODO: gate by user permissions when Multi-user lands
+     */
+    suspend fun unmergeContributor(
+        contributorId: ContributorId,
+        aliasName: String,
+    ): AppResult<ContributorId>
 }

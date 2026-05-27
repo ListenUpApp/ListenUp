@@ -86,6 +86,66 @@ internal class SeriesServiceImpl(
         return outcome.result
     }
 
+    override suspend fun mergeSeries(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit> {
+        if (source.value == target.value) {
+            return AppResult.Failure(SeriesError.MergeSelfTarget())
+        }
+
+        val result: AppResult<Unit> =
+            suspendTransaction(db) {
+                val sourcePayload =
+                    seriesRepo.findById(source.value)
+                        ?: return@suspendTransaction AppResult.Failure(
+                            SeriesError.NotFound(debugInfo = "source=${source.value}"),
+                        )
+                seriesRepo.findById(target.value)
+                    ?: return@suspendTransaction AppResult.Failure(
+                        SeriesError.NotFound(debugInfo = "target=${target.value}"),
+                    )
+                if (sourcePayload.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(
+                        SeriesError.NotFound(debugInfo = "source=${source.value} already tombstoned"),
+                    )
+                }
+
+                // Snapshot affected book IDs BEFORE relink so re-upsert covers them.
+                val affectedBookIds = BookSeriesMembershipTable.bookIdsForSeries(source.value)
+
+                // Re-link all junction rows from source → target.
+                BookSeriesMembershipTable.relinkSeries(fromId = source.value, toId = target.value)
+
+                // Re-upsert each affected book — bumps revision + emits book.Updated per book.
+                for (bookId in affectedBookIds) {
+                    val book = bookRepo.findById(BookId(bookId)) ?: continue
+                    when (val upsertResult = bookRepo.upsert(book)) {
+                        is AppResult.Success -> Unit
+                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
+                    }
+                }
+
+                // Soft-delete source — emits series.Deleted(source).
+                when (val softDeleteResult = seriesRepo.softDelete(source)) {
+                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+                }
+            }
+
+        if (result is AppResult.Success) {
+            try {
+                reindexer.reindexAllBooksForSeries(target.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
+            }
+        }
+
+        return result
+    }
+
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         val result: AppResult<Unit> =
             suspendTransaction(db) {
@@ -118,6 +178,20 @@ internal class SeriesServiceImpl(
         return result
     }
 }
+
+/**
+ * Constructs a [SeriesService] backed by [SeriesServiceImpl]. Public so cross-module
+ * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`)
+ * can build the service without depending on the Koin graph or piercing the
+ * `internal` access on [SeriesServiceImpl]. Production wiring continues to construct
+ * the impl directly inside the books Koin module.
+ */
+fun createSeriesService(
+    seriesRepo: SeriesRepository,
+    bookRepo: BookRepository,
+    reindexer: BookSearchReindexer,
+    db: Database,
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
 
 private data class SeriesUpdateOutcome(
     val reindexNeeded: Boolean,

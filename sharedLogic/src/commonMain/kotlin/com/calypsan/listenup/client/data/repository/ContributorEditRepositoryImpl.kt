@@ -33,6 +33,35 @@ class ContributorEditRepositoryImpl(
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> =
         rpcCallUnit { contributorRpcFactory.contributorService().deleteContributor(id) }
 
+    override suspend fun mergeContributor(
+        source: ContributorId,
+        target: ContributorId,
+    ): AppResult<Unit> = rpcCallUnit { contributorRpcFactory.contributorService().mergeContributors(source, target) }
+
+    override suspend fun unmergeContributor(
+        contributorId: ContributorId,
+        aliasName: String,
+    ): AppResult<ContributorId> =
+        rpcCall { contributorRpcFactory.contributorService().unmergeContributor(contributorId, aliasName) }
+
+    /**
+     * Run an RPC call that returns [T], converting [WireAppResult] → [AppResult].
+     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure]
+     * via [ErrorMapper].
+     */
+    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
+        try {
+            when (val result = block()) {
+                is WireAppResult.Success -> AppResult.Success(result.data)
+                is WireAppResult.Failure -> AppResult.Failure(result.error)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "Contributor edit RPC failed" }
+            AppResult.Failure(ErrorMapper.map(e))
+        }
+
     /**
      * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
      * Re-throws [CancellationException]; all other throwables become [AppResult.Failure]

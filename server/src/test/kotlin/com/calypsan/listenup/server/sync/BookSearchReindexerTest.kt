@@ -124,7 +124,7 @@ class BookSearchReindexerTest :
             return hasAnyRow
         }
 
-        test("reindexBookTags writes concatenated tag names into book_search.tags") {
+        test("reindexBook writes concatenated tag names into book_search.tags") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -147,7 +147,7 @@ class BookSearchReindexerTest :
                         BookTagSyncPayload(bookId = "book1", tagId = "t2", createdAt = 1001L, revision = 0L),
                     )
 
-                    reindexer.reindexBookTags("book1")
+                    reindexer.reindexBook("book1")
 
                     // FTS5 contentless: verify via MATCH queries — direct content SELECT is not possible.
                     ftsTagsMatch(db, 1, "Sci-Fi") shouldBe true
@@ -156,7 +156,7 @@ class BookSearchReindexerTest :
             }
         }
 
-        test("reindexBookTags with no tags produces empty tags FTS index entry") {
+        test("reindexBook with no tags produces empty tags FTS index entry") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -170,7 +170,7 @@ class BookSearchReindexerTest :
                     val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
-                    reindexer.reindexBookTags("book1")
+                    reindexer.reindexBook("book1")
 
                     // No tags → "Sci-Fi" does not match this book's tags column.
                     ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
@@ -180,7 +180,7 @@ class BookSearchReindexerTest :
             }
         }
 
-        test("reindexBookTags excludes tombstoned junction rows") {
+        test("reindexBook excludes tombstoned junction rows") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -201,7 +201,7 @@ class BookSearchReindexerTest :
                     // Soft-delete the junction.
                     bookTagRepo.softDelete(bookId = "book1", tagId = "t1")
 
-                    reindexer.reindexBookTags("book1")
+                    reindexer.reindexBook("book1")
 
                     // Tombstoned junction → "Sci-Fi" should not match the tags column.
                     ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
@@ -209,7 +209,7 @@ class BookSearchReindexerTest :
             }
         }
 
-        test("reindexBookTags excludes tombstoned tags (live junction, deleted tag)") {
+        test("reindexBook excludes tombstoned tags (live junction, deleted tag)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -230,7 +230,7 @@ class BookSearchReindexerTest :
                     // Soft-delete the tag itself (junction is still live).
                     tagRepo.softDelete("t1")
 
-                    reindexer.reindexBookTags("book1")
+                    reindexer.reindexBook("book1")
 
                     // Tag is tombstoned → findById returns null → "Sci-Fi" excluded from index.
                     ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
@@ -270,7 +270,7 @@ class BookSearchReindexerTest :
             }
         }
 
-        test("reindexBookTags is safe when book has no book_search_map row") {
+        test("reindexBook is safe when book has no book_search_map row") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -284,7 +284,7 @@ class BookSearchReindexerTest :
                     val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
 
                     // Should complete without error.
-                    reindexer.reindexBookTags("book1")
+                    reindexer.reindexBook("book1")
                 }
             }
         }

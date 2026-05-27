@@ -148,7 +148,7 @@ internal class TagServiceImpl(
         }
 
         // Reindex FTS after junction write.
-        reindexer.reindexBookTags(bookId.value)
+        reindexer.reindexBook(bookId.value)
 
         return AppResult.Success(tag)
     }
@@ -167,7 +167,7 @@ internal class TagServiceImpl(
         // softDelete is idempotent via the substrate — returns Failure(NotFound) if
         // already tombstoned, which we treat as success (caller's intent is satisfied).
         bookTagRepository.softDelete(bookId = bookId.value, tagId = tagId.value)
-        reindexer.reindexBookTags(bookId.value)
+        reindexer.reindexBook(bookId.value)
         return AppResult.Success(Unit)
     }
 
@@ -207,7 +207,7 @@ internal class TagServiceImpl(
 
         // Reindex outside the transaction (FTS writes are separate).
         for (bookId in affectedBookIds) {
-            reindexer.reindexBookTags(bookId)
+            reindexer.reindexBook(bookId)
         }
 
         return AppResult.Success(Unit)

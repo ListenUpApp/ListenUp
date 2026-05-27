@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -11,8 +12,10 @@ import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.PendingOperation
@@ -36,9 +39,11 @@ import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.api.createContributorService
+import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -151,6 +156,10 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   by a real kotlinx.rpc [ContributorService] proxy connected to the harness's RPC
  *   route. Tests use this to exercise the client → RPC → server → SSE → Room round
  *   trip for contributor mutations (the `deleteContributor` cascade in Books-C1+).
+ * @property seriesEditRepository client-side [SeriesEditRepository] backed by a real
+ *   kotlinx.rpc [SeriesService] proxy connected to the harness's RPC route. Tests use
+ *   this to exercise the client → RPC → server → SSE → Room round trip for series
+ *   mutations (the `mergeSeries` cascade in Books-C2+).
  * @property state observable engine state for ambient assertions
  * @property dispatcher the dispatcher routing SSE frames to handlers
  * @property queue the pending-operation queue for echo-match scenarios
@@ -171,6 +180,7 @@ data class ClientEngineScope(
     val clientDatabase: ListenUpDatabase,
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
+    val seriesEditRepository: SeriesEditRepository,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
@@ -226,6 +236,14 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 reindexer = bookSearchReindexer,
                 db = serverDb,
             )
+        // Books-C2 Task 25 needs `SeriesService` for the mergeSeries e2e test.
+        val seriesService: SeriesService =
+            createSeriesService(
+                seriesRepo = serverRepos.seriesRepo,
+                bookRepo = serverRepos.bookRepo,
+                reindexer = bookSearchReindexer,
+                db = serverDb,
+            )
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -267,6 +285,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                         rpcConfig { serialization { krpcJson(contractJson) } }
                         registerService<BookService> { guard(bookService) }
                         registerService<ContributorService> { guard(contributorService) }
+                        registerService<SeriesService> { guard(seriesService) }
                     }
                 }
             }
@@ -289,6 +308,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             BookEditRepositoryImpl(bookRpcFactory = TestBookRpcFactory(testClient))
         val contributorEditRepository: ContributorEditRepository =
             ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
+        val seriesEditRepository: SeriesEditRepository =
+            SeriesEditRepositoryImpl(seriesRpcFactory = TestSeriesRpcFactory(testClient))
 
         try {
             val registry = ClientSyncDomainRegistry()
@@ -381,6 +402,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     clientDatabase = clientDb,
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
+                    seriesEditRepository = seriesEditRepository,
                     state = state,
                     dispatcher = dispatcher,
                     queue = queue,
@@ -696,4 +718,34 @@ internal class TestContributorRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<ContributorService>()
+}
+
+/**
+ * Test-only [SeriesRpcFactory] that opens a kotlinx.rpc [SeriesService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ *
+ * Mirrors [TestBookRpcFactory] / [TestContributorRpcFactory] exactly, substituting
+ * [SeriesService]. Used by the Books-C2 `SeriesMergeE2ETest` to exercise the
+ * client → RPC → server → SSE → Room round trip for the series merge cascade.
+ */
+internal class TestSeriesRpcFactory(
+    private val httpClient: HttpClient,
+) : SeriesRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: SeriesService? = null
+
+    override suspend fun seriesService(): SeriesService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): SeriesService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<SeriesService>()
 }

@@ -37,4 +37,15 @@ data class ContributorSyncPayload(
     val birthDate: String? = null,
     val deathDate: String? = null,
     val website: String? = null,
+    /**
+     * Alternative display names for this contributor (AKAs / pen names).
+     *
+     * Aliases are populated server-side via [com.calypsan.listenup.api.ContributorService.mergeContributors]
+     * — when contributor X is merged into Y, X's canonical name becomes one of Y's aliases.
+     * [com.calypsan.listenup.api.ContributorService.unmergeContributor] removes one.
+     *
+     * Defaults to `emptyList()` so payloads serialized before Books-C2 decode cleanly.
+     */
+    @SerialName("aliases")
+    val aliases: List<String> = emptyList(),
 ) : Tombstoned

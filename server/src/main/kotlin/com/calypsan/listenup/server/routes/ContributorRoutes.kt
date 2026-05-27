@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.MergeContributorsBody
+import com.calypsan.listenup.api.dto.UnmergeContributorBody
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.ContributorResources
 import com.calypsan.listenup.api.result.AppResult
@@ -18,11 +20,12 @@ import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
+import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
 /**
- * REST surface for [ContributorService]. Four endpoints:
+ * REST surface for [ContributorService]. Seven endpoints:
  *
  *  - `GET /api/v1/contributors/{id}` — returns the full [ContributorSyncPayload]
  *    for the given id, or null when no contributor with that id exists. HTTP 200
@@ -36,6 +39,10 @@ import io.ktor.server.routing.Route
  *    the contributor. HTTP 204 on success.
  *  - `DELETE /api/v1/contributors/{id}` — hard-deletes the contributor and
  *    removes all junction rows. HTTP 204 on success.
+ *  - `POST /api/v1/contributors/merge` — merges source into target contributor.
+ *    HTTP 204 on success.
+ *  - `POST /api/v1/contributors/{id}/unmerge` — unmerges an alias back out of
+ *    the contributor. HTTP 200 with the new [ContributorId] on success.
  *
  * All endpoints require JWT authentication (mounted inside the authenticate block
  * in Application.kt).
@@ -72,6 +79,22 @@ fun Route.contributorRoutes(contributorService: ContributorService) {
     delete<ContributorResources.Detail> { res ->
         when (val result = contributorService.deleteContributor(ContributorId(res.id))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    post<ContributorResources.Merge> {
+        val body = call.receive<MergeContributorsBody>()
+        when (val result = contributorService.mergeContributors(body.source, body.target)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    post<ContributorResources.Unmerge> { res ->
+        val body = call.receive<UnmergeContributorBody>()
+        when (val result = contributorService.unmergeContributor(ContributorId(res.id), body.aliasName)) {
+            is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }

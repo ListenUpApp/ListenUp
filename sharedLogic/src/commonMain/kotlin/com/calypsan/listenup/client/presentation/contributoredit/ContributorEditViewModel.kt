@@ -2,23 +2,52 @@ package com.calypsan.listenup.client.presentation.contributoredit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
+import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** Maximum number of merge-target candidates surfaced in the picker dialog. */
+private const val MAX_MERGE_CANDIDATES = 30
+
+/** Idle timeout before stopping merge-candidate collection. */
+private const val STOP_TIMEOUT_MS = 5_000L
+
+/**
+ * Lightweight projection of a contributor as a merge-target candidate.
+ *
+ * Used by [ContributorEditViewModel.mergeCandidates] to populate the contributor
+ * merge picker dialog. [bookCount] is a placeholder (always `0`) until a
+ * per-contributor book-count query lands; the dialog hides it for now.
+ */
+data class ContributorCandidate(
+    val id: ContributorId,
+    val displayName: String,
+    val bookCount: Int,
+)
 
 /**
  * UI state for contributor editing screen.
@@ -38,6 +67,11 @@ data class ContributorEditUiState(
     val website: String = "",
     val birthDate: String = "", // ISO 8601 format (YYYY-MM-DD)
     val deathDate: String = "", // ISO 8601 format (YYYY-MM-DD)
+    // Alias management (Room-observed; updated reactively by SSE)
+    val aliases: List<String> = emptyList(),
+    val mergeInProgress: Boolean = false,
+    // Merge-target picker query (drives candidate filtering)
+    val mergeQuery: String = "",
     // Track if changes have been made
     val hasChanges: Boolean = false,
 )
@@ -45,9 +79,9 @@ data class ContributorEditUiState(
 /**
  * Events from the contributor edit UI.
  *
- * Alias-related events (search/select/enter/remove) were deleted with
- * Books-C1's removal of client-side merge/unmerge. TODO(books-c2): re-wire
- * alias management when server-canonical merge ships.
+ * Merge/unmerge are server-canonical operations (Books-C2): the VM dispatches
+ * the RPC; the server emits SSE with authoritative state; the Room aliases
+ * Flow re-emits without optimistic local writes.
  */
 sealed interface ContributorEditUiEvent {
     // Field changes
@@ -91,6 +125,16 @@ sealed interface ContributorEditUiEvent {
     data object Cancel : ContributorEditUiEvent
 
     data object DismissError : ContributorEditUiEvent
+
+    /** User chose to merge the current contributor into [targetId]. */
+    data class MergeInto(
+        val targetId: ContributorId,
+    ) : ContributorEditUiEvent
+
+    /** User chose to split [aliasName] back out into its own contributor. */
+    data class UnmergeAlias(
+        val aliasName: String,
+    ) : ContributorEditUiEvent
 }
 
 /**
@@ -109,16 +153,25 @@ sealed interface ContributorEditNavAction {
  * - Loading contributor data for editing
  * - Image upload via [ImageRepository]
  * - Saving metadata changes via [UpdateContributorUseCase] (RPC-backed)
+ * - Server-canonical merge/unmerge via [ContributorEditRepository]
+ * - Reactive alias display via [ContributorAliasDao] Room observation
  * - Tracking unsaved changes
  *
  * @property contributorRepository Repository for contributor data
  * @property updateContributorUseCase Use case for updating contributor metadata
  * @property imageRepository Repository for image operations
+ * @property contributorEditRepository RPC dispatcher for merge/unmerge
+ * @property contributorAliasDao DAO for observing the contributor's aliases (Room is read truth)
+ * @property contributorDao DAO for browsing all contributors as merge-target candidates
+ * @property errorBus Global error bus for snackbar emissions
  */
 class ContributorEditViewModel(
     private val contributorRepository: ContributorRepository,
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,
+    private val contributorEditRepository: ContributorEditRepository,
+    private val contributorAliasDao: ContributorAliasDao,
+    private val contributorDao: ContributorDao,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ContributorEditUiState>
@@ -126,6 +179,31 @@ class ContributorEditViewModel(
 
     private val _navActions = Channel<ContributorEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<ContributorEditNavAction> = _navActions.receiveAsFlow()
+
+    /**
+     * Candidates for the merge-target picker — all live contributors except the current
+     * one, filtered by [ContributorEditUiState.mergeQuery] (case-insensitive substring).
+     * Capped at [MAX_MERGE_CANDIDATES] to keep the dialog snappy.
+     */
+    val mergeCandidates: StateFlow<List<ContributorCandidate>> =
+        combine(state, contributorDao.observeAll()) { uiState, allContributors ->
+            val currentId = uiState.contributorId
+            val query = uiState.mergeQuery
+            allContributors
+                .asSequence()
+                .filter { it.deletedAt == null }
+                .filter { it.id.value != currentId }
+                .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
+                .sortedBy { it.name.lowercase() }
+                .take(MAX_MERGE_CANDIDATES)
+                .map { entity ->
+                    ContributorCandidate(
+                        id = entity.id,
+                        displayName = entity.name,
+                        bookCount = 0,
+                    )
+                }.toList()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     // Track original values for change detection
     private var originalName: String = ""
@@ -169,8 +247,22 @@ class ContributorEditViewModel(
                 )
             }
 
+            // Subscribe to Room aliases (single source of truth; updated by SSE).
+            contributorAliasDao
+                .observeForContributor(contributorId)
+                .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
+                .launchIn(viewModelScope)
+
             logger.debug { "Loaded contributor for editing: ${contributor.name}" }
         }
+    }
+
+    /**
+     * Update the merge-target picker's search query. The [mergeCandidates] Flow
+     * re-emits a filtered list whenever this changes.
+     */
+    fun onMergeQueryChange(query: String) {
+        state.update { it.copy(mergeQuery = query) }
     }
 
     /**
@@ -217,6 +309,90 @@ class ContributorEditViewModel(
 
             is ContributorEditUiEvent.DismissError -> {
                 state.update { it.copy(error = null) }
+            }
+
+            is ContributorEditUiEvent.MergeInto -> {
+                mergeInto(event.targetId)
+            }
+
+            is ContributorEditUiEvent.UnmergeAlias -> {
+                unmergeAlias(event.aliasName)
+            }
+        }
+    }
+
+    // ========== Merge / Unmerge ==========
+
+    /**
+     * Merge the current contributor into [targetId]. After SSE delivery the source is
+     * soft-deleted and the target gains the source's name as an alias; we navigate back.
+     */
+    private fun mergeInto(targetId: ContributorId) {
+        val sourceId = state.value.contributorId
+        if (sourceId.isBlank()) {
+            logger.error { "Cannot merge: contributor ID is empty" }
+            return
+        }
+
+        viewModelScope.launch {
+            state.update { it.copy(mergeInProgress = true, error = null) }
+
+            when (val result = contributorEditRepository.mergeContributor(ContributorId(sourceId), targetId)) {
+                is Success -> {
+                    state.update { it.copy(mergeInProgress = false) }
+                    _navActions.trySend(ContributorEditNavAction.NavigateBack)
+                }
+
+                is Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to merge contributor: ${result.message}" }
+                    state.update {
+                        it.copy(
+                            mergeInProgress = false,
+                            error =
+                                when (result.error) {
+                                    is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
+                                    is ContributorError.NotFound -> "One of these contributors no longer exists."
+                                    else -> result.error.message
+                                },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Split [aliasName] back into its own contributor. The aliases Room Flow re-emits
+     * without [aliasName] once the SSE event lands; we stay on this screen.
+     */
+    private fun unmergeAlias(aliasName: String) {
+        val contributorId = state.value.contributorId
+        if (contributorId.isBlank()) {
+            logger.error { "Cannot unmerge: contributor ID is empty" }
+            return
+        }
+
+        viewModelScope.launch {
+            when (val result = contributorEditRepository.unmergeContributor(ContributorId(contributorId), aliasName)) {
+                is Success -> {
+                    logger.debug { "Unmerged alias '$aliasName'; new contributor id=${result.data}" }
+                }
+
+                is Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to unmerge alias '$aliasName': ${result.message}" }
+                    state.update {
+                        it.copy(
+                            error =
+                                when (result.error) {
+                                    is ContributorError.AliasNotFound -> "That alias is no longer on this contributor."
+                                    is ContributorError.NotFound -> "This contributor no longer exists."
+                                    else -> result.error.message
+                                },
+                        )
+                    }
+                }
             }
         }
     }

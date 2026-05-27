@@ -19,6 +19,7 @@ import kotlinx.serialization.Serializable
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotFound] → 404
  * - [InvalidInput] → 400
+ * - [MergeSelfTarget] → 400
  */
 @Serializable
 sealed interface SeriesError : AppError {
@@ -50,6 +51,21 @@ sealed interface SeriesError : AppError {
     ) : SeriesError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "SERIES_INVALID_INPUT"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Returned by [com.calypsan.listenup.api.SeriesService.mergeSeries] when called
+     * with `source == target`. A series can't be merged with itself.
+     */
+    @Serializable
+    @SerialName("SeriesError.MergeSelfTarget")
+    data class MergeSelfTarget(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : SeriesError {
+        override val message: String = "A series can't be merged with itself."
+        override val code: String = "SERIES_MERGE_SELF_TARGET"
         override val isRetryable: Boolean = false
     }
 }
