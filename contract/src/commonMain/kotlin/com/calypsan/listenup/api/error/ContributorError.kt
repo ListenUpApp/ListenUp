@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotFound] → 404
  * - [InvalidInput] → 400
+ * - [MergeSelfTarget] → 400
+ * - [AliasNotFound] → 404
  */
 @Serializable
 sealed interface ContributorError : AppError {
@@ -50,6 +52,37 @@ sealed interface ContributorError : AppError {
     ) : ContributorError {
         override val message: String = "Some of the changes couldn't be saved."
         override val code: String = "CONTRIBUTOR_INVALID_INPUT"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Returned by [com.calypsan.listenup.api.ContributorService.mergeContributors] when
+     * called with `source == target`. A contributor can't be merged with itself.
+     */
+    @Serializable
+    @SerialName("ContributorError.MergeSelfTarget")
+    data class MergeSelfTarget(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ContributorError {
+        override val message: String = "A contributor can't be merged with itself."
+        override val code: String = "CONTRIBUTOR_MERGE_SELF_TARGET"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Returned by [com.calypsan.listenup.api.ContributorService.unmergeContributor] when
+     * the supplied `aliasName` isn't present on the target contributor's `aliases` array.
+     * The merge being undone may already have been undone, or the alias was never there.
+     */
+    @Serializable
+    @SerialName("ContributorError.AliasNotFound")
+    data class AliasNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ContributorError {
+        override val message: String = "That alias isn't attached to this contributor."
+        override val code: String = "CONTRIBUTOR_ALIAS_NOT_FOUND"
         override val isRetryable: Boolean = false
     }
 }
