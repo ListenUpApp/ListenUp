@@ -338,6 +338,11 @@
     <string name="contributor_find_on_audible">Find on Audible</string>
     <string name="contributor_from_your_library_this_action">from your library. This action cannot be undone.</string>
     <string name="contributor_links">Links</string>
+    <string name="contributor_merge_body">This contributor\'s books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target\'s biography, image, and other details win.</string>
+    <string name="contributor_merge_confirm">Merge</string>
+    <string name="contributor_merge_into">Merge into…</string>
+    <string name="contributor_merge_search_placeholder">Search contributors…</string>
+    <string name="contributor_merge_title">Merge into…</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>
     <string name="contributor_narrator">Narrator</string>
     <string name="contributor_new_image">New image</string>
@@ -453,6 +458,11 @@
     <string name="series_books_in_series">Books in Series</string>
     <string name="series_edit_series">Edit series</string>
     <string name="series_enter_a_description_for_this">Enter a description for this series...</string>
+    <string name="series_merge_body">All of this series\'s books will be re-pointed at the target. This series will be deleted; the target\'s description, cover, and other details win.</string>
+    <string name="series_merge_confirm">Merge</string>
+    <string name="series_merge_into">Merge into…</string>
+    <string name="series_merge_search_placeholder">Search series…</string>
+    <string name="series_merge_title">Merge into…</string>
     <string name="series_no_cover">No Cover</string>
     <string name="series_series_cover">Series cover</string>
     <string name="series_series_name">Series Name</string>

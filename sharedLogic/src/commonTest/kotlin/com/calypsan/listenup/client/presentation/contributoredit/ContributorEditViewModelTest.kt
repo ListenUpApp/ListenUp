@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.contributoredit
 
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
+import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
@@ -56,6 +57,10 @@ class ContributorEditViewModelTest :
                 mock {
                     every { observeForContributor(any()) } returns flowOf(emptyList())
                 }
+            val contributorDao: ContributorDao =
+                mock {
+                    every { observeAll() } returns flowOf(emptyList())
+                }
             val errorBus: ErrorBus = ErrorBus()
 
             fun build(): ContributorEditViewModel =
@@ -65,6 +70,7 @@ class ContributorEditViewModelTest :
                     imageRepository = imageRepository,
                     contributorEditRepository = contributorEditRepository,
                     contributorAliasDao = contributorAliasDao,
+                    contributorDao = contributorDao,
                     errorBus = errorBus,
                 )
         }

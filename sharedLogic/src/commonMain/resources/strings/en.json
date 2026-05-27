@@ -252,6 +252,11 @@
     "books_in_series": "Books in Series",
     "edit_series": "Edit series",
     "enter_a_description_for_this": "Enter a description for this series...",
+    "merge_body": "All of this series's books will be re-pointed at the target. This series will be deleted; the target's description, cover, and other details win.",
+    "merge_confirm": "Merge",
+    "merge_into": "Merge into…",
+    "merge_search_placeholder": "Search series…",
+    "merge_title": "Merge into…",
     "no_cover": "No Cover",
     "series_cover": "Series cover",
     "series_name": "Series Name"
@@ -295,6 +300,11 @@
     "remove_from_library": "This will remove this contributor from your library. Books will not be deleted.",
     "select_birth_date": "Select birth date",
     "select_death_date": "Select death date",
+    "merge_body": "This contributor's books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target's biography, image, and other details win.",
+    "merge_confirm": "Merge",
+    "merge_into": "Merge into…",
+    "merge_search_placeholder": "Search contributors…",
+    "merge_title": "Merge into…",
     "unmerge_aliasname": "Unmerge \"%1$s\"?",
     "unmerge_body": "This will split \"%1$s\" back into its own contributor. Any books credited as \"%1$s\" will be re-linked to the new contributor.",
     "unmerge_confirm": "Unmerge"

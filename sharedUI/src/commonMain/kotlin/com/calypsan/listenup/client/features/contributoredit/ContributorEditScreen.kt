@@ -7,15 +7,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,9 +52,11 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
+import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorBackdrop
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorIdentityHeader
+import com.calypsan.listenup.client.features.contributoredit.components.ContributorMergeDialog
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorStudioCard
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
@@ -53,6 +67,7 @@ import com.calypsan.listenup.client.util.rememberImagePicker
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_discard
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
@@ -64,6 +79,7 @@ import listenup.composeapp.generated.resources.contributor_dates
 import listenup.composeapp.generated.resources.contributor_death_date
 import listenup.composeapp.generated.resources.contributor_enter_a_biography
 import listenup.composeapp.generated.resources.contributor_links
+import listenup.composeapp.generated.resources.contributor_merge_into
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
 import com.calypsan.listenup.core.Success
@@ -97,6 +113,7 @@ fun ContributorEditScreen(
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.navActions.collect { navAction ->
@@ -108,6 +125,7 @@ fun ContributorEditScreen(
     }
 
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    var showMergeDialog by remember { mutableStateOf(false) }
 
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
@@ -177,6 +195,17 @@ fun ContributorEditScreen(
                         },
                         modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding()),
                     )
+
+                    // Floating overflow menu (parallel to back button inside identity header)
+                    OverflowMenu(
+                        surfaceColor = surfaceColor,
+                        onMergeClick = { showMergeDialog = true },
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .padding(16.dp),
+                    )
                 }
             }
         }
@@ -190,6 +219,64 @@ fun ContributorEditScreen(
             },
             onKeepEditing = { showUnsavedChangesDialog = false },
         )
+    }
+
+    if (showMergeDialog) {
+        ContributorMergeDialog(
+            candidates = mergeCandidates,
+            query = state.mergeQuery,
+            onQueryChange = viewModel::onMergeQueryChange,
+            onConfirm = { targetId ->
+                showMergeDialog = false
+                viewModel.onEvent(ContributorEditUiEvent.MergeInto(targetId))
+            },
+            onDismiss = { showMergeDialog = false },
+        )
+    }
+}
+
+// =============================================================================
+// OVERFLOW MENU
+// =============================================================================
+
+@Composable
+private fun OverflowMenu(
+    surfaceColor: Color,
+    onMergeClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = { expanded = true },
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .background(
+                        color = surfaceColor.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                    ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = stringResource(Res.string.book_detail_more_options),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.contributor_merge_into)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
+                onClick = {
+                    expanded = false
+                    onMergeClick()
+                },
+            )
+        }
     }
 }
 
@@ -337,7 +424,14 @@ private fun SingleColumnCardsLayout(
             DatesCardContent(state = state, onEvent = onEvent)
         }
 
-        // TODO(books-c2): re-wire merge/unmerge when server-canonical merge ships.
+        // Aliases (renders nothing when empty)
+        AliasesSection(
+            aliases = state.aliases,
+            onUnmerge = { aliasName ->
+                onEvent(ContributorEditUiEvent.UnmergeAlias(aliasName))
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -382,7 +476,14 @@ private fun TwoColumnCardsLayout(
             }
         }
 
-        // TODO(books-c2): re-wire merge/unmerge when server-canonical merge ships.
+        // Aliases (renders nothing when empty)
+        AliasesSection(
+            aliases = state.aliases,
+            onUnmerge = { aliasName ->
+                onEvent(ContributorEditUiEvent.UnmergeAlias(aliasName))
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

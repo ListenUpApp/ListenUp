@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
+import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -17,14 +18,36 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** Maximum number of merge-target candidates surfaced in the picker dialog. */
+private const val MAX_MERGE_CANDIDATES = 30
+
+/** Idle timeout before stopping merge-candidate collection. */
+private const val STOP_TIMEOUT_MS = 5_000L
+
+/**
+ * Lightweight projection of a contributor as a merge-target candidate.
+ *
+ * Used by [ContributorEditViewModel.mergeCandidates] to populate the contributor
+ * merge picker dialog. [bookCount] is a placeholder (always `0`) until a
+ * per-contributor book-count query lands; the dialog hides it for now.
+ */
+data class ContributorCandidate(
+    val id: ContributorId,
+    val displayName: String,
+    val bookCount: Int,
+)
 
 /**
  * UI state for contributor editing screen.
@@ -47,6 +70,8 @@ data class ContributorEditUiState(
     // Alias management (Room-observed; updated reactively by SSE)
     val aliases: List<String> = emptyList(),
     val mergeInProgress: Boolean = false,
+    // Merge-target picker query (drives candidate filtering)
+    val mergeQuery: String = "",
     // Track if changes have been made
     val hasChanges: Boolean = false,
 )
@@ -137,6 +162,7 @@ sealed interface ContributorEditNavAction {
  * @property imageRepository Repository for image operations
  * @property contributorEditRepository RPC dispatcher for merge/unmerge
  * @property contributorAliasDao DAO for observing the contributor's aliases (Room is read truth)
+ * @property contributorDao DAO for browsing all contributors as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
  */
 class ContributorEditViewModel(
@@ -145,6 +171,7 @@ class ContributorEditViewModel(
     private val imageRepository: ImageRepository,
     private val contributorEditRepository: ContributorEditRepository,
     private val contributorAliasDao: ContributorAliasDao,
+    private val contributorDao: ContributorDao,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ContributorEditUiState>
@@ -152,6 +179,31 @@ class ContributorEditViewModel(
 
     private val _navActions = Channel<ContributorEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<ContributorEditNavAction> = _navActions.receiveAsFlow()
+
+    /**
+     * Candidates for the merge-target picker — all live contributors except the current
+     * one, filtered by [ContributorEditUiState.mergeQuery] (case-insensitive substring).
+     * Capped at [MAX_MERGE_CANDIDATES] to keep the dialog snappy.
+     */
+    val mergeCandidates: StateFlow<List<ContributorCandidate>> =
+        combine(state, contributorDao.observeAll()) { uiState, allContributors ->
+            val currentId = uiState.contributorId
+            val query = uiState.mergeQuery
+            allContributors
+                .asSequence()
+                .filter { it.deletedAt == null }
+                .filter { it.id.value != currentId }
+                .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
+                .sortedBy { it.name.lowercase() }
+                .take(MAX_MERGE_CANDIDATES)
+                .map { entity ->
+                    ContributorCandidate(
+                        id = entity.id,
+                        displayName = entity.name,
+                        bookCount = 0,
+                    )
+                }.toList()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     // Track original values for change detection
     private var originalName: String = ""
@@ -203,6 +255,14 @@ class ContributorEditViewModel(
 
             logger.debug { "Loaded contributor for editing: ${contributor.name}" }
         }
+    }
+
+    /**
+     * Update the merge-target picker's search query. The [mergeCandidates] Flow
+     * re-emits a filtered list whenever this changes.
+     */
+    fun onMergeQueryChange(query: String) {
+        state.update { it.copy(mergeQuery = query) }
     }
 
     /**

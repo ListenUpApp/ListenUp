@@ -21,10 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CardDefaults
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import androidx.compose.material3.Icon
@@ -59,6 +63,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.rememberCoverColors
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
+import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
@@ -68,6 +73,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.book_edit_change_cover
 import listenup.composeapp.generated.resources.common_description
@@ -77,6 +83,7 @@ import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
 import listenup.composeapp.generated.resources.series_enter_a_description_for_this
+import listenup.composeapp.generated.resources.series_merge_into
 import listenup.composeapp.generated.resources.series_no_cover
 import listenup.composeapp.generated.resources.series_series_cover
 import listenup.composeapp.generated.resources.series_series_name
@@ -103,6 +110,7 @@ fun SeriesEditScreen(
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.navActions.collect { navAction ->
@@ -113,6 +121,7 @@ fun SeriesEditScreen(
     }
 
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    var showMergeDialog by remember { mutableStateOf(false) }
 
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
@@ -186,6 +195,17 @@ fun SeriesEditScreen(
                         },
                         modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding()),
                     )
+
+                    // Floating overflow menu (parallel to back button inside identity header)
+                    OverflowMenu(
+                        surfaceColor = surfaceColor,
+                        onMergeClick = { showMergeDialog = true },
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .padding(16.dp),
+                    )
                 }
             }
         }
@@ -199,6 +219,64 @@ fun SeriesEditScreen(
             },
             onKeepEditing = { showUnsavedChangesDialog = false },
         )
+    }
+
+    if (showMergeDialog) {
+        SeriesMergeDialog(
+            candidates = mergeCandidates,
+            query = state.mergeQuery,
+            onQueryChange = viewModel::onMergeQueryChange,
+            onConfirm = { targetId ->
+                showMergeDialog = false
+                viewModel.onEvent(SeriesEditUiEvent.MergeInto(targetId))
+            },
+            onDismiss = { showMergeDialog = false },
+        )
+    }
+}
+
+// =============================================================================
+// OVERFLOW MENU
+// =============================================================================
+
+@Composable
+private fun OverflowMenu(
+    surfaceColor: Color,
+    onMergeClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = { expanded = true },
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .background(
+                        color = surfaceColor.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                    ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = stringResource(Res.string.book_detail_more_options),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.series_merge_into)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
+                onClick = {
+                    expanded = false
+                    onMergeClick()
+                },
+            )
+        }
     }
 }
 
