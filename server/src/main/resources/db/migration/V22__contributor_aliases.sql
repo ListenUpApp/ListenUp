@@ -40,6 +40,7 @@ CREATE VIRTUAL TABLE contributor_search USING fts5(
     description,
     aliases,
     content='',
+    contentless_delete=1,
     tokenize='unicode61 remove_diacritics 2'
 );
 
@@ -54,12 +55,11 @@ CREATE TRIGGER contributors_ai AFTER INSERT ON contributors BEGIN
     VALUES (new.rowid, new.name, new.sort_name, new.description, '');
 END;
 
--- AU: delete by rowid (contentless form; no content-table read), then insert the
--- updated row.  Re-derive aliases from contributor_aliases so an update to the
--- contributors row never wipes FTS aliases that the application already indexed.
+-- AU: delete by rowid (contentless_delete=1 idiom), then insert the updated row.
+-- Re-derive aliases from contributor_aliases so an update to the contributors row
+-- never silently wipes FTS aliases that the application already indexed.
 CREATE TRIGGER contributors_au AFTER UPDATE ON contributors BEGIN
-    INSERT INTO contributor_search(contributor_search, rowid)
-    VALUES ('delete', old.rowid);
+    DELETE FROM contributor_search WHERE rowid = old.rowid;
     INSERT INTO contributor_search(rowid, name, sort_name, description, aliases)
     VALUES (new.rowid, new.name, new.sort_name, new.description,
         (SELECT COALESCE(GROUP_CONCAT(alias, ' '), '') FROM contributor_aliases WHERE contributor_id = new.id));
@@ -67,8 +67,7 @@ END;
 
 -- AD: contributor deleted — cascade will remove contributor_aliases rows; remove FTS row.
 CREATE TRIGGER contributors_ad AFTER DELETE ON contributors BEGIN
-    INSERT INTO contributor_search(contributor_search, rowid)
-    VALUES ('delete', old.rowid);
+    DELETE FROM contributor_search WHERE rowid = old.rowid;
 END;
 
 -- Backfill name/sort_name/description from existing rows; aliases seeded empty.
