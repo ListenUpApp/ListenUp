@@ -4,18 +4,15 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookAudioFilePayload
-import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -53,7 +50,7 @@ class BookServiceImplTest :
                         db = db,
                     )
                 runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
 
                     val result = service.getBook(BookId("b1"))
 
@@ -124,9 +121,9 @@ class BookServiceImplTest :
                         db = db,
                     )
                 runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
-                    repo.upsert(bookFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
+                    repo.upsert(bookPayloadFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
+                    repo.upsert(bookPayloadFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
 
                     val result = service.searchBooks("Kings", limit = 50)
 
@@ -161,9 +158,9 @@ class BookServiceImplTest :
                         db = db,
                     )
                 runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
-                    repo.upsert(bookFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
+                    repo.upsert(bookPayloadFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
+                    repo.upsert(bookPayloadFixture(id = "b3", title = "Mistborn", rootRelPath = "Sanderson/Mistborn"))
 
                     val result = service.searchBooks("Radiance", limit = 50)
 
@@ -198,8 +195,8 @@ class BookServiceImplTest :
                         db = db,
                     )
                 runTest {
-                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
+                    repo.upsert(bookPayloadFixture(id = "b2", title = "Words of Radiance", rootRelPath = "Sanderson/Words of Radiance"))
 
                     val result = service.searchBooks("", limit = 50)
 
@@ -209,56 +206,3 @@ class BookServiceImplTest :
             }
         }
     })
-
-private fun bookFixture(
-    id: String,
-    title: String,
-    rootRelPath: String = "Sanderson/Way of Kings",
-): BookSyncPayload =
-    BookSyncPayload(
-        id = id,
-        libraryId = LibraryId("test-library"),
-        folderId = FolderId("test-folder"),
-        title = title,
-        sortTitle = title,
-        subtitle = null,
-        description = null,
-        publishYear = null,
-        publisher = null,
-        language = null,
-        isbn = null,
-        asin = null,
-        abridged = false,
-        explicit = false,
-        totalDuration = 3_600_000L,
-        cover = null,
-        rootRelPath = rootRelPath,
-        inode = null,
-        scannedAt = 1_730_000_000_000L,
-        // Contributors/series are left empty: these tests assert only on book
-        // identity and FTS title search. Junction-row writes require pre-resolved
-        // catalogue ids (see BookRepository.replaceContributors precondition);
-        // dedup-by-name coverage lives in ContributorRepositoryTest / SeriesRepositoryTest.
-        contributors = emptyList(),
-        series = emptyList(),
-        audioFiles =
-            listOf(
-                BookAudioFilePayload(
-                    id = "af1",
-                    index = 0,
-                    filename = "01.m4b",
-                    format = "m4b",
-                    codec = "aac",
-                    duration = 3_600_000L,
-                    size = 500_000_000L,
-                ),
-            ),
-        chapters =
-            listOf(
-                BookChapterPayload(id = "ch1", title = "Prologue", duration = 1_000_000L, startTime = 0L),
-            ),
-        revision = 0L,
-        updatedAt = 0L,
-        createdAt = 0L,
-        deletedAt = null,
-    )

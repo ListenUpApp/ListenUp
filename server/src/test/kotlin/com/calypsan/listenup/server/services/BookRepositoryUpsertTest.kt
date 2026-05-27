@@ -20,6 +20,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookSearchMapTable
+import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
@@ -430,48 +431,6 @@ private fun seedSeries(
         it[BookSeriesTable.clientOpId] = null
     }
 }
-
-private fun bookPayloadFixture(
-    id: String,
-    title: String,
-    rootRelPath: String = "books/$id",
-    contributors: List<BookContributorPayload> = emptyList(),
-    series: List<BookSeriesPayload> = emptyList(),
-    chapters: List<BookChapterPayload> = emptyList(),
-    audioFiles: List<BookAudioFilePayload> = emptyList(),
-    cover: CoverPayload? = null,
-): BookSyncPayload =
-    BookSyncPayload(
-        id = id,
-        libraryId = LibraryId("test-library"),
-        folderId = FolderId("test-folder"),
-        title = title,
-        sortTitle = null,
-        subtitle = null,
-        description = null,
-        publishYear = null,
-        publisher = null,
-        language = null,
-        isbn = null,
-        asin = null,
-        abridged = false,
-        explicit = false,
-        totalDuration = audioFiles.sumOf { it.duration },
-        cover = cover,
-        rootRelPath = rootRelPath,
-        inode = null,
-        scannedAt = 1_730_000_000_000L,
-        contributors = contributors,
-        series = series,
-        audioFiles = audioFiles,
-        chapters = chapters,
-        // The substrate authors the persisted revision/timestamps; the wire payload
-        // values here are placeholders for the test, ignored by writePayload.
-        revision = 0L,
-        updatedAt = 0L,
-        createdAt = 0L,
-        deletedAt = null,
-    )
 
 /**
  * Builds a minimal [AnalyzedBook] anchored at [rootRelPath] with one audio file,
