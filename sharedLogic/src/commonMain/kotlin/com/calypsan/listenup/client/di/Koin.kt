@@ -949,10 +949,10 @@ val syncModule =
             )
         }
 
-        // BookEditRepository for book editing operations (offline-first, SOLID: domain interface)
+        // BookEditRepository — pure RPC dispatcher; SSE echoes write back into Room.
         single<com.calypsan.listenup.client.domain.repository.BookEditRepository> {
             BookEditRepositoryImpl(
-                bookDao = get(),
+                bookRpcFactory = get(),
             )
         }
 

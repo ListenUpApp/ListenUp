@@ -1,15 +1,18 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
-import com.calypsan.listenup.client.domain.repository.BookContributorInput
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
-import com.calypsan.listenup.client.domain.repository.BookSeriesInput
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -134,33 +137,41 @@ open class UpdateBookUseCase(
         logger.debug { "Updating metadata for book ${current.bookId}" }
 
         val metadata = current.metadata
-        return bookEditRepository.updateBook(
-            bookId = current.bookId,
-            title = metadata.title,
-            sortTitle = metadata.sortTitle.ifBlank { null },
-            subtitle = metadata.subtitle.ifBlank { null },
-            description = metadata.description.ifBlank { null },
-            publishYear = metadata.publishYear.ifBlank { null },
-            publisher = metadata.publisher.ifBlank { null },
-            language = metadata.language,
-            isbn = metadata.isbn.ifBlank { null },
-            asin = metadata.asin.ifBlank { null },
-            abridged = metadata.abridged,
-        )
+        val patch =
+            BookUpdate(
+                title = metadata.title,
+                sortTitle = metadata.sortTitle.ifBlank { null },
+                subtitle = metadata.subtitle.ifBlank { null },
+                description = metadata.description.ifBlank { null },
+                publisher = metadata.publisher.ifBlank { null },
+                publishYear = metadata.publishYear.ifBlank { null }?.toIntOrNull(),
+                language = metadata.language,
+                isbn = metadata.isbn.ifBlank { null },
+                asin = metadata.asin.ifBlank { null },
+                abridged = metadata.abridged,
+            )
+        return bookEditRepository.updateBook(BookId(current.bookId), patch)
     }
 
     private suspend fun updateContributors(current: BookUpdateRequest): AppResult<Unit> {
         logger.debug { "Updating contributors for book ${current.bookId}" }
 
+        // Wire DTO is one row per (contributor, role); editable model holds a Set<ContributorRole>.
+        // Flatten, assigning sequential positions for stable ordering on the server.
         val contributorInputs =
-            current.contributors.map { editable ->
-                BookContributorInput(
-                    name = editable.name,
-                    roles = editable.roles.map { it.apiValue },
-                )
-            }
+            current.contributors
+                .flatMap { editable ->
+                    editable.roles.map { role -> editable to role }
+                }.mapIndexed { index, (editable, role) ->
+                    BookContributorInput(
+                        id = editable.id?.let { ContributorId(it) },
+                        name = editable.name,
+                        role = role.apiValue,
+                        position = index,
+                    )
+                }
 
-        return bookEditRepository.setBookContributors(current.bookId, contributorInputs)
+        return bookEditRepository.setBookContributors(BookId(current.bookId), contributorInputs)
     }
 
     private suspend fun updateSeries(current: BookUpdateRequest): AppResult<Unit> {
@@ -169,12 +180,13 @@ open class UpdateBookUseCase(
         val seriesInputs =
             current.series.map { editable ->
                 BookSeriesInput(
+                    id = editable.id?.let { SeriesId(it) },
                     name = editable.name,
-                    sequence = editable.sequence?.toFloatOrNull(),
+                    position = editable.sequence?.toDoubleOrNull(),
                 )
             }
 
-        return bookEditRepository.setBookSeries(current.bookId, seriesInputs)
+        return bookEditRepository.setBookSeries(BookId(current.bookId), seriesInputs)
     }
 
     private suspend fun updateGenres(current: BookUpdateRequest): AppResult<Unit> {
