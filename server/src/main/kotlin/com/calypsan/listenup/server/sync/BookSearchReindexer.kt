@@ -7,18 +7,16 @@ import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
- * Service-layer reindexer for the `book_search.tags` FTS5 column.
+ * Service-layer reindexer for the `book_search` FTS5 table.
  *
  * `book_search` is a contentless FTS5 table with `contentless_delete=1` (see V9/V21
  * migrations). The application layer owns all FTS population — no triggers keep
- * `book_search` in sync. [BookSearchReindexer] is the sole writer for the `tags`
- * column.
+ * `book_search` in sync. [BookSearchReindexer] is the sole writer for the entire
+ * FTS5 row (title, subtitle, description, contributor_names, series_names, tags).
  *
- * Each call reads the live (non-tombstoned) tag names for the target book via
- * [BookTagRepository] + [TagRepository], then uses the FTS5
- * `DELETE` + re-insert idiom required by `contentless_delete=1` tables. The other
- * columns (`title`, `subtitle`, etc.) are read back from the source tables so the
- * re-insert carries all columns verbatim with only the `tags` column updated.
+ * Each call reads the live (non-tombstoned) state for the target book from all
+ * source tables, then uses the FTS5 `DELETE` + re-insert idiom required by
+ * `contentless_delete=1` tables.
  *
  * **Why service-layer and not a SQL trigger?** The spec chose application-layer
  * reindexing for testability and decoupling — a trigger cannot join across
@@ -31,17 +29,18 @@ class BookSearchReindexer(
     private val db: Database,
 ) {
     /**
-     * Recomputes the `tags` column in `book_search` for [bookId].
+     * Recomputes the `book_search` FTS5 row for [bookId] from the live source tables.
      *
-     * Pulls all non-tombstoned junction rows for the book, resolves each to a
-     * live (non-tombstoned) tag name, concatenates with `" "` separator, and
-     * writes the result into `book_search`. Books with no tags get an empty
-     * string — FTS5 MATCH on `tags` with no content correctly returns nothing.
+     * `book_search` is a contentless FTS5 table with `contentless_delete=1` (V9/V21);
+     * the application layer owns all FTS population. This method reads the current state
+     * from `books`, `book_contributors → contributors`, `book_series_memberships →
+     * book_series`, and `book_tags → tags`, then DELETE + re-INSERTs the FTS row (the
+     * FTS5 idiom for `contentless_delete=1`).
      *
-     * Safe to call when the book has no `book_search_map` row (e.g. never scanned,
-     * or tombstoned) — the SQL is a no-op in those cases.
+     * Safe to call when the book has no `book_search_map` row (never scanned, or
+     * tombstoned) — the SQL is a no-op in those cases.
      */
-    suspend fun reindexBookTags(bookId: String) {
+    suspend fun reindexBook(bookId: String) {
         // Resolve live tag names for this book.
         val junctions = bookTagRepository.findAllForBook(bookId)
         val tagNames =
@@ -86,7 +85,7 @@ class BookSearchReindexer(
     suspend fun reindexAllBooksForTag(tagId: String) {
         val bookIds = bookTagRepository.findBookIdsForTag(tagId)
         for (bookId in bookIds) {
-            reindexBookTags(bookId)
+            reindexBook(bookId)
         }
     }
 
@@ -97,18 +96,14 @@ class BookSearchReindexer(
      * (on name / sortName change) and `deleteContributor` (after junction hard-delete).
      *
      * Reads affected book IDs from [com.calypsan.listenup.server.db.BookContributorTable].
-     * Each per-book reindex re-pulls `contributor_names` from source via the existing
-     * [reindexBookTags] machinery — the FTS row picks up the current contributor list.
-     *
-     * **Naming note:** [reindexBookTags] is historical; the function actually reindexes
-     * the entire `book_search` row. Rename deferred to a future cleanup.
+     * Each per-book reindex re-pulls `contributor_names` from source via [reindexBook].
      */
     suspend fun reindexAllBooksForContributor(contributorId: String) {
         val bookIds = suspendTransaction(db) {
             com.calypsan.listenup.server.db.BookContributorTable.bookIdsForContributor(contributorId)
         }
         for (bookId in bookIds) {
-            reindexBookTags(bookId)
+            reindexBook(bookId)
         }
     }
 
@@ -121,7 +116,7 @@ class BookSearchReindexer(
             com.calypsan.listenup.server.db.BookSeriesMembershipTable.bookIdsForSeries(seriesId)
         }
         for (bookId in bookIds) {
-            reindexBookTags(bookId)
+            reindexBook(bookId)
         }
     }
 
