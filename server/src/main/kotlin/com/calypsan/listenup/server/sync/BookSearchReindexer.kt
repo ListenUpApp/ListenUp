@@ -12,7 +12,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * `book_search` is a contentless FTS5 table with `contentless_delete=1` (see V9/V21
  * migrations). The application layer owns all FTS population — no triggers keep
  * `book_search` in sync. [BookSearchReindexer] is the sole writer for the entire
- * FTS5 row (title, subtitle, description, contributor_names, series_names, tags).
+ * FTS5 row (title, subtitle, description, contributor_names, series_names, tags,
+ * genres).
  *
  * Each call reads the live (non-tombstoned) state for the target book from all
  * source tables, then uses the FTS5 `DELETE` + re-insert idiom required by
@@ -58,12 +59,16 @@ class BookSearchReindexer(
             // all columns — FTS5 contentless tables don't store the original text.
             val existing = readExistingFtsRow(tx, rowid)
 
+            // Read live genre names via book_genres JOIN genres; tombstoned genres
+            // are filtered via `g.deleted_at IS NULL`. Space-joined for FTS5 tokenisation.
+            val genresValue = readGenreNames(tx, bookId).joinToString(" ")
+
             // FTS5 contentless_delete=1: delete old tokens first, then re-insert full row.
             tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
             tx.exec(
                 stmt =
-                    "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
-                        "VALUES ($rowid, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags, genres) " +
+                        "VALUES ($rowid, ?, ?, ?, ?, ?, ?, ?)",
                 args =
                     listOf(
                         TextColumnType() to (existing?.title ?: ""),
@@ -72,6 +77,7 @@ class BookSearchReindexer(
                         TextColumnType() to (existing?.contributorNames ?: ""),
                         TextColumnType() to (existing?.seriesNames ?: ""),
                         TextColumnType() to tagsValue,
+                        TextColumnType() to genresValue,
                     ),
             )
         }
@@ -114,6 +120,44 @@ class BookSearchReindexer(
     suspend fun reindexAllBooksForSeries(seriesId: String) {
         val bookIds = suspendTransaction(db) {
             com.calypsan.listenup.server.db.BookSeriesMembershipTable.bookIdsForSeries(seriesId)
+        }
+        for (bookId in bookIds) {
+            reindexBook(bookId)
+        }
+    }
+
+    /**
+     * Reindexes every book that currently has a live junction row referencing
+     * [genreId]. Called by [com.calypsan.listenup.server.api.GenreServiceImpl]
+     * after `updateGenre` (on name change), `deleteGenre`, `mergeGenres`, and
+     * `mapUnmappedToGenre` — operations that change either the genre's display
+     * name or the set of books linked to it.
+     *
+     * Reads affected book IDs from [com.calypsan.listenup.server.db.BookGenreTable].
+     * Each per-book reindex re-pulls `genres` from source via [reindexBook].
+     */
+    suspend fun reindexAllBooksForGenre(genreId: String) {
+        val bookIds = suspendTransaction(db) {
+            com.calypsan.listenup.server.db.BookGenreTable.bookIdsForGenre(genreId)
+        }
+        for (bookId in bookIds) {
+            reindexBook(bookId)
+        }
+    }
+
+    /**
+     * Reindexes every book linked to any live genre whose materialized path
+     * equals [pathPrefix] or starts with `pathPrefix + "/"`. Called by
+     * `moveGenre` (subtree reparent) — the descendant rows' paths changed but
+     * each book's junction set did not; per-book reindex refreshes display.
+     *
+     * Uses the same `/fic` vs `/fiction` collision-safe predicate as
+     * [com.calypsan.listenup.server.db.BookGenreTable.booksForGenrePrefix]
+     * (`g.path = ? OR g.path LIKE ? || '/%'`).
+     */
+    suspend fun reindexAllBooksForSubtree(pathPrefix: String) {
+        val bookIds = suspendTransaction(db) {
+            com.calypsan.listenup.server.db.BookGenreTable.booksForGenrePrefix(pathPrefix, Int.MAX_VALUE)
         }
         for (bookId in bookIds) {
             reindexBook(bookId)
@@ -174,6 +218,28 @@ class BookSearchReindexer(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Reads the live (non-tombstoned) genre names linked to [bookId] via the
+     * `book_genres` junction. Sorted by name for deterministic FTS content.
+     */
+    private fun readGenreNames(
+        tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
+        bookId: String,
+    ): List<String> {
+        val names = mutableListOf<String>()
+        tx.exec(
+            stmt =
+                "SELECT g.name FROM book_genres bg " +
+                    "JOIN genres g ON g.id = bg.genre_id " +
+                    "WHERE bg.book_id = ? AND g.deleted_at IS NULL " +
+                    "ORDER BY g.name",
+            args = listOf(TextColumnType() to bookId),
+        ) { rs ->
+            while (rs.next()) names.add(rs.getString(1))
+        }
+        return names
+    }
 
     private fun resolveRowid(
         tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
