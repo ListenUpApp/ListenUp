@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.dto.MergeSeriesBody
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.SeriesResources
@@ -18,11 +19,12 @@ import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
+import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
 /**
- * REST surface for [SeriesService]. Four endpoints:
+ * REST surface for [SeriesService]. Five endpoints:
  *
  *  - `GET /api/v1/series/{id}` — returns the full [SeriesSyncPayload] for the
  *    given id, or null when no series with that id exists. HTTP 200 on both.
@@ -34,6 +36,8 @@ import io.ktor.server.routing.Route
  *    HTTP 204 on success.
  *  - `DELETE /api/v1/series/{id}` — hard-deletes the series and removes all
  *    junction rows. HTTP 204 on success.
+ *  - `POST /api/v1/series/merge` — merges source into target series. HTTP 204
+ *    on success.
  *
  * All endpoints require JWT authentication (mounted inside the authenticate block
  * in Application.kt).
@@ -69,6 +73,14 @@ fun Route.seriesRoutes(seriesService: SeriesService) {
 
     delete<SeriesResources.Detail> { res ->
         when (val result = seriesService.deleteSeries(SeriesId(res.id))) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    post<SeriesResources.Merge> {
+        val body = call.receive<MergeSeriesBody>()
+        when (val result = seriesService.mergeSeries(body.source, body.target)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
