@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -118,6 +119,7 @@ class ContributorEditViewModel(
     private val contributorRepository: ContributorRepository,
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<ContributorEditUiState>
         field = MutableStateFlow(ContributorEditUiState())
@@ -253,6 +255,7 @@ class ContributorEditViewModel(
                         }
 
                         is Failure -> {
+                            errorBus.emit(saveResult.error)
                             logger.error { "Failed to save contributor image locally: ${saveResult.message}" }
                             // Still mark upload as successful since server has the image
                             state.update {
@@ -266,6 +269,7 @@ class ContributorEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     logger.error { "Failed to upload contributor image: ${result.message}" }
                     state.update {
                         it.copy(
@@ -323,6 +327,7 @@ class ContributorEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     logger.error { "Failed to save contributor: ${result.message}" }
                     state.update {
                         it.copy(

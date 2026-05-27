@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.presentation.bookedit.delegates.ContributorE
 import com.calypsan.listenup.client.presentation.bookedit.delegates.CoverUploadDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.GenreTagEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.SeriesEditDelegate
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +51,7 @@ class BookEditViewModel(
     contributorRepository: ContributorRepository,
     seriesRepository: SeriesRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Use traditional pattern for mutable state shared with delegates
     private val _state = MutableStateFlow(BookEditUiState())
@@ -90,6 +92,7 @@ class BookEditViewModel(
             state = _state,
             imageStagingRepository = imageStagingRepository,
             scope = viewModelScope,
+            errorBus = errorBus,
             onChangesMade = ::updateHasChanges,
         )
 
@@ -156,6 +159,7 @@ class BookEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     _state.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
@@ -402,6 +406,7 @@ class BookEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     _state.update {
                         it.copy(isSaving = false, error = result.message)
                     }

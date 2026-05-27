@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -46,12 +47,14 @@ class ContributorEditViewModelTest :
             val contributorRepository: ContributorRepository = mock()
             val updateContributorUseCase: UpdateContributorUseCase = mock()
             val imageRepository: ImageRepository = mock()
+            val errorBus: ErrorBus = ErrorBus()
 
             fun build(): ContributorEditViewModel =
                 ContributorEditViewModel(
                     contributorRepository = contributorRepository,
                     updateContributorUseCase = updateContributorUseCase,
                     imageRepository = imageRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -186,6 +189,33 @@ class ContributorEditViewModelTest :
 
                 // Then - error should be shown (ViewModel prepends "Failed to save: ")
                 viewModel.state.value.error shouldBe "Failed to save: Network error"
+            }
+        }
+
+        test("save failure emits typed AppError to ErrorBus for global snackbar") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
+                    Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Network error"),
+                    )
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("Stephen Edwin King"))
+
+                // When / Then
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+                    awaitItem().message shouldBe "Network error"
+                }
             }
         }
     })

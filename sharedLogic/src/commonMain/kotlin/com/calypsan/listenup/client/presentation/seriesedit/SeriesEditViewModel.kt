@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -105,6 +106,7 @@ class SeriesEditViewModel(
     private val updateSeriesUseCase: UpdateSeriesUseCase,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
         field = MutableStateFlow(SeriesEditUiState())
@@ -247,6 +249,7 @@ class SeriesEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
                     state.update {
                         it.copy(
@@ -333,6 +336,7 @@ class SeriesEditViewModel(
                 }
 
                 is Failure -> {
+                    errorBus.emit(result.error)
                     logger.error { "Failed to save series: ${result.message}" }
                     state.update { it.copy(isSaving = false, error = "Failed to save: ${result.message}") }
                 }
