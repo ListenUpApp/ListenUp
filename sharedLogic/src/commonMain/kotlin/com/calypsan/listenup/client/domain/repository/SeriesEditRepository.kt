@@ -28,4 +28,19 @@ interface SeriesEditRepository {
      * affected books and the series; clients update Room reactively.
      */
     suspend fun deleteSeries(id: SeriesId): AppResult<Unit>
+
+    /**
+     * Merges series [source] into series [target]. After SSE delivery:
+     * - All books in source's series now show target's series.
+     * - Source is soft-deleted.
+     *
+     * Server-canonical — no optimistic Room writes.
+     *
+     * Returns [com.calypsan.listenup.api.error.SeriesError.MergeSelfTarget] when `source == target`.
+     * Returns [com.calypsan.listenup.api.error.SeriesError.NotFound] when either is missing.
+     */
+    suspend fun mergeSeries(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit>
 }

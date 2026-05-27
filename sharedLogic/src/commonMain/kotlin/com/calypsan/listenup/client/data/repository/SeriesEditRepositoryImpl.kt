@@ -33,6 +33,11 @@ class SeriesEditRepositoryImpl(
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> =
         rpcCallUnit { seriesRpcFactory.seriesService().deleteSeries(id) }
 
+    override suspend fun mergeSeries(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit> = rpcCallUnit { seriesRpcFactory.seriesService().mergeSeries(source, target) }
+
     /**
      * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
      * Re-throws [CancellationException]; all other throwables become [AppResult.Failure]
