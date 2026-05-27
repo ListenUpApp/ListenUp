@@ -1,13 +1,14 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
 import app.cash.turbine.test
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -40,6 +41,7 @@ class SeriesEditViewModelTest :
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val seriesEditRepository: SeriesEditRepository = mock()
             val errorBus: ErrorBus = ErrorBus()
 
             fun build(): SeriesEditViewModel =
@@ -48,6 +50,7 @@ class SeriesEditViewModelTest :
                     updateSeriesUseCase = updateSeriesUseCase,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    seriesEditRepository = seriesEditRepository,
                     errorBus = errorBus,
                 )
         }

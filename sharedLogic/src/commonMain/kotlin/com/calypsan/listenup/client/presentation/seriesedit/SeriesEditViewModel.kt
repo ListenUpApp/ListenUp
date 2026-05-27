@@ -2,13 +2,16 @@ package com.calypsan.listenup.client.presentation.seriesedit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
@@ -41,6 +44,8 @@ data class SeriesEditUiState(
     val pendingCoverFilename: String? = null,
     // Display metadata
     val bookCount: Int = 0,
+    // Merge (server-canonical; SSE delivers result)
+    val mergeInProgress: Boolean = false,
     // Track if changes have been made
     val hasChanges: Boolean = false,
 ) {
@@ -78,6 +83,11 @@ sealed interface SeriesEditUiEvent {
     data object CancelClicked : SeriesEditUiEvent
 
     data object ErrorDismissed : SeriesEditUiEvent
+
+    /** User chose to merge the current series into [targetId]. */
+    data class MergeInto(
+        val targetId: SeriesId,
+    ) : SeriesEditUiEvent
 }
 
 /**
@@ -94,18 +104,22 @@ sealed interface SeriesEditNavAction {
  * - Loading series data for editing
  * - Saving metadata changes
  * - Cover image staging and upload
+ * - Server-canonical merge via [SeriesEditRepository]
  * - Tracking unsaved changes
  *
  * @property seriesRepository Repository for loading series data
  * @property updateSeriesUseCase Use case for saving series changes
  * @property imageRepository Repository for persistent cover image operations
  * @property imageStagingRepository Repository for staging cover image operations
+ * @property seriesEditRepository RPC dispatcher for merge
+ * @property errorBus Global error bus for snackbar emissions
  */
 class SeriesEditViewModel(
     private val seriesRepository: SeriesRepository,
     private val updateSeriesUseCase: UpdateSeriesUseCase,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
+    private val seriesEditRepository: SeriesEditRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
@@ -195,6 +209,49 @@ class SeriesEditViewModel(
 
             is SeriesEditUiEvent.ErrorDismissed -> {
                 state.update { it.copy(error = null) }
+            }
+
+            is SeriesEditUiEvent.MergeInto -> {
+                mergeInto(event.targetId)
+            }
+        }
+    }
+
+    /**
+     * Merge the current series into [targetId]. After SSE delivery the source is
+     * soft-deleted and all of its books re-point at the target; we navigate back.
+     */
+    private fun mergeInto(targetId: SeriesId) {
+        val sourceId = state.value.seriesId
+        if (sourceId.isBlank()) {
+            logger.error { "Cannot merge: series ID is empty" }
+            return
+        }
+
+        viewModelScope.launch {
+            state.update { it.copy(mergeInProgress = true, error = null) }
+
+            when (val result = seriesEditRepository.mergeSeries(SeriesId(sourceId), targetId)) {
+                is Success -> {
+                    state.update { it.copy(mergeInProgress = false) }
+                    _navActions.trySend(SeriesEditNavAction.NavigateBack)
+                }
+
+                is Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to merge series: ${result.message}" }
+                    state.update {
+                        it.copy(
+                            mergeInProgress = false,
+                            error =
+                                when (result.error) {
+                                    is SeriesError.MergeSelfTarget -> "Can't merge a series with itself."
+                                    is SeriesError.NotFound -> "One of these series no longer exists."
+                                    else -> result.error.message
+                                },
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,14 +1,17 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
 import app.cash.turbine.test
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -18,6 +21,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -47,6 +51,11 @@ class ContributorEditViewModelTest :
             val contributorRepository: ContributorRepository = mock()
             val updateContributorUseCase: UpdateContributorUseCase = mock()
             val imageRepository: ImageRepository = mock()
+            val contributorEditRepository: ContributorEditRepository = mock()
+            val contributorAliasDao: ContributorAliasDao =
+                mock {
+                    every { observeForContributor(any()) } returns flowOf(emptyList())
+                }
             val errorBus: ErrorBus = ErrorBus()
 
             fun build(): ContributorEditViewModel =
@@ -54,6 +63,8 @@ class ContributorEditViewModelTest :
                     contributorRepository = contributorRepository,
                     updateContributorUseCase = updateContributorUseCase,
                     imageRepository = imageRepository,
+                    contributorEditRepository = contributorEditRepository,
+                    contributorAliasDao = contributorAliasDao,
                     errorBus = errorBus,
                 )
         }

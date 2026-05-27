@@ -310,6 +310,7 @@ val seriesPresentationModule =
                 updateSeriesUseCase = get(),
                 imageRepository = get(),
                 imageStagingRepository = get(),
+                seriesEditRepository = get<com.calypsan.listenup.client.domain.repository.SeriesEditRepository>(),
                 errorBus = get(),
             )
         }
@@ -338,6 +339,8 @@ val contributorPresentationModule =
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 updateContributorUseCase = get(),
                 imageRepository = get(),
+                contributorEditRepository = get<com.calypsan.listenup.client.domain.repository.ContributorEditRepository>(),
+                contributorAliasDao = get(),
                 errorBus = get(),
             )
         }
