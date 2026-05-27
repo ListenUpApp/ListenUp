@@ -294,7 +294,10 @@
     "remove_aliasname": "Remove %1$s",
     "remove_from_library": "This will remove this contributor from your library. Books will not be deleted.",
     "select_birth_date": "Select birth date",
-    "select_death_date": "Select death date"
+    "select_death_date": "Select death date",
+    "unmerge_aliasname": "Unmerge \"%1$s\"?",
+    "unmerge_body": "This will split \"%1$s\" back into its own contributor. Any books credited as \"%1$s\" will be re-linked to the new contributor.",
+    "unmerge_confirm": "Unmerge"
   },
   "metadata": {
     "apply_selected_metadata": "Apply Selected Metadata",

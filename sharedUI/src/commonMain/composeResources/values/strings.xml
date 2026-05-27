@@ -350,6 +350,9 @@
     <string name="contributor_remove_from_library">This will remove this contributor from your library. Books will not be deleted.</string>
     <string name="contributor_select_birth_date">Select birth date</string>
     <string name="contributor_select_death_date">Select death date</string>
+    <string name="contributor_unmerge_aliasname">Unmerge "%1$s"?</string>
+    <string name="contributor_unmerge_body">This will split "%1$s" back into its own contributor. Any books credited as "%1$s" will be re-linked to the new contributor.</string>
+    <string name="contributor_unmerge_confirm">Unmerge</string>
     <string name="discover_activity_feed">Activity Feed</string>
     <string name="discover_book_1_of_series">Book 1 of %1$s</string>
     <string name="discover_community_stats">Community Stats</string>
