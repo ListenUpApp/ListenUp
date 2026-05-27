@@ -179,6 +179,20 @@ internal class SeriesServiceImpl(
     }
 }
 
+/**
+ * Constructs a [SeriesService] backed by [SeriesServiceImpl]. Public so cross-module
+ * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`)
+ * can build the service without depending on the Koin graph or piercing the
+ * `internal` access on [SeriesServiceImpl]. Production wiring continues to construct
+ * the impl directly inside the books Koin module.
+ */
+fun createSeriesService(
+    seriesRepo: SeriesRepository,
+    bookRepo: BookRepository,
+    reindexer: BookSearchReindexer,
+    db: Database,
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
+
 private data class SeriesUpdateOutcome(
     val reindexNeeded: Boolean,
     val result: AppResult<Unit>,
