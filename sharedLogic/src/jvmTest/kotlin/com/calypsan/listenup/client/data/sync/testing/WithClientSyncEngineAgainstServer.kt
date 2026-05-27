@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -9,7 +10,9 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.PendingOperation
@@ -32,9 +35,13 @@ import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomai
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.api.createBookService
+import com.calypsan.listenup.server.api.createContributorService
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.sync.BookSearchReindexer
+import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.rpcguard.guard
@@ -140,6 +147,10 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   kotlinx.rpc [BookService] proxy connected to the harness's RPC route. Tests
  *   use this to exercise the client → RPC → server → SSE → Room round trip for
  *   book mutations (Books-C1+).
+ * @property contributorEditRepository client-side [ContributorEditRepository] backed
+ *   by a real kotlinx.rpc [ContributorService] proxy connected to the harness's RPC
+ *   route. Tests use this to exercise the client → RPC → server → SSE → Room round
+ *   trip for contributor mutations (the `deleteContributor` cascade in Books-C1+).
  * @property state observable engine state for ambient assertions
  * @property dispatcher the dispatcher routing SSE frames to handlers
  * @property queue the pending-operation queue for echo-match scenarios
@@ -159,6 +170,7 @@ data class ClientEngineScope(
     val serverLibraryFolderRepository: LibraryFolderRepository,
     val clientDatabase: ListenUpDatabase,
     val bookEditRepository: BookEditRepository,
+    val contributorEditRepository: ContributorEditRepository,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
@@ -195,6 +207,23 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 contributorRepo = serverRepos.contributorRepo,
                 seriesRepo = serverRepos.seriesRepo,
                 coverStorage = CoverStorage(),
+                db = serverDb,
+            )
+        // Books-C1 Task 30 needs `ContributorService` for the deleteContributor
+        // cascade test. The reindexer requires a [BookTagRepository] + [TagRepository]
+        // pair; both are already constructed inside `buildServerRepositories` (tagRepo
+        // for the Tags-domain tests), so we just instantiate `BookTagRepository` here.
+        val bookSearchReindexer =
+            BookSearchReindexer(
+                bookTagRepository = BookTagRepository(serverDb, bus, syncRegistry),
+                tagRepository = serverRepos.tagRepo,
+                db = serverDb,
+            )
+        val contributorService: ContributorService =
+            createContributorService(
+                contributorRepo = serverRepos.contributorRepo,
+                bookRepo = serverRepos.bookRepo,
+                reindexer = bookSearchReindexer,
                 db = serverDb,
             )
 
@@ -237,6 +266,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverRpc("/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
                         registerService<BookService> { guard(bookService) }
+                        registerService<ContributorService> { guard(contributorService) }
                     }
                 }
             }
@@ -257,6 +287,8 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             }
         val bookEditRepository: BookEditRepository =
             BookEditRepositoryImpl(bookRpcFactory = TestBookRpcFactory(testClient))
+        val contributorEditRepository: ContributorEditRepository =
+            ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
 
         try {
             val registry = ClientSyncDomainRegistry()
@@ -348,6 +380,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     serverLibraryFolderRepository = serverRepos.libraryFolderRepo,
                     clientDatabase = clientDb,
                     bookEditRepository = bookEditRepository,
+                    contributorEditRepository = contributorEditRepository,
                     state = state,
                     dispatcher = dispatcher,
                     queue = queue,
@@ -633,4 +666,34 @@ internal class TestBookRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<BookService>()
+}
+
+/**
+ * Test-only [ContributorRpcFactory] that opens a kotlinx.rpc [ContributorService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ *
+ * Mirrors [TestBookRpcFactory] exactly, substituting [ContributorService] for
+ * [BookService]. Used by the Books-C1 `ContributorDeleteCascadeE2ETest` to exercise
+ * the client → RPC → server → SSE → Room round trip for the contributor delete cascade.
+ */
+internal class TestContributorRpcFactory(
+    private val httpClient: HttpClient,
+) : ContributorRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: ContributorService? = null
+
+    override suspend fun contributorService(): ContributorService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): ContributorService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<ContributorService>()
 }

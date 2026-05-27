@@ -119,6 +119,21 @@ internal class ContributorServiceImpl(
     }
 }
 
+/**
+ * Constructs a [ContributorService] backed by [ContributorServiceImpl]. Public so
+ * cross-module test harnesses (e.g. `:sharedLogic:jvmTest`'s
+ * `WithClientSyncEngineAgainstServer`) can build the service without depending on
+ * the Koin graph or piercing the `internal` access on [ContributorServiceImpl].
+ * Production wiring continues to construct the impl directly inside the books
+ * Koin module.
+ */
+fun createContributorService(
+    contributorRepo: ContributorRepository,
+    bookRepo: BookRepository,
+    reindexer: BookSearchReindexer,
+    db: Database,
+): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db)
+
 private data class UpdateOutcome(
     val reindexNeeded: Boolean,
     val result: AppResult<Unit>,
