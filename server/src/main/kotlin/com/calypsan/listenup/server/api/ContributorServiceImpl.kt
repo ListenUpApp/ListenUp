@@ -54,6 +54,19 @@ private val logger = KotlinLogging.logger {}
  * and the target's `contributor_search.aliases` is refreshed; reindex failures
  * are logged and swallowed.
  *
+ * [unmergeContributor] is the inverse of [mergeContributors]: splits a single
+ * alias back into its own fresh contributor row. Creates a new contributor whose
+ * canonical name IS the alias (no enrichment carried over — the alias's
+ * previous history was just a name on someone else's row), re-links only the
+ * `book_contributors` rows whose `credited_as` matches the alias and clears
+ * that column (the new contributor's canonical name covers it now), re-upserts
+ * each affected book to bump revision and publish `book.Updated`, then removes
+ * the alias from the target. Every state mutation runs inside one
+ * [suspendTransaction]. Post-commit, both contributors' books reindex
+ * `book_search.contributor_names` and the target's `contributor_search.aliases`
+ * is refreshed; reindex failures are logged and swallowed. Returns the new
+ * contributor's id so callers can navigate to it.
+ *
  * This service is not user-scoped — it carries no [com.calypsan.listenup.server.auth.PrincipalProvider]
  * because contributor reads and edits are not per-user. Auth is enforced at the
  * route layer (JWT gate in Application.kt).
@@ -185,12 +198,92 @@ internal class ContributorServiceImpl(
     override suspend fun unmergeContributor(
         contributorId: ContributorId,
         aliasName: String,
-    ): AppResult<ContributorId> =
-        AppResult.Failure(
-            ContributorError.NotFound(
-                debugInfo = "unmergeContributor not yet implemented (Books-C2 Task 15)",
-            ),
-        )
+    ): AppResult<ContributorId> {
+        val result: AppResult<ContributorId> =
+            suspendTransaction(db) {
+                val targetPayload =
+                    contributorRepo.findById(contributorId.value)
+                        ?: return@suspendTransaction AppResult.Failure(
+                            ContributorError.NotFound(debugInfo = "target=${contributorId.value}"),
+                        )
+                if (aliasName !in targetPayload.aliases) {
+                    return@suspendTransaction AppResult.Failure(
+                        ContributorError.AliasNotFound(
+                            debugInfo = "alias=$aliasName target=${contributorId.value}",
+                        ),
+                    )
+                }
+
+                // 1. Create the fresh contributor whose canonical name IS the alias.
+                val newId =
+                    ContributorId(
+                        java.util.UUID
+                            .randomUUID()
+                            .toString(),
+                    )
+                val newPayload =
+                    ContributorSyncPayload(
+                        id = newId.value,
+                        name = aliasName,
+                        sortName = aliasName,
+                        revision = 0L,
+                        updatedAt = 0L,
+                        createdAt = 0L,
+                        deletedAt = null,
+                    )
+                when (val upsertResult = contributorRepo.upsert(newPayload)) {
+                    is AppResult.Success -> Unit
+                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
+                }
+
+                // 2. Snapshot affected books BEFORE the relink — afterwards the matching
+                // junction rows no longer have credited_as = aliasName.
+                val affectedBookIds =
+                    BookContributorTable.bookIdsForContributorWithCreditedAs(
+                        id = contributorId.value,
+                        aliasName = aliasName,
+                    )
+
+                // 3. Re-link those junction rows to newId, clearing credited_as.
+                BookContributorTable.relinkByCreditedAs(
+                    fromContributorId = contributorId.value,
+                    aliasName = aliasName,
+                    toContributorId = newId.value,
+                )
+
+                // 4. Re-upsert each affected book — bumps revision, publishes book.Updated.
+                for (bookId in affectedBookIds) {
+                    val payload = bookRepo.findById(BookId(bookId)) ?: continue
+                    when (val upsertResult = bookRepo.upsert(payload)) {
+                        is AppResult.Success -> Unit
+                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
+                    }
+                }
+
+                // 5. Remove the alias from target, re-upsert — publishes contributor.Updated(target).
+                when (
+                    val upsertResult =
+                        contributorRepo.upsert(targetPayload.copy(aliases = targetPayload.aliases - aliasName))
+                ) {
+                    is AppResult.Success -> AppResult.Success(newId)
+                    is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+                }
+            }
+        if (result is AppResult.Success) {
+            try {
+                reindexer.reindexAllBooksForContributor(contributorId.value)
+                reindexer.reindexAllBooksForContributor(result.data.value)
+                reindexer.reindexContributorAliases(contributorId.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) {
+                    "FTS reindex failed after unmerge of alias=$aliasName from ${contributorId.value}"
+                }
+            }
+        }
+        return result
+    }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
         val result: AppResult<Unit> =
