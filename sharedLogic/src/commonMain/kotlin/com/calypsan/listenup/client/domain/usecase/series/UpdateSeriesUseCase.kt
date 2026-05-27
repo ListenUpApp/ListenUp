@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.series
 
+import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -62,7 +64,8 @@ open class UpdateSeriesUseCase(
                         null
                     }
 
-                when (val result = seriesEditRepository.updateSeries(request.seriesId, name, description)) {
+                val patch = SeriesUpdate(name = name, description = description)
+                when (val result = seriesEditRepository.updateSeries(SeriesId(request.seriesId), patch)) {
                     is Success -> {
                         logger.info { "Series metadata updated" }
                     }

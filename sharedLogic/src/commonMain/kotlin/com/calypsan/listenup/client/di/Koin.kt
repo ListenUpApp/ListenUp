@@ -174,7 +174,7 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
-import com.calypsan.listenup.client.data.repository.SeriesEditRepository as SeriesEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 
 /**
  * Platform-specific storage module.
@@ -956,10 +956,10 @@ val syncModule =
             )
         }
 
-        // SeriesEditRepository for series editing operations (offline-first, SOLID: domain interface)
+        // SeriesEditRepository — pure RPC dispatcher (Books-C1).
         single<SeriesEditRepository> {
             SeriesEditRepositoryImpl(
-                seriesDao = get(),
+                seriesRpcFactory = get(),
             )
         }
 
