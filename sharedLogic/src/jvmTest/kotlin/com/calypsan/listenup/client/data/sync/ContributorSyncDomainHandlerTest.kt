@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -75,6 +76,112 @@ class ContributorSyncDomainHandlerTest :
             }
         }
 
+        test("a Created event mirrors payload.aliases into the contributor_aliases junction") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(
+                        payload(
+                            "c1",
+                            "Stephen King",
+                            aliases = listOf("Richard Bachman", "John Swithen"),
+                        ),
+                    ),
+                    isOwnEcho = false,
+                )
+
+                db.contributorAliasDao().getForContributor("c1") shouldBe
+                    listOf("John Swithen", "Richard Bachman")
+            }
+        }
+
+        test("an Updated event replaces the existing aliases with the wire list") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(
+                        payload(
+                            "c1",
+                            "Stephen King",
+                            aliases = listOf("Richard Bachman", "John Swithen"),
+                        ),
+                    ),
+                    isOwnEcho = false,
+                )
+
+                handler.onEvent(
+                    SyncEvent.Updated(
+                        id = "c1",
+                        revision = 2,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                        payload = payload("c1", "Stephen King", revision = 2, aliases = listOf("Beryl Evans")),
+                    ),
+                    isOwnEcho = false,
+                )
+
+                db.contributorAliasDao().getForContributor("c1") shouldBe listOf("Beryl Evans")
+            }
+        }
+
+        test("an Updated event with empty aliases clears the junction") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
+                    isOwnEcho = false,
+                )
+
+                handler.onEvent(
+                    SyncEvent.Updated(
+                        id = "c1",
+                        revision = 2,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                        payload = payload("c1", "Stephen King", revision = 2, aliases = emptyList()),
+                    ),
+                    isOwnEcho = false,
+                )
+
+                db.contributorAliasDao().getForContributor("c1").shouldBeEmpty()
+            }
+        }
+
+        test("a Deleted event clears the alias junction (soft delete does not cascade)") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
+                    isOwnEcho = false,
+                )
+
+                handler.onEvent(
+                    SyncEvent.Deleted(
+                        id = "c1",
+                        revision = 2,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                    ),
+                    isOwnEcho = false,
+                )
+
+                db.contributorDao().getById("c1")!!.deletedAt shouldBe 200L
+                db.contributorAliasDao().getForContributor("c1").shouldBeEmpty()
+            }
+        }
+
+        test("onCatchUpItem with isTombstone clears the alias junction") {
+            withHandler { handler, db ->
+                handler.onEvent(
+                    created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
+                    isOwnEcho = false,
+                )
+
+                handler.onCatchUpItem(
+                    payload("c1", "Stephen King", revision = 2, deletedAt = 200L),
+                    isTombstone = true,
+                )
+
+                db.contributorAliasDao().getForContributor("c1").shouldBeEmpty()
+            }
+        }
+
         test("handler self-registers under domainName 'contributors'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
@@ -112,6 +219,7 @@ private fun payload(
     name: String,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    aliases: List<String> = emptyList(),
 ) = ContributorSyncPayload(
     id = id,
     name = name,
@@ -120,4 +228,5 @@ private fun payload(
     updatedAt = 100L,
     createdAt = 1L,
     deletedAt = deletedAt,
+    aliases = aliases,
 )
