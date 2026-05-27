@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.LibraryError
@@ -88,6 +89,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is SeriesError -> toHttpStatus()
 
+        is GenreError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
@@ -118,6 +121,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is CoverError -> withCorrelationId(id)
         is ContributorError -> withCorrelationId(id)
         is SeriesError -> withCorrelationId(id)
+        is GenreError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -383,4 +387,26 @@ private fun SeriesError.withCorrelationId(id: String?): SeriesError =
         is SeriesError.NotFound -> copy(correlationId = id)
         is SeriesError.InvalidInput -> copy(correlationId = id)
         is SeriesError.MergeSelfTarget -> copy(correlationId = id)
+    }
+
+private fun GenreError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is GenreError.NotFound -> HttpStatusCode.NotFound
+        is GenreError.UnmappedStringNotFound -> HttpStatusCode.NotFound
+        is GenreError.InvalidInput -> HttpStatusCode.BadRequest
+        is GenreError.MergeSelfTarget -> HttpStatusCode.BadRequest
+        is GenreError.MoveSelfDescendant -> HttpStatusCode.BadRequest
+        is GenreError.HasDescendants -> HttpStatusCode.Conflict
+        is GenreError.SlugConflict -> HttpStatusCode.Conflict
+    }
+
+private fun GenreError.withCorrelationId(id: String?): GenreError =
+    when (this) {
+        is GenreError.NotFound -> copy(correlationId = id)
+        is GenreError.UnmappedStringNotFound -> copy(correlationId = id)
+        is GenreError.InvalidInput -> copy(correlationId = id)
+        is GenreError.MergeSelfTarget -> copy(correlationId = id)
+        is GenreError.MoveSelfDescendant -> copy(correlationId = id)
+        is GenreError.HasDescendants -> copy(correlationId = id)
+        is GenreError.SlugConflict -> copy(correlationId = id)
     }

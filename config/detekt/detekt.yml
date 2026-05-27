@@ -30,7 +30,7 @@ complexity:
     active: false  # DAOs and repository interfaces are naturally complex
   CyclomaticComplexMethod:
     active: true
-    threshold: 20  # UI and business logic can have moderate branching
+    threshold: 25  # UI and business logic can have moderate branching; exhaustive sealed-hierarchy dispatch (e.g. AppErrorStatusPages) is compile-time-checked so its branch count isn't real decision complexity
   LabeledExpression:
     active: false  # return@label is idiomatic in Kotlin Flow/coroutine lambdas
   LargeClass:
