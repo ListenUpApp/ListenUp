@@ -3,8 +3,8 @@ package com.calypsan.listenup.api.resources
 import io.ktor.resources.Resource
 
 /**
- * REST root for the series domain — parent for the nested [Detail] and
- * [Books] routes.
+ * REST root for the series domain — parent for the nested [Detail], [Books],
+ * and [Merge] routes.
  */
 @Resource("/api/v1/series")
 class SeriesResources {
@@ -32,5 +32,17 @@ class SeriesResources {
     class Books(
         val parent: SeriesResources = SeriesResources(),
         val id: String,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.SeriesService.mergeSeries] —
+     * `POST /api/v1/series/merge` merges the `source` series into the `target`
+     * series (body: `{ "source": "<id>", "target": "<id>" }`). Responds 204 on
+     * success, 404 when either series is missing, 400 when `source == target`.
+     * Requires JWT authentication.
+     */
+    @Resource("merge")
+    class Merge(
+        val parent: SeriesResources = SeriesResources(),
     )
 }

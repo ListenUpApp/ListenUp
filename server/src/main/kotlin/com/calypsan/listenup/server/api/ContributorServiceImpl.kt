@@ -86,6 +86,26 @@ internal class ContributorServiceImpl(
         return outcome.result
     }
 
+    override suspend fun mergeContributors(
+        source: ContributorId,
+        target: ContributorId,
+    ): AppResult<Unit> =
+        AppResult.Failure(
+            ContributorError.NotFound(
+                debugInfo = "mergeContributors not yet implemented (Books-C2 Task 14)",
+            ),
+        )
+
+    override suspend fun unmergeContributor(
+        contributorId: ContributorId,
+        aliasName: String,
+    ): AppResult<ContributorId> =
+        AppResult.Failure(
+            ContributorError.NotFound(
+                debugInfo = "unmergeContributor not yet implemented (Books-C2 Task 15)",
+            ),
+        )
+
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
         val result: AppResult<Unit> =
             suspendTransaction(db) {

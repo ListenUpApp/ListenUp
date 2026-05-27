@@ -86,6 +86,16 @@ internal class SeriesServiceImpl(
         return outcome.result
     }
 
+    override suspend fun mergeSeries(
+        source: SeriesId,
+        target: SeriesId,
+    ): AppResult<Unit> =
+        AppResult.Failure(
+            SeriesError.NotFound(
+                debugInfo = "mergeSeries not yet implemented (Books-C2 Task 16)",
+            ),
+        )
+
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         val result: AppResult<Unit> =
             suspendTransaction(db) {
