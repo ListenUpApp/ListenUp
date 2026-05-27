@@ -35,6 +35,8 @@ class AudiobookNotificationProvider(
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = NotificationChannels.PLAYBACK
 
+        private const val MAX_ARTWORK_CACHE = 8
+
         // Custom commands
         const val COMMAND_SKIP_BACK_30 = "listenup.SKIP_BACK_30"
         const val COMMAND_SKIP_FORWARD_30 = "listenup.SKIP_FORWARD_30"
@@ -70,6 +72,25 @@ class AudiobookNotificationProvider(
         icPause = resources.getIdentifier("ic_pause", "drawable", packageName)
     }
 
+    /** LRU artwork cache — Media3 re-emits createNotification on every state tick. */
+    private val artworkCache =
+        object : LinkedHashMap<String, android.graphics.Bitmap>(
+            MAX_ARTWORK_CACHE,
+            0.75f,
+            true, // access-order for LRU behavior
+        ) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, android.graphics.Bitmap>?) =
+                size > MAX_ARTWORK_CACHE
+        }
+
+    private fun cachedArtwork(
+        key: String,
+        decode: () -> android.graphics.Bitmap?,
+    ): android.graphics.Bitmap? =
+        synchronized(artworkCache) {
+            artworkCache[key] ?: decode()?.also { artworkCache[key] = it }
+        }
+
     override fun createNotification(
         mediaSession: MediaSession,
         customLayout: ImmutableList<CommandButton>,
@@ -104,12 +125,14 @@ class AudiobookNotificationProvider(
         // Cover art
         metadata.artworkUri?.let { uri ->
             val bitmap =
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { stream ->
-                        android.graphics.BitmapFactory.decodeStream(stream)
+                cachedArtwork(uri.toString()) {
+                    try {
+                        context.contentResolver.openInputStream(uri)?.use { stream ->
+                            android.graphics.BitmapFactory.decodeStream(stream)
+                        }
+                    } catch (e: Exception) {
+                        null
                     }
-                } catch (e: Exception) {
-                    null
                 }
             bitmap?.let { builder.setLargeIcon(it) }
         }

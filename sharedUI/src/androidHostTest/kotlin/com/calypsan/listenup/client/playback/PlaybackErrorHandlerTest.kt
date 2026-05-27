@@ -49,7 +49,6 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -446,7 +445,6 @@ private class FakeProgressTracker {
         object : ProgressTracker(
             downloadRepository = ThrowingDownloadRepository,
             listeningEventRepository = ThrowingListeningEventRepository,
-            syncApi = ThrowingSyncApiContract,
             positionRepository = repo,
             scope = CoroutineScope(Dispatchers.Unconfined),
         ) {}
@@ -581,75 +579,6 @@ private object ThrowingListeningEventRepository : ListeningEventRepository {
         startMs: Long,
         endMs: Long,
     ) = TODO("not used in handler test")
-}
-
-private object ThrowingSyncApiContract : SyncApiContract {
-    override suspend fun getManifest() = TODO("not used in handler test")
-
-    override suspend fun getBooks(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getAllBooks(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getSeries(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getAllSeries(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getContributors(
-        limit: Int,
-        cursor: String?,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getAllContributors(
-        limit: Int,
-        updatedAfter: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun submitListeningEvents(events: List<com.calypsan.listenup.client.data.remote.ListeningEventRequest>) = TODO("not used in handler test")
-
-    override suspend fun getContinueListening(limit: Int) = TODO("not used in handler test")
-
-    override suspend fun getAllProgress(updatedAfter: String?) = TODO("not used in handler test")
-
-    override suspend fun getBook(bookId: String) = TODO("not used in handler test")
-
-    override suspend fun getListeningEvents(sinceMs: Long?) = TODO("not used in handler test")
-
-    override suspend fun endPlaybackSession(
-        bookId: String,
-        durationMs: Long,
-    ) = TODO("not used in handler test")
-
-    override suspend fun getActiveSessions() = TODO("not used in handler test")
-
-    override suspend fun getReadingSessions() = TODO("not used in handler test")
-
-    override suspend fun markComplete(
-        bookId: String,
-        startedAt: String?,
-        finishedAt: String?,
-    ) = TODO("not used in handler test")
-
-    override suspend fun discardProgress(
-        bookId: String,
-        keepHistory: Boolean,
-    ) = TODO("not used in handler test")
-
-    override suspend fun restartBook(bookId: String) = TODO("not used in handler test")
 }
 
 // ── Stubs ─────────────────────────────────────────────────────────────────────

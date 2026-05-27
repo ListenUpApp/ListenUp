@@ -153,6 +153,7 @@ class PlaybackService : MediaLibraryService() {
             OkHttpClient
                 .Builder()
                 .addInterceptor(tokenProvider.createInterceptor())
+                .authenticator(tokenProvider.createAuthenticator())
                 .connectTimeout(30.seconds.toJavaDuration())
                 .readTimeout(0.seconds.toJavaDuration()) // No read timeout for streaming
                 .writeTimeout(30.seconds.toJavaDuration())
@@ -598,39 +599,25 @@ class PlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): MediaSession.ConnectionResult {
-            // Add custom commands to the session
             val customCommands =
                 AudiobookNotificationProvider.getCustomCommands() +
                     listOf(CustomActions.cycleSpeedCommand())
 
-            // For library browsers (Android Auto), use library connection result
-            val sessionCommands =
-                MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-                    .buildUpon()
-                    .apply { customCommands.forEach { add(it) } }
-                    .build()
-
-            // Create custom action buttons for Android Auto
-            // Limited to 3 custom actions by Android Auto guidelines
-            // Uses Media3 predefined icons (ICON_SKIP_BACK_30, ICON_SKIP_FORWARD_30)
-            // and custom icon for speed (ICON_UNDEFINED + setCustomIconResId)
+            // Limited to 3 custom actions by Android Auto guidelines.
             val customLayout =
                 listOf(
-                    // Skip back 30s - most common action while driving
                     CommandButton
                         .Builder(CommandButton.ICON_SKIP_BACK_30)
                         .setDisplayName("Back 30s")
                         .setSessionCommand(
                             SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30, Bundle.EMPTY),
                         ).build(),
-                    // Speed control - useful for long drives (custom icon)
                     CommandButton
                         .Builder(CommandButton.ICON_UNDEFINED)
                         .setDisplayName("Speed")
                         .setCustomIconResId(R.drawable.ic_speed)
                         .setSessionCommand(CustomActions.cycleSpeedCommand())
                         .build(),
-                    // Skip forward 30s
                     CommandButton
                         .Builder(CommandButton.ICON_SKIP_FORWARD_30)
                         .setDisplayName("Forward 30s")
@@ -639,11 +626,9 @@ class PlaybackService : MediaLibraryService() {
                         ).build(),
                 )
 
-            return MediaSession.ConnectionResult
-                .AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(sessionCommands)
-                .setCustomLayout(customLayout)
-                .build()
+            val trust = session.classifyController(controller)
+            logger.debug { "onConnect from ${controller.packageName} classified as $trust" }
+            return session.buildConnectionResultFor(trust, customCommands, customLayout)
         }
 
         // ========== Browse Operations ==========
@@ -653,6 +638,10 @@ class PlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> {
+            if (session.classifyController(browser) == ControllerTrust.UNKNOWN) {
+                logger.debug { "onGetLibraryRoot rejected for untrusted controller: ${browser.packageName}" }
+                return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_PERMISSION_DENIED))
+            }
             logger.debug { "onGetLibraryRoot" }
             val root = browseTreeProvider.getRoot()
             return Futures.immediateFuture(LibraryResult.ofItem(root, params))

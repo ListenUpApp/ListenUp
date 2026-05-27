@@ -21,9 +21,14 @@
         android:name="android.software.leanback"
         android:required="false" />
 
+    <!--
+        allowBackup disabled: no portable app state exists. Auth tokens are encrypted
+        with an Android KeyStore key (non-portable across devices), and library/server
+        data rehydrates from the self-hosted server on first launch.
+    -->
     <application
         android:name="com.calypsan.listenup.client.ListenUp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

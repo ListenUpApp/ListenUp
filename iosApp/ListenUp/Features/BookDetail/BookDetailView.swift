@@ -47,15 +47,15 @@ struct BookDetailView: View {
                 }
             }
         }
-        .onAppear {
-            if observer == nil {
-                let vm = deps.createBookDetailViewModel()
-                observer = BookDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator, downloadService: deps.downloadService)
-                observer?.loadBook(bookId: bookId)
-            }
+        .task(id: bookId) {
+            let vm = deps.createBookDetailViewModel()
+            let obs = BookDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator, downloadService: deps.downloadService)
+            observer = obs
+            obs.loadBook(bookId: bookId)
         }
         .onDisappear {
             observer?.stopObserving()
+            observer = nil
         }
     }
 

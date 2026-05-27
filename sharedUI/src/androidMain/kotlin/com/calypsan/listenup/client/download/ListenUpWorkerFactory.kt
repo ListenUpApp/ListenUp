@@ -55,9 +55,10 @@ class ListenUpWorkerFactory(
         }
         return when (workerClassName) {
             DownloadWorker::class.java.name -> {
-                // WorkerFactory.createWorker is non-suspending; runBlocking is required.
-                // By the time WorkManager dispatches a download, onboarding has completed
-                // and serverConfig.getActiveUrl() is non-null — no cold-start crash risk.
+                // runBlocking hits the cache primed at auth completion
+                // (ListenUp.onCreate's apiClientFactory.value.getClient() call). The only
+                // blocking case is the cold-race window between auth completion and
+                // pre-warm completion.
                 val httpClient = runBlocking { apiClientFactory.value.getClient() }
                 DownloadWorker(
                     appContext,

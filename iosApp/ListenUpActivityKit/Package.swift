@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ListenUpActivityKit",
-    platforms: [.iOS(.v18)],
+    platforms: [.iOS(.v18), .macOS(.v15)],
     products: [
         .library(name: "ListenUpActivityKit", targets: ["ListenUpActivityKit"]),
     ],

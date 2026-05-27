@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -42,7 +43,7 @@ class ListenUpShortcutManagerTest {
                 object : HomeRepository {
                     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = Success(emptyList())
 
-                    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningBook>> = flowOf(emptyList())
+                    override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                 },
             scope = CoroutineScope(Dispatchers.Unconfined),
         )

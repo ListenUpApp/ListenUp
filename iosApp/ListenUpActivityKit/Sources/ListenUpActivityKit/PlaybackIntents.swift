@@ -1,3 +1,4 @@
+#if os(iOS)
 import AppIntents
 
 /// Toggles play/pause from the Live Activity. `LiveActivityIntent.perform()`
@@ -42,3 +43,4 @@ public struct SkipBackwardIntent: LiveActivityIntent {
         return .result()
     }
 }
+#endif

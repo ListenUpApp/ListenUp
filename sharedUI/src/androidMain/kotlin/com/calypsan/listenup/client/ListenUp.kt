@@ -396,6 +396,7 @@ class ListenUp :
         get<CoroutineScope>().launch {
             val authSession = get<com.calypsan.listenup.client.domain.repository.AuthSession>()
             authSession.authState.first { it is AuthState.Authenticated }
+            get<com.calypsan.listenup.client.data.remote.ApiClientFactory>().getClient()
             get<BackgroundSyncScheduler>().schedule()
         }
     }
