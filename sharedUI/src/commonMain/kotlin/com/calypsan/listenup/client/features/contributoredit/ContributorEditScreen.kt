@@ -40,7 +40,6 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
-import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorBackdrop
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorIdentityHeader
@@ -59,7 +58,6 @@ import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
-import listenup.composeapp.generated.resources.contributor_also_known_as
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date
 import listenup.composeapp.generated.resources.contributor_dates
@@ -339,18 +337,7 @@ private fun SingleColumnCardsLayout(
             DatesCardContent(state = state, onEvent = onEvent)
         }
 
-        ContributorStudioCard(title = stringResource(Res.string.contributor_also_known_as)) {
-            AliasesSection(
-                aliases = state.aliases,
-                searchQuery = state.aliasSearchQuery,
-                searchResults = state.aliasSearchResults,
-                isSearching = state.aliasSearchLoading,
-                onSearchQueryChange = { onEvent(ContributorEditUiEvent.AliasSearchQueryChanged(it)) },
-                onAliasSelected = { onEvent(ContributorEditUiEvent.AliasSelected(it)) },
-                onAliasEntered = { onEvent(ContributorEditUiEvent.AliasEntered(it)) },
-                onRemoveAlias = { onEvent(ContributorEditUiEvent.RemoveAlias(it)) },
-            )
-        }
+        // TODO(books-c2): re-wire merge/unmerge when server-canonical merge ships.
     }
 }
 
@@ -372,11 +359,10 @@ private fun TwoColumnCardsLayout(
             BiographyCardContent(state = state, onEvent = onEvent)
         }
 
-        // Two-column grid
+        // Two-column grid: Links + Dates
         Row(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            // Left column: Links + Dates
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -384,31 +370,19 @@ private fun TwoColumnCardsLayout(
                 ContributorStudioCard(title = stringResource(Res.string.contributor_links)) {
                     LinksCardContent(state = state, onEvent = onEvent)
                 }
-
-                ContributorStudioCard(title = stringResource(Res.string.contributor_dates)) {
-                    DatesCardContent(state = state, onEvent = onEvent)
-                }
             }
 
-            // Right column: Aliases (can grow long)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                ContributorStudioCard(title = stringResource(Res.string.contributor_also_known_as)) {
-                    AliasesSection(
-                        aliases = state.aliases,
-                        searchQuery = state.aliasSearchQuery,
-                        searchResults = state.aliasSearchResults,
-                        isSearching = state.aliasSearchLoading,
-                        onSearchQueryChange = { onEvent(ContributorEditUiEvent.AliasSearchQueryChanged(it)) },
-                        onAliasSelected = { onEvent(ContributorEditUiEvent.AliasSelected(it)) },
-                        onAliasEntered = { onEvent(ContributorEditUiEvent.AliasEntered(it)) },
-                        onRemoveAlias = { onEvent(ContributorEditUiEvent.RemoveAlias(it)) },
-                    )
+                ContributorStudioCard(title = stringResource(Res.string.contributor_dates)) {
+                    DatesCardContent(state = state, onEvent = onEvent)
                 }
             }
         }
+
+        // TODO(books-c2): re-wire merge/unmerge when server-canonical merge ships.
     }
 }
 

@@ -141,7 +141,6 @@ private fun repository(
             db = db,
             bus = bus,
             registry = syncRegistry,
-            _libraryRegistry = registry,
             contributorRepository = ContributorRepository(db, bus, syncRegistry),
             seriesRepository = SeriesRepository(db, bus, syncRegistry),
         )

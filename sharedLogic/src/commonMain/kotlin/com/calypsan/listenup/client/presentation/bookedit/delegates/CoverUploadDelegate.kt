@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,12 +25,14 @@ private val logger = KotlinLogging.logger {}
  * @property state Shared state flow owned by ViewModel
  * @property imageStagingRepository Repository for staging cover image operations
  * @property scope CoroutineScope for launching operations
+ * @property errorBus Global error bus for surfacing failures to the UI snackbar
  * @property onChangesMade Callback to notify ViewModel of changes
  */
 class CoverUploadDelegate(
     private val state: MutableStateFlow<BookEditUiState>,
     private val imageStagingRepository: ImageStagingRepository,
     private val scope: CoroutineScope,
+    private val errorBus: ErrorBus,
     private val onChangesMade: () -> Unit,
 ) {
     /**
@@ -69,6 +72,7 @@ class CoverUploadDelegate(
                 }
 
                 is Failure -> {
+                    errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
                     state.update {
                         it.copy(

@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -39,6 +40,7 @@ class SeriesEditViewModelTest :
             val updateSeriesUseCase: UpdateSeriesUseCase = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val errorBus: ErrorBus = ErrorBus()
 
             fun build(): SeriesEditViewModel =
                 SeriesEditViewModel(
@@ -46,6 +48,7 @@ class SeriesEditViewModelTest :
                     updateSeriesUseCase = updateSeriesUseCase,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -224,6 +227,31 @@ class SeriesEditViewModelTest :
                 viewModel.state.value.error shouldBe "Failed to save: Save failed"
                 viewModel.navActions.test {
                     expectNoEvents()
+                }
+            }
+        }
+
+        test("SaveClicked failure emits typed AppError to ErrorBus for global snackbar") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
+                    Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Save failed"),
+                    )
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Updated Name"))
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                    advanceUntilIdle()
+                    awaitItem().message shouldBe "Save failed"
                 }
             }
         }

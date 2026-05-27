@@ -1,30 +1,31 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.SeriesId
 
 /**
- * Repository contract for series editing operations.
+ * Client-side write surface for series editing.
  *
- * Provides methods for modifying series metadata.
- * Changes are applied locally immediately; server propagation for series
- * edits is a Books-C concern and is not yet wired.
- *
- * Part of the domain layer - implementations live in the data layer.
+ * RPC-backed. SSE delivers authoritative state back via the SeriesSyncDomainHandler.
  */
 interface SeriesEditRepository {
     /**
-     * Update series metadata.
+     * Applies the PATCH payload [patch] to the series identified by [id].
      *
-     * Applies update locally. Only non-null fields are updated (PATCH semantics).
-     *
-     * @param seriesId ID of the series to update
-     * @param name New name (null = don't change)
-     * @param description New description (null = don't change)
-     * @return Result indicating success or failure
+     * Every non-null field on [patch] replaces the current value; null fields
+     * leave existing state untouched. The server emits an SSE event with the
+     * updated payload on success; clients update Room reactively.
      */
     suspend fun updateSeries(
-        seriesId: String,
-        name: String?,
-        description: String?,
+        id: SeriesId,
+        patch: SeriesUpdate,
     ): AppResult<Unit>
+
+    /**
+     * Hard-deletes all `book_series_memberships` junction rows referencing [id],
+     * then soft-deletes the series row. The server emits SSE events for the
+     * affected books and the series; clients update Room reactively.
+     */
+    suspend fun deleteSeries(id: SeriesId): AppResult<Unit>
 }

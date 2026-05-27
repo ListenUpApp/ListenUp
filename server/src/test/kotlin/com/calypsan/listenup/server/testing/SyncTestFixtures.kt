@@ -1,5 +1,13 @@
 package com.calypsan.listenup.server.testing
 
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookChapterPayload
+import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -96,3 +104,64 @@ fun Database.seedTestBook(
         }
     }
 }
+
+/**
+ * Canonical fixture builder for [BookSyncPayload] test instances.
+ *
+ * All fields have sensible defaults so a minimal call works for the common case.
+ * Override specific fields by name as the test requires.
+ *
+ * Replaces two divergent inline fixtures that existed in `BookServiceImplTest`
+ * (`bookFixture`) and `BookRepositoryUpsertTest` (`bookPayloadFixture`).
+ *
+ * @param id the book id — required (no universal default).
+ * @param title the book title — required (no universal default).
+ * @param rootRelPath the relative path; defaults to `"books/$id"`.
+ * @param contributors pre-resolved [BookContributorPayload] list; default empty.
+ * @param series pre-resolved [BookSeriesPayload] list; default empty.
+ * @param chapters [BookChapterPayload] list; default empty.
+ * @param audioFiles [BookAudioFilePayload] list; default empty. [BookSyncPayload.totalDuration]
+ *   is derived as the sum of individual file durations.
+ * @param cover optional [CoverPayload]; default null.
+ */
+fun bookPayloadFixture(
+    id: String,
+    title: String,
+    rootRelPath: String = "books/$id",
+    contributors: List<BookContributorPayload> = emptyList(),
+    series: List<BookSeriesPayload> = emptyList(),
+    chapters: List<BookChapterPayload> = emptyList(),
+    audioFiles: List<BookAudioFilePayload> = emptyList(),
+    cover: CoverPayload? = null,
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        sortTitle = null,
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        totalDuration = audioFiles.sumOf { it.duration },
+        cover = cover,
+        rootRelPath = rootRelPath,
+        inode = null,
+        scannedAt = 1_730_000_000_000L,
+        contributors = contributors,
+        series = series,
+        audioFiles = audioFiles,
+        chapters = chapters,
+        // The substrate authors the persisted revision/timestamps; the wire payload
+        // values here are placeholders for the test, ignored by writePayload.
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )

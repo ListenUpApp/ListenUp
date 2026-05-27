@@ -13,11 +13,20 @@ import java.nio.file.Path
  */
 sealed interface CoverInfo {
     /**
+     * Stable content hash of the cover bytes, sourced from `book.cover_hash`.
+     * Used by the cover route to set the HTTP `ETag` and short-circuit on
+     * `If-None-Match`. Null when the book row has no hash recorded — the route
+     * then serves bytes without caching headers rather than fabricating one.
+     */
+    val hash: String?
+
+    /**
      * The cover is a standalone image file at [path] (an absolute path to a
      * `cover.*` image, or the first sibling image, inside the book directory).
      */
     data class Filesystem(
         val path: Path,
+        override val hash: String?,
     ) : CoverInfo
 
     /**
@@ -27,5 +36,6 @@ sealed interface CoverInfo {
      */
     data class Embedded(
         val audioFilePath: Path,
+        override val hash: String?,
     ) : CoverInfo
 }

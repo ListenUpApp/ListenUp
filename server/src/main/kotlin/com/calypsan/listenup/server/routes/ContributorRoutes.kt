@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.ContributorResources
 import com.calypsan.listenup.api.result.AppResult
@@ -13,12 +14,15 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.request.receive
+import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
+import io.ktor.server.resources.patch
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
 /**
- * REST surface for [ContributorService]. Two endpoints:
+ * REST surface for [ContributorService]. Four endpoints:
  *
  *  - `GET /api/v1/contributors/{id}` — returns the full [ContributorSyncPayload]
  *    for the given id, or null when no contributor with that id exists. HTTP 200
@@ -28,6 +32,10 @@ import io.ktor.server.routing.Route
  *  - `GET /api/v1/contributors/{id}/books` — returns all [BookSyncPayload]s
  *    associated with the contributor. HTTP 200 with an empty list when the
  *    contributor has no books.
+ *  - `PATCH /api/v1/contributors/{id}` — applies a [ContributorUpdate] patch to
+ *    the contributor. HTTP 204 on success.
+ *  - `DELETE /api/v1/contributors/{id}` — hard-deletes the contributor and
+ *    removes all junction rows. HTTP 204 on success.
  *
  * All endpoints require JWT authentication (mounted inside the authenticate block
  * in Application.kt).
@@ -49,6 +57,21 @@ fun Route.contributorRoutes(contributorService: ContributorService) {
     get<ContributorResources.Books> { res ->
         when (val result = contributorService.listBooksByContributor(ContributorId(res.id))) {
             is AppResult.Success -> call.respond(result.data)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    patch<ContributorResources.Detail> { res ->
+        val patch = call.receive<ContributorUpdate>()
+        when (val result = contributorService.updateContributor(ContributorId(res.id), patch)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    delete<ContributorResources.Detail> { res ->
+        when (val result = contributorService.deleteContributor(ContributorId(res.id))) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }

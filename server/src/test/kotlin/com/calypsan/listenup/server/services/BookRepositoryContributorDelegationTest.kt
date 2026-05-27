@@ -39,7 +39,6 @@ class BookRepositoryContributorDelegationTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributors,
                         seriesRepository = series,
                     )
@@ -75,7 +74,6 @@ class BookRepositoryContributorDelegationTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
                         contributorRepository = contributors,
                         seriesRepository = series,
                     )

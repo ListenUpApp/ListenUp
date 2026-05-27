@@ -1,92 +1,55 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 
 /**
- * Repository contract for book editing operations.
+ * Client-side write surface for book editing.
  *
- * Provides methods for modifying book metadata and contributors.
- * Uses offline-first pattern: changes are applied locally immediately
- * and queued for sync to server.
+ * All methods dispatch via [com.calypsan.listenup.api.BookService] over RPC.
+ * Authoritative state arrives back via the SSE sync engine; this interface
+ * makes no optimistic Room writes.
  *
- * Part of the domain layer - implementations live in the data layer.
+ * Wire-side DTOs ([BookUpdate], [BookContributorInput], [BookSeriesInput])
+ * are passed through unchanged — the contract is the source of truth.
  */
 interface BookEditRepository {
     /**
-     * Update book metadata.
+     * Applies the PATCH payload [patch] to the book identified by [id].
      *
-     * Applies update locally and queues for server sync.
-     * Only non-null fields in the request are updated (PATCH semantics).
-     *
-     * @param bookId ID of the book to update
-     * @param title New title (null = don't change)
-     * @param subtitle New subtitle (null = don't change)
-     * @param description New description (null = don't change)
-     * @param publisher New publisher (null = don't change)
-     * @param publishYear New publish year (null = don't change)
-     * @param language New language code (null = don't change)
-     * @param isbn New ISBN (null = don't change)
-     * @param asin New ASIN (null = don't change)
-     * @param abridged New abridged status (null = don't change)
-     * @return Result indicating success or failure
+     * Every non-null field on [patch] replaces the current value; null fields
+     * leave existing state untouched. The server emits an SSE event with the
+     * updated payload on success; clients update Room reactively.
      */
     suspend fun updateBook(
-        bookId: String,
-        title: String? = null,
-        sortTitle: String? = null,
-        subtitle: String? = null,
-        description: String? = null,
-        publisher: String? = null,
-        publishYear: String? = null,
-        language: String? = null,
-        isbn: String? = null,
-        asin: String? = null,
-        abridged: Boolean? = null,
+        id: BookId,
+        patch: BookUpdate,
     ): AppResult<Unit>
 
     /**
-     * Set book contributors (replaces all existing contributors).
-     *
-     * Queues operation for server sync. On sync, contributors are matched
-     * by name - existing contributors are linked, new names create new contributors.
-     *
-     * @param bookId ID of the book to update
-     * @param contributors New list of contributors with roles
-     * @return Result indicating success or failure
+     * Replaces the full contributor list for the book identified by [id].
+     * Inputs without an id resolve via the server's `resolveOrCreate` path.
      */
     suspend fun setBookContributors(
-        bookId: String,
+        id: BookId,
         contributors: List<BookContributorInput>,
     ): AppResult<Unit>
 
     /**
-     * Set book series (replaces all existing series relationships).
-     *
-     * Queues operation for server sync. On sync, series are matched
-     * by name - existing series are linked, new names create new series.
-     *
-     * @param bookId ID of the book to update
-     * @param series New list of series with sequence numbers
-     * @return Result indicating success or failure
+     * Replaces the full series list for the book identified by [id].
+     * Inputs without an id resolve via the server's `resolveOrCreate` path.
      */
     suspend fun setBookSeries(
-        bookId: String,
+        id: BookId,
         series: List<BookSeriesInput>,
     ): AppResult<Unit>
+
+    /**
+     * Removes the cover from the book identified by [id]: nulls cover state on
+     * the book row and best-effort-deletes the underlying file after commit.
+     */
+    suspend fun deleteBookCover(id: BookId): AppResult<Unit>
 }
-
-/**
- * Input for setting a book's contributor.
- */
-data class BookContributorInput(
-    val name: String,
-    val roles: List<String>,
-)
-
-/**
- * Input for setting a book's series membership.
- */
-data class BookSeriesInput(
-    val name: String,
-    val sequence: Float?,
-)

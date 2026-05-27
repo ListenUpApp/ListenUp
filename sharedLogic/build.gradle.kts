@@ -179,6 +179,10 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.exposed.jdbc)
             implementation(libs.koin.ktor)
+            // kotlinx-rpc ktor-server DSL — the Tier 3 e2e harness mounts the
+            // `BookService` RPC route alongside `syncRoutes()` so client→server
+            // BookService calls round-trip in-process. Test-classpath only.
+            implementation(libs.kotlinx.rpc.krpc.ktor.server)
         }
 
         commonTest.dependencies {

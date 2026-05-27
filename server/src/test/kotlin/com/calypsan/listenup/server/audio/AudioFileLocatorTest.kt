@@ -9,7 +9,6 @@ import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -60,7 +59,6 @@ class AudioFileLocatorTest :
                         db = db,
                         bus = bus,
                         registry = registry,
-                        _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to folderPath)),
                         contributorRepository = ContributorRepository(db, bus, registry),
                         seriesRepository = SeriesRepository(db, bus, registry),
                     )

@@ -22,6 +22,10 @@ class BookResources(
      * `GET /api/v1/books/{id}` returns the full book aggregate as a
      * [com.calypsan.listenup.api.sync.BookSyncPayload]. Responds 200 on success,
      * 404 when no book with the given id exists. Requires JWT authentication.
+     *
+     * Also serves [com.calypsan.listenup.api.BookService.updateBook] —
+     * `PATCH /api/v1/books/{id}` applies a [com.calypsan.listenup.api.dto.BookUpdate]
+     * patch and responds 204 on success.
      */
     @Resource("{id}")
     class Detail(
@@ -37,11 +41,41 @@ class BookResources(
      * absent or has no cover. The optional [v] query parameter is a cache
      * buster — clients pass the cover hash so a changed cover bypasses any
      * intermediary cache. Requires JWT authentication.
+     *
+     * Also serves [com.calypsan.listenup.api.BookService.deleteBookCover] —
+     * `DELETE /api/v1/books/{id}/cover` removes the book's cover (DB null-out
+     * + post-commit file delete) and responds 204 on success.
      */
     @Resource("{id}/cover")
     class Cover(
         val parent: BookResources = BookResources(),
         val id: BookId,
         val v: String? = null,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookContributors] —
+     * `PUT /api/v1/books/{id}/contributors` replaces the full contributor list
+     * for a book. Body is a JSON array of [com.calypsan.listenup.api.dto.BookContributorInput].
+     * Responds 204 on success, 404 when no book with the given id exists,
+     * 400 when the input fails server-side validation. Requires JWT authentication.
+     */
+    @Resource("{id}/contributors")
+    class Contributors(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookSeries] —
+     * `PUT /api/v1/books/{id}/series` replaces the full series list for a book.
+     * Body is a JSON array of [com.calypsan.listenup.api.dto.BookSeriesInput].
+     * Responds 204 on success, 404 when no book with the given id exists,
+     * 400 when the input fails server-side validation. Requires JWT authentication.
+     */
+    @Resource("{id}/series")
+    class Series(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
     )
 }

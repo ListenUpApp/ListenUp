@@ -12,7 +12,6 @@ import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -175,7 +174,6 @@ internal fun withTestApplication(
                     db = db,
                     bus = bus,
                     registry = sharedRegistry,
-                    _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake")),
                     contributorRepository = ContributorRepository(db, bus, sharedRegistry),
                     seriesRepository = SeriesRepository(db, bus, sharedRegistry),
                 )

@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -59,6 +60,7 @@ class BookEditViewModelTest :
             val contributorRepository: ContributorRepository = mock()
             val seriesRepository: SeriesRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
+            val errorBus: ErrorBus = ErrorBus()
 
             fun build(): BookEditViewModel =
                 BookEditViewModel(
@@ -67,6 +69,7 @@ class BookEditViewModelTest :
                     contributorRepository = contributorRepository,
                     seriesRepository = seriesRepository,
                     imageStagingRepository = imageStagingRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -628,6 +631,27 @@ class BookEditViewModelTest :
                 // No nav action emitted on failure — Channel stays silent.
                 viewModel.navActions.test {
                     expectNoEvents()
+                }
+            }
+        }
+
+        test("save failure emits typed AppError to ErrorBus for global snackbar") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns failureOf("Save failed")
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When / Then
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                    viewModel.onEvent(BookEditUiEvent.Save)
+                    advanceUntilIdle()
+                    awaitItem().message shouldBe "Save failed"
                 }
             }
         }

@@ -3,6 +3,9 @@ package com.calypsan.listenup.server.plugins
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
@@ -10,6 +13,7 @@ import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ScanError
+import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
@@ -76,6 +80,14 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is TagError -> toHttpStatus()
 
+        is BookError -> toHttpStatus()
+
+        is CoverError -> toHttpStatus()
+
+        is ContributorError -> toHttpStatus()
+
+        is SeriesError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
@@ -102,6 +114,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is LibraryError -> withCorrelationId(id)
         is MetadataError -> withCorrelationId(id)
         is TagError -> withCorrelationId(id)
+        is BookError -> withCorrelationId(id)
+        is CoverError -> withCorrelationId(id)
+        is ContributorError -> withCorrelationId(id)
+        is SeriesError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -315,4 +331,50 @@ private fun TagError.withCorrelationId(id: String?): TagError =
         is TagError.BookNotFound -> copy(correlationId = id)
         is TagError.InvalidName -> copy(correlationId = id)
         is TagError.NameTooLong -> copy(correlationId = id)
+    }
+
+private fun BookError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is BookError.NotFound -> HttpStatusCode.NotFound
+        is BookError.InvalidInput -> HttpStatusCode.BadRequest
+    }
+
+private fun BookError.withCorrelationId(id: String?): BookError =
+    when (this) {
+        is BookError.NotFound -> copy(correlationId = id)
+        is BookError.InvalidInput -> copy(correlationId = id)
+    }
+
+private fun CoverError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is CoverError.NotPresent -> HttpStatusCode.NotFound
+    }
+
+private fun CoverError.withCorrelationId(id: String?): CoverError =
+    when (this) {
+        is CoverError.NotPresent -> copy(correlationId = id)
+    }
+
+private fun ContributorError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ContributorError.NotFound -> HttpStatusCode.NotFound
+        is ContributorError.InvalidInput -> HttpStatusCode.BadRequest
+    }
+
+private fun ContributorError.withCorrelationId(id: String?): ContributorError =
+    when (this) {
+        is ContributorError.NotFound -> copy(correlationId = id)
+        is ContributorError.InvalidInput -> copy(correlationId = id)
+    }
+
+private fun SeriesError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SeriesError.NotFound -> HttpStatusCode.NotFound
+        is SeriesError.InvalidInput -> HttpStatusCode.BadRequest
+    }
+
+private fun SeriesError.withCorrelationId(id: String?): SeriesError =
+    when (this) {
+        is SeriesError.NotFound -> copy(correlationId = id)
+        is SeriesError.InvalidInput -> copy(correlationId = id)
     }

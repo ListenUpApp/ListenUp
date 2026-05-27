@@ -15,9 +15,11 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
+import com.calypsan.listenup.server.services.AnalyzedBookMapper
 import com.calypsan.listenup.server.services.BookIngestPort
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
@@ -55,6 +57,7 @@ import java.nio.file.Path
  *  - [CoverResponder] — serves cover bytes for `GET /api/v1/books/{id}/cover`;
  *    pulls [EmbeddedMetadataParser] from the separately-installed
  *    `embeddedmetaModule`.
+ *  - [CoverStorage] — filesystem-side counterpart for `BookService.deleteBookCover`.
  *
  * Exposed as a **function** rather than a top-level `val` for the same reason
  * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
@@ -98,13 +101,46 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
+        single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
-            BookRepository(get(), get(), get(), get(), get(), get(), bookTagRepository = getOrNull())
+            BookRepository(
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                get(),
+                clock = get(),
+                bookTagRepository = getOrNull(),
+            )
         }
         single<BookIngestPort> { get<BookRepository>() }
-        single<BookService> { BookServiceImpl(get<BookRepository>()) }
-        single<ContributorService> { ContributorServiceImpl(contributorRepo = get(), bookRepo = get()) }
-        single<SeriesService> { SeriesServiceImpl(seriesRepo = get(), bookRepo = get()) }
+        single { CoverStorage() }
+        single<BookService> {
+            BookServiceImpl(
+                repo = get<BookRepository>(),
+                contributorRepo = get<ContributorRepository>(),
+                seriesRepo = get<SeriesRepository>(),
+                coverStorage = get<CoverStorage>(),
+                db = get(),
+            )
+        }
+        single<ContributorService> {
+            ContributorServiceImpl(
+                contributorRepo = get(),
+                bookRepo = get(),
+                reindexer = get(),
+                db = get(),
+            )
+        }
+        single<SeriesService> {
+            SeriesServiceImpl(
+                seriesRepo = get(),
+                bookRepo = get(),
+                reindexer = get(),
+                db = get(),
+            )
+        }
         single<SearchService> { SearchServiceImpl(db = get()) }
         single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
         single<TagService> {

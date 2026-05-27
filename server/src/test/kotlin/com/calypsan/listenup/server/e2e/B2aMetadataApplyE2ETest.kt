@@ -21,7 +21,6 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -85,13 +84,8 @@ class B2aMetadataApplyE2ETest :
                 // ── Repositories ────────────────────────────────────────────────
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val libraryRegistry =
-                    LibraryRegistry(
-                        db = db,
-                        env = mapOf("LISTENUP_LIBRARY_PATH" to tempDir),
-                    )
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, libraryRegistry, contributorRepo, seriesRepo)
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook =
@@ -185,13 +179,8 @@ class B2aMetadataApplyE2ETest :
 
                 val contributorRepo = ContributorRepository(db, bus, syncRegistry)
                 val seriesRepo = SeriesRepository(db, bus, syncRegistry)
-                val libraryRegistry =
-                    LibraryRegistry(
-                        db = db,
-                        env = mapOf("LISTENUP_LIBRARY_PATH" to tempDir),
-                    )
                 val bookRepo =
-                    BookRepository(db, bus, syncRegistry, libraryRegistry, contributorRepo, seriesRepo)
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
 
                 val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
                 val metadataService =

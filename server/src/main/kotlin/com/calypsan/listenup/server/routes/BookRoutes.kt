@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
@@ -9,16 +12,21 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.withCorrelationId
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.ratelimit.rateLimit
+import io.ktor.server.request.receive
+import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
+import io.ktor.server.resources.patch
+import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
 /**
- * REST surface for [BookService]. Three endpoints:
+ * REST surface for [BookService]. Seven endpoints:
  *
  *  - `GET /api/v1/books/{id}` — returns the full [BookSyncPayload] for the
  *    given id. HTTP 200 on success; HTTP 404 when no book with that id exists.
@@ -30,6 +38,14 @@ import io.ktor.server.routing.Route
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on
  *    success, HTTP 404 when the book is absent or has no servable cover.
+ *  - `PATCH /api/v1/books/{id}` — applies a [BookUpdate] patch to the book.
+ *    HTTP 204 on success.
+ *  - `PUT /api/v1/books/{id}/contributors` — replaces the full contributor list
+ *    for a book (body: JSON array of [BookContributorInput]). HTTP 204 on success.
+ *  - `PUT /api/v1/books/{id}/series` — replaces the full series list for a book
+ *    (body: JSON array of [BookSeriesInput]). HTTP 204 on success.
+ *  - `DELETE /api/v1/books/{id}/cover` — removes the book's cover image.
+ *    HTTP 204 on success.
  *
  * All endpoints require JWT authentication (mounted inside the authenticate
  * block in Application.kt). Cover serving is delegated to [coverResponder].
@@ -55,6 +71,37 @@ fun Route.bookRoutes(
                 is AppResult.Success -> call.respond(result.data)
                 is AppResult.Failure -> call.respondBareAppError(result.error)
             }
+        }
+    }
+
+    patch<BookResources.Detail> { res ->
+        val patch = call.receive<BookUpdate>()
+        when (val result = bookService.updateBook(res.id, patch)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.Contributors> { res ->
+        val contributors = call.receive<List<BookContributorInput>>()
+        when (val result = bookService.setBookContributors(res.id, contributors)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.Series> { res ->
+        val series = call.receive<List<BookSeriesInput>>()
+        when (val result = bookService.setBookSeries(res.id, series)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    delete<BookResources.Cover> { res ->
+        when (val result = bookService.deleteBookCover(res.id)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 }

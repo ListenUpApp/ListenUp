@@ -24,7 +24,6 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -62,7 +61,6 @@ class PlaybackServiceImplTest :
                     db = db,
                     bus = bus,
                     registry = registry,
-                    _libraryRegistry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/fake/library")),
                     contributorRepository = ContributorRepository(db, bus, registry),
                     seriesRepository = SeriesRepository(db, bus, registry),
                 )

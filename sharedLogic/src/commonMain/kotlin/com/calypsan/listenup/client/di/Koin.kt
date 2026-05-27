@@ -173,8 +173,8 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.calypsan.listenup.client.data.repository.ContributorEditRepository as ContributorEditRepositoryImpl
-import com.calypsan.listenup.client.data.repository.SeriesEditRepository as SeriesEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 
 /**
  * Platform-specific storage module.
@@ -949,27 +949,24 @@ val syncModule =
             )
         }
 
-        // BookEditRepository for book editing operations (offline-first, SOLID: domain interface)
+        // BookEditRepository — pure RPC dispatcher; SSE echoes write back into Room.
         single<com.calypsan.listenup.client.domain.repository.BookEditRepository> {
             BookEditRepositoryImpl(
-                bookDao = get(),
+                bookRpcFactory = get(),
             )
         }
 
-        // SeriesEditRepository for series editing operations (offline-first, SOLID: domain interface)
+        // SeriesEditRepository — pure RPC dispatcher (Books-C1).
         single<SeriesEditRepository> {
             SeriesEditRepositoryImpl(
-                seriesDao = get(),
+                seriesRpcFactory = get(),
             )
         }
 
-        // ContributorEditRepository for contributor editing operations (offline-first, SOLID: domain interface)
+        // ContributorEditRepository — pure RPC dispatcher (Books-C1).
         single<ContributorEditRepository> {
             ContributorEditRepositoryImpl(
-                transactionRunner = get(),
-                contributorDao = get(),
-                contributorAliasDao = get(),
-                bookContributorDao = get(),
+                contributorRpcFactory = get(),
             )
         }
 

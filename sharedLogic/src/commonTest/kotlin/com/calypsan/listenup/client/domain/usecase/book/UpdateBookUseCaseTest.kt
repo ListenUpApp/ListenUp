@@ -1,18 +1,14 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
+import com.calypsan.listenup.api.dto.BookSeriesInput
+import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.model.PendingCover
-import com.calypsan.listenup.client.domain.model.Tag
-import com.calypsan.listenup.client.domain.repository.BookContributorInput
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
-import com.calypsan.listenup.client.domain.repository.BookSeriesInput
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -22,10 +18,15 @@ import com.calypsan.listenup.client.presentation.bookedit.EditableContributor
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.failureOf
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
+import dev.mokkery.matcher.matches
 import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
@@ -33,7 +34,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.core.failureOf
 
 /**
  * Tests for UpdateBookUseCase.
@@ -75,9 +75,10 @@ class UpdateBookUseCaseTest :
             val fixture = TestFixture()
 
             // Default stubs for successful operations
-            everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns Success(Unit)
+            everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns Success(Unit)
             everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
             everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
+            everySuspend { fixture.bookEditRepository.deleteBookCover(any()) } returns Success(Unit)
             everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Success(Unit)
             everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
             everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
@@ -219,7 +220,7 @@ class UpdateBookUseCaseTest :
                 checkIs<Success<Unit>>(result)
 
                 // Verify no repository calls were made
-                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookSeries(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
@@ -244,7 +245,12 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 checkIs<Success<Unit>>(result)
-                verifySuspend { fixture.bookEditRepository.updateBook(bookId = "book-1", title = "New Title", any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+                verifySuspend {
+                    fixture.bookEditRepository.updateBook(
+                        BookId("book-1"),
+                        matches { patch: BookUpdate -> patch.title == "New Title" },
+                    )
+                }
             }
         }
 
@@ -276,16 +282,17 @@ class UpdateBookUseCaseTest :
                 checkIs<Success<Unit>>(result)
                 verifySuspend {
                     fixture.bookEditRepository.updateBook(
-                        bookId = "book-1",
-                        title = any(),
-                        subtitle = "New Subtitle",
-                        description = "New Description",
-                        publishYear = "2024",
-                        publisher = "New Publisher",
-                        language = "en",
-                        isbn = "1234567890",
-                        asin = "ASIN123",
-                        abridged = true,
+                        BookId("book-1"),
+                        matches { patch: BookUpdate ->
+                            patch.subtitle == "New Subtitle" &&
+                                patch.description == "New Description" &&
+                                patch.publishYear == 2024 &&
+                                patch.publisher == "New Publisher" &&
+                                patch.language == "en" &&
+                                patch.isbn == "1234567890" &&
+                                patch.asin == "ASIN123" &&
+                                patch.abridged == true
+                        },
                     )
                 }
             }
@@ -316,7 +323,7 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 checkIs<Success<Unit>>(result)
-                verifySuspend { fixture.bookEditRepository.setBookContributors("book-1", any()) }
+                verifySuspend { fixture.bookEditRepository.setBookContributors(BookId("book-1"), any()) }
             }
         }
 
@@ -362,11 +369,11 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 checkIs<Success<Unit>>(result)
-                verifySuspend { fixture.bookEditRepository.setBookSeries("book-1", any()) }
+                verifySuspend { fixture.bookEditRepository.setBookSeries(BookId("book-1"), any()) }
             }
         }
 
-        test("converts series sequence to float") {
+        test("converts series sequence to wire position") {
             runTest {
                 // Given
                 val currentSeries =
@@ -385,8 +392,8 @@ class UpdateBookUseCaseTest :
                 // Then
                 verifySuspend {
                     fixture.bookEditRepository.setBookSeries(
-                        "book-1",
-                        listOf(BookSeriesInput(name = "Series", sequence = 2.5f)),
+                        BookId("book-1"),
+                        listOf(BookSeriesInput(id = SeriesId("s1"), name = "Series", position = 2.5)),
                     )
                 }
             }
@@ -612,7 +619,7 @@ class UpdateBookUseCaseTest :
                 val current = createUpdateRequest(metadata = currentMetadata)
 
                 val fixture = createFixture()
-                everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Update failed")
+                everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns failureOf("Update failed")
                 val useCase = fixture.build()
 
                 // When
@@ -639,7 +646,7 @@ class UpdateBookUseCaseTest :
                     )
 
                 val fixture = createFixture()
-                everySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns failureOf("Metadata failed")
+                everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns failureOf("Metadata failed")
                 val useCase = fixture.build()
 
                 // When
@@ -738,7 +745,7 @@ class UpdateBookUseCaseTest :
 
                 // Then - all operations should be called
                 checkIs<Success<Unit>>(result)
-                verifySuspend { fixture.bookEditRepository.updateBook(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) }
+                verifySuspend { fixture.bookEditRepository.updateBook(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) }
                 verifySuspend { fixture.genreRepository.setGenresForBook(any(), any()) }

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -30,6 +31,7 @@ class CoverUploadDelegateTest :
                 state = state,
                 imageStagingRepository = imageStagingRepository,
                 scope = scope,
+                errorBus = ErrorBus(),
                 onChangesMade = {},
             )
         }
