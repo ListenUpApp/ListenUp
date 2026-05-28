@@ -6,11 +6,13 @@ import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.BookContributorTable
+import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.BookTagsTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.TagTable
@@ -285,6 +287,49 @@ class SearchServiceImplTest :
                 }
             }
         }
+
+        test("genre slug filter narrows books to that genre") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "b1", "Dragon One", lib)
+                seedBook(db, "b2", "Dragon Two", lib)
+                seedGenre(db, "g-fan", "fantasy", "/fiction/fantasy", "Fantasy")
+                linkBookGenre(db, "b1", "g-fan")
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(genreSlugs = listOf("fantasy"))),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("b1")
+                }
+            }
+        }
+
+        test("genre path filter matches the whole subtree but not sibling-prefixed paths") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "b1", "Dragon Epic", lib)
+                seedBook(db, "b2", "Dragon Sci", lib)
+                seedBook(db, "b3", "Dragon Class", lib)
+                seedGenre(db, "g-epic", "epic", "/fiction/fantasy/epic")
+                seedGenre(db, "g-sci", "scifi", "/fiction/scifi")
+                seedGenre(db, "g-fanclassics", "fanclassics", "/fiction/fantasy-classics")
+                linkBookGenre(db, "b1", "g-epic")
+                linkBookGenre(db, "b2", "g-sci")
+                linkBookGenre(db, "b3", "g-fanclassics")
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(genrePath = "/fiction/fantasy")),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("b1")
+                }
+            }
+        }
     })
 
 // ── test data helpers ──────────────────────────────────────────────────────────
@@ -443,6 +488,40 @@ private fun seedTag(
             it[TagTable.updatedAt] = now
             it[TagTable.revision] = 1L
             it[TagTable.deletedAt] = if (deleted) now else null
+        }
+    }
+}
+
+private fun seedGenre(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    id: String,
+    slug: String,
+    path: String,
+    name: String = slug,
+) {
+    val now = System.currentTimeMillis()
+    transaction(db) {
+        GenreTable.insert {
+            it[GenreTable.id] = id
+            it[GenreTable.name] = name
+            it[GenreTable.slug] = slug
+            it[GenreTable.path] = path
+            it[GenreTable.revision] = 1L
+            it[GenreTable.createdAt] = now
+            it[GenreTable.updatedAt] = now
+        }
+    }
+}
+
+private fun linkBookGenre(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    bookId: String,
+    genreId: String,
+) {
+    transaction(db) {
+        BookGenreTable.insert {
+            it[BookGenreTable.bookId] = bookId
+            it[BookGenreTable.genreId] = genreId
         }
     }
 }

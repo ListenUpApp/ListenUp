@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.TagId
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -87,9 +88,12 @@ internal class SearchServiceImpl(
         sort: SearchSort,
     ): List<BookHit> =
         suspendTransaction(db) {
+            val filterSql = buildFilterSql(filters)
             val results = mutableListOf<BookHit>()
             // Join book_search → book_search_map → books and fetch author names via a
             // GROUP_CONCAT sub-select so there is no N+1 per-book round-trip.
+            // Filter args are spliced BETWEEN the ftsQuery arg and the limit arg so
+            // positional binding matches the statement order: MATCH ? … <filters> … LIMIT ?
             TransactionManager.current().exec(
                 stmt =
                     "SELECT b.id, b.title, b.cover_path, b.cover_hash, " +
@@ -102,13 +106,13 @@ internal class SearchServiceImpl(
                         "JOIN book_search_map m ON s.rowid = m.rowid " +
                         "JOIN books b ON b.id = m.book_id " +
                         "WHERE book_search MATCH ? " +
-                        "AND b.deleted_at IS NULL " +
-                        "ORDER BY s.rank LIMIT ?",
+                        "AND b.deleted_at IS NULL" +
+                        filterSql.whereFragment +
+                        " ORDER BY s.rank LIMIT ?",
                 args =
-                    listOf(
-                        TextColumnType() to ftsQuery,
-                        IntegerColumnType() to limit,
-                    ),
+                    listOf(TextColumnType() to ftsQuery) +
+                        filterSql.args +
+                        listOf(IntegerColumnType() to limit),
             ) { rs ->
                 while (rs.next()) {
                     val authorsCsv = rs.getString("author_names")
@@ -236,6 +240,41 @@ internal class SearchServiceImpl(
             }
             results
         }
+
+    private data class FilterSql(
+        val whereFragment: String,
+        val args: List<Pair<IColumnType<*>, Any>>,
+    )
+
+    private fun buildFilterSql(filters: SearchFilters?): FilterSql {
+        if (filters == null || !filters.isActive) return FilterSql("", emptyList())
+        val clauses = mutableListOf<String>()
+        val args = mutableListOf<Pair<IColumnType<*>, Any>>()
+        val genreClauses = mutableListOf<String>()
+        if (filters.genreSlugs.isNotEmpty()) {
+            val placeholders = filters.genreSlugs.joinToString(",") { "?" }
+            genreClauses += "g.slug IN ($placeholders)"
+            filters.genreSlugs.forEach { args += TextColumnType() to it }
+        }
+        if (filters.genrePath != null) {
+            // Kotlin doesn't compose the outer `filters != null` smart-cast with this nested
+            // property null-check, so !! is required to satisfy the Pair<…, Any> bound.
+            val path = filters.genrePath!!
+            genreClauses += "(g.path = ? OR g.path LIKE ? || '/%')"
+            args.add(TextColumnType() to path)
+            args.add(TextColumnType() to path)
+        }
+        if (genreClauses.isNotEmpty()) {
+            clauses +=
+                "EXISTS (SELECT 1 FROM book_genres bg JOIN genres g ON g.id = bg.genre_id " +
+                "WHERE bg.book_id = b.id AND g.deleted_at IS NULL AND (${genreClauses.joinToString(" OR ")}))"
+        }
+        // duration + year filters are added in Task 4 — leave room here.
+        return FilterSql(
+            whereFragment = if (clauses.isEmpty()) "" else " AND " + clauses.joinToString(" AND "),
+            args = args,
+        )
+    }
 
     private companion object {
         const val MAX_LIMIT = 100
