@@ -874,6 +874,9 @@ private fun AuthenticatedNavigation(
                                 onCategoriesClick = {
                                     backStack.add(AdminCategories)
                                 },
+                                onUnmappedGenresClick = {
+                                    backStack.add(UnmappedGenres)
+                                },
                                 onInboxClick = {
                                     backStack.add(AdminInbox)
                                 },

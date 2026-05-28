@@ -548,6 +548,8 @@
     "uncollected_books_are_visible_to": "Uncollected books are visible to all users. Collections restrict access.",
     "users_only_see_books_in": "Users only see books in collections they have access to. Collections grant access.",
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
+    "unmapped_genres": "Unmapped Genres",
+    "map_scanned_genre_strings_to_your_taxonomy": "Map scanned genre strings to your taxonomy",
     "what_to_include": "What to include",
     "will_be_released_without_any": "will be released without any collection assignments.\\n\\n"
   },
