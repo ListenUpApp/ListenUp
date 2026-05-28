@@ -97,6 +97,40 @@ private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
 private inline fun <reified T : Any> Application.injectIfConfigured(libraryPath: Path?): T? =
     libraryPath?.let { inject<T>().value }
 
+/**
+ * Kicks off seed jobs after Koin is installed. In demo profile we run the full
+ * [SeedRunner] (curated demo users + library + tags + genres + …). In any other
+ * profile, we still seed the default Genre taxonomy on fresh installs because
+ * the genre tree is the curator's starting point, not demo content — the
+ * seeder's `isAlreadySeeded` guard keeps subsequent runs no-ops.
+ */
+private fun Application.launchSeeders(
+    scope: CoroutineScope,
+    seedProfile: String?,
+    libraryConfigured: Boolean,
+) {
+    if (seedProfile == SEED_PROFILE_DEMO) {
+        val seedRunner by inject<SeedRunner>()
+        scope.launch {
+            runCatching { seedRunner.run() }
+                .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    logger.error(e) { "demo seeding failed — server keeps running" }
+                }
+        }
+    } else if (libraryConfigured) {
+        val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        scope.launch {
+            runCatching {
+                if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                logger.error(e) { "genre default-taxonomy seeding failed — server keeps running" }
+            }
+        }
+    }
+}
+
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
@@ -136,16 +170,7 @@ fun Application.module() {
         modules(modules)
     }
 
-    if (seedProfile == SEED_PROFILE_DEMO) {
-        val seedRunner by inject<SeedRunner>()
-        applicationScope.launch {
-            runCatching { seedRunner.run() }
-                .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    logger.error(e) { "demo seeding failed — server keeps running" }
-                }
-        }
-    }
+    launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
     installCallIdAndLogging()
     installRateLimiting()

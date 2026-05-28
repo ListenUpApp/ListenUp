@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
@@ -164,6 +165,11 @@ fun booksModule(
                 db = get(),
             )
         }
+        // Default-genre-taxonomy seeder. Logically part of the books slice — runs once on
+        // every install (curator can edit afterwards). Application.kt invokes seed() in a
+        // launch after Koin starts, regardless of seed.profile; `isAlreadySeeded()` makes
+        // re-invocations a no-op.
+        single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
 
         single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
         single {

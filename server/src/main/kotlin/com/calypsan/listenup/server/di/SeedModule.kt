@@ -63,9 +63,8 @@ fun seedModule(
         if (hasTagsModule) {
             single { TagDomainSeeder(db = get(), tagRepository = get()) }
         }
-        if (hasGenresModule) {
-            single { GenreDomainSeeder(db = get(), genreRepository = get()) }
-        }
+        // GenreDomainSeeder is bound in booksModule (it runs on every install, not just demo),
+        // so we don't bind it here — but the runner still includes it for demo.
         single {
             SeedRunner(
                 seeders =
