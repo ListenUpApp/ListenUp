@@ -127,6 +127,7 @@ fun booksModule(
                 seriesRepo = get<SeriesRepository>(),
                 coverStorage = get<CoverStorage>(),
                 db = get(),
+                genreRepo = get<GenreRepository>(),
             )
         }
         single<ContributorService> {
