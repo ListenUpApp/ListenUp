@@ -55,6 +55,7 @@ import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
+import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
@@ -208,6 +209,7 @@ fun Application.module() {
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
             if (searchService != null) searchRoutes(searchService)
             if (tagService != null) tagRoutes(tagService)
+            if (genreService != null) genreRoutes(genreService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

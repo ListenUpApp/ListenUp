@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.AppError
@@ -93,6 +94,14 @@ fun Route.bookRoutes(
     put<BookResources.Series> { res ->
         val series = call.receive<List<BookSeriesInput>>()
         when (val result = bookService.setBookSeries(res.id, series)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.Genres> { res ->
+        val genres = call.receive<List<BookGenreInput>>()
+        when (val result = bookService.setBookGenres(res.id, genres)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
