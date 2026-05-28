@@ -242,12 +242,9 @@ internal class GenreServiceImpl(
 
                 // Re-upsert affected books — bumps revision, publishes book.Updated. The book's
                 // BookSyncPayload.genres re-derives from the live junction (now missing this id).
-                for (bookId in affectedBookIds) {
-                    val payload = bookRepository.findById(BookId(bookId)) ?: continue
-                    val upsertResult = bookRepository.upsert(payload)
-                    if (upsertResult is AppResult.Failure) {
-                        return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
+                when (val reupsert = reupsertBooks(affectedBookIds)) {
+                    is AppResult.Success -> Unit
+                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(reupsert.error)
                 }
 
                 when (val softDeleteResult = genreRepository.softDelete(id)) {
@@ -305,7 +302,56 @@ internal class GenreServiceImpl(
     override suspend fun mergeGenres(
         source: GenreId,
         target: GenreId,
-    ): AppResult<Unit> = notYetImplemented()
+    ): AppResult<Unit> {
+        if (source.value == target.value) {
+            return AppResult.Failure(GenreError.MergeSelfTarget(debugInfo = source.value))
+        }
+        val result: AppResult<Unit> =
+            suspendTransaction(db) {
+                val sourcePayload = genreRepository.findById(source.value)
+                if (sourcePayload == null || sourcePayload.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(genreNotFound(source))
+                }
+                val targetPayload = genreRepository.findById(target.value)
+                if (targetPayload == null || targetPayload.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(genreNotFound(target))
+                }
+                if (GenreTable.directChildren(source.value).isNotEmpty()) {
+                    return@suspendTransaction AppResult.Failure(
+                        GenreError.HasDescendants(debugInfo = source.value),
+                    )
+                }
+
+                // Snapshot affected books BEFORE the relink — afterwards the source's junction rows are gone.
+                val affectedBookIds = BookGenreTable.bookIdsForGenre(source.value)
+
+                // INSERT-OR-IGNORE the (book, target) rows for every book linked to source,
+                // then drop the source rows. Books already linked to both sides end up with a single
+                // (book, target) row — no duplicates.
+                BookGenreTable.relinkGenre(fromId = source.value, toId = target.value)
+                GenreAliasTable.repointAliases(fromGenreId = source.value, toGenreId = target.value)
+
+                when (val reupsert = reupsertBooks(affectedBookIds)) {
+                    is AppResult.Success -> Unit
+                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(reupsert.error)
+                }
+
+                when (val softDeleteResult = genreRepository.softDelete(source)) {
+                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+                }
+            }
+        if (result is AppResult.Success) {
+            try {
+                reindexer.reindexAllBooksForGenre(target.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
+            }
+        }
+        return result
+    }
 
     override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> = notYetImplemented()
 
@@ -318,6 +364,21 @@ internal class GenreServiceImpl(
         AppResult.Failure(GenreError.NotFound(debugInfo = "not yet implemented"))
 
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
+
+    /**
+     * Re-upserts every live book whose id appears in [bookIds]. Skips books that have
+     * vanished between snapshot and re-read. Used by [deleteGenre] and [mergeGenres]
+     * to bump revisions on books whose `BookSyncPayload.genres` must reflect the
+     * junction cascade. Must be called inside the caller's `suspendTransaction { }`.
+     */
+    private suspend fun reupsertBooks(bookIds: List<String>): AppResult<Unit> {
+        for (bookId in bookIds) {
+            val payload = bookRepository.findById(BookId(bookId)) ?: continue
+            val upsertResult = bookRepository.upsert(payload)
+            if (upsertResult is AppResult.Failure) return AppResult.Failure(upsertResult.error)
+        }
+        return AppResult.Success(Unit)
+    }
 
     /**
      * Returns `true` when [newParent] would create a cycle on `moveGenre(id, newParent)`:
