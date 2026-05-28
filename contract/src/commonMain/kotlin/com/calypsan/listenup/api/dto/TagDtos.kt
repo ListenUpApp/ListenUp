@@ -41,4 +41,10 @@ data class TagHit(
     @SerialName("name") val name: String,
     /** Number of books currently linked to this tag in the library. */
     @SerialName("bookCount") val bookCount: Long,
+    /**
+     * The primary matched display field with matched query tokens wrapped in the
+     * highlight marker U+0002 (STX) … U+0003 (ETX) sentinels the client splits on;
+     * `null` when no token matched the displayed text.
+     */
+    @SerialName("highlight") val highlight: String? = null,
 )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.BookContributorTable
@@ -30,7 +31,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val service = SearchServiceImpl(db = this)
                 runTest {
-                    val result = service.search(query = "  ", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "  ", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
                     result.data.contributors.shouldBeEmpty()
                     result.data.series.shouldBeEmpty()
@@ -42,7 +43,7 @@ class SearchServiceImplTest :
             withInMemoryDatabase {
                 val service = SearchServiceImpl(db = this)
                 runTest {
-                    val result = service.search(query = "xyznosuchterm", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "xyznosuchterm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
                     result.data.contributors.shouldBeEmpty()
                     result.data.series.shouldBeEmpty()
@@ -55,7 +56,7 @@ class SearchServiceImplTest :
                 val service = SearchServiceImpl(db = this)
                 runTest {
                     for (dangerous in listOf("abc\"def", "abc;DROP TABLE books", "abc*", "(test)", "abc:def")) {
-                        service.search(query = dangerous, limit = 20).shouldBeInstanceOf<AppResult.Success<*>>()
+                        service.search(SearchQuery(text = dangerous, limit = 20)).shouldBeInstanceOf<AppResult.Success<*>>()
                     }
                 }
             }
@@ -68,7 +69,7 @@ class SearchServiceImplTest :
                 seedBook(db = db, bookId = "b1", title = "The Way of Kings", libraryId = libId)
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Kings", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Kings", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
                     result.data.books[0].title shouldBe "The Way of Kings"
                 }
@@ -81,7 +82,7 @@ class SearchServiceImplTest :
                 seedContributor(db = db, contributorId = "c1", name = "Brandon Sanderson")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Sanderson", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Sanderson", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.contributors shouldHaveSize 1
                     result.data.contributors[0].name shouldBe "Brandon Sanderson"
                 }
@@ -94,7 +95,7 @@ class SearchServiceImplTest :
                 seedSeries(db = db, seriesId = "s1", name = "Stormlight Archive")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Stormlight", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Stormlight", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.series shouldHaveSize 1
                     result.data.series[0].name shouldBe "Stormlight Archive"
                 }
@@ -109,7 +110,7 @@ class SearchServiceImplTest :
                 repeat(10) { i -> seedContributor(db = db, contributorId = "co$i", name = "Dragon Author $i") }
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Dragon", limit = 3) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Dragon", limit = 3)) as AppResult.Success<SearchResults>
                     result.data.books.size shouldBe 3
                     result.data.contributors.size shouldBe 3
                 }
@@ -123,7 +124,7 @@ class SearchServiceImplTest :
                 seedBook(db = db, bookId = "del1", title = "Deleted Unique Phantasm", libraryId = libId, deleted = true)
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Phantasm", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Phantasm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books.shouldBeEmpty()
                 }
             }
@@ -138,7 +139,7 @@ class SearchServiceImplTest :
                 seedBookContributor(db = db, bookId = "b2", contributorId = "ca1", role = "author", ordinal = 0)
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Mistborn", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Mistborn", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
                     result.data.books[0].authorNames shouldBe listOf("Brandon Sanderson")
                 }
@@ -156,7 +157,7 @@ class SearchServiceImplTest :
                 seedBookTag(db = db, bookId = "b1", tagId = "t1")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Sci", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Sci", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
                     result.data.tags[0].name shouldBe "Sci-Fi"
                     result.data.tags[0].slug shouldBe "sci-fi"
@@ -171,7 +172,7 @@ class SearchServiceImplTest :
                 seedTag(db = db, tagId = "t1", name = "Fantasy", slug = "fantasy")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "xyznosuchterm", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "xyznosuchterm", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags.shouldBeEmpty()
                 }
             }
@@ -183,7 +184,7 @@ class SearchServiceImplTest :
                 seedTag(db = db, tagId = "t1", name = "Mystery", slug = "mystery", deleted = true)
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Mystery", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Mystery", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags.shouldBeEmpty()
                 }
             }
@@ -195,7 +196,7 @@ class SearchServiceImplTest :
                 seedTag(db = db, tagId = "t1", name = "Non-Fiction", slug = "non-fiction")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Non", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Non", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
                     result.data.tags[0].bookCount shouldBe 0L
                 }
@@ -213,7 +214,7 @@ class SearchServiceImplTest :
                 seedBookTag(db = db, bookId = "b2", tagId = "t1", deleted = true)
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Classics", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Classics", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.tags shouldHaveSize 1
                     // Only the live junction row counts.
                     result.data.tags[0].bookCount shouldBe 1L
@@ -231,7 +232,7 @@ class SearchServiceImplTest :
                 seedTag(db = db, tagId = "tx", name = "Dragon Age", slug = "dragon-age")
                 val service = SearchServiceImpl(db = db)
                 runTest {
-                    val result = service.search(query = "Dragon", limit = 20) as AppResult.Success<SearchResults>
+                    val result = service.search(SearchQuery(text = "Dragon", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.books shouldHaveSize 1
                     result.data.contributors shouldHaveSize 1
                     result.data.series shouldHaveSize 1

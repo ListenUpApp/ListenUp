@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
+import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.dto.SeriesHit
 import com.calypsan.listenup.api.dto.TagHit
@@ -38,17 +39,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 internal class SearchServiceImpl(
     private val db: Database,
 ) : SearchService {
-    override suspend fun search(
-        query: String,
-        limit: Int,
-    ): AppResult<SearchResults> {
-        if (query.isBlank()) {
-            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+    override suspend fun search(query: SearchQuery): AppResult<SearchResults> {
+        if (query.text.isBlank()) {
+            return AppResult.Success(EMPTY_RESULTS)
         }
-        val safeLimit = limit.coerceIn(1, MAX_LIMIT)
-        val ftsQuery = sanitizeFts5Query(query)
+        val safeLimit = query.limit.coerceIn(1, MAX_LIMIT)
+        val ftsQuery = sanitizeFts5Query(query.text)
         if (ftsQuery.isBlank()) {
-            return AppResult.Success(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            return AppResult.Success(EMPTY_RESULTS)
         }
         return coroutineScope {
             val booksDeferred = async { searchBooks(ftsQuery, safeLimit) }
@@ -224,6 +222,13 @@ internal class SearchServiceImpl(
     private companion object {
         const val MAX_LIMIT = 100
         const val COL_BOOK_COUNT = "book_count"
+        val EMPTY_RESULTS =
+            SearchResults(
+                books = emptyList(),
+                contributors = emptyList(),
+                series = emptyList(),
+                tags = emptyList(),
+            )
 
         /**
          * Strips any character that FTS5 treats as a query operator.
