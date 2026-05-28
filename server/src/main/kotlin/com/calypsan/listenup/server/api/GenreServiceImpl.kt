@@ -10,19 +10,24 @@ import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.GenreAliasTable
 import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import com.calypsan.listenup.server.sync.BookSearchReindexer
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [GenreService] implementation. Genres are a curator-controlled hierarchical
@@ -165,9 +170,80 @@ internal class GenreServiceImpl(
     override suspend fun updateGenre(
         id: GenreId,
         patch: GenreUpdate,
-    ): AppResult<Unit> = notYetImplemented()
+    ): AppResult<Unit> {
+        val outcome: GenreUpdateOutcome =
+            suspendTransaction(db) {
+                val current = genreRepository.findById(id.value)
+                if (current == null || current.deletedAt != null) {
+                    return@suspendTransaction GenreUpdateOutcome(
+                        nameChanged = false,
+                        result = AppResult.Failure(genreNotFound(id)),
+                    )
+                }
+                val patched = current.applyPatch(patch)
+                val nameChanged = patched.name != current.name
+                when (val upsertResult = genreRepository.upsert(patched)) {
+                    is AppResult.Success -> GenreUpdateOutcome(nameChanged, AppResult.Success(Unit))
+                    is AppResult.Failure -> GenreUpdateOutcome(false, AppResult.Failure(upsertResult.error))
+                }
+            }
+        if (outcome.result is AppResult.Success && outcome.nameChanged) {
+            try {
+                reindexer.reindexAllBooksForGenre(id.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed after rename of genre ${id.value}" }
+            }
+        }
+        return outcome.result
+    }
 
-    override suspend fun deleteGenre(id: GenreId): AppResult<Unit> = notYetImplemented()
+    override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
+        val result: AppResult<Unit> =
+            suspendTransaction(db) {
+                val current = genreRepository.findById(id.value)
+                if (current == null || current.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(genreNotFound(id))
+                }
+                if (GenreTable.directChildren(id.value).isNotEmpty()) {
+                    return@suspendTransaction AppResult.Failure(
+                        GenreError.HasDescendants(debugInfo = "id=${id.value}"),
+                    )
+                }
+
+                // Snapshot affected books BEFORE the cascade — afterwards the junction rows are gone.
+                val affectedBookIds = BookGenreTable.bookIdsForGenre(id.value)
+
+                BookGenreTable.deleteAllForGenre(id.value)
+                GenreAliasTable.removeAllForGenre(id.value)
+
+                // Re-upsert affected books — bumps revision, publishes book.Updated. The book's
+                // BookSyncPayload.genres re-derives from the live junction (now missing this id).
+                for (bookId in affectedBookIds) {
+                    val payload = bookRepository.findById(BookId(bookId)) ?: continue
+                    when (val upsertResult = bookRepository.upsert(payload)) {
+                        is AppResult.Success -> Unit
+                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
+                    }
+                }
+
+                when (val softDeleteResult = genreRepository.softDelete(id)) {
+                    is AppResult.Success -> AppResult.Success(Unit)
+                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+                }
+            }
+        if (result is AppResult.Success) {
+            try {
+                reindexer.reindexAllBooksForGenre(id.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed during delete of genre ${id.value}" }
+            }
+        }
+        return result
+    }
 
     override suspend fun moveGenre(
         id: GenreId,
@@ -189,6 +265,8 @@ internal class GenreServiceImpl(
     private fun <T> notYetImplemented(): AppResult<T> =
         AppResult.Failure(GenreError.NotFound(debugInfo = "not yet implemented"))
 
+    private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
+
     private fun ResultRow.toGenrePayload(): GenreSyncPayload =
         GenreSyncPayload(
             id = this[GenreTable.id],
@@ -206,3 +284,21 @@ internal class GenreServiceImpl(
             deletedAt = this[GenreTable.deletedAt],
         )
 }
+
+/**
+ * Carries the patched payload alongside whether the rename triggered a name change,
+ * so the post-commit FTS reindex only fires when the genre's display name actually
+ * changed (mirrors `ContributorServiceImpl.GenreUpdateOutcome`).
+ */
+private data class GenreUpdateOutcome(
+    val nameChanged: Boolean,
+    val result: AppResult<Unit>,
+)
+
+private fun GenreSyncPayload.applyPatch(patch: GenreUpdate): GenreSyncPayload =
+    copy(
+        name = patch.name ?: name,
+        description = patch.description ?: description,
+        color = patch.color ?: color,
+        sortOrder = patch.sortOrder ?: sortOrder,
+    )
