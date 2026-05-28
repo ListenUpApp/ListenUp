@@ -207,6 +207,30 @@ class AdminCategoriesViewModel(
     }
 
     /**
+     * Merge [source] genre into [target]. Books linked to source move to target,
+     * aliases re-point, source is tombstoned. Refuses when source has live
+     * descendants — surfaces via [com.calypsan.listenup.api.error.GenreError.HasDescendants].
+     */
+    fun mergeGenres(
+        source: String,
+        target: String,
+    ) {
+        viewModelScope.launch {
+            updateReady { it.copy(isSaving = true, error = null) }
+            when (val result = genreRepository.mergeGenres(GenreId(source), GenreId(target))) {
+                is AppResult.Success -> { /* observed list will refresh via Flow */ }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to merge genres: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
+            }
+            updateReady { it.copy(isSaving = false) }
+        }
+    }
+
+    /**
      * Clear the error state.
      */
     fun clearError() {
