@@ -130,6 +130,7 @@ fun Application.module() {
                     hasPlaybackModule = resolvedLibraryPath != null,
                     hasBooksModule = resolvedLibraryPath != null,
                     demoLibraryPath = resolvedLibraryPath?.toString(),
+                    hasGenresModule = resolvedLibraryPath != null,
                 )
         }
         modules(modules)
