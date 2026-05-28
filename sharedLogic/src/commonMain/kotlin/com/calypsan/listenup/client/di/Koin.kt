@@ -29,8 +29,8 @@ import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.GenreApi
-import com.calypsan.listenup.client.data.remote.GenreApiContract
+import com.calypsan.listenup.client.data.remote.GenreRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
@@ -424,7 +424,6 @@ val useCaseModule =
         factory {
             UpdateBookUseCase(
                 bookEditRepository = get(),
-                genreRepository = get(),
                 tagRepository = get(),
                 imageRepository = get(),
                 imageStagingRepository = get(),
@@ -679,10 +678,12 @@ val syncModule =
             SearchApi(clientFactory = get())
         }
 
-        // GenreApi for genre operations
-        single {
-            GenreApi(clientFactory = get())
-        } bind GenreApiContract::class
+        // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
+        // Tree reads come from Room (via GenreDao); only mutations and the
+        // unmapped-string queue need an RPC channel.
+        single<GenreRpcFactory> {
+            KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
+        }
 
         // StatsApi for listening statistics
         single {
@@ -1025,9 +1026,9 @@ val syncModule =
             )
         }
 
-        // GenreRepository for hierarchical genres (SOLID: interface in domain, impl in data)
+        // GenreRepository — Room-backed reads, RPC-dispatched mutations.
         single<GenreRepository> {
-            GenreRepositoryImpl(dao = get(), genreApi = get())
+            GenreRepositoryImpl(dao = get(), rpcFactory = get())
         }
 
         // ShelfRepository for personal curation shelves (SOLID: interface in domain, impl in data)

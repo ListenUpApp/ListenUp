@@ -21,19 +21,42 @@ interface GenreDao {
     // ========== Genre Entity Operations ==========
 
     /**
-     * Get all genres ordered by path (hierarchical order).
+     * Get all live genres ordered by path (hierarchical order). Tombstoned
+     * genres (`deletedAt` non-null) are excluded.
      *
-     * @return Flow emitting list of all genres
+     * @return Flow emitting list of all live genres
      */
-    @Query("SELECT * FROM genres ORDER BY path ASC, sortOrder ASC")
+    @Query("SELECT * FROM genres WHERE deletedAt IS NULL ORDER BY path ASC, sortOrder ASC")
     fun observeAllGenres(): Flow<List<GenreEntity>>
 
     /**
-     * Get all genres synchronously, ordered by path.
+     * Observe all live genres alongside their JOIN-derived bookCount. The count
+     * comes from the live `book_genres` junction at read time — there is no
+     * denormalized column. UI surfaces that want a per-genre count (Admin
+     * Categories, Browse Genres) consume this projection.
      *
-     * @return List of all genres
+     * @return Flow emitting `(GenreEntity, bookCount)` rows ordered by path.
      */
-    @Query("SELECT * FROM genres ORDER BY path ASC, sortOrder ASC")
+    @Query(
+        """
+        SELECT g.*, COALESCE(c.cnt, 0) AS bookCount
+        FROM genres g
+        LEFT JOIN (
+            SELECT genreId, COUNT(*) AS cnt FROM book_genres GROUP BY genreId
+        ) c ON c.genreId = g.id
+        WHERE g.deletedAt IS NULL
+        ORDER BY g.path ASC, g.sortOrder ASC
+    """,
+    )
+    fun observeAllGenresWithBookCount(): Flow<List<GenreWithBookCount>>
+
+    /**
+     * Get all live genres synchronously, ordered by path. Tombstoned genres
+     * are excluded.
+     *
+     * @return List of all live genres
+     */
+    @Query("SELECT * FROM genres WHERE deletedAt IS NULL ORDER BY path ASC, sortOrder ASC")
     suspend fun getAllGenres(): List<GenreEntity>
 
     /**
@@ -55,7 +78,7 @@ interface GenreDao {
      * @param id The genre ID
      * @return The genre entity or null if not found
      */
-    @Query("SELECT * FROM genres WHERE id = :id")
+    @Query("SELECT * FROM genres WHERE id = :id AND deletedAt IS NULL")
     suspend fun getById(id: String): GenreEntity?
 
     /**
@@ -64,7 +87,7 @@ interface GenreDao {
      * @param slug The genre slug
      * @return The genre entity or null if not found
      */
-    @Query("SELECT * FROM genres WHERE slug = :slug")
+    @Query("SELECT * FROM genres WHERE slug = :slug AND deletedAt IS NULL")
     suspend fun getBySlug(slug: String): GenreEntity?
 
     /**
@@ -204,7 +227,7 @@ interface GenreDao {
      * @param id The genre ID
      * @return Flow emitting the genre entity or null
      */
-    @Query("SELECT * FROM genres WHERE id = :id")
+    @Query("SELECT * FROM genres WHERE id = :id AND deletedAt IS NULL")
     fun observeById(id: String): Flow<GenreEntity?>
 
     /**
@@ -286,4 +309,14 @@ data class BookGenreNamePair(
 data class GenreIdName(
     val id: String,
     val name: String,
+)
+
+/**
+ * Projection returned by [GenreDao.observeAllGenresWithBookCount]: the genre
+ * row plus its current live-junction count. Embedding keeps the SQL column
+ * names aligned with [GenreEntity] without a manual mapping.
+ */
+data class GenreWithBookCount(
+    @androidx.room.Embedded val genre: GenreEntity,
+    val bookCount: Int,
 )

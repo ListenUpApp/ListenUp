@@ -1,125 +1,106 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.GenreUpdate
+import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.client.domain.model.Genre
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repository contract for genre operations.
+ * Repository contract for the curator-controlled genre taxonomy.
  *
- * Provides access to system-defined hierarchical categories.
- * Genres form a tree structure (e.g., Fiction > Fantasy > Epic Fantasy).
+ * The genre tree is a syncable domain — the server is authoritative, SSE
+ * delivers state changes, and Room is the client-side mirror. Tree reads
+ * (`observeAll`, `getById`, `getBySlug`, `observeGenresForBook`) consult Room
+ * directly. Admin mutations (`createGenre`, `updateGenre`, `deleteGenre`,
+ * `moveGenre`, `mergeGenres`) dispatch through
+ * [com.calypsan.listenup.api.GenreService] over RPC; authoritative state
+ * arrives back via the sync engine.
  *
- * Part of the domain layer - implementations live in the data layer.
+ * `setBookGenres` lives on [BookEditRepository], not here — it's a per-book
+ * write, not a taxonomy mutation. Matches the C1/C2 placement of
+ * `setBookContributors` / `setBookSeries`.
  *
- * Read methods (`observeAll`, `getAll`, `getById`, `getBySlug`,
- * `observeGenresForBook`, `getGenresForBook`, `getBookIdsForGenre`)
- * are local-only and cannot fail — they return plain values.
- *
- * Write methods that touch the server (`setGenresForBook`, `createGenre`,
- * `updateGenre`, `deleteGenre`, `moveGenre`) return [AppResult] — success
- * carries the value, failure carries a typed
- * [com.calypsan.listenup.api.error.AppError].
+ * Read methods cannot fail and return plain values. Mutation methods return
+ * [AppResult]; success carries the payload (or [Unit]) and failure carries a
+ * typed [com.calypsan.listenup.api.error.AppError].
  */
 interface GenreRepository {
-    /**
-     * Observe all genres reactively, ordered hierarchically.
-     *
-     * @return Flow emitting list of all genres
-     */
+    // ── Observation (Room-backed) ────────────────────────────────────────────
+
+    /** Observe all live genres reactively, hierarchical order, with book counts. */
     fun observeAll(): Flow<List<Genre>>
 
-    /**
-     * Get all genres synchronously.
-     *
-     * @return List of all genres
-     */
+    /** Get all live genres synchronously. */
     suspend fun getAll(): List<Genre>
 
-    /**
-     * Get a genre by ID.
-     *
-     * @param id The genre ID
-     * @return Genre if found, null otherwise
-     */
+    /** Get a single live genre by id (null when missing or tombstoned). */
     suspend fun getById(id: String): Genre?
 
-    /**
-     * Get a genre by slug.
-     *
-     * @param slug The genre slug (e.g., "epic-fantasy")
-     * @return Genre if found, null otherwise
-     */
+    /** Get a single live genre by URL slug (null when missing or tombstoned). */
     suspend fun getBySlug(slug: String): Genre?
 
-    /**
-     * Observe genres for a specific book.
-     *
-     * @param bookId The book ID
-     * @return Flow emitting list of genres for the book
-     */
+    /** Observe a single book's genres reactively. */
     fun observeGenresForBook(bookId: String): Flow<List<Genre>>
 
-    /**
-     * Get genres for a specific book synchronously.
-     *
-     * @param bookId The book ID
-     * @return List of genres for the book
-     */
+    /** Get a single book's genres synchronously. */
     suspend fun getGenresForBook(bookId: String): List<Genre>
 
-    /**
-     * Get all book IDs that have a specific genre.
-     *
-     * @param genreId The genre ID
-     * @return List of book IDs with this genre
-     */
+    /** Get all live book ids linked to the given genre. */
     suspend fun getBookIdsForGenre(genreId: String): List<String>
 
-    /**
-     * Set genres for a book (replaces all existing genres).
-     *
-     * Calls API to update server; on success, updates local Room for reactivity.
-     * On failure, the local cache is left untouched.
-     *
-     * @param bookId The book ID
-     * @param genreIds List of genre IDs to set
-     */
-    suspend fun setGenresForBook(
-        bookId: String,
-        genreIds: List<String>,
-    ): AppResult<Unit>
+    // ── Curator admin (RPC-dispatched) ───────────────────────────────────────
 
     /**
-     * Create a new genre.
+     * Creates a new genre under [parentId] (or as a root when null) with the
+     * given [name] and optional [sortOrder]. Server derives the slug from
+     * [name]. Authoritative state arrives via SSE; this returns the new
+     * [GenreId] on success.
      */
     suspend fun createGenre(
         name: String,
-        parentId: String?,
-    ): AppResult<Genre>
+        parentId: GenreId? = null,
+        sortOrder: Int = 0,
+    ): AppResult<GenreId>
 
-    /**
-     * Update an existing genre's name.
-     */
+    /** PATCHes the genre identified by [id] with [patch]. Null fields preserved. */
     suspend fun updateGenre(
-        id: String,
-        name: String,
-    ): AppResult<Genre>
+        id: GenreId,
+        patch: GenreUpdate,
+    ): AppResult<Unit>
 
-    /**
-     * Delete a genre.
-     *
-     * Calls API to delete from server; on success, removes the genre from
-     * local Room for immediate reactivity. On failure, the local cache is
-     * left untouched.
-     */
-    suspend fun deleteGenre(id: String): AppResult<Unit>
+    /** Soft-deletes the genre; refuses if it has live descendants. */
+    suspend fun deleteGenre(id: GenreId): AppResult<Unit>
 
-    /**
-     * Move a genre to a new parent.
-     */
+    /** Moves the subtree rooted at [id] under [newParentId] (or to root when null). */
     suspend fun moveGenre(
-        id: String,
-        newParentId: String?,
+        id: GenreId,
+        newParentId: GenreId?,
+    ): AppResult<Unit>
+
+    /** Merges genre [source] into genre [target]; refuses if source has descendants. */
+    suspend fun mergeGenres(
+        source: GenreId,
+        target: GenreId,
+    ): AppResult<Unit>
+
+    /** Returns books linked to [genreId], optionally including the subtree. */
+    suspend fun browseBooks(
+        genreId: GenreId,
+        includeDescendants: Boolean = false,
+        limit: Int = 100,
+    ): AppResult<List<BookId>>
+
+    // ── Unmapped-string curator queue (RPC-dispatched) ───────────────────────
+
+    /** Lists raw genre strings the scanner couldn't resolve, aggregated by string. */
+    suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>>
+
+    /** Binds [rawString] to [genreId]: alias, junction insert, pending cleanup. */
+    suspend fun mapUnmappedToGenre(
+        rawString: String,
+        genreId: GenreId,
     ): AppResult<Unit>
 }

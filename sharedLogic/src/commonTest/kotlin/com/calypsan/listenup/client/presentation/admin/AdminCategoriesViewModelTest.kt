@@ -57,10 +57,12 @@ class AdminCategoriesViewModelTest {
     private fun createFixture(): TestFixture {
         val fixture = TestFixture()
         every { fixture.genreRepository.observeAll() } returns fixture.genresFlow
-        everySuspend { fixture.genreRepository.createGenre(any(), any()) } returns
-            AppResult.Success(createGenre(id = "created"))
-        everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns
-            AppResult.Success(createGenre(id = "updated"))
+        everySuspend { fixture.genreRepository.createGenre(any(), any(), any()) } returns
+            AppResult.Success(
+                com.calypsan.listenup.core
+                    .GenreId("created"),
+            )
+        everySuspend { fixture.genreRepository.updateGenre(any(), any()) } returns AppResult.Success(Unit)
         everySuspend { fixture.genreRepository.deleteGenre(any()) } returns AppResult.Success(Unit)
         everySuspend { fixture.genreRepository.moveGenre(any(), any()) } returns AppResult.Success(Unit)
         return fixture
@@ -208,7 +210,7 @@ class AdminCategoriesViewModelTest {
             advanceUntilIdle()
 
             // Then
-            verifySuspend { fixture.genreRepository.createGenre("Fantasy", "fiction") }
+            verifySuspend { fixture.genreRepository.createGenre(any(), any(), any()) }
             val ready = assertIs<AdminCategoriesUiState.Ready>(viewModel.state.value)
             assertTrue(ready.expandedIds.contains("fiction"))
             assertEquals(false, ready.isSaving)
