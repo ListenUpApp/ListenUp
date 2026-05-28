@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
@@ -149,6 +150,7 @@ fun booksModule(
         }
         single<SearchService> { SearchServiceImpl(db = get()) }
         single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
+        single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
         single<TagService> {
             TagServiceImpl(
                 get<TagRepository>(),
