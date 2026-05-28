@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
+import com.calypsan.listenup.api.dto.SearchFacets
 import com.calypsan.listenup.api.dto.SearchFilters
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
@@ -44,6 +45,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  */
 internal class SearchServiceImpl(
     private val db: Database,
+    private val facetCounter: SearchFacetCounter = SearchFacetCounter(),
 ) : SearchService {
     override suspend fun search(query: SearchQuery): AppResult<SearchResults> {
         if (query.text.isBlank()) {
@@ -54,33 +56,105 @@ internal class SearchServiceImpl(
         if (ftsQuery.isBlank()) {
             return AppResult.Success(EMPTY_RESULTS)
         }
-        val booksOnly = (query.filters?.isActive == true) || query.sort != SearchSort.Relevance
+        val booksOnly = query.filters?.isActive == true || query.sort != SearchSort.Relevance
+        val (mbSql, mbArgs) = matchedBooksSqlAndArgs(ftsQuery, query.filters)
         return coroutineScope {
+            // Facet DB work depends only on the matched-book subquery, so it runs concurrently
+            // with the book/contributor/series/tag search queries — preserving the search-latency
+            // budget instead of running sequentially after the searches await.
+            val facetsDeferred = async { computeFacets(mbSql, mbArgs) }
             val booksDeferred = async { searchBooks(ftsQuery, safeLimit, query.filters, query.sort) }
             if (booksOnly) {
+                val books = booksDeferred.await()
                 AppResult.Success(
                     SearchResults(
-                        books = booksDeferred.await(),
+                        books = books,
                         contributors = emptyList(),
                         series = emptyList(),
                         tags = emptyList(),
+                        // Books-only collapse: contributors/series/tags are all empty, so the
+                        // facet's placeholder zero type counts are already correct.
+                        facets = facetsDeferred.await(),
                     ),
                 )
             } else {
                 val contributorsDeferred = async { searchContributors(ftsQuery, safeLimit) }
                 val seriesDeferred = async { searchSeries(ftsQuery, safeLimit) }
                 val tagsDeferred = async { searchTags(ftsQuery, safeLimit) }
+                val books = booksDeferred.await()
+                val contributors = contributorsDeferred.await()
+                val series = seriesDeferred.await()
+                val tags = tagsDeferred.await()
                 AppResult.Success(
                     SearchResults(
-                        books = booksDeferred.await(),
-                        contributors = contributorsDeferred.await(),
-                        series = seriesDeferred.await(),
-                        tags = tagsDeferred.await(),
+                        books = books,
+                        contributors = contributors,
+                        series = series,
+                        tags = tags,
+                        // `types.books` is the true matched count from the facet query; the other
+                        // type counts are the (limited) display-list sizes, filled in here.
+                        facets =
+                            facetsDeferred.await().let {
+                                it.copy(
+                                    types =
+                                        it.types.copy(
+                                            contributors = contributors.size,
+                                            series = series.size,
+                                            tags = tags.size,
+                                        ),
+                                )
+                            },
                     ),
                 )
             }
         }
     }
+
+    /**
+     * Builds the matched-books subquery — the SAME FROM/WHERE as [searchBooks] minus ORDER BY
+     * and LIMIT — plus its positional args (fts query first, then the filter args). The facet
+     * counter joins genres/contributors against this subquery so counts agree with the filtered
+     * (but un-limited) book set.
+     */
+    private fun matchedBooksSqlAndArgs(
+        ftsQuery: String,
+        filters: SearchFilters?,
+    ): Pair<String, List<Pair<IColumnType<*>, Any>>> {
+        val filterSql = buildFilterSql(filters)
+        val sql =
+            "SELECT b.id FROM book_search s JOIN book_search_map m ON s.rowid = m.rowid " +
+                "JOIN books b ON b.id = m.book_id WHERE book_search MATCH ? AND b.deleted_at IS NULL" +
+                filterSql.whereFragment
+        val args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) + filterSql.args
+        return sql to args
+    }
+
+    /**
+     * Computes facets in a fresh transaction. The genre/author/narrator buckets and the
+     * `types.books` count are over the FULL matched set (no display limit), so `types.books`
+     * is computed with a `COUNT(*)` over the matched subquery rather than the limited book list.
+     *
+     * Depends only on the matched-book subquery — not on the other result lists — so the caller
+     * runs this concurrently with the search queries. The returned [SearchFacets.types] carries
+     * the true matched `books` count with `contributors`/`series`/`tags` left at `0`; the caller
+     * fills those in from its display-list sizes once the parallel searches resolve.
+     */
+    private suspend fun computeFacets(
+        mbSql: String,
+        mbArgs: List<Pair<IColumnType<*>, Any>>,
+    ): SearchFacets =
+        suspendTransaction(db) {
+            var matchedBooks = 0
+            TransactionManager.current().exec(
+                stmt = "SELECT COUNT(*) AS cnt FROM ($mbSql)",
+                args = mbArgs,
+            ) { rs -> if (rs.next()) matchedBooks = rs.getInt("cnt") }
+            facetCounter.count(
+                matchedBooksSql = mbSql,
+                args = mbArgs,
+                bookCount = matchedBooks,
+            )
+        }
 
     private suspend fun searchBooks(
         ftsQuery: String,

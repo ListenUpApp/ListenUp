@@ -398,6 +398,62 @@ class SearchServiceImplTest :
                 }
             }
         }
+
+        test("facets count genres and authors over the matched book set") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "b1", "Dragon One", lib)
+                seedBook(db, "b2", "Dragon Two", lib)
+                seedGenre(db, "g-fan", "fantasy", "/fiction/fantasy", "Fantasy")
+                linkBookGenre(db, "b1", "g-fan")
+                linkBookGenre(db, "b2", "g-fan")
+                seedContributor(db, "c1", "Some Author")
+                seedBookContributor(db = db, bookId = "b1", contributorId = "c1", role = "author", ordinal = 0)
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r = service.search(SearchQuery(text = "Dragon")) as AppResult.Success<SearchResults>
+                    r.data.facets.genres
+                        .first { it.key == "fantasy" }
+                        .count shouldBe 2
+                    r.data.facets.genres
+                        .first { it.key == "fantasy" }
+                        .label shouldBe "Fantasy"
+                    r.data.facets.authors
+                        .first { it.key == "c1" }
+                        .count shouldBe 1
+                    r.data.facets.types.books shouldBe 2
+                }
+            }
+        }
+
+        test("facets reflect the active filter, not the unfiltered match set") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "f1", "Dragon F1", lib)
+                seedBook(db, "f2", "Dragon F2", lib)
+                seedBook(db, "s1", "Dragon S1", lib)
+                seedGenre(db, "g-fan", "fantasy", "/fiction/fantasy", "Fantasy")
+                seedGenre(db, "g-sci", "scifi", "/fiction/scifi", "Sci-Fi")
+                linkBookGenre(db, "f1", "g-fan")
+                linkBookGenre(db, "f2", "g-fan")
+                linkBookGenre(db, "s1", "g-sci")
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(genreSlugs = listOf("fantasy"))),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.facets.types.books shouldBe 2
+                    r.data.facets.genres
+                        .first { it.key == "fantasy" }
+                        .count shouldBe 2
+                    r.data.facets.genres
+                        .none { it.key == "scifi" } shouldBe true
+                }
+            }
+        }
     })
 
 // ── test data helpers ──────────────────────────────────────────────────────────
