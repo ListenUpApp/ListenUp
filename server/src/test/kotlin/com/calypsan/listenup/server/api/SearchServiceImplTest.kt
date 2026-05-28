@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.SearchFilters
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
+import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.BookSearchMapTable
@@ -237,6 +239,49 @@ class SearchServiceImplTest :
                     result.data.contributors shouldHaveSize 1
                     result.data.series shouldHaveSize 1
                     result.data.tags shouldHaveSize 1
+                }
+            }
+        }
+
+        test("non-relevance sort collapses results to books only") {
+            withInMemoryDatabase {
+                val db = this
+                val libId = seedLibrary(db)
+                seedBook(db = db, bookId = "b1", title = "Dragon Quest", libraryId = libId)
+                seedContributor(db = db, contributorId = "c1", name = "Dragon Author")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", sort = SearchSort.Title),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books shouldHaveSize 1
+                    r.data.contributors.shouldBeEmpty()
+                    r.data.series.shouldBeEmpty()
+                    r.data.tags.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("active filter collapses results to books only") {
+            withInMemoryDatabase {
+                val db = this
+                val libId = seedLibrary(db)
+                seedBook(db = db, bookId = "b1", title = "Dragon Quest", libraryId = libId)
+                seedContributor(db = db, contributorId = "c1", name = "Dragon Author")
+                val service = SearchServiceImpl(db = db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(genreSlugs = listOf("anything"))),
+                        ) as AppResult.Success<SearchResults>
+                    // Genre-filter SQL is not implemented until Task 3, so the book query still
+                    // returns the seeded book (filters are ignored inside searchBooks today).
+                    // This test asserts the COLLAPSE only: contributors/series/tags are skipped
+                    // when filters.isActive — not the book list contents.
+                    r.data.contributors.shouldBeEmpty()
+                    r.data.series.shouldBeEmpty()
+                    r.data.tags.shouldBeEmpty()
                 }
             }
         }

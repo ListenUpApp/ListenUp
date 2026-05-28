@@ -3,8 +3,10 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.dto.BookHit
 import com.calypsan.listenup.api.dto.ContributorHit
+import com.calypsan.listenup.api.dto.SearchFilters
 import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SearchResults
+import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.dto.SeriesHit
 import com.calypsan.listenup.api.dto.TagHit
 import com.calypsan.listenup.api.result.AppResult
@@ -23,9 +25,11 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 /**
  * Server-side implementation of [SearchService].
  *
- * Runs three FTS5 queries (books, contributors, series) as concurrent coroutines,
- * each inside its own [suspendTransaction]. The results are combined into a single
- * [SearchResults] envelope.
+ * Runs up to four parallel FTS5 queries (books, contributors, series, tags) as concurrent
+ * coroutines, each inside its own [suspendTransaction]. The results are combined into a single
+ * [SearchResults] envelope. When [SearchQuery.filters] is active or [SearchQuery.sort] is
+ * non-[SearchSort.Relevance], the search collapses to a single books-only query so that
+ * filter and sort semantics apply without polluting unrelated result categories.
  *
  * User-supplied queries are sanitised by [sanitizeFts5Query] before they reach
  * the FTS5 MATCH predicate — any character outside `[A-Za-z0-9 ]` is replaced
@@ -48,25 +52,39 @@ internal class SearchServiceImpl(
         if (ftsQuery.isBlank()) {
             return AppResult.Success(EMPTY_RESULTS)
         }
+        val booksOnly = (query.filters?.isActive == true) || query.sort != SearchSort.Relevance
         return coroutineScope {
-            val booksDeferred = async { searchBooks(ftsQuery, safeLimit) }
-            val contributorsDeferred = async { searchContributors(ftsQuery, safeLimit) }
-            val seriesDeferred = async { searchSeries(ftsQuery, safeLimit) }
-            val tagsDeferred = async { searchTags(ftsQuery, safeLimit) }
-            AppResult.Success(
-                SearchResults(
-                    books = booksDeferred.await(),
-                    contributors = contributorsDeferred.await(),
-                    series = seriesDeferred.await(),
-                    tags = tagsDeferred.await(),
-                ),
-            )
+            val booksDeferred = async { searchBooks(ftsQuery, safeLimit, query.filters, query.sort) }
+            if (booksOnly) {
+                AppResult.Success(
+                    SearchResults(
+                        books = booksDeferred.await(),
+                        contributors = emptyList(),
+                        series = emptyList(),
+                        tags = emptyList(),
+                    ),
+                )
+            } else {
+                val contributorsDeferred = async { searchContributors(ftsQuery, safeLimit) }
+                val seriesDeferred = async { searchSeries(ftsQuery, safeLimit) }
+                val tagsDeferred = async { searchTags(ftsQuery, safeLimit) }
+                AppResult.Success(
+                    SearchResults(
+                        books = booksDeferred.await(),
+                        contributors = contributorsDeferred.await(),
+                        series = seriesDeferred.await(),
+                        tags = tagsDeferred.await(),
+                    ),
+                )
+            }
         }
     }
 
     private suspend fun searchBooks(
         ftsQuery: String,
         limit: Int,
+        filters: SearchFilters?,
+        sort: SearchSort,
     ): List<BookHit> =
         suspendTransaction(db) {
             val results = mutableListOf<BookHit>()
