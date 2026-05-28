@@ -116,7 +116,21 @@ interface GenreDao {
     suspend fun upsertAll(genres: List<GenreEntity>)
 
     /**
-     * Delete a genre by ID.
+     * Soft-delete a genre — set the substrate tombstone columns. The row stays
+     * (so revision bookkeeping survives); reads filter on `deletedAt IS NULL`.
+     * Used by [com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler]
+     * to apply server `SyncEvent.Deleted`.
+     */
+    @Query("UPDATE genres SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /**
+     * Hard-delete a genre by ID. Used for testing and full re-sync scenarios
+     * only — production sync uses [softDelete].
      *
      * @param id The genre ID to delete
      */
@@ -131,14 +145,6 @@ interface GenreDao {
     suspend fun deleteAll()
 
     // ========== Book-Genre Relationship Operations ==========
-
-    /**
-     * Insert a book-genre relationship.
-     *
-     * @param crossRef The book-genre relationship to insert
-     */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBookGenre(crossRef: BookGenreCrossRef)
 
     /**
      * Insert multiple book-genre relationships.
