@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -55,6 +56,7 @@ class BookServiceImplSetContributorsTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -105,6 +107,7 @@ class BookServiceImplSetContributorsTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -155,6 +158,7 @@ class BookServiceImplSetContributorsTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -214,6 +218,7 @@ class BookServiceImplSetContributorsTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val result =
@@ -252,6 +257,7 @@ class BookServiceImplSetContributorsTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Badge
@@ -112,6 +113,8 @@ import listenup.composeapp.generated.resources.admin_share_your_audiobook_librar
 import listenup.composeapp.generated.resources.admin_they_wont_be_able_to
 import listenup.composeapp.generated.resources.common_users
 import listenup.composeapp.generated.resources.admin_view_the_genre_hierarchy_tree
+import listenup.composeapp.generated.resources.admin_unmapped_genres
+import listenup.composeapp.generated.resources.admin_map_scanned_genre_strings_to_your_taxonomy
 import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_settings
 
@@ -126,6 +129,7 @@ fun AdminScreen(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
+    onUnmappedGenresClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
@@ -221,6 +225,7 @@ fun AdminScreen(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
+                    onUnmappedGenresClick = onUnmappedGenresClick,
                     onInboxClick = onInboxClick,
                     onBackupClick = onBackupClick,
                     serverName = serverName,
@@ -300,6 +305,7 @@ private fun AdminContent(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
+    onUnmappedGenresClick: () -> Unit,
     onInboxClick: () -> Unit,
     onBackupClick: () -> Unit,
     serverName: String,
@@ -511,6 +517,12 @@ private fun AdminContent(
         item {
             Spacer(modifier = Modifier.height(12.dp))
             CategoriesCard(onClick = onCategoriesClick)
+        }
+
+        // Unmapped Genres button
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            UnmappedGenresCard(onClick = onUnmappedGenresClick)
         }
 
         // Inbox button (only shown when inbox workflow is enabled)
@@ -1079,6 +1091,49 @@ private fun CategoriesCard(
                 )
                 Text(
                     text = stringResource(Res.string.admin_view_the_genre_hierarchy_tree),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UnmappedGenresCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors =
+            CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.Rule,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.admin_unmapped_genres),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(Res.string.admin_map_scanned_genre_strings_to_your_taxonomy),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

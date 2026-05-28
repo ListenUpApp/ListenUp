@@ -50,6 +50,7 @@
     <string name="admin_library_name">Library name</string>
     <string name="admin_link_copied">Link copied!</string>
     <string name="admin_listening_history">Listening history</string>
+    <string name="admin_map_scanned_genre_strings_to_your_taxonomy">Map scanned genre strings to your taxonomy</string>
     <string name="admin_new_books_in_this_library">New books in this library bypass inbox review and appear immediately</string>
     <string name="admin_newly_scanned_books_will_appear">Newly scanned books will appear here for review</string>
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
@@ -92,6 +93,7 @@
     <string name="admin_they_wont_be_able_to">They won\'t be able to use this link anymore.</string>
     <string name="admin_this_users_permissions_cannot_be">This user\'s permissions cannot be modified</string>
     <string name="admin_uncollected_books_are_visible_to">Uncollected books are visible to all users. Collections restrict access.</string>
+    <string name="admin_unmapped_genres">Unmapped Genres</string>
     <string name="admin_users_only_see_books_in">Users only see books in collections they have access to. Collections grant access.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
     <string name="admin_what_to_include">What to include</string>
@@ -394,6 +396,7 @@
     <string name="library_authors">Authors</string>
     <string name="library_bookcount">%1$s</string>
     <string name="library_books">Books</string>
+    <string name="library_browse_by_genre">Browse by genre</string>
     <string name="library_collection">Collection</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; Add</string>
@@ -404,6 +407,7 @@
     <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_loading_your_library">Loading your library...</string>
+    <string name="library_more_options">More library options</string>
     <string name="library_narrators">Narrators</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>

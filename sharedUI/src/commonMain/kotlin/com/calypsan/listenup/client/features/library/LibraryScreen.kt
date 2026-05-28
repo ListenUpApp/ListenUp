@@ -5,14 +5,21 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -45,6 +52,10 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.library.SelectionMode
 import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_browse_by_genre
+import listenup.composeapp.generated.resources.library_more_options
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -64,6 +75,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onSeriesClick Callback when a series is clicked
  * @param onAuthorClick Callback when an author is clicked
  * @param onNarratorClick Callback when a narrator is clicked
+ * @param onBrowseGenresClick Callback to open the browse-by-genre screen
  * @param topBarCollapseFraction Fraction of top bar collapse (0 = expanded, 1 = collapsed)
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
@@ -74,6 +86,7 @@ fun LibraryScreen(
     onSeriesClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
+    onBrowseGenresClick: () -> Unit,
     topBarCollapseFraction: Float = 0f,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
@@ -107,6 +120,7 @@ fun LibraryScreen(
                 onSeriesClick = onSeriesClick,
                 onAuthorClick = onAuthorClick,
                 onNarratorClick = onNarratorClick,
+                onBrowseGenresClick = onBrowseGenresClick,
                 topBarCollapseFraction = topBarCollapseFraction,
                 onEvent = viewModel::onEvent,
                 onEnterSelectionMode = viewModel::enterSelectionMode,
@@ -171,6 +185,7 @@ private fun LibraryLoadedContent(
     onSeriesClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
+    onBrowseGenresClick: () -> Unit,
     topBarCollapseFraction: Float,
     onEvent: (LibraryUiEvent) -> Unit,
     onEnterSelectionMode: (String) -> Unit,
@@ -195,6 +210,7 @@ private fun LibraryLoadedContent(
     // Collection and shelf picker sheet state
     var showCollectionPicker by remember { mutableStateOf(false) }
     var showShelfPicker by remember { mutableStateOf(false) }
+    var showLibraryMenu by remember { mutableStateOf(false) }
 
     // Handle back press to exit selection mode
     PlatformBackHandler(enabled = isInSelectionMode) {
@@ -266,16 +282,46 @@ private fun LibraryLoadedContent(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Tab row - collapses icons when top bar collapses
-            LibraryTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                onTabSelected = { index ->
-                    scope.launch {
-                        pagerState.animateScrollToPage(index)
+            // Tab row + overflow menu - tabs collapse icons when top bar collapses
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LibraryTabRow(
+                    selectedTabIndex = pagerState.currentPage,
+                    onTabSelected = { index ->
+                        scope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    collapseFraction = topBarCollapseFraction,
+                    modifier = Modifier.weight(1f),
+                )
+
+                Box {
+                    IconButton(onClick = { showLibraryMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(Res.string.library_more_options),
+                        )
                     }
-                },
-                collapseFraction = topBarCollapseFraction,
-            )
+                    DropdownMenu(
+                        expanded = showLibraryMenu,
+                        onDismissRequest = { showLibraryMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.library_browse_by_genre)) },
+                            onClick = {
+                                showLibraryMenu = false
+                                onBrowseGenresClick()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Outlined.Category, contentDescription = null)
+                            },
+                        )
+                    }
+                }
+            }
 
             // Pull-to-refresh wraps entire pager (syncs all data)
             PullToRefreshBox(

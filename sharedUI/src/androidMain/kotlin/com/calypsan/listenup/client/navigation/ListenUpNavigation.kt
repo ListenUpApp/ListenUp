@@ -618,6 +618,7 @@ private fun AuthenticatedNavigation(
                                         onNarratorClick = { narratorId ->
                                             backStack.add(ContributorDetail(narratorId))
                                         },
+                                        onBrowseGenresClick = { backStack.add(BrowseGenre) },
                                         topBarCollapseFraction = topBarCollapseFraction,
                                         modifier = Modifier.padding(padding),
                                     )
@@ -873,6 +874,9 @@ private fun AuthenticatedNavigation(
                                 },
                                 onCategoriesClick = {
                                     backStack.add(AdminCategories)
+                                },
+                                onUnmappedGenresClick = {
+                                    backStack.add(UnmappedGenres)
                                 },
                                 onInboxClick = {
                                     backStack.add(AdminInbox)

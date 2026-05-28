@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -51,6 +52,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val initialUpsert =
@@ -92,6 +94,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(
@@ -139,6 +142,7 @@ class BookServiceImplUpdateTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val result =

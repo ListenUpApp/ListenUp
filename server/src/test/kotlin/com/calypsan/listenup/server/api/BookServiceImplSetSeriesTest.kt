@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -55,6 +56,7 @@ class BookServiceImplSetSeriesTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -107,6 +109,7 @@ class BookServiceImplSetSeriesTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -157,6 +160,7 @@ class BookServiceImplSetSeriesTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val s1 = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -204,6 +208,7 @@ class BookServiceImplSetSeriesTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     val result =
@@ -242,6 +247,7 @@ class BookServiceImplSetSeriesTest :
                         seriesRepo = seriesRepo,
                         coverStorage = CoverStorage(),
                         db = db,
+                        genreRepo = GenreRepository(db, bus, syncRegistry),
                     )
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))

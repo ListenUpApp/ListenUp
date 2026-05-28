@@ -63,7 +63,7 @@ internal class BookServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val coverStorage: CoverStorage,
     private val db: Database,
-    private val genreRepo: com.calypsan.listenup.server.services.GenreRepository? = null,
+    private val genreRepo: com.calypsan.listenup.server.services.GenreRepository,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val payload = repo.findById(id)
@@ -179,11 +179,6 @@ internal class BookServiceImpl(
                 ),
             )
         }
-        val genreRepo =
-            this.genreRepo
-                ?: return AppResult.Failure(
-                    BookError.InvalidInput(debugInfo = "GenreRepository not wired in this BookServiceImpl instance"),
-                )
         return suspendTransaction(db) {
             val current = repo.findById(id) ?: return@suspendTransaction bookNotFound(id)
 
@@ -251,7 +246,7 @@ fun createBookService(
     seriesRepo: SeriesRepository,
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
-    genreRepo: com.calypsan.listenup.server.services.GenreRepository? = null,
+    genreRepo: com.calypsan.listenup.server.services.GenreRepository,
 ): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo)
 
 private fun bookNotFound(id: BookId): AppResult.Failure =
