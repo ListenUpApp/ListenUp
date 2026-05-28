@@ -251,7 +251,8 @@ fun createBookService(
     seriesRepo: SeriesRepository,
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
-): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db)
+    genreRepo: com.calypsan.listenup.server.services.GenreRepository? = null,
+): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo)
 
 private fun bookNotFound(id: BookId): AppResult.Failure =
     AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))

@@ -572,6 +572,19 @@ private sealed interface MovePlanResult {
     ) : MovePlanResult
 }
 
+/**
+ * Public factory for tests that need a `GenreService` without going through
+ * Koin. Mirrors [createBookService] / [createSeriesService] / [createContributorService] —
+ * the harness in `WithClientSyncEngineAgainstServer` wires every server domain
+ * service this way.
+ */
+fun createGenreService(
+    genreRepository: GenreRepository,
+    bookRepository: BookRepository,
+    reindexer: BookSearchReindexer,
+    db: Database,
+): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, db)
+
 private fun GenreSyncPayload.applyPatch(patch: GenreUpdate): GenreSyncPayload =
     copy(
         name = patch.name ?: name,

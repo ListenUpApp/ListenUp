@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync.handlers
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -16,7 +17,9 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.BookGenreCrossRef
 import com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef
+import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -132,8 +135,55 @@ class BookSyncDomainHandler(
 
         applyContributors(bookId, payload.contributors)
         applySeries(bookId, payload.series)
+        applyGenres(bookId, payload.genres)
         applyChapters(bookId, payload.chapters)
         applyAudioFiles(payload.id, payload.audioFiles)
+    }
+
+    /**
+     * Replace the book's `book_genres` junction set with the payload's genres.
+     * Bootstrap-only writes a minimal [GenreEntity] stub if the genre row hasn't
+     * arrived via its own substrate sync yet — matches the contributor/series
+     * pattern so books with genres can render before the genre tree finishes
+     * catching up. The substrate's `genre.Updated` then overwrites the stub
+     * with authoritative fields.
+     */
+    private suspend fun applyGenres(
+        bookId: BookId,
+        genres: List<BookGenrePayload>,
+    ) {
+        database.genreDao().deleteGenresForBook(bookId)
+        if (genres.isEmpty()) return
+        for (genre in genres) {
+            genreEnsureExists(genre)
+        }
+        database.genreDao().insertAllBookGenres(
+            genres.map { BookGenreCrossRef(bookId = bookId, genreId = it.id) },
+        )
+    }
+
+    /**
+     * Insert a minimal genre stub if the row is missing. Substrate's
+     * `GenreSyncDomainHandler` overwrites the stub on the next catch-up; until
+     * then the bootstrap row keeps the FK satisfied and the book renderable.
+     */
+    private suspend fun genreEnsureExists(payload: BookGenrePayload) {
+        if (database.genreDao().getById(payload.id) != null) return
+        database.genreDao().upsert(
+            GenreEntity(
+                id = payload.id,
+                name = payload.name,
+                slug = payload.slug,
+                path = payload.path,
+                parentId = null,
+                depth = 0,
+                sortOrder = 0,
+                revision = 0L,
+                deletedAt = null,
+                createdAt = Timestamp(0L),
+                updatedAt = Timestamp(0L),
+            ),
+        )
     }
 
     private suspend fun applyContributors(
