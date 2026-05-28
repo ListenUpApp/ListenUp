@@ -12,6 +12,7 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.GenreAliasTable
 import com.calypsan.listenup.server.db.GenreTable
+import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
@@ -41,10 +42,6 @@ private const val MAX_BROWSE_LIMIT = 1000
  * Every mutation method runs inside a single transaction; post-commit
  * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree`
  * keeps `book_search.genres` consistent with the live junction state.
- *
- * Task 13 has landed the read + create surface ([listGenres], [getGenre],
- * [getGenreChildren], [createGenre]); the remaining methods still stub
- * [GenreError.NotFound] and land in Tasks 14–19.
  *
  * // TODO: gate by user permissions when Multi-user lands
  */
@@ -353,15 +350,65 @@ internal class GenreServiceImpl(
         return result
     }
 
-    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> = notYetImplemented()
+    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> =
+        suspendTransaction(db) {
+            val summaries =
+                PendingBookGenreTable.aggregateByString().map { agg ->
+                    UnmappedStringSummary(
+                        rawString = agg.rawString,
+                        bookCount = agg.bookCount,
+                        firstSeenAt = agg.firstSeenAt,
+                    )
+                }
+            AppResult.Success(summaries)
+        }
 
     override suspend fun mapUnmappedToGenre(
         rawString: String,
         genreId: GenreId,
-    ): AppResult<Unit> = notYetImplemented()
+    ): AppResult<Unit> {
+        val trimmed = rawString.trim()
+        val result: AppResult<Unit> =
+            suspendTransaction(db) {
+                val genre = genreRepository.findById(genreId.value)
+                if (genre == null || genre.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
+                }
 
-    private fun <T> notYetImplemented(): AppResult<T> =
-        AppResult.Failure(GenreError.NotFound(debugInfo = "not yet implemented"))
+                // Snapshot affected books BEFORE we delete pending rows.
+                val affectedBookIds = PendingBookGenreTable.bookIdsByRawString(trimmed)
+                if (affectedBookIds.isEmpty()) {
+                    return@suspendTransaction AppResult.Failure(
+                        GenreError.UnmappedStringNotFound(debugInfo = "rawString=$trimmed"),
+                    )
+                }
+
+                // 1. Persist the alias so future scans resolve the string automatically.
+                GenreAliasTable.addAlias(trimmed, genreId.value)
+
+                // 2. Convert pending → real junction rows (insert-or-ignore — idempotent if a
+                //    book already has the target genre linked).
+                for (bookId in affectedBookIds) {
+                    BookGenreTable.insertIfAbsent(bookId, genreId.value)
+                }
+
+                // 3. Drop the pending rows now that the mapping is canonical.
+                PendingBookGenreTable.deleteAllForRawString(trimmed)
+
+                // 4. Re-upsert each affected book — bumps revision, publishes `book.Updated`.
+                reupsertBooks(affectedBookIds)
+            }
+        if (result is AppResult.Success) {
+            try {
+                reindexer.reindexAllBooksForGenre(genreId.value)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
+            }
+        }
+        return result
+    }
 
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
 
