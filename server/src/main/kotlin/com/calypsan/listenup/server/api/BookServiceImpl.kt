@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.BookError
@@ -163,6 +164,14 @@ internal class BookServiceImpl(
             }
         }
     }
+
+    override suspend fun setBookGenres(
+        id: BookId,
+        genres: List<BookGenreInput>,
+    ): AppResult<Unit> =
+        AppResult.Failure(
+            BookError.NotFound(debugInfo = "setBookGenres not yet implemented (Task 12 stub)"),
+        )
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
         // Resolve the on-disk cover file (if any) BEFORE the transaction so

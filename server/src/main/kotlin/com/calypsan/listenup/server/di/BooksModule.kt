@@ -2,12 +2,14 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
+import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
@@ -25,6 +27,7 @@ import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.micrometer.core.instrument.MeterRegistry
@@ -101,6 +104,7 @@ fun booksModule(
 
         single(createdAtStart = true) { ContributorRepository(get(), get(), get()) }
         single(createdAtStart = true) { SeriesRepository(get(), get(), get()) }
+        single(createdAtStart = true) { GenreRepository(get(), get(), get()) }
         single { AnalyzedBookMapper(clock = get()) }
         single(createdAtStart = true) {
             BookRepository(
@@ -149,6 +153,14 @@ fun booksModule(
                 get<BookTagRepository>(),
                 get<BookSearchReindexer>(),
                 get(),
+            )
+        }
+        single<GenreService> {
+            GenreServiceImpl(
+                genreRepository = get<GenreRepository>(),
+                bookRepository = get<BookRepository>(),
+                reindexer = get<BookSearchReindexer>(),
+                db = get(),
             )
         }
 

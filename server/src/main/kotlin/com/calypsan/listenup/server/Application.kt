@@ -2,6 +2,7 @@ package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -92,6 +93,9 @@ private const val SEED_PROFILE_DEMO = "demo"
 
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
 
+private inline fun <reified T : Any> Application.injectIfConfigured(libraryPath: Path?): T? =
+    libraryPath?.let { inject<T>().value }
+
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
@@ -151,32 +155,24 @@ fun Application.module() {
 
     installJwtAuth(jwt, sessions)
 
-    val scannerService: ScannerService? = resolvedLibraryPath?.let { inject<ScannerService>().value }
-    val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
-    val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
-    val contributorService: ContributorService? = resolvedLibraryPath?.let { inject<ContributorService>().value }
-    val seriesService: SeriesService? = resolvedLibraryPath?.let { inject<SeriesService>().value }
-    val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
-    val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
-    val playbackProgressService: PlaybackProgressService? =
-        resolvedLibraryPath?.let { inject<PlaybackProgressService>().value }
-    val backfillService: UserStatsBackfillService? =
-        resolvedLibraryPath?.let {
-            inject<UserStatsBackfillService>().value
-        }
-    val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
-    val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
-    val contributorRepository: ContributorRepository? =
-        resolvedLibraryPath?.let {
-            inject<ContributorRepository>().value
-        }
-    val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
-    val metadataLookupService: MetadataLookupService? =
-        resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
-    val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
-    val libraryAdminService: LibraryAdminService? =
-        resolvedLibraryPath?.let { inject<LibraryAdminService>().value }
-    val tagService: TagService? = resolvedLibraryPath?.let { inject<TagService>().value }
+    val scannerService: ScannerService? = injectIfConfigured(resolvedLibraryPath)
+    val eventBus: SharedFlow<ScanEvent>? = injectIfConfigured(resolvedLibraryPath)
+    val bookService: BookService? = injectIfConfigured(resolvedLibraryPath)
+    val contributorService: ContributorService? = injectIfConfigured(resolvedLibraryPath)
+    val seriesService: SeriesService? = injectIfConfigured(resolvedLibraryPath)
+    val coverResponder: CoverResponder? = injectIfConfigured(resolvedLibraryPath)
+    val playbackService: PlaybackService? = injectIfConfigured(resolvedLibraryPath)
+    val playbackProgressService: PlaybackProgressService? = injectIfConfigured(resolvedLibraryPath)
+    val backfillService: UserStatsBackfillService? = injectIfConfigured(resolvedLibraryPath)
+    val audioFileLocator: AudioFileLocator? = injectIfConfigured(resolvedLibraryPath)
+    val audioUrlSigner: AudioUrlSigner? = injectIfConfigured(resolvedLibraryPath)
+    val contributorRepository: ContributorRepository? = injectIfConfigured(resolvedLibraryPath)
+    val seriesRepository: SeriesRepository? = injectIfConfigured(resolvedLibraryPath)
+    val metadataLookupService: MetadataLookupService? = injectIfConfigured(resolvedLibraryPath)
+    val searchService: SearchService? = injectIfConfigured(resolvedLibraryPath)
+    val libraryAdminService: LibraryAdminService? = injectIfConfigured(resolvedLibraryPath)
+    val tagService: TagService? = injectIfConfigured(resolvedLibraryPath)
+    val genreService: GenreService? = injectIfConfigured(resolvedLibraryPath)
 
     routing {
         healthRoutes()
@@ -195,6 +191,7 @@ fun Application.module() {
             searchService,
             libraryAdminService,
             tagService,
+            genreService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
