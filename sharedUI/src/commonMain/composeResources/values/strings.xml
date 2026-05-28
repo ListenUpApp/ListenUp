@@ -396,6 +396,7 @@
     <string name="library_authors">Authors</string>
     <string name="library_bookcount">%1$s</string>
     <string name="library_books">Books</string>
+    <string name="library_browse_by_genre">Browse by genre</string>
     <string name="library_collection">Collection</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; Add</string>
@@ -406,6 +407,7 @@
     <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_loading_your_library">Loading your library...</string>
+    <string name="library_more_options">More library options</string>
     <string name="library_narrators">Narrators</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>

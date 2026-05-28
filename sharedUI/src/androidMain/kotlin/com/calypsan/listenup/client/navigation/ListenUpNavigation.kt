@@ -618,6 +618,7 @@ private fun AuthenticatedNavigation(
                                         onNarratorClick = { narratorId ->
                                             backStack.add(ContributorDetail(narratorId))
                                         },
+                                        onBrowseGenresClick = { backStack.add(BrowseGenre) },
                                         topBarCollapseFraction = topBarCollapseFraction,
                                         modifier = Modifier.padding(padding),
                                     )
