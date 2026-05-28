@@ -120,7 +120,12 @@ private fun Application.launchSeeders(
         }
     } else if (libraryConfigured) {
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
-        scope.launch {
+        // Synchronous on the module init thread — `module()` returns only after the
+        // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
+        // on first install; subsequent boots are a single `count()` query via
+        // `isAlreadySeeded`. The async-launch alternative leaked seed coroutines past
+        // test boundaries on CI, racing scanner-test bootstrap scans.
+        kotlinx.coroutines.runBlocking {
             runCatching {
                 if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
             }.onFailure { e ->
