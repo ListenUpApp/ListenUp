@@ -29,6 +29,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
+private const val MIN_BROWSE_LIMIT = 1
+private const val MAX_BROWSE_LIMIT = 1000
+
 /**
  * [GenreService] implementation. Genres are a curator-controlled hierarchical
  * taxonomy with materialized-path storage; this class implements the read,
@@ -114,7 +117,26 @@ internal class GenreServiceImpl(
         genreId: GenreId,
         includeDescendants: Boolean,
         limit: Int,
-    ): AppResult<List<BookId>> = notYetImplemented()
+    ): AppResult<List<BookId>> {
+        val safeLimit = limit.coerceIn(MIN_BROWSE_LIMIT, MAX_BROWSE_LIMIT)
+        return suspendTransaction(db) {
+            val genreRow =
+                GenreTable
+                    .selectAll()
+                    .where { GenreTable.id eq genreId.value }
+                    .firstOrNull()
+            if (genreRow == null || genreRow[GenreTable.deletedAt] != null) {
+                return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
+            }
+            val bookIdStrings =
+                if (includeDescendants) {
+                    BookGenreTable.booksForGenrePrefix(genreRow[GenreTable.path], safeLimit)
+                } else {
+                    BookGenreTable.booksForGenre(genreId.value, safeLimit)
+                }
+            AppResult.Success(bookIdStrings.map(::BookId))
+        }
+    }
 
     override suspend fun createGenre(
         parentId: GenreId?,
