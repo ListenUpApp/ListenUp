@@ -230,7 +230,7 @@ internal class GenreServiceImpl(
                 }
                 if (GenreTable.directChildren(id.value).isNotEmpty()) {
                     return@suspendTransaction AppResult.Failure(
-                        GenreError.HasDescendants(debugInfo = "id=${id.value}"),
+                        GenreError.HasDescendants(debugInfo = id.value),
                     )
                 }
 
@@ -244,9 +244,9 @@ internal class GenreServiceImpl(
                 // BookSyncPayload.genres re-derives from the live junction (now missing this id).
                 for (bookId in affectedBookIds) {
                     val payload = bookRepository.findById(BookId(bookId)) ?: continue
-                    when (val upsertResult = bookRepository.upsert(payload)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
+                    val upsertResult = bookRepository.upsert(payload)
+                    if (upsertResult is AppResult.Failure) {
+                        return@suspendTransaction AppResult.Failure(upsertResult.error)
                     }
                 }
 
@@ -270,7 +270,37 @@ internal class GenreServiceImpl(
     override suspend fun moveGenre(
         id: GenreId,
         newParentId: GenreId?,
-    ): AppResult<Unit> = notYetImplemented()
+    ): AppResult<Unit> {
+        val outcome: MoveOutcome =
+            suspendTransaction(db) {
+                when (val plan = planMove(id, newParentId)) {
+                    is MovePlanResult.Reject -> {
+                        MoveOutcome(
+                            oldPathPrefix = null,
+                            result = AppResult.Failure(plan.error),
+                        )
+                    }
+
+                    is MovePlanResult.NoOp -> {
+                        MoveOutcome(oldPathPrefix = null, result = AppResult.Success(Unit))
+                    }
+
+                    is MovePlanResult.Proceed -> {
+                        executeMove(plan.plan)
+                    }
+                }
+            }
+        if (outcome.result is AppResult.Success && outcome.oldPathPrefix != null) {
+            try {
+                reindexer.reindexAllBooksForSubtree(outcome.oldPathPrefix)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "FTS reindex failed after moveGenre id=${id.value}" }
+            }
+        }
+        return outcome.result
+    }
 
     override suspend fun mergeGenres(
         source: GenreId,
@@ -288,6 +318,86 @@ internal class GenreServiceImpl(
         AppResult.Failure(GenreError.NotFound(debugInfo = "not yet implemented"))
 
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
+
+    /**
+     * Returns `true` when [newParent] would create a cycle on `moveGenre(id, newParent)`:
+     * either [newParent] is [id] itself, or it sits anywhere inside [genre]'s subtree.
+     * The trailing-slash form of the path-prefix check prevents the `/fic` vs `/fiction`
+     * LIKE-collision (acceptance criterion #5).
+     */
+    private fun isSelfOrDescendant(
+        genre: GenreSyncPayload,
+        newParent: GenreSyncPayload,
+        id: GenreId,
+    ): Boolean =
+        newParent.id == id.value ||
+            newParent.path == genre.path ||
+            newParent.path.startsWith(genre.path + "/")
+
+    /**
+     * Validates a `moveGenre` request and either rejects it, reports a no-op, or
+     * produces an executable [MovePlan]. Runs inside the caller's transaction.
+     *
+     * Splitting this out of [moveGenre] keeps the orchestration body straight-line
+     * and well under the cognitive-complexity threshold.
+     */
+    private suspend fun planMove(
+        id: GenreId,
+        newParentId: GenreId?,
+    ): MovePlanResult {
+        val genre = genreRepository.findById(id.value)
+        if (genre == null || genre.deletedAt != null) {
+            return MovePlanResult.Reject(genreNotFound(id))
+        }
+        val newParent: GenreSyncPayload? =
+            newParentId?.let { nid ->
+                val p = genreRepository.findById(nid.value)
+                if (p == null || p.deletedAt != null) return MovePlanResult.Reject(genreNotFound(nid))
+                p
+            }
+        if (newParent != null && isSelfOrDescendant(genre, newParent, id)) {
+            return MovePlanResult.Reject(GenreError.MoveSelfDescendant(debugInfo = id.value))
+        }
+
+        val oldPathPrefix = genre.path
+        val newPathPrefix = (newParent?.path ?: "") + "/" + genre.slug
+        if (newPathPrefix == oldPathPrefix) return MovePlanResult.NoOp
+
+        if (GenreTable.findByPath(newPathPrefix) != null) {
+            return MovePlanResult.Reject(GenreError.SlugConflict(debugInfo = "path=$newPathPrefix"))
+        }
+
+        val depthDelta = (newParent?.depth ?: -1) + 1 - genre.depth
+        return MovePlanResult.Proceed(
+            MovePlan(
+                movedId = id,
+                newParentId = newParentId,
+                oldPathPrefix = oldPathPrefix,
+                newPathPrefix = newPathPrefix,
+                depthDelta = depthDelta,
+            ),
+        )
+    }
+
+    /**
+     * Executes a validated [MovePlan]: snapshots the subtree, rewrites paths +
+     * depths in bulk, re-points the moved root's parent, then re-upserts each
+     * touched genre so the substrate publishes one `genre.Updated` per row.
+     * Runs inside the caller's transaction.
+     */
+    private suspend fun executeMove(plan: MovePlan): MoveOutcome {
+        val subtreeIds = GenreTable.descendantIds(plan.oldPathPrefix)
+        GenreTable.rewritePathPrefix(plan.oldPathPrefix, plan.newPathPrefix, plan.depthDelta)
+        GenreTable.updateParentId(plan.movedId.value, plan.newParentId?.value)
+        for (gid in subtreeIds) {
+            val payload = genreRepository.findById(gid) ?: continue
+            val upsertResult = genreRepository.upsert(payload)
+            if (upsertResult is AppResult.Failure) {
+                return MoveOutcome(oldPathPrefix = null, result = AppResult.Failure(upsertResult.error))
+            }
+        }
+        return MoveOutcome(oldPathPrefix = plan.oldPathPrefix, result = AppResult.Success(Unit))
+    }
 
     private fun ResultRow.toGenrePayload(): GenreSyncPayload =
         GenreSyncPayload(
@@ -310,12 +420,49 @@ internal class GenreServiceImpl(
 /**
  * Carries the patched payload alongside whether the rename triggered a name change,
  * so the post-commit FTS reindex only fires when the genre's display name actually
- * changed (mirrors `ContributorServiceImpl.GenreUpdateOutcome`).
+ * changed (mirrors `ContributorServiceImpl.UpdateOutcome`).
  */
 private data class GenreUpdateOutcome(
     val nameChanged: Boolean,
     val result: AppResult<Unit>,
 )
+
+/**
+ * Carries the outcome of a move + the old subtree's path prefix so the post-commit
+ * `reindexAllBooksForSubtree` can fire against the books whose FTS rows need to
+ * reflect the new genre paths. `oldPathPrefix` is null on failure or when the move
+ * was a no-op.
+ */
+private data class MoveOutcome(
+    val oldPathPrefix: String?,
+    val result: AppResult<Unit>,
+)
+
+/** Validated parameters needed to execute a `moveGenre` write. */
+private data class MovePlan(
+    val movedId: GenreId,
+    val newParentId: GenreId?,
+    val oldPathPrefix: String,
+    val newPathPrefix: String,
+    val depthDelta: Int,
+)
+
+/**
+ * The three outcomes of `moveGenre` validation: a typed rejection, a no-op
+ * (input is valid but the move wouldn't change anything), or a validated plan
+ * ready to execute against the live schema.
+ */
+private sealed interface MovePlanResult {
+    data class Reject(
+        val error: GenreError,
+    ) : MovePlanResult
+
+    data object NoOp : MovePlanResult
+
+    data class Proceed(
+        val plan: MovePlan,
+    ) : MovePlanResult
+}
 
 private fun GenreSyncPayload.applyPatch(patch: GenreUpdate): GenreSyncPayload =
     copy(
