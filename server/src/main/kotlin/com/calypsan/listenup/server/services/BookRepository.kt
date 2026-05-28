@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -18,12 +19,16 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.BookAudioFileTable
 import com.calypsan.listenup.server.db.BookChapterTable
 import com.calypsan.listenup.server.db.BookContributorTable
+import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.BookSearchMapTable
 import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.db.BookSeriesTable
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.GenreAliasTable
+import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -160,6 +165,20 @@ class BookRepository(
                     )
                 }
 
+        val genres =
+            (BookGenreTable innerJoin GenreTable)
+                .selectAll()
+                .where { (BookGenreTable.bookId eq idStr) and GenreTable.deletedAt.isNull() }
+                .orderBy(GenreTable.path)
+                .map { row ->
+                    BookGenrePayload(
+                        id = row[GenreTable.id],
+                        name = row[GenreTable.name],
+                        slug = row[GenreTable.slug],
+                        path = row[GenreTable.path],
+                    )
+                }
+
         val audioFiles =
             BookAudioFileTable
                 .selectAll()
@@ -209,6 +228,7 @@ class BookRepository(
             scannedAt = bookRow[BookTable.scannedAt],
             contributors = contributors,
             series = series,
+            genres = genres,
             audioFiles = audioFiles,
             chapters = chapters,
             revision = bookRow[BookTable.revision],
@@ -448,7 +468,47 @@ class BookRepository(
                 resolvedContributors = resolvedContributors,
                 resolvedSeries = resolvedSeries,
             )
-        return upsert(payload, clientOpId = null)
+        val result = upsert(payload, clientOpId = null)
+        if (result is AppResult.Success) {
+            val now = clock.now().toEpochMilliseconds()
+            suspendTransaction(db) { processGenreStrings(bookId, analyzed.genres, now) }
+        }
+        return result
+    }
+
+    /**
+     * Resolves the scanner's raw genre strings for [bookId]: each string either
+     * matches a [GenreAliasTable] row (→ `book_genres`) or queues for curator
+     * mapping in [PendingBookGenreTable]. Idempotent on rescan — wipes the
+     * prior `book_genres` and `pending_book_genres` rows for the book before
+     * re-writing, so a book whose `metadata.json` lost a string no longer
+     * appears as its source.
+     *
+     * Inputs are case-insensitive-deduped (`.lowercase().trim()`) so scanning
+     * `["Fantasy", "fantasy", "FANTASY"]` yields a single junction row even
+     * before the alias's `COLLATE NOCASE` lookup runs. Blank strings are
+     * skipped.
+     *
+     * Must be called inside a `suspendTransaction { }` block.
+     */
+    private fun processGenreStrings(
+        bookId: BookId,
+        rawStrings: List<String>,
+        now: Long,
+    ) {
+        val bookIdStr = bookId.value
+        BookGenreTable.deleteAllForBook(bookIdStr)
+        PendingBookGenreTable.replacePendingForBook(bookIdStr, emptyList(), now)
+
+        for (raw in rawStrings.distinctBy { it.trim().lowercase() }) {
+            if (raw.isBlank()) continue
+            val resolvedGenreId = GenreAliasTable.resolve(raw)
+            if (resolvedGenreId != null) {
+                BookGenreTable.insertIfAbsent(bookIdStr, resolvedGenreId)
+            } else {
+                PendingBookGenreTable.addPending(bookIdStr, raw, now)
+            }
+        }
     }
 
     /**
