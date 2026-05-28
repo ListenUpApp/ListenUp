@@ -74,7 +74,9 @@ internal class SearchFacetCounter {
         return out
     }
 
-    private enum class ContributorRole(val dbValue: String) {
+    private enum class ContributorRole(
+        val dbValue: String,
+    ) {
         Author("author"),
         Narrator("narrator"),
     }
