@@ -245,6 +245,40 @@ class SearchServiceImplTest :
             }
         }
 
+        test("sort=Title orders books alphabetically by sort title") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "b1", "Dragon Zephyr", lib)
+                seedBook(db, "b2", "Dragon Alpha", lib)
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", sort = SearchSort.Title),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.title } shouldBe listOf("Dragon Alpha", "Dragon Zephyr")
+                }
+            }
+        }
+
+        test("sort=Duration orders books shortest first") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "long", "Dragon L", lib, durationSeconds = 36_000)
+                seedBook(db, "short", "Dragon S", lib, durationSeconds = 3_600)
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", sort = SearchSort.Duration),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("short", "long")
+                }
+            }
+        }
+
         test("non-relevance sort collapses results to books only") {
             withInMemoryDatabase {
                 val db = this
@@ -416,6 +450,7 @@ private fun seedBook(
             it[BookTable.libraryId] = libraryId
             it[BookTable.folderId] = folderId
             it[BookTable.title] = title
+            it[BookTable.sortTitle] = title
             // total_duration is stored in milliseconds; the contract field (durationSeconds) is in seconds.
             it[BookTable.totalDuration] = durationSeconds * 1_000L
             it[BookTable.publishYear] = publishYear

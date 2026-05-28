@@ -109,7 +109,7 @@ internal class SearchServiceImpl(
                         "WHERE book_search MATCH ? " +
                         "AND b.deleted_at IS NULL" +
                         filterSql.whereFragment +
-                        " ORDER BY s.rank LIMIT ?",
+                        " ORDER BY ${orderByFor(sort)} LIMIT ?",
                 args =
                     listOf(TextColumnType() to ftsQuery) +
                         filterSql.args +
@@ -240,6 +240,22 @@ internal class SearchServiceImpl(
                 }
             }
             results
+        }
+
+    /**
+     * Maps a [SearchSort] to an SQL `ORDER BY` fragment.
+     *
+     * [SearchSort] is a closed enum — its variants are never user text — so
+     * interpolating the mapped fragment directly into the SQL template is safe.
+     * `COLLATE NOCASE` on sort_title ensures case-insensitive alphabetical order
+     * across mixed-case titles (e.g. "the hobbit" sorts with "The Hobbit").
+     */
+    private fun orderByFor(sort: SearchSort): String =
+        when (sort) {
+            SearchSort.Relevance -> "s.rank"
+            SearchSort.Title -> "b.sort_title COLLATE NOCASE"
+            SearchSort.Recent -> "b.updated_at DESC"
+            SearchSort.Duration -> "b.total_duration ASC"
         }
 
     private data class FilterSql(
