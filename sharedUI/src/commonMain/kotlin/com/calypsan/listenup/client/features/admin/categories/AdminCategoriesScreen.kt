@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
@@ -68,10 +69,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.domain.model.Genre
 import androidx.compose.material3.AlertDialog
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
+import com.calypsan.listenup.client.presentation.admin.genreMoveCandidates
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_genre
@@ -122,6 +125,9 @@ fun AdminCategoriesScreen(
     var showMergeDialog by remember { mutableStateOf(false) }
     var mergeSourceId by remember { mutableStateOf("") }
     var mergeSourceName by remember { mutableStateOf("") }
+    var showMoveDialog by remember { mutableStateOf(false) }
+    var moveSourceId by remember { mutableStateOf("") }
+    var moveSourceName by remember { mutableStateOf("") }
 
     // Show transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
@@ -224,6 +230,11 @@ fun AdminCategoriesScreen(
                         mergeSourceName = name
                         showMergeDialog = true
                     },
+                    onMove = { id, name ->
+                        moveSourceId = id
+                        moveSourceName = name
+                        showMoveDialog = true
+                    },
                     onMoveGenre = viewModel::moveGenre,
                     modifier = Modifier.padding(innerPadding),
                 )
@@ -288,6 +299,25 @@ fun AdminCategoriesScreen(
             onDismiss = { showMergeDialog = false },
         )
     }
+
+    // Move dialog — pick a new parent (or top level) for the source genre.
+    if (showMoveDialog) {
+        val ready = state as? AdminCategoriesUiState.Ready
+        val source = ready?.genres?.firstOrNull { it.id == moveSourceId }
+        MoveGenreDialog(
+            sourceName = moveSourceName,
+            candidates = if (source != null) genreMoveCandidates(ready.genres, source) else emptyList(),
+            onConfirmTarget = { targetId ->
+                viewModel.moveGenre(moveSourceId, targetId)
+                showMoveDialog = false
+            },
+            onConfirmTopLevel = {
+                viewModel.moveGenre(moveSourceId, null)
+                showMoveDialog = false
+            },
+            onDismiss = { showMoveDialog = false },
+        )
+    }
 }
 
 @Composable
@@ -298,6 +328,7 @@ private fun AdminCategoriesReadyContent(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMove: (String, String) -> Unit,
     onMoveGenre: (String, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -316,6 +347,7 @@ private fun AdminCategoriesReadyContent(
         onRename = onRename,
         onDelete = onDelete,
         onMerge = onMerge,
+        onMove = onMove,
         onDragStart = { id, name ->
             draggedGenreId = id
             draggedGenreName = name
@@ -413,6 +445,7 @@ private fun CategoriesContent(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMove: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -456,6 +489,7 @@ private fun CategoriesContent(
                                 onRename = onRename,
                                 onDelete = onDelete,
                                 onMerge = onMerge,
+                                onMove = onMove,
                                 onDragStart = onDragStart,
                                 onDragEnd = onDragEnd,
                                 onDragCancel = onDragCancel,
@@ -484,6 +518,7 @@ private fun CategoryTreeNode(
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
     onMerge: (String, String) -> Unit,
+    onMove: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -505,6 +540,7 @@ private fun CategoryTreeNode(
             onRename = { onRename(node.genre.id, node.genre.name) },
             onDelete = { onDelete(node.genre.id, node.genre.name) },
             onMerge = { onMerge(node.genre.id, node.genre.name) },
+            onMove = { onMove(node.genre.id, node.genre.name) },
             onDragStart = { onDragStart(node.genre.id, node.genre.name) },
             onDragEnd = onDragEnd,
             onDragCancel = onDragCancel,
@@ -537,6 +573,7 @@ private fun CategoryTreeNode(
                         onRename = onRename,
                         onDelete = onDelete,
                         onMerge = onMerge,
+                        onMove = onMove,
                         onDragStart = onDragStart,
                         onDragEnd = onDragEnd,
                         onDragCancel = onDragCancel,
@@ -559,6 +596,7 @@ private fun CategoryRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onMerge: () -> Unit,
+    onMove: () -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -687,6 +725,14 @@ private fun CategoryRow(
                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
             )
             DropdownMenuItem(
+                text = { Text("Move to…") },
+                onClick = {
+                    showContextMenu = false
+                    onMove()
+                },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     showContextMenu = false
@@ -740,7 +786,7 @@ private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
 @Composable
 private fun MergeGenreDialog(
     sourceName: String,
-    candidates: List<com.calypsan.listenup.client.domain.model.Genre>,
+    candidates: List<Genre>,
     onConfirm: (targetId: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -767,6 +813,70 @@ private fun MergeGenreDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
+        },
+    )
+}
+
+/**
+ * Move picker — choose a new parent for the source genre, or promote it to the
+ * top level. The manual fallback for drag-based reparenting (Never Stranded).
+ * Candidates already exclude the source and its descendants (cycle-safe).
+ */
+@Composable
+private fun MoveGenreDialog(
+    sourceName: String,
+    candidates: List<Genre>,
+    onConfirmTarget: (targetId: String) -> Unit,
+    onConfirmTopLevel: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Move \"$sourceName\" to…") },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                item(key = "__top_level__") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirmTopLevel() }
+                            .padding(vertical = 12.dp),
+                    ) {
+                        Text(text = "Top level", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                if (candidates.isEmpty()) {
+                    item(key = "__no_candidates__") {
+                        Text(
+                            text = "No other genres available — only 'Top level' is possible.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        )
+                    }
+                }
+                items(candidates, key = { it.id }) { candidate ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirmTarget(candidate.id) }
+                            .padding(vertical = 12.dp),
+                    ) {
+                        Column {
+                            Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = candidate.path,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
