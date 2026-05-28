@@ -427,6 +427,19 @@ class SearchServiceImplTest :
             }
         }
 
+        test("book hits carry a title highlight for the matched term") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "b1", "The Way of Kings", lib)
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r = service.search(SearchQuery(text = "Kings")) as AppResult.Success<SearchResults>
+                    r.data.books[0].highlight shouldBe "The Way of ${HL_START}Kings$HL_END"
+                }
+            }
+        }
+
         test("facets reflect the active filter, not the unfiltered match set") {
             withInMemoryDatabase {
                 val db = this

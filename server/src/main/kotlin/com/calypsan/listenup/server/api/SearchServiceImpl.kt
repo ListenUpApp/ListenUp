@@ -192,13 +192,17 @@ internal class SearchServiceImpl(
                 while (rs.next()) {
                     val authorsCsv = rs.getString("author_names")
                     val authorNames = if (authorsCsv.isNullOrBlank()) emptyList() else authorsCsv.split(", ")
+                    val title = rs.getString("title")
                     results +=
                         BookHit(
                             id = BookId(rs.getString("id")),
-                            title = rs.getString("title"),
+                            title = title,
                             authorNames = authorNames,
                             coverPath = rs.getString("cover_path"),
                             coverHash = rs.getString("cover_hash"),
+                            highlight =
+                                highlightMatches(title, ftsQuery)
+                                    ?: authorNames.firstNotNullOfOrNull { highlightMatches(it, ftsQuery) },
                         )
                 }
             }
@@ -227,14 +231,16 @@ internal class SearchServiceImpl(
                     ),
             ) { rs ->
                 while (rs.next()) {
+                    val name = rs.getString("name")
                     results +=
                         ContributorHit(
                             id = ContributorId(rs.getString("id")),
-                            name = rs.getString("name"),
+                            name = name,
                             sortName = rs.getString("sort_name"),
                             photoPath = rs.getString("image_path"),
                             photoBlurHash = rs.getString("image_blur_hash"),
                             bookCount = rs.getInt(COL_BOOK_COUNT),
+                            highlight = highlightMatches(name, ftsQuery),
                         )
                 }
             }
@@ -263,14 +269,16 @@ internal class SearchServiceImpl(
                     ),
             ) { rs ->
                 while (rs.next()) {
+                    val name = rs.getString("name")
                     results +=
                         SeriesHit(
                             id = SeriesId(rs.getString("id")),
-                            name = rs.getString("name"),
+                            name = name,
                             sortName = rs.getString("sort_name"),
                             coverPath = rs.getString("cover_path"),
                             coverBlurHash = rs.getString("cover_blur_hash"),
                             bookCount = rs.getInt(COL_BOOK_COUNT),
+                            highlight = highlightMatches(name, ftsQuery),
                         )
                 }
             }
@@ -304,12 +312,14 @@ internal class SearchServiceImpl(
                     ),
             ) { rs ->
                 while (rs.next()) {
+                    val name = rs.getString("name")
                     results +=
                         TagHit(
                             id = TagId(rs.getString("id")),
-                            name = rs.getString("name"),
+                            name = name,
                             slug = rs.getString("slug"),
                             bookCount = rs.getLong(COL_BOOK_COUNT),
+                            highlight = highlightMatches(name, ftsQuery),
                         )
                 }
             }
