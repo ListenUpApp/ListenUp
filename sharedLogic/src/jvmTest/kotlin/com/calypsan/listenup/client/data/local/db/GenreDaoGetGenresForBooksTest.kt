@@ -160,7 +160,6 @@ private suspend fun seedGenre(
             name = name,
             slug = id,
             path = path,
-            bookCount = 0,
             parentId = null,
             depth = 0,
             sortOrder = 0,

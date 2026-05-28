@@ -2,6 +2,7 @@ package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -54,6 +55,7 @@ import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
+import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
@@ -92,6 +94,48 @@ private const val SEED_PROFILE_DEMO = "demo"
 
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
 
+private inline fun <reified T : Any> Application.injectIfConfigured(libraryPath: Path?): T? =
+    libraryPath?.let { inject<T>().value }
+
+/**
+ * Kicks off seed jobs after Koin is installed. In demo profile we run the full
+ * [SeedRunner] (curated demo users + library + tags + genres + …). In any other
+ * profile, we still seed the default Genre taxonomy on fresh installs because
+ * the genre tree is the curator's starting point, not demo content — the
+ * seeder's `isAlreadySeeded` guard keeps subsequent runs no-ops.
+ */
+private fun Application.launchSeeders(
+    scope: CoroutineScope,
+    seedProfile: String?,
+    libraryConfigured: Boolean,
+) {
+    if (seedProfile == SEED_PROFILE_DEMO) {
+        val seedRunner by inject<SeedRunner>()
+        scope.launch {
+            runCatching { seedRunner.run() }
+                .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    logger.error(e) { "demo seeding failed — server keeps running" }
+                }
+        }
+    } else if (libraryConfigured) {
+        val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        // Synchronous on the module init thread — `module()` returns only after the
+        // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
+        // on first install; subsequent boots are a single `count()` query via
+        // `isAlreadySeeded`. The async-launch alternative leaked seed coroutines past
+        // test boundaries on CI, racing scanner-test bootstrap scans.
+        kotlinx.coroutines.runBlocking {
+            runCatching {
+                if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                logger.error(e) { "genre default-taxonomy seeding failed — server keeps running" }
+            }
+        }
+    }
+}
+
 fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
@@ -125,21 +169,13 @@ fun Application.module() {
                     hasPlaybackModule = resolvedLibraryPath != null,
                     hasBooksModule = resolvedLibraryPath != null,
                     demoLibraryPath = resolvedLibraryPath?.toString(),
+                    hasGenresModule = resolvedLibraryPath != null,
                 )
         }
         modules(modules)
     }
 
-    if (seedProfile == SEED_PROFILE_DEMO) {
-        val seedRunner by inject<SeedRunner>()
-        applicationScope.launch {
-            runCatching { seedRunner.run() }
-                .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    logger.error(e) { "demo seeding failed — server keeps running" }
-                }
-        }
-    }
+    launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
     installCallIdAndLogging()
     installRateLimiting()
@@ -151,32 +187,24 @@ fun Application.module() {
 
     installJwtAuth(jwt, sessions)
 
-    val scannerService: ScannerService? = resolvedLibraryPath?.let { inject<ScannerService>().value }
-    val eventBus: SharedFlow<ScanEvent>? = resolvedLibraryPath?.let { inject<SharedFlow<ScanEvent>>().value }
-    val bookService: BookService? = resolvedLibraryPath?.let { inject<BookService>().value }
-    val contributorService: ContributorService? = resolvedLibraryPath?.let { inject<ContributorService>().value }
-    val seriesService: SeriesService? = resolvedLibraryPath?.let { inject<SeriesService>().value }
-    val coverResponder: CoverResponder? = resolvedLibraryPath?.let { inject<CoverResponder>().value }
-    val playbackService: PlaybackService? = resolvedLibraryPath?.let { inject<PlaybackService>().value }
-    val playbackProgressService: PlaybackProgressService? =
-        resolvedLibraryPath?.let { inject<PlaybackProgressService>().value }
-    val backfillService: UserStatsBackfillService? =
-        resolvedLibraryPath?.let {
-            inject<UserStatsBackfillService>().value
-        }
-    val audioFileLocator: AudioFileLocator? = resolvedLibraryPath?.let { inject<AudioFileLocator>().value }
-    val audioUrlSigner: AudioUrlSigner? = resolvedLibraryPath?.let { inject<AudioUrlSigner>().value }
-    val contributorRepository: ContributorRepository? =
-        resolvedLibraryPath?.let {
-            inject<ContributorRepository>().value
-        }
-    val seriesRepository: SeriesRepository? = resolvedLibraryPath?.let { inject<SeriesRepository>().value }
-    val metadataLookupService: MetadataLookupService? =
-        resolvedLibraryPath?.let { inject<MetadataLookupService>().value }
-    val searchService: SearchService? = resolvedLibraryPath?.let { inject<SearchService>().value }
-    val libraryAdminService: LibraryAdminService? =
-        resolvedLibraryPath?.let { inject<LibraryAdminService>().value }
-    val tagService: TagService? = resolvedLibraryPath?.let { inject<TagService>().value }
+    val scannerService: ScannerService? = injectIfConfigured(resolvedLibraryPath)
+    val eventBus: SharedFlow<ScanEvent>? = injectIfConfigured(resolvedLibraryPath)
+    val bookService: BookService? = injectIfConfigured(resolvedLibraryPath)
+    val contributorService: ContributorService? = injectIfConfigured(resolvedLibraryPath)
+    val seriesService: SeriesService? = injectIfConfigured(resolvedLibraryPath)
+    val coverResponder: CoverResponder? = injectIfConfigured(resolvedLibraryPath)
+    val playbackService: PlaybackService? = injectIfConfigured(resolvedLibraryPath)
+    val playbackProgressService: PlaybackProgressService? = injectIfConfigured(resolvedLibraryPath)
+    val backfillService: UserStatsBackfillService? = injectIfConfigured(resolvedLibraryPath)
+    val audioFileLocator: AudioFileLocator? = injectIfConfigured(resolvedLibraryPath)
+    val audioUrlSigner: AudioUrlSigner? = injectIfConfigured(resolvedLibraryPath)
+    val contributorRepository: ContributorRepository? = injectIfConfigured(resolvedLibraryPath)
+    val seriesRepository: SeriesRepository? = injectIfConfigured(resolvedLibraryPath)
+    val metadataLookupService: MetadataLookupService? = injectIfConfigured(resolvedLibraryPath)
+    val searchService: SearchService? = injectIfConfigured(resolvedLibraryPath)
+    val libraryAdminService: LibraryAdminService? = injectIfConfigured(resolvedLibraryPath)
+    val tagService: TagService? = injectIfConfigured(resolvedLibraryPath)
+    val genreService: GenreService? = injectIfConfigured(resolvedLibraryPath)
 
     routing {
         healthRoutes()
@@ -195,6 +223,7 @@ fun Application.module() {
             searchService,
             libraryAdminService,
             tagService,
+            genreService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -211,6 +240,7 @@ fun Application.module() {
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
             if (searchService != null) searchRoutes(searchService)
             if (tagService != null) tagRoutes(tagService)
+            if (genreService != null) genreRoutes(genreService)
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)

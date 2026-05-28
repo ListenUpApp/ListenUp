@@ -78,4 +78,19 @@ class BookResources(
         val parent: BookResources = BookResources(),
         val id: BookId,
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookGenres] —
+     * `PUT /api/v1/books/{id}/genres` replaces the full genre list for a book.
+     * Body is a JSON array of [com.calypsan.listenup.api.dto.BookGenreInput].
+     * Unlike contributors/series, genres are NOT auto-created — unknown
+     * `genreId` values respond 400. Responds 204 on success, 404 when no book
+     * with the given id exists, 400 when the input fails server-side validation.
+     * Requires JWT authentication.
+     */
+    @Resource("{id}/genres")
+    class Genres(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
 }

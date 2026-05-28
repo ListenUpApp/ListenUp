@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.result.AppResult
@@ -93,6 +94,26 @@ interface BookService {
     suspend fun setBookSeries(
         id: BookId,
         series: List<BookSeriesInput>,
+    ): AppResult<Unit>
+
+    /**
+     * Replaces the full genre list for the book identified by [id] with [genres].
+     *
+     * Unlike [setBookContributors] / [setBookSeries], genres are NOT auto-created.
+     * Each input's [com.calypsan.listenup.api.dto.BookGenreInput.genreId] must
+     * reference an existing live genre; unknown ids surface as
+     * [com.calypsan.listenup.api.error.BookError.InvalidInput]. The genre
+     * taxonomy is curator-controlled — books can only join existing genres.
+     *
+     * Returns [com.calypsan.listenup.api.error.BookError.NotFound] when no book
+     * exists. Server-side guard limits inputs to 200; overflow surfaces as
+     * [com.calypsan.listenup.api.error.BookError.InvalidInput].
+     *
+     * // TODO: gate by user permissions when Multi-user lands
+     */
+    suspend fun setBookGenres(
+        id: BookId,
+        genres: List<BookGenreInput>,
     ): AppResult<Unit>
 
     /**

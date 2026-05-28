@@ -253,6 +253,20 @@ data object AdminInbox : Route
 data object AdminCategories : Route
 
 /**
+ * Browse-by-Genre screen — tree of genres with a per-genre book list and an
+ * `includeDescendants` toggle for subtree expansion.
+ */
+@Serializable
+data object BrowseGenre : Route
+
+/**
+ * Unmapped genres curator screen — lists raw scanner strings the alias table
+ * couldn't resolve, with per-string genre picker for binding.
+ */
+@Serializable
+data object UnmappedGenres : Route
+
+/**
  * Admin user detail screen - view and edit a user's details and permissions.
  *
  * Shows user information and allows toggling canShare permission.

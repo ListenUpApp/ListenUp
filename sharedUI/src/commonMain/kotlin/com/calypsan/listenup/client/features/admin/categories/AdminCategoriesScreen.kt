@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,12 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.UnfoldLess
@@ -116,6 +119,9 @@ fun AdminCategoriesScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteGenreId by remember { mutableStateOf("") }
     var deleteGenreName by remember { mutableStateOf("") }
+    var showMergeDialog by remember { mutableStateOf(false) }
+    var mergeSourceId by remember { mutableStateOf("") }
+    var mergeSourceName by remember { mutableStateOf("") }
 
     // Show transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
@@ -213,6 +219,11 @@ fun AdminCategoriesScreen(
                         deleteGenreName = name
                         showDeleteDialog = true
                     },
+                    onMerge = { id, name ->
+                        mergeSourceId = id
+                        mergeSourceName = name
+                        showMergeDialog = true
+                    },
                     onMoveGenre = viewModel::moveGenre,
                     modifier = Modifier.padding(innerPadding),
                 )
@@ -263,6 +274,20 @@ fun AdminCategoriesScreen(
             onDismiss = { showDeleteDialog = false },
         )
     }
+
+    // Merge dialog — pick a target genre to merge the source into.
+    if (showMergeDialog) {
+        val ready = state as? AdminCategoriesUiState.Ready
+        MergeGenreDialog(
+            sourceName = mergeSourceName,
+            candidates = ready?.genres.orEmpty().filter { it.id != mergeSourceId },
+            onConfirm = { targetId ->
+                viewModel.mergeGenres(mergeSourceId, targetId)
+                showMergeDialog = false
+            },
+            onDismiss = { showMergeDialog = false },
+        )
+    }
 }
 
 @Composable
@@ -272,6 +297,7 @@ private fun AdminCategoriesReadyContent(
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
+    onMerge: (String, String) -> Unit,
     onMoveGenre: (String, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -289,6 +315,7 @@ private fun AdminCategoriesReadyContent(
         onAddChild = onAddChild,
         onRename = onRename,
         onDelete = onDelete,
+        onMerge = onMerge,
         onDragStart = { id, name ->
             draggedGenreId = id
             draggedGenreName = name
@@ -385,6 +412,7 @@ private fun CategoriesContent(
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
+    onMerge: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -427,6 +455,7 @@ private fun CategoriesContent(
                                 onAddChild = onAddChild,
                                 onRename = onRename,
                                 onDelete = onDelete,
+                                onMerge = onMerge,
                                 onDragStart = onDragStart,
                                 onDragEnd = onDragEnd,
                                 onDragCancel = onDragCancel,
@@ -454,6 +483,7 @@ private fun CategoryTreeNode(
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: (String, String) -> Unit,
+    onMerge: (String, String) -> Unit,
     onDragStart: (String, String) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -474,6 +504,7 @@ private fun CategoryTreeNode(
             onAddChild = { onAddChild(node.genre.id, node.genre.name) },
             onRename = { onRename(node.genre.id, node.genre.name) },
             onDelete = { onDelete(node.genre.id, node.genre.name) },
+            onMerge = { onMerge(node.genre.id, node.genre.name) },
             onDragStart = { onDragStart(node.genre.id, node.genre.name) },
             onDragEnd = onDragEnd,
             onDragCancel = onDragCancel,
@@ -505,6 +536,7 @@ private fun CategoryTreeNode(
                         onAddChild = onAddChild,
                         onRename = onRename,
                         onDelete = onDelete,
+                        onMerge = onMerge,
                         onDragStart = onDragStart,
                         onDragEnd = onDragEnd,
                         onDragCancel = onDragCancel,
@@ -526,6 +558,7 @@ private fun CategoryRow(
     onAddChild: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onMerge: () -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -646,6 +679,14 @@ private fun CategoryRow(
                 leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
             )
             DropdownMenuItem(
+                text = { Text("Merge into…") },
+                onClick = {
+                    showContextMenu = false
+                    onMerge()
+                },
+                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     showContextMenu = false
@@ -690,4 +731,50 @@ private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * Merge picker — choose which live genre to merge the source into. Source is
+ * filtered out of the candidate list. Confirms with the chosen target id.
+ */
+@Composable
+private fun MergeGenreDialog(
+    sourceName: String,
+    candidates: List<com.calypsan.listenup.client.domain.model.Genre>,
+    onConfirm: (targetId: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Merge \"$sourceName\" into…") },
+        text = {
+            if (candidates.isEmpty()) {
+                Text("No other genres available as a merge target.")
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(candidates, key = { it.id }) { candidate ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onConfirm(candidate.id) }
+                                .padding(vertical = 12.dp),
+                        ) {
+                            Column {
+                                Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = candidate.path,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
+        },
+    )
 }

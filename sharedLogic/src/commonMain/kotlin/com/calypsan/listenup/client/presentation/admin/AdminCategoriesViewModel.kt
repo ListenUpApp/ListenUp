@@ -2,7 +2,9 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -110,7 +112,7 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            when (val result = genreRepository.createGenre(name, parentId)) {
+            when (val result = genreRepository.createGenre(name, parentId?.let(::GenreId))) {
                 is AppResult.Success -> {
                     // Auto-expand parent so user sees the new child
                     if (parentId != null) {
@@ -141,7 +143,7 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            when (val result = genreRepository.updateGenre(id, name)) {
+            when (val result = genreRepository.updateGenre(GenreId(id), GenreUpdate(name = name))) {
                 is AppResult.Success -> { /* observed list will refresh via Flow */ }
 
                 is AppResult.Failure -> {
@@ -160,7 +162,7 @@ class AdminCategoriesViewModel(
     fun deleteGenre(id: String) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            when (val result = genreRepository.deleteGenre(id)) {
+            when (val result = genreRepository.deleteGenre(GenreId(id))) {
                 is AppResult.Success -> { /* observed list will refresh via Flow */ }
 
                 is AppResult.Failure -> {
@@ -182,7 +184,7 @@ class AdminCategoriesViewModel(
     ) {
         viewModelScope.launch {
             updateReady { it.copy(isSaving = true, error = null) }
-            when (val result = genreRepository.moveGenre(id, newParentId)) {
+            when (val result = genreRepository.moveGenre(GenreId(id), newParentId?.let(::GenreId))) {
                 is AppResult.Success -> {
                     // Auto-expand new parent so user sees the moved genre
                     if (newParentId != null) {
@@ -197,6 +199,30 @@ class AdminCategoriesViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to move genre: ${result.error.message}" }
+                    updateReady { it.copy(error = userMessageFor(result.error)) }
+                }
+            }
+            updateReady { it.copy(isSaving = false) }
+        }
+    }
+
+    /**
+     * Merge [source] genre into [target]. Books linked to source move to target,
+     * aliases re-point, source is tombstoned. Refuses when source has live
+     * descendants — surfaces via [com.calypsan.listenup.api.error.GenreError.HasDescendants].
+     */
+    fun mergeGenres(
+        source: String,
+        target: String,
+    ) {
+        viewModelScope.launch {
+            updateReady { it.copy(isSaving = true, error = null) }
+            when (val result = genreRepository.mergeGenres(GenreId(source), GenreId(target))) {
+                is AppResult.Success -> { /* observed list will refresh via Flow */ }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to merge genres: ${result.error.message}" }
                     updateReady { it.copy(error = userMessageFor(result.error)) }
                 }
             }

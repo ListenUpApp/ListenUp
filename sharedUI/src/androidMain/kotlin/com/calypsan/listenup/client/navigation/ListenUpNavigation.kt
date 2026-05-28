@@ -64,6 +64,8 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
+import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
+import com.calypsan.listenup.client.presentation.unmappedgenres.UnmappedGenresViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
@@ -933,6 +935,21 @@ private fun AuthenticatedNavigation(
                                 onBackClick = {
                                     backStack.removeAt(backStack.lastIndex)
                                 },
+                            )
+                        }
+                        entry<BrowseGenre> {
+                            val viewModel: BrowseGenreViewModel = koinViewModel()
+                            com.calypsan.listenup.client.features.browsegenre.BrowseGenreScreen(
+                                viewModel = viewModel,
+                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
+                                onBookClick = { bookId -> backStack.add(BookDetail(bookId.value)) },
+                            )
+                        }
+                        entry<UnmappedGenres> {
+                            val viewModel: UnmappedGenresViewModel = koinViewModel()
+                            com.calypsan.listenup.client.features.unmappedgenres.UnmappedGenresScreen(
+                                viewModel = viewModel,
+                                onBackClick = { backStack.removeAt(backStack.lastIndex) },
                             )
                         }
                         entry<CreateInvite> {

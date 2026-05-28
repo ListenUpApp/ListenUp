@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.BookError
@@ -14,6 +15,7 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -23,6 +25,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private const val MAX_SEARCH_LIMIT = 200
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
 private const val MAX_SERIES_PER_BOOK = 200
+private const val MAX_GENRES_PER_BOOK = 200
 
 /**
  * Thin [BookService] implementation. The work lives in [BookRepository]; this
@@ -60,6 +63,7 @@ internal class BookServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val coverStorage: CoverStorage,
     private val db: Database,
+    private val genreRepo: com.calypsan.listenup.server.services.GenreRepository? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val payload = repo.findById(id)
@@ -164,6 +168,48 @@ internal class BookServiceImpl(
         }
     }
 
+    override suspend fun setBookGenres(
+        id: BookId,
+        genres: List<BookGenreInput>,
+    ): AppResult<Unit> {
+        if (genres.size > MAX_GENRES_PER_BOOK) {
+            return AppResult.Failure(
+                BookError.InvalidInput(
+                    debugInfo = "genres: size ${genres.size} exceeds max $MAX_GENRES_PER_BOOK",
+                ),
+            )
+        }
+        val genreRepo =
+            this.genreRepo
+                ?: return AppResult.Failure(
+                    BookError.InvalidInput(debugInfo = "GenreRepository not wired in this BookServiceImpl instance"),
+                )
+        return suspendTransaction(db) {
+            val current = repo.findById(id) ?: return@suspendTransaction bookNotFound(id)
+
+            // Validate every input genre exists and is live BEFORE the relink. Unknown ids
+            // surface as BookError.InvalidInput per spec (no auto-create).
+            for (input in genres) {
+                val genre = genreRepo.findById(input.genreId.value)
+                if (genre == null || genre.deletedAt != null) {
+                    return@suspendTransaction AppResult.Failure(
+                        BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"),
+                    )
+                }
+            }
+
+            // Atomic replace: wipe prior book_genres, write new (book, genre) rows.
+            BookGenreTable.relinkBookGenres(id.value, genres.map { it.genreId.value })
+
+            // Re-upsert the book so the substrate bumps revision + publishes `book.Updated`.
+            // The book payload's `genres` field re-derives from the live junction on next read.
+            when (val upsertResult = repo.upsert(current)) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            }
+        }
+    }
+
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
         // Resolve the on-disk cover file (if any) BEFORE the transaction so
         // we can best-effort delete it post-commit. Embedded covers have no
@@ -205,7 +251,8 @@ fun createBookService(
     seriesRepo: SeriesRepository,
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
-): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db)
+    genreRepo: com.calypsan.listenup.server.services.GenreRepository? = null,
+): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo)
 
 private fun bookNotFound(id: BookId): AppResult.Failure =
     AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))

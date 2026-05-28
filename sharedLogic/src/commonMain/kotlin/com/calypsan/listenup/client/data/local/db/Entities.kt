@@ -390,14 +390,20 @@ data class GenreEntity(
     val slug: String,
     /** Materialized path: "/fiction/fantasy/epic-fantasy" */
     val path: String,
-    /** Number of books with this genre (denormalized for sorting) */
-    val bookCount: Int = 0,
     /** Parent genre ID for hierarchy traversal */
     val parentId: String? = null,
     /** Depth in hierarchy (0 = root) */
     val depth: Int = 0,
     /** Sort order within parent */
     val sortOrder: Int = 0,
+    /** Substrate revision — bumped by [com.calypsan.listenup.api.sync.GenreSyncPayload] applies. */
+    val revision: Long = 0,
+    /** Soft-delete timestamp; null when the genre is live. */
+    val deletedAt: Long? = null,
+    /** Creation timestamp (server clock). */
+    val createdAt: Timestamp = Timestamp(0L),
+    /** Last-update timestamp (server clock). */
+    val updatedAt: Timestamp = Timestamp(0L),
 ) {
     /**
      * Returns the parent path for display context.

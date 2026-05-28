@@ -44,6 +44,7 @@ data class BookSyncPayload(
     val scannedAt: Long,
     val contributors: List<BookContributorPayload>,
     val series: List<BookSeriesPayload>,
+    @SerialName("genres") val genres: List<BookGenrePayload> = emptyList(),
     val audioFiles: List<BookAudioFilePayload>,
     val chapters: List<BookChapterPayload>,
     val revision: Long,

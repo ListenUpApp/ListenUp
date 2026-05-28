@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -13,7 +15,6 @@ import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
-import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -40,7 +41,6 @@ private val logger = KotlinLogging.logger {}
  */
 open class UpdateBookUseCase(
     private val bookEditRepository: BookEditRepository,
-    private val genreRepository: GenreRepository,
     private val tagRepository: TagRepository,
     private val imageRepository: ImageRepository,
     private val imageStagingRepository: ImageStagingRepository,
@@ -192,10 +192,8 @@ open class UpdateBookUseCase(
     private suspend fun updateGenres(current: BookUpdateRequest): AppResult<Unit> {
         logger.debug { "Updating genres for book ${current.bookId}" }
 
-        return genreRepository.setGenresForBook(
-            bookId = current.bookId,
-            genreIds = current.genres.map { it.id },
-        )
+        val inputs = current.genres.map { BookGenreInput(genreId = GenreId(it.id)) }
+        return bookEditRepository.setBookGenres(BookId(current.bookId), inputs)
     }
 
     private suspend fun updateTags(

@@ -35,7 +35,6 @@ class GenreDaoNameResolutionTest {
                     name = name,
                     slug = slug,
                     path = "/$slug",
-                    bookCount = 0,
                     parentId = null,
                     depth = 0,
                     sortOrder = 0,

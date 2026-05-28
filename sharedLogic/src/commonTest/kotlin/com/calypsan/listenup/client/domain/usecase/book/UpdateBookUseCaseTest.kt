@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.model.PendingCover
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
-import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
@@ -56,7 +55,6 @@ class UpdateBookUseCaseTest :
 
         class TestFixture {
             val bookEditRepository: BookEditRepository = mock()
-            val genreRepository: GenreRepository = mock()
             val tagRepository: TagRepository = mock()
             val imageRepository: ImageRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
@@ -64,7 +62,6 @@ class UpdateBookUseCaseTest :
             fun build(): UpdateBookUseCase =
                 UpdateBookUseCase(
                     bookEditRepository = bookEditRepository,
-                    genreRepository = genreRepository,
                     tagRepository = tagRepository,
                     imageRepository = imageRepository,
                     imageStagingRepository = imageStagingRepository,
@@ -79,7 +76,7 @@ class UpdateBookUseCaseTest :
             everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
             everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
             everySuspend { fixture.bookEditRepository.deleteBookCover(any()) } returns Success(Unit)
-            everySuspend { fixture.genreRepository.setGenresForBook(any(), any()) } returns Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) } returns Success(Unit)
             everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
             everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
             everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns Success(Unit)
@@ -223,7 +220,7 @@ class UpdateBookUseCaseTest :
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookContributors(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookSeries(any(), any()) }
-                verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookGenres(any(), any()) }
             }
         }
 
@@ -421,7 +418,7 @@ class UpdateBookUseCaseTest :
 
                 // Then
                 checkIs<Success<Unit>>(result)
-                verifySuspend { fixture.genreRepository.setGenresForBook("book-1", listOf("g1", "g2")) }
+                verifySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) }
             }
         }
 
@@ -439,7 +436,7 @@ class UpdateBookUseCaseTest :
                 useCase(current, original)
 
                 // Then
-                verifySuspend(VerifyMode.not) { fixture.genreRepository.setGenresForBook(any(), any()) }
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookGenres(any(), any()) }
             }
         }
 
@@ -748,7 +745,7 @@ class UpdateBookUseCaseTest :
                 verifySuspend { fixture.bookEditRepository.updateBook(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) }
-                verifySuspend { fixture.genreRepository.setGenresForBook(any(), any()) }
+                verifySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) }
                 verifySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) }
                 verifySuspend { fixture.tagRepository.addTagToBook(any(), any()) }
                 verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) }

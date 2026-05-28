@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.core.AppResult
@@ -45,6 +46,19 @@ interface BookEditRepository {
     suspend fun setBookSeries(
         id: BookId,
         series: List<BookSeriesInput>,
+    ): AppResult<Unit>
+
+    /**
+     * Replaces the full genre list for the book identified by [id].
+     *
+     * Unlike contributors/series, genres are NOT auto-created — each input's
+     * `genreId` must reference an existing live genre. Unknown ids surface as
+     * [com.calypsan.listenup.api.error.BookError.InvalidInput]. Curators add new
+     * genres through [GenreRepository.createGenre], not by editing a book.
+     */
+    suspend fun setBookGenres(
+        id: BookId,
+        genres: List<BookGenreInput>,
     ): AppResult<Unit>
 
     /**

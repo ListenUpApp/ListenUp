@@ -91,7 +91,6 @@ class SearchDaoTest {
                     name = name,
                     slug = id,
                     path = "/$id",
-                    bookCount = 0,
                     parentId = null,
                     depth = 0,
                     sortOrder = 0,

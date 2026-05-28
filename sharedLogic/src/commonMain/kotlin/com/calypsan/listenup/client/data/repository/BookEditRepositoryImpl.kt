@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
@@ -42,6 +43,11 @@ class BookEditRepositoryImpl(
         id: BookId,
         series: List<BookSeriesInput>,
     ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookSeries(id, series) }
+
+    override suspend fun setBookGenres(
+        id: BookId,
+        genres: List<BookGenreInput>,
+    ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookGenres(id, genres) }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
         rpcCallUnit { bookRpcFactory.bookService().deleteBookCover(id) }

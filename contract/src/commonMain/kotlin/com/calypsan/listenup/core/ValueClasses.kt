@@ -231,6 +231,32 @@ value class TagId(
 }
 
 /**
+ * Type-safe wrapper for Genre IDs.
+ *
+ * Genres are server-wide (global, not user-scoped) and form a hierarchy via
+ * materialized path. Wrapping the id prevents accidentally passing a [BookId],
+ * [TagId], or any other string id where a genre id is expected — particularly
+ * at [com.calypsan.listenup.api.GenreService] call sites that thread parent /
+ * source / target identifiers through hierarchy and merge operations.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying genre ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class GenreId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Genre ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Unix epoch millisecond timestamps.
  *
  * Prevents accidentally comparing timestamps with durations or other numeric values.

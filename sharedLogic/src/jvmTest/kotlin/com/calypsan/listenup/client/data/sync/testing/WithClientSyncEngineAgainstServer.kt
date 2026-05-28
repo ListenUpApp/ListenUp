@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.core.AppResult
@@ -12,9 +13,11 @@ import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -31,6 +34,7 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
@@ -39,10 +43,12 @@ import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.api.createContributorService
+import com.calypsan.listenup.server.api.createGenreService
 import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.sync.BookSearchReindexer
@@ -55,6 +61,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository as ServerGenreRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -168,9 +175,11 @@ data class ClientEngineScope(
     val engine: SyncEngine,
     val recording: RecordingTagSyncDomainHandler,
     val tagRepo: TagRepository,
+    val serverDb: ExposedDatabase,
     val serverBookRepository: BookRepository,
     val serverContributorRepository: ContributorRepository,
     val serverSeriesRepository: SeriesRepository,
+    val serverGenreRepository: ServerGenreRepository,
     val serverActiveSessionRepository: ActiveSessionRepository,
     val serverPlaybackPositionRepository: PlaybackPositionRepository,
     val serverListeningEventRepository: ListeningEventRepository,
@@ -181,6 +190,7 @@ data class ClientEngineScope(
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
     val seriesEditRepository: SeriesEditRepository,
+    val genreRepository: ClientGenreRepository,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
@@ -218,6 +228,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 seriesRepo = serverRepos.seriesRepo,
                 coverStorage = CoverStorage(),
                 db = serverDb,
+                genreRepo = serverRepos.genreRepo,
             )
         // Books-C1 Task 30 needs `ContributorService` for the deleteContributor
         // cascade test. The reindexer requires a [BookTagRepository] + [TagRepository]
@@ -241,6 +252,14 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             createSeriesService(
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
+                reindexer = bookSearchReindexer,
+                db = serverDb,
+            )
+        // Genres e2e tests need a `GenreService` against the same server scaffolding.
+        val genreService: GenreService =
+            createGenreService(
+                genreRepository = serverRepos.genreRepo,
+                bookRepository = serverRepos.bookRepo,
                 reindexer = bookSearchReindexer,
                 db = serverDb,
             )
@@ -286,6 +305,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                         registerService<BookService> { guard(bookService) }
                         registerService<ContributorService> { guard(contributorService) }
                         registerService<SeriesService> { guard(seriesService) }
+                        registerService<GenreService> { guard(genreService) }
                     }
                 }
             }
@@ -310,6 +330,11 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
             ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
         val seriesEditRepository: SeriesEditRepository =
             SeriesEditRepositoryImpl(seriesRpcFactory = TestSeriesRpcFactory(testClient))
+        val genreRepository: ClientGenreRepository =
+            GenreRepositoryImpl(
+                dao = clientDb.genreDao(),
+                rpcFactory = TestGenreRpcFactory(testClient),
+            )
 
         try {
             val registry = ClientSyncDomainRegistry()
@@ -390,9 +415,11 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     engine = engine,
                     recording = recording,
                     tagRepo = serverRepos.tagRepo,
+                    serverDb = serverDb,
                     serverBookRepository = serverRepos.bookRepo,
                     serverContributorRepository = serverRepos.contributorRepo,
                     serverSeriesRepository = serverRepos.seriesRepo,
+                    serverGenreRepository = serverRepos.genreRepo,
                     serverActiveSessionRepository = serverRepos.activeSessionRepo,
                     serverPlaybackPositionRepository = serverRepos.playbackPositionRepo,
                     serverListeningEventRepository = serverRepos.listeningEventRepo,
@@ -403,6 +430,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
                     seriesEditRepository = seriesEditRepository,
+                    genreRepository = genreRepository,
                     state = state,
                     dispatcher = dispatcher,
                     queue = queue,
@@ -430,6 +458,7 @@ private data class ServerRepositories(
     val tagRepo: TagRepository,
     val contributorRepo: ContributorRepository,
     val seriesRepo: SeriesRepository,
+    val genreRepo: ServerGenreRepository,
     val bookRepo: BookRepository,
     val activeSessionRepo: ActiveSessionRepository,
     val playbackPositionRepo: PlaybackPositionRepository,
@@ -478,6 +507,11 @@ private fun registerClientSyncHandlers(
         registry = registry,
     )
     SeriesSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    GenreSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
@@ -545,6 +579,7 @@ private fun buildServerRepositories(
     val libraryFolderRepo = LibraryFolderRepository(serverDb, bus, registry)
     val contributorRepo = ContributorRepository(serverDb, bus, registry)
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
+    val genreRepo = ServerGenreRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo)
     val activeSessionRepo = ActiveSessionRepository(serverDb, bus, registry)
     val playbackPositionRepo =
@@ -576,6 +611,7 @@ private fun buildServerRepositories(
         tagRepo,
         contributorRepo,
         seriesRepo,
+        genreRepo,
         bookRepo,
         activeSessionRepo,
         playbackPositionRepo,
@@ -748,4 +784,31 @@ internal class TestSeriesRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<SeriesService>()
+}
+
+/**
+ * Test-only [GenreRpcFactory] that opens a kotlinx.rpc [GenreService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly.
+ */
+internal class TestGenreRpcFactory(
+    private val httpClient: HttpClient,
+) : GenreRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: GenreService? = null
+
+    override suspend fun genreService(): GenreService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): GenreService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<GenreService>()
 }
