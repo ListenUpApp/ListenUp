@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -175,6 +176,7 @@ private fun newService(db: org.jetbrains.exposed.v1.jdbc.Database): Pair<BookSer
             seriesRepo = seriesRepo,
             coverStorage = CoverStorage(),
             db = db,
+            genreRepo = GenreRepository(db, bus, syncRegistry),
         )
     return service to repo
 }
