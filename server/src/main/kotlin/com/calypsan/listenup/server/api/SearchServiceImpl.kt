@@ -18,6 +18,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
+import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
@@ -269,7 +270,26 @@ internal class SearchServiceImpl(
                 "EXISTS (SELECT 1 FROM book_genres bg JOIN genres g ON g.id = bg.genre_id " +
                 "WHERE bg.book_id = b.id AND g.deleted_at IS NULL AND (${genreClauses.joinToString(" OR ")}))"
         }
-        // duration + year filters are added in Task 4 — leave room here.
+        // total_duration is stored in milliseconds; contract fields are in seconds → multiply by 1000.
+        // !! required: Kotlin doesn't compose the outer `filters != null` smart-cast with nested
+        // property null-checks, so we must assert non-null to satisfy Pair<IColumnType<*>, Any>.
+        if (filters.durationMinSeconds != null) {
+            clauses += "b.total_duration >= ?"
+            args += LongColumnType() to filters.durationMinSeconds!! * 1_000L
+        }
+        if (filters.durationMaxSeconds != null) {
+            clauses += "b.total_duration <= ?"
+            args += LongColumnType() to filters.durationMaxSeconds!! * 1_000L
+        }
+        // publish_year is nullable — NULL rows are naturally excluded by >= / <= comparisons.
+        if (filters.yearMin != null) {
+            clauses += "b.publish_year >= ?"
+            args += IntegerColumnType() to filters.yearMin!!
+        }
+        if (filters.yearMax != null) {
+            clauses += "b.publish_year <= ?"
+            args += IntegerColumnType() to filters.yearMax!!
+        }
         return FilterSql(
             whereFragment = if (clauses.isEmpty()) "" else " AND " + clauses.joinToString(" AND "),
             args = args,

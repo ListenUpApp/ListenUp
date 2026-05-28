@@ -330,6 +330,40 @@ class SearchServiceImplTest :
                 }
             }
         }
+
+        test("duration filter keeps only books within the range") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "short", "Dragon Short", lib, durationSeconds = 3_600) // 1h
+                seedBook(db, "long", "Dragon Long", lib, durationSeconds = 36_000) // 10h
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(durationMaxSeconds = 7_200)),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("short")
+                }
+            }
+        }
+
+        test("year filter keeps only books within the range") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "old", "Dragon Old", lib, publishYear = 1999)
+                seedBook(db, "new", "Dragon New", lib, publishYear = 2020)
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(yearMin = 2010)),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("new")
+                }
+            }
+        }
     })
 
 // ── test data helpers ──────────────────────────────────────────────────────────
@@ -371,6 +405,8 @@ private fun seedBook(
     libraryId: String,
     deleted: Boolean = false,
     folderId: String = "folder1",
+    durationSeconds: Long = 3_600L,
+    publishYear: Int? = null,
 ) {
     val now = System.currentTimeMillis()
     val rowid = (bookId.hashCode().toLong().let { if (it < 0) -it else it } % 999_999L) + 1L
@@ -380,7 +416,9 @@ private fun seedBook(
             it[BookTable.libraryId] = libraryId
             it[BookTable.folderId] = folderId
             it[BookTable.title] = title
-            it[BookTable.totalDuration] = 3_600_000L
+            // total_duration is stored in milliseconds; the contract field (durationSeconds) is in seconds.
+            it[BookTable.totalDuration] = durationSeconds * 1_000L
+            it[BookTable.publishYear] = publishYear
             it[BookTable.rootRelPath] = "$bookId/book.mp3"
             it[BookTable.scannedAt] = now
             it[BookTable.revision] = 1L
