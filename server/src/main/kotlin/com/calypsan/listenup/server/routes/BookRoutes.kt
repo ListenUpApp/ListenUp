@@ -9,9 +9,12 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.server.api.BookServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -25,6 +28,9 @@ import io.ktor.server.resources.patch
 import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+
+private const val AUTH_WALL_REGRESSION_MSG =
+    "book REST mount reached without a principal — auth wall regression"
 
 /**
  * REST surface for [BookService]. Seven endpoints:
@@ -56,7 +62,11 @@ fun Route.bookRoutes(
     coverResponder: CoverResponder,
 ) {
     get<BookResources.Detail> { res ->
-        when (val result = bookService.getBook(res.id)) {
+        // getBook is access-gated by the caller's principal — scope the service to
+        // the authenticated user per-request, mirroring the RPC mount in RpcRoutes.
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val scoped = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p })
+        when (val result = scoped.getBook(res.id)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }

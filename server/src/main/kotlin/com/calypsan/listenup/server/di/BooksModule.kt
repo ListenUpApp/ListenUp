@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -126,6 +127,7 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
+        single { BookAccessPolicy(get()) }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -134,6 +136,11 @@ fun booksModule(
                 coverStorage = get<CoverStorage>(),
                 db = get(),
                 genreRepo = get<GenreRepository>(),
+                accessPolicy = get<BookAccessPolicy>(),
+                principal =
+                    PrincipalProvider {
+                        error("Unscoped BookService — call copyWith(PrincipalProvider) at the route")
+                    },
             )
         }
         single<ContributorService> {

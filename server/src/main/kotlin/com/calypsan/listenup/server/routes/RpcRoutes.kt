@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
@@ -91,7 +92,12 @@ fun Route.rpcRoutes(
                 guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
             }
             if (bookService != null) {
-                registerService<BookService> { guard(bookService) }
+                registerService<BookService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((bookService as BookServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (contributorService != null) {
                 registerService<ContributorService> { guard(contributorService) }

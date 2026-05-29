@@ -30,7 +30,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * the book-level one. The single SQL definition lives in [accessibleBookIdsSql]; both
  * [accessibleBookIds] and [canAccess] are thin derivations of it.
  */
-internal class BookAccessPolicy(private val db: Database) {
+internal class BookAccessPolicy(
+    private val db: Database,
+) {
     /**
      * The WHERE-ready subquery selecting the ids of every book visible to `(userId, role)`,
      * with its positional args — or `null` for ROOT/ADMIN, who see all live books (an

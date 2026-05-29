@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.error.CoverError
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
@@ -56,6 +57,15 @@ private const val MAX_GENRES_PER_BOOK = 200
  * roll back a successful nullify. Embedded covers carry no file of their own
  * (the artwork lives inside the audio file), so the post-commit delete is a
  * no-op for them.
+ *
+ * [getBook] is gated through [BookAccessPolicy]: the authenticated caller is
+ * resolved from [principal] (never from request fields — prevents spoofing),
+ * and a book the caller can't reach is reported as `SyncError.NotFound`, the
+ * same shape as an absent book, so the gate never leaks the existence of a
+ * book in a collection the caller can't see. Route handlers call [copyWith] to
+ * bind each request to the authenticated [UserPrincipal][com.calypsan.listenup.server.auth.UserPrincipal];
+ * the Koin singleton carries an unscoped placeholder that throws on
+ * [PrincipalProvider.current] to catch misuse early.
  */
 internal class BookServiceImpl(
     private val repo: BookRepository,
@@ -64,15 +74,35 @@ internal class BookServiceImpl(
     private val coverStorage: CoverStorage,
     private val db: Database,
     private val genreRepo: com.calypsan.listenup.server.services.GenreRepository,
+    private val accessPolicy: BookAccessPolicy,
+    private val principal: PrincipalProvider,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
-        val payload = repo.findById(id)
-        return if (payload != null) {
-            AppResult.Success(payload)
-        } else {
-            AppResult.Failure(SyncError.NotFound(domain = "book", entityId = id.value))
+        val p =
+            principal.current()
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = id.value))
+        val payload =
+            repo.findById(id)
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = id.value))
+        if (!accessPolicy.canAccess(p.userId.value, p.role, id.value)) {
+            // Report a denied book as absent — never leak its existence.
+            return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = id.value))
         }
+        return AppResult.Success(payload)
     }
+
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): BookServiceImpl =
+        BookServiceImpl(
+            repo = repo,
+            contributorRepo = contributorRepo,
+            seriesRepo = seriesRepo,
+            coverStorage = coverStorage,
+            db = db,
+            genreRepo = genreRepo,
+            accessPolicy = accessPolicy,
+            principal = principal,
+        )
 
     override suspend fun searchBooks(
         query: String,
@@ -247,7 +277,21 @@ fun createBookService(
     coverStorage: CoverStorage,
     db: org.jetbrains.exposed.v1.jdbc.Database,
     genreRepo: com.calypsan.listenup.server.services.GenreRepository,
-): BookService = BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo)
+    principal: PrincipalProvider =
+        PrincipalProvider { error("Unscoped BookService — call bookServiceScopedTo at the route") },
+): BookService =
+    BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo, BookAccessPolicy(db), principal)
+
+/**
+ * Scopes a [BookService] built by [createBookService] to [principal] for one request.
+ * Public so cross-module test harnesses can bind the authenticated caller without
+ * piercing the `internal` access on [BookServiceImpl] or its [BookServiceImpl.copyWith].
+ * Production wiring calls [BookServiceImpl.copyWith] directly in the RPC route.
+ */
+fun bookServiceScopedTo(
+    service: BookService,
+    principal: PrincipalProvider,
+): BookService = (service as BookServiceImpl).copyWith(principal)
 
 private fun bookNotFound(id: BookId): AppResult.Failure =
     AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))
