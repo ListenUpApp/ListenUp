@@ -103,6 +103,41 @@ struct SleepTimerFiringTests {
     }
 }
 
+@Suite("Save current position")
+@MainActor
+struct SaveCurrentPositionTests {
+    @Test func saveCurrentPositionPersistsImmediately() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 4321, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        coordinator.play(bookId: "book1")
+        try await Task.sleep(for: .milliseconds(50))
+
+        await coordinator.saveCurrentPosition()
+
+        #expect(progress.savedNow.contains { $0.0 == "book1" })
+    }
+
+    @Test func saveCurrentPositionNoopsWhenIdle() async {
+        let progress = FakeProgressReporting()
+        let coordinator = PlayerCoordinator(
+            preparer: FakePlaybackPreparing(), progress: progress,
+            sleep: FakeSleepTiming(), engine: FakePlaybackEngine(),
+            coverProvider: FakeBookCoverProviding())
+        await coordinator.saveCurrentPosition()
+        #expect(progress.savedNow.isEmpty)
+    }
+}
+
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {

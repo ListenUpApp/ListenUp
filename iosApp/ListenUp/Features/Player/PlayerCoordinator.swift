@@ -254,6 +254,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
     func cancelSleepTimer() { sleep.cancelTimer() }
 
+    /// Persist the current position immediately. Called on pause, seek, and when
+    /// the app backgrounds/terminates — the periodic 5s tick is not enough to
+    /// guarantee the user's place survives a kill.
+    func saveCurrentPosition() async {
+        guard let id = currentBookId, isVisible else { return }
+        await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
+    }
+
     /// Tear down all observation and release the engine.
     func stop() {
         bridge.cancelAll()
