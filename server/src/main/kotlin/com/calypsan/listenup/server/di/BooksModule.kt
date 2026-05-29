@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
@@ -9,11 +10,14 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.server.api.BookServiceImpl
+import com.calypsan.listenup.server.api.CollectionAccessPolicy
+import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -165,6 +169,21 @@ fun booksModule(
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 db = get(),
+            )
+        }
+        single { CollectionAccessPolicy(get(), get()) }
+        single<CollectionService> {
+            CollectionServiceImpl(
+                collectionRepo = get(),
+                collectionBookRepo = get(),
+                shareRepo = get(),
+                accessPolicy = get(),
+                db = get(),
+                clock = get(),
+                principal =
+                    PrincipalProvider {
+                        error("Unscoped CollectionService — call copyWith(PrincipalProvider) at the route")
+                    },
             )
         }
         // Default-genre-taxonomy seeder. Logically part of the books slice — runs once on

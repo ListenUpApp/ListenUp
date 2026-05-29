@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -42,6 +43,8 @@ import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
+import com.calypsan.listenup.server.routes.collectionAdminRoutes
+import com.calypsan.listenup.server.routes.collectionRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.libraryAdminRoutes
@@ -171,6 +174,7 @@ fun Application.module() {
                     hasBooksModule = resolvedLibraryPath != null,
                     demoLibraryPath = resolvedLibraryPath?.toString(),
                     hasGenresModule = resolvedLibraryPath != null,
+                    hasCollectionsModule = resolvedLibraryPath != null,
                 )
         }
         modules(modules)
@@ -207,6 +211,7 @@ fun Application.module() {
     val libraryAdminService: LibraryAdminService? = injectIfConfigured(resolvedLibraryPath)
     val tagService: TagService? = injectIfConfigured(resolvedLibraryPath)
     val genreService: GenreService? = injectIfConfigured(resolvedLibraryPath)
+    val collectionService: CollectionService? = injectIfConfigured(resolvedLibraryPath)
 
     routing {
         healthRoutes()
@@ -226,6 +231,7 @@ fun Application.module() {
             libraryAdminService,
             tagService,
             genreService,
+            collectionService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -245,6 +251,10 @@ fun Application.module() {
             if (searchService != null) searchRoutes(searchService)
             if (tagService != null) tagRoutes(tagService)
             if (genreService != null) genreRoutes(genreService)
+            if (collectionService != null) {
+                collectionRoutes(collectionService)
+                collectionAdminRoutes(collectionService)
+            }
         }
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
