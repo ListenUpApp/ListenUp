@@ -32,7 +32,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
     }
 }
 
-struct KotlinProgressReporting: ProgressReporting {
+struct KotlinProgressReporting: PlaybackProgressReporting {
     let tracker: ProgressTracker
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
         tracker.onPlaybackStarted(bookId: bookId, positionMs: positionMs, speed: speed)

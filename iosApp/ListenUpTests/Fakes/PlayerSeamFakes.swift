@@ -36,9 +36,7 @@ actor FakePlaybackEngine: PlaybackEngine {
 
 // MARK: - Task 2 seam fakes
 
-// `ListenUp.ProgressReporting` disambiguates from Foundation's `NSProgressReporting`
-// (imported into Swift as `ProgressReporting`), which collides on bare lookup here.
-final class FakeProgressReporting: ListenUp.ProgressReporting, @unchecked Sendable {
+final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendable {
     private(set) var startedCalls: [(String, Int64, Float)] = []
     private(set) var pausedCalls: [(String, Int64, Float)] = []
     private(set) var positionUpdates: [(String, Int64, Float)] = []

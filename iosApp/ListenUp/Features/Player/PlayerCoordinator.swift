@@ -133,7 +133,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
     private let preparer: PlaybackPreparing
-    private let progress: ProgressReporting
+    private let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
     private let coverProvider: BookCoverProviding
     private let bridge = FlowBridge()
@@ -148,7 +148,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     init(
         preparer: PlaybackPreparing,
-        progress: ProgressReporting,
+        progress: PlaybackProgressReporting,
         sleep: SleepTiming,
         engine: PlaybackEngine,
         coverProvider: BookCoverProviding

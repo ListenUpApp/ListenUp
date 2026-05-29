@@ -53,7 +53,7 @@ protocol PlaybackPreparing: Sendable {
 }
 
 /// Position + listening-event persistence. `bookId` is the value-class-erased id.
-protocol ProgressReporting: Sendable {
+protocol PlaybackProgressReporting: Sendable {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float)
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)
