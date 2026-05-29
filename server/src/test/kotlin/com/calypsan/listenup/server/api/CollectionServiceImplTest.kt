@@ -260,6 +260,54 @@ class CollectionServiceImplTest :
             }
         }
 
+        test("deleteCollection cascades to junction rows and active shares") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestBook("book1")
+                runTest {
+                    val service = makeService(db).actAs("u1")
+                    val created = service.createCollection("test-library", "Disposable")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    // Attach a real junction row and a real active share so the cascade
+                    // branches run against NON-empty sets.
+                    service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
+
+                    val collectionBookRepo = CollectionBookRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    val shareRepo = CollectionShareRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                    shareRepo.upsert(
+                        CollectionShareSyncPayload(
+                            id = "share1",
+                            collectionId = collectionId.value,
+                            sharedWithUserId = "u2",
+                            sharedByUserId = "u1",
+                            permission = SharePermission.Read,
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+
+                    // Preconditions: cascade targets exist and are live.
+                    collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 1L
+                    require(shareRepo.findActiveShare(collectionId.value, "u2") != null)
+
+                    service.deleteCollection(collectionId) shouldBe AppResult.Success(Unit)
+
+                    // Cascade: junction rows soft-deleted.
+                    collectionBookRepo.findBookIdsForCollection(collectionId.value) shouldHaveSize 0
+                    collectionBookRepo.countLiveForCollection(collectionId.value) shouldBe 0L
+
+                    // Cascade: active share soft-deleted.
+                    shareRepo.findActiveShare(collectionId.value, "u2") shouldBe null
+                    shareRepo.listActiveSharesForCollection(collectionId.value) shouldHaveSize 0
+                }
+            }
+        }
+
         // ── listCollections ──────────────────────────────────────────────────────
 
         test("listCollections returns owned + shared, admin sees all") {
