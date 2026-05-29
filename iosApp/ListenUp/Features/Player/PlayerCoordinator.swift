@@ -268,6 +268,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
         Task { await engine.seek(toMs: positionMs) }
+        if let id = currentBookId {
+            progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
+            lastReportedPositionMs = positionMs
+        }
         updateNowPlaying()
         syncLiveActivity()
     }

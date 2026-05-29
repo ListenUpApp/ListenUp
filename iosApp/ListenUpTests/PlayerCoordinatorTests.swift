@@ -183,6 +183,32 @@ struct EndOfChapterTests {
     }
 }
 
+@Suite("Seek persistence")
+@MainActor
+struct SeekPersistenceTests {
+    @Test func seekReportsNewPosition() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        coordinator.play(bookId: "book1")
+        try await Task.sleep(for: .milliseconds(50))
+
+        coordinator.seekTo(positionMs: 30000)
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 })
+    }
+}
+
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
