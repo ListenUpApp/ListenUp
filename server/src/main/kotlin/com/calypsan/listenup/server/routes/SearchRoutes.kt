@@ -1,6 +1,9 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.dto.SearchFilters
+import com.calypsan.listenup.api.dto.SearchQuery
+import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.SearchResources
 import com.calypsan.listenup.api.result.AppResult
@@ -24,12 +27,46 @@ import io.ktor.server.routing.Route
  */
 fun Route.searchRoutes(searchService: SearchService) {
     get<SearchResources.All> { resource ->
-        when (val result = searchService.search(resource.query, resource.limit)) {
+        val q =
+            SearchQuery(
+                text = resource.query,
+                limit = resource.limit,
+                filters = searchFiltersFrom(resource),
+                sort = searchSortFrom(resource.sort),
+            )
+        when (val result = searchService.search(q)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 }
+
+private fun searchFiltersFrom(r: SearchResources.All): SearchFilters? {
+    val slugs =
+        r.genreSlugs
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+    val filters =
+        SearchFilters(
+            genreSlugs = slugs,
+            genrePath = r.genrePath?.takeIf { it.isNotBlank() },
+            durationMinSeconds = r.durationMin,
+            durationMaxSeconds = r.durationMax,
+            yearMin = r.yearMin,
+            yearMax = r.yearMax,
+        )
+    return filters.takeIf { it.isActive }
+}
+
+private fun searchSortFrom(s: String?): SearchSort =
+    when (s?.lowercase()) {
+        "title" -> SearchSort.Title
+        "recent" -> SearchSort.Recent
+        "duration" -> SearchSort.Duration
+        else -> SearchSort.Relevance
+    }
 
 private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
     val typed = error.withCorrelationId(callId)

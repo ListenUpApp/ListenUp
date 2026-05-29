@@ -28,6 +28,8 @@ data class SearchResults(
     val series: List<SeriesHit>,
     /** Tags matching the search query, ranked by FTS5 relevance. */
     val tags: List<TagHit>,
+    /** Aggregate facet counts over the matched book set. */
+    val facets: SearchFacets = SearchFacets(),
 )
 
 /**
@@ -49,6 +51,12 @@ data class BookHit(
     val coverPath: String?,
     /** BlurHash placeholder for the cover image, or `null` when unavailable. */
     val coverHash: String?,
+    /**
+     * The primary matched display field with matched query tokens wrapped in the
+     * highlight marker U+0002 (STX) … U+0003 (ETX) sentinels the client splits on;
+     * `null` when no token matched the displayed text.
+     */
+    val highlight: String? = null,
 )
 
 /**
@@ -77,6 +85,12 @@ data class ContributorHit(
     val photoBlurHash: String?,
     /** Number of books this contributor is credited on in the library. */
     val bookCount: Int,
+    /**
+     * The primary matched display field with matched query tokens wrapped in the
+     * highlight marker U+0002 (STX) … U+0003 (ETX) sentinels the client splits on;
+     * `null` when no token matched the displayed text.
+     */
+    val highlight: String? = null,
 )
 
 /**
@@ -104,4 +118,10 @@ data class SeriesHit(
     val coverBlurHash: String?,
     /** Number of books belonging to this series in the library. */
     val bookCount: Int,
+    /**
+     * The primary matched display field with matched query tokens wrapped in the
+     * highlight marker U+0002 (STX) … U+0003 (ETX) sentinels the client splits on;
+     * `null` when no token matched the displayed text.
+     */
+    val highlight: String? = null,
 )

@@ -64,6 +64,7 @@ import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -196,6 +197,7 @@ fun Application.module() {
     val playbackService: PlaybackService? = injectIfConfigured(resolvedLibraryPath)
     val playbackProgressService: PlaybackProgressService? = injectIfConfigured(resolvedLibraryPath)
     val backfillService: UserStatsBackfillService? = injectIfConfigured(resolvedLibraryPath)
+    val searchReindexService: SearchReindexService? = injectIfConfigured(resolvedLibraryPath)
     val audioFileLocator: AudioFileLocator? = injectIfConfigured(resolvedLibraryPath)
     val audioUrlSigner: AudioUrlSigner? = injectIfConfigured(resolvedLibraryPath)
     val contributorRepository: ContributorRepository? = injectIfConfigured(resolvedLibraryPath)
@@ -233,7 +235,9 @@ fun Application.module() {
             if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
             if (playbackProgressService != null) playbackProgressRoutes(playbackProgressService)
-            if (backfillService != null) adminRoutes(backfillService)
+            if (backfillService != null && searchReindexService != null) {
+                adminRoutes(backfillService, searchReindexService)
+            }
             if (contributorRepository != null && seriesRepository != null) {
                 metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
             }
