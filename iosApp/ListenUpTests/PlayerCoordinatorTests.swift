@@ -1,4 +1,5 @@
 import Testing
+import AVFoundation
 @testable import ListenUp
 @preconcurrency import Shared
 
@@ -135,6 +136,19 @@ struct SaveCurrentPositionTests {
             coverProvider: FakeBookCoverProviding())
         await coordinator.saveCurrentPosition()
         #expect(progress.savedNow.isEmpty)
+    }
+}
+
+@Suite("Interruption policy")
+struct InterruptionPolicyTests {
+    @Test func beganPauses() {
+        #expect(InterruptionPolicy.action(type: .began, shouldResume: false) == .pause)
+    }
+    @Test func endedWithResumeResumes() {
+        #expect(InterruptionPolicy.action(type: .ended, shouldResume: true) == .resume)
+    }
+    @Test func endedWithoutResumeDoesNothing() {
+        #expect(InterruptionPolicy.action(type: .ended, shouldResume: false) == InterruptionPolicy.Action.none)
     }
 }
 

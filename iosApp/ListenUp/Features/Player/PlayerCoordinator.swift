@@ -1,5 +1,18 @@
 import SwiftUI
+import AVFoundation
 @preconcurrency import Shared
+
+/// Pure decision for an audio-session interruption — testable without notifications.
+enum InterruptionPolicy {
+    enum Action: Equatable { case pause, resume, none }
+    static func action(type: AVAudioSession.InterruptionType, shouldResume: Bool) -> Action {
+        switch type {
+        case .began: return .pause
+        case .ended: return shouldResume ? .resume : .none
+        @unknown default: return .none
+        }
+    }
+}
 
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
@@ -147,6 +160,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         system.attach(handler: self)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSleep()
+        observeInterruptions()
     }
 
     /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
@@ -164,6 +178,43 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bridge.bind(sleep.stateStream) { [weak self] state in self?.applySleepTimer(state) }
         bridge.bind(sleep.fired) { [weak self] _ in
             Task { @MainActor in await self?.handleSleepFired() }
+        }
+    }
+
+    private func observeInterruptions() {
+        let name = AVAudioSession.interruptionNotification
+        bridge.bind(NotificationCenter.default.notifications(named: name)) { [weak self] note in
+            guard let self else { return }
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+            let shouldResume: Bool = {
+                guard let opts = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt else { return false }
+                return AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
+            }()
+            let action = InterruptionPolicy.action(type: type, shouldResume: shouldResume)
+            Task { @MainActor in await self.applyInterruption(action) }
+        }
+    }
+
+    private func applyInterruption(_ action: InterruptionPolicy.Action) async {
+        guard let loaded = phase.playingState else { return }
+        switch action {
+        case .pause:
+            if phase.isPlaying {
+                await engine.pause()
+                phase = .paused(loaded)
+                progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                updateNowPlaying(); syncLiveActivity()
+            }
+        case .resume:
+            if !phase.isPlaying {
+                await engine.play()
+                phase = .playing(loaded)
+                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                updateNowPlaying(); syncLiveActivity()
+            }
+        case .none:
+            break
         }
     }
 
