@@ -126,6 +126,12 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+    // Recycle the test JVM every 25 classes. The Ktor `testApplication` specs extract the
+    // runtime classpath into the working dir on first use; left in a single long-lived worker
+    // alongside the full spec count this intermittently corrupts class loading of synthetic
+    // lambda inner classes (`<Spec>$1$1` NoClassDefFoundError) and eventually wedges the worker.
+    // Periodic forking isolates each batch's classpath extraction and keeps the suite green.
+    setForkEvery(25)
     // Redirect the working directory so any Ktor testApplication classpath-extraction
     // artefacts (META-INF/, io/) land under build/ rather than the project root.
     workingDir =
