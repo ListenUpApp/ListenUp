@@ -15,6 +15,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.TagId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.sync.SqlFragment
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.jetbrains.exposed.v1.core.IColumnType
@@ -42,10 +44,22 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  *
  * Book author names are fetched in the same query via a `GROUP_CONCAT` sub-select
  * — no N+1 per-book round-trip.
+ *
+ * Results AND facet counts are access-gated through [BookAccessPolicy]: a member must
+ * never see a book they can't reach in the result list OR in a facet bucket count (a
+ * count leaks existence just as surely as a row). The authenticated caller is resolved
+ * from [principal] (never from request fields); [BookAccessPolicy.accessibleBookIdsSql]
+ * yields a `b.id IN (…)` fragment that is spliced into the one matched-books subquery
+ * the result SELECT and every facet/`bookCount` query derive from — so gating it once
+ * covers every surface. ROOT/ADMIN (and the unscoped placeholder used by direct
+ * construction in tests) get a `null` fragment, i.e. no filter. Route handlers call
+ * [copyWith] to bind each request to the authenticated principal.
  */
 internal class SearchServiceImpl(
     private val db: Database,
     private val facetCounter: SearchFacetCounter = SearchFacetCounter(),
+    private val accessPolicy: BookAccessPolicy = BookAccessPolicy(db),
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SearchService {
     override suspend fun search(query: SearchQuery): AppResult<SearchResults> {
         if (query.text.isBlank()) {
@@ -56,14 +70,19 @@ internal class SearchServiceImpl(
         if (ftsQuery.isBlank()) {
             return AppResult.Success(EMPTY_RESULTS)
         }
+        // The viewer's access filter — null for ROOT/ADMIN or an unscoped caller (no filter).
+        // Resolved once and spliced into both the result SELECT and the matched-books subquery
+        // the facets/bookCount build from, so every surface is gated identically.
+        val access =
+            principal.current()?.let { accessPolicy.accessibleBookIdsSql(it.userId.value, it.role) }
         val booksOnly = query.filters?.isActive == true || query.sort != SearchSort.Relevance
-        val (mbSql, mbArgs) = matchedBooksSqlAndArgs(ftsQuery, query.filters)
+        val (mbSql, mbArgs) = matchedBooksSqlAndArgs(ftsQuery, query.filters, access)
         return coroutineScope {
             // Facet DB work depends only on the matched-book subquery, so it runs concurrently
             // with the book/contributor/series/tag search queries — preserving the search-latency
             // budget instead of running sequentially after the searches await.
             val facetsDeferred = async { computeFacets(mbSql, mbArgs) }
-            val booksDeferred = async { searchBooks(ftsQuery, safeLimit, query.filters, query.sort) }
+            val booksDeferred = async { searchBooks(ftsQuery, safeLimit, query.filters, query.sort, access) }
             if (booksOnly) {
                 val books = booksDeferred.await()
                 AppResult.Success(
@@ -110,22 +129,42 @@ internal class SearchServiceImpl(
         }
     }
 
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): SearchServiceImpl =
+        SearchServiceImpl(
+            db = db,
+            facetCounter = facetCounter,
+            accessPolicy = accessPolicy,
+            principal = principal,
+        )
+
     /**
      * Builds the matched-books subquery — the SAME FROM/WHERE as [searchBooks] minus ORDER BY
-     * and LIMIT — plus its positional args (fts query first, then the filter args). The facet
-     * counter joins genres/contributors against this subquery so counts agree with the filtered
-     * (but un-limited) book set.
+     * and LIMIT — plus its positional args (fts query first, then the filter args, then the
+     * viewer's access-subquery args). The facet counter joins genres/contributors against this
+     * subquery so counts agree with the filtered (but un-limited) book set, and the access clause
+     * is spliced in here so result list and facet counts share one visibility boundary.
+     *
+     * @param access the viewer's accessible-book-id subquery, or `null` for ROOT/ADMIN/unscoped
+     *   (no access filter). When present its `?` args append AFTER the filter args, matching the
+     *   `… <filter> AND b.id IN (<access sql>)` statement order.
      */
     private fun matchedBooksSqlAndArgs(
         ftsQuery: String,
         filters: SearchFilters?,
+        access: SqlFragment?,
     ): Pair<String, List<Pair<IColumnType<*>, Any>>> {
         val filterSql = buildFilterSql(filters)
+        val accessClause = if (access != null) " AND b.id IN (${access.sql})" else ""
         val sql =
             "SELECT b.id FROM book_search s JOIN book_search_map m ON s.rowid = m.rowid " +
                 "JOIN books b ON b.id = m.book_id WHERE book_search MATCH ? AND b.deleted_at IS NULL" +
-                filterSql.whereFragment
-        val args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) + filterSql.args
+                filterSql.whereFragment +
+                accessClause
+        val args =
+            listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) +
+                filterSql.args +
+                (access?.args ?: emptyList())
         return sql to args
     }
 
@@ -161,14 +200,16 @@ internal class SearchServiceImpl(
         limit: Int,
         filters: SearchFilters?,
         sort: SearchSort,
+        access: SqlFragment?,
     ): List<BookHit> =
         suspendTransaction(db) {
             val filterSql = buildFilterSql(filters)
+            val accessClause = if (access != null) " AND b.id IN (${access.sql})" else ""
             val results = mutableListOf<BookHit>()
             // Join book_search → book_search_map → books and fetch author names via a
             // GROUP_CONCAT sub-select so there is no N+1 per-book round-trip.
-            // Filter args are spliced BETWEEN the ftsQuery arg and the limit arg so
-            // positional binding matches the statement order: MATCH ? … <filters> … LIMIT ?
+            // Args are spliced in statement order so positional binding matches:
+            // MATCH ? … <filters> … <access subquery> … LIMIT ?
             TransactionManager.current().exec(
                 stmt =
                     "SELECT b.id, b.title, b.cover_path, b.cover_hash, " +
@@ -183,10 +224,12 @@ internal class SearchServiceImpl(
                         "WHERE book_search MATCH ? " +
                         "AND b.deleted_at IS NULL" +
                         filterSql.whereFragment +
+                        accessClause +
                         " ORDER BY ${orderByFor(sort)} LIMIT ?",
                 args =
-                    listOf(TextColumnType() to ftsQuery) +
+                    listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to ftsQuery) +
                         filterSql.args +
+                        (access?.args ?: emptyList()) +
                         listOf(IntegerColumnType() to limit),
             ) { rs ->
                 while (rs.next()) {

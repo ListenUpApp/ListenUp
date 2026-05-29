@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
+import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -125,7 +126,12 @@ fun Route.rpcRoutes(
                 registerService<MetadataLookupService> { guard(metadataLookupService) }
             }
             if (searchService != null) {
-                registerService<SearchService> { guard(searchService) }
+                registerService<SearchService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((searchService as SearchServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (libraryAdminService != null) {
                 // TODO: gate by user permissions when Multi-user lands

@@ -7,7 +7,10 @@ import com.calypsan.listenup.api.dto.SearchSort
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.SearchResources
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.SearchServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
@@ -24,9 +27,18 @@ import io.ktor.server.routing.Route
  * on success, consistent with the third-party REST surface convention in this
  * server. A blank query returns an empty-list envelope with HTTP 200 rather
  * than a 400 — search is always safe to call.
+ *
+ * Search is access-gated by the caller's principal — results and facet counts both
+ * exclude books the caller can't reach — so the service is scoped to the authenticated
+ * user per-request, mirroring the RPC mount in `RpcRoutes`.
  */
+private const val AUTH_WALL_REGRESSION_MSG =
+    "search REST mount reached without a principal — auth wall regression"
+
 fun Route.searchRoutes(searchService: SearchService) {
     get<SearchResources.All> { resource ->
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val scoped = (searchService as SearchServiceImpl).copyWith(PrincipalProvider { p })
         val q =
             SearchQuery(
                 text = resource.query,
@@ -34,7 +46,7 @@ fun Route.searchRoutes(searchService: SearchService) {
                 filters = searchFiltersFrom(resource),
                 sort = searchSortFrom(resource.sort),
             )
-        when (val result = searchService.search(q)) {
+        when (val result = scoped.search(q)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
