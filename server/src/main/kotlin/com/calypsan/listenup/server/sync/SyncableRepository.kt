@@ -16,6 +16,9 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.IColumnType
+import org.jetbrains.exposed.v1.core.IntegerColumnType
+import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -24,6 +27,7 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
@@ -340,15 +344,26 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         userId: String?,
         cursor: Long,
         limit: Int,
+        extraWhere: SqlFragment? = null,
     ): Page<T> =
         suspendTransaction(db) {
             val idsWithRev =
-                table
-                    .selectAll()
-                    .where { (table.revision greater cursor).withUserFilter(userId) }
-                    .orderBy(table.revision, SortOrder.ASC)
-                    .limit(limit)
-                    .map { it[idColumn()] to it[table.revision] }
+                if (extraWhere == null) {
+                    table
+                        .selectAll()
+                        .where { (table.revision greater cursor).withUserFilter(userId) }
+                        .orderBy(table.revision, SortOrder.ASC)
+                        .limit(limit)
+                        .map { it[idColumn()] to it[table.revision] }
+                } else {
+                    selectIdsWithRevRaw(
+                        revisionPredicate = "${table.revision.name} > ?",
+                        revisionArg = cursor,
+                        extraWhere = extraWhere,
+                        orderAndLimit = "ORDER BY ${table.revision.name} ASC LIMIT ?",
+                        trailingArgs = listOf(IntegerColumnType() to limit),
+                    )
+                }
 
             val items = idsWithRev.mapNotNull { (idStr, _) -> readPayload(idStr) }
 
@@ -375,14 +390,25 @@ abstract class SyncableRepository<T : Any, ID : Any>(
     suspend fun digest(
         userId: String?,
         cursor: Long,
+        extraWhere: SqlFragment? = null,
     ): DomainDigest =
         suspendTransaction(db) {
             val rows =
-                table
-                    .selectAll()
-                    .where { (table.revision lessEq cursor).withUserFilter(userId) }
-                    .map { row -> row[idColumn()] to row[table.revision] }
-                    .sortedBy { it.first }
+                if (extraWhere == null) {
+                    table
+                        .selectAll()
+                        .where { (table.revision lessEq cursor).withUserFilter(userId) }
+                        .map { row -> row[idColumn()] to row[table.revision] }
+                        .sortedBy { it.first }
+                } else {
+                    selectIdsWithRevRaw(
+                        revisionPredicate = "${table.revision.name} <= ?",
+                        revisionArg = cursor,
+                        extraWhere = extraWhere,
+                        orderAndLimit = "",
+                        trailingArgs = emptyList(),
+                    ).sortedBy { it.first }
+                }
             if (rows.isEmpty()) {
                 DomainDigest(cursor = cursor, count = 0, hash = "")
             } else {
@@ -396,4 +422,49 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                 DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
             }
         }
+
+    /**
+     * Raw-SQL `(id, revision)` query for the access-filtered ([extraWhere] non-null) path.
+     *
+     * Splices the access subquery as `<idColumn> IN (<extraWhere.sql>)` into a `WHERE`
+     * that also carries the revision predicate. The DSL path stays the canonical
+     * implementation for every domain that passes no fragment; this raw path exists
+     * only because [SqlFragment] carries a complete parameterised subquery that
+     * Exposed's DSL `where { }` cannot splice without reconstructing the placeholder
+     * binding by hand.
+     *
+     * **Argument order is load-bearing** and matches the `?` order in the assembled
+     * SQL exactly: the [revisionArg] (the `?` in [revisionPredicate]) first, then the
+     * [extraWhere] args in their existing order, then any [trailingArgs] (the LIMIT
+     * `?`). A wrong order would silently bind a value to the wrong placeholder.
+     *
+     * **Called only from inside an active Exposed transaction** (opened by [pullSince]
+     * / [digest]).
+     */
+    private fun selectIdsWithRevRaw(
+        revisionPredicate: String,
+        revisionArg: Long,
+        extraWhere: SqlFragment,
+        orderAndLimit: String,
+        trailingArgs: List<Pair<IColumnType<*>, Any>>,
+    ): List<Pair<String, Long>> {
+        val idCol = idColumn().name
+        val sql =
+            buildString {
+                append("SELECT $idCol, ${table.revision.name} FROM ${table.tableName} ")
+                append("WHERE $revisionPredicate AND $idCol IN (${extraWhere.sql})")
+                if (orderAndLimit.isNotEmpty()) append(" $orderAndLimit")
+            }
+        val args =
+            buildList {
+                add(LongColumnType() to revisionArg)
+                addAll(extraWhere.args)
+                addAll(trailingArgs)
+            }
+        val results = mutableListOf<Pair<String, Long>>()
+        TransactionManager.current().exec(stmt = sql, args = args) { rs ->
+            while (rs.next()) results += rs.getString(1) to rs.getLong(2)
+        }
+        return results
+    }
 }

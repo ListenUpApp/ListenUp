@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -31,6 +32,10 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
 // Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
 private const val SSE_EVENT_CONTROL = "control"
 
+// The single access-gated domain: books catch-up + digest are scoped through
+// BookAccessPolicy. Every other domain passes a null filter (unchanged behaviour).
+private const val BOOKS_DOMAIN = "books"
+
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
  *  - `GET /api/v1/sync/events` — SSE firehose with `Last-Event-Id` resume
@@ -45,14 +50,16 @@ private const val SSE_EVENT_CONTROL = "control"
 fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val bus by inject<ChangeBus>()
     val registry by inject<SyncRegistry>()
+    val bookAccessPolicy by inject<BookAccessPolicy>()
 
     // SSE firehose — streams every domain's BusEvents in real time.
     sse("/api/v1/sync/events") { streamFirehose(bus, heartbeatIntervalMillis) }
 
     get("/api/v1/sync/{domain}") {
-        val userId =
-            call.userPrincipalOrNull()?.userId?.value
+        val principal =
+            call.userPrincipalOrNull()
                 ?: return@get call.respond(HttpStatusCode.Unauthorized)
+        val userId = principal.userId.value
         val domainName =
             call.parameters["domain"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
@@ -68,9 +75,18 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
+        // Only the books domain is access-gated; every other domain passes null
+        // (unchanged behaviour). For admins the policy returns null → no filter.
+        val extraWhere =
+            if (domainName == BOOKS_DOMAIN) {
+                bookAccessPolicy.accessibleBookIdsSql(userId, principal.role)
+            } else {
+                null
+            }
+
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
-        val page: Page<Any> = typedRepo.pullSince(userId, since, limit)
+        val page: Page<Any> = typedRepo.pullSince(userId, since, limit, extraWhere)
         // call.respond(page) would fail at runtime: kotlinx.serialization cannot
         // infer the concrete element serializer from the type-erased Page<Any>.
         // encodePageAsJson uses the concrete KSerializer<T> each repository provides.
@@ -78,9 +94,10 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     }
 
     get("/api/v1/sync/{domain}/digest") {
-        val userId =
-            call.userPrincipalOrNull()?.userId?.value
+        val principal =
+            call.userPrincipalOrNull()
                 ?: return@get call.respond(HttpStatusCode.Unauthorized)
+        val userId = principal.userId.value
         val domainName =
             call.parameters["domain"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
@@ -91,9 +108,16 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
+        val extraWhere =
+            if (domainName == BOOKS_DOMAIN) {
+                bookAccessPolicy.accessibleBookIdsSql(userId, principal.role)
+            } else {
+                null
+            }
+
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
-        val digest: DomainDigest = typedRepo.digest(userId, cursor)
+        val digest: DomainDigest = typedRepo.digest(userId, cursor, extraWhere)
         call.respond(digest)
     }
 

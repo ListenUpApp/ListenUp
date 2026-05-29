@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.UserStatsId
 import com.calypsan.listenup.server.db.UserStatsTable
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
 import kotlin.time.Clock
@@ -149,20 +150,24 @@ class UserStatsRepository(
         userId: String?,
         cursor: Long,
         limit: Int,
+        extraWhere: SqlFragment?,
     ): Page<UserStatsSyncPayload> {
-        if (userId != null) {
-            val updater = userStatsUpdaterProvider()
-            if (updater != null) {
-                val existing = getForUser(userId)
-                if (existing != null) {
-                    val now = clock.now().toEpochMilliseconds()
-                    if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
-                        updater.recomputeWindowsOnly(userId, asOfMs = now)
-                    }
-                }
-            }
+        if (userId != null) refreshWindowsIfStale(userId)
+        return super.pullSince(userId, cursor, limit, extraWhere)
+    }
+
+    /**
+     * Recomputes [userId]'s rolling windows when the stats row is older than
+     * [STATS_STALENESS_LIMIT_MS] — the lazy correction path described on [pullSince].
+     * A no-op when no updater is wired or the user has no stats row yet.
+     */
+    private suspend fun refreshWindowsIfStale(userId: String) {
+        val updater = userStatsUpdaterProvider() ?: return
+        val existing = getForUser(userId) ?: return
+        val now = clock.now().toEpochMilliseconds()
+        if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
+            updater.recomputeWindowsOnly(userId, asOfMs = now)
         }
-        return super.pullSince(userId, cursor, limit)
     }
 
     /** Test-only accessor for the protected [idAsString]. */
