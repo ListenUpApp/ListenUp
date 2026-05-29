@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
@@ -34,9 +35,35 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
 // Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
 private const val SSE_EVENT_CONTROL = "control"
 
-// The single access-gated domain: books catch-up + digest are scoped through
-// BookAccessPolicy. Every other domain passes a null filter (unchanged behaviour).
+// The access-gated domains: their catch-up + digest are scoped through BookAccessPolicy.
+// Every other domain passes a null filter (unchanged behaviour).
 private const val BOOKS_DOMAIN = "books"
+private const val COLLECTIONS_DOMAIN = "collections"
+private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
+private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
+
+/**
+ * The access filter for [domainName]'s catch-up/digest, scoped to `(userId, role)` — or `null`
+ * for an ungated domain (or an admin, who sees all). A field rename in any visibility predicate
+ * ripples through this single dispatch, not per-route.
+ *
+ * [policy] is a thunk, resolved only for a gated domain: an ungated domain never touches it, so
+ * harnesses that drive only such domains need not register a [BookAccessPolicy] (mirrors the
+ * firehose thunk).
+ */
+private fun accessFilterFor(
+    domainName: String,
+    userId: String,
+    role: UserRole,
+    policy: () -> BookAccessPolicy,
+): SqlFragment? =
+    when (domainName) {
+        BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
+        COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
+        COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionShareIdsSql(userId, role)
+        COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
+        else -> null
+    }
 
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
@@ -80,14 +107,9 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
-        // Only the books domain is access-gated; every other domain passes null
-        // (unchanged behaviour). For admins the policy returns null → no filter.
-        val extraWhere =
-            if (domainName == BOOKS_DOMAIN) {
-                bookAccessPolicy.accessibleBookIdsSql(userId, principal.role)
-            } else {
-                null
-            }
+        // Books and the three collection domains are access-gated; every other domain passes
+        // null (unchanged behaviour). For admins the policy returns null → no filter.
+        val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
 
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
@@ -113,12 +135,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
-        val extraWhere =
-            if (domainName == BOOKS_DOMAIN) {
-                bookAccessPolicy.accessibleBookIdsSql(userId, principal.role)
-            } else {
-                null
-            }
+        val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
 
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
@@ -204,10 +221,11 @@ private suspend fun ServerSSESession.streamFirehose(
                 // user-scoped domain — deliver it only to that user. A null userId
                 // is a global-domain event, delivered to every subscriber.
                 if (busEvent.userId != null && busEvent.userId != userId) return@collect
-                // Book-level access gating: a live books content event the subscriber may
-                // not see is dropped before send. ROOT/ADMIN and tombstones bypass — see
-                // [isBookEventHidden].
+                // Access gating: a live content event the subscriber may not see is dropped
+                // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
+                // [isCollectionEventHidden].
                 if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
+                if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
                 send(
@@ -266,6 +284,64 @@ private suspend fun isBookEventHidden(
     if (busEvent.event is SyncEvent.Deleted) return false
     return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
 }
+
+/**
+ * Whether a live firehose [busEvent] on a collection domain
+ * (`collections` / `collection_shares` / `collection_books`) must be withheld from
+ * `(userId, role)` by the collection-level access boundary.
+ *
+ * Mirrors [isBookEventHidden]: only content events (Created/Updated) are gated; ROOT/ADMIN
+ * and Deleted tombstones always pass (a tombstone strands no secret — it only lets a client
+ * reconcile a row it may already hold; gating it would permanently leave stale rows).
+ *
+ * Visibility matches each domain's catch-up fragment exactly so the live tail and REST
+ * replay never disagree:
+ *  - `collections` — the event id *is* the collection id; gated by [BookAccessPolicy.canAccessCollection].
+ *  - `collection_books` — the event id is the synthetic `"$collectionId:$bookId"` key
+ *    ([CollectionBookId.fromString]); gated by the parsed collection's access.
+ *  - `collection_shares` — the event id is the share row id, so the collection id and named
+ *    user come from the [CollectionShareSyncPayload]; visible iff the share names the viewer
+ *    or the viewer owns the collection (the `visibleCollectionShareIdsSql` rule).
+ */
+private suspend fun isCollectionEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    val domain = busEvent.repo.domainName
+    if (domain != COLLECTIONS_DOMAIN && domain != COLLECTION_SHARES_DOMAIN && domain != COLLECTION_BOOKS_DOMAIN) {
+        return false
+    }
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+
+    if (domain == COLLECTION_SHARES_DOMAIN) {
+        val share = sharePayloadOf(busEvent.event) ?: return false
+        if (share.sharedWithUserId == userId) return false
+        return !bookAccessPolicy().ownsCollection(userId, share.collectionId)
+    }
+
+    val collectionId =
+        if (domain == COLLECTION_BOOKS_DOMAIN) {
+            CollectionBookId.fromString(busEvent.event.id).collectionId
+        } else {
+            busEvent.event.id
+        }
+    return !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
+}
+
+/**
+ * The [CollectionShareSyncPayload] carried by a content [event] on the `collection_shares`
+ * domain, or `null` if the event carries no payload (a tombstone — already handled upstream).
+ * The repo↔event type binding guarantees the payload is a share payload by construction.
+ */
+private fun sharePayloadOf(event: SyncEvent<*>): CollectionShareSyncPayload? =
+    when (event) {
+        is SyncEvent.Created<*> -> event.payload as CollectionShareSyncPayload
+        is SyncEvent.Updated<*> -> event.payload as CollectionShareSyncPayload
+        is SyncEvent.Deleted -> null
+    }
 
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
 private suspend fun ServerSSESession.sendCursorStale(lastKnownRevision: Long) {

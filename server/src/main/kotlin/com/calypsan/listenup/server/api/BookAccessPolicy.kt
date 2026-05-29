@@ -26,9 +26,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * a private and a reachable collection is allowed (≥1 reachable wins). ROOT and ADMIN
  * bypass the filter entirely — every live book, including inbox and private ones.
  *
- * Sibling to [CollectionAccessPolicy], which owns the collection-level decision; this owns
- * the book-level one. The single SQL definition lives in [accessibleBookIdsSql]; both
- * [accessibleBookIds] and [canAccess] are thin derivations of it.
+ * Sibling to [CollectionAccessPolicy], which owns the collection-level *mutation* decision
+ * (a repository-backed [CollectionAccessPolicy.Decision] used to gate writes); this owns the
+ * raw-SQL *visibility* definitions consumed by the sync seams. Both the book-visibility rule
+ * ([accessibleBookIdsSql]) and its collection-id analogs ([accessibleCollectionIdsSql],
+ * [visibleCollectionShareIdsSql], [accessibleCollectionBookIdsSql]) live here because they
+ * share the identical `owner / global-access / active-share` predicate, the same [Database]
+ * handle, and the same [SqlFragment] splicing contract — keeping them together means the
+ * access boundary is one definition, spliced into every sync domain that scopes to a viewer.
  */
 internal class BookAccessPolicy(
     private val db: Database,
@@ -128,4 +133,148 @@ internal class BookAccessPolicy(
         ) { rs -> exists = rs.next() }
         return exists
     }
+
+    /**
+     * The WHERE-ready subquery selecting the ids of every live collection visible to
+     * `(userId, role)` — the collection-id analog of [accessibleBookIdsSql] — or `null` for
+     * ROOT/ADMIN, who see every collection (including inboxes and private ones).
+     *
+     * A non-admin member sees a live collection (`deleted_at IS NULL`) they own, one flagged
+     * `is_global_access`, or one shared with them via a live share. The inbox is admin-owned
+     * and never global-access or shared, so it falls out of this set naturally for a member —
+     * no special-case clause needed.
+     *
+     * The returned [SqlFragment.sql] is a complete `SELECT c.id FROM collections c …` subquery,
+     * spliced by the sync substrate as `collections.id IN (<sql>)`.
+     */
+    fun accessibleCollectionIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        return SqlFragment(
+            sql = accessibleCollectionIdsSubquery,
+            args =
+                listOf(
+                    TextColumnType() to userId,
+                    TextColumnType() to userId,
+                ),
+        )
+    }
+
+    /**
+     * The WHERE-ready subquery selecting the ids of every `collection_shares` row visible to
+     * `(userId, role)` — or `null` for ROOT/ADMIN, who see every share. A non-admin sees a
+     * share that names them (`shared_with_user_id = ?`) or one on a live collection they own.
+     *
+     * Distinct from [accessibleCollectionIdsSql]: a member sees the shares granting *them*
+     * access even when the collection itself reaches them only via that share, and sees every
+     * share on collections they own (so the owner's client can reconcile its share list).
+     *
+     * Spliced by the sync substrate as `collection_shares.id IN (<sql>)`.
+     */
+    fun visibleCollectionShareIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        val sql =
+            """
+            SELECT s.id FROM collection_shares s
+            WHERE s.shared_with_user_id = ?
+              OR s.collection_id IN (
+                SELECT c.id FROM collections c WHERE c.deleted_at IS NULL AND c.owner_id = ?
+              )
+            """.trimIndent()
+        return SqlFragment(sql = sql, args = listOf(TextColumnType() to userId, TextColumnType() to userId))
+    }
+
+    /**
+     * The WHERE-ready subquery selecting the synthetic ids (`"$collectionId:$bookId"`) of every
+     * `collection_books` junction row whose collection is visible to `(userId, role)` — or `null`
+     * for ROOT/ADMIN, who see every membership.
+     *
+     * The selected `cb.id` matches the synthetic key the junction's [SyncableRepository] stores,
+     * so the substrate's `collection_books.id IN (<sql>)` splice lines up exactly.
+     */
+    fun accessibleCollectionBookIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        val sql =
+            """
+            SELECT cb.id FROM collection_books cb
+            WHERE cb.collection_id IN ($accessibleCollectionIdsSubquery)
+            """.trimIndent()
+        return SqlFragment(sql = sql, args = listOf(TextColumnType() to userId, TextColumnType() to userId))
+    }
+
+    /**
+     * True when `(userId, role)` may see collection [collectionId]. ROOT/ADMIN see any live
+     * collection; everyone else is gated by [accessibleCollectionIdsSql], probed for this one
+     * id. The single-collection probe behind the firehose gate for collection-domain events.
+     */
+    suspend fun canAccessCollection(
+        userId: String,
+        role: UserRole,
+        collectionId: String,
+    ): Boolean =
+        suspendTransaction(db) {
+            val frag =
+                accessibleCollectionIdsSql(userId, role)
+                    ?: return@suspendTransaction collectionExists(collectionId)
+            var visible = false
+            TransactionManager.current().exec(
+                stmt = "SELECT 1 FROM (${frag.sql}) acc WHERE acc.id = ? LIMIT 1",
+                args = frag.args + listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId),
+            ) { rs -> visible = rs.next() }
+            visible
+        }
+
+    /**
+     * True when [userId] owns the live collection [collectionId]. The owner-only branch behind
+     * the `collection_shares` firehose gate — a member sees share events on collections they own
+     * (matching [visibleCollectionShareIdsSql]), independent of global-access or share reach.
+     */
+    suspend fun ownsCollection(
+        userId: String,
+        collectionId: String,
+    ): Boolean =
+        suspendTransaction(db) {
+            var owns = false
+            TransactionManager.current().exec(
+                stmt = "SELECT 1 FROM collections WHERE id = ? AND owner_id = ? AND deleted_at IS NULL LIMIT 1",
+                args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId, TextColumnType() to userId),
+            ) { rs -> owns = rs.next() }
+            owns
+        }
+
+    /** True when a live (non-tombstoned) collection row with [collectionId] exists — the ROOT/ADMIN check. */
+    private fun collectionExists(collectionId: String): Boolean {
+        var exists = false
+        TransactionManager.current().exec(
+            stmt = "SELECT 1 FROM collections WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+            args = listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to collectionId),
+        ) { rs -> exists = rs.next() }
+        return exists
+    }
+
+    /**
+     * The shared `(owner OR global-access OR active-share)` collection-id subquery, bound to two
+     * positional `?` placeholders (both the user id: owner check, then share check). Reused by
+     * [accessibleCollectionIdsSql] and embedded in [accessibleCollectionBookIdsSql].
+     */
+    private val accessibleCollectionIdsSubquery: String =
+        """
+        SELECT c.id FROM collections c
+        WHERE c.deleted_at IS NULL AND (
+          c.owner_id = ?
+          OR c.is_global_access = 1
+          OR EXISTS (
+            SELECT 1 FROM collection_shares s
+            WHERE s.collection_id = c.id AND s.shared_with_user_id = ? AND s.deleted_at IS NULL
+          )
+        )
+        """.trimIndent()
 }
