@@ -141,6 +141,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var currentBookId: String?
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
+    private var isFading = false
     private static let positionReportIntervalMs: Int64 = 5000
 
     // MARK: - Init
@@ -221,6 +222,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Timer reached zero: fade output to silence, pause, then tell the manager
     /// the fade is done so it resets to Inactive.
     private func handleSleepFired() async {
+        guard !isFading else { return }
+        isFading = true
+        defer { isFading = false }
         guard let loaded = phase.playingState else { sleep.onFadeCompleted(); return }
         // Linear fade over ~3s.
         let steps = 12
