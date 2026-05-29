@@ -380,6 +380,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex
+                sleep.onChapterChanged(newChapterIndex: chapterIndex)
                 syncLiveActivity()
             }
         case .statusChanged(let status):

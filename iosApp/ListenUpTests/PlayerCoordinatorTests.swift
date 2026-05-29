@@ -152,6 +152,37 @@ struct InterruptionPolicyTests {
     }
 }
 
+@Suite("End of chapter")
+@MainActor
+struct EndOfChapterTests {
+    @Test func chapterChangeNotifiesSleepTiming() async throws {
+        let engine = FakePlaybackEngine()
+        let sleep = FakeSleepTiming()
+        let preparer = FakePlaybackPreparing()
+        let chapters = [
+            Chapter_(id: "c0", title: "c0", duration: 1000, startTime: 0),
+            Chapter_(id: "c1", title: "c1", duration: 1000, startTime: 1000),
+        ]
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: chapters,
+            timeline: PreparedTimeline(totalDurationMs: 2000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 2000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: FakeProgressReporting(), sleep: sleep,
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        coordinator.play(bookId: "book1")
+        try await Task.sleep(for: .milliseconds(50))
+
+        // Position now in chapter 1 → engine emits a position past the chapter boundary.
+        engine.emit(.position(ms: 1500, rate: 1.0))
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(sleep.chapterChanges.contains(1))
+    }
+}
+
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
