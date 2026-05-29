@@ -1,7 +1,10 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.sync.BookSearchReindexer
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -25,21 +28,29 @@ class SearchReindexService(
     private val db: Database,
     private val reindexer: BookSearchReindexer,
 ) {
-    /** @return number of books reindexed via [BookSearchReindexer]. */
+    /**
+     * Rebuilds all FTS5 indexes across all four families. The rebuild spans multiple
+     * transactions (one per book for `book_search`, then a single transaction for the
+     * contributor/series/tag families) and does NOT provide cross-family atomicity — a
+     * crash mid-run leaves some indexes fresh and others stale. The operation is
+     * idempotent, so re-invoking completes partial progress.
+     *
+     * @return number of books reindexed via [BookSearchReindexer].
+     */
     suspend fun reindexAll(): Int {
         val bookIds =
             suspendTransaction(db) {
-                val ids = mutableListOf<String>()
-                TransactionManager.current().exec("SELECT id FROM books WHERE deleted_at IS NULL") { rs ->
-                    while (rs.next()) ids += rs.getString("id")
-                }
-                ids
+                BookTable.selectAll()
+                    .where { BookTable.deletedAt.isNull() }
+                    .map { it[BookTable.id] }
             }
         for (id in bookIds) reindexer.reindexBook(id)
         suspendTransaction(db) {
             val tx = TransactionManager.current()
             // contributor_search is contentless (V22): rebuild from source, mirroring the
-            // contributors_au trigger so name/sort_name/description AND aliases are restored.
+            // contributors_au trigger (server/src/main/resources/db/migration/V22__contributor_aliases.sql)
+            // so name/sort_name/description AND aliases are restored. If the trigger's
+            // alias-sourcing changes in that migration, this rebuild SQL must change too.
             tx.exec("DELETE FROM contributor_search")
             tx.exec(
                 "INSERT INTO contributor_search(rowid, name, sort_name, description, aliases) " +
