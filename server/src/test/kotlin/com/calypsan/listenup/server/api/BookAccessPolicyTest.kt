@@ -215,6 +215,32 @@ class BookAccessPolicyTest :
             }
         }
 
+        test("soft-deleted collection does not grant access (book falls to uncollected→public)") {
+            withInMemoryDatabase {
+                seedTestLibraryAndFolder()
+                seedTestUser("u2")
+                seedTestBook("book")
+                val f = fixture()
+                runTest {
+                    // Book lives in exactly one collection — a private one owned by a stranger.
+                    // Tombstoning the COLLECTION (not the membership, not a share) removes the
+                    // only live membership: the `c.deleted_at IS NULL` guard excludes it from
+                    // both subqueries, so `book` has no live collection and falls through to the
+                    // "uncollected = public" branch, visible to any member.
+                    f.collectionRepo.upsert(collectionFixture("private-col", owner = "stranger"))
+                    f.collectionBookRepo.upsert(membership("private-col", "book"))
+                    f.collectionRepo.softDelete("private-col")
+
+                    f.policy.canAccess("u2", UserRole.MEMBER, "book") shouldBe true
+                    // Equivalence holds on this branch too.
+                    val accessibleIds =
+                        f.policy.accessibleBookIds("u2", UserRole.MEMBER)
+                            ?: error("expected a constrained id set for a member")
+                    ("book" in accessibleIds) shouldBe true
+                }
+            }
+        }
+
         test("soft-deleted book is never accessible (even to a member)") {
             withInMemoryDatabase {
                 seedTestLibraryAndFolder()
