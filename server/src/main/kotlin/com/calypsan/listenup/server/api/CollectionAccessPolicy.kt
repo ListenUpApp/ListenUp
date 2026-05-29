@@ -63,7 +63,11 @@ internal class CollectionAccessPolicy(
         collectionId: String,
     ): Boolean = decide(userId, role, collectionId).canAccess
 
-    /** True when [userId] may write to [collectionId]. */
+    /**
+     * True when [userId] may write to [collectionId]. Completes the read/write convenience
+     * pair; staged for Collections-1b book-write gating — intentionally uncalled in 1a (the
+     * service gates writes via [decide]'s full [Decision] to split Forbidden vs NotFound).
+     */
     suspend fun canWrite(
         userId: String,
         role: UserRoleColumn,

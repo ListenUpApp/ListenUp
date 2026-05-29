@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.db
 
 import com.calypsan.listenup.server.sync.SyncableTable
+import org.jetbrains.exposed.v1.core.ReferenceOption
 
 /**
  * Syncable table for user-owned collections.
@@ -16,7 +17,7 @@ import com.calypsan.listenup.server.sync.SyncableTable
  */
 internal object CollectionsTable : SyncableTable("collections") {
     val id = text("id")
-    val libraryId = reference("library_id", LibraryTable.id)
+    val libraryId = reference("library_id", LibraryTable.id, onDelete = ReferenceOption.CASCADE)
     val ownerId = text("owner_id").index()
     val name = text("name")
     val isInbox = bool("is_inbox").default(false)

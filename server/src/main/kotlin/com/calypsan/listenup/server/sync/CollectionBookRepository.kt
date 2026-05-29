@@ -147,6 +147,9 @@ class CollectionBookRepository(
 
     /**
      * Returns all live (non-tombstoned) collection IDs that contain [bookId].
+     *
+     * Staged for Collections-1b `BookAccessPolicy`, whose book-visibility decision asks
+     * "which collections contain this book?" — intentionally uncalled in 1a.
      */
     suspend fun findCollectionIdsForBook(bookId: String): List<String> =
         suspendTransaction(db) {

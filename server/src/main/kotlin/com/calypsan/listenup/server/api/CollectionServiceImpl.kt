@@ -411,6 +411,9 @@ internal class CollectionServiceImpl(
         suspendTransaction(db) {
             for ((bookId, targetCollectionIds) in assignments) {
                 collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
+                // Collections-1b: validate each target collection (exists, same library, live,
+                // writable) before linking — today a bad id surfaces as an FK violation and a
+                // soft-deleted target would be silently resurrected by upsert.
                 for (targetId in targetCollectionIds) {
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(
