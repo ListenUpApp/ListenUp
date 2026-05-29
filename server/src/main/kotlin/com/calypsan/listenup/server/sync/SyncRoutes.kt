@@ -1,11 +1,13 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
@@ -52,8 +54,11 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val registry by inject<SyncRegistry>()
     val bookAccessPolicy by inject<BookAccessPolicy>()
 
-    // SSE firehose — streams every domain's BusEvents in real time.
-    sse("/api/v1/sync/events") { streamFirehose(bus, heartbeatIntervalMillis) }
+    // SSE firehose — streams every domain's BusEvents in real time. The policy is passed as
+    // a thunk, not the resolved instance: the firehose touches it only when it must gate a
+    // books content event, so harnesses that never drive the books domain through the
+    // firehose (e.g. the cross-module sync-engine E2E) need not register a BookAccessPolicy.
+    sse("/api/v1/sync/events") { streamFirehose(bus, { bookAccessPolicy }, heartbeatIntervalMillis) }
 
     get("/api/v1/sync/{domain}") {
         val principal =
@@ -138,12 +143,15 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
  */
 private suspend fun ServerSSESession.streamFirehose(
     bus: ChangeBus,
+    bookAccessPolicy: () -> BookAccessPolicy,
     heartbeatIntervalMillis: Long,
 ) {
     // The route group is mounted inside authenticate(JWT_PROVIDER), so a principal
     // is always present in production. The null guard is defence-in-depth — without
     // a user, per-user events cannot be safely filtered, so the stream is refused.
-    val userId = call.userPrincipalOrNull()?.userId?.value ?: return
+    val principal = call.userPrincipalOrNull() ?: return
+    val userId = principal.userId.value
+    val role = principal.role
 
     // Malformed cursor (non-numeric) is treated identically to a stale cursor:
     // a corrupted Room cell or client-side bug must force REST catch-up rather
@@ -196,6 +204,10 @@ private suspend fun ServerSSESession.streamFirehose(
                 // user-scoped domain — deliver it only to that user. A null userId
                 // is a global-domain event, delivered to every subscriber.
                 if (busEvent.userId != null && busEvent.userId != userId) return@collect
+                // Book-level access gating: a live books content event the subscriber may
+                // not see is dropped before send. ROOT/ADMIN and tombstones bypass — see
+                // [isBookEventHidden].
+                if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
                 send(
@@ -227,6 +239,32 @@ private suspend fun ServerSSESession.streamFirehose(
     } finally {
         heartbeatJob.cancel()
     }
+}
+
+/**
+ * Whether a live firehose [busEvent] must be withheld from `(userId, role)` by the
+ * book-level access boundary.
+ *
+ * Only the `books` domain is gated, and only its *content* events (Created/Updated)
+ * which carry a payload a member must not see for a private book. ROOT/ADMIN see every
+ * book, so they skip the [BookAccessPolicy.canAccess] probe entirely — no DB hit.
+ *
+ * Deleted tombstones are never hidden: `canAccess` requires `deleted_at IS NULL`, so a
+ * deleted book is never "accessible" and probing it would drop every tombstone for every
+ * viewer — stranding stale Room rows that can never be reconciled. A tombstone carries
+ * only an id (no content), so delivering it to a subscriber who never had the book simply
+ * no-ops on their side. One DB probe per gated event per member — fine at our scale.
+ */
+private suspend fun isBookEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    if (busEvent.repo.domainName != BOOKS_DOMAIN) return false
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+    return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
 }
 
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
