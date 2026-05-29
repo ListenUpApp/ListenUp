@@ -21,6 +21,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.TextColumnType
@@ -89,6 +90,7 @@ class SearchServiceImplTest :
                     val result = service.search(SearchQuery(text = "Sanderson", limit = 20)) as AppResult.Success<SearchResults>
                     result.data.contributors shouldHaveSize 1
                     result.data.contributors[0].name shouldBe "Brandon Sanderson"
+                    result.data.contributors[0].highlight shouldNotBe null
                 }
             }
         }
@@ -311,10 +313,7 @@ class SearchServiceImplTest :
                         service.search(
                             SearchQuery(text = "Dragon", filters = SearchFilters(genreSlugs = listOf("anything"))),
                         ) as AppResult.Success<SearchResults>
-                    // Genre-filter SQL is not implemented until Task 3, so the book query still
-                    // returns the seeded book (filters are ignored inside searchBooks today).
-                    // This test asserts the COLLAPSE only: contributors/series/tags are skipped
-                    // when filters.isActive — not the book list contents.
+                    // Asserts the books-only collapse only (non-book lists empty), independent of filter contents.
                     r.data.contributors.shouldBeEmpty()
                     r.data.series.shouldBeEmpty()
                     r.data.tags.shouldBeEmpty()
@@ -395,6 +394,28 @@ class SearchServiceImplTest :
                             SearchQuery(text = "Dragon", filters = SearchFilters(yearMin = 2010)),
                         ) as AppResult.Success<SearchResults>
                     r.data.books.map { it.id.value } shouldBe listOf("new")
+                }
+            }
+        }
+
+        test("combined genre + year filters narrow correctly") {
+            withInMemoryDatabase {
+                val db = this
+                val lib = seedLibrary(db)
+                seedBook(db, "match", "Dragon Match", lib, publishYear = 2020)
+                seedBook(db, "wrongYear", "Dragon WrongYear", lib, publishYear = 1990)
+                seedBook(db, "noGenre", "Dragon NoGenre", lib, publishYear = 2020)
+                seedGenre(db, "g-fan", "fantasy", "/fiction/fantasy", "Fantasy")
+                linkBookGenre(db, "match", "g-fan")
+                linkBookGenre(db, "wrongYear", "g-fan")
+                // "noGenre" deliberately has no genre link
+                val service = SearchServiceImpl(db)
+                runTest {
+                    val r =
+                        service.search(
+                            SearchQuery(text = "Dragon", filters = SearchFilters(genreSlugs = listOf("fantasy"), yearMin = 2010)),
+                        ) as AppResult.Success<SearchResults>
+                    r.data.books.map { it.id.value } shouldBe listOf("match")
                 }
             }
         }
