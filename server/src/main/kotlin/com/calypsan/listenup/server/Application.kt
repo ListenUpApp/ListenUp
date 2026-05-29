@@ -33,8 +33,10 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
@@ -259,8 +261,13 @@ fun Application.module() {
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
+        // The role lookup and access policy live in the same library-gated modules as the
+        // locator/signer, so they resolve whenever those two do; inject them here rather
+        // than as separate nullable vars to keep this guard a simple two-way check.
         if (audioFileLocator != null && audioUrlSigner != null) {
-            audioRoutes(audioFileLocator, audioUrlSigner)
+            val audioRoleLookup by inject<UserRoleLookup>()
+            val audioAccessPolicy by inject<BookAccessPolicy>()
+            audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, audioAccessPolicy)
         }
     }
 

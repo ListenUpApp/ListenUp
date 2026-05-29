@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.auth.UserRoleLookup
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
@@ -19,10 +21,19 @@ import io.ktor.server.routing.get
  * [PartialContent] + [AutoHeadResponse] (installed at Application level) give
  * byte-range streaming and HEAD-for-GET for free — no additional handling needed
  * here; `respondFile` cooperates with both plugins automatically.
+ *
+ * The signature proves *who* the caller is, not their *role*, so after it
+ * verifies the route resolves the caller's role and gates through
+ * [BookAccessPolicy]. A book the caller cannot reach answers 404 — never 403 —
+ * so the response can't be used to probe a private book's existence (consistent
+ * with `BookService.getBook`). A forged or missing signature is the distinct
+ * auth failure and still answers 403.
  */
-fun Route.audioRoutes(
+internal fun Route.audioRoutes(
     locator: AudioFileLocator,
     signer: AudioUrlSigner,
+    roleLookup: UserRoleLookup,
+    accessPolicy: BookAccessPolicy,
 ) {
     get("/api/v1/audio/{bookId}/{fileId}") {
         val bookId = call.parameters["bookId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
@@ -35,6 +46,8 @@ fun Route.audioRoutes(
         ) {
             return@get call.respond(HttpStatusCode.Forbidden)
         }
+        val role = roleLookup.roleOf(userId) ?: return@get call.respond(HttpStatusCode.NotFound)
+        if (!accessPolicy.canAccess(userId, role, bookId)) return@get call.respond(HttpStatusCode.NotFound)
         val location = locator.locate(bookId, fileId) ?: return@get call.respond(HttpStatusCode.NotFound)
         val file = java.io.File(location.path.toString())
         if (!file.isFile) return@get call.respond(HttpStatusCode.NotFound)
