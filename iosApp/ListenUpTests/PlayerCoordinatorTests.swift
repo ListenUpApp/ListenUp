@@ -39,3 +39,18 @@ struct PlaybackEngineSeamTests {
         #expect(await engine.didPause)
     }
 }
+
+@Suite("Seam value types")
+struct SeamValueTypeTests {
+    @Test func preparedPlaybackHoldsTimeline() {
+        let prepared = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil,
+            resumeSpeed: 1.0, resumePositionMs: 0,
+            chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 1000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 1000, startOffsetMs: 0)
+            ])
+        )
+        #expect(prepared.timeline.files.count == 1)
+    }
+}
