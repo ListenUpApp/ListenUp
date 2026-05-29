@@ -279,7 +279,6 @@
     <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
     <ID>NestedBlockDepth:UserStatsRepository.kt$UserStatsRepository$override suspend fun pullSince( userId: String?, cursor: Long, limit: Int, ): Page&lt;UserStatsSyncPayload&gt;</ID>
     <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
-    <ID>NotImplementedDeclaration:CollectionServiceImpl.kt$CollectionServiceImpl$TODO(SHARE_TODO)</ID>
     <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
     <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
     <ID>StringLiteralDuplication:IlstReader.kt$IlstReader$"image/jpeg"</ID>

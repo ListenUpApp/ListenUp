@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
@@ -16,6 +17,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
@@ -31,7 +33,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
-private const val SHARE_TODO = "Collections-1a Task 7"
 
 /**
  * [CollectionService] implementation.
@@ -54,7 +55,10 @@ private const val SHARE_TODO = "Collections-1a Task 7"
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  *
- * Sharing methods are Collections-1a Task 7 and are stubbed.
+ * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is owner-only —
+ * gated through [ownerGate] like rename/delete. The per-user `AccessChanged` reconcile
+ * signal on share/unshare is Collections-1b (it depends on the book-visibility layer);
+ * 1a just persists the share rows and emits the normal sync events.
  */
 internal class CollectionServiceImpl(
     private val collectionRepo: CollectionRepository,
@@ -215,26 +219,85 @@ internal class CollectionServiceImpl(
         return AppResult.Success(Unit)
     }
 
-    // ── Share mutation — Collections-1a Task 7 ──────────────────────────────────
+    // ── Share mutation (owner-only) ─────────────────────────────────────────────
 
     override suspend fun shareCollection(
         id: CollectionId,
         sharedWithUserId: String,
         permission: SharePermission,
-    ): AppResult<CollectionShareDto> = TODO(SHARE_TODO)
+    ): AppResult<CollectionShareDto> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
+        if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
+        if (shareRepo.findActiveShare(id.value, sharedWithUserId) != null) {
+            return AppResult.Failure(CollectionError.AlreadyShared())
+        }
+
+        val payload =
+            CollectionShareSyncPayload(
+                id = UUID.randomUUID().toString(),
+                collectionId = id.value,
+                sharedWithUserId = sharedWithUserId,
+                sharedByUserId = caller.userId,
+                permission = permission,
+                revision = 0L,
+                updatedAt = clock.now().toEpochMilliseconds(),
+                deletedAt = null,
+            )
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        return when (val result = shareRepo.upsert(payload)) {
+            is AppResult.Success -> AppResult.Success(result.data.toDto())
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
 
     override suspend fun updateShare(
         id: CollectionId,
         sharedWithUserId: String,
         permission: SharePermission,
-    ): AppResult<CollectionShareDto> = TODO(SHARE_TODO)
+    ): AppResult<CollectionShareDto> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val existing =
+            shareRepo.findActiveShare(id.value, sharedWithUserId)
+                ?: return AppResult.Failure(CollectionError.NotFound())
+
+        val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        return when (val result = shareRepo.upsert(updated)) {
+            is AppResult.Success -> AppResult.Success(result.data.toDto())
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
 
     override suspend fun revokeShare(
         id: CollectionId,
         sharedWithUserId: String,
-    ): AppResult<Unit> = TODO(SHARE_TODO)
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-    override suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>> = TODO(SHARE_TODO)
+        // softDeleteShare returns Failure(NotFound) when no live share exists; revoke is
+        // idempotent — a no-op revoke satisfies the caller's intent.
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        shareRepo.softDeleteShare(id.value, sharedWithUserId)
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val shares = shareRepo.listActiveSharesForCollection(id.value).map { it.toDto() }
+        return AppResult.Success(shares)
+    }
 
     // ── Principal binding ───────────────────────────────────────────────────────
 
@@ -314,6 +377,22 @@ internal class CollectionServiceImpl(
                 .where { (BookTable.id eq bookId) and BookTable.deletedAt.isNull() }
                 .count() > 0
         }
+
+    private suspend fun userExists(userId: String): Boolean =
+        suspendTransaction(db) {
+            UserTable
+                .selectAll()
+                .where { UserTable.id eq userId }
+                .count() > 0
+        }
+
+    private fun CollectionShareSyncPayload.toDto(): CollectionShareDto =
+        CollectionShareDto(
+            id = id,
+            collectionId = CollectionId(collectionId),
+            sharedWithUserId = UserId(sharedWithUserId),
+            permission = permission,
+        )
 
     private suspend fun CollectionRepository.softDelete(id: String): AppResult<Unit> = softDelete(id, clientOpId = null)
 

@@ -385,4 +385,218 @@ class CollectionServiceImplTest :
                 }
             }
         }
+
+        // ── shareCollection / updateShare / revokeShare / listShares ──────────────
+
+        test("shareCollection: owner shares read with u2; u2 now sees it in listCollections (Read, not owner)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                runTest {
+                    val service = makeService(db)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    val shared = owner.shareCollection(collectionId, "u2", SharePermission.Read)
+                    require(shared is AppResult.Success)
+                    shared.data.collectionId shouldBe collectionId
+                    shared.data.sharedWithUserId shouldBe UserId("u2")
+                    shared.data.permission shouldBe SharePermission.Read
+
+                    val u2List = service.actAs("u2").listCollections()
+                    require(u2List is AppResult.Success)
+                    u2List.data shouldHaveSize 1
+                    u2List.data.first().id shouldBe collectionId
+                    u2List.data.first().isOwner shouldBe false
+                    u2List.data.first().callerPermission shouldBe SharePermission.Read
+                }
+            }
+        }
+
+        test("shareCollection rejects self-share and non-existent user") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                runTest {
+                    val owner = makeService(db).actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    // Sharing with self → SelfShare.
+                    val selfShare = owner.shareCollection(collectionId, "u1", SharePermission.Read)
+                    require(selfShare is AppResult.Failure)
+                    selfShare.error.shouldBeInstanceOf<CollectionError.SelfShare>()
+
+                    // Sharing with an unseeded user → UserNotFound.
+                    val ghost = owner.shareCollection(collectionId, "ghost", SharePermission.Read)
+                    require(ghost is AppResult.Failure)
+                    ghost.error.shouldBeInstanceOf<CollectionError.UserNotFound>()
+                }
+            }
+        }
+
+        test("shareCollection twice (active) is rejected or updates — AlreadyShared") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                runTest {
+                    val owner = makeService(db).actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    val again = owner.shareCollection(collectionId, "u2", SharePermission.Read)
+                    require(again is AppResult.Failure)
+                    again.error.shouldBeInstanceOf<CollectionError.AlreadyShared>()
+                }
+            }
+        }
+
+        test("updateShare read→write upgrades u2's permission") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                runTest {
+                    val service = makeService(db)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    val updated = owner.updateShare(collectionId, "u2", SharePermission.Write)
+                    require(updated is AppResult.Success)
+                    updated.data.permission shouldBe SharePermission.Write
+
+                    // u2 now reads the collection at Write permission.
+                    val u2List = service.actAs("u2").listCollections()
+                    require(u2List is AppResult.Success)
+                    u2List.data.first().callerPermission shouldBe SharePermission.Write
+                }
+            }
+        }
+
+        test("updateShare requires an active share — NotFound otherwise") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                runTest {
+                    val owner = makeService(db).actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+
+                    val updated = owner.updateShare(created.data.id, "u2", SharePermission.Write)
+                    require(updated is AppResult.Failure)
+                    updated.error.shouldBeInstanceOf<CollectionError.NotFound>()
+                }
+            }
+        }
+
+        test("revokeShare soft-deletes the active share; u2 no longer sees the collection") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                runTest {
+                    val service = makeService(db)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
+                        require(it is AppResult.Success)
+                    }
+                    // Precondition: u2 sees it.
+                    service.actAs("u2").listCollections().let {
+                        require(it is AppResult.Success)
+                        it.data shouldHaveSize 1
+                    }
+
+                    owner.revokeShare(collectionId, "u2") shouldBe AppResult.Success(Unit)
+
+                    service.actAs("u2").listCollections().let {
+                        require(it is AppResult.Success)
+                        it.data shouldHaveSize 0
+                    }
+                }
+            }
+        }
+
+        test("only owner/admin can share/revoke; a write-share member cannot share") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestUser("u3")
+                runTest {
+                    val service = makeService(db)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    // Grant u2 a write-share.
+                    owner.shareCollection(collectionId, "u2", SharePermission.Write).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    // u2 (write-share member) cannot share onward — Forbidden, not NotFound.
+                    val u2 = service.actAs("u2")
+                    val u2Share = u2.shareCollection(collectionId, "u3", SharePermission.Read)
+                    require(u2Share is AppResult.Failure)
+                    u2Share.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+
+                    // u2 cannot revoke either.
+                    val u2Revoke = u2.revokeShare(collectionId, "u3")
+                    require(u2Revoke is AppResult.Failure)
+                    u2Revoke.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+                }
+            }
+        }
+
+        test("listShares returns active shares for an owner-visible collection") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestUser("u3")
+                runTest {
+                    val owner = makeService(db).actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    owner.shareCollection(collectionId, "u2", SharePermission.Read)
+                    owner.shareCollection(collectionId, "u3", SharePermission.Write)
+
+                    val shares = owner.listShares(collectionId)
+                    require(shares is AppResult.Success)
+                    shares.data.map { it.sharedWithUserId } shouldContainExactlyInAnyOrder
+                        listOf(UserId("u2"), UserId("u3"))
+                }
+            }
+        }
     })
