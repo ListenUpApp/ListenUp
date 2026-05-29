@@ -20,7 +20,7 @@ enum EngineClock {
 /// coordinator is the sole consumer. Framework callbacks (periodic time observer,
 /// KVO, `NotificationCenter`) capture only `Sendable` values and hop back onto
 /// the actor before touching the player.
-actor AudioEngine {
+actor AudioEngine: PlaybackEngine {
     /// The engine's event stream. Created once at init; consumed once.
     nonisolated let events: AsyncStream<AudioEngineEvent>
     private let continuation: AsyncStream<AudioEngineEvent>.Continuation
@@ -105,6 +105,18 @@ actor AudioEngine {
     func setRate(_ newRate: Float) {
         rate = newRate
         if player.rate > 0 { player.rate = newRate }
+    }
+
+    /// Set the output volume (0.0...1.0). Used for the sleep-timer fade.
+    func setVolume(_ volume: Float) {
+        player.volume = max(0, min(1, volume))
+    }
+
+    /// Deactivate the shared audio session, notifying other apps they may resume.
+    func deactivateSession() {
+        try? AVAudioSession.sharedInstance().setActive(
+            false, options: .notifyOthersOnDeactivation
+        )
     }
 
     /// Tear down: stop playback, remove every observer, finish the event stream.

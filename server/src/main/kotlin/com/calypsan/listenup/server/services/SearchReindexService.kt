@@ -40,7 +40,8 @@ class SearchReindexService(
     suspend fun reindexAll(): Int {
         val bookIds =
             suspendTransaction(db) {
-                BookTable.selectAll()
+                BookTable
+                    .selectAll()
                     .where { BookTable.deletedAt.isNull() }
                     .map { it[BookTable.id] }
             }

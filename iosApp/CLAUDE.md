@@ -1,0 +1,96 @@
+# CLAUDE.md — iOS App (`iosApp`)
+
+Operational rules for building the native iOS client. These **override** any
+Android-shaped assumption inherited from the root `CLAUDE.md` when working under
+`iosApp/`. The *why* behind each rule, plus the shared/native boundary diagram, lives in
+[`docs/superpowers/ios-principles.md`](../../docs/superpowers/ios-principles.md) — read it
+before any non-trivial iOS work.
+
+> **Mental model:** iOS is its own app. It shares ListenUp's *brain* (domain, data, sync,
+> contract) and builds its own *body* (presentation + UI) the way Apple intends. We
+> reference Android for implementation clues — never for look, structure, or standards.
+
+## Philosophy & parity
+
+1. **Parity with Android is a guide, not a requirement.** Implement what makes sense for
+   iOS; add where it helps, remove or fold where the platforms diverge. The
+   [iOS↔Android parity ledger](../../docs/superpowers/ios-android-parity-ledger.md) tracks
+   the gap — it informs priorities, it does not mandate 1:1 coverage.
+2. **Each platform is built the best, most idiomatic way for itself.** A first-class native
+   experience outranks code-sharing. Sharing is the means, not the goal.
+3. **Reference Android for implementation clues only** — never look, structure, or
+   standards. New screens, or screens folded into sheets, as iOS requires.
+
+## Architecture & the sharing boundary
+
+4. **Share the core, build the surface native — and the surface is two layers.**
+   - *Shared Kotlin core (`sharedLogic`/contract):* domain models, repositories, sync engine,
+     `AppError`, local-DB source-of-truth, RPC contract.
+   - *Shared Swift core (Apple-platform-agnostic):* native `@Observable` state objects, the
+     KMP/SKIE seam, and platform-neutral logic (`AudioEngine`, position math, segment/chapter
+     math). No `import UIKit`-only assumptions here; gate anything platform-specific behind
+     `#if os(...)`. **This layer is destined to be shared with macOS and watchOS** (see below).
+   - *Platform-specific UI & integration:* SwiftUI views tuned per platform, plus
+     platform-only surfaces (Live Activities, lock screen, menu-bar/Now Playing variants).
+   - The Kotlin MVI `*ViewModel`s are **optional** on iOS. Bind one directly only when
+     that's genuinely cleanest; otherwise wrap shared logic in a native `@Observable`.
+     `Features/Player` is the reference precedent — only `PlayerCoordinator` imports `Shared`,
+     and its `AudioEngine`/math units are already platform-neutral.
+
+   **Multi-Apple-platform readiness (forward-looking, structure now):** iOS is the priority,
+   but we will later split the native codebase to support **macOS and watchOS natively**.
+   Structure everything so that split is a factoring exercise, not a rewrite: keep the shared
+   Swift core free of iOS-only dependencies, isolate platform-specific code behind `#if os(...)`
+   or per-platform files, and prefer organizing reusable native code so it could move into a
+   Swift package/framework target consumed by `iosApp`, a future `macApp`, and `watchApp`.
+   Don't build macOS/watchOS UI yet — just don't bake in assumptions that block it.
+5. **The local DB is the single source of truth (non-negotiable, from SOUL.md).** iOS reads
+   the shared offline-first store, never the network directly. "Build it like an iOS app"
+   governs presentation — it is never license to fork a parallel native networking/cache path.
+6. **Diverge in presentation, converge in contract.** If an iOS need reveals a missing
+   field or use-case, change it in `sharedLogic`/contract (breaking both sides at compile
+   time — the point of the shared contract). Never fork a native-only data path to dodge it.
+
+## iOS idiom & tech
+
+7. **iOS 26 minimum. Swift 6 with strict concurrency. Use the newest platform APIs the
+   floor unlocks.** Concurrency conventions:
+   - No `nonisolated(unsafe)` shared mutable state. Isolate it (`@MainActor`) or guard it
+     (`OSAllocatedUnfairLock`).
+   - Funnel framework callbacks (KVO, time observers, notifications) through a **single
+     ordered `AsyncStream`** the owning actor drains — not an unordered `Task`-per-callback
+     (that reorders).
+   - Any `MainActor.assumeIsolated` must document the invariant that makes it sound.
+8. **Observation, not Combine.** `@Observable`/`@Bindable`; no `ObservableObject`/`@Published`
+   in new code. Bridge Kotlin `Flow`/suspend → Swift `async`/`AsyncSequence` via SKIE
+   (`FlowBridge` is the established helper).
+9. **Native, type-safe navigation.** `NavigationStack` + value-typed routes; sheets,
+   `presentationDetents`, and inspectors over ported screens.
+10. **Errors the iOS way.** The shared typed `AppError` crosses the boundary, but iOS maps
+    it once at the native-VM boundary to alerts/inline state. Do not port the Compose
+    `errorBus`/snackbar pattern.
+
+## Design
+
+11. **Liquid Glass + Apple HIG first — non-negotiable.** System materials only, never
+    hand-rolled blur. The iOS `DesignSystem/` owns the look; do **not** port Compose design
+    tokens. **iOS mockups exist at `~/Pictures/ListenUp/`** (Home, Library, Author, About
+    Book, Play Audio, Settings, Statistics, auth flows). They are **pre-Liquid-Glass** — use
+    them for layout/flow/content *inspiration only*; never copy their chrome or styling.
+    Liquid Glass + HIG always win over the mockups. Android screens are likewise inspiration only.
+12. **Accessibility *is* "follows Apple guidelines," not polish.** Honor Dynamic Type,
+    VoiceOver, and the Liquid Glass accessibility settings — Reduce Transparency, Increase
+    Contrast, Reduce Motion. Support size-class adaptivity (iPad/landscape).
+
+## Media & process
+
+13. **Media platform-integration completeness.** Background audio; Now Playing Info Center
+    (with artwork) + `MPRemoteCommandCenter`; lock-screen controls; AirPlay; Live Activities;
+    audio-session interruption *and* route-change handling; balanced session
+    activate/deactivate. **Playback persistence lifecycle:** save position on pause, on
+    seek, *and* on `scenePhase`/background/termination (guarded by `beginBackgroundTask`) —
+    never rely on periodic ticks alone. App Intents/Siri/interactive widgets/Control Center
+    controls where they serve audiobooks. *CarPlay: evaluate later — not a current requirement.*
+14. **Swift Testing (not XCTest) for native code**; shared logic keeps Kotest. Same TDD
+    discipline as the root `CLAUDE.md` — no fix without a failing test first, no feature
+    without a test.

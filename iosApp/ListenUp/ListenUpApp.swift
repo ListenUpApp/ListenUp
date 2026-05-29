@@ -1,6 +1,7 @@
 import AppIntents
 import ListenUpActivityKit
 import SwiftUI
+import UIKit
 @preconcurrency import Shared
 
 @main
@@ -25,11 +26,22 @@ struct ListenUpApp: App {
 private struct RootView: View {
     @State private var auth = AuthStateObserver()
     @State private var currentUser = CurrentUserObserver()
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dependencies) private var dependencies
 
     var body: some View {
         content
             .environment(currentUser)
             .animation(.smooth(duration: 0.3), value: auth.state)
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .background || newPhase == .inactive else { return }
+                let coordinator = dependencies.playerCoordinator
+                let taskId = UIApplication.shared.beginBackgroundTask(withName: "save-position")
+                Task { @MainActor in
+                    await coordinator.saveCurrentPosition()
+                    UIApplication.shared.endBackgroundTask(taskId)
+                }
+            }
     }
 
     @ViewBuilder

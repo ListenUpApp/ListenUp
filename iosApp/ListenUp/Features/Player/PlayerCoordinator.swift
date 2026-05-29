@@ -1,5 +1,18 @@
 import SwiftUI
+import AVFoundation
 @preconcurrency import Shared
+
+/// Pure decision for an audio-session interruption — testable without notifications.
+enum InterruptionPolicy {
+    enum Action: Equatable { case pause, resume, none }
+    static func action(type: AVAudioSession.InterruptionType, shouldResume: Bool) -> Action {
+        switch type {
+        case .began: return .pause
+        case .ended: return shouldResume ? .resume : .none
+        @unknown default: return .none
+        }
+    }
+}
 
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
@@ -112,49 +125,120 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Components
 
-    private let engine = AudioEngine()
+    private let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
     private let system = SystemIntegration()
     private let liveActivity = LiveActivityManager()
 
-    // MARK: - KMP seam
+    // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
-    private let preparer: PlaybackPreparer
-    private let progressTracker: ProgressTracker
-    private let sleepTimerManager: SleepTimerManager
-    private let bookRepository: BookRepository
+    private let preparer: PlaybackPreparing
+    private let progress: PlaybackProgressReporting
+    private let sleep: SleepTiming
+    private let coverProvider: BookCoverProviding
     private let bridge = FlowBridge()
 
     private var currentBookId: String?
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
+    private var isFading = false
     private static let positionReportIntervalMs: Int64 = 5000
 
     // MARK: - Init
 
     init(
-        preparer: PlaybackPreparer,
-        progressTracker: ProgressTracker,
-        sleepTimerManager: SleepTimerManager,
-        bookRepository: BookRepository
+        preparer: PlaybackPreparing,
+        progress: PlaybackProgressReporting,
+        sleep: SleepTiming,
+        engine: PlaybackEngine,
+        coverProvider: BookCoverProviding
     ) {
         self.preparer = preparer
-        self.progressTracker = progressTracker
-        self.sleepTimerManager = sleepTimerManager
-        self.bookRepository = bookRepository
+        self.progress = progress
+        self.sleep = sleep
+        self.engine = engine
+        self.coverProvider = coverProvider
         system.attach(handler: self)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
-        bridge.bind(sleepTimerManager.state) { [weak self] in self?.applySleepTimer($0) }
+        observeSleep()
+        observeInterruptions()
     }
 
-    /// Convenience initializer using `Dependencies`.
+    /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
     convenience init(deps: Dependencies) {
         self.init(
-            preparer: deps.playbackPreparer,
-            progressTracker: deps.progressTracker,
-            sleepTimerManager: deps.sleepTimerManager,
-            bookRepository: deps.bookRepository
+            preparer: KotlinPlaybackPreparing(preparer: deps.playbackPreparer),
+            progress: KotlinProgressReporting(tracker: deps.progressTracker),
+            sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
+            engine: AudioEngine(),
+            coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository)
         )
+    }
+
+    private func observeSleep() {
+        bridge.bind(sleep.stateStream) { [weak self] state in self?.applySleepTimer(state) }
+        bridge.bind(sleep.fired) { [weak self] _ in
+            Task { @MainActor in await self?.handleSleepFired() }
+        }
+    }
+
+    private func observeInterruptions() {
+        let name = AVAudioSession.interruptionNotification
+        bridge.bind(NotificationCenter.default.notifications(named: name)) { [weak self] note in
+            guard let self else { return }
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+            let shouldResume: Bool = {
+                guard let opts = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt else { return false }
+                return AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
+            }()
+            let action = InterruptionPolicy.action(type: type, shouldResume: shouldResume)
+            Task { @MainActor in await self.applyInterruption(action) }
+        }
+    }
+
+    private func applyInterruption(_ action: InterruptionPolicy.Action) async {
+        guard let loaded = phase.playingState else { return }
+        switch action {
+        case .pause:
+            if phase.isPlaying {
+                await engine.pause()
+                phase = .paused(loaded)
+                progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                updateNowPlaying(); syncLiveActivity()
+            }
+        case .resume:
+            if !phase.isPlaying {
+                await engine.play()
+                phase = .playing(loaded)
+                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+                updateNowPlaying(); syncLiveActivity()
+            }
+        case .none:
+            break
+        }
+    }
+
+    /// Timer reached zero: fade output to silence, pause, then tell the manager
+    /// the fade is done so it resets to Inactive.
+    private func handleSleepFired() async {
+        guard !isFading else { return }
+        isFading = true
+        defer { isFading = false }
+        guard let loaded = phase.playingState else { sleep.onFadeCompleted(); return }
+        // Linear fade over ~3s.
+        let steps = 12
+        for step in stride(from: steps - 1, through: 0, by: -1) {
+            await engine.setVolume(Float(step) / Float(steps))
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        await engine.pause()
+        await engine.setVolume(1.0) // restore for next play
+        phase = .paused(loaded)
+        progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+        updateNowPlaying()
+        syncLiveActivity()
+        sleep.onFadeCompleted()
     }
 
     // MARK: - Actions
@@ -175,11 +259,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
         if phase.isPlaying {
             Task { await engine.pause() }
             phase = .paused(loaded)
-            progressTracker.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         } else {
             Task { await engine.play() }
             phase = .playing(loaded)
-            progressTracker.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         }
         updateNowPlaying()
         syncLiveActivity()
@@ -188,6 +272,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
         Task { await engine.seek(toMs: positionMs) }
+        if let id = currentBookId {
+            progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
+            lastReportedPositionMs = positionMs
+        }
         updateNowPlaying()
         syncLiveActivity()
     }
@@ -197,7 +285,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         playbackSpeed = speed
         Task { await engine.setRate(speed) }
         if let id = currentBookId {
-            progressTracker.onSpeedChanged(
+            progress.onSpeedChanged(
                 bookId: id, positionMs: bookPositionMs, newSpeed: speed
             )
         }
@@ -221,23 +309,26 @@ final class PlayerCoordinator: RemoteCommandHandler {
         seekTo(positionMs: chapters[index].startTime)
     }
 
-    func setSleepTimer(minutes: Int) {
-        sleepTimerManager.setTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes)))
-    }
+    func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
+    func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
+    func cancelSleepTimer() { sleep.cancelTimer() }
 
-    func setSleepTimerEndOfChapter() {
-        sleepTimerManager.setTimer(mode: SleepTimerModeEndOfChapter())
-    }
-
-    func cancelSleepTimer() {
-        sleepTimerManager.cancelTimer()
+    /// Persist the current position immediately. Called on pause, seek, and when
+    /// the app backgrounds/terminates — the periodic 5s tick is not enough to
+    /// guarantee the user's place survives a kill.
+    func saveCurrentPosition() async {
+        guard let id = currentBookId, isVisible else { return }
+        await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
     }
 
     /// Tear down all observation and release the engine.
     func stop() {
         bridge.cancelAll()
         positionTracker.reset()
-        Task { await engine.release() }
+        Task {
+            await engine.deactivateSession()
+            await engine.release()
+        }
         liveActivity.end()
     }
 
@@ -253,17 +344,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Prepare
 
     private func prepareAndStart(bookId: String) async {
-        let id = bookId
-        guard let prepared = try? await preparer.prepare(bookId: id, onPrepareProgress: { @Sendable _ in }) else {
+        guard let prepared = await preparer.prepare(bookId: bookId) else {
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
         }
         bookTitle = prepared.bookTitle
         authorName = prepared.bookAuthor
         coverPath = prepared.coverPath
-        chapters = Array(prepared.chapters)
+        chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
-        coverBlurHash = (try? await bookRepository.getBookListItem(id: bookId))?.coverBlurHash
+        coverBlurHash = await coverProvider.coverBlurHash(bookId: bookId)
 
         let segments = prepared.timeline.files.compactMap { file -> AudioSegment? in
             let url: URL
@@ -286,14 +376,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await engine.play()
         phase = .playing(PlayingState(bookId: bookId, durationMs: prepared.timeline.totalDurationMs))
         lastReportedPositionMs = prepared.resumePositionMs
-        progressTracker.onPlaybackStarted(
-            bookId: id, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed
-        )
+        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
         updateNowPlaying()
         lastSyncedChapterIndex = chapterIndex
-        if let snapshot = liveActivitySnapshot() {
-            liveActivity.start(snapshot)
-        }
+        if let snapshot = liveActivitySnapshot() { liveActivity.start(snapshot) }
     }
 
     // MARK: - Engine events
@@ -305,6 +391,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex
+                sleep.onChapterChanged(newChapterIndex: chapterIndex)
                 syncLiveActivity()
             }
         case .statusChanged(let status):
@@ -334,7 +421,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard let id = currentBookId else { return }
         if abs(positionMs - lastReportedPositionMs) >= Self.positionReportIntervalMs {
             lastReportedPositionMs = positionMs
-            progressTracker.onPositionUpdate(
+            progress.onPositionUpdate(
                 bookId: id, positionMs: positionMs, speed: playbackSpeed
             )
         }
@@ -342,7 +429,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func handleBookEnded() {
         guard let id = currentBookId, let loaded = phase.playingState else { return }
-        progressTracker.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
+        progress.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
         syncLiveActivity()
@@ -350,22 +437,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Sleep timer
 
-    private func applySleepTimer(_ state: SleepTimerState) {
-        if let active = state as? SleepTimerStateActive {
-            sleepTimerActive = true
-            sleepTimerRemainingMs = active.remainingMs
-            if active.mode is SleepTimerModeDuration {
-                sleepTimerMode = "duration"
-                sleepTimerLabel = active.formatRemaining()
-            } else {
-                sleepTimerMode = "endOfChapter"
-                sleepTimerLabel = "End of chapter"
-            }
-        } else {
+    private func applySleepTimer(_ state: SleepTimingState) {
+        switch state {
+        case .inactive:
             sleepTimerActive = false
             sleepTimerRemainingMs = 0
             sleepTimerMode = ""
             sleepTimerLabel = ""
+        case let .active(remainingMs, isEndOfChapter, label):
+            sleepTimerActive = true
+            sleepTimerRemainingMs = remainingMs
+            sleepTimerMode = isEndOfChapter ? "endOfChapter" : "duration"
+            sleepTimerLabel = label
         }
     }
 
@@ -407,7 +490,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             artist: authorName,
             durationMs: bookDurationMs,
             elapsedMs: bookPositionMs,
-            rate: isPlaying ? Double(playbackSpeed) : 0
+            rate: isPlaying ? Double(playbackSpeed) : 0,
+            artworkPath: coverPath
         ))
     }
 }
