@@ -162,6 +162,28 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func observeSleep() {
         bridge.bind(sleep.stateStream) { [weak self] state in self?.applySleepTimer(state) }
+        bridge.bind(sleep.fired) { [weak self] _ in
+            Task { @MainActor in await self?.handleSleepFired() }
+        }
+    }
+
+    /// Timer reached zero: fade output to silence, pause, then tell the manager
+    /// the fade is done so it resets to Inactive.
+    private func handleSleepFired() async {
+        guard let loaded = phase.playingState else { sleep.onFadeCompleted(); return }
+        // Linear fade over ~3s.
+        let steps = 12
+        for step in stride(from: steps - 1, through: 0, by: -1) {
+            await engine.setVolume(Float(step) / Float(steps))
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        await engine.pause()
+        await engine.setVolume(1.0) // restore for next play
+        phase = .paused(loaded)
+        progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+        updateNowPlaying()
+        syncLiveActivity()
+        sleep.onFadeCompleted()
     }
 
     // MARK: - Actions

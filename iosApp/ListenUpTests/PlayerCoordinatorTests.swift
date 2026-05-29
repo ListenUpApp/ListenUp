@@ -74,6 +74,35 @@ struct PlayerCoordinatorWiringTests {
     }
 }
 
+@Suite("Sleep timer firing")
+@MainActor
+struct SleepTimerFiringTests {
+    @Test func firedEventFadesPausesAndCompletes() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let sleep = FakeSleepTiming()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: sleep,
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        coordinator.play(bookId: "book1")
+        try await Task.sleep(for: .milliseconds(50))
+
+        sleep.emitFired()
+        try await Task.sleep(for: .milliseconds(3500))
+
+        #expect(await engine.didPause)
+        #expect(sleep.fadeCompletedCount == 1)
+        #expect(coordinator.isPlaying == false)
+    }
+}
+
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
