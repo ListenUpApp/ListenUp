@@ -18,7 +18,7 @@ private struct ActivityCover: View {
     let bookId: String
     var cornerRadius: CGFloat = 8
 
-    private static let appGroupID = "group.com.calypsan.listenup.client.listenup"
+    private static let appGroupID = "group.com.calypsan.listenup.client"
 
     private var coverImage: UIImage? {
         guard let container = FileManager.default
