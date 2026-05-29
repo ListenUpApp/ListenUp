@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.seed.CollectionDomainSeeder
 import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
 import com.calypsan.listenup.server.seed.DomainSeeder
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
@@ -40,6 +43,10 @@ import org.koin.dsl.module
  *   [GenreDomainSeeder] is registered to seed the default genre taxonomy (3 roots,
  *   ~70 nodes total) ported from Go's `internal/genre/defaults.go`. Like tags, the
  *   genre tree is curator-controlled and independent of the scanner.
+ * @param hasCollectionsModule whether the collections slice is active. When true,
+ *   [CollectionDomainSeeder] is registered to seed the demo library's inbox plus one
+ *   demo collection. The collections bindings live in [booksModule], so this is true
+ *   exactly when [hasBooksModule] is.
  */
 fun seedModule(
     hasPlaybackModule: Boolean = false,
@@ -47,6 +54,7 @@ fun seedModule(
     demoLibraryPath: String? = null,
     hasTagsModule: Boolean = false,
     hasGenresModule: Boolean = false,
+    hasCollectionsModule: Boolean = false,
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
@@ -63,6 +71,15 @@ fun seedModule(
         if (hasTagsModule) {
             single { TagDomainSeeder(db = get(), tagRepository = get()) }
         }
+        if (hasCollectionsModule) {
+            single {
+                CollectionDomainSeeder(
+                    db = get(),
+                    collectionRepo = get(),
+                    collectionService = get<CollectionService>() as CollectionServiceImpl,
+                )
+            }
+        }
         // GenreDomainSeeder is bound in booksModule (it runs on every install, not just demo),
         // so we don't bind it here — but the runner still includes it for demo.
         single {
@@ -75,6 +92,7 @@ fun seedModule(
                         demoLibraryPath = demoLibraryPath,
                         hasTagsModule = hasTagsModule,
                         hasGenresModule = hasGenresModule,
+                        hasCollectionsModule = hasCollectionsModule,
                     ),
             )
         }
@@ -93,6 +111,7 @@ private fun assembleSeeders(
     demoLibraryPath: String?,
     hasTagsModule: Boolean,
     hasGenresModule: Boolean,
+    hasCollectionsModule: Boolean,
 ): List<DomainSeeder> =
     buildList {
         add(koin.get<UserDomainSeeder>())
@@ -111,5 +130,8 @@ private fun assembleSeeders(
         }
         if (hasGenresModule) {
             add(koin.get<GenreDomainSeeder>())
+        }
+        if (hasCollectionsModule) {
+            add(koin.get<CollectionDomainSeeder>())
         }
     }

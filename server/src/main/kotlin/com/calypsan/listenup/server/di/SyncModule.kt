@@ -2,6 +2,9 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.CollectionShareRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import org.koin.core.module.Module
@@ -27,4 +30,7 @@ fun syncModule(): Module =
         single(createdAtStart = true) { ChangeBus() }
         single(createdAtStart = true) { TagRepository(get(), get(), get()) }
         single(createdAtStart = true) { BookTagRepository(get(), get(), get()) }
+        single(createdAtStart = true) { CollectionRepository(get(), get(), get()) }
+        single(createdAtStart = true) { CollectionBookRepository(get(), get(), get()) }
+        single(createdAtStart = true) { CollectionShareRepository(get(), get(), get()) }
     }

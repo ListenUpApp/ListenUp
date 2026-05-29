@@ -72,8 +72,12 @@ class SyncRegistryPerKoinTest :
 
                 try {
                     val registry: SyncRegistry = koin.koin.get()
-                    // syncModule wires TagRepository ("tags") and BookTagRepository ("book_tags").
-                    registry.knownDomains().toSet() shouldBe setOf("tags", "book_tags")
+                    // syncModule wires the tag domains (TagRepository "tags",
+                    // BookTagRepository "book_tags") and the collection domains
+                    // (CollectionRepository "collections", CollectionBookRepository
+                    // "collection_books", CollectionShareRepository "collection_shares").
+                    registry.knownDomains().toSet() shouldBe
+                        setOf("tags", "book_tags", "collections", "collection_books", "collection_shares")
                 } finally {
                     koin.close()
                 }

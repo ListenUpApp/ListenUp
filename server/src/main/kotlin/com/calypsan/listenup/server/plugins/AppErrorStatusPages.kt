@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.error.DownloadError
@@ -81,6 +82,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is TagError -> toHttpStatus()
 
+        is CollectionError -> toHttpStatus()
+
         is BookError -> toHttpStatus()
 
         is CoverError -> toHttpStatus()
@@ -117,6 +120,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is LibraryError -> withCorrelationId(id)
         is MetadataError -> withCorrelationId(id)
         is TagError -> withCorrelationId(id)
+        is CollectionError -> withCorrelationId(id)
         is BookError -> withCorrelationId(id)
         is CoverError -> withCorrelationId(id)
         is ContributorError -> withCorrelationId(id)
@@ -409,4 +413,28 @@ private fun GenreError.withCorrelationId(id: String?): GenreError =
         is GenreError.MoveSelfDescendant -> copy(correlationId = id)
         is GenreError.HasDescendants -> copy(correlationId = id)
         is GenreError.SlugConflict -> copy(correlationId = id)
+    }
+
+private fun CollectionError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is CollectionError.NotFound -> HttpStatusCode.NotFound
+        is CollectionError.BookNotFound -> HttpStatusCode.NotFound
+        is CollectionError.UserNotFound -> HttpStatusCode.NotFound
+        is CollectionError.Forbidden -> HttpStatusCode.Forbidden
+        is CollectionError.InvalidInput -> HttpStatusCode.BadRequest
+        is CollectionError.InboxNotDeletable -> HttpStatusCode.BadRequest
+        is CollectionError.SelfShare -> HttpStatusCode.BadRequest
+        is CollectionError.AlreadyShared -> HttpStatusCode.BadRequest
+    }
+
+private fun CollectionError.withCorrelationId(id: String?): CollectionError =
+    when (this) {
+        is CollectionError.NotFound -> copy(correlationId = id)
+        is CollectionError.BookNotFound -> copy(correlationId = id)
+        is CollectionError.UserNotFound -> copy(correlationId = id)
+        is CollectionError.Forbidden -> copy(correlationId = id)
+        is CollectionError.InvalidInput -> copy(correlationId = id)
+        is CollectionError.InboxNotDeletable -> copy(correlationId = id)
+        is CollectionError.SelfShare -> copy(correlationId = id)
+        is CollectionError.AlreadyShared -> copy(correlationId = id)
     }

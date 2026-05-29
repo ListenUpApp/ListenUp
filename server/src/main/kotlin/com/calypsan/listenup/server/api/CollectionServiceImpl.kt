@@ -1,0 +1,598 @@
+package com.calypsan.listenup.server.api
+
+import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.dto.CollectionShareDto
+import com.calypsan.listenup.api.dto.CollectionSummary
+import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.CollectionError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.toColumn
+import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.CollectionShareRepository
+import java.util.UUID
+import kotlin.time.Clock
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+
+private const val LIST_BOOKS_MIN = 1
+private const val LIST_BOOKS_MAX = 1000
+private const val MAX_NAME_LENGTH = 200
+
+/**
+ * [CollectionService] implementation.
+ *
+ * Resolves the authenticated caller from [principal] (never from request fields),
+ * bridges the contract [UserRole] to the DB [UserRoleColumn] the
+ * [CollectionAccessPolicy] speaks, and gates every operation through that policy.
+ *
+ * Access semantics deliberately distinguish "can't see" from "can see but can't":
+ * - **Read** ([getCollection], [listCollectionBooks]) require [CollectionAccessPolicy.Decision.canAccess];
+ *   otherwise [CollectionError.NotFound] — we never leak the existence of a collection
+ *   the caller has no relationship to.
+ * - **Write-book** ([addBookToCollection], [removeBookFromCollection]) require write
+ *   permission; a caller who can read but not write gets [CollectionError.Forbidden],
+ *   a caller who can't see it at all gets [CollectionError.NotFound].
+ * - **Owner-only** ([renameCollection], [deleteCollection]) require ownership (admins
+ *   bypass via the policy); a non-owner who can read gets [CollectionError.Forbidden],
+ *   one who can't see it gets [CollectionError.NotFound].
+ *
+ * Route handlers call [copyWith] to bind each request to the authenticated principal;
+ * the Koin singleton carries an unscoped placeholder that yields no principal.
+ *
+ * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is owner-only —
+ * gated through [ownerGate] like rename/delete. The per-user `AccessChanged` reconcile
+ * signal on share/unshare is Collections-1b (it depends on the book-visibility layer);
+ * 1a just persists the share rows and emits the normal sync events.
+ */
+internal class CollectionServiceImpl(
+    private val collectionRepo: CollectionRepository,
+    private val collectionBookRepo: CollectionBookRepository,
+    private val shareRepo: CollectionShareRepository,
+    private val accessPolicy: CollectionAccessPolicy,
+    private val db: Database,
+    private val clock: Clock = Clock.System,
+    private val principal: PrincipalProvider,
+) : CollectionService {
+    // ── Observation ─────────────────────────────────────────────────────────
+
+    override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+
+        val collections =
+            if (caller.role == UserRoleColumn.ROOT || caller.role == UserRoleColumn.ADMIN) {
+                collectionRepo.listAll()
+            } else {
+                val owned = collectionRepo.listOwnedBy(caller.userId)
+                val sharedIds = shareRepo.listActiveSharesForUser(caller.userId).map { it.collectionId }
+                val shared = sharedIds.mapNotNull { collectionRepo.findById(it) }
+                (owned + shared).distinctBy { it.id }
+            }
+
+        val summaries = collections.map { summarize(it, caller) }
+        return AppResult.Success(summaries)
+    }
+
+    override suspend fun getCollection(id: CollectionId): AppResult<CollectionSummary> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        if (!decision.canAccess) return AppResult.Failure(CollectionError.NotFound())
+        val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
+        return AppResult.Success(summarize(collection, caller, decision))
+    }
+
+    override suspend fun listCollectionBooks(
+        id: CollectionId,
+        limit: Int,
+    ): AppResult<List<BookId>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        if (!accessPolicy.canRead(caller.userId, caller.role, id.value)) {
+            return AppResult.Failure(CollectionError.NotFound())
+        }
+        val safeLimit = limit.coerceIn(LIST_BOOKS_MIN, LIST_BOOKS_MAX)
+        val bookIds = collectionBookRepo.findBookIdsForCollection(id.value).take(safeLimit).map { BookId(it) }
+        return AppResult.Success(bookIds)
+    }
+
+    // ── Membership mutation ───────────────────────────────────────────────────
+
+    override suspend fun createCollection(
+        libraryId: String,
+        name: String,
+    ): AppResult<CollectionSummary> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
+            return AppResult.Failure(CollectionError.InvalidInput())
+        }
+
+        val payload =
+            CollectionSyncPayload(
+                id = UUID.randomUUID().toString(),
+                libraryId = libraryId,
+                ownerId = caller.userId,
+                name = trimmed,
+                isInbox = false,
+                isGlobalAccess = false,
+                revision = 0L,
+                updatedAt = clock.now().toEpochMilliseconds(),
+            )
+        val saved =
+            when (val result = collectionRepo.upsert(payload)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+        return AppResult.Success(summarize(saved, caller))
+    }
+
+    override suspend fun renameCollection(
+        id: CollectionId,
+        name: String,
+    ): AppResult<CollectionSummary> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
+            return AppResult.Failure(CollectionError.InvalidInput())
+        }
+
+        val existing = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
+        val updated = existing.copy(name = trimmed, updatedAt = clock.now().toEpochMilliseconds())
+        val saved =
+            when (val result = collectionRepo.upsert(updated)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+        return AppResult.Success(summarize(saved, caller, decision))
+    }
+
+    override suspend fun deleteCollection(id: CollectionId): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
+        if (collection.isInbox) return AppResult.Failure(CollectionError.InboxNotDeletable())
+
+        suspendTransaction(db) {
+            collectionBookRepo.softDeleteAllForCollection(id.value)
+            for (share in shareRepo.listActiveSharesForCollection(id.value)) {
+                shareRepo.softDelete(share.id)
+            }
+            collectionRepo.softDelete(id.value)
+        }
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun addBookToCollection(
+        id: CollectionId,
+        bookId: BookId,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        writeGate(decision)?.let { return AppResult.Failure(it) }
+
+        if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
+
+        val payload =
+            CollectionBookSyncPayload(
+                collectionId = id.value,
+                bookId = bookId.value,
+                createdAt = clock.now().toEpochMilliseconds(),
+                revision = 0L,
+                deletedAt = null,
+            )
+        return when (val result = collectionBookRepo.upsert(payload)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    override suspend fun removeBookFromCollection(
+        id: CollectionId,
+        bookId: BookId,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        writeGate(decision)?.let { return AppResult.Failure(it) }
+
+        // softDelete is idempotent: a Failure(NotFound) means the junction was already
+        // absent, which satisfies the caller's intent — treat as success.
+        collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
+        return AppResult.Success(Unit)
+    }
+
+    // ── Share mutation (owner-only) ─────────────────────────────────────────────
+
+    override suspend fun shareCollection(
+        id: CollectionId,
+        sharedWithUserId: String,
+        permission: SharePermission,
+    ): AppResult<CollectionShareDto> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
+        if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
+        if (shareRepo.findActiveShare(id.value, sharedWithUserId) != null) {
+            return AppResult.Failure(CollectionError.AlreadyShared())
+        }
+
+        val payload =
+            CollectionShareSyncPayload(
+                id = UUID.randomUUID().toString(),
+                collectionId = id.value,
+                sharedWithUserId = sharedWithUserId,
+                sharedByUserId = caller.userId,
+                permission = permission,
+                revision = 0L,
+                updatedAt = clock.now().toEpochMilliseconds(),
+                deletedAt = null,
+            )
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        return when (val result = shareRepo.upsert(payload)) {
+            is AppResult.Success -> AppResult.Success(result.data.toDto())
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    override suspend fun updateShare(
+        id: CollectionId,
+        sharedWithUserId: String,
+        permission: SharePermission,
+    ): AppResult<CollectionShareDto> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val existing =
+            shareRepo.findActiveShare(id.value, sharedWithUserId)
+                ?: return AppResult.Failure(CollectionError.NotFound())
+
+        val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        return when (val result = shareRepo.upsert(updated)) {
+            is AppResult.Success -> AppResult.Success(result.data.toDto())
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    override suspend fun revokeShare(
+        id: CollectionId,
+        sharedWithUserId: String,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        // softDeleteShare returns Failure(NotFound) when no live share exists; revoke is
+        // idempotent — a no-op revoke satisfies the caller's intent.
+        // Collections-1b: emit AccessChanged to sharedWithUserId
+        shareRepo.softDeleteShare(id.value, sharedWithUserId)
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
+        ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+
+        val shares = shareRepo.listActiveSharesForCollection(id.value).map { it.toDto() }
+        return AppResult.Success(shares)
+    }
+
+    // ── Inbox (system collection + release flow) ──────────────────────────────────
+    //
+    // These are ADMIN-INTERNAL operations, deliberately NOT part of the @Rpc
+    // CollectionService contract (frozen at 12 user-facing methods). They are exposed as
+    // public methods so the admin REST routes (and, eventually, the scanner) can call them.
+
+    /**
+     * Resolves the library's inbox, creating it on first use.
+     *
+     * The inbox is a per-library SYSTEM collection (`isInbox = true`, never globally
+     * accessible, not deletable). It is created lazily: the first call materialises it,
+     * subsequent calls return the same row. Idempotency rests on
+     * [CollectionRepository.findInboxForLibrary] plus the `idx_collections_inbox` partial
+     * unique index that guarantees at most one live inbox per library.
+     *
+     * **Owner resolution.** The inbox owner is the library's `createdByUserId` when set
+     * (forward-staged for the multi-user phase; null today), otherwise the first ROOT user,
+     * otherwise the first ADMIN user. If the server has no admin at all the inbox cannot be
+     * attributed and we fail with [CollectionError.InvalidInput] rather than orphan it.
+     *
+     * This is a system operation: it does not require or consult a caller principal.
+     */
+    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> {
+        collectionRepo.findInboxForLibrary(libraryId)?.let { return summarizeSystem(it) }
+
+        val ownerId = resolveInboxOwner(libraryId) ?: return AppResult.Failure(
+            CollectionError.InvalidInput(debugInfo = "No admin user available to own the inbox for library $libraryId"),
+        )
+
+        val payload =
+            CollectionSyncPayload(
+                id = UUID.randomUUID().toString(),
+                libraryId = libraryId,
+                ownerId = ownerId,
+                name = "Inbox",
+                isInbox = true,
+                isGlobalAccess = false,
+                revision = 0L,
+                updatedAt = clock.now().toEpochMilliseconds(),
+            )
+        return when (val result = collectionRepo.upsert(payload)) {
+            is AppResult.Success -> summarizeSystem(result.data)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    /**
+     * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
+     *
+     * This is the intended scanner hook: when a new book is ingested it lands in the inbox
+     * pending admin triage. The actual scanner wiring — and any per-library "inbox enabled"
+     * toggle that would gate it — is deferred to a later phase; no such setting exists yet.
+     * This focused entry point is fully testable in isolation in the meantime.
+     *
+     * A system operation (no caller principal); the book must exist
+     * ([CollectionError.BookNotFound]).
+     */
+    suspend fun addToInbox(
+        bookId: String,
+        libraryId: String,
+    ): AppResult<Unit> {
+        if (!bookExists(bookId)) return AppResult.Failure(CollectionError.BookNotFound())
+
+        val inbox =
+            when (val result = getOrCreateInbox(libraryId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+
+        val payload =
+            CollectionBookSyncPayload(
+                collectionId = inbox.id.value,
+                bookId = bookId,
+                createdAt = clock.now().toEpochMilliseconds(),
+                revision = 0L,
+                deletedAt = null,
+            )
+        return when (val result = collectionBookRepo.upsert(payload)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    /**
+     * Releases books out of the library's inbox into their assigned target collections.
+     *
+     * [assignments] maps `bookId → target collectionIds`. For each book the inbox junction
+     * is soft-deleted, then a junction is added for every target collection. A book with an
+     * empty target list is simply removed from the inbox and becomes uncollected. The whole
+     * release runs in a single transaction so a partial failure does not strand books
+     * half-released.
+     *
+     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     */
+    suspend fun releaseBooks(
+        libraryId: String,
+        assignments: Map<String, List<String>>,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        val inbox =
+            when (val result = getOrCreateInbox(libraryId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+        val inboxId = inbox.id.value
+
+        suspendTransaction(db) {
+            for ((bookId, targetCollectionIds) in assignments) {
+                collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
+                // Collections-1b: validate each target collection (exists, same library, live,
+                // writable) before linking — today a bad id surfaces as an FK violation and a
+                // soft-deleted target would be silently resurrected by upsert.
+                for (targetId in targetCollectionIds) {
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            collectionId = targetId,
+                            bookId = bookId,
+                            createdAt = clock.now().toEpochMilliseconds(),
+                            revision = 0L,
+                            deletedAt = null,
+                        ),
+                    )
+                }
+            }
+        }
+        // Collections-1b: emit AccessChanged / book Updated for visibility convergence
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Returns the live book ids in the library's inbox, or an empty list when no inbox
+     * exists yet — a read must never auto-create one.
+     *
+     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     */
+    suspend fun listInbox(libraryId: String): AppResult<List<BookId>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        val inbox = collectionRepo.findInboxForLibrary(libraryId) ?: return AppResult.Success(emptyList())
+        val bookIds = collectionBookRepo.findBookIdsForCollection(inbox.id).map { BookId(it) }
+        return AppResult.Success(bookIds)
+    }
+
+    // ── Principal binding ───────────────────────────────────────────────────────
+
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): CollectionServiceImpl =
+        CollectionServiceImpl(
+            collectionRepo = collectionRepo,
+            collectionBookRepo = collectionBookRepo,
+            shareRepo = shareRepo,
+            accessPolicy = accessPolicy,
+            db = db,
+            clock = clock,
+            principal = principal,
+        )
+
+    // ── Private helpers ─────────────────────────────────────────────────────────
+
+    /** The resolved caller: their user id and the DB-enum role the policy expects. */
+    private data class Caller(
+        val userId: String,
+        val role: UserRoleColumn,
+    )
+
+    private fun resolveCaller(): Caller? = principal.current()?.let { Caller(it.userId.value, it.role.toColumn()) }
+
+    private fun noPrincipal(): AppResult.Failure = AppResult.Failure(CollectionError.NotFound())
+
+    /**
+     * Owner-only gate: null = allowed (owner or admin); [CollectionError.Forbidden] if the
+     * caller can see the collection but is neither owner nor admin; [CollectionError.NotFound]
+     * if they can't see it at all (don't leak existence).
+     *
+     * A write-share recipient holds `canWrite` but is not an owner — so ownership can't be
+     * inferred from the [decision] alone; admin status is read from [role] directly.
+     */
+    private fun ownerGate(
+        decision: CollectionAccessPolicy.Decision,
+        role: UserRoleColumn,
+    ): CollectionError? =
+        when {
+            decision.isOwner -> null
+            role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN -> null
+            decision.canAccess -> CollectionError.Forbidden()
+            else -> CollectionError.NotFound()
+        }
+
+    /** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
+    private fun adminGate(role: UserRoleColumn): CollectionError? =
+        if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
+
+    /**
+     * Resolves the user id that should own the library's inbox: the library's
+     * `createdByUserId` if set, else the first ROOT user, else the first ADMIN user,
+     * else null when the server has no admin at all.
+     */
+    private suspend fun resolveInboxOwner(libraryId: String): String? =
+        suspendTransaction(db) {
+            LibraryTable
+                .selectAll()
+                .where { LibraryTable.id eq libraryId }
+                .firstOrNull()
+                ?.get(LibraryTable.createdByUserId)
+                ?: firstUserWithRole(UserRoleColumn.ROOT)
+                ?: firstUserWithRole(UserRoleColumn.ADMIN)
+        }
+
+    /** First user id whose role matches [role], or null. Must run inside a transaction. */
+    private fun firstUserWithRole(role: UserRoleColumn): String? =
+        UserTable
+            .selectAll()
+            .where { UserTable.role eq role }
+            .firstOrNull()
+            ?.get(UserTable.id)
+            ?.value
+
+    /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
+    private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
+        when {
+            decision.canAccess && decision.permission.canWrite() -> null
+            decision.canAccess -> CollectionError.Forbidden()
+            else -> CollectionError.NotFound()
+        }
+
+    private suspend fun summarize(
+        collection: CollectionSyncPayload,
+        caller: Caller,
+        decision: CollectionAccessPolicy.Decision? = null,
+    ): CollectionSummary {
+        val verdict = decision ?: accessPolicy.decide(caller.userId, caller.role, collection.id)
+        return CollectionSummary(
+            id = CollectionId(collection.id),
+            name = collection.name,
+            ownerId = UserId(collection.ownerId),
+            isInbox = collection.isInbox,
+            isGlobalAccess = collection.isGlobalAccess,
+            bookCount = collectionBookRepo.countLiveForCollection(collection.id),
+            callerPermission = verdict.permission,
+            isOwner = verdict.isOwner,
+        )
+    }
+
+    /**
+     * Summarises a system collection (the inbox) without a caller context.
+     *
+     * The inbox is owned by an admin and managed through admin operations, so the summary
+     * reflects the owning admin's view: [CollectionSummary.isOwner] true,
+     * [CollectionSummary.callerPermission] Write.
+     */
+    private suspend fun summarizeSystem(collection: CollectionSyncPayload): AppResult<CollectionSummary> =
+        AppResult.Success(
+            CollectionSummary(
+                id = CollectionId(collection.id),
+                name = collection.name,
+                ownerId = UserId(collection.ownerId),
+                isInbox = collection.isInbox,
+                isGlobalAccess = collection.isGlobalAccess,
+                bookCount = collectionBookRepo.countLiveForCollection(collection.id),
+                callerPermission = SharePermission.Write,
+                isOwner = true,
+            ),
+        )
+
+    private suspend fun bookExists(bookId: String): Boolean =
+        suspendTransaction(db) {
+            BookTable
+                .selectAll()
+                .where { (BookTable.id eq bookId) and BookTable.deletedAt.isNull() }
+                .count() > 0
+        }
+
+    private suspend fun userExists(userId: String): Boolean =
+        suspendTransaction(db) {
+            UserTable
+                .selectAll()
+                .where { UserTable.id eq userId }
+                .count() > 0
+        }
+
+    private fun CollectionShareSyncPayload.toDto(): CollectionShareDto =
+        CollectionShareDto(
+            id = id,
+            collectionId = CollectionId(collectionId),
+            sharedWithUserId = UserId(sharedWithUserId),
+            permission = permission,
+        )
+
+    private suspend fun CollectionRepository.softDelete(id: String): AppResult<Unit> = softDelete(id, clientOpId = null)
+
+    private suspend fun CollectionShareRepository.softDelete(id: String): AppResult<Unit> =
+        softDelete(id, clientOpId = null)
+}

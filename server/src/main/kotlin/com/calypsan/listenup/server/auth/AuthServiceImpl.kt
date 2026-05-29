@@ -304,6 +304,13 @@ internal fun UserRoleColumn.toContract(): UserRole =
         UserRoleColumn.MEMBER -> UserRole.MEMBER
     }
 
+internal fun UserRole.toColumn(): UserRoleColumn =
+    when (this) {
+        UserRole.ROOT -> UserRoleColumn.ROOT
+        UserRole.ADMIN -> UserRoleColumn.ADMIN
+        UserRole.MEMBER -> UserRoleColumn.MEMBER
+    }
+
 internal fun UserStatusColumn.toContract(): UserStatus =
     when (this) {
         UserStatusColumn.ACTIVE -> UserStatus.ACTIVE

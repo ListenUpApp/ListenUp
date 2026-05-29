@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -16,6 +17,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
@@ -68,6 +70,7 @@ fun Route.rpcRoutes(
     libraryAdminService: LibraryAdminService? = null,
     tagService: TagService? = null,
     genreService: GenreService? = null,
+    collectionService: CollectionService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -129,6 +132,14 @@ fun Route.rpcRoutes(
             if (genreService != null) {
                 // TODO: gate by user permissions when Multi-user lands
                 registerService<GenreService> { guard(genreService) }
+            }
+            if (collectionService != null) {
+                registerService<CollectionService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((collectionService as CollectionServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
         }
     }

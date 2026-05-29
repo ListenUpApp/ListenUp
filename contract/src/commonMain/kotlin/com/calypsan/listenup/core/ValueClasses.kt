@@ -231,6 +231,33 @@ value class TagId(
 }
 
 /**
+ * Type-safe wrapper for Collection IDs.
+ *
+ * Collections are user-scoped: each user owns their own inbox and any manually
+ * created collections, and may have read or write access to collections shared by
+ * others. Wrapping the id prevents accidentally passing a [BookId], [TagId], or any
+ * other string id where a collection id is expected — particularly at
+ * `CollectionService` call sites that thread collection, book, and user identifiers
+ * through ownership and sharing operations.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying collection ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class CollectionId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Collection ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Genre IDs.
  *
  * Genres are server-wide (global, not user-scoped) and form a hierarchy via
