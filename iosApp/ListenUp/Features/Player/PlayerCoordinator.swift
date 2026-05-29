@@ -112,17 +112,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Components
 
-    private let engine = AudioEngine()
+    private let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
     private let system = SystemIntegration()
     private let liveActivity = LiveActivityManager()
 
-    // MARK: - KMP seam
+    // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
-    private let preparer: PlaybackPreparer
-    private let progressTracker: ProgressTracker
-    private let sleepTimerManager: SleepTimerManager
-    private let bookRepository: BookRepository
+    private let preparer: PlaybackPreparing
+    private let progress: ProgressReporting
+    private let sleep: SleepTiming
+    private let coverProvider: BookCoverProviding
     private let bridge = FlowBridge()
 
     private var currentBookId: String?
@@ -133,28 +133,35 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Init
 
     init(
-        preparer: PlaybackPreparer,
-        progressTracker: ProgressTracker,
-        sleepTimerManager: SleepTimerManager,
-        bookRepository: BookRepository
+        preparer: PlaybackPreparing,
+        progress: ProgressReporting,
+        sleep: SleepTiming,
+        engine: PlaybackEngine,
+        coverProvider: BookCoverProviding
     ) {
         self.preparer = preparer
-        self.progressTracker = progressTracker
-        self.sleepTimerManager = sleepTimerManager
-        self.bookRepository = bookRepository
+        self.progress = progress
+        self.sleep = sleep
+        self.engine = engine
+        self.coverProvider = coverProvider
         system.attach(handler: self)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
-        bridge.bind(sleepTimerManager.state) { [weak self] in self?.applySleepTimer($0) }
+        observeSleep()
     }
 
-    /// Convenience initializer using `Dependencies`.
+    /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
     convenience init(deps: Dependencies) {
         self.init(
-            preparer: deps.playbackPreparer,
-            progressTracker: deps.progressTracker,
-            sleepTimerManager: deps.sleepTimerManager,
-            bookRepository: deps.bookRepository
+            preparer: KotlinPlaybackPreparing(preparer: deps.playbackPreparer),
+            progress: KotlinProgressReporting(tracker: deps.progressTracker),
+            sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
+            engine: AudioEngine(),
+            coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository)
         )
+    }
+
+    private func observeSleep() {
+        bridge.bind(sleep.stateStream) { [weak self] state in self?.applySleepTimer(state) }
     }
 
     // MARK: - Actions
@@ -175,11 +182,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
         if phase.isPlaying {
             Task { await engine.pause() }
             phase = .paused(loaded)
-            progressTracker.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         } else {
             Task { await engine.play() }
             phase = .playing(loaded)
-            progressTracker.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
+            progress.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         }
         updateNowPlaying()
         syncLiveActivity()
@@ -197,7 +204,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         playbackSpeed = speed
         Task { await engine.setRate(speed) }
         if let id = currentBookId {
-            progressTracker.onSpeedChanged(
+            progress.onSpeedChanged(
                 bookId: id, positionMs: bookPositionMs, newSpeed: speed
             )
         }
@@ -221,17 +228,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         seekTo(positionMs: chapters[index].startTime)
     }
 
-    func setSleepTimer(minutes: Int) {
-        sleepTimerManager.setTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes)))
-    }
-
-    func setSleepTimerEndOfChapter() {
-        sleepTimerManager.setTimer(mode: SleepTimerModeEndOfChapter())
-    }
-
-    func cancelSleepTimer() {
-        sleepTimerManager.cancelTimer()
-    }
+    func setSleepTimer(minutes: Int) { sleep.setDurationTimer(minutes: minutes) }
+    func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
+    func cancelSleepTimer() { sleep.cancelTimer() }
 
     /// Tear down all observation and release the engine.
     func stop() {
@@ -253,17 +252,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Prepare
 
     private func prepareAndStart(bookId: String) async {
-        let id = bookId
-        guard let prepared = try? await preparer.prepare(bookId: id, onPrepareProgress: { @Sendable _ in }) else {
+        guard let prepared = await preparer.prepare(bookId: bookId) else {
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
         }
         bookTitle = prepared.bookTitle
         authorName = prepared.bookAuthor
         coverPath = prepared.coverPath
-        chapters = Array(prepared.chapters)
+        chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
-        coverBlurHash = (try? await bookRepository.getBookListItem(id: bookId))?.coverBlurHash
+        coverBlurHash = await coverProvider.coverBlurHash(bookId: bookId)
 
         let segments = prepared.timeline.files.compactMap { file -> AudioSegment? in
             let url: URL
@@ -286,14 +284,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await engine.play()
         phase = .playing(PlayingState(bookId: bookId, durationMs: prepared.timeline.totalDurationMs))
         lastReportedPositionMs = prepared.resumePositionMs
-        progressTracker.onPlaybackStarted(
-            bookId: id, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed
-        )
+        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
         updateNowPlaying()
         lastSyncedChapterIndex = chapterIndex
-        if let snapshot = liveActivitySnapshot() {
-            liveActivity.start(snapshot)
-        }
+        if let snapshot = liveActivitySnapshot() { liveActivity.start(snapshot) }
     }
 
     // MARK: - Engine events
@@ -334,7 +328,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard let id = currentBookId else { return }
         if abs(positionMs - lastReportedPositionMs) >= Self.positionReportIntervalMs {
             lastReportedPositionMs = positionMs
-            progressTracker.onPositionUpdate(
+            progress.onPositionUpdate(
                 bookId: id, positionMs: positionMs, speed: playbackSpeed
             )
         }
@@ -342,7 +336,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func handleBookEnded() {
         guard let id = currentBookId, let loaded = phase.playingState else { return }
-        progressTracker.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
+        progress.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
         syncLiveActivity()
@@ -350,22 +344,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Sleep timer
 
-    private func applySleepTimer(_ state: SleepTimerState) {
-        if let active = state as? SleepTimerStateActive {
-            sleepTimerActive = true
-            sleepTimerRemainingMs = active.remainingMs
-            if active.mode is SleepTimerModeDuration {
-                sleepTimerMode = "duration"
-                sleepTimerLabel = active.formatRemaining()
-            } else {
-                sleepTimerMode = "endOfChapter"
-                sleepTimerLabel = "End of chapter"
-            }
-        } else {
+    private func applySleepTimer(_ state: SleepTimingState) {
+        switch state {
+        case .inactive:
             sleepTimerActive = false
             sleepTimerRemainingMs = 0
             sleepTimerMode = ""
             sleepTimerLabel = ""
+        case let .active(remainingMs, isEndOfChapter, label):
+            sleepTimerActive = true
+            sleepTimerRemainingMs = remainingMs
+            sleepTimerMode = isEndOfChapter ? "endOfChapter" : "duration"
+            sleepTimerLabel = label
         }
     }
 

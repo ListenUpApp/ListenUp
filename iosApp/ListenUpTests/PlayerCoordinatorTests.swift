@@ -40,6 +40,40 @@ struct PlaybackEngineSeamTests {
     }
 }
 
+@Suite("PlayerCoordinator wiring")
+@MainActor
+struct PlayerCoordinatorWiringTests {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting, FakeSleepTiming, FakePlaybackPreparing) {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let sleep = FakeSleepTiming()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil,
+            resumeSpeed: 1.5, resumePositionMs: 2000,
+            chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
+            ])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: sleep,
+            engine: engine, coverProvider: FakeBookCoverProviding()
+        )
+        return (coordinator, engine, progress, sleep, preparer)
+    }
+
+    @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
+        let (coordinator, engine, progress, _, _) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await engine.didPlay)
+        #expect(await engine.lastRate == 1.5)
+        #expect(progress.startedCalls.first?.0 == "book1")
+        #expect(progress.startedCalls.first?.1 == 2000)
+    }
+}
+
 @Suite("Seam value types")
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
