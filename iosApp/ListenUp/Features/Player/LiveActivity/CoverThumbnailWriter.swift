@@ -8,7 +8,7 @@ import UIKit
 struct CoverThumbnailWriter {
 
     /// The shared App Group identifier.
-    static let appGroupID = "group.com.calypsan.listenup.client.listenup"
+    static let appGroupID = "group.com.calypsan.listenup.client"
 
     /// Sub-directory inside the container holding Live Activity thumbnails.
     private static let directoryName = "LiveActivityCovers"
