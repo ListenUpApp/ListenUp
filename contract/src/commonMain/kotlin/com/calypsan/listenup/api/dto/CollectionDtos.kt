@@ -5,6 +5,9 @@ import com.calypsan.listenup.core.CollectionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Maximum length, in characters, of a collection display name. */
+private const val MAX_COLLECTION_NAME_LENGTH = 200
+
 /**
  * Permission level granted to a user for a shared collection.
  *
@@ -95,7 +98,7 @@ data class CreateCollectionBody(
     @SerialName("name") val name: String,
 ) {
     init {
-        require(name.isNotBlank() && name.length <= 200) { "name must be 1..200 chars" }
+        require(name.isNotBlank() && name.length <= MAX_COLLECTION_NAME_LENGTH) { "name must be 1..200 chars" }
     }
 }
 

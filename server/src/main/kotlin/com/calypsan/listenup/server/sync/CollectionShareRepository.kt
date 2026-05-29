@@ -206,7 +206,4 @@ class CollectionShareRepository(
  * least-privilege choice — rather than throwing and crashing the read path.
  */
 private fun String.toSharePermission(): SharePermission =
-    when (this) {
-        "write" -> SharePermission.Write
-        else -> SharePermission.Read
-    }
+    if (this == "write") SharePermission.Write else SharePermission.Read
