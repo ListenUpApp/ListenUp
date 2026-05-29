@@ -483,7 +483,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             artist: authorName,
             durationMs: bookDurationMs,
             elapsedMs: bookPositionMs,
-            rate: isPlaying ? Double(playbackSpeed) : 0
+            rate: isPlaying ? Double(playbackSpeed) : 0,
+            artworkPath: coverPath
         ))
     }
 }

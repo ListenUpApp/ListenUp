@@ -10,7 +10,8 @@ struct SystemIntegrationTests {
         artist: "Brandon Sanderson",
         durationMs: 3_600_000,
         elapsedMs: 600_000,
-        rate: 1.5
+        rate: 1.5,
+        artworkPath: nil
     )
 
     @Test func mapsTitleAndArtist() {

@@ -1,5 +1,6 @@
 import Foundation
 import MediaPlayer
+import UIKit
 
 /// Immutable snapshot of what the lock screen should show. The `Now Playing`
 /// info center extrapolates the elapsed clock from `elapsedMs` + `rate`, so this
@@ -13,6 +14,8 @@ struct NowPlayingInfo: Equatable, Sendable {
     let elapsedMs: Int64
     /// Playback rate — 0 when paused, the playback speed when playing.
     let rate: Double
+    /// Filesystem path to the cover image, or `nil` when none is available.
+    let artworkPath: String?
 }
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
@@ -58,13 +61,18 @@ final class SystemIntegration {
     /// `nonisolated`, and `static` so it is testable without touching the live
     /// info center or the main actor.
     nonisolated static func dictionary(from info: NowPlayingInfo) -> [String: Any] {
-        [
+        var dict: [String: Any] = [
             MPMediaItemPropertyTitle: info.title,
             MPMediaItemPropertyArtist: info.artist,
             MPMediaItemPropertyPlaybackDuration: Double(info.durationMs) / 1000.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.elapsedMs) / 1000.0,
             MPNowPlayingInfoPropertyPlaybackRate: info.rate,
         ]
+        if let path = info.artworkPath,
+           let image = UIImage(contentsOfFile: path) {
+            dict[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        }
+        return dict
     }
 
     private func configureRemoteCommands() {
