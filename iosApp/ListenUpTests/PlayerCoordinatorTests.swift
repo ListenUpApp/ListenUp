@@ -30,3 +30,12 @@ struct PlayerCoordinatorTests {
         #expect(ChapterMath.index(forPositionMs: 99_999, in: chapters) == 0)
     }
 }
+
+@Suite("PlaybackEngine seam")
+struct PlaybackEngineSeamTests {
+    @Test func fakeEngineRecordsPause() async {
+        let engine = FakePlaybackEngine()
+        await engine.pause()
+        #expect(await engine.didPause)
+    }
+}
