@@ -321,7 +321,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func stop() {
         bridge.cancelAll()
         positionTracker.reset()
-        Task { await engine.release() }
+        Task {
+            await engine.deactivateSession()
+            await engine.release()
+        }
         liveActivity.end()
     }
 

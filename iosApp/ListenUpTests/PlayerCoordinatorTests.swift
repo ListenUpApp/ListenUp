@@ -223,3 +223,17 @@ struct SeamValueTypeTests {
         #expect(prepared.timeline.files.count == 1)
     }
 }
+
+@Suite("Stop deactivates session")
+@MainActor
+struct StopDeactivatesSessionTests {
+    @Test func stopDeactivatesAudioSession() async throws {
+        let engine = FakePlaybackEngine()
+        let coordinator = PlayerCoordinator(
+            preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(),
+            sleep: FakeSleepTiming(), engine: engine, coverProvider: FakeBookCoverProviding())
+        coordinator.stop()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await engine.didDeactivateSession)
+    }
+}
