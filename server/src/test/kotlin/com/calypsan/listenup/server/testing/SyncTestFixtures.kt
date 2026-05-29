@@ -13,6 +13,9 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.UserStatusColumn
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -101,6 +104,28 @@ fun Database.seedTestBook(
             it[BookTable.revision] = 1L
             it[BookTable.createdAt] = now
             it[BookTable.updatedAt] = now
+        }
+    }
+}
+
+/**
+ * Seeds a minimal user row with the given [userId] into the receiver database.
+ *
+ * Used in tests that insert `collection_shares` rows — the junction table's FK
+ * `shared_with_user_id REFERENCES users(id)` requires the parent row to exist when FK
+ * enforcement is enabled.
+ */
+fun Database.seedTestUser(userId: String) {
+    transaction(this) {
+        UserEntity.new(userId) {
+            email = "$userId@example.com"
+            emailNormalized = "$userId@example.com"
+            passwordHash = "phc"
+            role = UserRoleColumn.MEMBER
+            displayName = userId
+            status = UserStatusColumn.ACTIVE
+            createdAt = 1L
+            updatedAt = 1L
         }
     }
 }
