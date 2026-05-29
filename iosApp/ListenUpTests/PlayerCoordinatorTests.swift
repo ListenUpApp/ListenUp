@@ -3,6 +3,22 @@ import AVFoundation
 @testable import ListenUp
 @preconcurrency import Shared
 
+/// Polls `condition` until true or the timeout elapses. Replaces fixed `Task.sleep`
+/// waits so tests finish as soon as the async work completes and only fail if it
+/// genuinely never does — deterministic, no wall-clock floor.
+@MainActor
+func awaitUntil(
+    timeout: Duration = .seconds(8),
+    pollInterval: Duration = .milliseconds(20),
+    _ condition: () async -> Bool
+) async {
+    let deadline = ContinuousClock.now + timeout
+    while ContinuousClock.now < deadline {
+        if await condition() { return }
+        try? await Task.sleep(for: pollInterval)
+    }
+}
+
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
     private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter_ {
@@ -67,7 +83,7 @@ struct PlayerCoordinatorWiringTests {
     @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
         let (coordinator, engine, progress, _, _) = makeCoordinator()
         coordinator.play(bookId: "book1")
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didPlay }
         #expect(await engine.didPlay)
         #expect(await engine.lastRate == 1.5)
         #expect(progress.startedCalls.first?.0 == "book1")
@@ -93,10 +109,10 @@ struct SleepTimerFiringTests {
             preparer: preparer, progress: progress, sleep: sleep,
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didPlay }
 
         sleep.emitFired()
-        try await Task.sleep(for: .milliseconds(3500))
+        await awaitUntil { await engine.didPause && sleep.fadeCompletedCount == 1 }
 
         #expect(await engine.didPause)
         #expect(sleep.fadeCompletedCount == 1)
@@ -121,7 +137,7 @@ struct SaveCurrentPositionTests {
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didPlay }
 
         await coordinator.saveCurrentPosition()
 
@@ -173,11 +189,11 @@ struct EndOfChapterTests {
             preparer: preparer, progress: FakeProgressReporting(), sleep: sleep,
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didPlay }
 
         // Position now in chapter 1 → engine emits a position past the chapter boundary.
         engine.emit(.position(ms: 1500, rate: 1.0))
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { sleep.chapterChanges.contains(1) }
 
         #expect(sleep.chapterChanges.contains(1))
     }
@@ -200,10 +216,10 @@ struct SeekPersistenceTests {
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { await engine.didPlay }
 
         coordinator.seekTo(positionMs: 30000)
-        try await Task.sleep(for: .milliseconds(50))
+        await awaitUntil { progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 } }
 
         #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 })
     }
