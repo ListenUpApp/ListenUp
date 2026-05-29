@@ -115,13 +115,16 @@ fun Database.seedTestBook(
  * `shared_with_user_id REFERENCES users(id)` requires the parent row to exist when FK
  * enforcement is enabled.
  */
-fun Database.seedTestUser(userId: String) {
+fun Database.seedTestUser(
+    userId: String,
+    userRole: UserRoleColumn = UserRoleColumn.MEMBER,
+) {
     transaction(this) {
         UserEntity.new(userId) {
             email = "$userId@example.com"
             emailNormalized = "$userId@example.com"
             passwordHash = "phc"
-            role = UserRoleColumn.MEMBER
+            role = userRole
             displayName = userId
             status = UserStatusColumn.ACTIVE
             createdAt = 1L

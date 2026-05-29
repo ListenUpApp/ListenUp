@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -299,6 +300,149 @@ internal class CollectionServiceImpl(
         return AppResult.Success(shares)
     }
 
+    // ── Inbox (system collection + release flow) ──────────────────────────────────
+    //
+    // These are ADMIN-INTERNAL operations, deliberately NOT part of the @Rpc
+    // CollectionService contract (frozen at 12 user-facing methods). They are exposed as
+    // public methods so the admin REST routes (and, eventually, the scanner) can call them.
+
+    /**
+     * Resolves the library's inbox, creating it on first use.
+     *
+     * The inbox is a per-library SYSTEM collection (`isInbox = true`, never globally
+     * accessible, not deletable). It is created lazily: the first call materialises it,
+     * subsequent calls return the same row. Idempotency rests on
+     * [CollectionRepository.findInboxForLibrary] plus the `idx_collections_inbox` partial
+     * unique index that guarantees at most one live inbox per library.
+     *
+     * **Owner resolution.** The inbox owner is the library's `createdByUserId` when set
+     * (forward-staged for the multi-user phase; null today), otherwise the first ROOT user,
+     * otherwise the first ADMIN user. If the server has no admin at all the inbox cannot be
+     * attributed and we fail with [CollectionError.InvalidInput] rather than orphan it.
+     *
+     * This is a system operation: it does not require or consult a caller principal.
+     */
+    suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> {
+        collectionRepo.findInboxForLibrary(libraryId)?.let { return summarizeSystem(it) }
+
+        val ownerId = resolveInboxOwner(libraryId) ?: return AppResult.Failure(
+            CollectionError.InvalidInput(debugInfo = "No admin user available to own the inbox for library $libraryId"),
+        )
+
+        val payload =
+            CollectionSyncPayload(
+                id = UUID.randomUUID().toString(),
+                libraryId = libraryId,
+                ownerId = ownerId,
+                name = "Inbox",
+                isInbox = true,
+                isGlobalAccess = false,
+                revision = 0L,
+                updatedAt = clock.now().toEpochMilliseconds(),
+            )
+        return when (val result = collectionRepo.upsert(payload)) {
+            is AppResult.Success -> summarizeSystem(result.data)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    /**
+     * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
+     *
+     * This is the intended scanner hook: when a new book is ingested it lands in the inbox
+     * pending admin triage. The actual scanner wiring — and any per-library "inbox enabled"
+     * toggle that would gate it — is deferred to a later phase; no such setting exists yet.
+     * This focused entry point is fully testable in isolation in the meantime.
+     *
+     * A system operation (no caller principal); the book must exist
+     * ([CollectionError.BookNotFound]).
+     */
+    suspend fun addToInbox(
+        bookId: String,
+        libraryId: String,
+    ): AppResult<Unit> {
+        if (!bookExists(bookId)) return AppResult.Failure(CollectionError.BookNotFound())
+
+        val inbox =
+            when (val result = getOrCreateInbox(libraryId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+
+        val payload =
+            CollectionBookSyncPayload(
+                collectionId = inbox.id.value,
+                bookId = bookId,
+                createdAt = clock.now().toEpochMilliseconds(),
+                revision = 0L,
+                deletedAt = null,
+            )
+        return when (val result = collectionBookRepo.upsert(payload)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
+    /**
+     * Releases books out of the library's inbox into their assigned target collections.
+     *
+     * [assignments] maps `bookId → target collectionIds`. For each book the inbox junction
+     * is soft-deleted, then a junction is added for every target collection. A book with an
+     * empty target list is simply removed from the inbox and becomes uncollected. The whole
+     * release runs in a single transaction so a partial failure does not strand books
+     * half-released.
+     *
+     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     */
+    suspend fun releaseBooks(
+        libraryId: String,
+        assignments: Map<String, List<String>>,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        val inbox =
+            when (val result = getOrCreateInbox(libraryId)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> return AppResult.Failure(result.error)
+            }
+        val inboxId = inbox.id.value
+
+        suspendTransaction(db) {
+            for ((bookId, targetCollectionIds) in assignments) {
+                collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
+                for (targetId in targetCollectionIds) {
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            collectionId = targetId,
+                            bookId = bookId,
+                            createdAt = clock.now().toEpochMilliseconds(),
+                            revision = 0L,
+                            deletedAt = null,
+                        ),
+                    )
+                }
+            }
+        }
+        // Collections-1b: emit AccessChanged / book Updated for visibility convergence
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Returns the live book ids in the library's inbox, or an empty list when no inbox
+     * exists yet — a read must never auto-create one.
+     *
+     * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
+     */
+    suspend fun listInbox(libraryId: String): AppResult<List<BookId>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        val inbox = collectionRepo.findInboxForLibrary(libraryId) ?: return AppResult.Success(emptyList())
+        val bookIds = collectionBookRepo.findBookIdsForCollection(inbox.id).map { BookId(it) }
+        return AppResult.Success(bookIds)
+    }
+
     // ── Principal binding ───────────────────────────────────────────────────────
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -344,6 +488,35 @@ internal class CollectionServiceImpl(
             else -> CollectionError.NotFound()
         }
 
+    /** Admin gate: null = allowed (ROOT/ADMIN); [CollectionError.Forbidden] for everyone else. */
+    private fun adminGate(role: UserRoleColumn): CollectionError? =
+        if (role == UserRoleColumn.ROOT || role == UserRoleColumn.ADMIN) null else CollectionError.Forbidden()
+
+    /**
+     * Resolves the user id that should own the library's inbox: the library's
+     * `createdByUserId` if set, else the first ROOT user, else the first ADMIN user,
+     * else null when the server has no admin at all.
+     */
+    private suspend fun resolveInboxOwner(libraryId: String): String? =
+        suspendTransaction(db) {
+            LibraryTable
+                .selectAll()
+                .where { LibraryTable.id eq libraryId }
+                .firstOrNull()
+                ?.get(LibraryTable.createdByUserId)
+                ?: firstUserWithRole(UserRoleColumn.ROOT)
+                ?: firstUserWithRole(UserRoleColumn.ADMIN)
+        }
+
+    /** First user id whose role matches [role], or null. Must run inside a transaction. */
+    private fun firstUserWithRole(role: UserRoleColumn): String? =
+        UserTable
+            .selectAll()
+            .where { UserTable.role eq role }
+            .firstOrNull()
+            ?.get(UserTable.id)
+            ?.value
+
     /** Write gate: null = allowed; Forbidden if the caller can read but not write; NotFound otherwise. */
     private fun writeGate(decision: CollectionAccessPolicy.Decision): CollectionError? =
         when {
@@ -369,6 +542,27 @@ internal class CollectionServiceImpl(
             isOwner = verdict.isOwner,
         )
     }
+
+    /**
+     * Summarises a system collection (the inbox) without a caller context.
+     *
+     * The inbox is owned by an admin and managed through admin operations, so the summary
+     * reflects the owning admin's view: [CollectionSummary.isOwner] true,
+     * [CollectionSummary.callerPermission] Write.
+     */
+    private suspend fun summarizeSystem(collection: CollectionSyncPayload): AppResult<CollectionSummary> =
+        AppResult.Success(
+            CollectionSummary(
+                id = CollectionId(collection.id),
+                name = collection.name,
+                ownerId = UserId(collection.ownerId),
+                isInbox = collection.isInbox,
+                isGlobalAccess = collection.isGlobalAccess,
+                bookCount = collectionBookRepo.countLiveForCollection(collection.id),
+                callerPermission = SharePermission.Write,
+                isOwner = true,
+            ),
+        )
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(db) {

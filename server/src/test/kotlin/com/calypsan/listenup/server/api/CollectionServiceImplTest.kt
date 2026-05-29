@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -596,6 +597,138 @@ class CollectionServiceImplTest :
                     require(shares is AppResult.Success)
                     shares.data.map { it.sharedWithUserId } shouldContainExactlyInAnyOrder
                         listOf(UserId("u2"), UserId("u3"))
+                }
+            }
+        }
+
+        // ── Inbox (system collection + release flow) ──────────────────────────────
+
+        test("getOrCreateInbox lazily creates one inbox per library, idempotent") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                runTest {
+                    val service = makeService(db)
+
+                    val first = service.getOrCreateInbox("test-library")
+                    require(first is AppResult.Success)
+                    first.data.isInbox shouldBe true
+                    first.data.name shouldBe "Inbox"
+                    first.data.ownerId shouldBe UserId("admin")
+
+                    // Idempotent: a second call returns the same inbox, not a new one.
+                    val second = service.getOrCreateInbox("test-library")
+                    require(second is AppResult.Success)
+                    second.data.id shouldBe first.data.id
+                }
+            }
+        }
+
+        test("inbox is owned by an admin and not deletable via deleteCollection") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                runTest {
+                    val service = makeService(db)
+                    val inbox = service.getOrCreateInbox("test-library")
+                    require(inbox is AppResult.Success)
+
+                    // The owning admin cannot delete the inbox: it's a protected system collection.
+                    val deleteAttempt = service.actAs("admin", UserRole.ADMIN).deleteCollection(inbox.data.id)
+                    require(deleteAttempt is AppResult.Failure)
+                    deleteAttempt.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()
+                }
+            }
+        }
+
+        test("addToInbox adds a book to the library's inbox") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                seedTestBook("book1")
+                runTest {
+                    val service = makeService(db)
+
+                    service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+
+                    val inboxBooks = service.actAs("admin", UserRole.ADMIN).listInbox("test-library")
+                    require(inboxBooks is AppResult.Success)
+                    inboxBooks.data shouldBe listOf(BookId("book1"))
+
+                    // Unknown book → BookNotFound.
+                    val ghost = service.addToInbox("ghost", "test-library")
+                    require(ghost is AppResult.Failure)
+                    ghost.error.shouldBeInstanceOf<CollectionError.BookNotFound>()
+                }
+            }
+        }
+
+        test("releaseBooks moves books out of inbox into staged collections (or none → uncollected)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                seedTestBook("book1")
+                seedTestBook("book2")
+                runTest {
+                    val service = makeService(db)
+                    val admin = service.actAs("admin", UserRole.ADMIN)
+
+                    // Seed the inbox with two books.
+                    service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+                    service.addToInbox("book2", "test-library") shouldBe AppResult.Success(Unit)
+
+                    // A real target collection for book1.
+                    val collA = admin.createCollection("test-library", "Collection A")
+                    require(collA is AppResult.Success)
+
+                    // Release: book1 → [collA], book2 → [] (becomes uncollected).
+                    val released =
+                        admin.releaseBooks(
+                            "test-library",
+                            mapOf(
+                                "book1" to listOf(collA.data.id.value),
+                                "book2" to emptyList(),
+                            ),
+                        )
+                    released shouldBe AppResult.Success(Unit)
+
+                    // Inbox is now empty.
+                    val inboxBooks = admin.listInbox("test-library")
+                    require(inboxBooks is AppResult.Success)
+                    inboxBooks.data shouldHaveSize 0
+
+                    // book1 landed in collA.
+                    val collABooks = admin.listCollectionBooks(collA.data.id)
+                    require(collABooks is AppResult.Success)
+                    collABooks.data shouldBe listOf(BookId("book1"))
+                }
+            }
+        }
+
+        test("listInbox / releaseBooks require admin") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin", UserRoleColumn.ADMIN)
+                seedTestUser("u1")
+                seedTestBook("book1")
+                runTest {
+                    val service = makeService(db)
+                    service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
+
+                    val member = service.actAs("u1", UserRole.MEMBER)
+
+                    val memberList = member.listInbox("test-library")
+                    require(memberList is AppResult.Failure)
+                    memberList.error.shouldBeInstanceOf<CollectionError.Forbidden>()
+
+                    val memberRelease = member.releaseBooks("test-library", mapOf("book1" to emptyList()))
+                    require(memberRelease is AppResult.Failure)
+                    memberRelease.error.shouldBeInstanceOf<CollectionError.Forbidden>()
                 }
             }
         }
