@@ -132,6 +132,36 @@ interface CollectionService {
         bookId: BookId,
     ): AppResult<Unit>
 
+    /**
+     * Replace-sets the collections the book identified by [bookId] belongs to.
+     *
+     * Diffs the book's current live memberships against [collectionIds]:
+     * memberships not in [collectionIds] are soft-deleted, memberships not yet
+     * present are added. A book's membership in a collection it already belongs
+     * to is left untouched.
+     *
+     * **Admin-only** — unlike [addBookToCollection]/[removeBookFromCollection]
+     * (which a write-share holder may invoke), the whole-set replace is an
+     * administrative operation gated to ROOT/ADMIN; everyone else gets
+     * [com.calypsan.listenup.api.error.CollectionError.Forbidden].
+     *
+     * **Access-aware.** Changing a book's collection set changes who can see the
+     * book, so this emits a per-user `AccessChanged` control signal to the owner
+     * and active-share members of every added *and* removed collection — a member
+     * who loses their access path must prune the book from their local store, and
+     * a member who gains access must re-derive it. The non-enumerable
+     * public↔private "everyone" edge converges on the next firehose catch-up.
+     *
+     * Fails with [com.calypsan.listenup.api.error.CollectionError.BookNotFound]
+     * when [bookId] does not exist, or
+     * [com.calypsan.listenup.api.error.CollectionError.NotFound] when any target
+     * collection is unknown or soft-deleted.
+     */
+    suspend fun setBookCollections(
+        bookId: BookId,
+        collectionIds: List<CollectionId>,
+    ): AppResult<Unit>
+
     // ── Share mutation ───────────────────────────────────────────────────────
 
     /**

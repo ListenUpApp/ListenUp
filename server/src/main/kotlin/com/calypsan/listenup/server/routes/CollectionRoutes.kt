@@ -40,6 +40,7 @@ import io.ktor.server.routing.post as postPath
  *  - `GET    /api/v1/collections/{id}/books?limit=N`       — member book ids
  *  - `PUT    /api/v1/collections/{id}/books/{bookId}`      — add a book
  *  - `DELETE /api/v1/collections/{id}/books/{bookId}`      — remove a book
+ *  - `PUT    /api/v1/collections/book/{bookId}` (id list)  — replace-set a book's collections
  *  - `GET    /api/v1/collections/{id}/shares`              — list shares
  *  - `POST   /api/v1/collections/{id}/shares` (ShareBody)  — share with a user
  *  - `PATCH  /api/v1/collections/{id}/shares/{userId}` (permission) — update a share
@@ -122,6 +123,15 @@ private fun Route.collectionBookRoutes(collectionService: CollectionService) {
     delete<CollectionResources.Detail.Book> { res ->
         val service = call.scoped(collectionService) ?: return@delete
         when (val result = service.removeBookFromCollection(CollectionId(res.parent.id), BookId(res.bookId))) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondCollectionError(result.error)
+        }
+    }
+
+    put<CollectionResources.BookCollections> { res ->
+        val service = call.scoped(collectionService) ?: return@put
+        val collectionIds = call.receive<List<String>>().map { CollectionId(it) }
+        when (val result = service.setBookCollections(BookId(res.bookId), collectionIds)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondCollectionError(result.error)
         }
