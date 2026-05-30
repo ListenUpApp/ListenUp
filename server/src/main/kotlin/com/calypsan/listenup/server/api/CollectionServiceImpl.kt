@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -19,6 +20,7 @@ import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
@@ -66,6 +68,7 @@ internal class CollectionServiceImpl(
     private val collectionBookRepo: CollectionBookRepository,
     private val shareRepo: CollectionShareRepository,
     private val accessPolicy: CollectionAccessPolicy,
+    private val bus: ChangeBus,
     private val db: Database,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider,
@@ -248,10 +251,15 @@ internal class CollectionServiceImpl(
                 updatedAt = clock.now().toEpochMilliseconds(),
                 deletedAt = null,
             )
-        // Collections-1b: emit AccessChanged to sharedWithUserId
         return when (val result = shareRepo.upsert(payload)) {
-            is AppResult.Success -> AppResult.Success(result.data.toDto())
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                // The newly-shared user's accessible set just grew — tell them to re-derive.
+                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                AppResult.Success(result.data.toDto())
+            }
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
 
@@ -269,10 +277,15 @@ internal class CollectionServiceImpl(
                 ?: return AppResult.Failure(CollectionError.NotFound())
 
         val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
-        // Collections-1b: emit AccessChanged to sharedWithUserId
         return when (val result = shareRepo.upsert(updated)) {
-            is AppResult.Success -> AppResult.Success(result.data.toDto())
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                // The share's permission changed — the recipient must re-derive what they can do.
+                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                AppResult.Success(result.data.toDto())
+            }
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
 
@@ -285,9 +298,11 @@ internal class CollectionServiceImpl(
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         // softDeleteShare returns Failure(NotFound) when no live share exists; revoke is
-        // idempotent — a no-op revoke satisfies the caller's intent.
-        // Collections-1b: emit AccessChanged to sharedWithUserId
-        shareRepo.softDeleteShare(id.value, sharedWithUserId)
+        // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
+        // when a live share was actually removed: a no-op revoke didn't change their access.
+        if (shareRepo.softDeleteShare(id.value, sharedWithUserId) is AppResult.Success) {
+            bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+        }
         return AppResult.Success(Unit)
     }
 
@@ -408,12 +423,25 @@ internal class CollectionServiceImpl(
             }
         val inboxId = inbox.id.value
 
+        // Validate every distinct target collection up front — exists, live, same library —
+        // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
+        // a tombstoned target would be silently resurrected by upsert. Validating before the
+        // transaction keeps the whole release atomic and the error typed.
+        val distinctTargetIds = assignments.values.flatten().toSet()
+        for (targetId in distinctTargetIds) {
+            val target =
+                collectionRepo.findById(targetId)
+                    ?: return AppResult.Failure(CollectionError.NotFound())
+            if (target.libraryId != libraryId) {
+                return AppResult.Failure(
+                    CollectionError.InvalidInput(debugInfo = "Target collection $targetId is in a different library"),
+                )
+            }
+        }
+
         suspendTransaction(db) {
             for ((bookId, targetCollectionIds) in assignments) {
                 collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
-                // Collections-1b: validate each target collection (exists, same library, live,
-                // writable) before linking — today a bad id surfaces as an FK violation and a
-                // soft-deleted target would be silently resurrected by upsert.
                 for (targetId in targetCollectionIds) {
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(
@@ -427,7 +455,20 @@ internal class CollectionServiceImpl(
                 }
             }
         }
-        // Collections-1b: emit AccessChanged / book Updated for visibility convergence
+
+        // Every user who can see a target collection (its owner + its active share recipients)
+        // just gained access to the released books — nudge each once to re-derive. Admins see
+        // everything regardless, so they need no signal; everyone else does.
+        val usersGainingAccess =
+            distinctTargetIds
+                .flatMap { targetId ->
+                    val owner = collectionRepo.findById(targetId)?.ownerId
+                    val shareUsers = shareRepo.listActiveSharesForCollection(targetId).map { it.sharedWithUserId }
+                    if (owner != null) shareUsers + owner else shareUsers
+                }.toSet()
+        for (affectedUserId in usersGainingAccess) {
+            bus.publishControl(SyncControl.AccessChanged, affectedUserId)
+        }
         return AppResult.Success(Unit)
     }
 
@@ -455,6 +496,7 @@ internal class CollectionServiceImpl(
             collectionBookRepo = collectionBookRepo,
             shareRepo = shareRepo,
             accessPolicy = accessPolicy,
+            bus = bus,
             db = db,
             clock = clock,
             principal = principal,

@@ -260,6 +260,27 @@ class SyncEngine(
         sseClient.connect()
     }
 
+    /**
+     * Recover from an `AccessChanged` control signal: the caller's accessible set may have
+     * changed without a book row mutating (a collection was shared/unshared with them, a share's
+     * permission changed, or a book was released into a collection they can see). Re-pull the
+     * access-gated domains via catch-up so Room re-derives what the user can now see.
+     *
+     * Unlike [handleCursorStale] this does not tear down the SSE connection: the live tail is
+     * still valid (no cursor was lost), only the *visibility* of existing rows shifted. A failed
+     * catch-up is logged and swallowed — the next signal (or a manual refresh) recovers.
+     */
+    internal suspend fun handleAccessChanged() {
+        logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
+        when (val result = catchUp.catchUpAll(registry)) {
+            is AppResult.Success -> {}
+
+            is AppResult.Failure -> {
+                logger.warn { "Catch-up failed during AccessChanged recovery: ${result.error.code}" }
+            }
+        }
+    }
+
     /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
     suspend fun stopAndJoin() {
         startMutex.withLock {

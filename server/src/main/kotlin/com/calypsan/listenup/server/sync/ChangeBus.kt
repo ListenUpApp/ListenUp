@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,6 +29,21 @@ data class BusEvent<T : Any>(
 )
 
 /**
+ * A per-user out-of-band [SyncControl] frame travelling on the bus's control
+ * channel, distinct from the data-event channel ([BusEvent]). Carries the target
+ * [userId] so the firehose delivers it only to that subscriber.
+ *
+ * Control frames have no revision and are never replayed on reconnect: they tell a
+ * user to re-derive state, so a missed one is recovered the next time the firehose
+ * delivers one or the client re-pulls. Keeping them off the revision-cursored data
+ * channel avoids polluting `Last-Event-Id` resume semantics.
+ */
+data class ControlFrame(
+    val control: SyncControl,
+    val userId: String,
+)
+
+/**
  * In-memory pub/sub for [BusEvent]s. Single bus per process, registered as a
  * Koin singleton with `createdAtStart()` so domain repositories' init blocks
  * can publish during application bootstrap.
@@ -50,6 +66,18 @@ class ChangeBus {
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
+    // Control frames ride a separate, non-replayed channel: a re-derive nudge is
+    // transient and cursor-free, so it must not enter the revision-cursored replay
+    // buffer that drives Last-Event-Id resume. extraBufferCapacity keeps a slow
+    // subscriber from blocking the publisher; DROP_OLDEST is harmless here because a
+    // dropped nudge is superseded by the next one (or recovered by a client re-pull).
+    private val controlFlow =
+        MutableSharedFlow<ControlFrame>(
+            replay = 0,
+            extraBufferCapacity = LIVE_TAIL_BUFFER,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+
     /**
      * Publishes [event] onto the bus, paired with the source [repo] so consumers
      * can encode the payload through the repo's own serializer. The `<T>` binding
@@ -65,6 +93,19 @@ class ChangeBus {
     }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
+
+    /**
+     * Publishes a per-user [control] frame onto the control channel, addressed to
+     * [userId]. The firehose delivers it only to that user's subscriber(s).
+     */
+    suspend fun publishControl(
+        control: SyncControl,
+        userId: String,
+    ) {
+        controlFlow.emit(ControlFrame(control, userId))
+    }
+
+    fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
 
     /**
      * Best-effort lower bound on the oldest revision still in the live-tail

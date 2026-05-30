@@ -209,6 +209,18 @@ private suspend fun ServerSSESession.streamFirehose(
             }
         }
 
+    // Per-user control frames (e.g. AccessChanged) ride a separate, non-replayed bus
+    // channel — they carry no revision and must not enter Last-Event-Id resume. Deliver
+    // only the frames addressed to this subscriber, on the same `event: control` line the
+    // CursorStale/StreamError frames use, so the client branches on `event:` alone.
+    val controlJob =
+        launch {
+            bus
+                .subscribeControl()
+                .filter { it.userId == userId }
+                .collect { frame -> sendControl(frame.control) }
+        }
+
     try {
         bus
             .subscribe()
@@ -256,6 +268,7 @@ private suspend fun ServerSSESession.streamFirehose(
         )
     } finally {
         heartbeatJob.cancel()
+        controlJob.cancel()
     }
 }
 
@@ -345,12 +358,13 @@ private fun sharePayloadOf(event: SyncEvent<*>): CollectionShareSyncPayload? =
 
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
 private suspend fun ServerSSESession.sendCursorStale(lastKnownRevision: Long) {
+    sendControl(SyncControl.CursorStale(lastKnownRevision = lastKnownRevision))
+}
+
+/** Emits an arbitrary [SyncControl] frame on the firehose's `event: control` line. */
+private suspend fun ServerSSESession.sendControl(control: SyncControl) {
     send(
-        data =
-            contractJson.encodeToString(
-                SyncControl.serializer(),
-                SyncControl.CursorStale(lastKnownRevision = lastKnownRevision),
-            ),
+        data = contractJson.encodeToString(SyncControl.serializer(), control),
         event = SSE_EVENT_CONTROL,
     )
 }

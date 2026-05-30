@@ -188,6 +188,7 @@ fun booksModule(
                 collectionBookRepo = get(),
                 shareRepo = get(),
                 accessPolicy = get(),
+                bus = get(),
                 db = get(),
                 clock = get(),
                 principal = unscopedPlaceholder("CollectionService"),
