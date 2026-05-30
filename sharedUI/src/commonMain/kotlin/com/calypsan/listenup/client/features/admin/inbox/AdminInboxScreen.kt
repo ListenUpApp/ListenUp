@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckBox
@@ -44,15 +43,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.domain.model.InboxBook
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -96,17 +91,10 @@ fun AdminInboxScreen(
     }
 
     // Release success confirmation (only meaningful in Ready).
-    val readyReleaseResult = (state as? AdminInboxUiState.Ready)?.lastReleaseResult
-    LaunchedEffect(readyReleaseResult) {
-        readyReleaseResult?.let { result ->
-            val message =
-                buildString {
-                    append("Released ${result.released} book${if (result.released != 1) "s" else ""}")
-                    if (result.publicCount > 0) {
-                        append(" (${result.publicCount} public)")
-                    }
-                }
-            snackbarHostState.showSnackbar(message)
+    val readyReleasedCount = (state as? AdminInboxUiState.Ready)?.lastReleasedCount
+    LaunchedEffect(readyReleasedCount) {
+        readyReleasedCount?.let { count ->
+            snackbarHostState.showSnackbar("Released $count book${if (count != 1) "s" else ""}")
             viewModel.clearReleaseResult()
         }
     }
@@ -130,7 +118,7 @@ fun AdminInboxScreen(
                         if (viewModel.hasSelectedBooksWithoutCollections()) {
                             showReleaseConfirmation = true
                         } else {
-                            viewModel.releaseBooks(ready.selectedBookIds.toList())
+                            viewModel.releaseSelected()
                         }
                     },
                     icon = Icons.Outlined.Publish,
@@ -153,9 +141,7 @@ fun AdminInboxScreen(
     val ready = state as? AdminInboxUiState.Ready
     if (showReleaseConfirmation && ready != null) {
         val booksWithoutCollections =
-            ready.books
-                .filter { it.id in ready.selectedBookIds && it.stagedCollectionIds.isEmpty() }
-                .size
+            ready.selectedBookIds.count { ready.stagedAssignments[it].isNullOrEmpty() }
 
         ListenUpDestructiveDialog(
             onDismissRequest = { showReleaseConfirmation = false },
@@ -167,7 +153,7 @@ fun AdminInboxScreen(
             confirmText = stringResource(Res.string.admin_release_anyway),
             onConfirm = {
                 showReleaseConfirmation = false
-                viewModel.releaseBooks(ready.selectedBookIds.toList())
+                viewModel.releaseSelected()
             },
             onDismiss = { showReleaseConfirmation = false },
         )
@@ -261,7 +247,7 @@ private fun AdminInboxReadyContent(
     onBookSelectionToggle: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (state.books.isEmpty()) {
+    if (state.bookIds.isEmpty()) {
         EmptyInboxMessage(modifier = modifier)
     } else {
         LazyColumn(
@@ -272,7 +258,7 @@ private fun AdminInboxReadyContent(
         ) {
             item {
                 Text(
-                    text = "${state.books.size} book${if (state.books.size != 1) "s" else ""} awaiting review",
+                    text = "${state.bookIds.size} book${if (state.bookIds.size != 1) "s" else ""} awaiting review",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -289,15 +275,16 @@ private fun AdminInboxReadyContent(
                         ),
                 ) {
                     Column {
-                        state.books.forEachIndexed { index, book ->
+                        state.bookIds.forEachIndexed { index, bookId ->
                             InboxBookRow(
-                                book = book,
-                                isSelected = book.id in state.selectedBookIds,
-                                isReleasing = book.id in state.releasingBookIds,
-                                onClick = { onBookClick(book.id) },
-                                onSelectionToggle = { onBookSelectionToggle(book.id) },
+                                bookId = bookId,
+                                isSelected = bookId in state.selectedBookIds,
+                                isReleasing = state.isReleasing && bookId in state.selectedBookIds,
+                                stagedCount = state.stagedAssignments[bookId]?.size ?: 0,
+                                onClick = { onBookClick(bookId) },
+                                onSelectionToggle = { onBookSelectionToggle(bookId) },
                             )
-                            if (index < state.books.lastIndex) {
+                            if (index < state.bookIds.lastIndex) {
                                 HorizontalDivider(
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                 )
@@ -316,9 +303,10 @@ private fun AdminInboxReadyContent(
 
 @Composable
 private fun InboxBookRow(
-    book: InboxBook,
+    bookId: String,
     isSelected: Boolean,
     isReleasing: Boolean,
+    stagedCount: Int,
     onClick: () -> Unit,
     onSelectionToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -345,40 +333,19 @@ private fun InboxBookRow(
             enabled = !isReleasing,
         )
 
-        // Book cover
-        AsyncImage(
-            model = book.coverUrl,
-            contentDescription = book.title,
-            contentScale = ContentScale.Crop,
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-        )
-
-        // Book info
+        // Book info — full book detail hydration from Room is a 2b polish item;
+        // the substrate surfaces book ids only.
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = book.title,
+                text = bookId,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            book.author?.let { author ->
+            if (stagedCount > 0) {
                 Text(
-                    text = author,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            // Show staged collections count
-            if (book.stagedCollectionIds.isNotEmpty()) {
-                val count = book.stagedCollectionIds.size
-                Text(
-                    text = "$count collection${if (count != 1) "s" else ""} staged",
+                    text = "$stagedCount collection${if (stagedCount != 1) "s" else ""} staged",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

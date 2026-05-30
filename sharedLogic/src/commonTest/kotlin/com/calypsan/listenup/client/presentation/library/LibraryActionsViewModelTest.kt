@@ -9,9 +9,8 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.RefreshCollectionsUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import dev.mokkery.answering.returns
@@ -60,8 +59,6 @@ class LibraryActionsViewModelTest :
             val userRepository: UserRepository = mock()
             val collectionRepository: CollectionRepository = mock()
             val shelfRepository: ShelfRepository = mock()
-            val addBooksToCollectionUseCase: AddBooksToCollectionUseCase = mock()
-            val refreshCollectionsUseCase: RefreshCollectionsUseCase = mock()
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
 
@@ -75,8 +72,6 @@ class LibraryActionsViewModelTest :
                     userRepository = userRepository,
                     collectionRepository = collectionRepository,
                     shelfRepository = shelfRepository,
-                    addBooksToCollectionUseCase = addBooksToCollectionUseCase,
-                    refreshCollectionsUseCase = refreshCollectionsUseCase,
                     addBooksToShelfUseCase = addBooksToShelfUseCase,
                     createShelfUseCase = createShelfUseCase,
                 )
@@ -87,7 +82,7 @@ class LibraryActionsViewModelTest :
 
             // Default stubs for reactive observation
             every { fixture.userRepository.observeCurrentUser() } returns fixture.userFlow
-            every { fixture.collectionRepository.observeAll() } returns fixture.collectionsFlow
+            every { fixture.collectionRepository.observeCollections() } returns fixture.collectionsFlow
             every { fixture.shelfRepository.observeMyShelves(any()) } returns fixture.shelvesFlow
 
             return fixture
@@ -119,9 +114,12 @@ class LibraryActionsViewModelTest :
             Collection(
                 id = id,
                 name = name,
+                ownerId = "user-1",
+                isInbox = false,
+                isGlobalAccess = false,
                 bookCount = bookCount,
-                createdAtMs = 1704067200000L,
-                updatedAtMs = 1704067200000L,
+                callerPermission = SharePermission.Write,
+                isOwner = true,
             )
 
         fun createShelf(
@@ -213,13 +211,13 @@ class LibraryActionsViewModelTest :
             }
         }
 
-        test("addSelectedToCollection calls use case with selected book IDs") {
+        test("addSelectedToCollection calls repository addBook for each selected book") {
             runTest {
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 fixture.selectionManager.toggleSelection("book-2")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -228,7 +226,7 @@ class LibraryActionsViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                verifySuspend { fixture.addBooksToCollectionUseCase("collection-1", any()) }
+                verifySuspend { fixture.collectionRepository.addBook("collection-1", any()) }
             }
         }
 
@@ -237,7 +235,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
                 checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
@@ -256,7 +254,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns
                     Failure(RuntimeException("Network error"))
                 val viewModel = fixture.build()
                 advanceUntilIdle()
@@ -275,7 +273,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 

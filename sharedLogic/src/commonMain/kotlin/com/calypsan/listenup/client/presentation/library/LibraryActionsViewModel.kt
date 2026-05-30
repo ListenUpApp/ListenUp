@@ -9,8 +9,6 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.RefreshCollectionsUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -45,8 +43,6 @@ class LibraryActionsViewModel(
     private val userRepository: UserRepository,
     private val collectionRepository: CollectionRepository,
     private val shelfRepository: ShelfRepository,
-    private val addBooksToCollectionUseCase: AddBooksToCollectionUseCase,
-    private val refreshCollectionsUseCase: RefreshCollectionsUseCase,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
 ) : ViewModel() {
@@ -100,7 +96,7 @@ class LibraryActionsViewModel(
      */
     val collections: StateFlow<List<Collection>> =
         collectionRepository
-            .observeAll()
+            .observeCollections()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -167,9 +163,8 @@ class LibraryActionsViewModel(
      * Refreshes collections for admins to ensure picker has up-to-date data.
      */
     fun onSelectionModeEntered() {
-        if (isAdmin.value) {
-            refreshCollections()
-        }
+        // Collections are now Room-authoritative (kept current by the sync engine);
+        // no manual refresh needed — the observed [collections] flow is always live.
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -190,39 +185,23 @@ class LibraryActionsViewModel(
             isAddingToCollection.value = true
             val bookIds = selectedIds.toList()
 
-            when (val result = addBooksToCollectionUseCase(collectionId, bookIds)) {
-                is Success -> {
-                    logger.info { "Added ${bookIds.size} books to collection $collectionId" }
-                    eventsChannel.send(LibraryActionEvent.BooksAddedToCollection(bookIds.size))
-                    selectionManager.clearAfterAction()
-                }
+            // The RPC surface adds one book at a time (idempotent); dispatch each and
+            // fail fast on the first error. SSE echoes update Room — no optimistic write.
+            val failure =
+                bookIds
+                    .map { collectionRepository.addBook(collectionId, it) }
+                    .firstOrNull { it is Failure } as? Failure
 
-                is Failure -> {
-                    logger.error { "Failed to add books to collection: ${result.message}" }
-                    eventsChannel.send(LibraryActionEvent.AddToCollectionFailed(result.message))
-                }
+            if (failure == null) {
+                logger.info { "Added ${bookIds.size} books to collection $collectionId" }
+                eventsChannel.send(LibraryActionEvent.BooksAddedToCollection(bookIds.size))
+                selectionManager.clearAfterAction()
+            } else {
+                logger.error { "Failed to add books to collection: ${failure.message}" }
+                eventsChannel.send(LibraryActionEvent.AddToCollectionFailed(failure.message))
             }
 
             isAddingToCollection.value = false
-        }
-    }
-
-    /**
-     * Refresh collections from the server.
-     * Uses RefreshCollectionsUseCase to sync the local database.
-     */
-    private fun refreshCollections() {
-        viewModelScope.launch {
-            when (val result = refreshCollectionsUseCase()) {
-                is Success -> {
-                    logger.debug { "Collections refreshed from server" }
-                }
-
-                is Failure -> {
-                    logger.warn { "Failed to refresh collections from server: ${result.message}" }
-                    // Don't emit error - local data is still usable
-                }
-            }
         }
     }
 

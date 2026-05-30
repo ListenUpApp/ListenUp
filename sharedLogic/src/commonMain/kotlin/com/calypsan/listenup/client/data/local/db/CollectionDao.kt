@@ -6,68 +6,147 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Room DAO for [CollectionEntity] operations.
+ * Room DAO for [CollectionEntity] sync-substrate operations (Collections — Room v24).
  *
- * Provides both reactive (Flow-based) and one-shot queries for collections.
- * Collections are admin-only features that group books for organizational purposes.
+ * Tombstones are soft-deletes: [CollectionEntity.deletedAt] is set to a non-null
+ * epoch-ms value when a collection is removed. All observation queries exclude
+ * tombstones. `bookCount` is JOIN-derived (no denormalized column) — see
+ * [observeAllWithBookCount]. Mirrors [TagDao].
  */
 @Dao
 interface CollectionDao {
-    /**
-     * Observe all collections as a reactive Flow, ordered by name.
-     * Emits new list whenever any collection changes.
-     *
-     * @return Flow emitting list of all collections
-     */
-    @Query("SELECT * FROM collections ORDER BY name ASC")
-    fun observeAll(): Flow<List<CollectionEntity>>
-
-    /**
-     * Get all collections synchronously, ordered by name.
-     *
-     * @return List of all collections
-     */
-    @Query("SELECT * FROM collections ORDER BY name ASC")
-    suspend fun getAll(): List<CollectionEntity>
-
-    /**
-     * Get a single collection by ID.
-     *
-     * @param id The collection ID
-     * @return The collection entity or null if not found
-     */
-    @Query("SELECT * FROM collections WHERE id = :id")
-    suspend fun getById(id: String): CollectionEntity?
-
-    /**
-     * Insert or update a collection entity.
-     * If a collection with the same ID exists, it will be updated.
-     *
-     * @param collection The collection entity to upsert
-     */
+    /** Insert or update a collection. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(collection: CollectionEntity)
 
-    /**
-     * Insert or update multiple collection entities in a single transaction.
-     *
-     * @param collections List of collection entities to upsert
-     */
+    /** Insert or update multiple collections in one operation. */
     @Upsert
     suspend fun upsertAll(collections: List<CollectionEntity>)
 
-    /**
-     * Delete a collection by ID.
-     *
-     * @param id The collection ID to delete
-     */
-    @Query("DELETE FROM collections WHERE id = :id")
-    suspend fun deleteById(id: String)
+    /** Apply a server tombstone: set [CollectionEntity.deletedAt] and advance [CollectionEntity.revision]. */
+    @Query(
+        "UPDATE collections SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /** Retrieve a single non-tombstoned collection by primary key, or null if absent or deleted. */
+    @Query("SELECT * FROM collections WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getById(id: String): CollectionEntity?
+
+    /** Observe a single collection by primary key, emitting null when absent or tombstoned. */
+    @Query("SELECT * FROM collections WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    fun observeById(id: String): Flow<CollectionEntity?>
 
     /**
-     * Delete all collections.
-     * Used for testing and full re-sync scenarios.
+     * Observe all non-tombstoned collections with their live book counts, ordered by name.
+     *
+     * `bookCount` counts live (non-tombstoned) [CollectionBookEntity] rows per collection
+     * via LEFT JOIN — the [GenreDao.observeAllGenresWithBookCount] precedent.
      */
+    @Query(
+        """
+        SELECT c.*, COALESCE(b.cnt, 0) AS bookCount
+        FROM collections c
+        LEFT JOIN (
+            SELECT collectionId, COUNT(*) AS cnt
+            FROM collection_books
+            WHERE deletedAt IS NULL
+            GROUP BY collectionId
+        ) b ON b.collectionId = c.id
+        WHERE c.deletedAt IS NULL
+        ORDER BY c.name ASC
+    """,
+    )
+    fun observeAllWithBookCount(): Flow<List<CollectionWithBookCount>>
+
+    /** Live (non-tombstoned) collection ids — used by the access-change reconcile. */
+    @Query("SELECT id FROM collections WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /** Delete all collection rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collections")
+    suspend fun deleteAll()
+}
+
+/**
+ * Room DAO for [CollectionBookEntity] junction sync operations (Collections — Room v24).
+ *
+ * Soft-deletes are tombstoned via [CollectionBookEntity.deletedAt]; observation queries
+ * exclude tombstoned rows so the UI reactively reflects removals. Mirrors [BookTagDao].
+ */
+@Dao
+interface CollectionBookDao {
+    /** Insert or update a junction row. Replaces on conflict using the composite primary key. */
+    @Upsert
+    suspend fun upsert(entity: CollectionBookEntity)
+
+    /** Tombstone a junction row: set [CollectionBookEntity.deletedAt] and advance the revision. */
+    @Query(
+        "UPDATE collection_books SET deletedAt = :deletedAt, revision = :revision " +
+            "WHERE collectionId = :collectionId AND bookId = :bookId",
+    )
+    suspend fun tombstone(
+        collectionId: String,
+        bookId: String,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /** Return the junction row for the given [collectionId]/[bookId] pair, or null if absent. */
+    @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId AND bookId = :bookId LIMIT 1")
+    suspend fun findByKey(
+        collectionId: String,
+        bookId: String,
+    ): CollectionBookEntity?
+
+    /** Observe the live (non-tombstoned) book ids for a collection. */
+    @Query(
+        "SELECT bookId FROM collection_books WHERE collectionId = :collectionId AND deletedAt IS NULL ORDER BY createdAt ASC",
+    )
+    fun observeBookIds(collectionId: String): Flow<List<String>>
+
+    /** Delete all junction rows (used in tests and full re-sync scenarios). */
+    @Query("DELETE FROM collection_books")
+    suspend fun deleteAll()
+}
+
+/**
+ * Room DAO for [CollectionShareEntity] sync operations (Collections — Room v24).
+ *
+ * Soft-deletes via [CollectionShareEntity.deletedAt] represent revoked shares;
+ * observation queries exclude tombstoned rows. Mirrors [TagDao].
+ */
+@Dao
+interface CollectionShareDao {
+    /** Insert or update a share. Replaces on conflict using the primary key. */
+    @Upsert
+    suspend fun upsert(share: CollectionShareEntity)
+
+    /** Apply a server tombstone: set [CollectionShareEntity.deletedAt] and advance the revision. */
+    @Query(
+        "UPDATE collection_shares SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    )
+
+    /** Retrieve a single non-tombstoned share by primary key, or null if absent or deleted. */
+    @Query("SELECT * FROM collection_shares WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getById(id: String): CollectionShareEntity?
+
+    /** Observe live (non-tombstoned) shares for a collection, ordered by recipient. */
+    @Query(
+        "SELECT * FROM collection_shares WHERE collectionId = :collectionId AND deletedAt IS NULL ORDER BY sharedWithUserId ASC",
+    )
+    fun observeForCollection(collectionId: String): Flow<List<CollectionShareEntity>>
+
+    /** Delete all share rows (used in tests and full re-sync scenarios). */
+    @Query("DELETE FROM collection_shares")
     suspend fun deleteAll()
 }

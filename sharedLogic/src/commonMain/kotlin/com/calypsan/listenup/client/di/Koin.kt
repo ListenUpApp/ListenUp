@@ -13,10 +13,12 @@ import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
 import com.calypsan.listenup.client.data.remote.AdminApiContract
-import com.calypsan.listenup.client.data.remote.AdminCollectionApi
-import com.calypsan.listenup.client.data.remote.AdminCollectionApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.CollectionInboxApi
+import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
+import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
@@ -132,30 +134,15 @@ import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadInboxBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.ReleaseBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.StageCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.UnstageCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.DeleteCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.GetUsersForSharingUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.LoadCollectionBooksUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.LoadCollectionSharesUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.RefreshCollectionsUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.RemoveBookFromCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.RemoveCollectionShareUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.ShareCollectionUseCase
-import com.calypsan.listenup.client.domain.usecase.collection.UpdateCollectionNameUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
@@ -343,6 +330,8 @@ val repositoryModule =
         single { get<ListenUpDatabase>().searchDao() }
         single { get<ListenUpDatabase>().serverDao() }
         single { get<ListenUpDatabase>().collectionDao() }
+        single { get<ListenUpDatabase>().collectionBookDao() }
+        single { get<ListenUpDatabase>().collectionShareDao() }
         single { get<ListenUpDatabase>().shelfDao() }
         single { get<ListenUpDatabase>().shelfBookDao() }
         single { get<ListenUpDatabase>().tagDao() }
@@ -485,65 +474,6 @@ val useCaseModule =
                 shelfRepository = get(),
             )
         }
-        // Collection use cases
-        factory {
-            CreateCollectionUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            DeleteCollectionUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            AddBooksToCollectionUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            RefreshCollectionsUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            UpdateCollectionNameUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            RemoveBookFromCollectionUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            LoadCollectionBooksUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            ShareCollectionUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            RemoveCollectionShareUseCase(
-                collectionRepository = get(),
-            )
-        }
-        factory {
-            LoadCollectionSharesUseCase(
-                collectionRepository = get(),
-                adminRepository = get(),
-            )
-        }
-        factory {
-            GetUsersForSharingUseCase(
-                adminRepository = get(),
-                collectionRepository = get(),
-                userRepository = get(),
-            )
-        }
         // Admin user management use cases
         factory {
             LoadUsersUseCase(
@@ -597,26 +527,6 @@ val useCaseModule =
         }
         factory {
             UpdateServerSettingsUseCase(
-                adminRepository = get(),
-            )
-        }
-        factory {
-            LoadInboxBooksUseCase(
-                adminRepository = get(),
-            )
-        }
-        factory {
-            ReleaseBooksUseCase(
-                adminRepository = get(),
-            )
-        }
-        factory {
-            StageCollectionUseCase(
-                adminRepository = get(),
-            )
-        }
-        factory {
-            UnstageCollectionUseCase(
                 adminRepository = get(),
             )
         }
@@ -740,6 +650,14 @@ val syncModule =
             )
         }
 
+        // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
+        single<CollectionRpcFactory> {
+            KtorCollectionRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.MetadataRepository> {
             MetadataRepositoryImpl(rpcFactory = get())
@@ -780,10 +698,10 @@ val syncModule =
             EventStreamRepositoryImpl()
         }
 
-        // AdminCollectionApi for admin collection operations
+        // AdminInboxApi for the 1b admin collection-inbox REST routes
         single {
-            AdminCollectionApi(clientFactory = get())
-        } bind AdminCollectionApiContract::class
+            CollectionInboxApi(clientFactory = get())
+        } bind CollectionInboxApiContract::class
 
         // UserPreferencesApi for syncing user preferences across devices
         single {
@@ -1042,9 +960,20 @@ val syncModule =
             )
         }
 
-        // CollectionRepository for admin collections (SOLID: interface in domain, impl in data)
+        // CollectionRepository — Room reads + CollectionService RPC writes (interface in domain, impl in data)
         single<CollectionRepository> {
-            CollectionRepositoryImpl(dao = get(), adminCollectionApi = get())
+            CollectionRepositoryImpl(
+                collectionDao = get(),
+                collectionBookDao = get(),
+                collectionShareDao = get(),
+                rpcFactory = get(),
+            )
+        }
+
+        // InboxRepository — admin collection-inbox over the 1b REST routes
+        single<com.calypsan.listenup.client.domain.repository.InboxRepository> {
+            com.calypsan.listenup.client.data.repository
+                .InboxRepositoryImpl(api = get())
         }
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)

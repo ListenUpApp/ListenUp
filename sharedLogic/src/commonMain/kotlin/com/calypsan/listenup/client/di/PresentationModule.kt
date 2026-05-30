@@ -109,18 +109,16 @@ val adminPresentationModule =
         }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel(
-                loadInboxBooksUseCase = get(),
-                releaseBooksUseCase = get(),
-                stageCollectionUseCase = get(),
-                unstageCollectionUseCase = get(),
+                inboxRepository = get(),
+                libraryRepository = get(),
                 eventStreamRepository = get(),
+                errorBus = get(),
             )
         }
         factory {
             com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel(
                 collectionRepository = get(),
-                createCollectionUseCase = get(),
-                deleteCollectionUseCase = get(),
+                libraryRepository = get(),
                 errorBus = get(),
             )
         }
@@ -147,13 +145,8 @@ val adminPresentationModule =
             com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel(
                 collectionId = params.get<String>(0),
                 collectionRepository = get(),
-                loadCollectionBooksUseCase = get(),
-                loadCollectionSharesUseCase = get(),
-                updateCollectionNameUseCase = get(),
-                removeBookFromCollectionUseCase = get(),
-                shareCollectionUseCase = get(),
-                removeCollectionShareUseCase = get(),
-                getUsersForSharingUseCase = get(),
+                adminRepository = get(),
+                userRepository = get(),
                 errorBus = get(),
             )
         }
@@ -242,8 +235,6 @@ val libraryPresentationModule =
                 userRepository = get(),
                 collectionRepository = get(),
                 shelfRepository = get(),
-                addBooksToCollectionUseCase = get(),
-                refreshCollectionsUseCase = get(),
                 addBooksToShelfUseCase = get(),
                 createShelfUseCase = get(),
             )

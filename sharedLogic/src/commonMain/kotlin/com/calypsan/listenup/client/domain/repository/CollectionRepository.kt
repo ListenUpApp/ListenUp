@@ -1,183 +1,76 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.model.Collection
+import com.calypsan.listenup.client.domain.model.CollectionShare
+import com.calypsan.listenup.core.AppResult
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository contract for collection operations.
  *
- * Provides access to admin-managed book collections.
- * Collections are organizational groups created by administrators.
+ * Offline-first dispatcher over the [com.calypsan.listenup.api.CollectionService]
+ * RPC surface: **reads** observe the local Room mirror (populated by the collection
+ * sync handlers via SSE/catch-up), and **writes** dispatch to RPC. There are no
+ * optimistic Room writes — the SSE echo is the single write path back into Room
+ * (the Tags/Genres rule).
  *
- * Part of the domain layer - implementations live in the data layer.
+ * Implementations live in the data layer.
  */
 interface CollectionRepository {
-    /**
-     * Observe all collections reactively, ordered by name.
-     *
-     * @return Flow emitting list of all collections
-     */
-    fun observeAll(): Flow<List<Collection>>
+    /** Observe all accessible collections reactively, ordered by name, with JOIN-derived book counts. */
+    fun observeCollections(): Flow<List<Collection>>
 
-    /**
-     * Get all collections synchronously.
-     *
-     * @return List of all collections
-     */
-    suspend fun getAll(): List<Collection>
+    /** Observe the live book ids that are members of [collectionId]. */
+    fun observeCollectionBooks(collectionId: String): Flow<List<String>>
 
-    /**
-     * Get a collection by ID.
-     *
-     * @param id The collection ID
-     * @return Collection if found, null otherwise
-     */
-    suspend fun getById(id: String): Collection?
+    /** Observe the active share grants on [collectionId]. */
+    fun observeShares(collectionId: String): Flow<List<CollectionShare>>
 
-    /**
-     * Insert or update a collection.
-     *
-     * Used during sync operations to persist server data locally.
-     *
-     * @param collection The collection to save
-     */
-    suspend fun upsert(collection: Collection)
-
-    /**
-     * Delete a collection by ID from local storage.
-     *
-     * @param id The collection ID to delete
-     */
-    suspend fun deleteById(id: String)
-
-    /**
-     * Create a new collection on server and persist locally.
-     *
-     * @param name The collection name
-     * @return [AppResult.Success] containing the created collection, [AppResult.Failure] on API error
-     */
-    suspend fun create(name: String): AppResult<Collection>
-
-    /**
-     * Delete a collection on server and remove from local storage.
-     *
-     * @param id The collection ID to delete
-     * @return [AppResult.Success] on deletion, [AppResult.Failure] on API error
-     */
-    suspend fun delete(id: String): AppResult<Unit>
-
-    /**
-     * Add books to a collection via the server API.
-     *
-     * @param collectionId The collection to add books to
-     * @param bookIds The book IDs to add
-     * @return [AppResult.Success] on success, [AppResult.Failure] on API error
-     */
-    suspend fun addBooksToCollection(
-        collectionId: String,
-        bookIds: List<String>,
-    ): AppResult<Unit>
-
-    /**
-     * Refresh collections from the server.
-     *
-     * Fetches latest collections from server and syncs with local database.
-     * Adds new collections, updates existing ones, and removes deleted ones.
-     *
-     * @return [AppResult.Success] when refresh succeeds, [AppResult.Failure] on API error
-     */
-    suspend fun refreshFromServer(): AppResult<Unit>
-
-    /**
-     * Get collection details from the server.
-     *
-     * @param collectionId The collection ID
-     * @return [AppResult.Success] containing the collection, [AppResult.Failure] on API error
-     */
-    suspend fun getCollectionFromServer(collectionId: String): AppResult<Collection>
-
-    /**
-     * Get books in a collection.
-     *
-     * @param collectionId The collection ID
-     * @return [AppResult.Success] containing the list of book summaries, [AppResult.Failure] on API error
-     */
-    suspend fun getCollectionBooks(collectionId: String): AppResult<List<CollectionBookSummary>>
-
-    /**
-     * Update a collection's name.
-     *
-     * @param collectionId The collection ID
-     * @param name The new name
-     * @return [AppResult.Success] containing the updated collection, [AppResult.Failure] on API error
-     */
-    suspend fun updateCollectionName(
-        collectionId: String,
+    /** Create a new collection named [name] in [libraryId]. */
+    suspend fun create(
+        libraryId: String,
         name: String,
     ): AppResult<Collection>
 
-    /**
-     * Remove a book from a collection.
-     *
-     * @param collectionId The collection ID
-     * @param bookId The book ID to remove
-     * @return [AppResult.Success] on removal, [AppResult.Failure] on API error
-     */
-    suspend fun removeBookFromCollection(
+    /** Rename the collection identified by [id] to [name]. */
+    suspend fun rename(
+        id: String,
+        name: String,
+    ): AppResult<Collection>
+
+    /** Delete the collection identified by [id]. */
+    suspend fun delete(id: String): AppResult<Unit>
+
+    /** Add [bookId] to the collection identified by [collectionId]. */
+    suspend fun addBook(
         collectionId: String,
         bookId: String,
     ): AppResult<Unit>
 
-    /**
-     * Get shares for a collection.
-     *
-     * @param collectionId The collection ID
-     * @return [AppResult.Success] containing the list of share summaries, [AppResult.Failure] on API error
-     */
-    suspend fun getCollectionShares(collectionId: String): AppResult<List<CollectionShareSummary>>
-
-    /**
-     * Share a collection with a user.
-     *
-     * @param collectionId The collection ID
-     * @param userId The user to share with
-     * @return [AppResult.Success] containing the created share summary, [AppResult.Failure] on API error
-     */
-    suspend fun shareCollection(
+    /** Remove [bookId] from the collection identified by [collectionId]. */
+    suspend fun removeBook(
         collectionId: String,
-        userId: String,
-    ): AppResult<CollectionShareSummary>
+        bookId: String,
+    ): AppResult<Unit>
 
-    /**
-     * Remove a share (unshare).
-     *
-     * @param shareId The share ID to remove
-     * @return [AppResult.Success] on removal, [AppResult.Failure] on API error
-     */
-    suspend fun removeShare(shareId: String): AppResult<Unit>
+    /** Share [collectionId] with [sharedWithUserId] at the given [permission] level. */
+    suspend fun share(
+        collectionId: String,
+        sharedWithUserId: String,
+        permission: SharePermission,
+    ): AppResult<CollectionShare>
+
+    /** Update the [permission] level of an existing share for [sharedWithUserId]. */
+    suspend fun updateShare(
+        collectionId: String,
+        sharedWithUserId: String,
+        permission: SharePermission,
+    ): AppResult<CollectionShare>
+
+    /** Revoke the share on [collectionId] for [sharedWithUserId]. */
+    suspend fun revokeShare(
+        collectionId: String,
+        sharedWithUserId: String,
+    ): AppResult<Unit>
 }
-
-/**
- * Summary of a book in a collection.
- */
-data class CollectionBookSummary(
-    val id: String,
-    val title: String,
-    val coverPath: String?,
-)
-
-/**
- * Summary of a collection share.
- *
- * userName and userEmail may be empty when fetched from the API,
- * as they require a separate user lookup. Use cases can enrich
- * this data with user information from UserRepository or AdminRepository.
- */
-data class CollectionShareSummary(
-    val id: String,
-    val userId: String,
-    val userName: String = "",
-    val userEmail: String = "",
-    val permission: String,
-)
