@@ -39,6 +39,8 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         DownloadEntity::class,
         ServerEntity::class,
         CollectionEntity::class,
+        CollectionBookEntity::class,
+        CollectionShareEntity::class,
         ShelfEntity::class,
         ShelfBookCrossRef::class,
         TagEntity::class,
@@ -55,7 +57,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 @TypeConverters(
@@ -98,6 +100,10 @@ abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun serverDao(): ServerDao
 
     abstract fun collectionDao(): CollectionDao
+
+    abstract fun collectionBookDao(): CollectionBookDao
+
+    abstract fun collectionShareDao(): CollectionShareDao
 
     abstract fun shelfDao(): ShelfDao
 

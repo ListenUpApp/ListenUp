@@ -33,6 +33,8 @@ class LibrarySyncDomainHandler(
     override val domainName: String = "libraries"
     override val payloadSerializer = LibrarySyncPayload.serializer()
 
+    override fun syncId(item: LibrarySyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

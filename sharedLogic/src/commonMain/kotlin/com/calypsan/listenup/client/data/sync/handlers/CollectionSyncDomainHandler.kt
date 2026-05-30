@@ -1,48 +1,57 @@
 package com.calypsan.listenup.client.data.sync.handlers
 
-import com.calypsan.listenup.api.sync.GenreSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.client.data.local.db.GenreEntity
+import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Timestamp
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Client-side sync handler for the `genres` domain.
+ * Client-side sync handler for the `collections` domain (Collections — Room v24).
  *
- * Applies server sync events into the Room `genres` table. Tree reads consult
- * Room directly via [com.calypsan.listenup.client.data.local.db.GenreDao]; this
- * handler is the only writer the sync engine ever invokes for genre rows.
+ * Applies server sync events into the Room `collections` table. Collection rows carry
+ * the full wire payload on [SyncEvent.Created] and [SyncEvent.Updated]; [SyncEvent.Deleted]
+ * events soft-delete the row via [com.calypsan.listenup.client.data.local.db.CollectionDao.softDelete].
  *
- * On `SyncEvent.Created` / `SyncEvent.Updated`: upsert the full payload —
- * server-authoritative for every column. On `SyncEvent.Deleted`: soft-delete
- * via [com.calypsan.listenup.client.data.local.db.GenreDao.softDelete]. The
- * row stays so revision bookkeeping survives; reads filter `deletedAt IS NULL`.
+ * `bookCount` is JOIN-derived (never stored), so the handler maps only the substrate
+ * fields — drift is impossible by construction.
+ *
+ * `isOwnEcho` is passed through but not acted on: `@Upsert` is idempotent, so re-applying
+ * a server echo of the client's own write produces the same row.
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
-class GenreSyncDomainHandler(
+class CollectionSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
-) : SyncDomainHandler<GenreSyncPayload> {
-    override val domainName: String = "genres"
-    override val payloadSerializer = GenreSyncPayload.serializer()
+) : SyncDomainHandler<CollectionSyncPayload>,
+    AccessFilteredSyncHandler {
+    override val domainName: String = "collections"
+    override val payloadSerializer = CollectionSyncPayload.serializer()
 
-    override fun syncId(item: GenreSyncPayload): String = item.id
+    override fun syncId(item: CollectionSyncPayload): String = item.id
 
     init {
         registry.register(this)
     }
 
+    override suspend fun localLiveIds(): Set<String> = database.collectionDao().liveIds().toSet()
+
+    override suspend fun pruneTo(
+        accessibleIds: Set<String>,
+        now: Long,
+    ) = database.collectionDao().tombstoneNotIn(accessibleIds, now)
+
     override suspend fun onEvent(
-        event: SyncEvent<GenreSyncPayload>,
+        event: SyncEvent<CollectionSyncPayload>,
         isOwnEcho: Boolean,
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
@@ -56,7 +65,7 @@ class GenreSyncDomainHandler(
                 }
 
                 is SyncEvent.Deleted -> {
-                    tombstone(
+                    database.collectionDao().softDelete(
                         id = event.id,
                         deletedAt = event.occurredAt,
                         revision = event.revision,
@@ -66,12 +75,12 @@ class GenreSyncDomainHandler(
         }
 
     override suspend fun onCatchUpItem(
-        item: GenreSyncPayload,
+        item: CollectionSyncPayload,
         isTombstone: Boolean,
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, item.id, logger) {
             if (isTombstone) {
-                tombstone(
+                database.collectionDao().softDelete(
                     id = item.id,
                     deletedAt = item.deletedAt ?: item.updatedAt,
                     revision = item.revision,
@@ -81,30 +90,18 @@ class GenreSyncDomainHandler(
             }
         }
 
-    /** Soft-delete the genre row (column update; row stays for revision bookkeeping). */
-    private suspend fun tombstone(
-        id: String,
-        deletedAt: Long,
-        revision: Long,
-    ) {
-        database.genreDao().softDelete(id = id, deletedAt = deletedAt, revision = revision)
-    }
-
-    /** Upsert the genre row from the server-authoritative payload. */
-    private suspend fun upsert(payload: GenreSyncPayload) {
-        database.genreDao().upsert(
-            GenreEntity(
+    private suspend fun upsert(payload: CollectionSyncPayload) {
+        database.collectionDao().upsert(
+            CollectionEntity(
                 id = payload.id,
+                libraryId = payload.libraryId,
+                ownerId = payload.ownerId,
                 name = payload.name,
-                slug = payload.slug,
-                path = payload.path,
-                parentId = payload.parentId,
-                depth = payload.depth,
-                sortOrder = payload.sortOrder,
+                isInbox = payload.isInbox,
+                isGlobalAccess = payload.isGlobalAccess,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
-                createdAt = Timestamp(payload.createdAt),
-                updatedAt = Timestamp(payload.updatedAt),
+                updatedAt = payload.updatedAt,
             ),
         )
     }

@@ -23,6 +23,8 @@ class RecordingTagSyncDomainHandler(
     override val domainName = "tags"
     override val payloadSerializer = Tag.serializer()
 
+    override fun syncId(item: Tag): String = item.id
+
     init {
         registry.register(this)
     }

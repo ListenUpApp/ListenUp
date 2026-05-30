@@ -38,6 +38,8 @@ class SyncEngineLifecycleTest :
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
 
+                        override fun syncId(item: Tag): String = item.id
+
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
                             isOwnEcho: Boolean,
@@ -148,6 +150,8 @@ class SyncEngineLifecycleTest :
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
 
+                        override fun syncId(item: Tag): String = item.id
+
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
                             isOwnEcho: Boolean,
@@ -228,6 +232,8 @@ class SyncEngineLifecycleTest :
                     object : SyncDomainHandler<Tag> {
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
+
+                        override fun syncId(item: Tag): String = item.id
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
@@ -330,6 +336,8 @@ private class FakeCatchUp(
         }
         return AppResult.Success(Unit)
     }
+
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
 
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }

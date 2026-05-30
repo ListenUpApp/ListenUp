@@ -18,6 +18,8 @@ class SyncDomainHandlerContractTest :
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
 
+                        override fun syncId(item: Tag): String = item.id
+
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
                             isOwnEcho: Boolean,
@@ -49,6 +51,8 @@ class SyncDomainHandlerContractTest :
                     object : SyncDomainHandler<Tag> {
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
+
+                        override fun syncId(item: Tag): String = item.id
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,

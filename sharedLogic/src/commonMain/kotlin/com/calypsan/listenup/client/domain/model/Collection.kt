@@ -1,21 +1,32 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.api.dto.SharePermission
+
 /**
- * Domain model for an admin-managed collection.
+ * Domain model for a collection — an admin-owned, library-scoped grouping of books
+ * with an explicit per-user ACL.
  *
- * Collections are admin-only organizational groups for books.
- * Used for library organization and featured content sections.
+ * Mirrors the wire [com.calypsan.listenup.api.dto.CollectionSummary]: [bookCount] is
+ * computed at read time (JOIN-derived on the client; query-time on the server),
+ * [callerPermission] is the effective permission of the current user, and [isOwner]
+ * drives owner-only UI affordances (rename, delete, share).
  *
- * @property id Unique identifier
- * @property name Display name
- * @property bookCount Number of books in this collection
- * @property createdAtMs Creation timestamp
- * @property updatedAtMs Last update timestamp
+ * @property id Stable identifier.
+ * @property name Display name.
+ * @property ownerId User who owns (created) this collection.
+ * @property isInbox Whether this is the auto-created inbox collection (not deletable).
+ * @property isGlobalAccess Whether this collection is visible to all server users.
+ * @property bookCount Number of live books currently in this collection.
+ * @property callerPermission Effective permission of the current user.
+ * @property isOwner Whether the current user owns this collection.
  */
 data class Collection(
     val id: String,
     val name: String,
+    val ownerId: String,
+    val isInbox: Boolean,
+    val isGlobalAccess: Boolean,
     val bookCount: Int,
-    val createdAtMs: Long,
-    val updatedAtMs: Long,
+    val callerPermission: SharePermission,
+    val isOwner: Boolean,
 )

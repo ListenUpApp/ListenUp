@@ -18,6 +18,9 @@ class SyncEventDispatcherTest :
         class RecordingHandler : SyncDomainHandler<Tag> {
             override val domainName = "tags"
             override val payloadSerializer = Tag.serializer()
+
+            override fun syncId(item: Tag): String = item.id
+
             val seen = mutableListOf<Pair<SyncEvent<Tag>, Boolean>>()
 
             override suspend fun onEvent(

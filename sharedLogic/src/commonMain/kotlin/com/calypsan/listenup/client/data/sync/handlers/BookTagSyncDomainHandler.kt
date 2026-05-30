@@ -42,6 +42,8 @@ class BookTagSyncDomainHandler(
     override val domainName: String = "book_tags"
     override val payloadSerializer = BookTagSyncPayload.serializer()
 
+    override fun syncId(item: BookTagSyncPayload): String = "${item.bookId}:${item.tagId}"
+
     init {
         registry.register(this)
     }

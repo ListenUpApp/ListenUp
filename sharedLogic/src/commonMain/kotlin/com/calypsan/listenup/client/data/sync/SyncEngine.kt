@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CompletableDeferred
@@ -263,20 +264,39 @@ class SyncEngine(
     /**
      * Recover from an `AccessChanged` control signal: the caller's accessible set may have
      * changed without a book row mutating (a collection was shared/unshared with them, a share's
-     * permission changed, or a book was released into a collection they can see). Re-pull the
-     * access-gated domains via catch-up so Room re-derives what the user can now see.
+     * permission changed, or a book was released into a collection they can see).
+     *
+     * For each access-gated domain (books plus the three collection domains) this **re-derives
+     * and prunes** (approach B — always re-derive, no digest gate):
+     *  1. Run a TRANSIENT access-filtered catch-up from cursor 0 via [CatchUp.catchUpTransient].
+     *     The server's `pullSince` for these domains is access-filtered, so the pass upserts
+     *     exactly the rows the caller may now see and returns their ids. It deliberately does
+     *     NOT touch [SyncCursorStore] — the live SSE/cursor path continues independently.
+     *  2. [AccessFilteredSyncHandler.pruneTo] soft-deletes every locally-live row NOT in that
+     *     accessible set — the load-bearing security step that evicts a revoked share's now
+     *     inaccessible books from Room (closing the gap a plain catch-up would leave open).
+     *
+     * For an admin, the access-filtered catch-up returns everything, so `pruneTo` deletes
+     * nothing — the same code is correct for both members and admins.
      *
      * Unlike [handleCursorStale] this does not tear down the SSE connection: the live tail is
      * still valid (no cursor was lost), only the *visibility* of existing rows shifted. A failed
-     * catch-up is logged and swallowed — the next signal (or a manual refresh) recovers.
+     * re-derive for one domain is logged and swallowed — the next signal (or a manual refresh)
+     * recovers, and one domain's failure must not strand the others.
      */
     internal suspend fun handleAccessChanged() {
-        logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
-        when (val result = catchUp.catchUpAll(registry)) {
-            is AppResult.Success -> {}
+        logger.info { "AccessChanged: re-deriving + pruning access-gated domains" }
+        for (handler in registry.accessFilteredHandlers()) {
+            @Suppress("UNCHECKED_CAST")
+            val typed = handler as SyncDomainHandler<Any>
+            when (val ids = catchUp.catchUpTransient(typed)) {
+                is AppResult.Success -> {
+                    (handler as AccessFilteredSyncHandler).pruneTo(ids.data, currentEpochMilliseconds())
+                }
 
-            is AppResult.Failure -> {
-                logger.warn { "Catch-up failed during AccessChanged recovery: ${result.error.code}" }
+                is AppResult.Failure -> {
+                    logger.warn { "AccessChanged reconcile failed for ${handler.domainName}: ${ids.error.code}" }
+                }
             }
         }
     }

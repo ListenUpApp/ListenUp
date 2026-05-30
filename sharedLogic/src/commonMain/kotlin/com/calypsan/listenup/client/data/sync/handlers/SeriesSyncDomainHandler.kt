@@ -37,6 +37,8 @@ class SeriesSyncDomainHandler(
     override val domainName: String = "series"
     override val payloadSerializer = SeriesSyncPayload.serializer()
 
+    override fun syncId(item: SeriesSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

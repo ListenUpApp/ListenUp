@@ -42,6 +42,8 @@ class ActiveSessionSyncDomainHandler(
     override val domainName: String = "active_sessions"
     override val payloadSerializer = ActiveSessionSyncPayload.serializer()
 
+    override fun syncId(item: ActiveSessionSyncPayload): String = item.sessionId
+
     init {
         registry.register(this)
     }

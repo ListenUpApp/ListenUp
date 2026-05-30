@@ -190,7 +190,7 @@ fun AdminCollectionDetailScreen(
             onDismissRequest = { bookToRemove = null },
             title = stringResource(Res.string.admin_remove_book),
             text =
-                "Are you sure you want to remove \"${book.title}\" from this collection? " +
+                "Are you sure you want to remove \"${book.id}\" from this collection? " +
                     stringResource(Res.string.admin_the_book_will_not_be),
             confirmText = stringResource(Res.string.common_remove),
             onConfirm = {
@@ -211,7 +211,7 @@ fun AdminCollectionDetailScreen(
                     stringResource(Res.string.admin_they_will_no_longer_have),
             confirmText = stringResource(Res.string.common_remove),
             onConfirm = {
-                viewModel.removeShare(share.id)
+                viewModel.revokeShare(share.userId)
                 shareToRemove = null
             },
             onDismiss = { shareToRemove = null },
@@ -300,7 +300,7 @@ private fun AdminCollectionDetailReadyContent(
             item {
                 MembersCard(
                     shares = state.shares,
-                    removingShareId = state.removingShareId,
+                    removingShareUserId = state.removingShareUserId,
                     onRemoveMemberClick = onRemoveMemberClick,
                 )
             }
@@ -469,7 +469,7 @@ private fun MembersSectionHeader(onAddMemberClick: () -> Unit) {
 @Composable
 private fun MembersCard(
     shares: List<CollectionShareItem>,
-    removingShareId: String?,
+    removingShareUserId: String?,
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
 ) {
     ElevatedCard(
@@ -484,7 +484,7 @@ private fun MembersCard(
             shares.forEachIndexed { index, share ->
                 MemberRow(
                     share = share,
-                    isRemoving = removingShareId == share.id,
+                    isRemoving = removingShareUserId == share.userId,
                     onRemoveClick = { onRemoveMemberClick(share) },
                 )
                 if (index < shares.lastIndex) {
@@ -520,21 +520,19 @@ private fun MemberRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = share.userName,
+                text = share.userId,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (share.userEmail.isNotBlank()) {
-                Text(
-                    text = share.userEmail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Text(
+                text = share.permission,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
 
         if (isRemoving) {
@@ -749,21 +747,12 @@ private fun BookRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = book.title,
+                text = book.id,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (book.authorNames.isNotBlank()) {
-                Text(
-                    text = book.authorNames,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
 
         if (isRemoving) {
