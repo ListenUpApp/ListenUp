@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,14 +32,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CoverColors
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.components.ProgressOverlay
-import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.LocalDarkTheme
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -49,6 +48,7 @@ import listenup.composeapp.generated.resources.book_detail_more_options
  * Hero section with color-extracted gradient background.
  * Uses Palette API colors for a cohesive look that matches the cover art.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Suppress("MagicNumber", "LongParameterList")
 @Composable
 fun HeroSection(
@@ -146,11 +146,7 @@ fun HeroSection(
             // Title - Magazine headline style with high contrast for dark mode
             Text(
                 text = title,
-                style =
-                    MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
+                style = MaterialTheme.typography.headlineMediumEmphasized,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 3,

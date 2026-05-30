@@ -12,11 +12,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
@@ -37,6 +37,7 @@ import listenup.composeapp.generated.resources.home_continue_listening
  * @param onBookClick Callback when a ready book card is clicked
  * @param modifier Optional modifier
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ContinueListeningRow(
     items: List<ContinueListeningItem>,
@@ -47,10 +48,7 @@ fun ContinueListeningRow(
         // Section header
         Text(
             text = stringResource(Res.string.home_continue_listening),
-            style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                ),
+            style = MaterialTheme.typography.titleLargeEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
