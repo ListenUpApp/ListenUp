@@ -78,9 +78,19 @@ before any non-trivial iOS work.
     Book, Play Audio, Settings, Statistics, auth flows). They are **pre-Liquid-Glass** — use
     them for layout/flow/content *inspiration only*; never copy their chrome or styling.
     Liquid Glass + HIG always win over the mockups. Android screens are likewise inspiration only.
-12. **Accessibility *is* "follows Apple guidelines," not polish.** Honor Dynamic Type,
-    VoiceOver, and the Liquid Glass accessibility settings — Reduce Transparency, Increase
-    Contrast, Reduce Motion. Support size-class adaptivity (iPad/landscape).
+12. **Adaptive to every device, accessible to every user — neither is polish.**
+    **Build for all screen sizes as a first-class requirement:** every screen earns a real
+    layout at compact, regular, and large widths — **all iPhones, all iPads, landscape, Split
+    View / Stage Manager** — via `NavigationSplitView`, multi-column, and size-class-driven
+    composition. Never ship a blown-up iPhone UI on iPad ("a phone layout stretched on a
+    tablet"); the end-goal is a genuinely great experience across the whole iPhone+iPad range.
+    iOS is more constrained here than Android (which is further along — its shell already
+    adapts compact/medium/expanded), which is exactly why iOS needs deliberate attention.
+    *(Current debt: the app is "blown-up phone" today — `.tabViewStyle(.sidebarAdaptable)` is
+    commented out and `horizontalSizeClass` is used in one place; treat closing this as real
+    scheduled work.)* **And accessibility *is* "follows Apple guidelines":** honor Dynamic
+    Type, VoiceOver, and the Liquid Glass accessibility settings — Reduce Transparency,
+    Increase Contrast, Reduce Motion.
 
 ## Media & process
 
