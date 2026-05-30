@@ -649,3 +649,42 @@ internal class CollectionServiceImpl(
     private suspend fun CollectionShareRepository.softDelete(id: String): AppResult<Unit> =
         softDelete(id, clientOpId = null)
 }
+
+/**
+ * Constructs a [CollectionService] backed by [CollectionServiceImpl]. Public so cross-module
+ * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithCollectionSyncEngineAgainstServer`) can
+ * build the service without depending on the Koin graph or piercing the `internal` access on
+ * [CollectionServiceImpl] / [CollectionAccessPolicy]. Production wiring continues to construct
+ * the impl directly inside the books Koin module.
+ *
+ * Returns the concrete [CollectionService] interface; scope it per caller with
+ * [collectionServiceScopedTo] before driving owner-only operations (create/share/revoke).
+ */
+fun createCollectionService(
+    collectionRepo: CollectionRepository,
+    collectionBookRepo: CollectionBookRepository,
+    shareRepo: CollectionShareRepository,
+    bus: ChangeBus,
+    db: Database,
+    clock: Clock = Clock.System,
+): CollectionService =
+    CollectionServiceImpl(
+        collectionRepo = collectionRepo,
+        collectionBookRepo = collectionBookRepo,
+        shareRepo = shareRepo,
+        accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        bus = bus,
+        db = db,
+        clock = clock,
+        principal = PrincipalProvider { error("Unscoped CollectionService — call collectionServiceScopedTo") },
+    )
+
+/**
+ * Scopes a [CollectionService] built by [createCollectionService] to [principal] for one caller.
+ * Public so cross-module test harnesses can bind the authenticated caller without piercing the
+ * `internal` access on [CollectionServiceImpl.copyWith].
+ */
+fun collectionServiceScopedTo(
+    service: CollectionService,
+    principal: PrincipalProvider,
+): CollectionService = (service as CollectionServiceImpl).copyWith(principal)

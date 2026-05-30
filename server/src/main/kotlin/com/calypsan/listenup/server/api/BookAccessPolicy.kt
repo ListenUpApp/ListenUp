@@ -35,7 +35,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * handle, and the same [SqlFragment] splicing contract — keeping them together means the
  * access boundary is one definition, spliced into every sync domain that scopes to a viewer.
  */
-internal class BookAccessPolicy(
+class BookAccessPolicy(
     private val db: Database,
 ) {
     /**
