@@ -141,7 +141,7 @@ private class FakeBookIngest(
         libraryId: LibraryId,
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
-    ): AppResult<BookId> {
+    ): AppResult<IngestOutcome> {
         val path = analyzed.candidate.rootRelPath
         if (path in throwForRootRelPath) {
             error("simulated escaped failure for $path")
@@ -150,7 +150,7 @@ private class FakeBookIngest(
             return AppResult.Failure(SyncError.NotFound(domain = "books", entityId = path))
         }
         resolved += path
-        return AppResult.Success(BookId("id-$path"))
+        return AppResult.Success(IngestOutcome(BookId("id-$path"), wasNew = true))
     }
 
     override suspend fun softDeleteAbsent(
@@ -159,6 +159,14 @@ private class FakeBookIngest(
     ) {
         softDeleteAbsentCalls += seenIds
     }
+}
+
+/** No-op [InboxIngest]: these tests don't enable the inbox, so it's never invoked. */
+private object NoopInboxIngest : InboxIngest {
+    override suspend fun addToInbox(
+        bookId: String,
+        libraryId: String,
+    ): AppResult<Unit> = AppResult.Success(Unit)
 }
 
 // --- Fixtures ---------------------------------------------------------------
@@ -176,6 +184,7 @@ private fun persister(
         scanResultBus = MutableSharedFlow(),
         scope = scope,
         metrics = metrics,
+        inboxIngest = NoopInboxIngest,
     )
 
 private fun scanResult(

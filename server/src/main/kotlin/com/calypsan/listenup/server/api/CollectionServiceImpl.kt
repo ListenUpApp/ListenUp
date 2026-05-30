@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
+import com.calypsan.listenup.server.services.InboxIngest
 import java.util.UUID
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
@@ -72,7 +73,8 @@ internal class CollectionServiceImpl(
     private val db: Database,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider,
-) : CollectionService {
+) : CollectionService,
+    InboxIngest {
     // ── Observation ─────────────────────────────────────────────────────────
 
     override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
@@ -364,15 +366,15 @@ internal class CollectionServiceImpl(
     /**
      * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
      *
-     * This is the intended scanner hook: when a new book is ingested it lands in the inbox
-     * pending admin triage. The actual scanner wiring — and any per-library "inbox enabled"
-     * toggle that would gate it — is deferred to a later phase; no such setting exists yet.
-     * This focused entry point is fully testable in isolation in the meantime.
+     * This is the scanner hook ([InboxIngest]): when a new book is ingested and the
+     * library's `inbox_enabled` gate is set, [com.calypsan.listenup.server.services.BookPersister]
+     * lands it in the inbox pending admin triage. The new-vs-existing gate lives in the
+     * persister, so this method is unconditional — callers decide when to invoke it.
      *
      * A system operation (no caller principal); the book must exist
      * ([CollectionError.BookNotFound]).
      */
-    suspend fun addToInbox(
+    override suspend fun addToInbox(
         bookId: String,
         libraryId: String,
     ): AppResult<Unit> {

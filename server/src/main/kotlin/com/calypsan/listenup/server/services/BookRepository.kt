@@ -323,21 +323,23 @@ class BookRepository(
      * is single-writer, so the consecutive transactions serialize cleanly with
      * no risk of a lost-update race within a single scan pass.
      *
-     * @return [AppResult.Success] carrying the stable [BookId] for this book —
-     *   newly minted or pre-existing — only when the aggregate write landed.
-     *   An [AppResult.Failure] means [upsertFromAnalyzed] did not persist the
-     *   book; callers must not treat the failure as a persisted aggregate, and
-     *   for a new book the minted UUID points at nothing.
+     * @return [AppResult.Success] carrying an [IngestOutcome] — the stable
+     *   [BookId] (newly minted or pre-existing) plus a `wasNew` flag the scan
+     *   coordinator uses to gate inbox auto-add — only when the aggregate write
+     *   landed. An [AppResult.Failure] means [upsertFromAnalyzed] did not persist
+     *   the book; callers must not treat the failure as a persisted aggregate,
+     *   and for a new book the minted UUID points at nothing.
      */
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
-    ): AppResult<BookId> {
+    ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed)
+                .map { IngestOutcome(existing, wasNew = false) }
         }
 
         analyzed.candidate.files
@@ -347,12 +349,14 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed).map { existing }
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed)
+                        .map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed).map { newId }
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed)
+            .map { IngestOutcome(newId, wasNew = true) }
     }
 
     /**

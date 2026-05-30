@@ -102,7 +102,7 @@ class BookRepositoryResolveTest :
                     val libId = registry.currentLibrary()
                     val analyzed = analyzedFor(rootRelPath = "Sanderson/Mistborn", inode = 5005L)
                     val result = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed)
-                    result.shouldBeInstanceOf<AppResult.Success<BookId>>()
+                    result.shouldBeInstanceOf<AppResult.Success<IngestOutcome>>()
                 }
             }
         }
@@ -168,9 +168,9 @@ private val TEST_FOLDER_ID = FolderId("test-folder")
  * Asserts the [resolveOrInsert] result landed and returns the resolved [BookId].
  * Fails the test loudly with the typed error if the aggregate write did not land.
  */
-private fun AppResult<BookId>.resolved(): BookId =
+private fun AppResult<IngestOutcome>.resolved(): BookId =
     when (this) {
-        is AppResult.Success -> data
+        is AppResult.Success -> data.bookId
         is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
     }
 

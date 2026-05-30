@@ -34,6 +34,7 @@ import com.calypsan.listenup.server.services.BookPersisterMetrics
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.services.InboxIngest
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -182,7 +183,7 @@ fun booksModule(
             )
         }
         single { CollectionAccessPolicy(get(), get()) }
-        single<CollectionService> {
+        single {
             CollectionServiceImpl(
                 collectionRepo = get(),
                 collectionBookRepo = get(),
@@ -194,6 +195,11 @@ fun booksModule(
                 principal = unscopedPlaceholder("CollectionService"),
             )
         }
+        single<CollectionService> { get<CollectionServiceImpl>() }
+        // The same instance backs the scanner's inbox auto-add hook. Binding the
+        // narrow [InboxIngest] port (not [CollectionService]) keeps the scan path
+        // off the full service surface and breaks any layering cycle.
+        single<InboxIngest> { get<CollectionServiceImpl>() }
         // Default-genre-taxonomy seeder. Logically part of the books slice — runs once on
         // every install (curator can edit afterwards). Application.kt invokes seed() in a
         // launch after Koin starts, regardless of seed.profile; `isAlreadySeeded()` makes
@@ -217,6 +223,7 @@ fun booksModule(
                 scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
                 scope = get(),
                 metrics = get(),
+                inboxIngest = get(),
             )
         }
     }
