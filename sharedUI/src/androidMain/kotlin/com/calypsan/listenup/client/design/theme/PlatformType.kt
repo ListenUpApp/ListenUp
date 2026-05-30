@@ -207,36 +207,47 @@ actual val ListenUpTypography =
             TextStyle(
                 fontFamily = GoogleSansDisplayEmphasized,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp,
+                fontSize = 57.sp,
+                lineHeight = 64.sp,
+                letterSpacing = (-0.25).sp,
             ),
         displayMediumEmphasized =
             TextStyle(
                 fontFamily = GoogleSansDisplayEmphasized,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 45.sp, lineHeight = 52.sp, letterSpacing = (-0.25).sp,
+                fontSize = 45.sp,
+                lineHeight = 52.sp,
+                letterSpacing = (-0.25).sp,
             ),
         headlineLargeEmphasized =
             TextStyle(
                 fontFamily = GoogleSansDisplayEmphasized,
                 fontWeight = FontWeight.Bold,
-                fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp,
+                fontSize = 32.sp,
+                lineHeight = 40.sp,
+                letterSpacing = (-0.5).sp,
             ),
         headlineMediumEmphasized =
             TextStyle(
                 fontFamily = GoogleSansDisplayEmphasized,
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp, lineHeight = 36.sp, letterSpacing = (-0.3).sp,
+                fontSize = 28.sp,
+                lineHeight = 36.sp,
+                letterSpacing = (-0.3).sp,
             ),
         titleLargeEmphasized =
             TextStyle(
                 fontFamily = GoogleSansEmphasized,
                 fontWeight = FontWeight.Bold,
-                fontSize = 22.sp, lineHeight = 28.sp,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
             ),
         labelLargeEmphasized =
             TextStyle(
                 fontFamily = GoogleSansEmphasized,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                letterSpacing = 0.1.sp,
             ),
     )
