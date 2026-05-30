@@ -11,6 +11,8 @@ pluginManagement {
             }
         }
         mavenCentral()
+        // kotlinx-rpc gRPC dev channel — supplies the KRPC-560 fix (0.11.0-grpc-188).
+        maven("https://redirector.kotlinlang.org/maven/kxrpc-grpc")
         gradlePluginPortal()
     }
 }
@@ -30,6 +32,8 @@ dependencyResolutionManagement {
         mavenCentral()
         // JetBrains Compose dev repository for alpha libraries (Navigation 3, Material 3 Adaptive)
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        // kotlinx-rpc gRPC dev channel — supplies the KRPC-560 fix (0.11.0-grpc-188).
+        maven("https://redirector.kotlinlang.org/maven/kxrpc-grpc")
     }
 }
 
