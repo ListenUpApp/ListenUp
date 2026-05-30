@@ -66,7 +66,7 @@ final class SystemIntegration {
             MPMediaItemPropertyArtist: info.artist,
             MPMediaItemPropertyPlaybackDuration: Double(info.durationMs) / 1000.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.elapsedMs) / 1000.0,
-            MPNowPlayingInfoPropertyPlaybackRate: info.rate,
+            MPNowPlayingInfoPropertyPlaybackRate: info.rate
         ]
         if let path = info.artworkPath,
            let image = UIImage(contentsOfFile: path) {

@@ -1,0 +1,83 @@
+# SwiftLint — idiomatic-best-practices baseline for the native iOS app.
+#
+# Philosophy (per team direction): relax noisy *style* defaults to SwiftUI-realistic
+# levels, ADD high-value correctness/best-practice opt-in rules (the genuine signal),
+# and fix what genuinely should be fixed. CI runs non-strict: error-severity violations
+# gate the build; warnings are advisory. Linux-friendly (no analyzer-only rules — the
+# Lint job runs `swiftlint lint`, not `analyze`).
+
+included:
+  - ListenUp
+  - ListenUpTests
+  - ListenUpWidgets
+  - ListenUpActivityKit
+
+excluded:
+  - ListenUp/Preview Content
+
+# ── Tuned default rules: relax SwiftUI / Swift idiom noise, keep them meaningful ──
+
+identifier_name:
+  # 2-char names like `id`, `ms`, `db` are idiomatic; single-char loop/math vars allowed.
+  min_length:
+    warning: 2
+    error: 1
+  excluded: [id, x, y, z, i, j, to, ok, vm, ms, db, ui, os, ns, dx, dy, r, g, b, a, w, h]
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: true
+
+large_tuple:
+  # RGB triples (BlurHash) + small test-record tuples are idiomatic; 4+ wants a struct.
+  warning: 3
+  error: 4
+
+# SwiftUI Views and cohesive coordinators legitimately run long — realistic limits that
+# still catch genuine bloat. (FullScreenPlayerView / PlayerCoordinator size is tracked
+# for refactor in docs/superpowers/followups.md, not papered over here.)
+function_body_length:
+  warning: 60
+  error: 120
+type_body_length:
+  warning: 400
+  error: 550
+file_length:
+  warning: 550
+  error: 800
+cyclomatic_complexity:
+  warning: 12
+  error: 20
+
+disabled_rules:
+  # SwiftUI idiom: trailing-closure + trailing content/label closure (e.g.
+  # `Button { … } label: { … }`, `.sheet(isPresented:) { … }`) — a false positive
+  # for declarative UI.
+  - multiple_closures_with_trailing_closure
+
+# ── High-value opt-in rules: the genuine best-practice / correctness signal ──
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - empty_collection_literal
+  - first_where
+  - last_where
+  - contains_over_first_not_nil
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - sorted_first_last
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - toggle_bool
+  - unused_optional_binding
+  - closure_spacing
+  - explicit_init
+  - fatal_error_message
+  - yoda_condition
+  - prefer_self_type_over_type_of_self
+  - joined_default_parameter
+  - literal_expression_end_indentation
+  - operator_usage_whitespace

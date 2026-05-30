@@ -11,72 +11,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# CI is organized into three conceptual stages — Lint, Test, Build — each spanning the
+# lanes a stage needs. Mobile-focused: Linux lane (shared Kotlin + server + Android) and
+# macOS lane (iOS). Desktop is intentionally not built — the two mobile builds already
+# compile all shared Kotlin across both backends (Android → JVM/Android; iOS → Native).
 jobs:
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
-      - name: Run unit tests
-        run: ./gradlew :sharedLogic:jvmTest --no-daemon
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: sharedLogic/build/reports/tests/
-          retention-days: 7
-
-  server-test:
-    name: Server Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
-      - name: Build server
-        run: ./gradlew :server:build --no-daemon
-
-      - name: Run server tests
-        run: ./gradlew :server:test --no-daemon
-
-      - name: Upload server test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: server-test-results
-          path: server/build/reports/tests/
-          retention-days: 7
-
+  # ── Lint ─────────────────────────────────────────────────────────────────────
   lint:
-    name: Lint & Static Analysis
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -100,6 +42,16 @@ jobs:
       - name: Run static analysis (Detekt)
         run: ./gradlew detekt --no-daemon
 
+      # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
+      # container, pinned to match local. Non-strict: error-severity violations gate;
+      # style is advisory. Config: iosApp/.swiftlint.yml.
+      - name: Run SwiftLint (iOS)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/iosApp:/work" -w /work \
+            ghcr.io/realm/swiftlint:0.63.3 \
+            swiftlint lint --reporter github-actions-logging
+
       - name: Upload Detekt report
         uses: actions/upload-artifact@v4
         if: always()
@@ -108,8 +60,42 @@ jobs:
           path: build/reports/detekt/
           retention-days: 7
 
-  ios-test:
-    name: iOS Tests
+  # ── Test ─────────────────────────────────────────────────────────────────────
+  test-jvm:
+    name: Test (JVM)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Kotest across the shared client core (every client consumes :sharedLogic) + server.
+      - name: Run JVM tests
+        run: ./gradlew :sharedLogic:jvmTest :server:test --no-daemon
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jvm-test-results
+          path: |
+            sharedLogic/build/reports/tests/
+            server/build/reports/tests/
+          retention-days: 7
+
+  test-ios:
+    name: Test (iOS)
     runs-on: macos-26
 
     steps:
@@ -175,9 +161,44 @@ jobs:
           path: ${{ runner.temp }}/ios-test.xcresult
           retention-days: 7
 
-  ios-build:
-    name: iOS Build
+  # ── Build ────────────────────────────────────────────────────────────────────
+  build-android:
+    name: Build (Android)
+    runs-on: ubuntu-latest
+    # Don't build the APK unless Kotlin lint + JVM tests pass.
+    needs: [lint, test-jvm]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Build debug APK
+        run: ./gradlew :androidApp:assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+  build-ios:
+    name: Build (iOS)
     runs-on: macos-26
+    # The expensive build (~16m) — gate it behind lint + JVM tests + iOS tests so we
+    # never spend it on code that already failed an earlier stage.
+    needs: [lint, test-jvm, test-ios]
 
     steps:
       - name: Checkout code
@@ -218,33 +239,3 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO
-
-  build:
-    name: Build APK
-    runs-on: ubuntu-latest
-    needs: [test, server-test, lint]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
-      - name: Build debug APK
-        run: ./gradlew :androidApp:assembleDebug --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: androidApp/build/outputs/apk/debug/*.apk
-          retention-days: 14

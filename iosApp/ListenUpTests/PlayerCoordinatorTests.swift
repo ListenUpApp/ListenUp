@@ -33,7 +33,7 @@ struct PlayerCoordinatorTests {
         let chapters = [
             chapter("c0", start: 0, duration: 1000),
             chapter("c1", start: 1000, duration: 2000),
-            chapter("c2", start: 3000, duration: 500),
+            chapter("c2", start: 3000, duration: 500)
         ]
         #expect(ChapterMath.index(forPositionMs: 0, in: chapters) == 0)
         #expect(ChapterMath.index(forPositionMs: 999, in: chapters) == 0)
@@ -60,7 +60,7 @@ struct PlaybackEngineSeamTests {
 @Suite("PlayerCoordinator wiring")
 @MainActor
 struct PlayerCoordinatorWiringTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting, FakeSleepTiming, FakePlaybackPreparing) {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
         let sleep = FakeSleepTiming()
@@ -77,11 +77,11 @@ struct PlayerCoordinatorWiringTests {
             preparer: preparer, progress: progress, sleep: sleep,
             engine: engine, coverProvider: FakeBookCoverProviding()
         )
-        return (coordinator, engine, progress, sleep, preparer)
+        return (coordinator, engine, progress)
     }
 
     @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
-        let (coordinator, engine, progress, _, _) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
         await awaitUntil { await engine.didPlay }
         #expect(await engine.didPlay)
@@ -177,7 +177,7 @@ struct EndOfChapterTests {
         let preparer = FakePlaybackPreparing()
         let chapters = [
             Chapter_(id: "c0", title: "c0", duration: 1000, startTime: 0),
-            Chapter_(id: "c1", title: "c1", duration: 1000, startTime: 1000),
+            Chapter_(id: "c1", title: "c1", duration: 1000, startTime: 1000)
         ]
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,

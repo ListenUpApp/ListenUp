@@ -81,7 +81,7 @@ struct CoverThumbnailWriter {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: Self.maxPixelSize,
+            kCGImageSourceThumbnailMaxPixelSize: Self.maxPixelSize
         ]
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             return nil

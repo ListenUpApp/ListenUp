@@ -8,7 +8,7 @@ struct BookDetailObserverTests {
     // The pure piece pinned now: the DownloadUIState cases are distinct.
     @Test func downloadStatesAreDistinct() {
         let all: [DownloadUIState] = [
-            .notDownloaded, .queued, .downloading, .completed, .partial, .failed,
+            .notDownloaded, .queued, .downloading, .completed, .partial, .failed
         ]
         #expect(all.count == 6)
     }
