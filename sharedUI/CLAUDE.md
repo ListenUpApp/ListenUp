@@ -34,3 +34,21 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
    morphing) stays `commonMain`. Only platform-specific bits (e.g. dynamic color) live in
    `androidMain`/`desktopMain` actuals. (Desktop is a future deploy target, not the current priority;
    keep `commonMain` Desktop-valid so we don't add to its drift.)
+
+## Compose-UI conventions (moved from root — these are Compose-UI-specific)
+7. **Collect flows with `collectAsStateWithLifecycle()`**, not `collectAsState()`.
+8. **ViewModels are declared with `viewModelOf(::Ctor)`** and retrieved in composables with `koinViewModel()`.
+9. **Navigation routes implement `NavKey`**; back stacks use `rememberNavBackStack`; `NavDisplay` installs
+   entry decorators for per-entry VM scoping.
+10. **VM failure-branch shape** (the Compose error-presentation pattern — iOS maps errors its own way per
+    `iosApp/CLAUDE.md` rule 10): on `AppResult.Failure`, `errorBus.emit(result.error)` for the global
+    snackbar and set the screen's `State.Error(userMessageFor(result.error))`:
+    ```kotlin
+    when (val result = repo.foo()) {
+        is AppResult.Success -> _state.value = State.Loaded(result.data)
+        is AppResult.Failure -> {
+            errorBus.emit(result.error)
+            _state.value = State.Error(userMessageFor(result.error))
+        }
+    }
+    ```

@@ -160,13 +160,13 @@ Concrete example: `data/remote/` API methods use `apiCall(errorMessage = "...") 
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.3, Compose Multiplatform 1.10, Room KMP 2.8, Ktor 3.4, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.3.20, Compose Multiplatform 1.10, Room KMP 2.8, Ktor 3.4, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
 
 ### The Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin 2.3 (KMP) |
+| Language | Kotlin 2.3.20 (KMP) |
 | UI | Compose Multiplatform |
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
@@ -189,13 +189,10 @@ These are the rules most likely to affect day-to-day work. The full rubric is in
 - **Always re-throw `CancellationException`** in catch blocks. `SyncManager` and `SearchRepositoryImpl` are the compliance references.
 - **ViewModels produce state via `.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue)`**, not via `init { viewModelScope.launch { collect { state.update { } } } }`.
 - **UI state is a per-screen sealed hierarchy**, not a flat `data class` with `error: String?`.
-- **Screens collect via `collectAsStateWithLifecycle()`**, not `collectAsState()`.
 - **One-shot events use `Channel<Event>(Channel.BUFFERED).receiveAsFlow()`** — never `StateFlow<Event?>`.
-- **VMs are declared with `viewModelOf(::Ctor)`** and retrieved with `koinViewModel()`.
 - **Multi-table writes use `performInTransactionSuspending { }`**.
 - **All writes to the data layer go through a repository** — no component outside `data/repository/` writes directly to a DAO.
-- **Navigation routes implement `NavKey`** and back stacks use `rememberNavBackStack`.
-- **`NavDisplay` installs entry decorators** for per-entry VM scoping.
+- **Compose-UI specifics** (flow collection, `koinViewModel`, Navigation 3 routes/decorators, the VM failure-branch shape) live in `sharedUI/CLAUDE.md` — they load when you work on the UI.
 
 ### Error Architecture
 
@@ -208,16 +205,6 @@ Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
 - **No closures in error types.** `@Serializable` errors cross the wire — recovery actions live at the consumer based on the typed subtype.
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
-- **VM Failure-branch shape** (preserves the global snackbar):
-  ```kotlin
-  when (val result = repo.foo()) {
-      is AppResult.Success -> _state.value = State.Loaded(result.data)
-      is AppResult.Failure -> {
-          errorBus.emit(result.error)
-          _state.value = State.Error(userMessageFor(result.error))
-      }
-  }
-  ```
 - **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI. Adding a public commonMain type without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build.
 
 ### Code Style
@@ -273,34 +260,37 @@ Rules:
 
 ```
 client/
-├── shared/                     # KMP shared code
+├── sharedLogic/                # KMP shared core (no UI)
 │   └── src/
-│       ├── commonMain/         # Platform-agnostic code
-│       │   └── kotlin/.../
-│       │       ├── core/       # Value types, utilities, error model
-│       │       ├── data/       # Repositories, sync, DAOs, API clients
-│       │       ├── di/         # Koin module definitions
-│       │       ├── domain/     # Domain models, repository interfaces
-│       │       ├── download/   # Download interface + file manager
-│       │       ├── playback/   # AudioPlayer interface, PlaybackManager, ProgressTracker
-│       │       └── presentation/ # ViewModels (shared across platforms)
+│       ├── commonMain/.../
+│       │   ├── core/           # AppResult, value types, utilities
+│       │   ├── data/           # Repositories, sync, Room DAOs
+│       │   ├── di/             # Koin module definitions
+│       │   ├── domain/         # Domain models, repository interfaces
+│       │   └── presentation/   # ViewModels (shared across Android + iOS)
 │       ├── androidMain/        # Android-specific implementations
-│       ├── appleMain/          # iOS/macOS implementations
-│       └── jvmMain/            # Desktop JVM implementations
-├── composeApp/                 # Compose Multiplatform UI
+│       ├── appleMain/          # Apple-shared implementations
+│       ├── iosMain/            # iOS implementations
+│       ├── jvmMain/            # JVM-shared implementations
+│       └── desktopMain/        # Desktop JVM implementations
+├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
 │   └── src/
-│       ├── commonMain/         # Shared screens + design system
-│       │   └── kotlin/.../
-│       │       ├── design/     # Theme, components, typography
-│       │       ├── features/   # Per-feature screen composables
-│       │       └── navigation/ # Shared auth navigation routes
-│       ├── androidMain/        # Android-specific (playback service, navigation, download worker)
-│       └── desktopMain/        # Desktop-specific
+│       ├── commonMain/.../
+│       │   ├── design/         # Theme, components
+│       │   └── features/       # Per-screen composables
+│       ├── androidMain/        # Android-specific UI
+│       └── desktopMain/        # Desktop-specific UI
+├── contract/                   # Client↔server contract: @Rpc service interfaces,
+│                               #   @Serializable DTOs, the error hierarchy
+├── server/                     # Ktor JVM server
 ├── androidApp/                 # Android entry point (thin wrapper)
-└── desktopApp/                 # Desktop entry point
+├── desktopApp/                 # Desktop entry point (thin wrapper)
+├── build-logic/                # Gradle convention plugins + detekt-rules
+├── rpc-guard-ksp/              # KSP RPC-guard processor
+└── baselineprofile/            # Baseline profile generator
 ```
 
-**ViewModels** live in `shared/commonMain/.../presentation/`. **Screens** live in `composeApp/commonMain/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
+**ViewModels** live in `sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
 
 ---
 
