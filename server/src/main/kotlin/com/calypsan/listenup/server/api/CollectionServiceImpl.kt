@@ -24,7 +24,6 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionShareRepository
-import com.calypsan.listenup.server.services.InboxIngest
 import java.util.UUID
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
@@ -73,8 +72,7 @@ internal class CollectionServiceImpl(
     private val db: Database,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider,
-) : CollectionService,
-    InboxIngest {
+) : CollectionService {
     // ── Observation ─────────────────────────────────────────────────────────
 
     override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
@@ -366,15 +364,26 @@ internal class CollectionServiceImpl(
     /**
      * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
      *
-     * This is the scanner hook ([InboxIngest]): when a new book is ingested and the
-     * library's `inbox_enabled` gate is set, [com.calypsan.listenup.server.services.BookPersister]
-     * lands it in the inbox pending admin triage. The new-vs-existing gate lives in the
-     * persister, so this method is unconditional — callers decide when to invoke it.
+     * A deliberate admin/system action — used by the admin REST routes to quarantine a
+     * book for triage. It is unconditional: callers decide when to invoke it.
+     *
+     * **Not a scan hook.** Scan-time inbox auto-populate was reverted (see
+     * [com.calypsan.listenup.server.services.BookPersister]) because publishing a new
+     * book's `book.Created` event to the firehose before the membership commits leaked
+     * the payload to members while the book was momentarily uncollected → public. The
+     * admin path carries a far smaller, admin-controlled window: when an admin inboxes an
+     * *already-public* book, the `collection_books` membership commits and publishes a
+     * `collection_books.Created` event; only between that commit and a member's next
+     * firehose-driven re-derive does the book remain visible. That window is bounded, not
+     * per-new-book-automatic, and the book was already public to begin with — the inbox
+     * action *reduces* its reach rather than exposing previously-hidden content. A future
+     * scan-auto-populate phase must instead land the membership atomically with the book
+     * insert, before the `book.Created` publish.
      *
      * A system operation (no caller principal); the book must exist
      * ([CollectionError.BookNotFound]).
      */
-    override suspend fun addToInbox(
+    suspend fun addToInbox(
         bookId: String,
         libraryId: String,
     ): AppResult<Unit> {

@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookPersister
@@ -38,13 +39,22 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Verifies the scanner ingest path auto-adds NEWLY-scanned books to the
- * library's inbox when (and only when) the library's `inbox_enabled` flag is
- * set — Collections-1b Task 10.
+ * Verifies the scanner ingest path NEVER auto-adds scanned books to the
+ * library's inbox — the Task-10 scan-auto-populate hook was reverted to close
+ * the TOCTOU firehose leak (a new book's `book.Created` event became firehose-
+ * visible while uncollected → public → leaked to every member, before the
+ * separate `addToInbox` transaction could quarantine it).
+ *
+ * Auto-populate is genuinely separable: the inbox feature remains usable via the
+ * admin path ([CollectionServiceImpl.addToInbox] / `releaseBooks` / `listInbox`),
+ * which an admin invokes deliberately. Scan-auto-populate becomes a future phase
+ * with atomic ingest (membership committed in the same transaction as the book
+ * insert, before the `book.Created` publish) designed in from the start.
  *
  * Drives a real [BookPersister] wired to a real [BookRepository] (the ingest
  * port) and a real [CollectionServiceImpl] (the inbox port), against a
@@ -54,7 +64,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 class ScannerInboxIngestTest :
     FunSpec({
 
-        test("inbox_enabled=true: a newly-scanned book lands in the inbox") {
+        test("inbox_enabled=true: a newly-scanned book is NOT auto-added to the inbox (hook reverted)") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -65,9 +75,11 @@ class ScannerInboxIngestTest :
 
                     persister.persist(scanResultFor(book("Sanderson/Way of Kings", inode = 1L)))
 
+                    // Even with inbox_enabled, the scan leaves the book uncollected — no
+                    // automatic inbox add, so the firehose-while-public leak cannot arise.
                     val inbox = collections.actingAsAdmin().listInbox("test-library")
                     require(inbox is AppResult.Success)
-                    inbox.data shouldHaveSize 1
+                    inbox.data.shouldBeEmpty()
                 }
             }
         }
@@ -90,7 +102,7 @@ class ScannerInboxIngestTest :
             }
         }
 
-        test("inbox_enabled=true: a re-scanned (existing) book is NOT re-added to the inbox") {
+        test("admin can still inbox a scanned book deliberately, then release it") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()
@@ -100,25 +112,22 @@ class ScannerInboxIngestTest :
                     val (persister, collections) = fixture(db, this)
                     val admin = collections.actingAsAdmin()
 
-                    val book = book("Sanderson/Way of Kings", inode = 1L)
+                    // Scan a book — lands uncollected (no auto-inbox).
+                    persister.persist(scanResultFor(book("Sanderson/Way of Kings", inode = 1L)))
+                    val bookId = db.singleBookId()
 
-                    // First scan: lands in the inbox.
-                    persister.persist(scanResultFor(book))
-                    val afterFirst = admin.listInbox("test-library")
-                    require(afterFirst is AppResult.Success)
-                    afterFirst.data shouldHaveSize 1
+                    // Admin deliberately inboxes it via the admin path (still supported).
+                    require(collections.addToInbox(bookId, "test-library") is AppResult.Success)
+                    val afterInbox = admin.listInbox("test-library")
+                    require(afterInbox is AppResult.Success)
+                    afterInbox.data shouldHaveSize 1
 
-                    // Admin releases it (out of the inbox → uncollected).
-                    val releasedId = afterFirst.data.single().value
-                    val release = admin.releaseBooks("test-library", mapOf(releasedId to emptyList()))
+                    // Admin releases it back out to uncollected.
+                    val release = admin.releaseBooks("test-library", mapOf(bookId to emptyList()))
                     require(release is AppResult.Success)
-
-                    // Re-scan the SAME book: it must NOT be re-added to the inbox —
-                    // a released book stays released.
-                    persister.persist(scanResultFor(book))
-                    val afterRescan = admin.listInbox("test-library")
-                    require(afterRescan is AppResult.Success)
-                    afterRescan.data.shouldBeEmpty()
+                    val afterRelease = admin.listInbox("test-library")
+                    require(afterRelease is AppResult.Success)
+                    afterRelease.data.shouldBeEmpty()
                 }
             }
         }
@@ -180,7 +189,6 @@ private fun fixture(
             scanResultBus = MutableSharedFlow(),
             scope = scope,
             metrics = BookPersisterMetrics(SimpleMeterRegistry()),
-            inboxIngest = collections,
         )
     return InboxFixture(persister, collections)
 }
@@ -194,6 +202,14 @@ private fun setInboxEnabled(
         LibraryTable.update({ LibraryTable.id eq libraryId }) { it[inboxEnabled] = enabled }
     }
 }
+
+/** Reads back the id of the single book the test scanned in. */
+private fun Database.singleBookId(): String =
+    transaction(this) {
+        BookTable
+            .selectAll()
+            .single()[BookTable.id]
+    }
 
 private fun scanResultFor(vararg books: AnalyzedBook): ScanResult =
     ScanResult(

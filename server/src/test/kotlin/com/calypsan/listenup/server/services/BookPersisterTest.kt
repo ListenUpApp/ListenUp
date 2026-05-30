@@ -161,14 +161,6 @@ private class FakeBookIngest(
     }
 }
 
-/** No-op [InboxIngest]: these tests don't enable the inbox, so it's never invoked. */
-private object NoopInboxIngest : InboxIngest {
-    override suspend fun addToInbox(
-        bookId: String,
-        libraryId: String,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-}
-
 // --- Fixtures ---------------------------------------------------------------
 
 private fun persister(
@@ -184,7 +176,6 @@ private fun persister(
         scanResultBus = MutableSharedFlow(),
         scope = scope,
         metrics = metrics,
-        inboxIngest = NoopInboxIngest,
     )
 
 private fun scanResult(
