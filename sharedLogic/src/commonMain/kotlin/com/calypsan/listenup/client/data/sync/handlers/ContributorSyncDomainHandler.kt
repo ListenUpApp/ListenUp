@@ -50,6 +50,8 @@ class ContributorSyncDomainHandler(
     override val domainName: String = "contributors"
     override val payloadSerializer = ContributorSyncPayload.serializer()
 
+    override fun syncId(item: ContributorSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

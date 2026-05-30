@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonElement
 
 private val logger = KotlinLogging.logger {}
 private const val PAGE_LIMIT = 500
+private const val SERVER_URL_NOT_CONFIGURED = "Server URL not configured"
 
 /**
  * Drives REST `?since=<rev>` per-domain pagination for client sync catch-up.
@@ -42,7 +43,7 @@ class SyncCatchUpClient(
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
         suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error("Server URL not configured")
+            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
             val httpClient = httpClientProvider()
             var since = store.getCursor(handler.domainName) ?: 0L
             while (true) {
@@ -68,6 +69,44 @@ class SyncCatchUpClient(
         }
 
     /**
+     * Page [handler]'s access-filtered catch-up from cursor 0 WITHOUT advancing
+     * [SyncCursorStore]. Each item is applied via [SyncDomainHandler.onCatchUpItem]
+     * (accessible rows are upserted/refreshed; server-returned tombstones soft-delete),
+     * and the non-tombstone ids are collected via [SyncDomainHandler.syncId] into the
+     * returned set — the caller's current accessible id set for the `AccessChanged` reconcile.
+     *
+     * Deliberately copies [catchUp]'s paging loop minus the `store.setCursor(...)` call: the
+     * persisted cursor must not move, because the live SSE/cursor path continues independently.
+     */
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> =
+        suspendRunCatching {
+            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
+            val httpClient = httpClientProvider()
+            val accessibleIds = mutableSetOf<String>()
+            var since = 0L
+            while (true) {
+                val element: JsonElement =
+                    httpClient
+                        .get("$baseUrl/api/v1/sync/${handler.domainName}?since=$since&limit=$PAGE_LIMIT")
+                        .body()
+                val page: Page<T> =
+                    contractJson.decodeFromJsonElement(
+                        Page.serializer(handler.payloadSerializer),
+                        element,
+                    )
+                for (item in page.items) {
+                    val isTomb = (item as? Tombstoned)?.deletedAt != null
+                    handler.onCatchUpItem(item, isTomb)
+                    if (!isTomb) accessibleIds += handler.syncId(item)
+                }
+                val next = page.nextCursor
+                if (next != null) since = next
+                if (!page.hasMore) break
+            }
+            accessibleIds
+        }
+
+    /**
      * Iterate every registered domain in [registry] and run [catchUp] on each,
      * in registration order. Per-domain failures are logged but do not abort
      * the loop — one slow domain shouldn't strand the rest.
@@ -89,7 +128,7 @@ class SyncCatchUpClient(
     /** Server-side domain discovery via `GET /api/v1/sync/domains`. */
     override suspend fun domains(): AppResult<List<String>> =
         suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error("Server URL not configured")
+            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
             val httpClient = httpClientProvider()
             httpClient.get("$baseUrl/api/v1/sync/domains").body<DomainList>().domains
         }

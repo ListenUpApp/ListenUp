@@ -178,6 +178,28 @@ interface BookDao {
     suspend fun deleteAll()
 
     /**
+     * Live (non-tombstoned) book ids — used by the access-change reconcile to compute the
+     * set of rows that must be evicted when the caller's accessible set shrinks.
+     */
+    @Query("SELECT id FROM books WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /**
+     * Tombstone every live book whose id is NOT in [accessibleIds].
+     *
+     * Local-only eviction for the access-change reconcile: a book the caller can no longer
+     * see is soft-deleted (`deletedAt` stamped) so the UI drops it, while accessible rows
+     * are left untouched. The existing `revision` is preserved — this is not a server
+     * tombstone, so there is no new revision to record. `updatedAt` advances so reactive
+     * queries re-emit.
+     */
+    @Query("UPDATE books SET deletedAt = :now, updatedAt = :now WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)")
+    suspend fun tombstoneNotIn(
+        accessibleIds: Collection<String>,
+        now: Long,
+    )
+
+    /**
      * Apply an own-echo: bump only the sync substrate fields on the book row.
      *
      * When a sync event echoes the client's own write, the visible fields are already

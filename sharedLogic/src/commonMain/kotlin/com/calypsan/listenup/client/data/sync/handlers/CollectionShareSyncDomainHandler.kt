@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.core.AppResult
@@ -33,13 +34,23 @@ class CollectionShareSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
-) : SyncDomainHandler<CollectionShareSyncPayload> {
+) : SyncDomainHandler<CollectionShareSyncPayload>,
+    AccessFilteredSyncHandler {
     override val domainName: String = "collection_shares"
     override val payloadSerializer = CollectionShareSyncPayload.serializer()
+
+    override fun syncId(item: CollectionShareSyncPayload): String = item.id
 
     init {
         registry.register(this)
     }
+
+    override suspend fun localLiveIds(): Set<String> = database.collectionShareDao().liveIds().toSet()
+
+    override suspend fun pruneTo(
+        accessibleIds: Set<String>,
+        now: Long,
+    ) = database.collectionShareDao().tombstoneNotIn(accessibleIds, now)
 
     override suspend fun onEvent(
         event: SyncEvent<CollectionShareSyncPayload>,

@@ -42,6 +42,8 @@ class ListeningEventSyncDomainHandler(
     override val domainName: String = "listening_events"
     override val payloadSerializer = ListeningEventSyncPayload.serializer()
 
+    override fun syncId(item: ListeningEventSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

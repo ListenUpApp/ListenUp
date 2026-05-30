@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -62,13 +63,23 @@ class BookSyncDomainHandler(
     private val mapper: BookEntityMapper,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
-) : SyncDomainHandler<BookSyncPayload> {
+) : SyncDomainHandler<BookSyncPayload>,
+    AccessFilteredSyncHandler {
     override val domainName: String = "books"
     override val payloadSerializer = BookSyncPayload.serializer()
+
+    override fun syncId(item: BookSyncPayload): String = item.id
 
     init {
         registry.register(this)
     }
+
+    override suspend fun localLiveIds(): Set<String> = database.bookDao().liveIds().toSet()
+
+    override suspend fun pruneTo(
+        accessibleIds: Set<String>,
+        now: Long,
+    ) = database.bookDao().tombstoneNotIn(accessibleIds, now)
 
     override suspend fun onEvent(
         event: SyncEvent<BookSyncPayload>,

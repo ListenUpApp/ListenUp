@@ -11,5 +11,18 @@ interface CatchUp {
 
     suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit>
 
+    /**
+     * Page an access-filtered domain from cursor 0 WITHOUT touching [SyncCursorStore],
+     * upserting each returned item via the handler and collecting the live (non-tombstone)
+     * ids into the returned set.
+     *
+     * Used by the `AccessChanged` reconcile: the server's `pullSince` for access-gated domains
+     * is filtered to the caller's accessible set, so a transient pass from 0 yields exactly the
+     * ids the caller may currently see. The persisted cursor is deliberately untouched — the
+     * live SSE/cursor path continues independently; this is a one-shot re-derivation, not a
+     * cursor rewind.
+     */
+    suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>>
+
     suspend fun domains(): AppResult<List<String>>
 }

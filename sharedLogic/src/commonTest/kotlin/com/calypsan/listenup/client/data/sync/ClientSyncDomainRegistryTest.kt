@@ -16,6 +16,8 @@ class ClientSyncDomainRegistryTest :
                 override val domainName = name
                 override val payloadSerializer = Tag.serializer()
 
+                override fun syncId(item: Tag): String = item.id
+
                 override suspend fun onEvent(
                     event: SyncEvent<Tag>,
                     isOwnEcho: Boolean,

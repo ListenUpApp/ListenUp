@@ -35,6 +35,8 @@ class GenreSyncDomainHandler(
     override val domainName: String = "genres"
     override val payloadSerializer = GenreSyncPayload.serializer()
 
+    override fun syncId(item: GenreSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

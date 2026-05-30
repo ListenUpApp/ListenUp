@@ -23,6 +23,17 @@ interface SyncDomainHandler<T : Any> {
     val payloadSerializer: KSerializer<T>
 
     /**
+     * The stable sync id for [item] — the same id used on the SSE envelope and as the local
+     * row's identity. For most domains this is the payload's `id` field; composite-key domains
+     * (e.g. `collection_books`) synthesise it from their parts (`"$collectionId:$bookId"`).
+     *
+     * Used by [CatchUp.catchUpTransient] to collect the accessible id set during the
+     * `AccessChanged` reconcile, so it must line up with [AccessFilteredSyncHandler.localLiveIds]
+     * for access-gated handlers.
+     */
+    fun syncId(item: T): String
+
+    /**
      * Apply an SSE-driven event.
      *
      * [isOwnEcho] is `true` when the event's `clientOpId` matched a pending op

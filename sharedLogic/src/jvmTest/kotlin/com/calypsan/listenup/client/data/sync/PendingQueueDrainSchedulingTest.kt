@@ -298,12 +298,16 @@ private object NoopCatchUp : CatchUp {
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
+
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
 private object NoopTagHandler : SyncDomainHandler<Tag> {
     override val domainName = "tags"
     override val payloadSerializer = Tag.serializer()
+
+    override fun syncId(item: Tag): String = item.id
 
     override suspend fun onEvent(
         event: com.calypsan.listenup.api.sync.SyncEvent<Tag>,

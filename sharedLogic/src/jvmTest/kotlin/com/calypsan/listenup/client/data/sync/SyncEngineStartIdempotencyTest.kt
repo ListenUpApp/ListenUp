@@ -214,6 +214,8 @@ private class CountingCatchUp : CatchUp {
         return AppResult.Success(Unit)
     }
 
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
+
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
@@ -236,12 +238,16 @@ private class FailingThenSucceedingCatchUp : CatchUp {
         return AppResult.Success(Unit)
     }
 
+    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
+
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
 private object IdempotencyNoopTagHandler : SyncDomainHandler<Tag> {
     override val domainName = "tags"
     override val payloadSerializer = Tag.serializer()
+
+    override fun syncId(item: Tag): String = item.id
 
     override suspend fun onEvent(
         event: com.calypsan.listenup.api.sync.SyncEvent<Tag>,

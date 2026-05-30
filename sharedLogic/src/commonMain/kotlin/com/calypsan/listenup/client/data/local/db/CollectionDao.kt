@@ -67,6 +67,22 @@ interface CollectionDao {
     @Query("SELECT id FROM collections WHERE deletedAt IS NULL")
     suspend fun liveIds(): List<String>
 
+    /**
+     * Tombstone every live collection whose id is NOT in [accessibleIds].
+     *
+     * Local-only eviction for the access-change reconcile: a collection the caller can no
+     * longer see is soft-deleted so the UI drops it; accessible rows are untouched. The
+     * existing `revision` is preserved (this is not a server tombstone).
+     */
+    @Query(
+        "UPDATE collections SET deletedAt = :now, updatedAt = :now " +
+            "WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)",
+    )
+    suspend fun tombstoneNotIn(
+        accessibleIds: Collection<String>,
+        now: Long,
+    )
+
     /** Delete all collection rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collections")
     suspend fun deleteAll()
@@ -109,6 +125,30 @@ interface CollectionBookDao {
     )
     fun observeBookIds(collectionId: String): Flow<List<String>>
 
+    /**
+     * Live (non-tombstoned) junction ids in the synthetic `"$collectionId:$bookId"` form the
+     * server uses on the wire — used by the access-change reconcile so the local set lines up
+     * with `catchUpTransient`'s returned set.
+     */
+    @Query("SELECT collectionId || ':' || bookId FROM collection_books WHERE deletedAt IS NULL")
+    suspend fun liveSyntheticIds(): List<String>
+
+    /**
+     * Tombstone every live junction row whose synthetic `"$collectionId:$bookId"` id is NOT in
+     * [accessibleIds].
+     *
+     * Local-only eviction for the access-change reconcile. The existing `revision` is preserved
+     * (this is not a server tombstone).
+     */
+    @Query(
+        "UPDATE collection_books SET deletedAt = :now " +
+            "WHERE deletedAt IS NULL AND (collectionId || ':' || bookId) NOT IN (:accessibleIds)",
+    )
+    suspend fun tombstoneNotIn(
+        accessibleIds: Collection<String>,
+        now: Long,
+    )
+
     /** Delete all junction rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collection_books")
     suspend fun deleteAll()
@@ -145,6 +185,25 @@ interface CollectionShareDao {
         "SELECT * FROM collection_shares WHERE collectionId = :collectionId AND deletedAt IS NULL ORDER BY sharedWithUserId ASC",
     )
     fun observeForCollection(collectionId: String): Flow<List<CollectionShareEntity>>
+
+    /** Live (non-tombstoned) share ids — used by the access-change reconcile. */
+    @Query("SELECT id FROM collection_shares WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /**
+     * Tombstone every live share whose id is NOT in [accessibleIds].
+     *
+     * Local-only eviction for the access-change reconcile. The existing `revision` is preserved
+     * (this is not a server tombstone).
+     */
+    @Query(
+        "UPDATE collection_shares SET deletedAt = :now, updatedAt = :now " +
+            "WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)",
+    )
+    suspend fun tombstoneNotIn(
+        accessibleIds: Collection<String>,
+        now: Long,
+    )
 
     /** Delete all share rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collection_shares")

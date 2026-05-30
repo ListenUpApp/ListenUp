@@ -47,4 +47,18 @@ class ClientSyncDomainRegistry : SynchronizedObject() {
         synchronized(this) {
             handlers.keys.sorted()
         }
+
+    /**
+     * The registered handlers whose domain is access-gated (those implementing
+     * [AccessFilteredSyncHandler]), in stable domain-name order. The `AccessChanged`
+     * reconcile iterates these to re-derive and prune the caller's accessible set.
+     */
+    fun accessFilteredHandlers(): List<SyncDomainHandler<*>> =
+        synchronized(this) {
+            handlers.entries
+                .sortedBy { it.key }
+                .map { it.value }
+                .filterIsInstance<AccessFilteredSyncHandler>()
+                .map { it as SyncDomainHandler<*> }
+        }
 }

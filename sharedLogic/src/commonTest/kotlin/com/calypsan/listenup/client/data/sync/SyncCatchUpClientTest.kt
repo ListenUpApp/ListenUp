@@ -53,6 +53,8 @@ class SyncCatchUpClientTest :
                 override val domainName = "tags"
                 override val payloadSerializer = Tag.serializer()
 
+                override fun syncId(item: Tag): String = item.id
+
                 override suspend fun onEvent(
                     event: SyncEvent<Tag>,
                     isOwnEcho: Boolean,
@@ -186,6 +188,8 @@ class SyncCatchUpClientTest :
                         override val domainName = "tags"
                         override val payloadSerializer = Tag.serializer()
 
+                        override fun syncId(item: Tag): String = item.id
+
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
                             isOwnEcho: Boolean,
@@ -200,6 +204,8 @@ class SyncCatchUpClientTest :
                     object : SyncDomainHandler<Tag> {
                         override val domainName = "books"
                         override val payloadSerializer = Tag.serializer()
+
+                        override fun syncId(item: Tag): String = item.id
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,

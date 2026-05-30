@@ -33,6 +33,8 @@ class LibraryFolderSyncDomainHandler(
     override val domainName: String = "library_folders"
     override val payloadSerializer = LibraryFolderSyncPayload.serializer()
 
+    override fun syncId(item: LibraryFolderSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

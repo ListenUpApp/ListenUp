@@ -57,6 +57,8 @@ class PlaybackPositionSyncDomainHandler(
     override val domainName: String = "playback_positions"
     override val payloadSerializer = PlaybackPositionSyncPayload.serializer()
 
+    override fun syncId(item: PlaybackPositionSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }

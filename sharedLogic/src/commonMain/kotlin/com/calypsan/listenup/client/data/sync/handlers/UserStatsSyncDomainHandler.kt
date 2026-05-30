@@ -40,6 +40,8 @@ class UserStatsSyncDomainHandler(
     override val domainName: String = "user_stats"
     override val payloadSerializer = UserStatsSyncPayload.serializer()
 
+    override fun syncId(item: UserStatsSyncPayload): String = item.id
+
     init {
         registry.register(this)
     }
