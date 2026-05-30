@@ -47,8 +47,8 @@ import listenup.composeapp.generated.resources.common_sign_out
 /**
  * Circular avatar for the logged-in user with a dropdown menu.
  *
- * Used in the shell navigation components (top bar, rail, drawer) to give
- * the current user access to profile, settings, and sign-out actions.
+ * Used in the shell top bar to give the current user access to profile,
+ * settings, administration, and sign-out actions.
  *
  * For displaying any user's avatar without a menu, use [UserAvatar] instead.
  *
