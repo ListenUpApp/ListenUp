@@ -4,8 +4,10 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
+import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
@@ -24,6 +26,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -685,6 +688,116 @@ class BookEditViewModelTest :
                     viewModel.onEvent(BookEditUiEvent.Cancel)
                     awaitItem() shouldBe BookEditNavAction.NavigateBack
                 }
+            }
+        }
+
+        // ========== Admin Gate Tests ==========
+
+        fun makeCollection(
+            id: String,
+            name: String,
+        ): Collection =
+            Collection(
+                id = id,
+                name = name,
+                ownerId = "admin-1",
+                isInbox = false,
+                isGlobalAccess = false,
+                bookCount = 0,
+                callerPermission = SharePermission.Write,
+                isOwner = true,
+            )
+
+        test("admin user reflects isAdmin true into state") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                every { fixture.userRepository.observeIsAdmin() } returns flowOf(true)
+                val editData = createBookEditData(bookId = "book-1")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.isAdmin shouldBe true
+            }
+        }
+
+        test("non-admin user reflects isAdmin false into state") {
+            runTest {
+                // Given — createFixture stubs observeIsAdmin() to flowOf(false) by default
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.isAdmin shouldBe false
+            }
+        }
+
+        // ========== Collection Save-Dispatch Tests ==========
+
+        test("save with changed collection set dispatches setBookCollections") {
+            runTest {
+                // Given — one available collection, book starts with no memberships
+                val fixture = createFixture()
+                val collection = makeCollection(id = "coll-1", name = "Favorites")
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(collection))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(emptyList())
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When — add a collection so the set differs from the baseline, then save
+                viewModel.onEvent(BookEditUiEvent.CollectionSelected(EditableCollection(id = "coll-1", name = "Favorites")))
+                advanceUntilIdle()
+                (viewModel.state.value.hasChanges) shouldBe true
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then
+                verifySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) }
+            }
+        }
+
+        test("save with unchanged collection set does not dispatch setBookCollections") {
+            runTest {
+                // Given — collection membership matches the baseline; only a metadata field changes
+                val fixture = createFixture()
+                val collection = makeCollection(id = "coll-1", name = "Favorites")
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(collection))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
+                    flowOf(listOf("coll-1"))
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When — change a metadata field (so Save proceeds) but leave collections untouched
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then — the collection set never changed, so the access-aware RPC is skipped
+                verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookCollections(any(), any()) }
             }
         }
 
