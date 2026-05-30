@@ -200,6 +200,7 @@ fun Application.module() {
     val contributorService: ContributorService? = injectIfConfigured(resolvedLibraryPath)
     val seriesService: SeriesService? = injectIfConfigured(resolvedLibraryPath)
     val coverResponder: CoverResponder? = injectIfConfigured(resolvedLibraryPath)
+    val bookAccessPolicy: BookAccessPolicy? = injectIfConfigured(resolvedLibraryPath)
     val playbackService: PlaybackService? = injectIfConfigured(resolvedLibraryPath)
     val playbackProgressService: PlaybackProgressService? = injectIfConfigured(resolvedLibraryPath)
     val backfillService: UserStatsBackfillService? = injectIfConfigured(resolvedLibraryPath)
@@ -238,7 +239,9 @@ fun Application.module() {
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             if (libraryAdminService != null) libraryAdminRoutes(libraryAdminService)
-            if (bookService != null && coverResponder != null) bookRoutes(bookService, coverResponder)
+            if (bookService != null && coverResponder != null && bookAccessPolicy != null) {
+                bookRoutes(bookService, coverResponder, bookAccessPolicy)
+            }
             if (contributorService != null) contributorRoutes(contributorService)
             if (seriesService != null) seriesRoutes(seriesService)
             if (playbackService != null) playbackRoutes(playbackService)
@@ -261,13 +264,11 @@ fun Application.module() {
         if (scannerService != null && eventBus != null) {
             scannerRoutes(scannerService, eventBus)
         }
-        // The role lookup and access policy live in the same library-gated modules as the
-        // locator/signer, so they resolve whenever those two do; inject them here rather
-        // than as separate nullable vars to keep this guard a simple two-way check.
-        if (audioFileLocator != null && audioUrlSigner != null) {
+        // The role lookup lives in the same library-gated module as the locator/signer, so it
+        // resolves whenever those do; bookAccessPolicy is the same singleton bookRoutes uses.
+        if (audioFileLocator != null && audioUrlSigner != null && bookAccessPolicy != null) {
             val audioRoleLookup by inject<UserRoleLookup>()
-            val audioAccessPolicy by inject<BookAccessPolicy>()
-            audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, audioAccessPolicy)
+            audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         }
     }
 

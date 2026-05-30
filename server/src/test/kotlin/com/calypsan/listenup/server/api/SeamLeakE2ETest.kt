@@ -17,6 +17,8 @@ import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.core.BookId
@@ -102,13 +104,17 @@ class SeamLeakE2ETest :
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
                     writeAudioFile(libraryRoot, "P")
+                    // B and the public control P each carry a filesystem cover so SEAM 7 has a
+                    // 200-vs-404 control: m1 must be denied B's cover but served P's.
+                    writeCoverFile(libraryRoot, "B")
+                    writeCoverFile(libraryRoot, "P")
 
                     val books by application.inject<BookRepository>()
                     // "Dragon" is the shared FTS term: B, B_inbox, and the public control P
                     // all match the same query, so "P present, B absent" proves the filter.
-                    books.upsert(bookFixture("B", "Dragon Secret"))
+                    books.upsert(bookFixture("B", "Dragon Secret", withCover = true))
                     books.upsert(bookFixture("B_inbox", "Dragon Inbox"))
-                    books.upsert(bookFixture("P", "Dragon Public"))
+                    books.upsert(bookFixture("P", "Dragon Public", withCover = true))
 
                     // B lives in a private collection owned by the admin; B_inbox in the inbox.
                     // Both reached through the real CollectionService, which shares the firehose bus.
@@ -169,6 +175,13 @@ class SeamLeakE2ETest :
                     adminDigest.count shouldBe 3
                     m1Digest.hash shouldNotBe adminDigest.hash
 
+                    // ─────────────────────────── SEAM 7: cover ───────────────────────────
+                    // Control: m1 fetches P's cover bytes (200). B's cover → NotFound — the
+                    // denial is indistinguishable from a cover-less / absent book. If the route
+                    // were ungated, m1 would receive B's artwork (book content) just like P's.
+                    client.cover(m1.token, "P").status shouldBe HttpStatusCode.OK
+                    client.cover(m1.token, "B").status shouldBe HttpStatusCode.NotFound
+
                     // ─────────────────────────── SEAM 6: firehose ───────────────────────────
                     // m1 subscribes; the server emits a live CONTENT event for B (private) then for
                     // P (public). The FIRST `books` event m1 sees must be P, never B — proving the
@@ -207,9 +220,10 @@ class SeamLeakE2ETest :
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
+                    writeCoverFile(libraryRoot, "B")
 
                     val books by application.inject<BookRepository>()
-                    books.upsert(bookFixture("B", "Dragon Secret"))
+                    books.upsert(bookFixture("B", "Dragon Secret", withCover = true))
                     books.upsert(bookFixture("B_inbox", "Dragon Inbox"))
 
                     val collections = collectionServiceAs(admin.userId, UserRole.ADMIN)
@@ -240,6 +254,9 @@ class SeamLeakE2ETest :
 
                     // SEAM 5: digest → folds all books (count 2).
                     client.digest(admin.token).count shouldBe 2
+
+                    // SEAM 7: cover → the admin is served the private book's cover bytes.
+                    client.cover(admin.token, "B").status shouldBe HttpStatusCode.OK
 
                     // SEAM 6: firehose → a live content event for the private B reaches the admin.
                     client.sse(
@@ -424,6 +441,11 @@ private suspend fun HttpClient.audio(
     fileId: String,
 ): HttpResponse = get("/api/v1/audio/$bookId/$fileId?$query")
 
+private suspend fun HttpClient.cover(
+    token: String,
+    bookId: String,
+): HttpResponse = get("/api/v1/books/$bookId/cover") { bearerAuth(token) }
+
 private const val CATCH_UP_PATH = "/api/v1/sync/books?since=0&limit=1000"
 private const val DIGEST_PATH = "/api/v1/sync/books/digest?cursor=1000000"
 
@@ -480,6 +502,7 @@ private suspend fun <T> AppResult<T>.requireSuccess(): T {
 private fun bookFixture(
     id: String,
     title: String,
+    withCover: Boolean = false,
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
@@ -497,7 +520,7 @@ private fun bookFixture(
         abridged = false,
         explicit = false,
         totalDuration = 3_600_000L,
-        cover = null,
+        cover = if (withCover) CoverPayload(source = CoverSource.FILESYSTEM, hash = "hash-$id") else null,
         rootRelPath = "books/$id",
         inode = null,
         scannedAt = 1_730_000_000_000L,
@@ -532,4 +555,16 @@ private fun writeAudioFile(
 ) {
     val dir = Files.createDirectories(libraryRoot.resolve("books/$bookId"))
     Files.write(dir.resolve("01.m4b"), ByteArray(256) { it.toByte() })
+}
+
+/** Writes a fixture `cover.jpg` at `books/<bookId>/` so the filesystem cover route serves bytes. */
+private fun writeCoverFile(
+    libraryRoot: java.nio.file.Path,
+    bookId: String,
+) {
+    val dir = Files.createDirectories(libraryRoot.resolve("books/$bookId"))
+    Files.write(
+        dir.resolve("cover.jpg"),
+        byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0x00, 0x10, 'J'.code.toByte()),
+    )
 }

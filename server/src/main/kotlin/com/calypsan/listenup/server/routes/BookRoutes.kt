@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.cover.CoverResponder
@@ -56,10 +57,16 @@ private const val AUTH_WALL_REGRESSION_MSG =
  *
  * All endpoints require JWT authentication (mounted inside the authenticate
  * block in Application.kt). Cover serving is delegated to [coverResponder].
+ *
+ * The cover and search reads are access-gated through [accessPolicy] just like
+ * `getBook`: a member must not fetch the artwork of — or surface an FTS id for —
+ * a book they can't reach. A denied cover answers 404 (indistinguishable from an
+ * absent/cover-less book — never 403, which would leak existence).
  */
-fun Route.bookRoutes(
+internal fun Route.bookRoutes(
     bookService: BookService,
     coverResponder: CoverResponder,
+    accessPolicy: BookAccessPolicy,
 ) {
     get<BookResources.Detail> { res ->
         // getBook is access-gated by the caller's principal — scope the service to
@@ -73,12 +80,24 @@ fun Route.bookRoutes(
     }
 
     get<BookResources.Cover> { res ->
+        // Gate the cover (book content) by the caller's principal, mirroring getBook.
+        // A denied book answers 404 — the same shape respondCover gives for an absent
+        // or cover-less book — so the response can't probe a private book's existence.
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        if (!accessPolicy.canAccess(p.userId.value, p.role, res.id.value)) {
+            call.respond(HttpStatusCode.NotFound)
+            return@get
+        }
         coverResponder.respondCover(call, res.id)
     }
 
     rateLimit(RateLimitBuckets.BooksSearch) {
         get<BookResources> { res ->
-            when (val result = bookService.searchBooks(res.q ?: "", res.limit)) {
+            // searchBooks is access-gated by the caller's principal — scope the service to
+            // the authenticated user per-request, mirroring the Detail (getBook) handler.
+            val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+            val scoped = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p })
+            when (val result = scoped.searchBooks(res.q ?: "", res.limit)) {
                 is AppResult.Success -> call.respond(result.data)
                 is AppResult.Failure -> call.respondBareAppError(result.error)
             }

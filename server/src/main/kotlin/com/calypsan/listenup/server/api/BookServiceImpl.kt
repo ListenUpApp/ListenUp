@@ -109,7 +109,11 @@ internal class BookServiceImpl(
         limit: Int,
     ): AppResult<List<BookId>> {
         if (query.isBlank()) return AppResult.Success(emptyList())
-        return AppResult.Success(repo.searchFts(query, limit.coerceIn(1, MAX_SEARCH_LIMIT)))
+        // Gate the FTS id set to the viewer's reachable books — an inaccessible match must
+        // never leak its existence (and from there feed cover/prepare). The caller is resolved
+        // from [principal] (never request fields); ROOT/ADMIN get a null filter (unfiltered).
+        val access = principal.current()?.let { accessPolicy.accessibleBookIdsSql(it.userId.value, it.role) }
+        return AppResult.Success(repo.searchFts(query, limit.coerceIn(1, MAX_SEARCH_LIMIT), access))
     }
 
     override suspend fun updateBook(

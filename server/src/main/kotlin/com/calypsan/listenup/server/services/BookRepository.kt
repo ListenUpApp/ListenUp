@@ -31,6 +31,7 @@ import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -41,6 +42,7 @@ import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import org.jetbrains.exposed.v1.core.IColumnType
 import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.TextColumnType
 import org.jetbrains.exposed.v1.core.and
@@ -643,25 +645,31 @@ class BookRepository(
      * string book ids this application uses. The search query is parameterised
      * so user-supplied strings never touch the SQL text. [limit] is clamped
      * by the caller ([BookServiceImpl]) before this method is invoked.
+     *
+     * When [accessFilter] is non-null its `SELECT b2.id …` subquery is spliced as
+     * `AND m.book_id IN (<sql>)` so only ids the viewer can reach survive — the
+     * caller ([BookServiceImpl.searchBooks]) derives it from
+     * [BookAccessPolicy.accessibleBookIdsSql][com.calypsan.listenup.server.api.BookAccessPolicy.accessibleBookIdsSql],
+     * which yields `null` for ROOT/ADMIN (unfiltered). Args are spliced in statement
+     * order: `MATCH ?` → the access subquery's args → `LIMIT ?`.
      */
     suspend fun searchFts(
         query: String,
         limit: Int,
+        accessFilter: SqlFragment? = null,
     ): List<BookId> =
         suspendTransaction(db) {
             val results = mutableListOf<BookId>()
+            val accessClause = if (accessFilter != null) " AND m.book_id IN (${accessFilter.sql})" else ""
             val stmt =
                 "SELECT m.book_id FROM book_search s " +
                     "JOIN book_search_map m ON s.rowid = m.rowid " +
-                    "WHERE book_search MATCH ? ORDER BY rank LIMIT ?"
-            TransactionManager.current().exec(
-                stmt = stmt,
-                args =
-                    listOf(
-                        TextColumnType() to query,
-                        IntegerColumnType() to limit,
-                    ),
-            ) { rs ->
+                    "WHERE book_search MATCH ?" + accessClause + " ORDER BY rank LIMIT ?"
+            val args =
+                listOf<Pair<IColumnType<*>, Any>>(TextColumnType() to query) +
+                    (accessFilter?.args ?: emptyList()) +
+                    listOf(IntegerColumnType() to limit)
+            TransactionManager.current().exec(stmt = stmt, args = args) { rs ->
                 while (rs.next()) results += BookId(rs.getString(1))
             }
             results
