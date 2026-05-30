@@ -28,6 +28,11 @@ import kotlin.time.Clock
  *
  * Caller identity is always taken from [principal] — never from request
  * fields — so userId cannot be spoofed across the wire.
+ *
+ * [prepare] is gated through [BookAccessPolicy]: a book the caller cannot reach
+ * answers `SyncError.NotFound`, never leaking its existence, metadata, signed
+ * URLs, or chapter structure — consistent with `BookService.getBook`, the audio
+ * route, and the cover route. ROOT/ADMIN bypass the filter.
  */
 internal class PlaybackServiceImpl(
     private val bookRepository: BookRepository,
@@ -36,15 +41,21 @@ internal class PlaybackServiceImpl(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val listeningEventRepository: ListeningEventRepository,
     private val userStatsRepository: UserStatsRepository,
+    private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
 
     override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> {
+        val p = principal.current()
+            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         val book = bookRepository.findById(bookId)
             ?: return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
-        val userId = principal.current()?.userId?.value
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
+            // Report a denied book as absent — never leak its existence, metadata, or chapters.
+            return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
+        }
+        val userId = p.userId.value
 
         val audioFiles = book.audioFiles
             .sortedBy { it.index }
@@ -132,6 +143,7 @@ internal class PlaybackServiceImpl(
             playbackPositionRepository = playbackPositionRepository,
             listeningEventRepository = listeningEventRepository,
             userStatsRepository = userStatsRepository,
+            accessPolicy = accessPolicy,
             principal = principal,
             clock = clock,
         )

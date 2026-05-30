@@ -75,6 +75,7 @@ class CollectionSyncCatchUpE2ETest :
                 collectionBookRepo = collectionBookRepo,
                 shareRepo = shareRepo,
                 accessPolicy = accessPolicy,
+                bus = bus,
                 db = db,
                 clock = fixedClock,
                 principal = principalFor("u1"),

@@ -46,7 +46,10 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.api.createContributorService
 import com.calypsan.listenup.server.api.createGenreService
 import com.calypsan.listenup.server.api.createSeriesService
@@ -80,6 +83,7 @@ import kotlin.time.Clock
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
@@ -302,7 +306,15 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     // matching production wiring in `RpcRoutes.rpcRoutes`.
                     serverRpc("/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
-                        registerService<BookService> { guard(bookService) }
+                        registerService<BookService> {
+                            // getBook is access-gated by the caller principal; scope the
+                            // service per-request exactly as production RpcRoutes does. The
+                            // test principal authenticates as ROOT, which bypasses the policy.
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(bookServiceScopedTo(bookService, PrincipalProvider { p }))
+                        }
                         registerService<ContributorService> { guard(contributorService) }
                         registerService<SeriesService> { guard(seriesService) }
                         registerService<GenreService> { guard(genreService) }

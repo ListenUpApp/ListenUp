@@ -41,5 +41,17 @@ internal object LibraryTable : SyncableTable("libraries") {
      */
     val createdByUserId = varchar("created_by_user_id", 36).nullable()
 
+    /**
+     * When `true`, a newly-scanned book lands in this library's inbox (hidden
+     * from members, visible to admins) pending triage, rather than becoming
+     * immediately public. Off by default — sharing is the default, so a library
+     * only inboxes new books when an operator explicitly opts in.
+     *
+     * Not part of [com.calypsan.listenup.api.sync.LibrarySyncPayload] — it's a
+     * server-side scanner gate, read directly by the ingest path, not synced to
+     * clients. An operator UI to toggle it is a follow-up.
+     */
+    val inboxEnabled = bool("inbox_enabled").default(false)
+
     override val primaryKey = PrimaryKey(id)
 }

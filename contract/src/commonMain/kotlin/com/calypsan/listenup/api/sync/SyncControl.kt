@@ -37,4 +37,15 @@ sealed interface SyncControl {
     data class StreamError(
         val error: AppError,
     ) : SyncControl
+
+    /**
+     * Sent when the recipient's accessible set may have changed without a book row
+     * itself mutating — e.g. a collection was shared/unshared with them, a share's
+     * permission changed, or a book was released into a collection they can see.
+     * The client treats this as "re-derive your accessible library" and re-pulls
+     * the access-aware books digest. A bare signal is enough; no scope is carried.
+     */
+    @Serializable
+    @SerialName("SyncControl.AccessChanged")
+    data object AccessChanged : SyncControl
 }

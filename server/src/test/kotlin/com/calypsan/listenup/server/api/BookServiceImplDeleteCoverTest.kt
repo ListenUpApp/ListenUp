@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.api.result.AppResult
@@ -13,6 +16,8 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -26,11 +31,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
+import kotlinx.coroutines.test.runTest
 
 class BookServiceImplDeleteCoverTest :
     FunSpec({
@@ -177,6 +182,8 @@ private fun newService(db: org.jetbrains.exposed.v1.jdbc.Database): Pair<BookSer
             coverStorage = CoverStorage(),
             db = db,
             genreRepo = GenreRepository(db, bus, syncRegistry),
+            accessPolicy = BookAccessPolicy(db),
+            principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
         )
     return service to repo
 }

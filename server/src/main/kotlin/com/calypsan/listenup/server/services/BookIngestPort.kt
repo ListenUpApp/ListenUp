@@ -20,7 +20,7 @@ interface BookIngestPort {
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
-    ): AppResult<BookId>
+    ): AppResult<IngestOutcome>
 
     /** Soft-delete library books absent from [seenIds]; see [BookRepository.softDeleteAbsent]. */
     suspend fun softDeleteAbsent(
@@ -28,3 +28,19 @@ interface BookIngestPort {
         seenIds: Set<BookId>,
     )
 }
+
+/**
+ * The result of a resolve-or-insert: the stable [bookId] the aggregate landed
+ * under, plus whether this scan minted it fresh ([wasNew]) versus refreshed an
+ * existing book in place (a plain rescan or a move).
+ *
+ * [wasNew] reports a genuine fact about the operation that resolve-or-insert
+ * knows for free. The scan-time inbox auto-populate that once consumed it was
+ * reverted (TOCTOU firehose leak — see [BookPersister]); the flag is retained
+ * for the future scan-auto-populate phase, which needs exactly this "only inbox
+ * genuinely-new books" discrimination once it can land the membership atomically.
+ */
+data class IngestOutcome(
+    val bookId: BookId,
+    val wasNew: Boolean,
+)

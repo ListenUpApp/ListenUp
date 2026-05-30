@@ -6,13 +6,20 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
+import org.jetbrains.exposed.v1.jdbc.Database
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -70,6 +77,10 @@ class AudioRoutesTest :
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
+                    // b1 is uncollected (public), so any seeded member can reach it.
+                    val db by application.inject<Database>()
+                    db.seedTestUser("user1")
+
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
 
@@ -101,6 +112,9 @@ class AudioRoutesTest :
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
+
+                    val db by application.inject<Database>()
+                    db.seedTestUser("user1")
 
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
@@ -186,6 +200,123 @@ class AudioRoutesTest :
             }
         }
 
+        test("valid signature for a book the member can't access returns 404 (not 403)") {
+            val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-deny-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    Files.write(bookDir.resolve("01.m4b"), ByteArray(256))
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
+
+                    // Lock b1 into a private collection owned by a stranger, then seed an
+                    // unrelated member who therefore can't reach it.
+                    val db by application.inject<Database>()
+                    db.seedTestUser("member")
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
+
+                    val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
+                    val query = signer.signedQuery("member", "b1", "af1")
+
+                    val response = client.get("/api/v1/audio/b1/af1?$query")
+
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("member with access serves the bytes") {
+            val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-member-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val audioBytes = ByteArray(256) { it.toByte() }
+                    Files.write(bookDir.resolve("01.m4b"), audioBytes)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
+
+                    // The member owns the collection b1 lives in, so it is reachable.
+                    val db by application.inject<Database>()
+                    db.seedTestUser("member")
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
+
+                    val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
+                    val query = signer.signedQuery("member", "b1", "af1")
+
+                    val response = client.get("/api/v1/audio/b1/af1?$query")
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.bodyAsBytes().toList() shouldBe audioBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("admin serves a private book they don't own") {
+            val libraryRoot = Files.createTempDirectory("listenup-audio-routes-access-admin-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val audioBytes = ByteArray(256) { it.toByte() }
+                    Files.write(bookDir.resolve("01.m4b"), audioBytes)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
+
+                    // b1 is private to a stranger; the admin has no relationship to it
+                    // but ADMIN bypasses the filter entirely.
+                    val db by application.inject<Database>()
+                    db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
+
+                    val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
+                    val query = signer.signedQuery("admin", "b1", "af1")
+
+                    val response = client.get("/api/v1/audio/b1/af1?$query")
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.bodyAsBytes().toList() shouldBe audioBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
         test("HEAD is handled by AutoHeadResponse — 200 with no body for a valid signed URL") {
             val libraryRoot = Files.createTempDirectory("listenup-audio-routes-head-")
             try {
@@ -204,6 +335,9 @@ class AudioRoutesTest :
                     val repo by application.inject<BookRepository>()
                     repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
 
+                    val db by application.inject<Database>()
+                    db.seedTestUser("user1")
+
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
 
@@ -219,6 +353,32 @@ class AudioRoutesTest :
             }
         }
     })
+
+private fun privateCollection(
+    id: String,
+    owner: String,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = false,
+        isGlobalAccess = false,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+private fun membership(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
+    )
 
 private fun audioFixture(
     bookId: String,

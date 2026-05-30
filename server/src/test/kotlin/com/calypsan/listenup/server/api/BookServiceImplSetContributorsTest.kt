@@ -3,6 +3,9 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -13,6 +16,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -57,6 +62,8 @@ class BookServiceImplSetContributorsTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -108,6 +115,8 @@ class BookServiceImplSetContributorsTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -159,6 +168,8 @@ class BookServiceImplSetContributorsTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val c1 = contributorRepo.resolveOrCreate("Brandon Sanderson")
@@ -219,6 +230,8 @@ class BookServiceImplSetContributorsTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val result =
@@ -258,6 +271,8 @@ class BookServiceImplSetContributorsTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))

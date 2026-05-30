@@ -17,9 +17,11 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
+import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -91,7 +93,12 @@ fun Route.rpcRoutes(
                 guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
             }
             if (bookService != null) {
-                registerService<BookService> { guard(bookService) }
+                registerService<BookService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((bookService as BookServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (contributorService != null) {
                 registerService<ContributorService> { guard(contributorService) }
@@ -119,7 +126,12 @@ fun Route.rpcRoutes(
                 registerService<MetadataLookupService> { guard(metadataLookupService) }
             }
             if (searchService != null) {
-                registerService<SearchService> { guard(searchService) }
+                registerService<SearchService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((searchService as SearchServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (libraryAdminService != null) {
                 // TODO: gate by user permissions when Multi-user lands

@@ -114,6 +114,10 @@ val clientSyncRenovationModule =
                 // construction cycle (engine depends on dispatcher; dispatcher
                 // only needs engine at runtime, not at construction).
                 onCursorStale = { lastKnown -> get<SyncEngine>().handleCursorStale(lastKnown) },
+                // AccessChanged re-derives the accessible set via catch-up without tearing down
+                // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
+                // construction cycle.
+                onAccessChanged = { get<SyncEngine>().handleAccessChanged() },
             )
         }
 

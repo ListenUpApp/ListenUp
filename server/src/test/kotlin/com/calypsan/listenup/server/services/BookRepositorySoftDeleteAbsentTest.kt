@@ -112,9 +112,9 @@ private val TEST_FOLDER_ID = FolderId("test-folder")
  * Asserts the [BookRepository.resolveOrInsert] result landed and returns the
  * resolved [BookId]. Fails loudly with the typed error otherwise.
  */
-private fun AppResult<BookId>.resolved(): BookId =
+private fun AppResult<IngestOutcome>.resolved(): BookId =
     when (this) {
-        is AppResult.Success -> data
+        is AppResult.Success -> data.bookId
         is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
     }
 

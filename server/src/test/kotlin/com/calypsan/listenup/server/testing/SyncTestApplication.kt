@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.testing
 
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -185,6 +186,7 @@ internal fun withTestApplication(
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
                     userStatsRepository = statsRepo,
+                    accessPolicy = BookAccessPolicy(db),
                     principal = PrincipalProvider { error("unscoped — copyWith required") },
                 )
             listeningEventRepo = eventRepo

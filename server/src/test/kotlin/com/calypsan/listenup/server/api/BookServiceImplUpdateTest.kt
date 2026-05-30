@@ -3,6 +3,9 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -11,6 +14,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -53,6 +58,8 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val initialUpsert =
@@ -95,6 +102,8 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     repo.upsert(
@@ -143,6 +152,8 @@ class BookServiceImplUpdateTest :
                         coverStorage = CoverStorage(),
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
+                        accessPolicy = BookAccessPolicy(db),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
                     val result =

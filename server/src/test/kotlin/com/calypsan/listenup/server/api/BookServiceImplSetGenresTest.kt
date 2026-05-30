@@ -3,10 +3,15 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.BookGenreInput
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.GenreTable
@@ -67,6 +72,8 @@ class BookServiceImplSetGenresTest :
                 coverStorage = CoverStorage(),
                 db = db,
                 genreRepo = genreRepo,
+                accessPolicy = BookAccessPolicy(db),
+                principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             )
         }
 

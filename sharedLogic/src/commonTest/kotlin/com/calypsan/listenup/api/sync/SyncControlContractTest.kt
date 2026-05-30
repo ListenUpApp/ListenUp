@@ -26,14 +26,25 @@ class SyncControlContractTest :
             (decoded.error as InternalError).correlationId shouldBe "cid-xyz"
         }
 
+        test("AccessChanged round-trips") {
+            val original: SyncControl = SyncControl.AccessChanged
+            val json = contractJson.encodeToString(SyncControl.serializer(), original)
+            val decoded = contractJson.decodeFromString(SyncControl.serializer(), json)
+            decoded shouldBe SyncControl.AccessChanged
+        }
+
         test("Stable discriminators") {
             val stale: SyncControl = SyncControl.CursorStale(0)
             val streamErr: SyncControl = SyncControl.StreamError(InternalError())
+            val accessChanged: SyncControl = SyncControl.AccessChanged
             contractJson
                 .encodeToString(SyncControl.serializer(), stale)
                 .contains("\"type\":\"SyncControl.CursorStale\"") shouldBe true
             contractJson
                 .encodeToString(SyncControl.serializer(), streamErr)
                 .contains("\"type\":\"SyncControl.StreamError\"") shouldBe true
+            contractJson
+                .encodeToString(SyncControl.serializer(), accessChanged)
+                .contains("\"type\":\"SyncControl.AccessChanged\"") shouldBe true
         }
     })

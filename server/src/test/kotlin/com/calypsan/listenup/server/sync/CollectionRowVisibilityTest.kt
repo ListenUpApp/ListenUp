@@ -1,0 +1,282 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
+package com.calypsan.listenup.server.sync
+
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.useIsolatedTestConfig
+import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.sse
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.koin.ktor.ext.inject
+import java.nio.file.Files
+
+private const val PULL_LIMIT = 100
+
+/**
+ * Tests for the Collections-1b sync-row visibility gate: a member syncs only the
+ * collections they own / are shared / global-access (and the shares + memberships
+ * scoped the same way), never every collection's rows; an admin sees all.
+ *
+ * Catch-up/digest tests drive the real syncable repositories with the
+ * [BookAccessPolicy] fragments (the exact pairing `SyncRoutes` wires), against a
+ * Flyway-migrated in-memory database. The firehose test boots the full [module]
+ * and asserts a real SSE stream gates a collection event per-subscriber.
+ */
+class CollectionRowVisibilityTest :
+    FunSpec({
+
+        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionShareRepository, CollectionBookRepository> {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            return Triple(
+                CollectionRepository(db = db, bus = bus, registry = registry),
+                CollectionShareRepository(db = db, bus = bus, registry = registry),
+                CollectionBookRepository(db = db, bus = bus, registry = registry),
+            )
+        }
+
+        // ---- Catch-up / digest seam ----
+
+        test("collections catch-up returns only owned + shared for a member; inbox excluded") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                seedTestUser("stranger")
+                runTest {
+                    val (collections, shares, _) = makeRepos(db)
+
+                    collections.upsert(collectionFixture("owned", owner = "member"))
+                    collections.upsert(collectionFixture("shared", owner = "stranger"))
+                    collections.upsert(collectionFixture("private", owner = "stranger"))
+                    collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
+                    shares.upsert(shareFixture("share1", "shared", sharedWith = "member"))
+
+                    val policy = BookAccessPolicy(db)
+                    val frag = policy.accessibleCollectionIdsSql("member", UserRole.MEMBER)
+
+                    val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
+
+                    page.items.map { it.id } shouldContainExactlyInAnyOrder listOf("owned", "shared")
+                }
+            }
+        }
+
+        test("collection_shares catch-up returns only the member's own shares") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                seedTestUser("stranger")
+                seedTestUser("other")
+                runTest {
+                    val (collections, shares, _) = makeRepos(db)
+
+                    // member owns "owned"; a share on it (naming "other") is visible to member as owner.
+                    collections.upsert(collectionFixture("owned", owner = "member"))
+                    collections.upsert(collectionFixture("strangers", owner = "stranger"))
+                    shares.upsert(shareFixture("s-naming-member", "strangers", sharedWith = "member"))
+                    shares.upsert(shareFixture("s-on-owned", "owned", sharedWith = "other"))
+                    shares.upsert(shareFixture("s-irrelevant", "strangers", sharedWith = "other"))
+
+                    val policy = BookAccessPolicy(db)
+                    val frag = policy.visibleCollectionShareIdsSql("member", UserRole.MEMBER)
+
+                    val page = shares.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
+
+                    page.items.map { it.id } shouldContainExactlyInAnyOrder listOf("s-naming-member", "s-on-owned")
+                }
+            }
+        }
+
+        test("collection_books catch-up returns only memberships in accessible collections") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("member")
+                seedTestUser("stranger")
+                seedTestBook("b1")
+                seedTestBook("b2")
+                runTest {
+                    val (collections, shares, memberships) = makeRepos(db)
+
+                    collections.upsert(collectionFixture("owned", owner = "member"))
+                    collections.upsert(collectionFixture("private", owner = "stranger"))
+                    memberships.upsert(membershipFixture("owned", "b1"))
+                    memberships.upsert(membershipFixture("private", "b2"))
+
+                    val policy = BookAccessPolicy(db)
+                    val frag = policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
+
+                    val page = memberships.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
+
+                    page.items.map { CollectionBookId(it.collectionId, it.bookId).asString() } shouldContainExactlyInAnyOrder
+                        listOf("owned:b1")
+                }
+            }
+        }
+
+        test("admin collections catch-up returns all (incl. inbox)") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("admin")
+                seedTestUser("stranger")
+                runTest {
+                    val (collections, _, _) = makeRepos(db)
+
+                    collections.upsert(collectionFixture("private", owner = "stranger"))
+                    collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
+
+                    val policy = BookAccessPolicy(db)
+                    val frag = policy.accessibleCollectionIdsSql("admin", UserRole.ADMIN)
+
+                    // Admin → null fragment → no filter → every row.
+                    frag shouldBe null
+                    val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
+
+                    page.items.map { it.id } shouldContainExactlyInAnyOrder listOf("private", "inbox")
+                }
+            }
+        }
+
+        // ---- Firehose seam ----
+
+        test("firehose drops a collection event for a member with no access to it") {
+            val libraryRoot = Files.createTempDirectory("listenup-fh-coll-access-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = sseClient()
+
+                    client.mintRootToken()
+                    val memberToken = client.registerMember()
+                    seedTestLibraryAndFolder()
+                    val collections by application.inject<CollectionRepository>()
+
+                    client.sse(
+                        urlString = "/api/v1/sync/events",
+                        request = { bearerAuth(memberToken) },
+                    ) {
+                        coroutineScope {
+                            // The first collections event the member sees must be the public
+                            // (global-access) one — never the stranger's private one.
+                            val deferred = async { incoming.first { it.event == "collections" } }
+                            collections.upsert(collectionFixture("private-col", owner = "stranger"))
+                            collections.upsert(
+                                collectionFixture("public-col", owner = "stranger", isGlobalAccess = true),
+                            )
+                            val event = deferred.await()
+
+                            event.event shouldBe "collections"
+                            event.data!!.contains(""""id":"public-col"""") shouldBe true
+                            event.data!!.contains(""""id":"private-col"""") shouldBe false
+                        }
+                    }
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+    })
+
+private fun io.ktor.server.testing.ApplicationTestBuilder.sseClient(): HttpClient =
+    createClient {
+        install(ContentNegotiation) { json(contractJson) }
+        install(SSE)
+    }
+
+private suspend fun HttpClient.mintRootToken(): String =
+    post("/api/v1/auth/setup") {
+        contentType(ContentType.Application.Json)
+        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
+    }.body<AppResult<AuthSession>>()
+        .let { it as AppResult.Success<AuthSession> }
+        .data.accessToken.value
+
+private suspend fun HttpClient.registerMember(): String {
+    val result =
+        post("/api/v1/auth/register") {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
+        }.body<AppResult<RegisterResult>>()
+            .let { it as AppResult.Success<RegisterResult> }
+            .data
+    return (result as RegisterResult.Authenticated).session.accessToken.value
+}
+
+private fun collectionFixture(
+    id: String,
+    owner: String,
+    isInbox: Boolean = false,
+    isGlobalAccess: Boolean = false,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = isInbox,
+        isGlobalAccess = isGlobalAccess,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+private fun shareFixture(
+    id: String,
+    collectionId: String,
+    sharedWith: String,
+): CollectionShareSyncPayload =
+    CollectionShareSyncPayload(
+        id = id,
+        collectionId = collectionId,
+        sharedWithUserId = sharedWith,
+        sharedByUserId = "owner",
+        permission = SharePermission.Read,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+private fun membershipFixture(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
+    )

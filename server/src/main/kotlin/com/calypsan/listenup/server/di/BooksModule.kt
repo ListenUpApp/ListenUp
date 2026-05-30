@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -126,6 +127,7 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
+        single { BookAccessPolicy(get()) }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -134,6 +136,8 @@ fun booksModule(
                 coverStorage = get<CoverStorage>(),
                 db = get(),
                 genreRepo = get<GenreRepository>(),
+                accessPolicy = get<BookAccessPolicy>(),
+                principal = unscopedPlaceholder("BookService"),
             )
         }
         single<ContributorService> {
@@ -152,7 +156,13 @@ fun booksModule(
                 db = get(),
             )
         }
-        single<SearchService> { SearchServiceImpl(db = get()) }
+        single<SearchService> {
+            SearchServiceImpl(
+                db = get(),
+                accessPolicy = get<BookAccessPolicy>(),
+                principal = unscopedPlaceholder("SearchService"),
+            )
+        }
         single { BookSearchReindexer(get<BookTagRepository>(), get<TagRepository>(), get()) }
         single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
         single<TagService> {
@@ -172,20 +182,19 @@ fun booksModule(
             )
         }
         single { CollectionAccessPolicy(get(), get()) }
-        single<CollectionService> {
+        single {
             CollectionServiceImpl(
                 collectionRepo = get(),
                 collectionBookRepo = get(),
                 shareRepo = get(),
                 accessPolicy = get(),
+                bus = get(),
                 db = get(),
                 clock = get(),
-                principal =
-                    PrincipalProvider {
-                        error("Unscoped CollectionService — call copyWith(PrincipalProvider) at the route")
-                    },
+                principal = unscopedPlaceholder("CollectionService"),
             )
         }
+        single<CollectionService> { get<CollectionServiceImpl>() }
         // Default-genre-taxonomy seeder. Logically part of the books slice — runs once on
         // every install (curator can edit afterwards). Application.kt invokes seed() in a
         // launch after Koin starts, regardless of seed.profile; `isAlreadySeeded()` makes
@@ -212,6 +221,15 @@ fun booksModule(
             )
         }
     }
+
+/**
+ * The unscoped-caller placeholder every principal-scoped service binding carries: a
+ * [PrincipalProvider] that throws if invoked. Route handlers always [copyWith] the
+ * authenticated principal before calling, so reaching this placeholder signals a wiring
+ * bug — fail loud and early rather than silently serving an unscoped (over-broad) view.
+ */
+private fun unscopedPlaceholder(serviceName: String): PrincipalProvider =
+    PrincipalProvider { error("Unscoped $serviceName — call copyWith(PrincipalProvider) at the route") }
 
 /**
  * Default [EmbeddedCoverCache] capacity used when `scanner.embeddedCoverCacheSize`

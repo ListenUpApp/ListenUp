@@ -8,6 +8,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
@@ -30,6 +33,8 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -51,6 +56,9 @@ class PlaybackServiceImplTest :
             val signer: AudioUrlSigner,
             val eventRepo: ListeningEventRepository,
             val statsRepo: UserStatsRepository,
+            val accessPolicy: BookAccessPolicy,
+            val collectionRepo: CollectionRepository,
+            val collectionBookRepo: CollectionBookRepository,
         )
 
         fun buildDeps(db: org.jetbrains.exposed.v1.jdbc.Database): TestDeps {
@@ -69,21 +77,34 @@ class PlaybackServiceImplTest :
             val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
             val updater = UserStatsUpdater(db = db, userStatsRepo = statsRepo)
             val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), userStatsUpdater = updater)
-            return TestDeps(bookRepo, positionRepo, signer, eventRepo, statsRepo)
+            return TestDeps(
+                bookRepo = bookRepo,
+                positionRepo = positionRepo,
+                signer = signer,
+                eventRepo = eventRepo,
+                statsRepo = statsRepo,
+                accessPolicy = BookAccessPolicy(db),
+                collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry),
+                collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry),
+            )
         }
 
-        fun principal(userId: String = "u1"): PrincipalProvider =
+        fun principal(
+            userId: String = "u1",
+            role: UserRole = UserRole.MEMBER,
+        ): PrincipalProvider =
             PrincipalProvider {
                 UserPrincipal(
                     userId = UserId(userId),
                     sessionId = SessionId("session-$userId"),
-                    role = UserRole.MEMBER,
+                    role = role,
                 )
             }
 
         fun TestDeps.service(
             db: org.jetbrains.exposed.v1.jdbc.Database,
             userId: String = "u1",
+            role: UserRole = UserRole.MEMBER,
         ): PlaybackServiceImpl =
             PlaybackServiceImpl(
                 bookRepository = bookRepo,
@@ -92,7 +113,8 @@ class PlaybackServiceImplTest :
                 playbackPositionRepository = positionRepo,
                 listeningEventRepository = eventRepo,
                 userStatsRepository = statsRepo,
-                principal = principal(userId),
+                accessPolicy = accessPolicy,
+                principal = principal(userId, role),
             )
 
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
@@ -298,6 +320,63 @@ class PlaybackServiceImplTest :
             }
         }
 
+        // ─── prepare access gate ──────────────────────────────────────────────────
+
+        test("prepare returns NotFound for a member on a book in a private collection they can't reach") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
+                    deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
+                    deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
+
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+
+                    val result = service.prepare(BookId("private-book"))
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<SyncError.NotFound>()
+                }
+            }
+        }
+
+        test("prepare returns the playback for a member on an uncollected (public) book") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("loose-book"))
+
+                    val service = deps.service(db, userId = "anyone", role = UserRole.MEMBER)
+
+                    val result = service.prepare(BookId("loose-book"))
+                    val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+                    success.data.bookId shouldBe "loose-book"
+                }
+            }
+        }
+
+        test("admin prepare sees a private/inbox book a member could not") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("inbox-book"))
+                    deps.collectionRepo.upsert(playbackCollection("inbox-col", owner = "stranger", isInbox = true))
+                    deps.collectionBookRepo.upsert(playbackMembership("inbox-col", "inbox-book"))
+
+                    val service = deps.service(db, userId = "admin", role = UserRole.ADMIN)
+
+                    val result = service.prepare(BookId("inbox-book"))
+                    val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+                    success.data.bookId shouldBe "inbox-book"
+                }
+            }
+        }
+
         // ─── getStats / recordListeningEvent ──────────────────────────────────────
 
         test("getStats returns Success(null) for a user with no listening history") {
@@ -465,4 +544,31 @@ private fun bookWithThreeFiles(bookId: String): BookSyncPayload =
         updatedAt = 0L,
         createdAt = 0L,
         deletedAt = null,
+    )
+
+private fun playbackCollection(
+    id: String,
+    owner: String,
+    isInbox: Boolean = false,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = isInbox,
+        isGlobalAccess = false,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+private fun playbackMembership(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
     )

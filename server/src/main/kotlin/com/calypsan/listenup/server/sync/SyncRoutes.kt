@@ -1,11 +1,15 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -31,6 +35,36 @@ private val log = KotlinLogging.logger("rpc.SyncFirehose")
 // Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
 private const val SSE_EVENT_CONTROL = "control"
 
+// The access-gated domains: their catch-up + digest are scoped through BookAccessPolicy.
+// Every other domain passes a null filter (unchanged behaviour).
+private const val BOOKS_DOMAIN = "books"
+private const val COLLECTIONS_DOMAIN = "collections"
+private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
+private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
+
+/**
+ * The access filter for [domainName]'s catch-up/digest, scoped to `(userId, role)` — or `null`
+ * for an ungated domain (or an admin, who sees all). A field rename in any visibility predicate
+ * ripples through this single dispatch, not per-route.
+ *
+ * [policy] is a thunk, resolved only for a gated domain: an ungated domain never touches it, so
+ * harnesses that drive only such domains need not register a [BookAccessPolicy] (mirrors the
+ * firehose thunk).
+ */
+private fun accessFilterFor(
+    domainName: String,
+    userId: String,
+    role: UserRole,
+    policy: () -> BookAccessPolicy,
+): SqlFragment? =
+    when (domainName) {
+        BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
+        COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
+        COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionShareIdsSql(userId, role)
+        COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
+        else -> null
+    }
+
 /**
  * Mounts the Sync Foundation REST endpoints under `/api/v1/sync`:
  *  - `GET /api/v1/sync/events` — SSE firehose with `Last-Event-Id` resume
@@ -45,14 +79,19 @@ private const val SSE_EVENT_CONTROL = "control"
 fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     val bus by inject<ChangeBus>()
     val registry by inject<SyncRegistry>()
+    val bookAccessPolicy by inject<BookAccessPolicy>()
 
-    // SSE firehose — streams every domain's BusEvents in real time.
-    sse("/api/v1/sync/events") { streamFirehose(bus, heartbeatIntervalMillis) }
+    // SSE firehose — streams every domain's BusEvents in real time. The policy is passed as
+    // a thunk, not the resolved instance: the firehose touches it only when it must gate a
+    // books content event, so harnesses that never drive the books domain through the
+    // firehose (e.g. the cross-module sync-engine E2E) need not register a BookAccessPolicy.
+    sse("/api/v1/sync/events") { streamFirehose(bus, { bookAccessPolicy }, heartbeatIntervalMillis) }
 
     get("/api/v1/sync/{domain}") {
-        val userId =
-            call.userPrincipalOrNull()?.userId?.value
+        val principal =
+            call.userPrincipalOrNull()
                 ?: return@get call.respond(HttpStatusCode.Unauthorized)
+        val userId = principal.userId.value
         val domainName =
             call.parameters["domain"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
@@ -68,9 +107,13 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
+        // Books and the three collection domains are access-gated; every other domain passes
+        // null (unchanged behaviour). For admins the policy returns null → no filter.
+        val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
+
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
-        val page: Page<Any> = typedRepo.pullSince(userId, since, limit)
+        val page: Page<Any> = typedRepo.pullSince(userId, since, limit, extraWhere)
         // call.respond(page) would fail at runtime: kotlinx.serialization cannot
         // infer the concrete element serializer from the type-erased Page<Any>.
         // encodePageAsJson uses the concrete KSerializer<T> each repository provides.
@@ -78,9 +121,10 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     }
 
     get("/api/v1/sync/{domain}/digest") {
-        val userId =
-            call.userPrincipalOrNull()?.userId?.value
+        val principal =
+            call.userPrincipalOrNull()
                 ?: return@get call.respond(HttpStatusCode.Unauthorized)
+        val userId = principal.userId.value
         val domainName =
             call.parameters["domain"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
@@ -91,9 +135,11 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
             registry.lookup(domainName)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "unknown domain: $domainName")
 
+        val extraWhere = accessFilterFor(domainName, userId, principal.role) { bookAccessPolicy }
+
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepository<Any, Any>
-        val digest: DomainDigest = typedRepo.digest(userId, cursor)
+        val digest: DomainDigest = typedRepo.digest(userId, cursor, extraWhere)
         call.respond(digest)
     }
 
@@ -114,12 +160,15 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
  */
 private suspend fun ServerSSESession.streamFirehose(
     bus: ChangeBus,
+    bookAccessPolicy: () -> BookAccessPolicy,
     heartbeatIntervalMillis: Long,
 ) {
     // The route group is mounted inside authenticate(JWT_PROVIDER), so a principal
     // is always present in production. The null guard is defence-in-depth — without
     // a user, per-user events cannot be safely filtered, so the stream is refused.
-    val userId = call.userPrincipalOrNull()?.userId?.value ?: return
+    val principal = call.userPrincipalOrNull() ?: return
+    val userId = principal.userId.value
+    val role = principal.role
 
     // Malformed cursor (non-numeric) is treated identically to a stale cursor:
     // a corrupted Room cell or client-side bug must force REST catch-up rather
@@ -160,6 +209,18 @@ private suspend fun ServerSSESession.streamFirehose(
             }
         }
 
+    // Per-user control frames (e.g. AccessChanged) ride a separate, non-replayed bus
+    // channel — they carry no revision and must not enter Last-Event-Id resume. Deliver
+    // only the frames addressed to this subscriber, on the same `event: control` line the
+    // CursorStale/StreamError frames use, so the client branches on `event:` alone.
+    val controlJob =
+        launch {
+            bus
+                .subscribeControl()
+                .filter { it.userId == userId }
+                .collect { frame -> sendControl(frame.control) }
+        }
+
     try {
         bus
             .subscribe()
@@ -172,6 +233,11 @@ private suspend fun ServerSSESession.streamFirehose(
                 // user-scoped domain — deliver it only to that user. A null userId
                 // is a global-domain event, delivered to every subscriber.
                 if (busEvent.userId != null && busEvent.userId != userId) return@collect
+                // Access gating: a live content event the subscriber may not see is dropped
+                // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
+                // [isCollectionEventHidden].
+                if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
+                if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
                 send(
@@ -202,17 +268,103 @@ private suspend fun ServerSSESession.streamFirehose(
         )
     } finally {
         heartbeatJob.cancel()
+        controlJob.cancel()
     }
 }
 
+/**
+ * Whether a live firehose [busEvent] must be withheld from `(userId, role)` by the
+ * book-level access boundary.
+ *
+ * Only the `books` domain is gated, and only its *content* events (Created/Updated)
+ * which carry a payload a member must not see for a private book. ROOT/ADMIN see every
+ * book, so they skip the [BookAccessPolicy.canAccess] probe entirely — no DB hit.
+ *
+ * Deleted tombstones are never hidden: `canAccess` requires `deleted_at IS NULL`, so a
+ * deleted book is never "accessible" and probing it would drop every tombstone for every
+ * viewer — stranding stale Room rows that can never be reconciled. A tombstone carries
+ * only an id (no content), so delivering it to a subscriber who never had the book simply
+ * no-ops on their side. One DB probe per gated event per member — fine at our scale.
+ */
+private suspend fun isBookEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    if (busEvent.repo.domainName != BOOKS_DOMAIN) return false
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+    return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
+}
+
+/**
+ * Whether a live firehose [busEvent] on a collection domain
+ * (`collections` / `collection_shares` / `collection_books`) must be withheld from
+ * `(userId, role)` by the collection-level access boundary.
+ *
+ * Mirrors [isBookEventHidden]: only content events (Created/Updated) are gated; ROOT/ADMIN
+ * and Deleted tombstones always pass (a tombstone strands no secret — it only lets a client
+ * reconcile a row it may already hold; gating it would permanently leave stale rows).
+ *
+ * Visibility matches each domain's catch-up fragment exactly so the live tail and REST
+ * replay never disagree:
+ *  - `collections` — the event id *is* the collection id; gated by [BookAccessPolicy.canAccessCollection].
+ *  - `collection_books` — the event id is the synthetic `"$collectionId:$bookId"` key
+ *    ([CollectionBookId.fromString]); gated by the parsed collection's access.
+ *  - `collection_shares` — the event id is the share row id, so the collection id and named
+ *    user come from the [CollectionShareSyncPayload]; visible iff the share names the viewer
+ *    or the viewer owns the collection (the `visibleCollectionShareIdsSql` rule).
+ */
+private suspend fun isCollectionEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    val domain = busEvent.repo.domainName
+    if (domain != COLLECTIONS_DOMAIN && domain != COLLECTION_SHARES_DOMAIN && domain != COLLECTION_BOOKS_DOMAIN) {
+        return false
+    }
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+
+    if (domain == COLLECTION_SHARES_DOMAIN) {
+        val share = sharePayloadOf(busEvent.event) ?: return false
+        if (share.sharedWithUserId == userId) return false
+        return !bookAccessPolicy().ownsCollection(userId, share.collectionId)
+    }
+
+    val collectionId =
+        if (domain == COLLECTION_BOOKS_DOMAIN) {
+            CollectionBookId.fromString(busEvent.event.id).collectionId
+        } else {
+            busEvent.event.id
+        }
+    return !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
+}
+
+/**
+ * The [CollectionShareSyncPayload] carried by a content [event] on the `collection_shares`
+ * domain, or `null` if the event carries no payload (a tombstone — already handled upstream).
+ * The repo↔event type binding guarantees the payload is a share payload by construction.
+ */
+private fun sharePayloadOf(event: SyncEvent<*>): CollectionShareSyncPayload? =
+    when (event) {
+        is SyncEvent.Created<*> -> event.payload as CollectionShareSyncPayload
+        is SyncEvent.Updated<*> -> event.payload as CollectionShareSyncPayload
+        is SyncEvent.Deleted -> null
+    }
+
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
 private suspend fun ServerSSESession.sendCursorStale(lastKnownRevision: Long) {
+    sendControl(SyncControl.CursorStale(lastKnownRevision = lastKnownRevision))
+}
+
+/** Emits an arbitrary [SyncControl] frame on the firehose's `event: control` line. */
+private suspend fun ServerSSESession.sendControl(control: SyncControl) {
     send(
-        data =
-            contractJson.encodeToString(
-                SyncControl.serializer(),
-                SyncControl.CursorStale(lastKnownRevision = lastKnownRevision),
-            ),
+        data = contractJson.encodeToString(SyncControl.serializer(), control),
         event = SSE_EVENT_CONTROL,
     )
 }

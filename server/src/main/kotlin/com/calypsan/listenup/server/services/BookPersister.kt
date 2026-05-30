@@ -1,10 +1,12 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -31,6 +33,25 @@ private val log = KotlinLogging.logger {}
  * library, so books absent from it are soft-deleted. A [ScanScope.Subtree]
  * result only re-walked one book-root — absence there is not authoritative, so
  * no sweep runs.
+ *
+ * No inbox auto-add: scan-time inbox auto-populate was deliberately reverted. It
+ * carried a TOCTOU content leak — `BookRepository.upsert` commits the book row
+ * and publishes `book.Created` to the firehose inside one transaction, at which
+ * instant the book is in no collection (uncollected → public by
+ * [com.calypsan.listenup.server.api.BookAccessPolicy]). The firehose subscriber
+ * collects the event, sees committed-public state, and delivers the full payload
+ * to every connected member *before* the separate `addToInbox` transaction can
+ * quarantine it. Closing that window atomically would require the membership to
+ * land in the same transaction as the book insert with the `book.Created`
+ * publish deferred until after commit — a change to the shared
+ * [com.calypsan.listenup.server.sync.SyncableRepository.upsert] publish-inside-
+ * transaction contract that every domain depends on. Rather than risk that
+ * cross-domain contract, the auto-add hook is removed; scanned books stay
+ * uncollected (their existing behaviour). The inbox remains usable via the
+ * deliberate admin path
+ * ([com.calypsan.listenup.server.api.CollectionServiceImpl.addToInbox] /
+ * `releaseBooks` / `listInbox`). Scan-auto-populate is a future phase with
+ * atomic ingest designed in from the start.
  */
 class BookPersister(
     private val ingest: BookIngestPort,
@@ -56,30 +77,43 @@ class BookPersister(
         val folderId = resolveFolderId(result.rootPath)
         val seenIds = mutableSetOf<BookId>()
         for (analyzed in result.books) {
-            try {
-                when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed)) {
-                    is AppResult.Success -> {
-                        seenIds += r.data
-                    }
-
-                    is AppResult.Failure -> {
-                        log.warn {
-                            "Book persist failed: ${analyzed.candidate.rootRelPath} — ${r.error.code}; continuing"
-                        }
-                        metrics.bookPersistFailures.increment()
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                log.warn(e) { "Book persist threw: ${analyzed.candidate.rootRelPath} — continuing" }
-                metrics.bookPersistFailures.increment()
-            }
+            persistOne(analyzed, libraryId, folderId)?.let { seenIds += it }
         }
         if (result.scope is ScanScope.Full) {
             ingest.softDeleteAbsent(libraryId, seenIds)
         }
     }
+
+    /**
+     * Persists one scanned book, contained against its own failure: a typed
+     * failure or an escaped exception is logged and counted, never aborting the
+     * rest of the scan. Returns the resolved [BookId] when the aggregate landed
+     * (so the caller can track it for the tombstone sweep), or null otherwise.
+     */
+    private suspend fun persistOne(
+        analyzed: AnalyzedBook,
+        libraryId: LibraryId,
+        folderId: FolderId,
+    ): BookId? =
+        try {
+            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed)) {
+                is AppResult.Success -> {
+                    r.data.bookId
+                }
+
+                is AppResult.Failure -> {
+                    log.warn { "Book persist failed: ${analyzed.candidate.rootRelPath} — ${r.error.code}; continuing" }
+                    metrics.bookPersistFailures.increment()
+                    null
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            log.warn(e) { "Book persist threw: ${analyzed.candidate.rootRelPath} — continuing" }
+            metrics.bookPersistFailures.increment()
+            null
+        }
 
     /**
      * Looks up the [FolderId] for the folder whose [LibraryFolderTable.rootPath]
