@@ -112,6 +112,8 @@ val adminPresentationModule =
                 inboxRepository = get(),
                 libraryRepository = get(),
                 eventStreamRepository = get(),
+                bookDao = get(),
+                imageStorage = get(),
                 errorBus = get(),
             )
         }

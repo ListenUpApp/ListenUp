@@ -14,19 +14,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Publish
 import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,30 +40,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_inbox
 import listenup.composeapp.generated.resources.admin_inbox_empty
 import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_appear
-import listenup.composeapp.generated.resources.admin_no_collections_will_be_public
-import listenup.composeapp.generated.resources.common_release
 import listenup.composeapp.generated.resources.admin_release_anyway
 import listenup.composeapp.generated.resources.admin_release_without_collections
 import listenup.composeapp.generated.resources.admin_these_books_will_become_visible
-import listenup.composeapp.generated.resources.admin_will_be_released_without_any
+import listenup.composeapp.generated.resources.common_inbox
+import listenup.composeapp.generated.resources.common_release
 
 /**
- * Admin screen for managing the inbox staging workflow.
+ * Admin review-and-release queue for the collection inbox (Layout A).
  *
- * Displays newly scanned books that need admin review before becoming
- * visible to users. Supports batch selection and release operations.
+ * Lists newly-scanned books awaiting review as hydrated rows — cover thumbnail, title, author,
+ * and duration with a leading selection checkbox. Tapping a row navigates to book-edit (where
+ * tags/collections are fixed); the bottom bulk action releases the selected books, making them
+ * publicly visible. Collection assignment is intentionally NOT done here — it lives in book-edit.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,15 +116,9 @@ fun AdminInboxScreen(
             val ready = state as? AdminInboxUiState.Ready
             if (ready != null && ready.hasSelection) {
                 ListenUpExtendedFab(
-                    onClick = {
-                        if (viewModel.hasSelectedBooksWithoutCollections()) {
-                            showReleaseConfirmation = true
-                        } else {
-                            viewModel.releaseSelected()
-                        }
-                    },
+                    onClick = { showReleaseConfirmation = true },
                     icon = Icons.Outlined.Publish,
-                    text = stringResource(Res.string.common_release),
+                    text = "${stringResource(Res.string.common_release)} (${ready.selectedCount})",
                     isLoading = ready.isReleasing,
                 )
             }
@@ -136,19 +132,15 @@ fun AdminInboxScreen(
         )
     }
 
-    // Release confirmation dialog (shown when releasing books without collections).
-    // Only meaningful when Ready — the dialog reads selection state from Ready.
+    // Releasing makes the selected books publicly visible — confirm before committing.
     val ready = state as? AdminInboxUiState.Ready
     if (showReleaseConfirmation && ready != null) {
-        val booksWithoutCollections =
-            ready.selectedBookIds.count { ready.stagedAssignments[it].isNullOrEmpty() }
-
+        val count = ready.selectedCount
         ListenUpDestructiveDialog(
             onDismissRequest = { showReleaseConfirmation = false },
             title = stringResource(Res.string.admin_release_without_collections),
             text =
-                "$booksWithoutCollections book${if (booksWithoutCollections != 1) "s" else ""} " +
-                    stringResource(Res.string.admin_will_be_released_without_any) +
+                "$count book${if (count != 1) "s" else ""} " +
                     stringResource(Res.string.admin_these_books_will_become_visible),
             confirmText = stringResource(Res.string.admin_release_anyway),
             onConfirm = {
@@ -247,7 +239,7 @@ private fun AdminInboxReadyContent(
     onBookSelectionToggle: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (state.bookIds.isEmpty()) {
+    if (!state.hasBooks) {
         EmptyInboxMessage(modifier = modifier)
     } else {
         LazyColumn(
@@ -265,37 +257,18 @@ private fun AdminInboxReadyContent(
                 )
             }
 
-            item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors =
-                        CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                ) {
-                    Column {
-                        state.bookIds.forEachIndexed { index, bookId ->
-                            InboxBookRow(
-                                bookId = bookId,
-                                isSelected = bookId in state.selectedBookIds,
-                                isReleasing = state.isReleasing && bookId in state.selectedBookIds,
-                                stagedCount = state.stagedAssignments[bookId]?.size ?: 0,
-                                onClick = { onBookClick(bookId) },
-                                onSelectionToggle = { onBookSelectionToggle(bookId) },
-                            )
-                            if (index < state.bookIds.lastIndex) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                    }
-                }
+            items(items = state.books, key = { it.id }) { book ->
+                InboxBookRow(
+                    book = book,
+                    isSelected = book.id in state.selectedBookIds,
+                    isReleasing = state.isReleasing && book.id in state.selectedBookIds,
+                    onClick = { onBookClick(book.id) },
+                    onSelectionToggle = { onBookSelectionToggle(book.id) },
+                )
             }
 
             item {
-                Spacer(modifier = Modifier.height(88.dp)) // Space for FAB
+                Spacer(modifier = Modifier.height(88.dp)) // Space for the release FAB.
             }
         }
     }
@@ -303,10 +276,9 @@ private fun AdminInboxReadyContent(
 
 @Composable
 private fun InboxBookRow(
-    bookId: String,
+    book: InboxBookItem,
     isSelected: Boolean,
     isReleasing: Boolean,
-    stagedCount: Int,
     onClick: () -> Unit,
     onSelectionToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -315,50 +287,58 @@ private fun InboxBookRow(
         modifier =
             modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
                 .background(
                     if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerHigh
                     },
                 ).clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Selection checkbox
         Checkbox(
             checked = isSelected,
             onCheckedChange = { onSelectionToggle() },
             enabled = !isReleasing,
         )
 
-        // Book info — full book detail hydration from Room is a 2b polish item;
-        // the substrate surfaces book ids only.
+        BookCoverImage(
+            bookId = book.id,
+            coverPath = book.coverPath,
+            contentDescription = book.title,
+            modifier =
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+        )
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = bookId,
-                style = MaterialTheme.typography.bodyLarge,
+                text = book.title,
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (stagedCount > 0) {
+            book.author?.let { author ->
                 Text(
-                    text = "$stagedCount collection${if (stagedCount != 1) "s" else ""} staged",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            } else {
-                Text(
-                    text = stringResource(Res.string.admin_no_collections_will_be_public),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                    text = author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+            Text(
+                text = formatDuration(book.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
         }
 
-        // Loading indicator
         if (isReleasing) {
             ListenUpLoadingIndicatorSmall()
         }
@@ -393,4 +373,12 @@ private fun EmptyInboxMessage(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** Format a millisecond duration as a compact `Hh Mm` / `Mm` label. */
+private fun formatDuration(durationMs: Long): String {
+    val totalMinutes = durationMs / 60_000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
