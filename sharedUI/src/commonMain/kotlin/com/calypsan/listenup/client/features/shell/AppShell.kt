@@ -23,7 +23,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
@@ -43,9 +42,7 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.features.shell.components.AppNavigationBar
-import com.calypsan.listenup.client.features.shell.components.AppNavigationDrawer
-import com.calypsan.listenup.client.features.shell.components.AppNavigationRail
+import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
 import com.calypsan.listenup.client.features.shell.components.AppTopBar
 
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
@@ -244,18 +241,11 @@ fun AppShell(
         }
     }
 
-    // Get window size class for adaptive layout
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    // Adaptive navigation surface for the current window size.
+    val navType = shellNavType(currentWindowAdaptiveInfo().windowSizeClass)
 
-    // Determine layout based on width breakpoints
-    // Use 1000dp for expanded threshold to keep foldables (Pixel Fold ~930dp) on rail
-    val expandedThreshold = 1000
-    val isExpanded = windowSizeClass.isWidthAtLeastBreakpoint(expandedThreshold)
-    val isMedium = !isExpanded && windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-    val isCompact = !isExpanded && !isMedium
-
-    // Determine if avatar should show in top bar (only on compact screens)
-    val showAvatarInTopBar = isCompact
+    // The account menu lives in the top bar at every size now.
+    val showAvatarInTopBar = true
 
     // Common top bar configuration
     val topBar: @Composable () -> Unit = {
@@ -350,73 +340,44 @@ fun AppShell(
         }
     }
 
-    // Adaptive layout based on window width
-    when {
-        isCompact -> {
-            // Phone layout: Bottom navigation
-            Scaffold(
-                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                topBar = topBar,
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                bottomBar = {
-                    Column {
-                        nowPlayingContent()
-                        AppNavigationBar(
-                            currentDestination = currentDestination,
-                            onDestinationSelected = onDestinationChange,
-                        )
-                    }
-                },
-                content = shellContent,
-            )
-        }
-
-        isMedium -> {
-            // Tablet portrait layout: Navigation rail on left
-            Row(modifier = Modifier.fillMaxSize()) {
-                AppNavigationRail(
-                    currentDestination = currentDestination,
-                    onDestinationSelected = onDestinationChange,
-                    user = user,
-                    isAvatarMenuExpanded = isAvatarMenuExpanded,
-                    onAvatarMenuExpandedChange = { isAvatarMenuExpanded = it },
-                    onAdminClick = onAdminClick,
-                    onSettingsClick = onSettingsClick,
-                    onSignOutClick = onSignOut,
-                    onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
-                )
-                Scaffold(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .nestedScroll(scrollBehavior.nestedScrollConnection),
-                    topBar = topBar,
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
-                    content = shellContent,
-                )
-            }
-        }
-
-        else -> {
-            // Expanded layout (tablets landscape, desktop): Permanent navigation drawer
-            AppNavigationDrawer(
+    if (navType == ShellNavType.BottomBar) {
+        // Phone layout: bottom navigation, mini-player stacked above it.
+        Scaffold(
+            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = topBar,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                Column {
+                    nowPlayingContent()
+                    AppNavigationSuite(
+                        navType = navType,
+                        currentDestination = currentDestination,
+                        onDestinationSelected = onDestinationChange,
+                    )
+                }
+            },
+            content = shellContent,
+        )
+    } else {
+        // Tablet / desktop layout: wide rail beside the content pane.
+        // The mini-player is NOT rendered here — on these device types NowPlayingHost
+        // already shows a root-level DockedNowPlayingBar, so adding nowPlayingContent()
+        // would double it. The compact branch keeps the stacked mini-player above the bar.
+        Row(modifier = Modifier.fillMaxSize()) {
+            AppNavigationSuite(
+                navType = navType,
                 currentDestination = currentDestination,
                 onDestinationSelected = onDestinationChange,
-                user = user,
-                isAvatarMenuExpanded = isAvatarMenuExpanded,
-                onAvatarMenuExpandedChange = { isAvatarMenuExpanded = it },
-                onAdminClick = onAdminClick,
-                onSettingsClick = onSettingsClick,
-                onSignOutClick = onSignOut,
-                onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
-            ) {
-                Scaffold(
-                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                    topBar = topBar,
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
-                    content = shellContent,
-                )
-            }
+            )
+            Scaffold(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                topBar = topBar,
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                content = shellContent,
+            )
         }
     }
 }
