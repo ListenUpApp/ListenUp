@@ -247,20 +247,24 @@ Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
 
 **No push occurs until the local equivalent of every act-runnable CI job passes.** The goal is functional parity with remote CI — not literal act invocation, since act currently cannot resolve `gradle/actions/setup-gradle@v4` against its monorepo subpath on this project. Direct Gradle invocation reproduces what each CI job actually does; as long as those pass, we're aligned.
 
-Before `git push`, from the repo root:
+CI is organized into three stages — **Lint / Test / Build** — across a Linux lane and a macOS (iOS) lane. Before `git push`, run the local equivalent of every job. From the repo root:
 
-| CI job | Local command |
-|---|---|
-| `Unit Tests` | `./gradlew :sharedLogic:jvmTest --no-daemon` |
-| `Server Tests` | `./gradlew :server:test --no-daemon` |
-| `Lint & Static Analysis` | `./gradlew spotlessCheck detekt --no-daemon` |
-| `Build APK` | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
+| Stage / job | Lane | Local command |
+|---|---|---|
+| `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
+| `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint`); CI runs it via the pinned `ghcr.io/realm/swiftlint` container. †iOS |
+| `Test (JVM)` | Linux | `./gradlew :sharedLogic:jvmTest :server:test --no-daemon` |
+| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
+| `Build (Android)` | Linux | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
+| `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `iosApp/`. †iOS |
+
+**†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
 
 Rules:
 
-- Every command above must pass before `git push`.
-- `spotlessApply` is the automatic fixer for formatting failures — run it, review the diff, commit as a `🎨` cleanup.
-- If `Build APK` fails remotely after going green in W7 Phase A, treat it as a regression and fix it before continuing.
+- Every applicable command above must pass before `git push` (iOS gates skipped only when off a Mac).
+- `spotlessApply` is the automatic fixer for Kotlin formatting failures — run it, review the diff, commit as a `🎨` cleanup. `swiftlint --fix` is the Swift equivalent.
+- If `Build (Android)` fails remotely after going green in W7 Phase A, treat it as a regression and fix it before continuing.
 - When the act action-resolution bug is fixed (pin `gradle/actions/setup-gradle` to a commit SHA, or upstream fixes the subpath issue), promote this policy back to a literal `act -W .github/workflows/ci.yml` gate.
 
 ---
