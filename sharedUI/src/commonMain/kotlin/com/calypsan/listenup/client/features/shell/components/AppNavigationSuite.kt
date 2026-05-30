@@ -63,11 +63,14 @@ fun AppNavigationSuite(
 
         ShellNavType.RailCollapsed, ShellNavType.RailExpanded -> {
             val railExpanded = navType == ShellNavType.RailExpanded
+            // RailCollapsed and RailExpanded share this `when` arm, so the same rail state is
+            // remembered across the medium↔expanded transition. `initialValue` seeds only the
+            // first composition; the LaunchedEffect re-drives the (animated) expand/collapse on
+            // every later width change. Both derive from `railExpanded`, so they cannot desync.
             val railState =
                 rememberWideNavigationRailState(
                     initialValue = if (railExpanded) WideNavigationRailValue.Expanded else WideNavigationRailValue.Collapsed,
                 )
-            // Drive collapsed/expanded from window width only (no manual toggle).
             LaunchedEffect(railExpanded) {
                 if (railExpanded) railState.expand() else railState.collapse()
             }

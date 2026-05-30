@@ -17,7 +17,6 @@ import kotlin.test.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
 class AppNavigationSuiteTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -52,7 +51,23 @@ class AppNavigationSuiteTest {
     }
 
     @Test
-    fun tappingDestinationInvokesCallback() {
+    fun tappingBottomBarDestinationInvokesCallback() {
+        var selected: ShellDestination? = null
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.BottomBar,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = { selected = it },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Discover").performClick()
+        assertEquals(ShellDestination.Discover, selected)
+    }
+
+    @Test
+    fun tappingRailDestinationInvokesCallback() {
         var selected: ShellDestination? = null
         composeRule.setContent {
             MaterialTheme {

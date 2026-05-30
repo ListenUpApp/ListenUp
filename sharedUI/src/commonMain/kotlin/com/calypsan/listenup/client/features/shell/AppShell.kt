@@ -359,8 +359,10 @@ fun AppShell(
             content = shellContent,
         )
     } else {
-        // Tablet / desktop layout: wide rail beside the content pane;
-        // mini-player at the bottom of the content pane.
+        // Tablet / desktop layout: wide rail beside the content pane.
+        // The mini-player is NOT rendered here — on these device types NowPlayingHost
+        // already shows a root-level DockedNowPlayingBar, so adding nowPlayingContent()
+        // would double it. The compact branch keeps the stacked mini-player above the bar.
         Row(modifier = Modifier.fillMaxSize()) {
             AppNavigationSuite(
                 navType = navType,
@@ -374,7 +376,6 @@ fun AppShell(
                         .nestedScroll(scrollBehavior.nestedScrollConnection),
                 topBar = topBar,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
-                bottomBar = { nowPlayingContent() },
                 content = shellContent,
             )
         }
