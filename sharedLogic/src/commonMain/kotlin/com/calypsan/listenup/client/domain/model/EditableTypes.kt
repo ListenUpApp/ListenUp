@@ -71,3 +71,15 @@ data class EditableTag(
     val id: String,
     val slug: String,
 )
+
+/**
+ * Collection membership for editing.
+ *
+ * Domain model representing a book's membership in an admin-owned collection.
+ * Collections are not auto-created from book-edit — [id] always references an
+ * existing collection chosen from the available list.
+ */
+data class EditableCollection(
+    val id: String,
+    val name: String,
+)

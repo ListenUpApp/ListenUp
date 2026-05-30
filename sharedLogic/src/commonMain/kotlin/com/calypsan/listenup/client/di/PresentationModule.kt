@@ -283,6 +283,9 @@ val bookPresentationModule =
                 updateBookUseCase = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
+                collectionRepository = get(),
+                bookEditRepository = get(),
+                userRepository = get(),
                 imageStagingRepository = get(),
                 errorBus = get(),
             )

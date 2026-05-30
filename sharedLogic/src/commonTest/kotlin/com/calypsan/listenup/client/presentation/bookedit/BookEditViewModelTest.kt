@@ -10,13 +10,17 @@ import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
+import com.calypsan.listenup.client.domain.repository.BookEditRepository
+import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -26,6 +30,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -59,6 +64,9 @@ class BookEditViewModelTest :
             val updateBookUseCase: UpdateBookUseCase = mock()
             val contributorRepository: ContributorRepository = mock()
             val seriesRepository: SeriesRepository = mock()
+            val collectionRepository: CollectionRepository = mock()
+            val bookEditRepository: BookEditRepository = mock()
+            val userRepository: UserRepository = mock()
             val imageStagingRepository: ImageStagingRepository = mock()
             val errorBus: ErrorBus = ErrorBus()
 
@@ -68,6 +76,9 @@ class BookEditViewModelTest :
                     updateBookUseCase = updateBookUseCase,
                     contributorRepository = contributorRepository,
                     seriesRepository = seriesRepository,
+                    collectionRepository = collectionRepository,
+                    bookEditRepository = bookEditRepository,
+                    userRepository = userRepository,
                     imageStagingRepository = imageStagingRepository,
                     errorBus = errorBus,
                 )
@@ -81,6 +92,9 @@ class BookEditViewModelTest :
                 ContributorSearchResponse(emptyList(), false, 0L)
             everySuspend { fixture.seriesRepository.searchSeries(any(), any()) } returns
                 SeriesSearchResponse(emptyList(), false, 0L)
+            every { fixture.collectionRepository.observeCollections() } returns flowOf(emptyList())
+            every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns flowOf(emptyList())
+            every { fixture.userRepository.observeIsAdmin() } returns flowOf(false)
 
             return fixture
         }

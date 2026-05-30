@@ -10,15 +10,20 @@ import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.model.PendingCover
+import com.calypsan.listenup.client.domain.repository.BookEditRepository
+import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
+import com.calypsan.listenup.client.presentation.bookedit.delegates.CollectionEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.ContributorEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.CoverUploadDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.GenreTagEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.SeriesEditDelegate
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
@@ -50,6 +55,9 @@ class BookEditViewModel(
     private val updateBookUseCase: UpdateBookUseCase,
     contributorRepository: ContributorRepository,
     seriesRepository: SeriesRepository,
+    collectionRepository: CollectionRepository,
+    private val bookEditRepository: BookEditRepository,
+    userRepository: UserRepository,
     private val imageStagingRepository: ImageStagingRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -87,6 +95,14 @@ class BookEditViewModel(
             onChangesMade = ::updateHasChanges,
         )
 
+    private val collectionDelegate =
+        CollectionEditDelegate(
+            state = _state,
+            collectionRepository = collectionRepository,
+            scope = viewModelScope,
+            onChangesMade = ::updateHasChanges,
+        )
+
     private val coverDelegate =
         CoverUploadDelegate(
             state = _state,
@@ -95,6 +111,16 @@ class BookEditViewModel(
             errorBus = errorBus,
             onChangesMade = ::updateHasChanges,
         )
+
+    init {
+        // Admin status gates the Collections field — observe reactively so the UI
+        // hides it for members.
+        viewModelScope.launch {
+            userRepository.observeIsAdmin().collect { isAdmin ->
+                _state.update { it.copy(isAdmin = isAdmin) }
+            }
+        }
+    }
 
     /**
      * Load book data for editing.
@@ -105,6 +131,9 @@ class BookEditViewModel(
      * - Loading all genres and tags for pickers
      */
     fun loadBook(bookId: String) {
+        // Start observing the book's collection memberships + the available list.
+        // Reactive, so it runs alongside the one-shot use-case load below.
+        collectionDelegate.loadCollections(bookId)
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, bookId = bookId) }
 
@@ -313,6 +342,19 @@ class BookEditViewModel(
                 genreTagDelegate.removeTag(event.tag)
             }
 
+            // Collection events - delegate to CollectionEditDelegate
+            is BookEditUiEvent.CollectionSearchQueryChanged -> {
+                collectionDelegate.updateCollectionSearchQuery(event.query)
+            }
+
+            is BookEditUiEvent.CollectionSelected -> {
+                collectionDelegate.selectCollection(event.collection)
+            }
+
+            is BookEditUiEvent.RemoveCollection -> {
+                collectionDelegate.removeCollection(event.collection)
+            }
+
             // Cover events - delegate to CoverUploadDelegate
             is BookEditUiEvent.UploadCover -> {
                 coverDelegate.uploadCover(event.imageData, event.filename)
@@ -364,6 +406,7 @@ class BookEditViewModel(
                 current.series != original.series ||
                 current.genres != original.genres ||
                 current.tags != original.tags ||
+                collectionDelegate.hasChanges() ||
                 current.pendingCoverData != null
 
         _state.update { it.copy(hasChanges = hasChanges) }
@@ -393,6 +436,18 @@ class BookEditViewModel(
 
             when (val result = updateBookUseCase(updateRequest, original)) {
                 is Success -> {
+                    // Collections persist via a dedicated access-aware RPC, not the
+                    // UpdateBookUseCase — dispatch only when the set actually changed.
+                    val collectionsResult =
+                        if (collectionDelegate.hasChanges()) saveCollections(current) else null
+                    if (collectionsResult is Failure) {
+                        errorBus.emit(collectionsResult.error)
+                        _state.update {
+                            it.copy(isSaving = false, error = collectionsResult.message)
+                        }
+                        return@launch
+                    }
+
                     _state.update {
                         it.copy(
                             isSaving = false,
@@ -414,6 +469,16 @@ class BookEditViewModel(
             }
         }
     }
+
+    /**
+     * Dispatch the current collection set via the access-aware [BookEditRepository.setBookCollections]
+     * RPC. No optimistic Room write — the SSE echo + AccessChanged reconcile deliver the new state.
+     */
+    private suspend fun saveCollections(current: BookEditUiState) =
+        bookEditRepository.setBookCollections(
+            id = BookId(current.bookId),
+            collectionIds = current.collections.map { it.id },
+        )
 
     /**
      * Build [BookMetadata] from current UI state.

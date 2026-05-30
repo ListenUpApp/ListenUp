@@ -872,6 +872,7 @@ val syncModule =
         single<com.calypsan.listenup.client.domain.repository.BookEditRepository> {
             BookEditRepositoryImpl(
                 bookRpcFactory = get(),
+                collectionRpcFactory = get(),
             )
         }
 
