@@ -39,7 +39,7 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: shared/build/reports/tests/
+          path: sharedLogic/build/reports/tests/
           retention-days: 7
 
   server-test:
