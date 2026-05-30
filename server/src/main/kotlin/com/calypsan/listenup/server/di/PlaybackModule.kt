@@ -101,6 +101,7 @@ fun playbackModule(): Module =
                 playbackPositionRepository = get(),
                 listeningEventRepository = get(),
                 userStatsRepository = get(),
+                accessPolicy = get(),
                 principal =
                     PrincipalProvider {
                         error(
