@@ -141,8 +141,8 @@ struct LoginView: View {
 
 // MARK: - Auth Screen Layout
 
-/// Reusable layout for auth screens: gradient + logo + bottom card.
-/// Eliminates GeometryReader by using layout priorities.
+// Reusable layout for auth screens: gradient + logo + bottom card.
+// Eliminates GeometryReader by using layout priorities.
 
 // MARK: - Previews
 

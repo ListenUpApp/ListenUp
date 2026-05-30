@@ -9,7 +9,7 @@ struct AuthStateKindTests {
     @Test func allSevenCasesAreDistinct() {
         let all: [AuthStateKind] = [
             .initializing, .needsServerUrl, .checkingServer,
-            .needsSetup, .needsLogin, .pendingApproval, .authenticated,
+            .needsSetup, .needsLogin, .pendingApproval, .authenticated
         ]
         #expect(Set(all).count == 7)
     }

@@ -7,7 +7,7 @@ struct AudioSegmentTests {
     private let segments = [
         AudioSegment(url: URL(string: "file:///a.m4a")!, durationMs: 1000, offsetMs: 0),
         AudioSegment(url: URL(string: "file:///b.m4a")!, durationMs: 2000, offsetMs: 1000),
-        AudioSegment(url: URL(string: "file:///c.m4a")!, durationMs: 500, offsetMs: 3000),
+        AudioSegment(url: URL(string: "file:///c.m4a")!, durationMs: 500, offsetMs: 3000)
     ]
 
     @Test func endOffsetIsOffsetPlusDuration() {

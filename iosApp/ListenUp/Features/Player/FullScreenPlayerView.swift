@@ -114,7 +114,7 @@ struct FullScreenPlayerView: View {
                         }
                     }
                     .frame(height: 3)
-                    
+
                     HStack {
                         Text(formatTime(observer.bookPositionMs))
                             .font(.system(size: 10))
