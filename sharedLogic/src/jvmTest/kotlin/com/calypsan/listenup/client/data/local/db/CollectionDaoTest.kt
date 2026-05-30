@@ -87,6 +87,56 @@ class CollectionDaoTest :
             }
         }
 
+        // ── Total-revocation guard: tombstoneNotIn(emptySet()) prunes EVERY live row ──
+        //
+        // SECURITY-CRITICAL: when the caller loses ALL access to this domain, the reconcile
+        // calls tombstoneNotIn(emptySet(), now). SQLite evaluates `id NOT IN ()` as TRUE for
+        // every row, so all live rows are tombstoned — the correct total-revocation behaviour.
+        // This test pins it: it FAILS if anyone adds an `if (accessibleIds.isEmpty()) return`
+        // early-return to the DAO query, which would silently leave revoked content readable.
+
+        test("tombstoneNotIn(emptySet) tombstones EVERY live collection (total revocation)") {
+            runTest {
+                collectionDao.upsert(collection("c1", "Alpha"))
+                collectionDao.upsert(collection("c2", "Beta"))
+                collectionDao.liveIds().toSet() shouldBe setOf("c1", "c2")
+
+                collectionDao.tombstoneNotIn(emptySet(), now = 777L)
+
+                collectionDao.liveIds().shouldBeEmpty()
+                collectionDao.getById("c1") shouldBe null
+                collectionDao.getById("c2") shouldBe null
+            }
+        }
+
+        test("tombstoneNotIn(emptySet) tombstones EVERY live junction row (total revocation)") {
+            runTest {
+                bookDao.upsert(member("c1", "b1"))
+                bookDao.upsert(member("c1", "b2"))
+                bookDao.liveSyntheticIds().toSet() shouldBe setOf("c1:b1", "c1:b2")
+
+                bookDao.tombstoneNotIn(emptySet(), now = 777L)
+
+                bookDao.liveSyntheticIds().shouldBeEmpty()
+                bookDao.findByKey("c1", "b1")!!.deletedAt shouldNotBe null
+                bookDao.findByKey("c1", "b2")!!.deletedAt shouldNotBe null
+            }
+        }
+
+        test("tombstoneNotIn(emptySet) revokes EVERY live share (total revocation)") {
+            runTest {
+                shareDao.upsert(share("s1", "c1", "u1"))
+                shareDao.upsert(share("s2", "c1", "u2"))
+                shareDao.liveIds().toSet() shouldBe setOf("s1", "s2")
+
+                shareDao.tombstoneNotIn(emptySet(), now = 777L)
+
+                shareDao.liveIds().shouldBeEmpty()
+                shareDao.getById("s1") shouldBe null
+                shareDao.getById("s2") shouldBe null
+            }
+        }
+
         // ── CollectionBookDao: junction ───────────────────────────────────────
 
         test("findByKey returns the live junction row") {

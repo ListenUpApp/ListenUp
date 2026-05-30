@@ -21,6 +21,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -90,6 +91,24 @@ class AccessChangedReconcileTest :
 
                 db.collectionDao().getById("c1").shouldNotBeNull()
                 db.collectionDao().getById("c2").shouldNotBeNull()
+            }
+        }
+
+        test("total revocation: empty accessible set prunes EVERY local row (no under-prune)") {
+            withReconcileEngine { harness, db, _ ->
+                val handler = CollectionSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                handler.onCatchUpItem(collectionPayload("c1"), isTombstone = false)
+                handler.onCatchUpItem(collectionPayload("c2"), isTombstone = false)
+                db.collectionDao().liveIds().toSet() shouldBe setOf("c1", "c2")
+
+                // Member lost ALL access — access-filtered catch-up returns the empty set.
+                // The reconcile must evict EVERY local row; nothing may remain readable.
+                harness.fakeCatchUp.accessibleByDomain["collections"] = emptySet()
+                harness.engine.handleAccessChanged()
+
+                db.collectionDao().liveIds().shouldBeEmpty()
+                db.collectionDao().getById("c1") shouldBe null
+                db.collectionDao().getById("c2") shouldBe null
             }
         }
 

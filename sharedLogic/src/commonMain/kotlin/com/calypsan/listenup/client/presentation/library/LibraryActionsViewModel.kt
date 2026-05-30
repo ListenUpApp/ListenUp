@@ -173,7 +173,8 @@ class LibraryActionsViewModel(
 
     /**
      * Add all selected books to the specified collection.
-     * Uses AddBooksToCollectionUseCase and emits success/error events.
+     * Dispatches each add through [collectionRepository] (one idempotent RPC per book) and
+     * emits a success/error event; Room is updated by the SSE echo, not an optimistic write.
      *
      * @param collectionId The ID of the collection to add books to
      */
