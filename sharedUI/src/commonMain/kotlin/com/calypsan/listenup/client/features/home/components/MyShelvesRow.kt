@@ -2,14 +2,11 @@ package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -73,19 +71,11 @@ fun MyShelvesRow(
         Spacer(modifier = Modifier.height(4.dp))
 
         // Horizontally scrolling shelf cards
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(
-                items = shelves,
-                key = { it.id },
-            ) { shelf ->
-                ShelfCard(
-                    shelf = shelf,
-                    onClick = { onShelfClick(shelf.id) },
-                )
-            }
+        BrowseCarousel(items = shelves) { shelf ->
+            ShelfCard(
+                shelf = shelf,
+                onClick = { onShelfClick(shelf.id) },
+            )
         }
     }
 }

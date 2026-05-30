@@ -1,16 +1,12 @@
 package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
 import org.jetbrains.compose.resources.stringResource
@@ -56,32 +53,24 @@ fun ContinueListeningRow(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Horizontally scrolling book cards
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(
-                items = items,
-                key = { it.bookId },
-            ) { item ->
-                when (item) {
-                    is ContinueListeningItem.Ready -> {
-                        BookCard(
-                            bookId = item.book.bookId,
-                            title = item.book.title,
-                            coverPath = item.book.coverPath,
-                            blurHash = item.book.coverBlurHash,
-                            onClick = { onBookClick(item.bookId) },
-                            authorName = item.book.authorNames,
-                            progress = item.book.progress,
-                            timeRemaining = item.book.timeRemainingFormatted,
-                            cardWidth = 140.dp,
-                        )
-                    }
+        BrowseCarousel(items = items) { item ->
+            when (item) {
+                is ContinueListeningItem.Ready -> {
+                    BookCard(
+                        bookId = item.book.bookId,
+                        title = item.book.title,
+                        coverPath = item.book.coverPath,
+                        blurHash = item.book.coverBlurHash,
+                        onClick = { onBookClick(item.bookId) },
+                        authorName = item.book.authorNames,
+                        progress = item.book.progress,
+                        timeRemaining = item.book.timeRemainingFormatted,
+                        cardWidth = 140.dp,
+                    )
+                }
 
-                    is ContinueListeningItem.Loading -> {
-                        ContinueListeningSkeletonCard()
-                    }
+                is ContinueListeningItem.Loading -> {
+                    ContinueListeningSkeletonCard()
                 }
             }
         }

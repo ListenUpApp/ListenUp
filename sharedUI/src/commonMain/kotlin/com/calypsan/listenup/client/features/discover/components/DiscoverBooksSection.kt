@@ -2,15 +2,12 @@ package com.calypsan.listenup.client.features.discover.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -24,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
@@ -86,28 +84,20 @@ fun DiscoverBooksSection(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Horizontal scroll of book cards
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(
-                items = ready.books,
-                key = { it.id },
-            ) { book ->
-                BookCard(
-                    bookId = book.id,
-                    title = book.title,
-                    coverPath = book.coverPath,
-                    blurHash = book.coverBlurHash,
-                    onClick = { onBookClick(book.id) },
-                    authorName = book.authorName,
-                    subtitle =
-                        book.seriesName?.takeIf { it.isNotBlank() }?.let { series ->
-                            stringResource(Res.string.discover_book_1_of_series, series)
-                        },
-                    cardWidth = 140.dp,
-                )
-            }
+        BrowseCarousel(items = ready.books) { book ->
+            BookCard(
+                bookId = book.id,
+                title = book.title,
+                coverPath = book.coverPath,
+                blurHash = book.coverBlurHash,
+                onClick = { onBookClick(book.id) },
+                authorName = book.authorName,
+                subtitle =
+                    book.seriesName?.takeIf { it.isNotBlank() }?.let { series ->
+                        stringResource(Res.string.discover_book_1_of_series, series)
+                    },
+                cardWidth = 140.dp,
+            )
         }
     }
 }
