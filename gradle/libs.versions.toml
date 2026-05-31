@@ -15,6 +15,7 @@ androidx-lifecycle = "2.10.0"
 androidx-window = "1.5.1"
 androidx-lifecycle-viewmodel-navigation3 = "2.10.0"
 androidx-navigation3 = "1.1.2"
+androidx-graphics-shapes = "1.1.0"
 androidx-palette = "1.0.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.11.2"
@@ -112,6 +113,8 @@ androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-u
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle-viewmodel-navigation3" }
 # Navigation 3 (JetBrains Multiplatform) - only navigation3-ui exists on Maven Central
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3-multiplatform" }
+# Graphics Shapes (polygon morphing — backing for MaterialShapes in material3)
+androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "androidx-graphics-shapes" }
 # Material 3 Adaptive (JetBrains Multiplatform)
 material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3-adaptive-multiplatform" }
