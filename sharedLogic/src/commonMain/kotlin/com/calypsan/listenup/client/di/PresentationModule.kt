@@ -149,6 +149,8 @@ val adminPresentationModule =
                 collectionRepository = get(),
                 adminRepository = get(),
                 userRepository = get(),
+                bookDao = get(),
+                imageStorage = get(),
                 errorBus = get(),
             )
         }

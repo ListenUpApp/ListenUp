@@ -195,7 +195,7 @@ fun AdminCollectionDetailScreen(
             onDismissRequest = { bookToRemove = null },
             title = stringResource(Res.string.admin_remove_book),
             text =
-                "Are you sure you want to remove \"${book.id}\" from this collection? " +
+                "Are you sure you want to remove \"${book.title}\" from this collection? " +
                     stringResource(Res.string.admin_the_book_will_not_be),
             confirmText = stringResource(Res.string.common_remove),
             onConfirm = {
@@ -746,8 +746,8 @@ private fun BookRow(
     ) {
         BookCoverImage(
             bookId = book.id,
-            coverPath = null,
-            contentDescription = null,
+            coverPath = book.coverPath,
+            contentDescription = book.title,
             modifier =
                 Modifier
                     .size(COVER_SIZE_DP.dp)
@@ -756,11 +756,25 @@ private fun BookRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = book.id,
+                text = book.title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+            book.author?.let { author ->
+                Text(
+                    text = author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = formatDuration(book.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
             )
         }
 
@@ -815,6 +829,14 @@ private fun EmptyBooksMessage(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/** Format a millisecond duration as a compact `Hh Mm` / `Mm` label. */
+private fun formatDuration(durationMs: Long): String {
+    val totalMinutes = durationMs / 60_000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable
