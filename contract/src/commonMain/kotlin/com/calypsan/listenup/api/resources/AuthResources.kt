@@ -58,17 +58,4 @@ class AuthResources {
     class Sessions(
         val parent: AuthResources = AuthResources(),
     )
-
-    /**
-     * REST endpoint for AuthServiceAuthed.decidePendingRegistration —
-     * POST /api/v1/auth/pending-registrations/decision. Admin/root only.
-     *
-     * The user id lives in the request body, not the URL — single source of
-     * truth and a less REST-idiomatic shape that makes this surface mirror the
-     * RPC contract more directly.
-     */
-    @Resource("pending-registrations/decision")
-    class DecidePendingRegistration(
-        val parent: AuthResources = AuthResources(),
-    )
 }

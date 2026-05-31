@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -49,6 +51,16 @@ interface AdminUserService {
      * such user exists or when the change is disallowed.
      */
     suspend fun deleteUser(id: UserId): AppResult<Unit>
+
+    /**
+     * Approve or deny a pending registration. Approval flips the applicant's
+     * status to ACTIVE and records the deciding admin and timestamp; the
+     * applicant's next login succeeds without any extra step. Denial blocks
+     * future logins. To avoid leaking account existence or state, any target
+     * that is not genuinely PENDING_APPROVAL fails as
+     * [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
+     */
+    suspend fun decidePendingRegistration(request: PendingRegistrationDecision): AppResult<PendingRegistrationOutcome>
 
     /** Returns the instance-wide registration policy. */
     suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy>

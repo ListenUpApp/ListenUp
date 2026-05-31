@@ -18,7 +18,7 @@ import kotlinx.rpc.withService
  *  - [AuthServicePublic] over `/api/rpc/public` — anonymous; login, register,
  *    refresh, setupRoot.
  *  - [AuthServiceAuthed] over `/api/rpc/authed` — bearer-gated; logout,
- *    currentUser, listSessions, decidePendingRegistration.
+ *    currentUser, listSessions.
  *
  * Each `rpc(url)` call returns a cold [kotlinx.rpc.krpc.ktor.client.KtorRpcClient]
  * that opens its WebSocket on the first message — so the proxies are cached

@@ -3,8 +3,6 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.LoginRequest
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -18,8 +16,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -27,8 +23,6 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -316,100 +310,6 @@ class AuthServiceImplTest :
             }
         }
 
-        test("decidePendingRegistration approves and activates the target user") {
-            val svc = newSvc(policy = RegistrationPolicy.APPROVAL_QUEUE)
-            runTest {
-                val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
-                svc.register(RegisterRequest("pending@x", "x".repeat(8), "Pending")).shouldSucceed()
-
-                val pendingId = svc.findUserIdByEmail("pending@x")
-
-                val outcome =
-                    svc
-                        .copyWith(callerOf(root.user.id, root.sessionId, role = UserRole.ROOT))
-                        .decidePendingRegistration(PendingRegistrationDecision(pendingId, approved = true))
-                        .shouldSucceed()
-
-                outcome shouldBe PendingRegistrationOutcome.Approved
-
-                // Applicant can now log in.
-                val authed = svc.login(LoginRequest("pending@x", "x".repeat(8))).shouldSucceed()
-                authed.user.role shouldBe UserRole.MEMBER
-            }
-        }
-
-        test("decidePendingRegistration denies and blocks future logins") {
-            val svc = newSvc(policy = RegistrationPolicy.APPROVAL_QUEUE)
-            runTest {
-                val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
-                svc.register(RegisterRequest("pending@x", "x".repeat(8), "Pending")).shouldSucceed()
-
-                val pendingId = svc.findUserIdByEmail("pending@x")
-
-                val outcome =
-                    svc
-                        .copyWith(callerOf(root.user.id, root.sessionId, role = UserRole.ROOT))
-                        .decidePendingRegistration(PendingRegistrationDecision(pendingId, approved = false))
-                        .shouldSucceed()
-
-                outcome shouldBe PendingRegistrationOutcome.Denied
-
-                svc
-                    .login(LoginRequest("pending@x", "x".repeat(8)))
-                    .shouldFail<AuthError.AccountDenied>()
-            }
-        }
-
-        test("decidePendingRegistration without admin role errors PermissionDenied") {
-            val svc = newSvc()
-            runTest {
-                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
-                val authed =
-                    svc
-                        .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                        .shouldSucceed()
-                        .shouldBeInstanceOf<RegisterResult.Authenticated>()
-
-                svc
-                    .copyWith(callerOf(authed.session.user.id, authed.session.sessionId, role = UserRole.MEMBER))
-                    .decidePendingRegistration(PendingRegistrationDecision(authed.session.user.id, approved = true))
-                    .shouldFail<AuthError.PermissionDenied>()
-            }
-        }
-
-        test("decidePendingRegistration without a principal errors SessionExpired") {
-            val svc = newSvc()
-            runTest {
-                svc
-                    .decidePendingRegistration(PendingRegistrationDecision(UserId("u"), approved = true))
-                    .shouldFail<AuthError.SessionExpired>()
-            }
-        }
-
-        test("decidePendingRegistration on a non-pending target errors PermissionDenied") {
-            // Same wire shape as 'admin tried to act on a target outside their domain' —
-            // we don't leak whether the user exists or what state they're in.
-            val svc = newSvc()
-            runTest {
-                val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
-                val active =
-                    svc
-                        .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                        .shouldSucceed()
-                        .shouldBeInstanceOf<RegisterResult.Authenticated>()
-
-                svc
-                    .copyWith(callerOf(root.user.id, root.sessionId, role = UserRole.ROOT))
-                    .decidePendingRegistration(PendingRegistrationDecision(active.session.user.id, approved = true))
-                    .shouldFail<AuthError.PermissionDenied>()
-
-                svc
-                    .copyWith(callerOf(root.user.id, root.sessionId, role = UserRole.ROOT))
-                    .decidePendingRegistration(PendingRegistrationDecision(UserId("ghost"), approved = true))
-                    .shouldFail<AuthError.PermissionDenied>()
-            }
-        }
-
         test("logoutAll revokes every session for the caller") {
             val svc = newSvc()
             runTest {
@@ -441,16 +341,6 @@ private fun callerOf(
 ): PrincipalProvider =
     PrincipalProvider {
         UserPrincipal(userId = userId, sessionId = sessionId, role = role)
-    }
-
-private fun AuthServiceImpl.findUserIdByEmail(emailNormalized: String): UserId =
-    transaction(db) {
-        UserId(
-            UserEntity
-                .find { UserTable.emailNormalized eq emailNormalized }
-                .single()
-                .id.value,
-        )
     }
 
 /** Asserts the [AppResult] is a Success and returns the unwrapped value. */
