@@ -43,6 +43,18 @@ class AdminUserResources {
     )
 
     /**
+     * REST mirror of
+     * [com.calypsan.listenup.api.AdminUserService.decidePendingRegistration] —
+     * `POST /api/v1/admin/users/pending-decision`
+     * (body: [com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision]) approves or
+     * denies a PENDING_APPROVAL applicant.
+     */
+    @Resource("pending-decision")
+    class PendingDecision(
+        val parent: AdminUserResources = AdminUserResources(),
+    )
+
+    /**
      * REST mirror for per-user operations:
      * - `GET /api/v1/admin/users/{id}` →
      *   [com.calypsan.listenup.api.AdminUserService.getUser]

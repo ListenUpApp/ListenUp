@@ -33,6 +33,7 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -42,6 +43,7 @@ import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
+import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
@@ -144,13 +146,18 @@ private fun Application.launchSeeders(
 
 fun main(args: Array<String>) = EngineMain.main(args)
 
-fun Application.module() {
+/** Installs the core Ktor plugins every route depends on (serialization, resources, SSE, RPC, ranges, HEAD). */
+private fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
     install(SSE)
     install(Krpc)
     install(PartialContent)
     install(AutoHeadResponse)
+}
+
+fun Application.module() {
+    installCorePlugins()
 
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
@@ -191,6 +198,7 @@ fun Application.module() {
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
     val authService by inject<AuthServiceImpl>()
+    val adminUserService by inject<AdminUserServiceImpl>()
 
     installJwtAuth(jwt, sessions)
 
@@ -235,9 +243,11 @@ fun Application.module() {
             tagService,
             genreService,
             collectionService,
+            adminUserService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
+            adminUserRoutes(adminUserService)
             if (libraryAdminService != null) libraryAdminRoutes(libraryAdminService)
             if (bookService != null && coverResponder != null && bookAccessPolicy != null) {
                 bookRoutes(bookService, coverResponder, bookAccessPolicy)

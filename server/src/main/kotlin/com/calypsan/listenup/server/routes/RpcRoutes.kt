@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
@@ -17,6 +18,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
@@ -73,6 +75,7 @@ fun Route.rpcRoutes(
     tagService: TagService? = null,
     genreService: GenreService? = null,
     collectionService: CollectionService? = null,
+    adminUserService: AdminUserService? = null,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
@@ -151,6 +154,14 @@ fun Route.rpcRoutes(
                         call.userPrincipalOrNull()
                             ?: error(AUTH_WALL_REGRESSION_MSG)
                     guard((collectionService as CollectionServiceImpl).copyWith(PrincipalProvider { p }))
+                }
+            }
+            if (adminUserService != null) {
+                registerService<AdminUserService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((adminUserService as AdminUserServiceImpl).copyWith(PrincipalProvider { p }))
                 }
             }
         }
