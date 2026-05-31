@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,7 +43,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.CoverColors
 import com.calypsan.listenup.client.design.components.DetailHero
@@ -71,6 +72,7 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.series_book_sequence
 import listenup.composeapp.generated.resources.series_books_in_series
+import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_series_cover
 
 /**
@@ -125,12 +127,14 @@ fun SeriesDetailScreen(
                         WideSeriesDetailContent(
                             state = current,
                             onBookClick = onBookClick,
+                            onEditClick = { onEditClick(seriesId) },
                         )
                     } else {
                         NarrowSeriesDetailContent(
                             state = current,
                             onBookClick = onBookClick,
                             onBackClick = onBackClick,
+                            onEditClick = { onEditClick(seriesId) },
                         )
                     }
                 }
@@ -149,6 +153,7 @@ fun SeriesDetailScreen(
 private fun WideSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBookClick: (String) -> Unit,
+    onEditClick: () -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -169,6 +174,7 @@ private fun WideSeriesDetailContent(
                 description = state.seriesDescription,
                 isDescriptionExpanded = isDescriptionExpanded,
                 onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                onEditClick = onEditClick,
             )
         }
 
@@ -208,6 +214,7 @@ private fun SeriesHeaderRow(
     description: String?,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
+    onEditClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -272,6 +279,15 @@ private fun SeriesHeaderRow(
                         Text(if (isDescriptionExpanded) "Read less" else "Read more")
                     }
                 }
+            }
+        }
+
+        if (!LocalDeviceContext.current.isLeanback) {
+            IconButton(onClick = onEditClick) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = stringResource(Res.string.series_edit_series),
+                )
             }
         }
     }
@@ -362,6 +378,7 @@ private fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBookClick: (String) -> Unit,
     onBackClick: () -> Unit,
+    onEditClick: () -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -386,6 +403,7 @@ private fun NarrowSeriesDetailContent(
                 collapseFraction = { collapseFraction },
                 collapsing = true,
                 onBackClick = onBackClick,
+                onEditClick = onEditClick,
             )
         }
 
@@ -465,6 +483,7 @@ private fun SeriesHeroSection(
     collapseFraction: () -> Float,
     collapsing: Boolean,
     onBackClick: () -> Unit,
+    onEditClick: () -> Unit,
 ) {
     val isDark = LocalDarkTheme.current
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -513,6 +532,26 @@ private fun SeriesHeroSection(
                     )
                 }
                 Box(modifier = Modifier.align(Alignment.Center)) { pinnedTitle() }
+                if (!LocalDeviceContext.current.isLeanback) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .size(48.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(Res.string.series_edit_series),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
             }
         },
         title = seriesName,
