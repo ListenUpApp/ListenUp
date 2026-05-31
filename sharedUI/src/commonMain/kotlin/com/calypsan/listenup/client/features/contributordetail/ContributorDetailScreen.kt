@@ -9,17 +9,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -51,6 +49,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,14 +59,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.design.components.DetailHero
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.contributorAvatarShape
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -375,6 +378,7 @@ private fun WideHeroHeader(
                     imagePath = imagePath,
                     contributorId = contributorId,
                     colorScheme = colorScheme,
+                    shape = contributorAvatarShape(),
                 )
 
                 // Name, aliases, metadata, bio
@@ -382,11 +386,7 @@ private fun WideHeroHeader(
                     // Name
                     Text(
                         text = name,
-                        style =
-                            MaterialTheme.typography.headlineLarge.copy(
-                                fontFamily = DisplayFontFamily,
-                                fontWeight = FontWeight.Bold,
-                            ),
+                        style = MaterialTheme.typography.headlineLargeEmphasized,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -515,49 +515,83 @@ private fun NarrowContributorPortfolio(
     val colorScheme = rememberContributorColorScheme(contributorId)
     val surfaceColor = MaterialTheme.colorScheme.surface
 
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val collapseThresholdPx = with(density) { 220.dp.toPx() }
+    val collapseFraction by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / collapseThresholdPx).coerceIn(0f, 1f)
+            }
+        }
+    }
+
+    val gradientColors =
+        listOf(
+            colorScheme.primaryDark,
+            colorScheme.primaryMuted.copy(alpha = 0.8f),
+            colorScheme.primaryMuted.copy(alpha = 0.4f),
+            surfaceColor.copy(alpha = 0.9f),
+            surfaceColor,
+        )
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
-        // 1. HERO SECTION
+        // 1. HERO SECTION — meta + bio ride in the hero's belowTitle slot.
         item {
-            NarrowHeroHeader(
-                name = state.contributor.name,
-                aliases = state.contributor.aliases,
-                imagePath = state.contributor.imagePath,
-                contributorId = contributorId,
-                colorScheme = colorScheme,
-                surfaceColor = surfaceColor,
-                onBackClick = onBackClick,
-                onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
-                onDeleteClick = onDeleteClick,
+            DetailHero(
+                collapseFraction = { collapseFraction },
+                collapsing = true,
+                gradientColors = gradientColors,
+                navigation = { pinnedTitle ->
+                    HeroNavigationRow(
+                        pinnedTitle = pinnedTitle,
+                        onBackClick = onBackClick,
+                        onEditClick = onEditClick,
+                        onDownloadMetadata = onDownloadMetadata,
+                        onDeleteClick = onDeleteClick,
+                        surfaceColor = surfaceColor,
+                    )
+                },
+                title = state.contributor.name,
+                backdropMedia = {
+                    ElevatedAvatar(
+                        name = state.contributor.name,
+                        imagePath = state.contributor.imagePath,
+                        contributorId = contributorId,
+                        colorScheme = colorScheme,
+                        shape = contributorAvatarShape(),
+                    )
+                },
+                subtitle =
+                    state.contributor.aliases
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { "aka ${it.joinToString(", ")}" },
+                belowTitle = {
+                    ArtistMetadata(
+                        birthDate = state.contributor.birthDate,
+                        deathDate = state.contributor.deathDate,
+                        website = state.contributor.website,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                    state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->
+                        BiographySection(
+                            description = description,
+                            isExpanded = isDescriptionExpanded,
+                            onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        )
+                    }
+                },
             )
         }
 
-        // 2. ARTIST METADATA
-        item {
-            ArtistMetadata(
-                birthDate = state.contributor.birthDate,
-                deathDate = state.contributor.deathDate,
-                website = state.contributor.website,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-        }
-
-        // 3. BIOGRAPHY
-        state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->
-            item {
-                BiographySection(
-                    description = description,
-                    isExpanded = isDescriptionExpanded,
-                    onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                )
-            }
-        }
-
-        // 4. THE WORK - Role sections with carousels
+        // 2. THE WORK - Role sections with carousels
         items(
             items = state.roleSections,
             key = { it.role },
@@ -573,88 +607,60 @@ private fun NarrowContributorPortfolio(
 }
 
 /**
- * Immersive hero header for narrow layout.
+ * Hero navigation row for the narrow [DetailHero]: back button on the left, the collapse-driven
+ * [pinnedTitle] centered, and the overflow menu on the right.
  */
 @Composable
-private fun NarrowHeroHeader(
-    name: String,
-    aliases: List<String>,
-    imagePath: String?,
-    contributorId: String,
-    colorScheme: ContributorColorScheme,
-    surfaceColor: Color,
+private fun HeroNavigationRow(
+    pinnedTitle: @Composable () -> Unit,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
+    surfaceColor: Color,
 ) {
-    val gradientColors =
-        listOf(
-            colorScheme.primaryDark,
-            colorScheme.primaryMuted.copy(alpha = 0.8f),
-            colorScheme.primaryMuted.copy(alpha = 0.4f),
-            surfaceColor.copy(alpha = 0.9f),
-            surfaceColor,
-        )
-
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(gradientColors)),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Box(
+            modifier = Modifier.align(Alignment.Center),
+            contentAlignment = Alignment.Center,
         ) {
-            NavigationBar(
-                onBackClick = onBackClick,
-                onEditClick = onEditClick,
-                onDownloadMetadata = onDownloadMetadata,
-                onDeleteClick = onDeleteClick,
-                surfaceColor = surfaceColor,
-            )
+            pinnedTitle()
+        }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            ElevatedAvatar(
-                name = name,
-                imagePath = imagePath,
-                contributorId = contributorId,
-                colorScheme = colorScheme,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = name,
-                style =
-                    MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 32.dp),
-            )
-
-            if (aliases.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "aka ${aliases.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .background(
+                            color = surfaceColor.copy(alpha = 0.5f),
+                            shape = CircleShape,
+                        ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(Res.string.common_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (!LocalDeviceContext.current.isLeanback) {
+                OverflowMenu(
+                    onEditClick = onEditClick,
+                    onDownloadMetadata = onDownloadMetadata,
+                    onDeleteClick = onDeleteClick,
+                    surfaceColor = surfaceColor,
+                )
+            }
         }
     }
 }
@@ -746,72 +752,94 @@ private fun NavigationBar(
         }
 
         if (!LocalDeviceContext.current.isLeanback) {
-            Box {
-                IconButton(
-                    onClick = { showMenu = true },
-                    modifier =
-                        Modifier
-                            .size(48.dp)
-                            .background(
-                                color = surfaceColor.copy(alpha = 0.5f),
-                                shape = CircleShape,
-                            ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(Res.string.book_detail_more_options),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+            OverflowMenu(
+                onEditClick = onEditClick,
+                onDownloadMetadata = onDownloadMetadata,
+                onDeleteClick = onDeleteClick,
+                surfaceColor = surfaceColor,
+            )
+        }
+    }
+}
 
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.common_edit)) },
-                        leadingIcon = { Icon(Icons.Default.Edit, null) },
-                        onClick = {
-                            showMenu = false
-                            onEditClick()
-                        },
+/**
+ * Overflow menu (edit / download metadata / delete) shared by both hero navigation rows.
+ */
+@Composable
+private fun OverflowMenu(
+    onEditClick: () -> Unit,
+    onDownloadMetadata: () -> Unit,
+    onDeleteClick: () -> Unit,
+    surfaceColor: Color,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = { showMenu = true },
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .background(
+                        color = surfaceColor.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                    ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = stringResource(Res.string.book_detail_more_options),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_edit)) },
+                leadingIcon = { Icon(Icons.Default.Edit, null) },
+                onClick = {
+                    showMenu = false
+                    onEditClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.contributor_download_metadata)) },
+                leadingIcon = { Icon(Icons.Default.CloudDownload, null) },
+                onClick = {
+                    showMenu = false
+                    onDownloadMetadata()
+                },
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(Res.string.common_delete),
+                        color = MaterialTheme.colorScheme.error,
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.contributor_download_metadata)) },
-                        leadingIcon = { Icon(Icons.Default.CloudDownload, null) },
-                        onClick = {
-                            showMenu = false
-                            onDownloadMetadata()
-                        },
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Delete,
+                        null,
+                        tint = MaterialTheme.colorScheme.error,
                     )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                stringResource(Res.string.common_delete),
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete,
-                                null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onDeleteClick()
-                        },
-                    )
-                }
-            }
+                },
+                onClick = {
+                    showMenu = false
+                    onDeleteClick()
+                },
+            )
         }
     }
 }
 
 /**
  * Elevated avatar (140dp) with contributor image or initials.
+ *
+ * Hero call sites pass the M3 Expressive cookie [shape]; smaller inline uses keep the default circle.
  */
 @Composable
 private fun ElevatedAvatar(
@@ -819,6 +847,7 @@ private fun ElevatedAvatar(
     imagePath: String?,
     contributorId: String,
     colorScheme: ContributorColorScheme,
+    shape: Shape = CircleShape,
 ) {
     val initials =
         if (name.isNotBlank()) {
@@ -837,7 +866,7 @@ private fun ElevatedAvatar(
         }
 
     ElevatedCard(
-        shape = CircleShape,
+        shape = shape,
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp),
         colors =
             CardDefaults.elevatedCardColors(
