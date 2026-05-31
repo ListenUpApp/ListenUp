@@ -49,7 +49,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +69,7 @@ import com.calypsan.listenup.client.design.components.DetailHero
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.contributorAvatarShape
+import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -516,17 +515,7 @@ private fun NarrowContributorPortfolio(
     val surfaceColor = MaterialTheme.colorScheme.surface
 
     val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val collapseThresholdPx = with(density) { 220.dp.toPx() }
-    val collapseFraction by remember {
-        derivedStateOf {
-            if (listState.firstVisibleItemIndex > 0) {
-                1f
-            } else {
-                (listState.firstVisibleItemScrollOffset / collapseThresholdPx).coerceIn(0f, 1f)
-            }
-        }
-    }
+    val collapseFraction by rememberHeroCollapseFraction(listState)
 
     val gradientColors =
         listOf(

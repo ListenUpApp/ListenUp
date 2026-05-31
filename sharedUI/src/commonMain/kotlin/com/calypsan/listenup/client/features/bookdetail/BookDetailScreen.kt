@@ -28,7 +28,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,13 +36,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.rememberCoverColors
+import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
@@ -500,16 +499,7 @@ private fun ImmersiveBookDetail(
         )
 
     val listState = rememberLazyListState()
-    val heroCollapsePx = with(LocalDensity.current) { 220.dp.toPx() }
-    val collapseFraction by remember {
-        derivedStateOf {
-            if (listState.firstVisibleItemIndex > 0) {
-                1f
-            } else {
-                (listState.firstVisibleItemScrollOffset / heroCollapsePx).coerceIn(0f, 1f)
-            }
-        }
-    }
+    val collapseFraction by rememberHeroCollapseFraction(listState)
 
     LazyColumn(
         state = listState,

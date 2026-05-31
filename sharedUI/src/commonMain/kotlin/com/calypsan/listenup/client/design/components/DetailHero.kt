@@ -12,17 +12,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -77,7 +82,7 @@ fun DetailHero(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.alpha(collapseFraction().coerceIn(0f, 1f)),
+                        modifier = Modifier.graphicsLayer { alpha = collapseFraction().coerceIn(0f, 1f) },
                     )
                 }
             }
@@ -110,7 +115,7 @@ fun DetailHero(
                         .padding(horizontal = 32.dp)
                         .then(
                             if (collapsing) {
-                                Modifier.alpha((1f - collapseFraction()).coerceIn(0f, 1f))
+                                Modifier.graphicsLayer { alpha = (1f - collapseFraction()).coerceIn(0f, 1f) }
                             } else {
                                 Modifier
                             },
@@ -134,6 +139,28 @@ fun DetailHero(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+/**
+ * Derives a 0f..1f hero collapse fraction from a [LazyListState]: 0 when the hero is fully
+ * expanded (list at top), 1 once the first item has scrolled up by [heroHeight] (or any later
+ * item is first-visible). Shared by the Book, Series, and Contributor detail heroes.
+ */
+@Composable
+fun rememberHeroCollapseFraction(
+    listState: LazyListState,
+    heroHeight: Dp = 220.dp,
+): State<Float> {
+    val heroHeightPx = with(LocalDensity.current) { heroHeight.toPx() }
+    return remember(listState, heroHeightPx) {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / heroHeightPx).coerceIn(0f, 1f)
+            }
         }
     }
 }
