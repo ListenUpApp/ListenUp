@@ -22,13 +22,13 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +36,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,13 +51,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.CoverColors
+import com.calypsan.listenup.client.design.components.DetailHero
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.rememberCoverColors
+import com.calypsan.listenup.client.design.theme.LocalDarkTheme
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
@@ -68,7 +72,6 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.series_book_sequence
 import listenup.composeapp.generated.resources.series_books_in_series
-import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_series_cover
 
 /**
@@ -78,7 +81,6 @@ import listenup.composeapp.generated.resources.series_series_cover
  * - Narrow: single-column list with hero, description, and book items
  * - Wide: horizontal header (cover beside stats/description) + responsive book grid
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeriesDetailScreen(
     seriesId: String,
@@ -92,44 +94,8 @@ fun SeriesDetailScreen(
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val readyState = state as? SeriesDetailUiState.Ready
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = readyState?.seriesName ?: "Series",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
-                actions = {
-                    if (!LocalDeviceContext.current.isLeanback) {
-                        IconButton(onClick = { onEditClick(seriesId) }) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = stringResource(Res.string.series_edit_series),
-                            )
-                        }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    ),
-            )
-        },
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Box(
             modifier =
                 Modifier
@@ -165,6 +131,7 @@ fun SeriesDetailScreen(
                         NarrowSeriesDetailContent(
                             state = current,
                             onBookClick = onBookClick,
+                            onBackClick = onBackClick,
                         )
                     }
                 }
@@ -395,20 +362,40 @@ private fun SeriesBookCard(
 private fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBookClick: (String) -> Unit,
+    onBackClick: () -> Unit,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
 
+    val coverColors = rememberCoverColors(imagePath = state.coverPath)
+    val listState = rememberLazyListState()
+    val heroCollapsePx = with(LocalDensity.current) { 220.dp.toPx() }
+    val collapseFraction by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / heroCollapsePx).coerceIn(0f, 1f)
+            }
+        }
+    }
+
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(bottom = 16.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        // Hero section with cover and stats
+        // Hero section with cover-color gradient and stats
         item {
             SeriesHeroSection(
                 coverPath = state.coverPath,
                 featuredBookId = state.featuredBookId,
                 bookCount = state.books.size,
                 totalDuration = state.formatTotalDuration(),
+                seriesName = state.seriesName,
+                coverColors = coverColors,
+                collapseFraction = { collapseFraction },
+                collapsing = true,
+                onBackClick = onBackClick,
             )
         }
 
@@ -474,7 +461,8 @@ private fun NarrowSeriesDetailContent(
 }
 
 /**
- * Hero section with series cover and aggregate stats (narrow layout).
+ * Hero section with cover-color gradient, emphasized title, and aggregate stats (narrow layout).
+ * Mirrors the Book detail hero via the shared [DetailHero] scaffold.
  */
 @Composable
 private fun SeriesHeroSection(
@@ -482,54 +470,101 @@ private fun SeriesHeroSection(
     featuredBookId: String?,
     bookCount: Int,
     totalDuration: String,
+    seriesName: String,
+    coverColors: CoverColors,
+    collapseFraction: () -> Float,
+    collapsing: Boolean,
+    onBackClick: () -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Cover image
-        Box(
-            modifier =
-                Modifier
-                    .size(180.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            contentAlignment = Alignment.Center,
-        ) {
-            BookCoverImage(
-                bookId = featuredBookId ?: "",
-                coverPath = coverPath,
-                contentDescription = stringResource(Res.string.series_series_cover),
-                contentScale = ContentScale.Crop,
+    val isDark = LocalDarkTheme.current
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val surfaceContainerColor = MaterialTheme.colorScheme.surfaceContainer
+    val gradientColors =
+        if (isDark) {
+            listOf(
+                coverColors.darkMuted.copy(alpha = 0.5f),
+                coverColors.darkMuted.copy(alpha = 0.3f),
+                surfaceContainerColor.copy(alpha = 0.7f),
+                surfaceContainerColor,
+                surfaceColor,
+            )
+        } else {
+            listOf(
+                coverColors.darkMuted,
+                coverColors.darkMuted.copy(alpha = 0.85f),
+                surfaceContainerColor.copy(alpha = 0.7f),
+                surfaceContainerColor,
+                surfaceColor,
+            )
+        }
+
+    DetailHero(
+        collapseFraction = collapseFraction,
+        collapsing = collapsing,
+        gradientColors = gradientColors,
+        navigation = { pinnedTitle ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            .size(48.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+                                shape = CircleShape,
+                            ),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(Res.string.common_back),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Box(modifier = Modifier.align(Alignment.Center)) { pinnedTitle() }
+            }
+        },
+        title = seriesName,
+        backdropMedia = {
+            Box(
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(12.dp)),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Stats row
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StatItem(
-                icon = Icons.AutoMirrored.Filled.LibraryBooks,
-                value = "$bookCount",
-                label = if (bookCount == 1) "Book" else "Books",
-            )
-            StatItem(
-                icon = Icons.Default.Schedule,
-                value = totalDuration,
-                label = "Total",
-            )
-        }
-    }
+                        .size(180.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                BookCoverImage(
+                    bookId = featuredBookId ?: "",
+                    coverPath = coverPath,
+                    contentDescription = stringResource(Res.string.series_series_cover),
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                )
+            }
+        },
+        belowTitle = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatItem(
+                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
+                    value = "$bookCount",
+                    label = if (bookCount == 1) "Book" else "Books",
+                )
+                StatItem(
+                    icon = Icons.Default.Schedule,
+                    value = totalDuration,
+                    label = "Total",
+                )
+            }
+        },
+    )
 }
 
 /**
