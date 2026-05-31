@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -177,6 +178,7 @@ private fun fixture(
             collectionBookRepo = collectionBookRepo,
             shareRepo = shareRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+            permissionPolicy = UserPermissionPolicy(db),
             bus = bus,
             db = db,
             principal = PrincipalProvider { null },

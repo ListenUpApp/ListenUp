@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -128,6 +129,7 @@ fun booksModule(
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
         single { BookAccessPolicy(get()) }
+        single { UserPermissionPolicy(db = get()) }
         single<BookService> {
             BookServiceImpl(
                 repo = get<BookRepository>(),
@@ -137,6 +139,7 @@ fun booksModule(
                 db = get(),
                 genreRepo = get<GenreRepository>(),
                 accessPolicy = get<BookAccessPolicy>(),
+                permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("BookService"),
             )
         }
@@ -188,6 +191,7 @@ fun booksModule(
                 collectionBookRepo = get(),
                 shareRepo = get(),
                 accessPolicy = get(),
+                permissionPolicy = get<UserPermissionPolicy>(),
                 bus = get(),
                 db = get(),
                 clock = get(),

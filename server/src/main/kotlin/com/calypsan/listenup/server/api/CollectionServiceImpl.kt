@@ -15,7 +15,9 @@ import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
+import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -68,6 +70,7 @@ internal class CollectionServiceImpl(
     private val collectionBookRepo: CollectionBookRepository,
     private val shareRepo: CollectionShareRepository,
     private val accessPolicy: CollectionAccessPolicy,
+    private val permissionPolicy: UserPermissionPolicy,
     private val bus: ChangeBus,
     private val db: Database,
     private val clock: Clock = Clock.System,
@@ -233,6 +236,10 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        // canShare is an ADDITIONAL gate beyond ownership: a member must hold canShare AND own
+        // (or admin-bypass) the collection to share it. ROOT/ADMIN pass the flag implicitly.
+        permissionPolicy.requireCanShare(UserId(caller.userId), caller.role.toContract())
+            ?.let { return AppResult.Failure(it) }
 
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
         if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
@@ -507,6 +514,7 @@ internal class CollectionServiceImpl(
             collectionBookRepo = collectionBookRepo,
             shareRepo = shareRepo,
             accessPolicy = accessPolicy,
+            permissionPolicy = permissionPolicy,
             bus = bus,
             db = db,
             clock = clock,
@@ -673,6 +681,7 @@ fun createCollectionService(
         collectionBookRepo = collectionBookRepo,
         shareRepo = shareRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, shareRepo),
+        permissionPolicy = UserPermissionPolicy(db),
         bus = bus,
         db = db,
         clock = clock,

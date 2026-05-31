@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
@@ -73,6 +74,7 @@ class BookServiceImplSetGenresTest :
                 db = db,
                 genreRepo = genreRepo,
                 accessPolicy = BookAccessPolicy(db),
+                permissionPolicy = UserPermissionPolicy(db),
                 principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             )
         }

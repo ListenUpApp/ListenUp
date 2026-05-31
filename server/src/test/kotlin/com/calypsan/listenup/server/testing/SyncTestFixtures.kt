@@ -113,11 +113,19 @@ fun Database.seedTestBook(
  *
  * Used in tests that insert `collection_shares` rows — the junction table's FK
  * `shared_with_user_id REFERENCES users(id)` requires the parent row to exist when FK
- * enforcement is enabled.
+ * enforcement is enabled — and in permission-enforcement tests that need to control the
+ * per-user `canEdit`/`canShare` flags or seed a soft-deleted user.
+ *
+ * @param canEdit the `can_edit` flag (default true, matching the column default).
+ * @param canShare the `can_share` flag (default true, matching the column default).
+ * @param deletedAt the soft-delete tombstone in epoch-millis; null (default) is a live user.
  */
 fun Database.seedTestUser(
     userId: String,
     userRole: UserRoleColumn = UserRoleColumn.MEMBER,
+    canEdit: Boolean = true,
+    canShare: Boolean = true,
+    deletedAt: Long? = null,
 ) {
     transaction(this) {
         UserEntity.new(userId) {
@@ -129,6 +137,9 @@ fun Database.seedTestUser(
             status = UserStatusColumn.ACTIVE
             createdAt = 1L
             updatedAt = 1L
+            this.canEdit = canEdit
+            this.canShare = canShare
+            this.deletedAt = deletedAt
         }
     }
 }

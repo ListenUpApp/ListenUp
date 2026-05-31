@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -73,6 +74,7 @@ class AccessChangedEmissionTest :
                     collectionBookRepo = collectionBookRepo,
                     shareRepo = shareRepo,
                     accessPolicy = accessPolicy,
+                    permissionPolicy = UserPermissionPolicy(db),
                     bus = bus,
                     db = db,
                     clock = fixedClock,

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -13,6 +14,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -67,6 +69,7 @@ class CollectionServiceImplTest :
                 collectionBookRepo = collectionBookRepo,
                 shareRepo = shareRepo,
                 accessPolicy = accessPolicy,
+                permissionPolicy = UserPermissionPolicy(db),
                 bus = bus,
                 db = db,
                 clock = fixedClock,
@@ -415,6 +418,27 @@ class CollectionServiceImplTest :
                     u2List.data.first().id shouldBe collectionId
                     u2List.data.first().isOwner shouldBe false
                     u2List.data.first().callerPermission shouldBe SharePermission.Read
+                }
+            }
+        }
+
+        test("shareCollection by an owner-member without canShare is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                // u1 owns the collection but is a member whose canShare is revoked.
+                seedTestUser("u1", UserRoleColumn.MEMBER, canShare = false)
+                seedTestUser("u2")
+                runTest {
+                    val owner = makeService(db).actAs("u1")
+                    val created = owner.createCollection("test-library", "Shared")
+                    require(created is AppResult.Success)
+                    val collectionId = created.data.id
+
+                    // Owner gate passes (they own it) but the canShare gate denies.
+                    val shared = owner.shareCollection(collectionId, "u2", SharePermission.Read)
+                    require(shared is AppResult.Failure)
+                    shared.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }
         }
