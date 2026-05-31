@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
@@ -30,9 +31,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-
-/** Instance-level registration mode. Drives `register()` branching. */
-enum class RegistrationPolicy { OPEN, APPROVAL_QUEUE, CLOSED }
 
 /**
  * The contract implementation. Pure domain logic — Ktor types are deliberately
