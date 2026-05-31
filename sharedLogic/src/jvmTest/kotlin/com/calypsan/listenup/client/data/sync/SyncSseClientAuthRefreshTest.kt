@@ -165,8 +165,13 @@ class SyncSseClientAuthRefreshTest :
 
 private const val SSE_FRAME_ID_1 = 1L
 private const val AUTH_TRANSIENT = "auth-transient"
-private val AUTH_TRANSIENT_TIMEOUT = 10.seconds
-private val RECONNECT_TIMEOUT = 15.seconds
+
+// Generous timeouts: the SSE reconnect coroutine runs on Dispatchers.Default and can be
+// starved under CI parallel load (the JVM test job runs the full :sharedLogic + :server
+// suites concurrently). MockEngine has no real network, so a large ceiling only absorbs
+// scheduling delay — it never slows the happy path.
+private val AUTH_TRANSIENT_TIMEOUT = 30.seconds
+private val RECONNECT_TIMEOUT = 45.seconds
 
 /**
  * Single SSE frame, terminated by the blank line the parser needs to commit the
