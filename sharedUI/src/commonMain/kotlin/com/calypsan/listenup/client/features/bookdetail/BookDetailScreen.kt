@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -27,6 +28,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
@@ -496,7 +499,20 @@ private fun ImmersiveBookDetail(
             cachedVibrantColor = book.vibrantColor,
         )
 
+    val listState = rememberLazyListState()
+    val heroCollapsePx = with(LocalDensity.current) { 220.dp.toPx() }
+    val collapseFraction by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / heroCollapsePx).coerceIn(0f, 1f)
+            }
+        }
+    }
+
     LazyColumn(
+        state = listState,
         modifier =
             Modifier
                 .fillMaxSize()
@@ -516,6 +532,8 @@ private fun ImmersiveBookDetail(
                 isComplete = state.isComplete,
                 hasProgress = hasProgress,
                 isAdmin = state.isAdmin,
+                collapseFraction = { collapseFraction },
+                collapsing = true,
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onFindMetadataClick = onFindMetadataClick,
