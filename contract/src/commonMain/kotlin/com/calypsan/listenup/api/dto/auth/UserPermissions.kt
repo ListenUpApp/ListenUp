@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.auth
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,6 +13,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class UserPermissions(
-    val canEdit: Boolean = true,
-    val canShare: Boolean = true,
+    @SerialName("canEdit") val canEdit: Boolean = true,
+    @SerialName("canShare") val canShare: Boolean = true,
 )
