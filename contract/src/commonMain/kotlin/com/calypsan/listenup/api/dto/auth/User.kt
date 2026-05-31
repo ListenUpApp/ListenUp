@@ -17,4 +17,7 @@ data class User(
     val role: UserRole,
     val status: UserStatus,
     val createdAt: Long, // unix millis
+    val permissions: UserPermissions = UserPermissions(),
+    val approvedBy: String? = null, // admin user id who approved a PENDING_APPROVAL registration
+    val approvedAt: Long? = null, // unix millis
 )
