@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -94,17 +95,19 @@ class SyncSseClientAuthRefreshTest :
                     // After backoff (1s for attempt 0), the second attempt 200s and
                     // we reach Connected. With the pre-fix terminal `return@launch`,
                     // this would time out: the outer loop never made a second attempt.
-                    // Reaching `.first()` on a Connected state inside withTimeout IS the proof
-                    // the client reconnected — don't re-read `state.value` afterward: the single
-                    // SSE frame EOFs immediately, so the connection churns back toward Disconnected
-                    // and a point-in-time read races the observation (the actual CI flake).
-                    withTimeout(RECONNECT_TIMEOUT) {
-                        state.observe().filter { it.connection is ConnectionState.Connected }.first()
-                    }
-                    // >= 2 (not exactly 2): once the second attempt reaches Connected, the
-                    // MockEngine's single SSE frame EOFs and the client may reconnect again
-                    // before this assertion reads the counter. The invariant is "a reconnect
-                    // happened after the auth failure" — not a precise attempt count.
+                    // Assert the AWAITED Connected value, not a later re-read of
+                    // state.value: the single-frame mock EOFs after one frame, so the
+                    // client legitimately reconnects again — re-reading state.value here
+                    // would race that churn (the source of CI flakiness).
+                    val connected =
+                        withTimeout(RECONNECT_TIMEOUT) {
+                            state.observe().filter { it.connection is ConnectionState.Connected }.first()
+                        }
+                    connected.connection.shouldBeInstanceOf<ConnectionState.Connected>()
+                    // The invariant is "the 401 was transient — the client made another
+                    // attempt rather than terminating", not an exact count. The mock's
+                    // post-401 frame EOFs and can drive further reconnects, so assert >= 2
+                    // to stay deterministic under slow CI.
                     attempts.get() shouldBeGreaterThanOrEqual 2
                 } finally {
                     scope.cancel()
@@ -152,10 +155,8 @@ class SyncSseClientAuthRefreshTest :
                     withTimeout(RECONNECT_TIMEOUT) {
                         state.observe().filter { it.connection is ConnectionState.Connected }.first()
                     }
-                    // >= 2 (not exactly 2): once the second attempt reaches Connected, the
-                    // MockEngine's single SSE frame EOFs and the client may reconnect again
-                    // before this assertion reads the counter. The invariant is "a reconnect
-                    // happened after the auth failure" — not a precise attempt count.
+                    // See the 401 case: assert >= 2 (a reconnect happened), not an exact
+                    // count the single-frame mock can exceed via post-EOF reconnect churn.
                     attempts.get() shouldBeGreaterThanOrEqual 2
                 } finally {
                     scope.cancel()
@@ -167,13 +168,8 @@ class SyncSseClientAuthRefreshTest :
 
 private const val SSE_FRAME_ID_1 = 1L
 private const val AUTH_TRANSIENT = "auth-transient"
-
-// Generous timeouts: the SSE reconnect coroutine runs on Dispatchers.Default and can be
-// starved under CI parallel load (the JVM test job runs the full :sharedLogic + :server
-// suites concurrently). MockEngine has no real network, so a large ceiling only absorbs
-// scheduling delay — it never slows the happy path.
-private val AUTH_TRANSIENT_TIMEOUT = 30.seconds
-private val RECONNECT_TIMEOUT = 45.seconds
+private val AUTH_TRANSIENT_TIMEOUT = 10.seconds
+private val RECONNECT_TIMEOUT = 15.seconds
 
 /**
  * Single SSE frame, terminated by the blank line the parser needs to commit the
