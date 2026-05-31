@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
@@ -24,6 +25,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -160,6 +162,29 @@ class AuthServiceImplTest :
                 svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
                 svc
                     .login(LoginRequest("not-an-email", "x".repeat(8)))
+                    .shouldFail<AuthError.InvalidCredentials>()
+            }
+        }
+
+        test("login errors InvalidCredentials against a soft-deleted account") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                val authed =
+                    svc
+                        .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        .shouldSucceed()
+                        .shouldBeInstanceOf<RegisterResult.Authenticated>()
+
+                // Soft-delete: stamp deletedAt directly, mirroring AdminUserServiceImpl.deleteUser.
+                // status stays ACTIVE — the deletedAt check, not the status branch, must deny login.
+                suspendTransaction(svc.db) {
+                    UserEntity[authed.session.user.id.value].deletedAt = clock.now().toEpochMilliseconds()
+                }
+
+                // Indistinguishable from a nonexistent account — no existence leak.
+                svc
+                    .login(LoginRequest("alice@x", "x".repeat(8)))
                     .shouldFail<AuthError.InvalidCredentials>()
             }
         }

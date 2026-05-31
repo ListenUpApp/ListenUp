@@ -61,6 +61,10 @@ class AuthServiceImpl(
                 UserEntity.find { UserTable.emailNormalized eq normalized }.firstOrNull()
             } ?: return AppResult.Failure(AuthError.InvalidCredentials())
 
+        // A soft-deleted account must be indistinguishable from a nonexistent one:
+        // same InvalidCredentials, so admin deletion is final and existence doesn't leak.
+        if (user.deletedAt != null) return AppResult.Failure(AuthError.InvalidCredentials())
+
         if (!hasher.verify(request.password, user.passwordHash)) {
             return AppResult.Failure(AuthError.InvalidCredentials())
         }
