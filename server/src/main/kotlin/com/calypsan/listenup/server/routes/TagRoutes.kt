@@ -7,7 +7,9 @@ import com.calypsan.listenup.api.resources.TagResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -20,6 +22,9 @@ import io.ktor.server.resources.patch
 import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+
+private const val AUTH_WALL_REGRESSION_MSG =
+    "tag REST mount reached without a principal — auth wall regression"
 
 /**
  * REST surface for [TagService]. Seven endpoints:
@@ -44,9 +49,17 @@ import io.ktor.server.routing.Route
  * Application.kt). Responds with bare types (unwrapped from AppResult) per the
  * third-party REST surface convention.
  *
- * // TODO: gate by user permissions when Multi-user lands
+ * The book-keyed read `GET /api/v1/books/{bookId}/tags` is access-gated through
+ * [accessPolicy], mirroring the cover route: a member must not learn which tags hang
+ * off a book they can't reach. A denied book answers 404 — indistinguishable from an
+ * absent book — never 403, which would leak the private book's existence. ROOT/ADMIN
+ * bypass the filter. The tag-keyed and mutation routes remain ungated pending the
+ * broader tag-permission model.
  */
-fun Route.tagRoutes(tagService: TagService) {
+fun Route.tagRoutes(
+    tagService: TagService,
+    accessPolicy: BookAccessPolicy,
+) {
     // ── Tag-scoped routes ─────────────────────────────────────────────────────
 
     get<TagResources.List> {
@@ -98,6 +111,14 @@ fun Route.tagRoutes(tagService: TagService) {
     // ── Book-scoped tag routes ────────────────────────────────────────────────
 
     get<BookTagsResources.Collection> { res ->
+        // Gate the book's tags by the caller's principal, mirroring the cover route.
+        // A denied book answers 404 — the same shape as an absent book — so the
+        // response can't probe a private book's existence.
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        if (!accessPolicy.canAccess(p.userId.value, p.role, res.parent.bookId)) {
+            call.respond(HttpStatusCode.NotFound)
+            return@get
+        }
         when (val result = tagService.listTagsForBook(BookId(res.parent.bookId))) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondTagError(result.error)
