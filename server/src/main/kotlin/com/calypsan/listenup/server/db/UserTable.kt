@@ -34,6 +34,11 @@ object UserTable : IdTable<String>("users") {
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
     val lastLoginAt = long("last_login_at").nullable()
+    val canEdit = bool("can_edit").default(true)
+    val canShare = bool("can_share").default(true)
+    val approvedBy = text("approved_by").nullable()
+    val approvedAt = long("approved_at").nullable()
+    val deletedAt = long("deleted_at").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }
@@ -52,4 +57,9 @@ class UserEntity(
     var createdAt by UserTable.createdAt
     var updatedAt by UserTable.updatedAt
     var lastLoginAt by UserTable.lastLoginAt
+    var canEdit by UserTable.canEdit
+    var canShare by UserTable.canShare
+    var approvedBy by UserTable.approvedBy
+    var approvedAt by UserTable.approvedAt
+    var deletedAt by UserTable.deletedAt
 }

@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
@@ -324,6 +325,9 @@ internal fun UserEntity.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
+        permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
+        approvedBy = approvedBy,
+        approvedAt = approvedAt,
     )
 
 /**
