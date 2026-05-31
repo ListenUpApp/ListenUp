@@ -563,6 +563,13 @@ private class FakeBookDao(
     override fun observeRecentlyAddedWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
 
     override fun observeRandomUnstartedBooksWithAuthor(limit: Int): Flow<List<DiscoveryBookWithAuthor>> = flowOf(emptyList())
+
+    override suspend fun liveIds(): List<String> = allBooks.map { it.id.value }
+
+    override suspend fun tombstoneNotIn(
+        accessibleIds: Collection<String>,
+        now: Long,
+    ) = Unit
 }
 
 private class FakeSeriesDao(
