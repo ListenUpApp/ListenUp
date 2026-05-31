@@ -42,10 +42,10 @@ import kotlinx.coroutines.test.setMain
 /**
  * Tests for [AdminInboxViewModel] (Collections-2a — 1b admin inbox REST).
  *
- * The inbox lists book ids via [InboxRepository.listInbox]; release builds a per-book
- * target-collection assignment map from local staging state and dispatches a single
- * [InboxRepository.releaseBooks]. The legacy stage/unstage round-trips are gone —
- * staging is local UI state collapsed into the release call.
+ * The inbox lists book ids via [InboxRepository.listInbox] and hydrates them into
+ * [com.calypsan.listenup.client.domain.model.InboxBookItem] projections by observing Room.
+ * Release maps every selected id to an empty target-collection list (all inbox releases are
+ * public/uncollected) and dispatches a single [InboxRepository.releaseBooks].
  */
 class AdminInboxViewModelTest :
     FunSpec({
@@ -177,7 +177,7 @@ class AdminInboxViewModelTest :
             }
         }
 
-        test("releaseSelected builds the assignment map and dispatches one release") {
+        test("releaseSelected releases every selected book as public and dispatches one release") {
             runTest(dispatcher) {
                 val f = Fixture()
                 everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(listOf("b1", "b2"))
@@ -185,14 +185,13 @@ class AdminInboxViewModelTest :
                 val vm = f.build()
                 advanceUntilIdle()
 
-                vm.stageCollection("b1", "col1")
                 vm.toggleBookSelection("b1")
-                vm.toggleBookSelection("b2") // selected, no staged collection => public
+                vm.toggleBookSelection("b2")
                 vm.releaseSelected()
                 advanceUntilIdle()
 
                 verifySuspend {
-                    f.inboxRepo.releaseBooks("lib1", mapOf("b1" to listOf("col1"), "b2" to emptyList()))
+                    f.inboxRepo.releaseBooks("lib1", mapOf("b1" to emptyList(), "b2" to emptyList()))
                 }
                 val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
                 ready.bookIds shouldBe emptyList()
@@ -232,6 +231,79 @@ class AdminInboxViewModelTest :
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
                 ready.bookIds shouldBe listOf("b2")
+            }
+        }
+
+        test("ids with no Room row are omitted from books but still counted in bookIds") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(listOf("b1", "b2"))
+                // Only b1 has synced into Room; b2 is an unhydrated inbox id.
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(listOf(bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson")))
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.bookIds shouldBe listOf("b1", "b2")
+                ready.books.map { it.id } shouldBe listOf("b1")
+            }
+        }
+
+        test("releaseSelected success prunes the released id from selection and books") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(listOf("b1", "b2"))
+                everySuspend { f.inboxRepo.releaseBooks(any(), any()) } returns AppResult.Success(Unit)
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
+                        ),
+                    )
+                val vm = f.build()
+                advanceUntilIdle()
+
+                vm.toggleBookSelection("b1")
+                vm.releaseSelected()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.selectedBookIds shouldBe emptySet()
+                ready.bookIds shouldBe listOf("b2")
+                ready.books.map { it.id } shouldBe listOf("b2")
+            }
+        }
+
+        test("InboxBookReleased SSE echo prunes from bookIds and books and is idempotent") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend { f.inboxRepo.listInbox("lib1") } returns AppResult.Success(listOf("b1", "b2"))
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
+                        ),
+                    )
+                val vm = f.build()
+                advanceUntilIdle()
+
+                f.adminEvents.emit(AdminEvent.InboxBookReleased(bookId = "b1"))
+                advanceUntilIdle()
+
+                var ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.bookIds shouldBe listOf("b2")
+                ready.books.map { it.id } shouldBe listOf("b2")
+
+                // A second echo for the already-removed id no-ops (no crash, state unchanged).
+                f.adminEvents.emit(AdminEvent.InboxBookReleased(bookId = "b1"))
+                advanceUntilIdle()
+
+                ready = vm.state.value.shouldBeInstanceOf<AdminInboxUiState.Ready>()
+                ready.bookIds shouldBe listOf("b2")
+                ready.books.map { it.id } shouldBe listOf("b2")
             }
         }
     })

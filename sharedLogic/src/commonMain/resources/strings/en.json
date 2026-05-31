@@ -510,7 +510,6 @@
     "new_books_in_this_library": "New books in this library bypass inbox review and appear immediately",
     "newly_scanned_books_will_appear": "Newly scanned books will appear here for review",
     "no_books_in_this_collection": "No books in this collection",
-    "no_collections_will_be_public": "No collections (will be public)",
     "no_pending_registrations": "No pending registrations",
     "no_users_available": "No users available",
     "open_registration": "Open Registration",
@@ -552,8 +551,7 @@
     "unmapped_genres": "Unmapped Genres",
     "users_only_see_books_in": "Users only see books in collections they have access to. Collections grant access.",
     "view_the_genre_hierarchy_tree": "View the genre hierarchy tree",
-    "what_to_include": "What to include",
-    "will_be_released_without_any": "will be released without any collection assignments.\\n\\n"
+    "what_to_include": "What to include"
   },
   "player": {
     "now_playing": "Now Playing",
