@@ -16,7 +16,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [34])
 class DetailHeroTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -28,7 +27,10 @@ class DetailHeroTest {
                     collapseFraction = { 0f },
                     collapsing = true,
                     gradientColors = listOf(Color.DarkGray, Color.Black),
-                    navigation = { pinnedTitle -> Text("BACK"); pinnedTitle() },
+                    navigation = { pinnedTitle ->
+                        Text("BACK")
+                        pinnedTitle()
+                    },
                     title = "The Way of Kings",
                     subtitle = "Brandon Sanderson",
                     backdropMedia = { Text("COVER") },
