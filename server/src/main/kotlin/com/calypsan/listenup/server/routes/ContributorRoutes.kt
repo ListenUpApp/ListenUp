@@ -10,7 +10,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -32,9 +34,12 @@ import io.ktor.server.routing.Route
  *    on both (null is a valid "not cached yet" response — clients show a stub
  *    while sync catches up). Follows the third-party RESTful convention: responds
  *    the unwrapped value, not the [AppResult] envelope.
- *  - `GET /api/v1/contributors/{id}/books` — returns all [BookSyncPayload]s
- *    associated with the contributor. HTTP 200 with an empty list when the
- *    contributor has no books.
+ *  - `GET /api/v1/contributors/{id}/books` — returns the [BookSyncPayload]s
+ *    associated with the contributor that the caller can reach. HTTP 200 with an
+ *    empty list when the contributor has no accessible books. Books the caller
+ *    can't access are filtered out through [accessPolicy], so an inaccessible book
+ *    is simply absent — existence-preserving, identical to a contributor that has
+ *    no accessible books. ROOT/ADMIN bypass the filter.
  *  - `PATCH /api/v1/contributors/{id}` — applies a [ContributorUpdate] patch to
  *    the contributor. HTTP 204 on success.
  *  - `DELETE /api/v1/contributors/{id}` — hard-deletes the contributor and
@@ -47,7 +52,13 @@ import io.ktor.server.routing.Route
  * All endpoints require JWT authentication (mounted inside the authenticate block
  * in Application.kt).
  */
-fun Route.contributorRoutes(contributorService: ContributorService) {
+private const val AUTH_WALL_REGRESSION_MSG =
+    "contributor REST mount reached without a principal — auth wall regression"
+
+fun Route.contributorRoutes(
+    contributorService: ContributorService,
+    accessPolicy: BookAccessPolicy,
+) {
     get<ContributorResources.Detail> { res ->
         when (val result = contributorService.getContributor(ContributorId(res.id))) {
             is AppResult.Success -> {
@@ -62,8 +73,13 @@ fun Route.contributorRoutes(contributorService: ContributorService) {
     }
 
     get<ContributorResources.Books> { res ->
+        // Drop books the caller can't reach so an inaccessible book is simply absent —
+        // the same shape as a contributor with no accessible books. null = ROOT/ADMIN
+        // (unfiltered); they keep every book.
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val accessible = accessPolicy.accessibleBookIds(p.userId.value, p.role)
         when (val result = contributorService.listBooksByContributor(ContributorId(res.id))) {
-            is AppResult.Success -> call.respond(result.data)
+            is AppResult.Success -> call.respond(result.data.filter { accessible == null || it.id in accessible })
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
