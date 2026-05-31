@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -99,7 +99,11 @@ class SyncSseClientAuthRefreshTest :
                         state.observe().filter { it.connection is ConnectionState.Connected }.first()
                     }
                     state.value.connection.shouldBeInstanceOf<ConnectionState.Connected>()
-                    attempts.get() shouldBe 2
+                    // >= 2 (not exactly 2): once the second attempt reaches Connected, the
+                    // MockEngine's single SSE frame EOFs and the client may reconnect again
+                    // before this assertion reads the counter. The invariant is "a reconnect
+                    // happened after the auth failure" — not a precise attempt count.
+                    attempts.get() shouldBeGreaterThanOrEqual 2
                 } finally {
                     scope.cancel()
                     client.close()
@@ -146,7 +150,11 @@ class SyncSseClientAuthRefreshTest :
                     withTimeout(RECONNECT_TIMEOUT) {
                         state.observe().filter { it.connection is ConnectionState.Connected }.first()
                     }
-                    attempts.get() shouldBe 2
+                    // >= 2 (not exactly 2): once the second attempt reaches Connected, the
+                    // MockEngine's single SSE frame EOFs and the client may reconnect again
+                    // before this assertion reads the counter. The invariant is "a reconnect
+                    // happened after the auth failure" — not a precise attempt count.
+                    attempts.get() shouldBeGreaterThanOrEqual 2
                 } finally {
                     scope.cancel()
                     client.close()
