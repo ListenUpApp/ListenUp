@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.plugins
 
+import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
@@ -84,6 +85,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is CollectionError -> toHttpStatus()
 
+        is AdminError -> toHttpStatus()
+
         is BookError -> toHttpStatus()
 
         is CoverError -> toHttpStatus()
@@ -121,6 +124,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is MetadataError -> withCorrelationId(id)
         is TagError -> withCorrelationId(id)
         is CollectionError -> withCorrelationId(id)
+        is AdminError -> withCorrelationId(id)
         is BookError -> withCorrelationId(id)
         is CoverError -> withCorrelationId(id)
         is ContributorError -> withCorrelationId(id)
@@ -437,4 +441,24 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
         is CollectionError.InboxNotDeletable -> copy(correlationId = id)
         is CollectionError.SelfShare -> copy(correlationId = id)
         is CollectionError.AlreadyShared -> copy(correlationId = id)
+    }
+
+private fun AdminError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is AdminError.UserNotFound -> HttpStatusCode.NotFound
+        is AdminError.CannotModifyRoot -> HttpStatusCode.Conflict
+        is AdminError.CannotDemoteLastAdmin -> HttpStatusCode.Conflict
+        is AdminError.CannotDeleteSelf -> HttpStatusCode.Conflict
+        is AdminError.CannotDeleteLastAdmin -> HttpStatusCode.Conflict
+        is AdminError.InvalidInput -> HttpStatusCode.BadRequest
+    }
+
+private fun AdminError.withCorrelationId(id: String?): AdminError =
+    when (this) {
+        is AdminError.UserNotFound -> copy(correlationId = id)
+        is AdminError.CannotModifyRoot -> copy(correlationId = id)
+        is AdminError.CannotDemoteLastAdmin -> copy(correlationId = id)
+        is AdminError.CannotDeleteSelf -> copy(correlationId = id)
+        is AdminError.CannotDeleteLastAdmin -> copy(correlationId = id)
+        is AdminError.InvalidInput -> copy(correlationId = id)
     }

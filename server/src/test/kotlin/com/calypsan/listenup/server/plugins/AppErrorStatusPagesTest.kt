@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.plugins
 
+import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.InternalError
@@ -110,6 +111,28 @@ class AppErrorStatusPagesTest :
             val stamped = err.withCorrelationId("corr-123")
             stamped.shouldBeInstanceOf<AudioMetadataError.UnsupportedFormat>()
             stamped.correlationId shouldBe "corr-123"
+        }
+
+        test("AdminError.UserNotFound maps to 404 NotFound") {
+            val err: AppError = AdminError.UserNotFound()
+            err.toHttpStatus() shouldBe HttpStatusCode.NotFound
+        }
+
+        test("AdminError.CannotDemoteLastAdmin maps to 409 Conflict") {
+            val err: AppError = AdminError.CannotDemoteLastAdmin()
+            err.toHttpStatus() shouldBe HttpStatusCode.Conflict
+        }
+
+        test("AdminError.InvalidInput maps to 400 BadRequest") {
+            val err: AppError = AdminError.InvalidInput()
+            err.toHttpStatus() shouldBe HttpStatusCode.BadRequest
+        }
+
+        test("AdminError.withCorrelationId stamps id on CannotModifyRoot") {
+            val err: AppError = AdminError.CannotModifyRoot()
+            val stamped = err.withCorrelationId("corr-admin")
+            stamped.shouldBeInstanceOf<AdminError.CannotModifyRoot>()
+            stamped.correlationId shouldBe "corr-admin"
         }
 
         test("unknown paths return structured JSON 404") {
