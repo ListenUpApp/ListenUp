@@ -65,6 +65,8 @@ fun authModule(config: ApplicationConfig): Module =
             )
         }
 
+        single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
+
         single {
             AuthServiceImpl(
                 db = get(),
@@ -72,11 +74,9 @@ fun authModule(config: ApplicationConfig): Module =
                 hasher = get(),
                 jwt = get(),
                 clock = get(),
-                registrationPolicy = config.registrationPolicy(),
+                settings = get(),
             )
         }
-
-        single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
 
         single {
             AdminUserServiceImpl(

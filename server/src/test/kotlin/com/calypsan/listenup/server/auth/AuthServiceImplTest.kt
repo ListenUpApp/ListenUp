@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -39,13 +40,14 @@ class AuthServiceImplTest :
             val hasher = PasswordHasher()
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
+            val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
                 db = db,
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
                 clock = clock,
-                registrationPolicy = policy,
+                settings = settings,
             )
         }
 

@@ -24,12 +24,12 @@ class V26MigrationTest :
                 }
             }
         }
-        test("server_settings is seeded with the default registration policy") {
+        test("server_settings starts empty so the startup default governs until an admin sets a policy") {
             withInMemoryDatabase {
                 transaction(this) {
-                    exec("SELECT value FROM server_settings WHERE key='registration_policy'") { rs ->
+                    exec("SELECT COUNT(*) FROM server_settings") { rs ->
                         rs.next()
-                        rs.getString("value") shouldBe "OPEN"
+                        rs.getInt(1) shouldBe 0
                     }
                 }
             }

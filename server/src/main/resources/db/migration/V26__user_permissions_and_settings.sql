@@ -9,11 +9,12 @@ ALTER TABLE users ADD COLUMN approved_by TEXT;
 ALTER TABLE users ADD COLUMN approved_at INTEGER;
 ALTER TABLE users ADD COLUMN deleted_at INTEGER;
 
--- Server-wide key/value settings. Seeded with the open registration policy —
--- anyone can sign up by default, matching the sharing-first stance.
+-- Server-wide key/value settings. The table starts empty: an absent
+-- registration_policy row means "use the startup default" (ServerSettingsRepository's
+-- `default`, seeded from the `registration.policy` config), so the config stays
+-- meaningful until an admin sets a policy at runtime, which then wins.
 CREATE TABLE server_settings (
     key   TEXT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (key)
 );
-INSERT INTO server_settings (key, value) VALUES ('registration_policy', 'OPEN');
