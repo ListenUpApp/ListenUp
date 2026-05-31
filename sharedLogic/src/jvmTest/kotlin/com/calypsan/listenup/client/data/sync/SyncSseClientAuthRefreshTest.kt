@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -95,10 +94,13 @@ class SyncSseClientAuthRefreshTest :
                     // After backoff (1s for attempt 0), the second attempt 200s and
                     // we reach Connected. With the pre-fix terminal `return@launch`,
                     // this would time out: the outer loop never made a second attempt.
+                    // Reaching `.first()` on a Connected state inside withTimeout IS the proof
+                    // the client reconnected — don't re-read `state.value` afterward: the single
+                    // SSE frame EOFs immediately, so the connection churns back toward Disconnected
+                    // and a point-in-time read races the observation (the actual CI flake).
                     withTimeout(RECONNECT_TIMEOUT) {
                         state.observe().filter { it.connection is ConnectionState.Connected }.first()
                     }
-                    state.value.connection.shouldBeInstanceOf<ConnectionState.Connected>()
                     // >= 2 (not exactly 2): once the second attempt reaches Connected, the
                     // MockEngine's single SSE frame EOFs and the client may reconnect again
                     // before this assertion reads the counter. The invariant is "a reconnect
