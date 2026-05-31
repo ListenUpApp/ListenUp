@@ -46,14 +46,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.rememberCoverColors
-import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.LocalDarkTheme
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
@@ -220,11 +218,7 @@ fun WideBookDetail(
                                 // Title
                                 Text(
                                     text = book.title,
-                                    style =
-                                        MaterialTheme.typography.headlineMedium.copy(
-                                            fontFamily = DisplayFontFamily,
-                                            fontWeight = FontWeight.Bold,
-                                        ),
+                                    style = MaterialTheme.typography.headlineMediumEmphasized,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,
