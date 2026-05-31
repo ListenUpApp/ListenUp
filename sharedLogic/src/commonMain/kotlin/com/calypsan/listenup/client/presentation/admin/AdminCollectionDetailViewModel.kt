@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
+import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -51,6 +52,10 @@ class AdminCollectionDetailViewModel(
 
     // Tracks the in-flight Room hydration so a new collection book-id-set replaces the prior observation.
     private var hydrationJob: Job? = null
+
+    // The id-set the live hydration is currently observing; guards against redundant re-subscription
+    // when an unrelated combine emission (rename, share change) arrives with an unchanged id-set.
+    private var lastHydratedIds: List<String>? = null
 
     init {
         observeCollection()
@@ -114,6 +119,8 @@ class AdminCollectionDetailViewModel(
      * prior observation so the live set tracks the latest collection book-id-set.
      */
     private fun hydrate(ids: List<String>) {
+        if (ids == lastHydratedIds) return
+        lastHydratedIds = ids
         hydrationJob?.cancel()
         if (ids.isEmpty()) {
             updateReady { it.copy(books = emptyList()) }
@@ -327,27 +334,6 @@ sealed interface AdminCollectionDetailUiState {
         val message: String,
     ) : AdminCollectionDetailUiState
 }
-
-/**
- * Hydrated projection of a single book in a collection for the admin detail screen.
- *
- * The authoritative id set comes from the collection's book-id observation; display detail is
- * joined from Room so the list shows a real cover, title, author, and duration rather than a raw
- * book id.
- *
- * @property id The book's id (the selection key and the value passed to remove-from-collection).
- * @property title The book's display title.
- * @property author The primary author display name, or `null` when the book has no author credit.
- * @property coverPath Local cover file path when the cover exists on disk, else `null`.
- * @property durationMs Total audiobook duration in milliseconds.
- */
-data class CollectionBookItem(
-    val id: String,
-    val title: String,
-    val author: String?,
-    val coverPath: String?,
-    val durationMs: Long,
-)
 
 /**
  * A share item representing a user who has access to the collection.

@@ -57,10 +57,11 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.util.formatDuration
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
-import com.calypsan.listenup.client.presentation.admin.CollectionBookItem
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_member
@@ -829,14 +830,6 @@ private fun EmptyBooksMessage(modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-/** Format a millisecond duration as a compact `Hh Mm` / `Mm` label. */
-private fun formatDuration(durationMs: Long): String {
-    val totalMinutes = durationMs / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable
