@@ -66,4 +66,17 @@ interface BookEditRepository {
      * the book row and best-effort-deletes the underlying file after commit.
      */
     suspend fun deleteBookCover(id: BookId): AppResult<Unit>
+
+    /**
+     * Replace-sets the collections the book identified by [id] belongs to (admin-only).
+     *
+     * Diffs the book's current live memberships against [collectionIds]: soft-deletes
+     * removed, upserts added. The server emits per-user `AccessChanged` to the affected
+     * users so their clients reconcile — there is no optimistic Room write here. Dispatches
+     * via [com.calypsan.listenup.api.CollectionService.setBookCollections].
+     */
+    suspend fun setBookCollections(
+        id: BookId,
+        collectionIds: List<String>,
+    ): AppResult<Unit>
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Book
@@ -46,18 +47,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.util.formatDuration
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
+import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
-import com.calypsan.listenup.client.presentation.admin.CollectionBookItem
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_member
@@ -96,6 +100,8 @@ private const val TOP_GAP_DP = 8
 private const val EMPTY_PANEL_PADDING_DP = 32
 private const val EMPTY_ICON_SIZE_DP = 48
 private const val ADD_ICON_SIZE_DP = 18
+private const val COVER_SIZE_DP = 56
+private const val COVER_CORNER_DP = 8
 private const val FADED_ALPHA = 0.5f
 private const val FAINT_ALPHA = 0.7f
 
@@ -190,7 +196,7 @@ fun AdminCollectionDetailScreen(
             onDismissRequest = { bookToRemove = null },
             title = stringResource(Res.string.admin_remove_book),
             text =
-                "Are you sure you want to remove \"${book.id}\" from this collection? " +
+                "Are you sure you want to remove \"${book.title}\" from this collection? " +
                     stringResource(Res.string.admin_the_book_will_not_be),
             confirmText = stringResource(Res.string.common_remove),
             onConfirm = {
@@ -739,19 +745,37 @@ private fun BookRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ICON_GAP_DP.dp),
     ) {
-        Icon(
-            imageVector = Icons.Outlined.Book,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        BookCoverImage(
+            bookId = book.id,
+            coverPath = book.coverPath,
+            contentDescription = book.title,
+            modifier =
+                Modifier
+                    .size(COVER_SIZE_DP.dp)
+                    .clip(RoundedCornerShape(COVER_CORNER_DP.dp)),
         )
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = book.id,
+                text = book.title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+            book.author?.let { author ->
+                Text(
+                    text = author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = formatDuration(book.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = FAINT_ALPHA),
             )
         }
 

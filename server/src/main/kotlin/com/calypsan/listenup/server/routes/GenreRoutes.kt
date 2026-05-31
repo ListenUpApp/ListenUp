@@ -10,7 +10,9 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.GenreResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -33,7 +35,7 @@ import io.ktor.server.routing.Route
  *  - `PATCH  /api/v1/genres/{id}`                     — patch fields on a genre
  *  - `DELETE /api/v1/genres/{id}`                     — soft-delete + cascade junction
  *  - `GET    /api/v1/genres/{id}/children`            — direct children only
- *  - `GET    /api/v1/genres/{id}/books`               — books linked to the genre (+ subtree opt)
+ *  - `GET    /api/v1/genres/{id}/books`               — accessible books linked to the genre (+ subtree opt)
  *  - `POST   /api/v1/genres/{id}/move`                — reparent the subtree
  *  - `POST   /api/v1/genres/merge`                    — merge source into target
  *  - `GET    /api/v1/genres/unmapped`                 — aggregate pending-string queue
@@ -44,11 +46,22 @@ import io.ktor.server.routing.Route
  * third-party REST surface convention. Split into two sub-route-builders keeps each
  * under the cognitive-complexity ceiling.
  *
- * // TODO: gate by user permissions when Multi-user lands
+ * The book-keyed read `GET /api/v1/genres/{id}/books` is access-gated through
+ * [accessPolicy]: the returned book ids are filtered to those the caller can reach,
+ * so an inaccessible book is simply absent — existence-preserving, identical to a
+ * genre that has no accessible books. ROOT/ADMIN bypass the filter. The remaining
+ * routes are not book-keyed and stay ungated pending the broader genre-permission
+ * model.
  */
-fun Route.genreRoutes(genreService: GenreService) {
+private const val AUTH_WALL_REGRESSION_MSG =
+    "genre REST mount reached without a principal — auth wall regression"
+
+fun Route.genreRoutes(
+    genreService: GenreService,
+    accessPolicy: BookAccessPolicy,
+) {
     genreCollectionRoutes(genreService)
-    genreDetailRoutes(genreService)
+    genreDetailRoutes(genreService, accessPolicy)
 }
 
 /** Top-level + merge + unmapped routes. */
@@ -93,7 +106,10 @@ private fun Route.genreCollectionRoutes(genreService: GenreService) {
 }
 
 /** Per-genre routes under `/api/v1/genres/{id}`. */
-private fun Route.genreDetailRoutes(genreService: GenreService) {
+private fun Route.genreDetailRoutes(
+    genreService: GenreService,
+    accessPolicy: BookAccessPolicy,
+) {
     get<GenreResources.Detail> { res ->
         when (val result = genreService.getGenre(GenreId(res.id))) {
             is AppResult.Success -> {
@@ -134,6 +150,11 @@ private fun Route.genreDetailRoutes(genreService: GenreService) {
     }
 
     get<GenreResources.Detail.Books> { res ->
+        // Drop books the caller can't reach so an inaccessible book is simply absent —
+        // the same shape as a genre with no accessible books. null = ROOT/ADMIN
+        // (unfiltered); they keep every book.
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val accessible = accessPolicy.accessibleBookIds(p.userId.value, p.role)
         val result =
             genreService.browseBooks(
                 genreId = GenreId(res.parent.id),
@@ -141,8 +162,13 @@ private fun Route.genreDetailRoutes(genreService: GenreService) {
                 limit = res.limit,
             )
         when (result) {
-            is AppResult.Success -> call.respond(result.data.map { it.value })
-            is AppResult.Failure -> call.respondGenreError(result.error)
+            is AppResult.Success -> {
+                call.respond(result.data.map { it.value }.filter { accessible == null || it in accessible })
+            }
+
+            is AppResult.Failure -> {
+                call.respondGenreError(result.error)
+            }
         }
     }
 

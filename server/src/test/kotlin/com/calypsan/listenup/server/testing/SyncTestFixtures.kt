@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -132,6 +134,19 @@ fun Database.seedTestUser(
         }
     }
 }
+
+/**
+ * Resolves the [UserRole] of a seeded user synchronously, for use as the
+ * `roleResolver` of [testAuth]. Unseeded ids resolve to [UserRole.ROOT] — the
+ * historic test-auth default — so route tests that send a bearer token without
+ * a matching user row keep their all-bypassing principal. Only tests that seed a
+ * member/admin via [seedTestUser] and then send that id as the bearer token get
+ * a non-ROOT principal, which is exactly what the access-gate tests want.
+ */
+fun Database.roleOf(userId: String): UserRole =
+    transaction(this) {
+        UserEntity.findById(userId)?.role?.toContract() ?: UserRole.ROOT
+    }
 
 /**
  * Canonical fixture builder for [BookSyncPayload] test instances.

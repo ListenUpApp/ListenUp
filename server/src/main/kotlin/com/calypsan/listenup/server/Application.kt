@@ -242,10 +242,10 @@ fun Application.module() {
             if (bookService != null && coverResponder != null && bookAccessPolicy != null) {
                 bookRoutes(bookService, coverResponder, bookAccessPolicy)
             }
-            if (contributorService != null) contributorRoutes(contributorService)
-            if (seriesService != null) seriesRoutes(seriesService)
+            contributorService?.let { s -> bookAccessPolicy?.let { p -> contributorRoutes(s, p) } }
+            seriesService?.let { s -> bookAccessPolicy?.let { p -> seriesRoutes(s, p) } }
             if (playbackService != null) playbackRoutes(playbackService)
-            if (playbackProgressService != null) playbackProgressRoutes(playbackProgressService)
+            playbackProgressService?.let { s -> bookAccessPolicy?.let { p -> playbackProgressRoutes(s, p) } }
             if (backfillService != null && searchReindexService != null) {
                 adminRoutes(backfillService, searchReindexService)
             }
@@ -254,8 +254,8 @@ fun Application.module() {
             }
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
             if (searchService != null) searchRoutes(searchService)
-            if (tagService != null) tagRoutes(tagService)
-            if (genreService != null) genreRoutes(genreService)
+            if (tagService != null && bookAccessPolicy != null) tagRoutes(tagService, bookAccessPolicy)
+            if (genreService != null && bookAccessPolicy != null) genreRoutes(genreService, bookAccessPolicy)
             if (collectionService != null) {
                 collectionRoutes(collectionService)
                 collectionAdminRoutes(collectionService)

@@ -52,6 +52,9 @@ class CollectionRepositoryImpl(
     override fun observeCollectionBooks(collectionId: String): Flow<List<String>> =
         collectionBookDao.observeBookIds(collectionId)
 
+    override fun observeBookCollectionIds(bookId: String): Flow<List<String>> =
+        collectionBookDao.observeCollectionIdsForBook(bookId)
+
     override fun observeShares(collectionId: String): Flow<List<CollectionShare>> =
         collectionShareDao.observeForCollection(collectionId).map { rows -> rows.map { it.toDomain() } }
 

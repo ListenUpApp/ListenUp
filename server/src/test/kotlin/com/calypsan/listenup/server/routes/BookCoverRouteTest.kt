@@ -4,9 +4,12 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
+import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -14,6 +17,8 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -62,6 +67,24 @@ class BookCoverRouteTest :
                 .data
                 .accessToken
                 .value
+        }
+
+        // Registers a second user under the OPEN registration policy — which yields
+        // an ACTIVE MEMBER, authenticated immediately — and returns that member's
+        // (accessToken, userId). The member-role JWT is what makes the route-level
+        // [BookAccessPolicy] gate run for real instead of the all-bypassing ROOT
+        // that [mintAccessToken]'s first-user-is-ROOT setup produces.
+        suspend fun HttpClient.registerMember(email: String): Pair<String, String> {
+            val session =
+                post("/api/v1/auth/register") {
+                    contentType(ContentType.Application.Json)
+                    setBody(RegisterRequest(email, "x".repeat(8), "Member"))
+                }.body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                    .data
+                    .shouldBeInstanceOf<RegisterResult.Authenticated>()
+                    .session
+            return session.accessToken.value to session.user.id.value
         }
 
         test("GET /api/v1/books/{id}/cover serves a filesystem cover image with the right content type") {
@@ -201,7 +224,140 @@ class BookCoverRouteTest :
                 libraryRoot.toFile().deleteRecursively()
             }
         }
+
+        // ── Route-level BookAccessPolicy gate (member-deny / control / admin-bypass) ──
+        // The cover handler answers 404 — not 403 — for a book the caller can't reach,
+        // so the response is indistinguishable from an absent or cover-less book and
+        // never leaks the existence of a private book (BookRoutes.kt:~82).
+
+        test("GET /api/v1/books/{id}/cover returns 404 when a member can't reach a private book") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-member-deny-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    client.mintAccessToken() // first user → ROOT (seeds the instance)
+                    val (memberToken, _) = client.registerMember("member@x")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    // b1 has a real, servable filesystem cover — so a 404 can only come
+                    // from the access gate, never from a missing/cover-less book.
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    Files.write(bookDir.resolve("cover.jpg"), fakeJpeg())
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    // b1 is locked in a private collection owned by a stranger; the member
+                    // has no relationship to it, so the gate must answer 404.
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
+
+                    val response = client.get("/api/v1/books/b1/cover") { bearerAuth(memberToken) }
+
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover returns 200 for a member when the book is accessible") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-member-allow-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    client.mintAccessToken()
+                    val (memberToken, memberId) = client.registerMember("member@x")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val jpegBytes = fakeJpeg()
+                    Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    // b1 lives in a collection the member owns, so it is reachable.
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("owned-col", owner = memberId))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
+
+                    val response = client.get("/api/v1/books/b1/cover") { bearerAuth(memberToken) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.ContentType].shouldStartWith("image/jpeg")
+                    response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/books/{id}/cover returns 200 for ROOT on a private book they don't own") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-root-bypass-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val rootToken = client.mintAccessToken() // first user → ROOT
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val jpegBytes = fakeJpeg()
+                    Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    // b1 is private to a stranger; ROOT bypasses the access filter entirely.
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
+
+                    val response = client.get("/api/v1/books/b1/cover") { bearerAuth(rootToken) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
     })
+
+/** Builds a private (non-global-access, non-inbox) collection owned by [owner]. */
+private fun privateCollection(
+    id: String,
+    owner: String,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = false,
+        isGlobalAccess = false,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+/** Builds a `collection_books` membership row placing [bookId] in [collectionId]. */
+private fun membership(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
+    )
 
 private fun fakeJpeg(): ByteArray =
     byteArrayOf(

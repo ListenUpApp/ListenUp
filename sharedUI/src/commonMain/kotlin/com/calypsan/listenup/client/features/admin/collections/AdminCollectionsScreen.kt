@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.admin.collections
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,27 +14,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.calypsan.listenup.client.design.components.ListenUpFab
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,13 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
@@ -69,11 +66,18 @@ import listenup.composeapp.generated.resources.admin_enter_a_name_for_the
 import listenup.composeapp.generated.resources.common_no_items
 import listenup.composeapp.generated.resources.common_cancel
 
+private const val ROW_CORNER_DP = 16
+private const val ROW_HORIZONTAL_PADDING_DP = 16
+private const val ROW_VERTICAL_PADDING_DP = 12
+private const val ROW_GAP_DP = 16
+private const val FAB_SPACER_HEIGHT_DP = 88
+
 /**
  * Admin screen for managing collections.
  *
- * Displays a list of collections with create and delete functionality.
- * Tap a collection to navigate to its detail screen.
+ * Lists every collection as a card row carrying its name and live (JOIN-derived) book count,
+ * with create and delete affordances. Tapping a row navigates to its detail screen; the trailing
+ * delete icon opens a destructive confirmation. Collections are admin-managed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,6 +231,7 @@ private fun AdminCollectionsReadyContent(
                 modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 Text(
@@ -237,31 +242,13 @@ private fun AdminCollectionsReadyContent(
                 )
             }
 
-            item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors =
-                        CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                ) {
-                    Column {
-                        state.collections.forEachIndexed { index, collection ->
-                            CollectionRow(
-                                collection = collection,
-                                isDeleting = state.deletingCollectionId == collection.id,
-                                onClick = { onCollectionClick(collection.id) },
-                                onDeleteClick = { onDeleteClick(collection) },
-                            )
-                            if (index < state.collections.lastIndex) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                    }
-                }
+            items(items = state.collections, key = { it.id }) { collection ->
+                CollectionRow(
+                    collection = collection,
+                    isDeleting = state.deletingCollectionId == collection.id,
+                    onClick = { onCollectionClick(collection.id) },
+                    onDeleteClick = { onDeleteClick(collection) },
+                )
             }
 
             item {
@@ -271,9 +258,6 @@ private fun AdminCollectionsReadyContent(
     }
 }
 
-private const val FAB_SPACER_HEIGHT_DP = 88
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CollectionRow(
     collection: Collection,
@@ -282,83 +266,47 @@ private fun CollectionRow(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dismissState =
-        rememberSwipeToDismissBoxState(
-            initialValue = SwipeToDismissBoxValue.Settled,
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(ROW_CORNER_DP.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable(onClick = onClick)
+                .padding(horizontal = ROW_HORIZONTAL_PADDING_DP.dp, vertical = ROW_VERTICAL_PADDING_DP.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ROW_GAP_DP.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-    // Trigger delete when swiped, then snap back
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-            onDeleteClick()
-            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = collection.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-    }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val color by animateColorAsState(
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    Color.Transparent
-                },
-                label = "SwipeBackground",
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(color)
-                        .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = stringResource(Res.string.common_delete),
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
-            }
-        },
-        enableDismissFromStartToEnd = false,
-        modifier = modifier,
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(onClick = onClick)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Folder,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = collection.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        if (isDeleting) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = stringResource(Res.string.common_delete),
+                    tint = MaterialTheme.colorScheme.error,
                 )
-                Text(
-                    text = "${collection.bookCount} book${if (collection.bookCount != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (isDeleting) {
-                ListenUpLoadingIndicatorSmall()
             }
         }
     }
@@ -402,7 +350,7 @@ private fun CreateCollectionDialog(
 ) {
     var name by remember { mutableStateOf("") }
 
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
         shape = MaterialTheme.shapes.large,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -417,7 +365,7 @@ private fun CreateCollectionDialog(
             )
         },
         confirmButton = {
-            androidx.compose.material3.TextButton(
+            TextButton(
                 onClick = { if (name.isNotBlank()) onConfirm(name) },
                 enabled = !isCreating && name.isNotBlank(),
             ) {
@@ -429,7 +377,7 @@ private fun CreateCollectionDialog(
             }
         },
         dismissButton = {
-            androidx.compose.material3.TextButton(
+            TextButton(
                 onClick = onDismiss,
                 enabled = !isCreating,
             ) {

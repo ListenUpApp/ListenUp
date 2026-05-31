@@ -4,16 +4,24 @@ import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.TagServiceImpl
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -67,15 +75,18 @@ class TagRoutesTest :
                 val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
                 val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, db)
+                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val accessPolicy = BookAccessPolicy(db)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth() }
+                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                tagRoutes(service)
+                                tagRoutes(service, accessPolicy)
                             }
                         }
                     }
@@ -85,7 +96,7 @@ class TagRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    TagTestScope(jsonClient, service, db).block()
+                    TagTestScope(jsonClient, service, db, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
@@ -203,6 +214,58 @@ class TagRoutesTest :
             withTagTestApp {
                 val response = client.get("/api/v1/books/no-such-book/tags") { bearerAuth("u1") }
                 response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("GET /api/v1/books/{bookId}/tags returns 404 for a member who can't reach a private book") {
+            withTagTestApp {
+                db.seedTestLibraryAndFolder()
+                db.seedTestBook("book1")
+                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                // book1 is locked in a private collection owned by a stranger; the
+                // member has no relationship to it, so the gate must answer 404 —
+                // the same shape as a missing book — never 403 (which leaks existence).
+                collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                collectionBookRepo.upsert(membership("private-col", "book1"))
+
+                val response = client.get("/api/v1/books/book1/tags") { bearerAuth("member") }
+                response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("GET /api/v1/books/{bookId}/tags returns 200 for a member when the book is accessible") {
+            withTagTestApp {
+                db.seedTestLibraryAndFolder()
+                db.seedTestBook("book1")
+                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                service.addTagToBook(BookId("book1"), "Fantasy")
+                // book1 lives in a collection the member owns, so it is reachable.
+                collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
+                collectionBookRepo.upsert(membership("owned-col", "book1"))
+
+                val response = client.get("/api/v1/books/book1/tags") { bearerAuth("member") }
+                response.status shouldBe HttpStatusCode.OK
+                val tags: List<Tag> = response.body()
+                tags shouldHaveSize 1
+                tags[0].name shouldBe "Fantasy"
+            }
+        }
+
+        test("GET /api/v1/books/{bookId}/tags returns 200 for an admin on a private book they don't own") {
+            withTagTestApp {
+                db.seedTestLibraryAndFolder()
+                db.seedTestBook("book1")
+                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                service.addTagToBook(BookId("book1"), "Fantasy")
+                // book1 is private to a stranger; the admin has no relationship to it
+                // but ADMIN bypasses the access filter entirely.
+                collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                collectionBookRepo.upsert(membership("private-col", "book1"))
+
+                val response = client.get("/api/v1/books/book1/tags") { bearerAuth("admin") }
+                response.status shouldBe HttpStatusCode.OK
+                val tags: List<Tag> = response.body()
+                tags shouldHaveSize 1
             }
         }
 
@@ -381,4 +444,34 @@ private data class TagTestScope(
     val client: io.ktor.client.HttpClient,
     val service: TagService,
     val db: org.jetbrains.exposed.v1.jdbc.Database,
+    val collectionRepo: CollectionRepository,
+    val collectionBookRepo: CollectionBookRepository,
 )
+
+/** Builds a private (non-global-access, non-inbox) collection owned by [owner]. */
+private fun privateCollection(
+    id: String,
+    owner: String,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = false,
+        isGlobalAccess = false,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+/** Builds a `collection_books` membership row placing [bookId] in [collectionId]. */
+private fun membership(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
+    )

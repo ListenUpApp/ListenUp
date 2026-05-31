@@ -5,6 +5,7 @@ package com.calypsan.listenup.client.presentation.bookedit
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.model.ContributorRole as DomainContributorRole
+import com.calypsan.listenup.client.domain.model.EditableCollection as DomainEditableCollection
 import com.calypsan.listenup.client.domain.model.EditableContributor as DomainEditableContributor
 import com.calypsan.listenup.client.domain.model.EditableGenre as DomainEditableGenre
 import com.calypsan.listenup.client.domain.model.EditableSeries as DomainEditableSeries
@@ -15,6 +16,7 @@ typealias EditableContributor = DomainEditableContributor
 typealias EditableSeries = DomainEditableSeries
 typealias EditableGenre = DomainEditableGenre
 typealias EditableTag = DomainEditableTag
+typealias EditableCollection = DomainEditableCollection
 typealias ContributorRole = DomainContributorRole
 
 /**
@@ -115,6 +117,13 @@ data class BookEditUiState(
     val tagSearchResults: List<EditableTag> = emptyList(),
     val tagSearchLoading: Boolean = false,
     val tagCreating: Boolean = false, // Creating a new tag
+    // Collections (admin-only, select from existing)
+    val collections: List<EditableCollection> = emptyList(),
+    val allCollections: List<EditableCollection> = emptyList(), // All accessible collections
+    val collectionSearchQuery: String = "",
+    val collectionSearchResults: List<EditableCollection> = emptyList(), // Filtered locally
+    // Whether the current user is an admin (gates the Collections field)
+    val isAdmin: Boolean = false,
     // Track if changes have been made
     val hasChanges: Boolean = false,
     // Pending cover upload (stored until Save Changes)
@@ -326,6 +335,23 @@ sealed interface BookEditUiEvent {
     /** User detached a tag from the book. */
     data class RemoveTag(
         val tag: EditableTag,
+    ) : BookEditUiEvent
+
+    // Collection management (admin-only, select from existing)
+
+    /** User typed in the collection search box. */
+    data class CollectionSearchQueryChanged(
+        val query: String,
+    ) : BookEditUiEvent
+
+    /** User picked an existing collection to attach to the book. */
+    data class CollectionSelected(
+        val collection: EditableCollection,
+    ) : BookEditUiEvent
+
+    /** User detached a collection from the book. */
+    data class RemoveCollection(
+        val collection: EditableCollection,
     ) : BookEditUiEvent
 
     // Cover upload
