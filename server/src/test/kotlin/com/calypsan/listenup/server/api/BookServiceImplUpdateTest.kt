@@ -12,6 +12,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -121,6 +123,44 @@ class BookServiceImplUpdateTest :
                         .updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     repo.findById(BookId("b1"))?.title shouldBe "Words of Radiance"
+                }
+            }
+        }
+
+        test("deleteBookCover by a MEMBER without canEdit is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("m3", UserRoleColumn.MEMBER, canEdit = false)
+                val (service, repo) = bookServiceFor(db, "m3", UserRole.MEMBER)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+
+                    service
+                        .deleteBookCover(BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("deleteBookCover by an ADMIN passes the canEdit gate") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("a2", UserRoleColumn.ADMIN, canEdit = false)
+                val (service, repo) = bookServiceFor(db, "a2", UserRole.ADMIN)
+                runTest {
+                    repo.upsert(
+                        bookFixture(id = "b1", title = "The Way of Kings")
+                            .copy(cover = CoverPayload(source = CoverSource.EMBEDDED, hash = "h")),
+                    )
+
+                    service
+                        .deleteBookCover(BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.findById(BookId("b1"))?.cover shouldBe null
                 }
             }
         }

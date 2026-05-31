@@ -51,7 +51,8 @@ private const val MAX_GENRES_PER_BOOK = 200
  * stamps `ordinal` from the index, so callers sort by [BookSeriesInput.position]
  * before mapping to the wire payload.
  *
- * [deleteBookCover] is the one mutation that touches the filesystem.
+ * [deleteBookCover] is a content edit (gated on `canEdit` like the other four
+ * mutations) and the one mutation that touches the filesystem.
  * It resolves the cover file path via [BookRepository.coverInfo] up front,
  * nullifies the book's cover columns inside a [suspendTransaction] (the
  * revision-bump and change-bus fire atomically with the row update), then
@@ -262,6 +263,7 @@ internal class BookServiceImpl(
     }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         // Resolve the on-disk cover file (if any) BEFORE the transaction so
         // we can best-effort delete it post-commit. Embedded covers have no
         // file of their own — the artwork is inside the audio file — so they

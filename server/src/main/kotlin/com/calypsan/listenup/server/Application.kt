@@ -37,6 +37,12 @@ import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
@@ -433,6 +439,14 @@ private fun Application.startBackgroundTasks(
     }
 }
 
+// The synthetic ROOT principal used by [bootstrapLibraries]. Startup library bootstrap
+// has no signed-in caller — it is the system acting as administrator — so it binds the
+// admin-gated LibraryAdminService to this principal to pass the structural-op gate.
+private val SYSTEM_BOOTSTRAP_PRINCIPAL =
+    PrincipalProvider {
+        UserPrincipal(UserId("system-bootstrap"), SessionId("system-bootstrap"), UserRole.ROOT)
+    }
+
 /**
  * One-shot library bootstrap called at server startup and in [ApplicationBootstrapTest].
  *
@@ -459,7 +473,11 @@ internal suspend fun bootstrapLibraries(
     scanOrchestrator: ScanOrchestrator,
     libraryPath: String?,
 ) {
-    val existingResult = libraryAdminService.listLibraries()
+    // Startup bootstrap is a system operation — it creates the default library from the
+    // env var before any user has signed in. Scope the admin-gated service to a synthetic
+    // ROOT caller so the structural-op gate sees the system, not an absent principal.
+    val service = (libraryAdminService as LibraryAdminServiceImpl).copyWith(SYSTEM_BOOTSTRAP_PRINCIPAL)
+    val existingResult = service.listLibraries()
     if (existingResult is AppResult.Failure) {
         logger.warn { "bootstrap: could not list libraries — ${existingResult.error.message}" }
         return
@@ -473,7 +491,7 @@ internal suspend fun bootstrapLibraries(
         }
 
         libraryPath != null -> {
-            bootstrapCreateDefaultLibrary(libraryAdminService, scanOrchestrator, libraryPath)
+            bootstrapCreateDefaultLibrary(service, scanOrchestrator, libraryPath)
         }
 
         else -> {

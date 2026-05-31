@@ -21,6 +21,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
@@ -137,8 +138,12 @@ fun Route.rpcRoutes(
                 }
             }
             if (libraryAdminService != null) {
-                // TODO: gate by user permissions when Multi-user lands
-                registerService<LibraryAdminService> { guard(libraryAdminService) }
+                registerService<LibraryAdminService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((libraryAdminService as LibraryAdminServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (tagService != null) {
                 // TODO: gate by user permissions when Multi-user lands

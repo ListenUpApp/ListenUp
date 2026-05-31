@@ -5,12 +5,18 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.scanner.ScanCoordinator
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.ScannerBundle
@@ -449,6 +455,82 @@ class LibraryAdminServiceImplTest :
                 }
             }
         }
+
+        // ── Multi-user: admin-gated structural ops ────────────────────────────────
+
+        test("createLibrary by a MEMBER is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this, role = UserRole.MEMBER)
+                runTest {
+                    val dir = createTempDir()
+                    service
+                        .createLibrary(CreateLibraryRequest(name = "Nope", folderPaths = listOf(dir.absolutePath)))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("deleteLibrary by a MEMBER is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val (memberService) = makeService(db = this, role = UserRole.MEMBER)
+                val (adminService) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    val created =
+                        adminService.createLibrary(CreateLibraryRequest(name = "Lib", folderPaths = listOf(dir.absolutePath)))
+                    val libId = (created as AppResult.Success).data.id
+
+                    memberService
+                        .deleteLibrary(libId)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("browseFilesystem by a MEMBER is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this, role = UserRole.MEMBER)
+                runTest {
+                    val dir = createTempDir()
+                    service
+                        .browseFilesystem(dir.absolutePath)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("listLibraries by a MEMBER is allowed (member library browsing stays open)") {
+            withInMemoryDatabase {
+                val (memberService) = makeService(db = this, role = UserRole.MEMBER)
+                val (adminService) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    adminService.createLibrary(CreateLibraryRequest(name = "Fiction", folderPaths = listOf(dir.absolutePath)))
+
+                    val result = memberService.listLibraries()
+                    result.shouldBeInstanceOf<AppResult.Success<List<Library>>>()
+                    (result as AppResult.Success).data shouldHaveSize 1
+                }
+            }
+        }
+
+        test("createLibrary by an ADMIN succeeds") {
+            withInMemoryDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val dir = createTempDir()
+                    service
+                        .createLibrary(CreateLibraryRequest(name = "Fiction", folderPaths = listOf(dir.absolutePath)))
+                        .shouldBeInstanceOf<AppResult.Success<Library>>()
+                }
+            }
+        }
     })
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -462,6 +544,7 @@ private data class ServiceFixture(
 private fun makeService(
     db: Database,
     orchestrator: ScanOrchestrator = noOpOrchestrator(db),
+    role: UserRole = UserRole.ADMIN,
 ): ServiceFixture {
     val bus = ChangeBus()
     val registry = SyncRegistry()
@@ -493,6 +576,8 @@ private fun makeService(
             libraryFolderRepository = folderRepo,
             bookRepository = bookRepo,
             scanOrchestrator = orchestrator,
+        ).copyWith(
+            PrincipalProvider { UserPrincipal(UserId("caller"), SessionId("s-caller"), role) },
         )
     return ServiceFixture(service, libraryRepo, folderRepo)
 }
