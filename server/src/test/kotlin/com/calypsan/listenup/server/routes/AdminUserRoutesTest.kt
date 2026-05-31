@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -113,6 +114,23 @@ class AdminUserRoutesTest :
             }
         }
 
+        test("POST /api/v1/admin/users/pending-decision is 403 for a member") {
+            testApplication {
+                useIsolatedTestConfig()
+                application { module() }
+                val client = jsonClient()
+                client.runSetup()
+                val member = client.registerMember("member")
+
+                client
+                    .post("/api/v1/admin/users/pending-decision") {
+                        bearerAuth(member.token)
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"userId":"nobody","approved":true}""")
+                    }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
         test("admin approves a pending registration, then that user can log in") {
             testApplication {
                 useIsolatedTestConfig(registrationPolicy = "APPROVAL_QUEUE")
@@ -123,7 +141,7 @@ class AdminUserRoutesTest :
                 // Register under APPROVAL_QUEUE → PENDING_APPROVAL, no session yet.
                 val pendingId = client.registerPending("pending")
 
-                // Approving is rejected for a member, allowed for an admin.
+                // An admin approves and gets the typed outcome back.
                 val approve =
                     client.post("/api/v1/admin/users/pending-decision") {
                         bearerAuth(root.token)
@@ -131,6 +149,9 @@ class AdminUserRoutesTest :
                         setBody("""{"userId":"$pendingId","approved":true}""")
                     }
                 approve.status shouldBe HttpStatusCode.OK
+                // The polymorphic discriminator must survive the wire: a denial and an
+                // approval are otherwise byte-identical empty objects.
+                approve.body<PendingRegistrationOutcome>() shouldBe PendingRegistrationOutcome.Approved
 
                 // The approved applicant's next login succeeds — no extra ceremony.
                 client

@@ -118,9 +118,9 @@ private suspend fun ApplicationCall.scoped(adminUserService: AdminUserService): 
     return (adminUserService as AdminUserServiceImpl).copyWith(PrincipalProvider { principal })
 }
 
-private suspend inline fun <reified T> ApplicationCall.respondResult(result: AppResult<T>) {
+private suspend inline fun <reified T : Any> ApplicationCall.respondResult(result: AppResult<T>) {
     when (result) {
-        is AppResult.Success -> respond(result.data as Any)
+        is AppResult.Success -> respond(result.data)
         is AppResult.Failure -> respondAdminUserError(result.error)
     }
 }

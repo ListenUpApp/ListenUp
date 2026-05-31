@@ -23,9 +23,11 @@ data class PendingRegistrationDecision(
 sealed interface PendingRegistrationOutcome {
     /** Account activated. UserStatus moves to ACTIVE; the applicant's next login() succeeds. */
     @Serializable
+    @SerialName("PendingRegistrationOutcome.Approved")
     data object Approved : PendingRegistrationOutcome
 
     /** Account denied. UserStatus moves to DENIED; subsequent login attempts error. */
     @Serializable
+    @SerialName("PendingRegistrationOutcome.Denied")
     data object Denied : PendingRegistrationOutcome
 }
