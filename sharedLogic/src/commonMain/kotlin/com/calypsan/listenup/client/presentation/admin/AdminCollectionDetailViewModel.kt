@@ -3,15 +3,21 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
+import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -37,10 +43,19 @@ class AdminCollectionDetailViewModel(
     private val collectionRepository: CollectionRepository,
     private val adminRepository: AdminRepository,
     private val userRepository: UserRepository,
+    private val bookDao: BookDao,
+    private val imageStorage: ImageStorage,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminCollectionDetailUiState>
         field = MutableStateFlow<AdminCollectionDetailUiState>(AdminCollectionDetailUiState.Loading)
+
+    // Tracks the in-flight Room hydration so a new collection book-id-set replaces the prior observation.
+    private var hydrationJob: Job? = null
+
+    // The id-set the live hydration is currently observing; guards against redundant re-subscription
+    // when an unrelated combine emission (rename, share change) arrives with an unchanged id-set.
+    private var lastHydratedIds: List<String>? = null
 
     init {
         observeCollection()
@@ -75,18 +90,17 @@ class AdminCollectionDetailViewModel(
                         if (current is AdminCollectionDetailUiState.Ready) {
                             current.copy(
                                 collection = collection,
-                                books = bookIds.map { CollectionBookItem(id = it) },
                                 shares = shares.map { it.toShareItem() },
                             )
                         } else {
                             AdminCollectionDetailUiState.Ready(
                                 collection = collection,
                                 editedName = collection.name,
-                                books = bookIds.map { CollectionBookItem(id = it) },
                                 shares = shares.map { it.toShareItem() },
                             )
                         }
                     }
+                    hydrate(bookIds)
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
@@ -95,6 +109,42 @@ class AdminCollectionDetailViewModel(
                 state.value = AdminCollectionDetailUiState.Error(e.message ?: "Failed to load collection")
             }
         }
+    }
+
+    /**
+     * Observe the Room projections for [ids] and fold them into [AdminCollectionDetailUiState.Ready.books].
+     *
+     * Books are emitted in collection-order so the list is stable regardless of Room's row order,
+     * and ids with no Room row yet are simply omitted until they sync in. A new call cancels the
+     * prior observation so the live set tracks the latest collection book-id-set.
+     */
+    private fun hydrate(ids: List<String>) {
+        if (ids == lastHydratedIds) return
+        lastHydratedIds = ids
+        hydrationJob?.cancel()
+        if (ids.isEmpty()) {
+            updateReady { it.copy(books = emptyList()) }
+            return
+        }
+        hydrationJob =
+            viewModelScope.launch {
+                bookDao.observeByIdsWithContributors(ids.map { BookId(it) }).collect { rows ->
+                    val byId = rows.associateBy { it.book.id.value }
+                    val books =
+                        ids.mapNotNull { id ->
+                            byId[id]?.toListItem(imageStorage)?.let { item ->
+                                CollectionBookItem(
+                                    id = item.id.value,
+                                    title = item.title,
+                                    author = item.authors.firstOrNull()?.name,
+                                    coverPath = item.coverPath,
+                                    durationMs = item.duration,
+                                )
+                            }
+                        }
+                    updateReady { it.copy(books = books) }
+                }
+            }
     }
 
     /** Update the edited-name buffer. */
@@ -284,14 +334,6 @@ sealed interface AdminCollectionDetailUiState {
         val message: String,
     ) : AdminCollectionDetailUiState
 }
-
-/**
- * A book item in a collection. Carries only the book id; the screen hydrates full
- * book detail from Room / navigates to book detail by id.
- */
-data class CollectionBookItem(
-    val id: String,
-)
 
 /**
  * A share item representing a user who has access to the collection.

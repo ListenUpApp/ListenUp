@@ -112,6 +112,8 @@ val adminPresentationModule =
                 inboxRepository = get(),
                 libraryRepository = get(),
                 eventStreamRepository = get(),
+                bookDao = get(),
+                imageStorage = get(),
                 errorBus = get(),
             )
         }
@@ -147,6 +149,8 @@ val adminPresentationModule =
                 collectionRepository = get(),
                 adminRepository = get(),
                 userRepository = get(),
+                bookDao = get(),
+                imageStorage = get(),
                 errorBus = get(),
             )
         }
@@ -283,6 +287,9 @@ val bookPresentationModule =
                 updateBookUseCase = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
+                collectionRepository = get(),
+                bookEditRepository = get(),
+                userRepository = get(),
                 imageStagingRepository = get(),
                 errorBus = get(),
             )

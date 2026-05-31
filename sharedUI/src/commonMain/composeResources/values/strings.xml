@@ -54,7 +54,6 @@
     <string name="admin_new_books_in_this_library">New books in this library bypass inbox review and appear immediately</string>
     <string name="admin_newly_scanned_books_will_appear">Newly scanned books will appear here for review</string>
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
-    <string name="admin_no_collections_will_be_public">No collections (will be public)</string>
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_open_registration">Open Registration</string>
@@ -97,7 +96,6 @@
     <string name="admin_users_only_see_books_in">Users only see books in collections they have access to. Collections grant access.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
     <string name="admin_what_to_include">What to include</string>
-    <string name="admin_will_be_released_without_any">will be released without any collection assignments.\n\n</string>
     <string name="auth_already_have_account">Already have an account?</string>
     <string name="auth_approved">Approved!</string>
     <string name="auth_cancel_registration">Cancel Registration</string>

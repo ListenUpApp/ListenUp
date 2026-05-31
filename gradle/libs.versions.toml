@@ -15,6 +15,7 @@ androidx-lifecycle = "2.10.0"
 androidx-window = "1.5.1"
 androidx-lifecycle-viewmodel-navigation3 = "2.10.0"
 androidx-navigation3 = "1.1.2"
+androidx-graphics-shapes = "1.1.0"
 androidx-palette = "1.0.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.11.2"
@@ -36,7 +37,7 @@ kotlinx-collections-immutable = "0.4.0"
 kotlinx-io = "0.9.0"
 koin = "4.2.1"
 turbine = "1.2.1"
-kotlin-logging = "8.0.03"
+kotlin-logging = "8.0.4"
 slf4j-android = "2.0.17-0"
 slf4j = "2.0.18"
 room = "2.8.4"
@@ -52,7 +53,7 @@ kmpalette = "3.1.0"
 skie = "0.10.12"
 
 # Desktop
-logback = "1.5.32"
+logback = "1.5.33"
 logstash-logback-encoder = "9.0"
 janino = "3.1.12"
 jmdns = "3.6.3"
@@ -66,15 +67,15 @@ material3-adaptive-multiplatform = "1.2.0"
 
 # Quality Tool
 detekt = "1.23.8"
-spotless = "8.5.1"
+spotless = "8.6.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.8"
-atomicfu = "0.32.1"
+atomicfu = "0.33.0"
 
 # Server persistence + password hashing
 exposed = "1.3.0"
 sqlite-jdbc = "3.53.1.0"
-flyway = "12.6.2"
+flyway = "12.7.0"
 hikari = "7.0.2"
 password4j = "1.8.4"
 konsist = "0.17.3"
@@ -112,6 +113,8 @@ androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-u
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle-viewmodel-navigation3" }
 # Navigation 3 (JetBrains Multiplatform) - only navigation3-ui exists on Maven Central
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3-multiplatform" }
+# Graphics Shapes (polygon morphing — backing for MaterialShapes in material3)
+androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "androidx-graphics-shapes" }
 # Material 3 Adaptive (JetBrains Multiplatform)
 material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3-adaptive-multiplatform" }

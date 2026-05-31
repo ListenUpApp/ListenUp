@@ -125,6 +125,12 @@ interface CollectionBookDao {
     )
     fun observeBookIds(collectionId: String): Flow<List<String>>
 
+    /** Observe the live (non-tombstoned) collection ids a book currently belongs to. */
+    @Query(
+        "SELECT collectionId FROM collection_books WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY createdAt ASC",
+    )
+    fun observeCollectionIdsForBook(bookId: String): Flow<List<String>>
+
     /**
      * Live (non-tombstoned) junction ids in the synthetic `"$collectionId:$bookId"` form the
      * server uses on the wire — used by the access-change reconcile so the local set lines up

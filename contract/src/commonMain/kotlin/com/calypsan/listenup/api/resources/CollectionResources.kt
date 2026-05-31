@@ -68,6 +68,19 @@ class CollectionResources {
     )
 
     /**
+     * REST mirror of
+     * [com.calypsan.listenup.api.CollectionService.setBookCollections] —
+     * `PUT /api/v1/collections/book/{bookId}` (body: list of collection id strings)
+     * replace-sets the collections the book belongs to. Admin-only.
+     */
+    @Resource("book/{bookId}")
+    class BookCollections(
+        val parent: CollectionResources = CollectionResources(),
+        /** Book id string whose collection memberships are being replace-set. */
+        val bookId: String,
+    )
+
+    /**
      * REST mirror for the share collection:
      * - `GET /api/v1/collections/{id}/shares` →
      *   [com.calypsan.listenup.api.CollectionService.listShares]

@@ -6,9 +6,11 @@ import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -28,6 +30,7 @@ private val logger = KotlinLogging.logger {}
  */
 class BookEditRepositoryImpl(
     private val bookRpcFactory: BookRpcFactory,
+    private val collectionRpcFactory: CollectionRpcFactory,
 ) : BookEditRepository {
     override suspend fun updateBook(
         id: BookId,
@@ -51,6 +54,14 @@ class BookEditRepositoryImpl(
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
         rpcCallUnit { bookRpcFactory.bookService().deleteBookCover(id) }
+
+    override suspend fun setBookCollections(
+        id: BookId,
+        collectionIds: List<String>,
+    ): AppResult<Unit> =
+        rpcCallUnit {
+            collectionRpcFactory.get().setBookCollections(id, collectionIds.map { CollectionId(it) })
+        }
 
     /**
      * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].

@@ -24,6 +24,9 @@ interface CollectionRepository {
     /** Observe the live book ids that are members of [collectionId]. */
     fun observeCollectionBooks(collectionId: String): Flow<List<String>>
 
+    /** Observe the live collection ids that [bookId] currently belongs to. */
+    fun observeBookCollectionIds(bookId: String): Flow<List<String>>
+
     /** Observe the active share grants on [collectionId]. */
     fun observeShares(collectionId: String): Flow<List<CollectionShare>>
 

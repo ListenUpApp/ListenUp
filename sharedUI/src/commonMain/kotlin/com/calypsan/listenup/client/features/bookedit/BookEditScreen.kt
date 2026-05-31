@@ -370,6 +370,10 @@ private fun SingleColumnCardsLayout(
                 tagSearchResults = state.tagSearchResults,
                 isTagSearching = state.tagSearchLoading,
                 isTagCreating = state.tagCreating,
+                isAdmin = state.isAdmin,
+                collections = state.collections,
+                collectionSearchQuery = state.collectionSearchQuery,
+                collectionSearchResults = state.collectionSearchResults,
                 onGenreSearchQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
                 onGenreSelected = { onEvent(BookEditUiEvent.GenreSelected(it)) },
                 onRemoveGenre = { onEvent(BookEditUiEvent.RemoveGenre(it)) },
@@ -377,6 +381,9 @@ private fun SingleColumnCardsLayout(
                 onTagSelected = { onEvent(BookEditUiEvent.TagSelected(it)) },
                 onTagEntered = { onEvent(BookEditUiEvent.TagEntered(it)) },
                 onRemoveTag = { onEvent(BookEditUiEvent.RemoveTag(it)) },
+                onCollectionSearchQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
+                onCollectionSelected = { onEvent(BookEditUiEvent.CollectionSelected(it)) },
+                onRemoveCollection = { onEvent(BookEditUiEvent.RemoveCollection(it)) },
             )
         }
 
@@ -519,6 +526,10 @@ private fun TwoColumnCardsLayout(
                         tagSearchResults = state.tagSearchResults,
                         isTagSearching = state.tagSearchLoading,
                         isTagCreating = state.tagCreating,
+                        isAdmin = state.isAdmin,
+                        collections = state.collections,
+                        collectionSearchQuery = state.collectionSearchQuery,
+                        collectionSearchResults = state.collectionSearchResults,
                         onGenreSearchQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
                         onGenreSelected = { onEvent(BookEditUiEvent.GenreSelected(it)) },
                         onRemoveGenre = { onEvent(BookEditUiEvent.RemoveGenre(it)) },
@@ -526,6 +537,9 @@ private fun TwoColumnCardsLayout(
                         onTagSelected = { onEvent(BookEditUiEvent.TagSelected(it)) },
                         onTagEntered = { onEvent(BookEditUiEvent.TagEntered(it)) },
                         onRemoveTag = { onEvent(BookEditUiEvent.RemoveTag(it)) },
+                        onCollectionSearchQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
+                        onCollectionSelected = { onEvent(BookEditUiEvent.CollectionSelected(it)) },
+                        onRemoveCollection = { onEvent(BookEditUiEvent.RemoveCollection(it)) },
                     )
                 }
 

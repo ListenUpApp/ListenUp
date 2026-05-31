@@ -927,8 +927,9 @@ private fun AuthenticatedNavigation(
                                 onBackClick = {
                                     backStack.removeAt(backStack.lastIndex)
                                 },
+                                // Tapping a row opens book-edit to fix tags/collections before release.
                                 onBookClick = { bookId ->
-                                    backStack.add(BookDetail(bookId))
+                                    backStack.add(BookEdit(bookId))
                                 },
                             )
                         }

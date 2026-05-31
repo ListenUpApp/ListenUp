@@ -1,13 +1,23 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.roleOf
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -65,15 +75,18 @@ class PlaybackProgressRoutesTest :
                         repository = repo,
                         principal = PrincipalProvider { error("unscoped — copyWith required") },
                     )
+                val collectionRepo = CollectionRepository(db = db, bus = bus, registry = registry)
+                val collectionBookRepo = CollectionBookRepository(db = db, bus = bus, registry = registry)
+                val accessPolicy = BookAccessPolicy(db)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth() }
+                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                playbackProgressRoutes(service)
+                                playbackProgressRoutes(service, accessPolicy)
                             }
                         }
                     }
@@ -83,7 +96,7 @@ class PlaybackProgressRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    ProgressTestScope(jsonClient, repo).block()
+                    ProgressTestScope(jsonClient, repo, db, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
@@ -218,6 +231,86 @@ class PlaybackProgressRoutesTest :
             }
         }
 
+        test("POST /api/v1/playback-progress/batch drops a member's inaccessible book id from the response") {
+            withProgressTestApp {
+                db.seedTestLibraryAndFolder()
+                db.seedTestBook("reachable")
+                db.seedTestBook("forbidden")
+                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                // The member owns the collection holding "reachable"; "forbidden" is locked
+                // in a stranger's private collection. The member has their own progress on
+                // BOTH books (progress is per-user), but the gate must filter the forbidden
+                // id out so it is absent from the response — identical to a book with no
+                // progress, never a distinct status (no differential existence).
+                collectionRepo.upsert(privateProgressCollection("owned-col", owner = "member"))
+                collectionBookRepo.upsert(progressMembership("owned-col", "reachable"))
+                collectionRepo.upsert(privateProgressCollection("stranger-col", owner = "stranger"))
+                collectionBookRepo.upsert(progressMembership("stranger-col", "forbidden"))
+                repo.recordPosition(
+                    userId = "member",
+                    bookId = "reachable",
+                    positionMs = 5_000L,
+                    lastPlayedAt = 1_700_000_000_000L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                )
+                repo.recordPosition(
+                    userId = "member",
+                    bookId = "forbidden",
+                    positionMs = 9_000L,
+                    lastPlayedAt = 1_700_000_000_001L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                )
+
+                val response =
+                    client.post("/api/v1/playback-progress/batch") {
+                        bearerAuth("member")
+                        contentType(ContentType.Application.Json)
+                        setBody(listOf("reachable", "forbidden"))
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                val positions: List<PlaybackPositionSyncPayload> = response.body()
+                positions shouldHaveSize 1
+                positions[0].bookId shouldBe "reachable"
+                positions.none { it.bookId == "forbidden" } shouldBe true
+            }
+        }
+
+        test("POST /api/v1/playback-progress/batch keeps a forbidden book id for an admin (bypass)") {
+            withProgressTestApp {
+                db.seedTestLibraryAndFolder()
+                db.seedTestBook("forbidden")
+                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                // "forbidden" is private to a stranger; the admin has no relationship to it
+                // but ADMIN bypasses the filter, so their own progress on it is returned.
+                collectionRepo.upsert(privateProgressCollection("stranger-col", owner = "stranger"))
+                collectionBookRepo.upsert(progressMembership("stranger-col", "forbidden"))
+                repo.recordPosition(
+                    userId = "admin",
+                    bookId = "forbidden",
+                    positionMs = 9_000L,
+                    lastPlayedAt = 1_700_000_000_001L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                )
+
+                val response =
+                    client.post("/api/v1/playback-progress/batch") {
+                        bearerAuth("admin")
+                        contentType(ContentType.Application.Json)
+                        setBody(listOf("forbidden"))
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                val positions: List<PlaybackPositionSyncPayload> = response.body()
+                positions shouldHaveSize 1
+                positions[0].bookId shouldBe "forbidden"
+            }
+        }
+
         // ── GET /api/v1/playback-progress/recently-listened ──────────────────
 
         test("GET /api/v1/playback-progress/recently-listened returns only unfinished positions") {
@@ -287,4 +380,35 @@ class PlaybackProgressRoutesTest :
 private data class ProgressTestScope(
     val client: io.ktor.client.HttpClient,
     val repo: PlaybackPositionRepository,
+    val db: org.jetbrains.exposed.v1.jdbc.Database,
+    val collectionRepo: CollectionRepository,
+    val collectionBookRepo: CollectionBookRepository,
 )
+
+/** Builds a private (non-global-access, non-inbox) collection owned by [owner]. */
+private fun privateProgressCollection(
+    id: String,
+    owner: String,
+): CollectionSyncPayload =
+    CollectionSyncPayload(
+        id = id,
+        libraryId = "test-library",
+        ownerId = owner,
+        name = id,
+        isInbox = false,
+        isGlobalAccess = false,
+        revision = 0L,
+        updatedAt = 0L,
+    )
+
+/** Builds a `collection_books` membership row placing [bookId] in [collectionId]. */
+private fun progressMembership(
+    collectionId: String,
+    bookId: String,
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
+        collectionId = collectionId,
+        bookId = bookId,
+        createdAt = 0L,
+        revision = 0L,
+    )

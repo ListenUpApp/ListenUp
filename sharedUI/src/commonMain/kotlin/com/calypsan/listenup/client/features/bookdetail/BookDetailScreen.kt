@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -41,6 +42,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.rememberCoverColors
+import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
@@ -496,7 +498,11 @@ private fun ImmersiveBookDetail(
             cachedVibrantColor = book.vibrantColor,
         )
 
+    val listState = rememberLazyListState()
+    val collapseFraction by rememberHeroCollapseFraction(listState)
+
     LazyColumn(
+        state = listState,
         modifier =
             Modifier
                 .fillMaxSize()
@@ -516,6 +522,8 @@ private fun ImmersiveBookDetail(
                 isComplete = state.isComplete,
                 hasProgress = hasProgress,
                 isAdmin = state.isAdmin,
+                collapseFraction = { collapseFraction },
+                collapsing = true,
                 onBackClick = onBackClick,
                 onEditClick = onEditClick,
                 onFindMetadataClick = onFindMetadataClick,

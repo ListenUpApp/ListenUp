@@ -2,12 +2,23 @@ package com.calypsan.listenup.client.presentation.admin
 
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
+import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.BookEntity
+import com.calypsan.listenup.client.data.local.db.BookWithContributors
+import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -19,6 +30,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -52,19 +64,71 @@ class AdminCollectionDetailViewModelTest :
             isOwner = true,
         )
 
+        // Builds a BookWithContributors with a single author for hydration tests.
+        fun bookWith(
+            id: String,
+            title: String,
+            author: String,
+            durationMs: Long = 3_600_000L,
+        ): BookWithContributors {
+            val authorId = "$id-author"
+            return BookWithContributors(
+                book =
+                    BookEntity(
+                        id = BookId(id),
+                        libraryId = LibraryId("lib1"),
+                        folderId = FolderId("folder1"),
+                        title = title,
+                        totalDuration = durationMs,
+                        createdAt = Timestamp(0L),
+                        updatedAt = Timestamp(0L),
+                    ),
+                contributors =
+                    listOf(
+                        ContributorEntity(
+                            id = ContributorId(authorId),
+                            name = author,
+                            description = null,
+                            imagePath = null,
+                            createdAt = Timestamp(0L),
+                            updatedAt = Timestamp(0L),
+                        ),
+                    ),
+                contributorRoles =
+                    listOf(
+                        BookContributorCrossRef(
+                            bookId = BookId(id),
+                            contributorId = ContributorId(authorId),
+                            role = "author",
+                        ),
+                    ),
+                series = emptyList(),
+                seriesSequences = emptyList(),
+            )
+        }
+
         class Fixture {
             val repo: CollectionRepository = mock()
             val adminRepo: AdminRepository = mock()
             val userRepo: UserRepository = mock()
+            val bookDao: BookDao = mock()
+            val imageStorage: ImageStorage = mock()
             val collectionsFlow = MutableStateFlow(listOf(collection()))
             val booksFlow = MutableStateFlow<List<String>>(emptyList())
             val sharesFlow = MutableStateFlow<List<CollectionShare>>(emptyList())
+
+            init {
+                // Default: no hydrated books (overridden per-test for hydration cases).
+                every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
+                every { imageStorage.exists(any()) } returns false
+                every { imageStorage.getCoverPath(any()) } returns ""
+            }
 
             fun build(): AdminCollectionDetailViewModel {
                 every { repo.observeCollections() } returns collectionsFlow
                 every { repo.observeCollectionBooks("c1") } returns booksFlow
                 every { repo.observeShares("c1") } returns sharesFlow
-                return AdminCollectionDetailViewModel("c1", repo, adminRepo, userRepo, ErrorBus())
+                return AdminCollectionDetailViewModel("c1", repo, adminRepo, userRepo, bookDao, imageStorage, ErrorBus())
             }
         }
 
@@ -72,6 +136,13 @@ class AdminCollectionDetailViewModelTest :
             runTest(dispatcher) {
                 val f = Fixture()
                 f.booksFlow.value = listOf("b1", "b2")
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
+                        ),
+                    )
                 f.sharesFlow.value = listOf(CollectionShare("s1", "c1", "u1", SharePermission.Read))
                 val vm = f.build()
                 advanceUntilIdle()
@@ -80,6 +151,47 @@ class AdminCollectionDetailViewModelTest :
                 ready.collection.id shouldBe "c1"
                 ready.books.map { it.id } shouldBe listOf("b1", "b2")
                 ready.shares.map { it.userId } shouldBe listOf("u1")
+            }
+        }
+
+        test("Ready hydrates collection book ids into CollectionBookItems via BookDao") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.booksFlow.value = listOf("b1", "b2")
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(
+                        listOf(
+                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
+                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
+                        ),
+                    )
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.books.map { it.id } shouldBe listOf("b1", "b2")
+                val first = ready.books.first { it.id == "b1" }
+                first.title shouldBe "The Way of Kings"
+                first.author shouldBe "Brandon Sanderson"
+                first.durationMs shouldBe 3_600_000L
+            }
+        }
+
+        test("collection ids with no Room row are omitted from the hydrated books") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                f.booksFlow.value = listOf("b1", "b2")
+                // Only b1 has synced into Room; b2 is a collection id with no Room row yet.
+                every { f.bookDao.observeByIdsWithContributors(any()) } returns
+                    flowOf(listOf(bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson")))
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                // The collection still knows about both ids…
+                ready.collection.id shouldBe "c1"
+                // …but only the hydrated row appears in the books list.
+                ready.books.map { it.id } shouldBe listOf("b1")
             }
         }
 

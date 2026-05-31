@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
+import com.calypsan.listenup.client.presentation.bookedit.EditableCollection
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
 import com.calypsan.listenup.client.presentation.bookedit.displayName
@@ -29,6 +30,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
+import listenup.composeapp.generated.resources.common_collections
 import listenup.composeapp.generated.resources.common_genres
 
 /**
@@ -46,6 +48,10 @@ fun ClassificationSection(
     tagSearchResults: List<EditableTag>,
     isTagSearching: Boolean,
     isTagCreating: Boolean,
+    isAdmin: Boolean,
+    collections: List<EditableCollection>,
+    collectionSearchQuery: String,
+    collectionSearchResults: List<EditableCollection>,
     onGenreSearchQueryChange: (String) -> Unit,
     onGenreSelected: (EditableGenre) -> Unit,
     onRemoveGenre: (EditableGenre) -> Unit,
@@ -53,6 +59,9 @@ fun ClassificationSection(
     onTagSelected: (EditableTag) -> Unit,
     onTagEntered: (String) -> Unit,
     onRemoveTag: (EditableTag) -> Unit,
+    onCollectionSearchQueryChange: (String) -> Unit,
+    onCollectionSelected: (EditableCollection) -> Unit,
+    onRemoveCollection: (EditableCollection) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Genres subsection
@@ -77,6 +86,18 @@ fun ClassificationSection(
             onTagEntered = onTagEntered,
             onRemoveTag = onRemoveTag,
         )
+
+        // Collections subsection — admin-only (collection membership is an ACL operation).
+        if (isAdmin) {
+            CollectionsSubsection(
+                collections = collections,
+                searchQuery = collectionSearchQuery,
+                searchResults = collectionSearchResults,
+                onSearchQueryChange = onCollectionSearchQueryChange,
+                onCollectionSelected = onCollectionSelected,
+                onRemoveCollection = onRemoveCollection,
+            )
+        }
     }
 }
 
@@ -219,6 +240,61 @@ private fun TagsSubsection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CollectionsSubsection(
+    collections: List<EditableCollection>,
+    searchQuery: String,
+    searchResults: List<EditableCollection>,
+    onSearchQueryChange: (String) -> Unit,
+    onCollectionSelected: (EditableCollection) -> Unit,
+    onRemoveCollection: (EditableCollection) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(Res.string.common_collections),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+        )
+
+        if (collections.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                collections.forEach { collection ->
+                    CollectionChip(
+                        collection = collection,
+                        onRemove = { onRemoveCollection(collection) },
+                    )
+                }
+            }
+        }
+
+        ListenUpAutocompleteField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            results = searchResults,
+            onResultSelected = { collection -> onCollectionSelected(collection) },
+            onSubmit = {
+                val topResult = searchResults.firstOrNull()
+                if (topResult != null) {
+                    onCollectionSelected(topResult)
+                }
+            },
+            resultContent = { collection ->
+                AutocompleteResultItem(
+                    name = collection.name,
+                    subtitle = null,
+                    onClick = { onCollectionSelected(collection) },
+                )
+            },
+            placeholder = "Add collection...",
+            isLoading = false,
+        )
+    }
+}
+
 @Composable
 private fun GenreChip(
     genre: EditableGenre,
@@ -254,6 +330,28 @@ private fun TagChip(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove ${tag.displayName()}",
+                modifier =
+                    Modifier
+                        .size(InputChipDefaults.AvatarSize)
+                        .clickable { onRemove() },
+            )
+        },
+    )
+}
+
+@Composable
+private fun CollectionChip(
+    collection: EditableCollection,
+    onRemove: () -> Unit,
+) {
+    InputChip(
+        selected = false,
+        onClick = { },
+        label = { Text(collection.name) },
+        trailingIcon = {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Remove ${collection.name}",
                 modifier =
                     Modifier
                         .size(InputChipDefaults.AvatarSize)

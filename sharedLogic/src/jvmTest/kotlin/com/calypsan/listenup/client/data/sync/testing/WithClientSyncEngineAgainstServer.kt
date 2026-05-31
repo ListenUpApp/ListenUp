@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.SeriesService
@@ -12,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
@@ -337,7 +339,10 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                 installKrpc()
             }
         val bookEditRepository: BookEditRepository =
-            BookEditRepositoryImpl(bookRpcFactory = TestBookRpcFactory(testClient))
+            BookEditRepositoryImpl(
+                bookRpcFactory = TestBookRpcFactory(testClient),
+                collectionRpcFactory = TestCollectionRpcFactory(testClient),
+            )
         val contributorEditRepository: ContributorEditRepository =
             ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
         val seriesEditRepository: SeriesEditRepository =
@@ -796,6 +801,35 @@ internal class TestSeriesRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<SeriesService>()
+}
+
+/**
+ * Test-only [CollectionRpcFactory] that opens a kotlinx.rpc [CollectionService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ *
+ * Mirrors [TestBookRpcFactory] exactly, substituting [CollectionService]. Backs
+ * [BookEditRepositoryImpl.setBookCollections] in the end-to-end harness.
+ */
+internal class TestCollectionRpcFactory(
+    private val httpClient: HttpClient,
+) : CollectionRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: CollectionService? = null
+
+    override suspend fun get(): CollectionService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): CollectionService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<CollectionService>()
 }
 
 /**

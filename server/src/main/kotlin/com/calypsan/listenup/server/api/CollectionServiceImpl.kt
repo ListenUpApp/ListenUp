@@ -226,6 +226,65 @@ internal class CollectionServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun setBookCollections(
+        bookId: BookId,
+        collectionIds: List<CollectionId>,
+    ): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
+
+        // Validate every distinct target up front — exists and live — before mutating:
+        // a tombstoned target would otherwise be silently resurrected by upsert, and a
+        // bad id would surface as an opaque FK violation mid-transaction.
+        val targetIds = collectionIds.map { it.value }.toSet()
+        for (targetId in targetIds) {
+            collectionRepo.findById(targetId) ?: return AppResult.Failure(CollectionError.NotFound())
+        }
+
+        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet()
+        val added = targetIds - current
+        val removed = current - targetIds
+
+        suspendTransaction(db) {
+            for (collectionId in removed) {
+                collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
+            }
+            for (collectionId in added) {
+                collectionBookRepo.upsert(
+                    CollectionBookSyncPayload(
+                        collectionId = collectionId,
+                        bookId = bookId.value,
+                        createdAt = clock.now().toEpochMilliseconds(),
+                        revision = 0L,
+                        deletedAt = null,
+                    ),
+                )
+            }
+        }
+
+        // Changing the book's collection set changes who can see the book. Every enumerable
+        // user whose access to the book may have shifted — the owner + active-share members of
+        // each ADDED collection (they may have gained the book) and each REMOVED collection
+        // (they may have lost their only access path) — is nudged once to re-derive. A member
+        // who loses access must prune the book from their local store; the gated-out book and
+        // junction events alone would never tell them. Admins see everything regardless, so they
+        // need no signal. The non-enumerable public↔private "everyone" edge converges on the next
+        // firehose catch-up — the documented 1b behavior.
+        val affectedUserIds =
+            (added + removed)
+                .flatMap { collectionId ->
+                    val owner = collectionRepo.findById(collectionId)?.ownerId
+                    val shareUsers = shareRepo.listActiveSharesForCollection(collectionId).map { it.sharedWithUserId }
+                    if (owner != null) shareUsers + owner else shareUsers
+                }.toSet()
+        for (affectedUserId in affectedUserIds) {
+            bus.publishControl(SyncControl.AccessChanged, affectedUserId)
+        }
+        return AppResult.Success(Unit)
+    }
+
     // ── Share mutation (owner-only) ─────────────────────────────────────────────
 
     override suspend fun shareCollection(
