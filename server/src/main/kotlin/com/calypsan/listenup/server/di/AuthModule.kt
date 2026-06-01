@@ -14,6 +14,9 @@ import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.defaultListenupHome
+import com.calypsan.listenup.server.db.resolveDatabaseUrl
+import java.nio.file.Path
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import io.ktor.server.config.ApplicationConfig
@@ -38,7 +41,7 @@ fun authModule(config: ApplicationConfig): Module =
 
         single<Database> {
             DatabaseFactory.init(
-                DatabaseConfig(jdbcUrl = config.property("database.jdbcUrl").getString()),
+                DatabaseConfig(jdbcUrl = config.resolveJdbcUrl()),
             )
         }
 
@@ -104,4 +107,18 @@ private const val REFRESH_TOKEN_TTL_DAYS = 30L
 private fun ApplicationConfig.registrationPolicy(): RegistrationPolicy {
     val raw = propertyOrNull("registration.policy")?.getString() ?: return RegistrationPolicy.OPEN
     return runCatching { RegistrationPolicy.valueOf(raw) }.getOrDefault(RegistrationPolicy.OPEN)
+}
+
+/**
+ * The effective JDBC URL: an explicit `database.jdbcUrl` (tests inject this) wins;
+ * otherwise the SQLite DB defaults into `$LISTENUP_HOME/listenup.db`, with
+ * `LISTENUP_HOME` defaulting to `~/ListenUp`. Reads env / system properties here
+ * at the config edge so [resolveDatabaseUrl] stays pure.
+ */
+private fun ApplicationConfig.resolveJdbcUrl(): String {
+    val configured = propertyOrNull("database.jdbcUrl")?.getString().orEmpty()
+    val home =
+        System.getenv("LISTENUP_HOME")?.takeIf { it.isNotBlank() }?.let { Path.of(it) }
+            ?: defaultListenupHome(System.getProperty("user.home"))
+    return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
 }
