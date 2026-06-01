@@ -30,6 +30,31 @@ data class InviteSummary(
 @Serializable
 enum class InviteStatus { PENDING, CLAIMED, EXPIRED }
 
+/**
+ * REST request body for `POST /api/v1/admin/invites` — the wire shape of
+ * [com.calypsan.listenup.api.InviteService.createInvite]'s parameters. RPC
+ * callers pass the parameters directly; this exists so the REST mirror has a
+ * single body type to receive.
+ */
+@Serializable
+data class CreateInviteRequest(
+    @SerialName("email") val email: String,
+    @SerialName("displayName") val displayName: String,
+    @SerialName("role") val role: UserRole,
+    @SerialName("expiresInDays") val expiresInDays: Int? = null,
+)
+
+/**
+ * REST request body for `POST /api/v1/invites/{code}/claim` — the wire shape of
+ * [com.calypsan.listenup.api.InviteServicePublic.claimInvite]'s parameters
+ * (minus the code, which is a path segment). Anonymous; no auth required.
+ */
+@Serializable
+data class ClaimInviteRequest(
+    @SerialName("password") val password: String,
+    @SerialName("displayName") val displayName: String? = null,
+)
+
 /** What the public landing page shows for a code, before claiming. */
 @Serializable
 data class InvitePreview(

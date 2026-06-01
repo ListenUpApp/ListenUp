@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -60,7 +61,9 @@ import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.libraryAdminRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.metadataRoutes
+import com.calypsan.listenup.server.routes.adminInviteRoutes
 import com.calypsan.listenup.server.routes.instanceRoutes
+import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
@@ -162,15 +165,19 @@ private fun Application.installCorePlugins() {
     install(AutoHeadResponse)
 }
 
-fun Application.module() {
-    installCorePlugins()
-
-    val seedProfile = resolveSeedProfile()
-    val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
-    val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
-    val metadataPrecedence = resolveMetadataPrecedence()
-    val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
-
+/**
+ * Installs Koin with the assembled module set. The auth, embedded-metadata, and sync slices
+ * load unconditionally; the library-dependent slices (scanner, books, metadata, playback,
+ * library) load only when [resolvedLibraryPath] is configured; the seed module loads only in
+ * the demo profile.
+ */
+private fun Application.installDependencies(
+    seedProfile: String?,
+    applicationScope: CoroutineScope,
+    resolvedLibraryPath: Path?,
+    metadataPrecedence: MetadataPrecedence,
+    embeddedCoverCacheSize: Int,
+) {
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
         if (resolvedLibraryPath != null) {
@@ -194,6 +201,18 @@ fun Application.module() {
         }
         modules(modules)
     }
+}
+
+fun Application.module() {
+    installCorePlugins()
+
+    val seedProfile = resolveSeedProfile()
+    val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
+    val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val metadataPrecedence = resolveMetadataPrecedence()
+    val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
+
+    installDependencies(seedProfile, applicationScope, resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
 
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
@@ -205,6 +224,7 @@ fun Application.module() {
     val sessions by inject<SessionService>()
     val authService by inject<AuthServiceImpl>()
     val adminUserService by inject<AdminUserServiceImpl>()
+    val inviteService by inject<InviteServiceImpl>()
 
     installJwtAuth(jwt, sessions)
 
@@ -235,6 +255,7 @@ fun Application.module() {
         instanceRoutes()
         sseRoutes()
         authRoutes(authService)
+        publicInviteRoutes(inviteService)
         rpcRoutes(
             authService,
             scannerService,
@@ -250,10 +271,12 @@ fun Application.module() {
             genreService,
             collectionService,
             adminUserService,
+            inviteService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             adminUserRoutes(adminUserService)
+            adminInviteRoutes(inviteService)
             if (libraryAdminService != null) libraryAdminRoutes(libraryAdminService)
             if (bookService != null && coverResponder != null && bookAccessPolicy != null) {
                 bookRoutes(bookService, coverResponder, bookAccessPolicy)
