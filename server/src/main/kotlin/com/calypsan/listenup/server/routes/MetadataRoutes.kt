@@ -8,7 +8,10 @@ import com.calypsan.listenup.api.resources.MetadataResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -65,7 +68,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
 
     post<MetadataResources.BookRefresh> { resource ->
         val region = call.resolveRegion(resource.region) ?: return@post
-        when (val result = service.refreshBookMetadata(resource.asin, region)) {
+        when (val result = call.scoped(service).refreshBookMetadata(resource.asin, region)) {
             is AppResult.Success -> call.respondNullableOrNoContent(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -73,7 +76,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
 
     post<MetadataResources.ApplyBook> { resource ->
         val region = call.resolveRegion(resource.region) ?: return@post
-        when (val result = service.applyBookMetadata(BookId(resource.bookId), resource.asin, region)) {
+        when (val result = call.scoped(service).applyBookMetadata(BookId(resource.bookId), resource.asin, region)) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -99,12 +102,24 @@ private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
     post<MetadataResources.ApplyContributor> { resource ->
         val region = call.resolveRegion(resource.region) ?: return@post
         val id = ContributorId(resource.contributorId)
-        when (val result = service.applyContributorMetadata(id, resource.asin, region)) {
+        when (val result = call.scoped(service).applyContributorMetadata(id, resource.asin, region)) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 }
+
+/**
+ * Scopes [service] to the authenticated caller so the apply/refresh handlers gate on the
+ * caller's `canEdit` flag. Reaching this without a principal is an auth-wall regression.
+ */
+private fun ApplicationCall.scoped(service: MetadataLookupService): MetadataLookupService {
+    val p = userPrincipalOrNull() ?: error(METADATA_AUTH_WALL_REGRESSION_MSG)
+    return (service as MetadataLookupServiceImpl).copyWith(PrincipalProvider { p })
+}
+
+private const val METADATA_AUTH_WALL_REGRESSION_MSG =
+    "metadata REST mount reached without a principal — auth wall regression"
 
 /**
  * Resolves [regionCode] to an [AudibleRegion], responding with 400 Bad Request

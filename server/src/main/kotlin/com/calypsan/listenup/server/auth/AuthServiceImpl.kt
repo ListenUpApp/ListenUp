@@ -7,15 +7,15 @@ import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
@@ -24,15 +24,13 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-
-/** Instance-level registration mode. Drives `register()` branching. */
-enum class RegistrationPolicy { OPEN, APPROVAL_QUEUE, CLOSED }
 
 /**
  * The contract implementation. Pure domain logic — Ktor types are deliberately
@@ -50,7 +48,7 @@ class AuthServiceImpl(
     internal val hasher: PasswordHasher,
     internal val jwt: JwtConfiguration,
     internal val clock: Clock = Clock.System,
-    internal val registrationPolicy: RegistrationPolicy = RegistrationPolicy.OPEN,
+    internal val settings: ServerSettingsRepository,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
 ) : AuthServicePublic,
     AuthServiceAuthed {
@@ -62,6 +60,10 @@ class AuthServiceImpl(
             suspendTransaction(db) {
                 UserEntity.find { UserTable.emailNormalized eq normalized }.firstOrNull()
             } ?: return AppResult.Failure(AuthError.InvalidCredentials())
+
+        // A soft-deleted account must be indistinguishable from a nonexistent one:
+        // same InvalidCredentials, so admin deletion is final and existence doesn't leak.
+        if (user.deletedAt != null) return AppResult.Failure(AuthError.InvalidCredentials())
 
         if (!hasher.verify(request.password, user.passwordHash)) {
             return AppResult.Failure(AuthError.InvalidCredentials())
@@ -87,7 +89,10 @@ class AuthServiceImpl(
             }
         if (empty) return AppResult.Failure(AuthError.SetupRequired())
 
-        when (registrationPolicy) {
+        // Read the policy live so an admin's setRegistrationPolicy takes effect on
+        // the next registration without a server restart.
+        val policy = settings.registrationPolicy()
+        when (policy) {
             RegistrationPolicy.CLOSED -> return AppResult.Failure(AuthError.RegistrationDisabled())
             RegistrationPolicy.OPEN, RegistrationPolicy.APPROVAL_QUEUE -> Unit
         }
@@ -111,7 +116,7 @@ class AuthServiceImpl(
                     role = UserRoleColumn.MEMBER
                     displayName = request.displayName
                     status =
-                        if (registrationPolicy == RegistrationPolicy.APPROVAL_QUEUE) {
+                        if (policy == RegistrationPolicy.APPROVAL_QUEUE) {
                             UserStatusColumn.PENDING_APPROVAL
                         } else {
                             UserStatusColumn.ACTIVE
@@ -208,7 +213,7 @@ class AuthServiceImpl(
             hasher = hasher,
             jwt = jwt,
             clock = clock,
-            registrationPolicy = registrationPolicy,
+            settings = settings,
             principalProvider = provider,
         )
 
@@ -234,35 +239,6 @@ class AuthServiceImpl(
                 )
             }
         return AppResult.Success(list)
-    }
-
-    override suspend fun decidePendingRegistration(
-        request: PendingRegistrationDecision,
-    ): AppResult<PendingRegistrationOutcome> {
-        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        if (p.role != UserRole.ROOT && p.role != UserRole.ADMIN) {
-            return AppResult.Failure(AuthError.PermissionDenied())
-        }
-
-        // Don't leak existence-or-state of the target — admin actions only succeed
-        // against a genuinely pending row; everything else is PermissionDenied.
-        val target =
-            suspendTransaction(db) {
-                UserEntity.findById(request.userId.value)
-            } ?: return AppResult.Failure(AuthError.PermissionDenied())
-        if (target.status != UserStatusColumn.PENDING_APPROVAL) {
-            return AppResult.Failure(AuthError.PermissionDenied())
-        }
-
-        val now = clock.now().toEpochMilliseconds()
-        val newStatus = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
-        suspendTransaction(db) {
-            target.status = newStatus
-            target.updatedAt = now
-        }
-        val outcome =
-            if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
-        return AppResult.Success(outcome)
     }
 
     private suspend fun issueSession(
@@ -326,6 +302,9 @@ internal fun UserEntity.toContract(): User =
         role = role.toContract(),
         status = status.toContract(),
         createdAt = createdAt,
+        permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
+        approvedBy = approvedBy,
+        approvedAt = approvedAt,
     )
 
 /**

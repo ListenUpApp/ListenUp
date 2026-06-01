@@ -6,9 +6,13 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -115,11 +119,19 @@ fun Database.seedTestBook(
  *
  * Used in tests that insert `collection_shares` rows — the junction table's FK
  * `shared_with_user_id REFERENCES users(id)` requires the parent row to exist when FK
- * enforcement is enabled.
+ * enforcement is enabled — and in permission-enforcement tests that need to control the
+ * per-user `canEdit`/`canShare` flags or seed a soft-deleted user.
+ *
+ * @param canEdit the `can_edit` flag (default true, matching the column default).
+ * @param canShare the `can_share` flag (default true, matching the column default).
+ * @param deletedAt the soft-delete tombstone in epoch-millis; null (default) is a live user.
  */
 fun Database.seedTestUser(
     userId: String,
     userRole: UserRoleColumn = UserRoleColumn.MEMBER,
+    canEdit: Boolean = true,
+    canShare: Boolean = true,
+    deletedAt: Long? = null,
 ) {
     transaction(this) {
         UserEntity.new(userId) {
@@ -131,6 +143,9 @@ fun Database.seedTestUser(
             status = UserStatusColumn.ACTIVE
             createdAt = 1L
             updatedAt = 1L
+            this.canEdit = canEdit
+            this.canShare = canShare
+            this.deletedAt = deletedAt
         }
     }
 }
@@ -147,6 +162,19 @@ fun Database.roleOf(userId: String): UserRole =
     transaction(this) {
         UserEntity.findById(userId)?.role?.toContract() ?: UserRole.ROOT
     }
+
+/**
+ * A [PrincipalProvider] that yields a ROOT [UserPrincipal] — used by impl-level tests that
+ * drive metadata-mutation services (tag/genre/contributor/series/metadata) directly. The
+ * mutations are `canEdit`-gated; ROOT passes implicitly, so this is the minimal principal a
+ * mutation test needs. Member-deny tests build their own MEMBER principal instead.
+ */
+fun rootPrincipal(userId: String = "test-root"): PrincipalProvider =
+    PrincipalProvider { UserPrincipal(UserId(userId), SessionId("test-session-$userId"), UserRole.ROOT) }
+
+/** A [PrincipalProvider] yielding a MEMBER [UserPrincipal] for [userId] — for canEdit-deny tests. */
+fun memberPrincipal(userId: String): PrincipalProvider =
+    PrincipalProvider { UserPrincipal(UserId(userId), SessionId("test-session-$userId"), UserRole.MEMBER) }
 
 /**
  * Canonical fixture builder for [BookSyncPayload] test instances.

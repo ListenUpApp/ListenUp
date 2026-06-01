@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
@@ -14,6 +16,7 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
@@ -48,7 +51,8 @@ private const val MAX_GENRES_PER_BOOK = 200
  * stamps `ordinal` from the index, so callers sort by [BookSeriesInput.position]
  * before mapping to the wire payload.
  *
- * [deleteBookCover] is the one mutation that touches the filesystem.
+ * [deleteBookCover] is a content edit (gated on `canEdit` like the other four
+ * mutations) and the one mutation that touches the filesystem.
  * It resolves the cover file path via [BookRepository.coverInfo] up front,
  * nullifies the book's cover columns inside a [suspendTransaction] (the
  * revision-bump and change-bus fire atomically with the row update), then
@@ -75,6 +79,7 @@ internal class BookServiceImpl(
     private val db: Database,
     private val genreRepo: com.calypsan.listenup.server.services.GenreRepository,
     private val accessPolicy: BookAccessPolicy,
+    private val permissionPolicy: UserPermissionPolicy,
     private val principal: PrincipalProvider,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
@@ -101,6 +106,7 @@ internal class BookServiceImpl(
             db = db,
             genreRepo = genreRepo,
             accessPolicy = accessPolicy,
+            permissionPolicy = permissionPolicy,
             principal = principal,
         )
 
@@ -116,11 +122,24 @@ internal class BookServiceImpl(
         return AppResult.Success(repo.searchFts(query, limit.coerceIn(1, MAX_SEARCH_LIMIT), access))
     }
 
+    /**
+     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
+     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
+     * absent principal — a wiring bug, since route handlers always [copyWith] the
+     * authenticated caller — is denied with [AuthError.PermissionDenied][com.calypsan.listenup.api.error.AuthError.PermissionDenied].
+     * Returns null when the edit is permitted; the denial to surface otherwise.
+     */
+    private suspend fun requireCanEdit(): AppError? {
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
     override suspend fun updateBook(
         id: BookId,
         patch: BookUpdate,
-    ): AppResult<Unit> =
-        suspendTransaction(db) {
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return suspendTransaction(db) {
             val current =
                 repo.findById(id)
                     ?: return@suspendTransaction bookNotFound(id)
@@ -129,11 +148,13 @@ internal class BookServiceImpl(
                 is AppResult.Failure -> AppResult.Failure(upsertResult.error)
             }
         }
+    }
 
     override suspend fun setBookContributors(
         id: BookId,
         contributors: List<BookContributorInput>,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (contributors.size > MAX_CONTRIBUTORS_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -171,6 +192,7 @@ internal class BookServiceImpl(
         id: BookId,
         series: List<BookSeriesInput>,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (series.size > MAX_SERIES_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -206,6 +228,7 @@ internal class BookServiceImpl(
         id: BookId,
         genres: List<BookGenreInput>,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (genres.size > MAX_GENRES_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
@@ -240,6 +263,7 @@ internal class BookServiceImpl(
     }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         // Resolve the on-disk cover file (if any) BEFORE the transaction so
         // we can best-effort delete it post-commit. Embedded covers have no
         // file of their own — the artwork is inside the audio file — so they
@@ -284,7 +308,17 @@ fun createBookService(
     principal: PrincipalProvider =
         PrincipalProvider { error("Unscoped BookService — call bookServiceScopedTo at the route") },
 ): BookService =
-    BookServiceImpl(repo, contributorRepo, seriesRepo, coverStorage, db, genreRepo, BookAccessPolicy(db), principal)
+    BookServiceImpl(
+        repo,
+        contributorRepo,
+        seriesRepo,
+        coverStorage,
+        db,
+        genreRepo,
+        BookAccessPolicy(db),
+        UserPermissionPolicy(db),
+        principal,
+    )
 
 /**
  * Scopes a [BookService] built by [createBookService] to [principal] for one request.

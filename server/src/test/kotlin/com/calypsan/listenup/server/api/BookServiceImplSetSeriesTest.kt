@@ -17,6 +17,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.services.BookRepository
@@ -63,6 +64,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -118,6 +120,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -171,6 +174,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -221,6 +225,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -262,6 +267,7 @@ class BookServiceImplSetSeriesTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

@@ -2,8 +2,6 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -66,12 +64,4 @@ interface AuthServiceAuthed {
 
     /** List the caller's active sessions. */
     suspend fun listSessions(): AppResult<List<SessionSummary>>
-
-    /**
-     * Approve or deny a pending registration. Admin/root only.
-     * Approval flips the user's status to ACTIVE; the applicant's next login()
-     * succeeds without any extra step. No redemption token is issued — applicant
-     * notification (email, push, polling) is a separate concern.
-     */
-    suspend fun decidePendingRegistration(request: PendingRegistrationDecision): AppResult<PendingRegistrationOutcome>
 }

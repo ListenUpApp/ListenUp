@@ -1,8 +1,6 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
-import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -74,12 +72,6 @@ fun Route.authRoutes(svc: AuthServiceImpl) {
         }
         get<AuthResources.Sessions> {
             call.respondAppResult<List<SessionSummary>>(svc.asCaller(call).listSessions())
-        }
-        post<AuthResources.DecidePendingRegistration> {
-            val body = call.receive<PendingRegistrationDecision>()
-            call.respondAppResult<PendingRegistrationOutcome>(
-                svc.asCaller(call).decidePendingRegistration(body),
-            )
         }
     }
 }

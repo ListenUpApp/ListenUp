@@ -2,12 +2,16 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.SeriesUpdate
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -42,16 +46,37 @@ private val logger = KotlinLogging.logger {}
  * so any failure rolls back the lot. Post-commit, every affected book has its
  * `book_search` FTS row reindexed (best-effort; logged on failure).
  *
- * This service is not user-scoped — it carries no [com.calypsan.listenup.server.auth.PrincipalProvider]
- * because series reads and edits are not per-user. Auth is enforced at the route
- * layer (JWT gate in Application.kt).
+ * Series reads ([getSeries], [listBooksBySeries]) are open to any authenticated user.
+ * Series-metadata mutations ([updateSeries], [deleteSeries], [mergeSeries]) are gated on
+ * the per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
+ * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
+ * resolved from [principal] — route handlers call [copyWith] to bind it per-request; the
+ * Koin singleton carries an unscoped placeholder that yields no principal, so an absent
+ * principal on a mutation is a wiring bug and is denied.
  */
 internal class SeriesServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val db: Database,
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SeriesService {
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
+        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db, permissionPolicy, principal)
+
+    /**
+     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
+     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
+     * absent principal — a wiring bug, since route handlers always [copyWith] the
+     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     */
+    private suspend fun requireCanEdit(): AppError? {
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
 
@@ -62,6 +87,7 @@ internal class SeriesServiceImpl(
         id: SeriesId,
         patch: SeriesUpdate,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val outcome: SeriesUpdateOutcome =
             suspendTransaction(db) {
                 val current =
@@ -90,6 +116,7 @@ internal class SeriesServiceImpl(
         source: SeriesId,
         target: SeriesId,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(SeriesError.MergeSelfTarget())
         }
@@ -147,6 +174,7 @@ internal class SeriesServiceImpl(
     }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val result: AppResult<Unit> =
             suspendTransaction(db) {
                 seriesRepo.findById(id.value)
@@ -192,6 +220,17 @@ fun createSeriesService(
     reindexer: BookSearchReindexer,
     db: Database,
 ): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db)
+
+/**
+ * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.
+ * Public so cross-module test harnesses can bind the authenticated caller without piercing
+ * the `internal` access on [SeriesServiceImpl.copyWith]. Production wiring calls
+ * [SeriesServiceImpl.copyWith] directly in the RPC route.
+ */
+fun seriesServiceScopedTo(
+    service: SeriesService,
+    principal: PrincipalProvider,
+): SeriesService = (service as SeriesServiceImpl).copyWith(principal)
 
 private data class SeriesUpdateOutcome(
     val reindexNeeded: Boolean,

@@ -6,17 +6,22 @@ import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -24,15 +29,141 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.Database
 
 class BookServiceImplUpdateTest :
     FunSpec({
+
+        /**
+         * Builds a [BookServiceImpl] bound to the given caller plus the backing [BookRepository]
+         * (so tests can seed a book through the same db) — used by the canEdit gate tests.
+         */
+        fun bookServiceFor(
+            db: Database,
+            userId: String,
+            role: UserRole,
+        ): Pair<BookServiceImpl, BookRepository> {
+            val bus = ChangeBus()
+            val syncRegistry = SyncRegistry()
+            val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+            val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+            val repo =
+                BookRepository(
+                    db = db,
+                    bus = bus,
+                    registry = syncRegistry,
+                    contributorRepository = contributorRepo,
+                    seriesRepository = seriesRepo,
+                )
+            val service =
+                BookServiceImpl(
+                    repo = repo,
+                    contributorRepo = contributorRepo,
+                    seriesRepo = seriesRepo,
+                    coverStorage = CoverStorage(),
+                    db = db,
+                    genreRepo = GenreRepository(db, bus, syncRegistry),
+                    accessPolicy = BookAccessPolicy(db),
+                    permissionPolicy = UserPermissionPolicy(db),
+                    principal = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("s-$userId"), role) },
+                )
+            return service to repo
+        }
+
+        test("updateBook by a MEMBER without canEdit is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("m1", UserRoleColumn.MEMBER, canEdit = false)
+                val (service, _) = bookServiceFor(db, "m1", UserRole.MEMBER)
+                runTest {
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(title = "Nope"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("updateBook by an ADMIN succeeds even with canEdit=false") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("a1", UserRoleColumn.ADMIN, canEdit = false)
+                val (service, repo) = bookServiceFor(db, "a1", UserRole.ADMIN)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.findById(BookId("b1"))?.title shouldBe "Words of Radiance"
+                }
+            }
+        }
+
+        test("updateBook by a MEMBER granted canEdit succeeds") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("m2", UserRoleColumn.MEMBER, canEdit = true)
+                val (service, repo) = bookServiceFor(db, "m2", UserRole.MEMBER)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+
+                    service
+                        .updateBook(BookId("b1"), BookUpdate(title = "Words of Radiance"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.findById(BookId("b1"))?.title shouldBe "Words of Radiance"
+                }
+            }
+        }
+
+        test("deleteBookCover by a MEMBER without canEdit is denied with PermissionDenied") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("m3", UserRoleColumn.MEMBER, canEdit = false)
+                val (service, repo) = bookServiceFor(db, "m3", UserRole.MEMBER)
+                runTest {
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+
+                    service
+                        .deleteBookCover(BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("deleteBookCover by an ADMIN passes the canEdit gate") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("a2", UserRoleColumn.ADMIN, canEdit = false)
+                val (service, repo) = bookServiceFor(db, "a2", UserRole.ADMIN)
+                runTest {
+                    repo.upsert(
+                        bookFixture(id = "b1", title = "The Way of Kings")
+                            .copy(cover = CoverPayload(source = CoverSource.EMBEDDED, hash = "h")),
+                    )
+
+                    service
+                        .deleteBookCover(BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.findById(BookId("b1"))?.cover shouldBe null
+                }
+            }
+        }
 
         test("updateBook applies the title patch and bumps the revision") {
             withInMemoryDatabase {
@@ -59,6 +190,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -103,6 +235,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {
@@ -153,6 +286,7 @@ class BookServiceImplUpdateTest :
                         db = db,
                         genreRepo = GenreRepository(db, bus, syncRegistry),
                         accessPolicy = BookAccessPolicy(db),
+                        permissionPolicy = UserPermissionPolicy(db),
                         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
                     )
                 runTest {

@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -224,6 +225,7 @@ private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps 
             bookRepo = bookRepo,
             reindexer = reindexer,
             db = db,
+            principal = rootPrincipal(),
         )
     return MergeSeriesServiceDeps(service, seriesRepo, bookRepo)
 }

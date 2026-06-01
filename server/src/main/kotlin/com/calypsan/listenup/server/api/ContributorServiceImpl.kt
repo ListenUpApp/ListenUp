@@ -2,12 +2,16 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -67,16 +71,38 @@ private val logger = KotlinLogging.logger {}
  * is refreshed; reindex failures are logged and swallowed. Returns the new
  * contributor's id so callers can navigate to it.
  *
- * This service is not user-scoped — it carries no [com.calypsan.listenup.server.auth.PrincipalProvider]
- * because contributor reads and edits are not per-user. Auth is enforced at the
- * route layer (JWT gate in Application.kt).
+ * Contributor reads ([getContributor], [listBooksByContributor]) are open to any
+ * authenticated user. Contributor-metadata mutations ([updateContributor],
+ * [deleteContributor], [mergeContributors], [unmergeContributor]) are gated on the
+ * per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
+ * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
+ * resolved from [principal] — route handlers call [copyWith] to bind it per-request; the
+ * Koin singleton carries an unscoped placeholder that yields no principal, so an absent
+ * principal on a mutation is a wiring bug and is denied.
  */
 internal class ContributorServiceImpl(
     private val contributorRepo: ContributorRepository,
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val db: Database,
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
+        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db, permissionPolicy, principal)
+
+    /**
+     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
+     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
+     * absent principal — a wiring bug, since route handlers always [copyWith] the
+     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     */
+    private suspend fun requireCanEdit(): AppError? {
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
 
@@ -87,6 +113,7 @@ internal class ContributorServiceImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val outcome: UpdateOutcome =
             suspendTransaction(db) {
                 val current =
@@ -115,6 +142,7 @@ internal class ContributorServiceImpl(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
@@ -199,6 +227,7 @@ internal class ContributorServiceImpl(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val result: AppResult<ContributorId> =
             suspendTransaction(db) {
                 val targetPayload =
@@ -286,6 +315,7 @@ internal class ContributorServiceImpl(
     }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val result: AppResult<Unit> =
             suspendTransaction(db) {
                 contributorRepo.findById(id.value)
@@ -332,6 +362,17 @@ fun createContributorService(
     reindexer: BookSearchReindexer,
     db: Database,
 ): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db)
+
+/**
+ * Scopes a [ContributorService] built by [createContributorService] to [principal] for one
+ * request. Public so cross-module test harnesses can bind the authenticated caller without
+ * piercing the `internal` access on [ContributorServiceImpl.copyWith]. Production wiring calls
+ * [ContributorServiceImpl.copyWith] directly in the RPC route.
+ */
+fun contributorServiceScopedTo(
+    service: ContributorService,
+    principal: PrincipalProvider,
+): ContributorService = (service as ContributorServiceImpl).copyWith(principal)
 
 private data class UpdateOutcome(
     val reindexNeeded: Boolean,

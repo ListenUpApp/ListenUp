@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.ContributorServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -86,14 +88,14 @@ fun Route.contributorRoutes(
 
     patch<ContributorResources.Detail> { res ->
         val patch = call.receive<ContributorUpdate>()
-        when (val result = contributorService.updateContributor(ContributorId(res.id), patch)) {
+        when (val result = call.scoped(contributorService).updateContributor(ContributorId(res.id), patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 
     delete<ContributorResources.Detail> { res ->
-        when (val result = contributorService.deleteContributor(ContributorId(res.id))) {
+        when (val result = call.scoped(contributorService).deleteContributor(ContributorId(res.id))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -101,7 +103,7 @@ fun Route.contributorRoutes(
 
     post<ContributorResources.Merge> {
         val body = call.receive<MergeContributorsBody>()
-        when (val result = contributorService.mergeContributors(body.source, body.target)) {
+        when (val result = call.scoped(contributorService).mergeContributors(body.source, body.target)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -109,11 +111,20 @@ fun Route.contributorRoutes(
 
     post<ContributorResources.Unmerge> { res ->
         val body = call.receive<UnmergeContributorBody>()
-        when (val result = contributorService.unmergeContributor(ContributorId(res.id), body.aliasName)) {
+        when (val result = call.scoped(contributorService).unmergeContributor(ContributorId(res.id), body.aliasName)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+}
+
+/**
+ * Scopes [service] to the authenticated caller so mutation handlers gate on the caller's
+ * `canEdit` flag. Reaching this without a principal is an auth-wall regression.
+ */
+private fun ApplicationCall.scoped(service: ContributorService): ContributorService {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    return (service as ContributorServiceImpl).copyWith(PrincipalProvider { p })
 }
 
 private suspend fun ApplicationCall.respondBareAppError(error: AppError) {

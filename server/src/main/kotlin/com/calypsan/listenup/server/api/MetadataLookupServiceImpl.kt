@@ -9,11 +9,15 @@ import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
@@ -37,6 +41,17 @@ import kotlinx.io.files.Path
  *
  * Internal Audible / iTunes types are projected to wire DTOs at this boundary —
  * [AudibleBook] → [MetadataBook], etc. No raw Audible types cross the RPC wire.
+ *
+ * Search / fetch reads ([searchBooks], [getBookMetadata], [getBookChapters],
+ * [searchContributorMetadata], [getContributorMetadata]) are open to any authenticated
+ * user. The state-changing / privileged operations — [applyBookMetadata],
+ * [applyContributorMetadata] (write through the syncable substrate) and
+ * [refreshBookMetadata] (force a fresh, rate-limited external fetch, bypassing the cache) —
+ * are gated on the per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass
+ * implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call). The
+ * authenticated caller is resolved from [principal] — route handlers call [copyWith] to bind
+ * it per-request; the Koin singleton carries an unscoped placeholder that yields no
+ * principal, so an absent principal on a gated op is a wiring bug and is denied.
  */
 internal class MetadataLookupServiceImpl(
     private val metadataService: MetadataService,
@@ -45,8 +60,35 @@ internal class MetadataLookupServiceImpl(
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
     private val libraryPath: Path,
+    private val permissionPolicy: UserPermissionPolicy,
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
+        MetadataLookupServiceImpl(
+            metadataService = metadataService,
+            bookRepository = bookRepository,
+            contributorRepository = contributorRepository,
+            seriesRepository = seriesRepository,
+            imageStorage = imageStorage,
+            libraryPath = libraryPath,
+            permissionPolicy = permissionPolicy,
+            defaultRegion = defaultRegion,
+            principal = principal,
+        )
+
+    /**
+     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
+     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
+     * absent principal — a wiring bug, since route handlers always [copyWith] the
+     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     */
+    private suspend fun requireCanEdit(): AppError? {
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
     override suspend fun searchBooks(
         query: String,
         region: AudibleRegion?,
@@ -96,14 +138,18 @@ internal class MetadataLookupServiceImpl(
     override suspend fun refreshBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = metadataService.getBook(region, asin, refresh = true).map { it?.toMetadataBook() }
+    ): AppResult<MetadataBook?> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return metadataService.getBook(region, asin, refresh = true).map { it?.toMetadataBook() }
+    }
 
     override suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,
         region: AudibleRegion,
-    ): AppResult<Unit> =
-        BookMetadataApplier(
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return BookMetadataApplier(
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
@@ -111,18 +157,21 @@ internal class MetadataLookupServiceImpl(
             metadataService = metadataService,
             libraryPath = libraryPath,
         ).apply(bookId, asin, region)
+    }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
         region: AudibleRegion,
-    ): AppResult<Unit> =
-        ContributorMetadataApplier(
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        return ContributorMetadataApplier(
             contributorRepository = contributorRepository,
             imageStorage = imageStorage,
             metadataService = metadataService,
             libraryPath = libraryPath,
         ).apply(contributorId, asin, region)
+    }
 }
 
 // ─── Internal → wire DTO mappers ─────────────────────────────────────────────

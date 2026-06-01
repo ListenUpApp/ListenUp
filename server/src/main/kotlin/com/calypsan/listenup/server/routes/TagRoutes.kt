@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.TagServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -95,14 +97,14 @@ fun Route.tagRoutes(
 
     patch<TagResources.Detail> { res ->
         val newName = call.receive<String>()
-        when (val result = tagService.renameTag(TagId(res.tagId), newName)) {
+        when (val result = call.scoped(tagService).renameTag(TagId(res.tagId), newName)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondTagError(result.error)
         }
     }
 
     delete<TagResources.Detail> { res ->
-        when (val result = tagService.deleteTag(TagId(res.tagId))) {
+        when (val result = call.scoped(tagService).deleteTag(TagId(res.tagId))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondTagError(result.error)
         }
@@ -127,18 +129,27 @@ fun Route.tagRoutes(
 
     post<BookTagsResources.Collection> { res ->
         val name = call.receive<String>()
-        when (val result = tagService.addTagToBook(BookId(res.parent.bookId), name)) {
+        when (val result = call.scoped(tagService).addTagToBook(BookId(res.parent.bookId), name)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondTagError(result.error)
         }
     }
 
     delete<BookTagsResources.Detail> { res ->
-        when (val result = tagService.removeTagFromBook(BookId(res.parent.bookId), TagId(res.tagId))) {
+        when (val result = call.scoped(tagService).removeTagFromBook(BookId(res.parent.bookId), TagId(res.tagId))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondTagError(result.error)
         }
     }
+}
+
+/**
+ * Scopes [service] to the authenticated caller so mutation handlers gate on the caller's
+ * `canEdit` flag. Reaching this without a principal is an auth-wall regression.
+ */
+private fun ApplicationCall.scoped(service: TagService): TagService {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    return (service as TagServiceImpl).copyWith(PrincipalProvider { p })
 }
 
 private suspend fun ApplicationCall.respondTagError(error: AppError) {

@@ -8,6 +8,9 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -15,6 +18,7 @@ import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
@@ -35,19 +39,29 @@ private val logger = KotlinLogging.logger {}
  * to [scanOrchestrator] **after** the transaction commits so the orchestrator's
  * watcher/scanner state reflects the committed DB state.
  *
- * Every admin method carries a `// TODO: gate by user permissions when Multi-user lands`
- * marker — per-user permission enforcement is deferred to the Multi-user phase.
+ * Library structure is ADMIN territory. Every mutating op — create/delete library,
+ * add/remove folder, scan triggers — and the filesystem-exposing [browseFilesystem]
+ * are gated through [requireAdmin] (ROOT/ADMIN pass; everyone else gets
+ * [AuthError.PermissionDenied]). The read-only [listLibraries]/[getLibrary]/[getSetupStatus]
+ * stay open to any authenticated caller: members need to list and resolve libraries for
+ * normal content browsing, and the setup status drives first-launch onboarding.
+ *
+ * Route handlers call [copyWith] to bind each request to the authenticated principal;
+ * the Koin singleton carries an unscoped placeholder ([PrincipalProvider.None]) that
+ * yields no principal, so an unscoped mutating call is denied rather than silently
+ * running unauthenticated.
  */
 internal class LibraryAdminServiceImpl(
     private val libraryRepository: LibraryRepository,
     private val libraryFolderRepository: LibraryFolderRepository,
     private val bookRepository: BookRepository,
     private val scanOrchestrator: ScanOrchestrator,
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
 
     override suspend fun listLibraries(): AppResult<List<Library>> {
-        // TODO: gate by user permissions when Multi-user lands
+        // Open to any authenticated caller: members list libraries to browse content.
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val active = page.items.filter { it.deletedAt == null }
         val libraries = active.map { it.toLibraryWithFolders() }
@@ -55,7 +69,7 @@ internal class LibraryAdminServiceImpl(
     }
 
     override suspend fun getLibrary(id: LibraryId): AppResult<Library?> {
-        // TODO: gate by user permissions when Multi-user lands
+        // Open to any authenticated caller: members resolve a library by id while browsing.
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val payload =
             page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
@@ -64,14 +78,15 @@ internal class LibraryAdminServiceImpl(
     }
 
     override suspend fun getSetupStatus(): AppResult<SetupStatus> {
-        // TODO: gate by user permissions when Multi-user lands
+        // Open to any authenticated caller: drives first-launch onboarding before any admin exists.
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val count = page.items.count { it.deletedAt == null }
         return AppResult.Success(SetupStatus(needsSetup = count == 0, libraryCount = count))
     }
 
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> {
-        // TODO: gate by user permissions when Multi-user lands
+        // Admin-only: walking the server filesystem must never be exposed to members.
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val dir = Path(path)
         return try {
             if (!SystemFileSystem.exists(dir)) {
@@ -109,7 +124,7 @@ internal class LibraryAdminServiceImpl(
     // ── Library lifecycle ────────────────────────────────────────────────────
 
     override suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library> {
-        // TODO: gate by user permissions when Multi-user lands
+        requireAdmin()?.let { return AppResult.Failure(it) }
         if (request.folderPaths.isEmpty()) {
             return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "At least one folder path is required."))
         }
@@ -189,7 +204,7 @@ internal class LibraryAdminServiceImpl(
         id: LibraryId,
         name: String,
     ): AppResult<Library> {
-        // TODO: gate by user permissions when Multi-user lands
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val existing =
             page.items.firstOrNull { it.id == id.value && it.deletedAt == null }
@@ -204,7 +219,7 @@ internal class LibraryAdminServiceImpl(
     }
 
     override suspend fun deleteLibrary(id: LibraryId): AppResult<Unit> {
-        // TODO: gate by user permissions when Multi-user lands
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val page = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val existing =
             page.items.firstOrNull { it.id == id.value }
@@ -243,7 +258,7 @@ internal class LibraryAdminServiceImpl(
         libraryId: LibraryId,
         path: String,
     ): AppResult<LibraryFolder> {
-        // TODO: gate by user permissions when Multi-user lands
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val libraryPage = libraryRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         libraryPage.items.firstOrNull { it.id == libraryId.value && it.deletedAt == null }
             ?: return AppResult.Failure(LibraryError.NotFound())
@@ -284,7 +299,7 @@ internal class LibraryAdminServiceImpl(
     }
 
     override suspend fun removeFolder(folderId: FolderId): AppResult<Unit> {
-        // TODO: gate by user permissions when Multi-user lands
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val existing =
             folderPage.items.firstOrNull { it.id == folderId.value }
@@ -310,12 +325,15 @@ internal class LibraryAdminServiceImpl(
 
     // ── Scan triggers ────────────────────────────────────────────────────────
 
-    // TODO: gate by user permissions when Multi-user lands
-    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> =
-        scanOrchestrator.scanLibrary(libraryId).map {}
+    override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
+        // Admin-only: triggering a scan is a privileged server operation.
+        requireAdmin()?.let { return AppResult.Failure(it) }
+        return scanOrchestrator.scanLibrary(libraryId).map {}
+    }
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {
-        // TODO: gate by user permissions when Multi-user lands
+        // Admin-only: triggering a scan is a privileged server operation.
+        requireAdmin()?.let { return AppResult.Failure(it) }
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         folderPage.items.firstOrNull { it.id == folderId.value && it.deletedAt == null }
             ?: return AppResult.Failure(LibraryError.FolderNotFound())
@@ -323,7 +341,29 @@ internal class LibraryAdminServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    // ── Principal binding ────────────────────────────────────────────────────
+
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): LibraryAdminServiceImpl =
+        LibraryAdminServiceImpl(
+            libraryRepository = libraryRepository,
+            libraryFolderRepository = libraryFolderRepository,
+            bookRepository = bookRepository,
+            scanOrchestrator = scanOrchestrator,
+            principal = principal,
+        )
+
     // ── Internal helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Admin gate: null when the caller is ROOT/ADMIN; [AuthError.PermissionDenied] for a
+     * member, and for an absent principal (a wiring bug — route handlers always [copyWith]
+     * the authenticated caller — denied rather than run unauthenticated).
+     */
+    private fun requireAdmin(): AppError? {
+        val role = principal.current()?.role ?: return AuthError.PermissionDenied()
+        return if (role == UserRole.ROOT || role == UserRole.ADMIN) null else AuthError.PermissionDenied()
+    }
 
     /**
      * Checks whether any of [paths] is already registered as an active folder

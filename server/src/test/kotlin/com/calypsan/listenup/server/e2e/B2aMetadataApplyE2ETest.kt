@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.e2e
 
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -9,6 +12,9 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -134,6 +140,11 @@ class B2aMetadataApplyE2ETest :
                         seriesRepository = seriesRepo,
                         imageStorage = imageStorage,
                         libraryPath = Path(tempDir),
+                        permissionPolicy = UserPermissionPolicy(db),
+                        principal =
+                            PrincipalProvider {
+                                UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT)
+                            },
                     )
 
                 // ── Act ──────────────────────────────────────────────────────────
@@ -197,6 +208,11 @@ class B2aMetadataApplyE2ETest :
                         seriesRepository = seriesRepo,
                         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
                         libraryPath = Path(tempDir),
+                        permissionPolicy = UserPermissionPolicy(db),
+                        principal =
+                            PrincipalProvider {
+                                UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT)
+                            },
                     )
 
                 runTest {

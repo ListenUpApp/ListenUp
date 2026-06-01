@@ -18,9 +18,14 @@ import kotlinx.rpc.annotations.Rpc
  * onboarding helpers ([getSetupStatus], [browseFilesystem]) that replace the legacy
  * `SetupApiContract` REST surface.
  *
- * Libraries are server-wide (cross-user) today. Every method carries a
- * `// TODO: gate by user permissions when Multi-user lands` marker — per-user
- * permission enforcement is deferred to the Multi-user phase.
+ * Libraries are server-wide (cross-user). Library structure is admin territory:
+ * every mutating method ([createLibrary], [renameLibrary], [deleteLibrary],
+ * [addFolder], [removeFolder], [scanLibrary], [scanFolder]) and the
+ * filesystem-exposing [browseFilesystem] require ROOT/ADMIN; non-admins receive
+ * [com.calypsan.listenup.api.error.AuthError.PermissionDenied]. The read-only
+ * [listLibraries], [getLibrary], and [getSetupStatus] stay open to any
+ * authenticated caller so members can browse content and the onboarding wizard
+ * can run before an admin exists.
  *
  * REST mirrors are defined in
  * [com.calypsan.listenup.api.resources.LibraryResources].
@@ -44,7 +49,7 @@ interface LibraryAdminService {
      * truth for client-side Room; this method is a convenience for admin UIs
      * and post-create confirmation flows.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Open to any authenticated caller — members list libraries to browse content.
      */
     suspend fun listLibraries(): AppResult<List<Library>>
 
@@ -56,7 +61,7 @@ interface LibraryAdminService {
      * here — callers check the `null` case directly, matching the convention used
      * by [BookService.getBook].
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Open to any authenticated caller — members resolve a library by id while browsing.
      */
     suspend fun getLibrary(id: LibraryId): AppResult<Library?>
 
@@ -71,7 +76,7 @@ interface LibraryAdminService {
      * RPC surface. Clients use this to decide whether to show the onboarding
      * wizard on first launch.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Open to any authenticated caller — drives onboarding before an admin exists.
      */
     suspend fun getSetupStatus(): AppResult<SetupStatus>
 
@@ -89,7 +94,7 @@ interface LibraryAdminService {
      * Migrates the legacy `SetupApiContract.listDirectory` capability into the
      * RPC surface.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>>
 
@@ -108,7 +113,7 @@ interface LibraryAdminService {
      * On success the server emits SSE events for the new library and each of its
      * folders so connected clients' Room databases update reactively.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun createLibrary(request: CreateLibraryRequest): AppResult<Library>
 
@@ -121,7 +126,7 @@ interface LibraryAdminService {
      *
      * On success the server emits an SSE event for the updated library.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun renameLibrary(
         id: LibraryId,
@@ -142,7 +147,7 @@ interface LibraryAdminService {
      * Returns [com.calypsan.listenup.api.error.LibraryError.NotFound] when no
      * library with the given id exists.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun deleteLibrary(id: LibraryId): AppResult<Unit>
 
@@ -164,7 +169,7 @@ interface LibraryAdminService {
      * Returns [com.calypsan.listenup.api.error.LibraryError.NotFound] when no
      * library with [libraryId] exists.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun addFolder(
         libraryId: LibraryId,
@@ -183,7 +188,7 @@ interface LibraryAdminService {
      * Returns [com.calypsan.listenup.api.error.LibraryError.FolderNotFound] when no
      * folder with the given id exists.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun removeFolder(folderId: FolderId): AppResult<Unit>
 
@@ -201,7 +206,7 @@ interface LibraryAdminService {
      * Returns [com.calypsan.listenup.api.error.LibraryError.NotFound] when no
      * library with the given id exists.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit>
 
@@ -214,7 +219,7 @@ interface LibraryAdminService {
      * Returns [com.calypsan.listenup.api.error.LibraryError.FolderNotFound] when
      * no folder with the given id exists.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */
     suspend fun scanFolder(folderId: FolderId): AppResult<Unit>
 }

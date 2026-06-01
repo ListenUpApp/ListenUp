@@ -2,16 +2,18 @@
 
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
-import com.calypsan.listenup.server.auth.RegistrationPolicy
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import io.ktor.server.config.ApplicationConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
@@ -63,6 +65,8 @@ fun authModule(config: ApplicationConfig): Module =
             )
         }
 
+        single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
+
         single {
             AuthServiceImpl(
                 db = get(),
@@ -70,7 +74,16 @@ fun authModule(config: ApplicationConfig): Module =
                 hasher = get(),
                 jwt = get(),
                 clock = get(),
-                registrationPolicy = config.registrationPolicy(),
+                settings = get(),
+            )
+        }
+
+        single {
+            AdminUserServiceImpl(
+                db = get(),
+                sessions = get(),
+                settings = get(),
+                clock = get(),
             )
         }
 

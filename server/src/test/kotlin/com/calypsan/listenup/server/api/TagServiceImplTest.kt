@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -42,7 +43,7 @@ class TagServiceImplTest :
             val tagRepo = TagRepository(db = db, bus = bus, registry = registry)
             val bookTagRepo = BookTagRepository(db = db, bus = bus, registry = registry)
             val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db)
-            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, fixedClock)
+            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, db, fixedClock, principal = rootPrincipal())
         }
 
         // ── listTags ─────────────────────────────────────────────────────────
