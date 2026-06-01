@@ -9,6 +9,8 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -84,6 +86,13 @@ fun authModule(config: ApplicationConfig): Module =
                 sessions = get(),
                 settings = get(),
                 clock = get(),
+            )
+        }
+
+        single<InstanceService> {
+            InstanceServiceImpl(
+                db = get(),
+                settings = get(),
             )
         }
 

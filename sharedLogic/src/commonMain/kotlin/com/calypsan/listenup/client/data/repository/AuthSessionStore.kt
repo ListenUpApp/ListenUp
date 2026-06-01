@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -129,23 +130,24 @@ class AuthSessionStore(
         val startMark = TimeSource.Monotonic.markNow()
         _authState.value = DomainAuthState.CheckingServer
 
-        return when (val result = instanceRepository.getInstance(forceRefresh = true)) {
+        return when (val result = instanceRepository.getServerInfo(forceRefresh = true)) {
             is Success -> {
-                logger.info { "checkServerStatus: getInstance succeeded (${startMark.elapsedNow()})" }
-                secureStorage.save(KEY_OPEN_REGISTRATION, result.data.openRegistration.toString())
+                logger.info { "checkServerStatus: getServerInfo succeeded (${startMark.elapsedNow()})" }
+                val openRegistration = result.data.registrationPolicy != RegistrationPolicy.CLOSED
+                secureStorage.save(KEY_OPEN_REGISTRATION, openRegistration.toString())
 
                 val newState =
                     if (result.data.setupRequired) {
                         DomainAuthState.NeedsSetup
                     } else {
-                        DomainAuthState.NeedsLogin(openRegistration = result.data.openRegistration)
+                        DomainAuthState.NeedsLogin(openRegistration = openRegistration)
                     }
                 _authState.value = newState
                 newState
             }
 
             is Failure -> {
-                logger.info { "checkServerStatus: getInstance failed (${startMark.elapsedNow()}): ${result.message}" }
+                logger.info { "checkServerStatus: getServerInfo failed (${startMark.elapsedNow()}): ${result.message}" }
                 val cachedOpenRegistration = getCachedOpenRegistration()
                 _authState.value = DomainAuthState.NeedsLogin(openRegistration = cachedOpenRegistration)
                 DomainAuthState.NeedsLogin(openRegistration = cachedOpenRegistration)
@@ -160,11 +162,12 @@ class AuthSessionStore(
         val currentState = _authState.value
         if (currentState !is DomainAuthState.NeedsLogin) return
 
-        when (val result = instanceRepository.getInstance(forceRefresh = true)) {
+        when (val result = instanceRepository.getServerInfo(forceRefresh = true)) {
             is Success -> {
-                secureStorage.save(KEY_OPEN_REGISTRATION, result.data.openRegistration.toString())
+                val openRegistration = result.data.registrationPolicy != RegistrationPolicy.CLOSED
+                secureStorage.save(KEY_OPEN_REGISTRATION, openRegistration.toString())
                 if (_authState.value is DomainAuthState.NeedsLogin) {
-                    _authState.value = DomainAuthState.NeedsLogin(openRegistration = result.data.openRegistration)
+                    _authState.value = DomainAuthState.NeedsLogin(openRegistration = openRegistration)
                 }
             }
 

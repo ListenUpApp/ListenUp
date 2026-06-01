@@ -98,6 +98,13 @@ private class InMemorySecureStorage : SecureStorage {
 private class NoOpInstanceRepository : InstanceRepository {
     override suspend fun findReachableUrl(urls: List<String>): String? = null
 
+    override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<com.calypsan.listenup.api.dto.ServerInfo> =
+        AppResult.Failure(
+            com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
+                debugInfo = "NoOpInstanceRepository",
+            ),
+        )
+
     override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> =
         AppResult.Failure(
             com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
