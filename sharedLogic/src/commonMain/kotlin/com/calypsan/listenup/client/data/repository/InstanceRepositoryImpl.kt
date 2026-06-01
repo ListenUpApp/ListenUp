@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.Failure
@@ -8,55 +9,203 @@ import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.core.flatMap
 import com.calypsan.listenup.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
+import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.dataOrFailure
+import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
+import com.calypsan.listenup.client.data.remote.toWebSocketScheme
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
+import com.calypsan.listenup.api.result.AppResult as RpcResult
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.timeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
 import io.ktor.serialization.kotlinx.json.json
+import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
 private const val REQUEST_TIMEOUT_MS = 30_000L
-private const val QUICK_CHECK_TIMEOUT_MS = 3_000L
 private const val CONNECT_TIMEOUT_MS = 10_000L
 private const val SOCKET_TIMEOUT_MS = 30_000L
 
 /**
- * Implementation of InstanceRepository that fetches data from the ListenUp API.
+ * [InstanceRepository] split across two transports:
+ *  - **Verification + the screen-one [getServerInfo] probe** go over the
+ *    [InstanceService] kotlinx.rpc proxy ([InstanceRpcFactory]). Verification is
+ *    pre-authentication — there is no saved URL yet — so the factory connects to
+ *    an **explicit** candidate URL rather than reading `ServerConfig`.
+ *  - **[getInstance]** stays on the legacy REST `ApiResponse<Instance>` path,
+ *    retained for admin/settings consumers that read the richer [Instance]
+ *    (notably `remoteUrl`) until a dedicated admin GET surface exists.
  *
- * Uses dynamic server URL resolution to support runtime URL changes (e.g., user
- * selecting a different server via MDNS discovery).
- *
- * This repository acts as a single source of truth for instance data.
- * Future enhancements could include:
- * - In-memory caching with cache invalidation
- * - Offline support with local persistence
- * - Automatic refresh on stale data
+ * [getServerUrl] supplies the already-saved URL for the post-connect probes.
  */
 class InstanceRepositoryImpl(
     private val getServerUrl: suspend () -> ServerUrl?,
+    private val instanceRpcFactory: InstanceRpcFactory,
 ) : InstanceRepository {
-    /**
-     * Cached instance data.
-     * TODO: Add proper cache invalidation strategy when requirements are clearer.
-     */
-    private var cachedInstance: Instance? = null
+    private var cachedServerInfo: ServerInfo? = null
+
+    override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<ServerInfo> {
+        if (!forceRefresh) {
+            cachedServerInfo?.let { return Success(it) }
+        }
+
+        val serverUrl = getServerUrl()
+        if (serverUrl == null) {
+            logger.warn { "Cannot fetch server info: server URL not configured" }
+            return AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server URL not configured"))
+        }
+
+        return when (val result = callServerInfo(toWebSocketScheme(serverUrl.value))) {
+            is Success -> {
+                cachedServerInfo = result.data
+                result
+            }
+
+            is Failure -> {
+                result
+            }
+        }
+    }
+
+    override suspend fun verifyServer(baseUrl: String): AppResult<VerifiedServer> {
+        val urlsToTry = normalizeUrl(baseUrl)
+        var lastFailure: AppResult.Failure? = null
+        for ((index, currentUrl) in urlsToTry.withIndex()) {
+            logger.debug { "Verifying server at $currentUrl" }
+            when (val result = callServerInfo(toWebSocketScheme(currentUrl))) {
+                is Success -> {
+                    logger.info { "Server verified at $currentUrl" }
+                    return Success(VerifiedServer(result.data, currentUrl))
+                }
+
+                is Failure -> {
+                    val message =
+                        result.error.debugInfo
+                            .orEmpty()
+                            .lowercase() + result.error.message.lowercase()
+                    val isSslError =
+                        message.contains("ssl") || message.contains("tls") || message.contains("handshake")
+                    lastFailure = result
+                    if (isSslError && index < urlsToTry.size - 1) {
+                        logger.debug { "SSL error at $currentUrl, trying next candidate" }
+                        continue
+                    }
+                    break
+                }
+            }
+        }
+        return lastFailure
+            ?: AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server verification failed"))
+    }
 
     /**
-     * Creates an HTTP client for the given server URL.
-     * Each API call creates a fresh client to ensure we use the current URL.
+     * Try multiple URLs to find one whose public RPC mount answers.
+     *
+     * Used when connecting to discovered servers where the primary URL (LAN IP
+     * from mDNS) may be unreachable; falls back to alternates which may include
+     * Tailscale/VPN addresses.
+     *
+     * @param urls List of URLs to try, in priority order.
+     * @return The first reachable URL, or null if none work.
      */
-    private fun createClient(serverUrl: ServerUrl): HttpClient =
+    override suspend fun findReachableUrl(urls: List<String>): String? {
+        for (url in urls) {
+            logger.debug { "Quick-checking reachability: $url" }
+            when (callServerInfo(toWebSocketScheme(url))) {
+                is Success -> {
+                    logger.info { "Server reachable at $url" }
+                    return url
+                }
+
+                is Failure -> {
+                    continue
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * One-shot RPC probe of [wsBaseUrl]'s public mount, bridged to the client
+     * [AppResult]. The proxy already returns a typed [RpcResult] carrying an
+     * `AppError`, so a failure passes through without re-mapping; a thrown
+     * transport exception is mapped by [Failure]. `CancellationException` is
+     * re-raised per coroutines convention.
+     */
+    private suspend fun callServerInfo(wsBaseUrl: String): AppResult<ServerInfo> =
+        try {
+            when (val result = instanceRpcFactory.getServerInfo(wsBaseUrl)) {
+                is RpcResult.Success -> Success(result.data)
+                is RpcResult.Failure -> AppResult.Failure(result.error)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Failure(e)
+        }
+
+    /**
+     * Normalize URL by adding protocol if missing.
+     * Returns candidate URLs to try (IP addresses → HTTP first, else HTTPS first).
+     */
+    private fun normalizeUrl(url: String): List<String> =
+        if (url.startsWith("https://") || url.startsWith("http://")) {
+            listOf(url)
+        } else {
+            val isIpAddress = url.substringBefore(':').all { it.isDigit() || it == '.' }
+            if (isIpAddress) {
+                listOf("http://$url", "https://$url")
+            } else {
+                listOf("https://$url", "http://$url")
+            }
+        }
+
+    // ── Legacy REST path (admin/settings only) ──────────────────────────────
+    // Retained verbatim until the admin surface exposes the richer Instance
+    // fields (e.g. remoteUrl) over a dedicated GET. New code uses getServerInfo().
+
+    private var cachedInstance: Instance? = null
+
+    override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> {
+        if (!forceRefresh && cachedInstance != null) {
+            return Success(cachedInstance!!)
+        }
+
+        val serverUrl = getServerUrl()
+        if (serverUrl == null) {
+            logger.warn { "Cannot fetch instance: server URL not configured" }
+            return AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server URL not configured"))
+        }
+
+        logger.debug { "Fetching instance from ${serverUrl.value}/api/v1/instance" }
+
+        val result =
+            suspendRunCatching {
+                val client = createRestClient(serverUrl)
+                try {
+                    val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
+                    response.dataOrFailure("Failed to fetch instance")
+                } finally {
+                    client.close()
+                }
+            }.flatMap { it }
+
+        if (result is AppResult.Success) {
+            cachedInstance = result.data
+        }
+
+        return result
+    }
+
+    private fun createRestClient(serverUrl: ServerUrl): HttpClient =
         HttpClient {
             installListenUpErrorHandling()
 
@@ -72,179 +221,6 @@ class InstanceRepositoryImpl(
 
             defaultRequest {
                 url(serverUrl.value)
-            }
-        }
-
-    override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> {
-        // Return cached data if available and refresh not forced
-        if (!forceRefresh && cachedInstance != null) {
-            return Success(cachedInstance!!)
-        }
-
-        val serverUrl = getServerUrl()
-        if (serverUrl == null) {
-            logger.warn { "Cannot fetch instance: server URL not configured" }
-            return AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server URL not configured"))
-        }
-
-        logger.debug { "Fetching instance from ${serverUrl.value}/api/v1/instance" }
-
-        val result =
-            suspendRunCatching {
-                val client = createClient(serverUrl)
-                try {
-                    val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
-
-                    logger.debug { "Received instance response: success=${response.success}" }
-
-                    response.dataOrFailure("Failed to fetch instance")
-                } finally {
-                    client.close()
-                }
-            }.flatMap { it }
-
-        // Cache successful results
-        if (result is AppResult.Success) {
-            cachedInstance = result.data
-        }
-
-        return result
-    }
-
-    private suspend fun attemptServerVerification(currentUrl: String): AppResult<VerifiedServer> {
-        val client = createUnauthenticatedClient()
-        return try {
-            val instanceUrl = currentUrl.trimEnd('/') + "/api/v1/instance"
-            logger.debug { "Verifying server at $instanceUrl" }
-            val response: ApiResponse<Instance> = client.get(instanceUrl).body()
-            when (val result = response.toResult()) {
-                is Success -> {
-                    logger.info { "Server verified at $currentUrl" }
-                    Success(VerifiedServer(result.data, currentUrl))
-                }
-
-                is Failure -> {
-                    result
-                }
-            }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Failure(e)
-        } finally {
-            client.close()
-        }
-    }
-
-    override suspend fun verifyServer(baseUrl: String): AppResult<VerifiedServer> {
-        val urlsToTry = normalizeUrl(baseUrl)
-        var lastFailure: AppResult.Failure? = null
-        for ((index, currentUrl) in urlsToTry.withIndex()) {
-            when (val result = attemptServerVerification(currentUrl)) {
-                is Success -> {
-                    return result
-                }
-
-                is Failure -> {
-                    val errorMessage = result.message.lowercase()
-                    val isSslError =
-                        errorMessage.contains("ssl") ||
-                            errorMessage.contains("tls") ||
-                            errorMessage.contains("handshake")
-                    if (isSslError && index < urlsToTry.size - 1) {
-                        logger.debug { "SSL error at $currentUrl, trying HTTP fallback" }
-                        lastFailure = result
-                        continue
-                    }
-                    lastFailure = result
-                    break
-                }
-            }
-        }
-        return lastFailure
-            ?: AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server verification failed"))
-    }
-
-    /**
-     * Normalize URL by adding protocol if missing.
-     * Returns list of URLs to try (HTTPS first, then HTTP fallback).
-     */
-    private fun normalizeUrl(url: String): List<String> =
-        if (url.startsWith("https://") || url.startsWith("http://")) {
-            listOf(url)
-        } else {
-            // IP addresses (e.g. 192.168.1.1:8080) are almost certainly HTTP.
-            // Try HTTP first to avoid TLS handshake timeout on plain HTTP servers.
-            val isIpAddress = url.substringBefore(':').all { it.isDigit() || it == '.' }
-            if (isIpAddress) {
-                listOf("http://$url", "https://$url")
-            } else {
-                listOf("https://$url", "http://$url")
-            }
-        }
-
-    /**
-     * Try multiple URLs to find one that's reachable, with a quick timeout.
-     *
-     * Used when connecting to discovered servers where the primary URL
-     * (LAN IP from mDNS) may be unreachable. Falls back to alternate URLs
-     * which may include Tailscale/VPN addresses resolved via DNS.
-     *
-     * @param urls List of URLs to try, in priority order
-     * @return The first reachable URL, or null if none work
-     */
-    override suspend fun findReachableUrl(urls: List<String>): String? {
-        val quickClient =
-            HttpClient {
-                installListenUpErrorHandling()
-
-                install(ContentNegotiation) {
-                    json(appJson)
-                }
-                install(HttpTimeout) {
-                    requestTimeoutMillis = QUICK_CHECK_TIMEOUT_MS
-                    connectTimeoutMillis = QUICK_CHECK_TIMEOUT_MS
-                    socketTimeoutMillis = QUICK_CHECK_TIMEOUT_MS
-                }
-            }
-
-        return try {
-            for (url in urls) {
-                try {
-                    val instanceUrl = url.trimEnd('/') + "/api/v1/instance"
-                    logger.debug { "Quick-checking reachability: $instanceUrl" }
-                    quickClient.get(instanceUrl)
-                    logger.info { "Server reachable at $url" }
-                    return url
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.debug { "Not reachable at $url: ${e.message}" }
-                    continue
-                }
-            }
-            null
-        } finally {
-            quickClient.close()
-        }
-    }
-
-    /**
-     * Creates an unauthenticated HTTP client for server verification.
-     * Used before authentication when validating server URLs.
-     */
-    private fun createUnauthenticatedClient(): HttpClient =
-        HttpClient {
-            installListenUpErrorHandling()
-
-            install(ContentNegotiation) {
-                json(appJson)
-            }
-
-            install(HttpTimeout) {
-                requestTimeoutMillis = REQUEST_TIMEOUT_MS
-                connectTimeoutMillis = CONNECT_TIMEOUT_MS
-                socketTimeoutMillis = SOCKET_TIMEOUT_MS
             }
         }
 }

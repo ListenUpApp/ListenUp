@@ -6,9 +6,9 @@ import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.domain.model.AuthState
-import com.calypsan.listenup.client.domain.model.Instance
-import com.calypsan.listenup.client.domain.model.InstanceId
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.answering.returns
@@ -20,18 +20,17 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.core.Timestamp
 
-private fun createTestInstance(setupRequired: Boolean): Instance =
-    Instance(
-        id = InstanceId("test-instance"),
+private fun createTestServerInfo(
+    setupRequired: Boolean,
+    registrationPolicy: RegistrationPolicy = RegistrationPolicy.OPEN,
+): ServerInfo =
+    ServerInfo(
         name = "Test Instance",
         version = "1.0.0",
-        localUrl = "http://localhost:8080",
-        remoteUrl = null,
+        apiVersion = "v1",
         setupRequired = setupRequired,
-        createdAt = Timestamp(0L),
-        updatedAt = Timestamp(0L),
+        registrationPolicy = registrationPolicy,
     )
 
 private fun createMockStorage(): SecureStorage = mock<SecureStorage>()
@@ -229,8 +228,8 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val instanceRepository = createMockInstanceRepository()
                 everySuspend { storage.save(any(), any()) } returns Unit
-                everySuspend { instanceRepository.getInstance(forceRefresh = true) } returns
-                    Success(createTestInstance(setupRequired = true))
+                everySuspend { instanceRepository.getServerInfo(forceRefresh = true) } returns
+                    Success(createTestServerInfo(setupRequired = true))
                 val store = createStore(storage = storage, instanceRepository = instanceRepository)
 
                 store.checkServerStatus()
@@ -244,7 +243,7 @@ class AuthSessionStoreTest :
                 val storage = createMockStorage()
                 val instanceRepository = createMockInstanceRepository()
                 everySuspend { storage.read("open_registration") } returns null
-                everySuspend { instanceRepository.getInstance(forceRefresh = true) } returns
+                everySuspend { instanceRepository.getServerInfo(forceRefresh = true) } returns
                     Failure(Exception("Network error"))
                 val store = createStore(storage = storage, instanceRepository = instanceRepository)
 
