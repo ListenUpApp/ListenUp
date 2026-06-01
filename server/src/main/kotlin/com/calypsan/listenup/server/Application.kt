@@ -87,6 +87,7 @@ import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
 import io.ktor.server.auth.authenticate
 import io.ktor.server.cio.EngineMain
@@ -156,7 +157,10 @@ private fun Application.launchSeeders(
 
 fun main(args: Array<String>) = EngineMain.main(args)
 
-/** Installs the core Ktor plugins every route depends on (serialization, resources, SSE, RPC, ranges, HEAD). */
+/**
+ * Installs the core Ktor plugins every route depends on (serialization, resources, SSE, RPC, ranges, HEAD),
+ * and registers the shutdown farewell log.
+ */
 private fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
@@ -164,6 +168,7 @@ private fun Application.installCorePlugins() {
     install(Krpc)
     install(PartialContent)
     install(AutoHeadResponse)
+    monitor.subscribe(ApplicationStopped) { logger.info { "See You Space Cowboy..." } }
 }
 
 /**
