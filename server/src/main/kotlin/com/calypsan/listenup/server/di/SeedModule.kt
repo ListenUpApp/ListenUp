@@ -2,10 +2,12 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.seed.CollectionDomainSeeder
 import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
 import com.calypsan.listenup.server.seed.DomainSeeder
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
+import com.calypsan.listenup.server.seed.InviteDomainSeeder
 import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
@@ -58,6 +60,7 @@ fun seedModule(
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
+        single { InviteDomainSeeder(db = get(), inviteService = get<InviteServiceImpl>()) }
         if (demoLibraryPath != null) {
             single { LibraryDomainSeeder(db = get(), libraryAdminService = get(), demoLibraryPath = demoLibraryPath) }
         }
@@ -115,6 +118,7 @@ private fun assembleSeeders(
 ): List<DomainSeeder> =
     buildList {
         add(koin.get<UserDomainSeeder>())
+        add(koin.get<InviteDomainSeeder>())
         if (demoLibraryPath != null) {
             add(koin.get<LibraryDomainSeeder>())
         }
