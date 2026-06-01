@@ -134,6 +134,31 @@ class InviteServiceImplTest :
             }
         }
 
+        test("createInvite rejects a blank displayName") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .createInvite("a@b.c", "   ", UserRole.MEMBER, null)
+                        .shouldFail<InviteError.InvalidInput>()
+                }
+            }
+        }
+
+        test("createInvite rejects a non-positive expiresInDays") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val svc = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    svc.createInvite("a@b.c", "A", UserRole.MEMBER, 0).shouldFail<InviteError.InvalidInput>()
+                    svc.createInvite("a@b.c", "A", UserRole.MEMBER, -1).shouldFail<InviteError.InvalidInput>()
+                }
+            }
+        }
+
         test("listInvites returns created invites with derived status PENDING") {
             withInMemoryDatabase {
                 val db = this

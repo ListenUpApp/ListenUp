@@ -80,6 +80,8 @@ class InviteServiceImpl(
         requireAdmin()?.let { return it }
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         if (!Email.isLikelyEmail(email)) return AppResult.Failure(InviteError.InvalidInput())
+        if (displayName.isBlank()) return AppResult.Failure(InviteError.InvalidInput())
+        if (expiresInDays != null && expiresInDays <= 0) return AppResult.Failure(InviteError.InvalidInput())
         val now = clock.now()
         return suspendTransaction(db) {
             val invite =
