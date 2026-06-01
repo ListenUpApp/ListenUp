@@ -96,6 +96,7 @@ fun authModule(config: ApplicationConfig): Module =
                 sessions = get(),
                 settings = get(),
                 registrationBroadcaster = get(),
+                bus = get(),
                 clock = get(),
             )
         }
