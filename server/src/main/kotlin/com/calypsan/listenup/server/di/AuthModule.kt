@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -67,12 +68,15 @@ fun authModule(config: ApplicationConfig): Module =
 
         single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
 
+        single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
+
         single {
             AuthServiceImpl(
                 db = get(),
                 sessions = get(),
                 hasher = get(),
                 jwt = get(),
+                sessionIssuer = get(),
                 clock = get(),
                 settings = get(),
             )

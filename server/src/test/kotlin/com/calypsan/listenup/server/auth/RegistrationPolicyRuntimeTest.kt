@@ -57,6 +57,7 @@ private fun makeAuthService(
         sessions = sessions,
         hasher = hasher,
         jwt = jwt,
+        sessionIssuer = SessionIssuer(sessions, jwt, clock),
         clock = clock,
         settings = settings,
     )
