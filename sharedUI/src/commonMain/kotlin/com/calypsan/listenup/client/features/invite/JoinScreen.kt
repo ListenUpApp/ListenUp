@@ -23,8 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,8 +55,11 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * Drives [ClaimInviteViewModel] through lookup → preview → claim. When the app
  * is opened via an invite deep link the [initialCode] is supplied and the screen
- * auto-submits it, landing directly on the [ClaimInviteUiState.Preview] step. With
- * no code (manual entry) the screen opens on a code-entry field.
+ * auto-submits it via [ClaimInviteViewModel.start], landing directly on the
+ * [ClaimInviteUiState.Preview] step. The deep link also carries its own [serverUrl];
+ * the ViewModel persists it before the lookup so the RPC factory can resolve a base
+ * URL even on a fresh install. With no code (manual entry) the screen opens on a
+ * code-entry field.
  *
  * A successful claim lands the user logged-in (the repository persists the issued
  * session); the screen signals that via [onClaimed] so the host can dismiss the
@@ -67,6 +68,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onClaimed Invoked once when the claim succeeds.
  * @param onCancel Invoked when the user backs out of the flow.
  * @param initialCode Optional deep-link code; auto-submitted for lookup on first composition.
+ * @param serverUrl Optional deep-link server URL; persisted before lookup so the
+ *   anonymous RPC surface has a base URL to connect to on a fresh install.
  */
 @Composable
 fun JoinScreen(
@@ -74,15 +77,17 @@ fun JoinScreen(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     initialCode: String? = null,
+    serverUrl: String? = null,
     viewModel: ClaimInviteViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // Deep-link entry contract: when a code arrives with the link, submit it
-    // immediately so the user lands on the Preview step rather than an empty field.
-    LaunchedEffect(initialCode) {
+    // Deep-link entry contract: when a code arrives with the link, hand it to the
+    // ViewModel's start() so the server URL is persisted before the lookup fires,
+    // landing the user on Preview rather than an empty field.
+    LaunchedEffect(initialCode, serverUrl) {
         if (!initialCode.isNullOrBlank()) {
-            viewModel.onCodeEntered(initialCode)
+            viewModel.start(serverUrl = serverUrl, code = initialCode)
         }
     }
 
@@ -108,7 +113,6 @@ fun JoinScreen(
         is ClaimInviteUiState.Preview -> {
             ClaimFormContent(
                 preview = current.preview,
-                isSubmitting = false,
                 onClaim = viewModel::onClaimSubmit,
                 onCancel = onCancel,
                 modifier = modifier,
@@ -193,7 +197,6 @@ private fun CodeEntryContent(
 @Composable
 private fun ClaimFormContent(
     preview: InvitePreview,
-    isSubmitting: Boolean,
     onClaim: (password: String, displayName: String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
@@ -235,7 +238,6 @@ private fun ClaimFormContent(
                 value = displayName,
                 onValueChange = { displayName = it },
                 label = "Display name",
-                enabled = !isSubmitting,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 keyboardActions =
                     KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -246,7 +248,6 @@ private fun ClaimFormContent(
                 value = password,
                 onValueChange = { password = it },
                 label = "Password",
-                enabled = !isSubmitting,
                 supportingText = "At least 8 characters",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions =
@@ -258,7 +259,7 @@ private fun ClaimFormContent(
                     KeyboardActions(
                         onDone = {
                             focusManager.clearFocus()
-                            if (!isSubmitting) onClaim(password, displayName.ifBlank { null })
+                            onClaim(password, displayName.ifBlank { null })
                         },
                     ),
                 modifier = Modifier.fillMaxWidth(),
@@ -267,14 +268,11 @@ private fun ClaimFormContent(
             ListenUpButton(
                 onClick = { onClaim(password, displayName.ifBlank { null }) },
                 text = "Get started",
-                enabled = !isSubmitting,
-                isLoading = isSubmitting,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             OutlinedButton(
                 onClick = onCancel,
-                enabled = !isSubmitting,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Cancel")
@@ -402,7 +400,6 @@ private fun CenteredCard(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) },
     ) { innerPadding ->
         Column(
             modifier =

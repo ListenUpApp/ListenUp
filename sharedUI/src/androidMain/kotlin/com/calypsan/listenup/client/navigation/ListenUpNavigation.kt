@@ -30,7 +30,6 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
@@ -200,11 +199,12 @@ private fun PendingApprovalNavigation(
  * Navigation for the invite-claim flow.
  *
  * Shows [JoinScreen] and handles completion/cancellation. The RPC invite vertical
- * reads the server URL from [ServerConfig], so the deep-link's server URL is
- * applied before the screen's lookup fires. On a successful claim the repository
- * persists the issued session (AuthState → Authenticated); once [JoinScreen]
- * reports the claim via `onClaimed`, the invite is consumed and auth-state routing
- * takes over.
+ * reads the server URL from [ServerConfig]; the deep link carries its own URL, so
+ * [JoinScreen] hands both URL and code to the ViewModel's `start`, which
+ * persists the URL before the lookup runs (one coroutine, deterministic order —
+ * no race on a fresh install). On a successful claim the repository persists the
+ * issued session (AuthState → Authenticated); once [JoinScreen] reports the claim
+ * via `onClaimed`, the invite is consumed and auth-state routing takes over.
  */
 @Composable
 private fun JoinNavigation(
@@ -212,18 +212,12 @@ private fun JoinNavigation(
     inviteCode: String,
     onComplete: () -> Unit,
     onCancel: () -> Unit,
-    serverConfig: ServerConfig = koinInject(),
 ) {
-    // The deep link carries the server URL; the RPC factory resolves the active
-    // URL from ServerConfig, so apply it before the lookup runs.
-    LaunchedEffect(serverUrl) {
-        serverConfig.setServerUrl(ServerUrl(serverUrl))
-    }
-
     JoinScreen(
         onClaimed = onComplete,
         onCancel = onCancel,
         initialCode = inviteCode,
+        serverUrl = serverUrl,
     )
 }
 

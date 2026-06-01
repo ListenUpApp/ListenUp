@@ -61,6 +61,7 @@ val authPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel(
                 repository = get(),
+                serverConfig = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

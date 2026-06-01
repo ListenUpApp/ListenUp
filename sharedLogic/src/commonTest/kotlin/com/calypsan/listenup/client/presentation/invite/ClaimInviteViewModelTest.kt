@@ -14,11 +14,15 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.ServerUrl
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +76,7 @@ class ClaimInviteViewModelTest :
 
         test("initial state is Idle") {
             val repo = mock<InviteRepository>()
-            val vm = ClaimInviteViewModel(repo)
+            val vm = ClaimInviteViewModel(repo, mock())
 
             vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Idle>()
         }
@@ -81,7 +85,7 @@ class ClaimInviteViewModelTest :
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
-                val vm = ClaimInviteViewModel(repo)
+                val vm = ClaimInviteViewModel(repo, mock())
 
                 vm.state.test {
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Idle>()
@@ -99,7 +103,7 @@ class ClaimInviteViewModelTest :
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns
                     AppResult.Failure(InternalError(correlationId = "corr-1"))
-                val vm = ClaimInviteViewModel(repo)
+                val vm = ClaimInviteViewModel(repo, mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -115,7 +119,7 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val vm = ClaimInviteViewModel(repo)
+                val vm = ClaimInviteViewModel(repo, mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -136,7 +140,7 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Failure(AuthError.InvalidCredentials())
-                val vm = ClaimInviteViewModel(repo)
+                val vm = ClaimInviteViewModel(repo, mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -151,12 +155,71 @@ class ClaimInviteViewModelTest :
         test("onClaimSubmit before a code is known is a no-op") {
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
-                val vm = ClaimInviteViewModel(repo)
+                val vm = ClaimInviteViewModel(repo, mock())
 
                 vm.onClaimSubmit("password123", null)
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Idle>()
+            }
+        }
+
+        // Deep-link claim race guard: the server URL the link carries MUST be
+        // persisted (and applied to ServerConfig) before the invite lookup runs,
+        // otherwise the RPC factory can't resolve a base URL on a fresh install
+        // and the claim lands on Error instead of Preview. Both calls record into
+        // a shared sequence so the assertion fails if the order is ever reversed.
+        test("start persists the server URL before looking up the invite") {
+            runTest(testDispatcher) {
+                val events = mutableListOf<String>()
+
+                val serverConfig =
+                    mock<ServerConfig> {
+                        everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                    }
+                val repo =
+                    mock<InviteRepository> {
+                        everySuspend { lookupInvite(any()) } calls
+                            {
+                                events.add("lookupInvite")
+                                AppResult.Success(fakePreview())
+                            }
+                    }
+                val vm = ClaimInviteViewModel(repo, serverConfig)
+
+                vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                events shouldContainInOrder listOf("setServerUrl", "lookupInvite")
+                vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
+            }
+        }
+
+        // Manual (non-deeplink) entry presumes ServerConfig is already set, so a
+        // null server URL must skip setServerUrl entirely and go straight to lookup.
+        test("start with a null server URL skips setServerUrl and looks up directly") {
+            runTest(testDispatcher) {
+                val events = mutableListOf<String>()
+
+                val serverConfig =
+                    mock<ServerConfig> {
+                        everySuspend { setServerUrl(any()) } calls { events.add("setServerUrl") }
+                    }
+                val repo =
+                    mock<InviteRepository> {
+                        everySuspend { lookupInvite(any()) } calls
+                            {
+                                events.add("lookupInvite")
+                                AppResult.Success(fakePreview())
+                            }
+                    }
+                val vm = ClaimInviteViewModel(repo, serverConfig)
+
+                vm.start(serverUrl = null, code = INVITE_CODE)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                events shouldBe listOf("lookupInvite")
+                vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
             }
         }
     })
