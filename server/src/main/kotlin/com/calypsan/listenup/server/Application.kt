@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
@@ -205,6 +206,7 @@ fun Application.module() {
     val sessions by inject<SessionService>()
     val authService by inject<AuthServiceImpl>()
     val adminUserService by inject<AdminUserServiceImpl>()
+    val instanceService by inject<InstanceService>()
 
     installJwtAuth(jwt, sessions)
 
@@ -232,11 +234,12 @@ fun Application.module() {
 
     routing {
         healthRoutes()
-        instanceRoutes()
+        instanceRoutes(instanceService)
         sseRoutes()
         authRoutes(authService)
         rpcRoutes(
             authService,
+            instanceService,
             scannerService,
             bookService,
             contributorService,

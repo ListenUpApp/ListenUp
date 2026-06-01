@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -69,6 +70,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 @Suppress("CognitiveComplexMethod", "CyclomaticComplexMethod", "LongParameterList")
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
+    instanceService: InstanceService,
     scannerService: ScannerService? = null,
     bookService: BookService? = null,
     contributorService: ContributorService? = null,
@@ -86,6 +88,7 @@ fun Route.rpcRoutes(
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
         registerService<PingService> { guard(PingServiceImpl()) }
+        registerService<InstanceService> { guard(instanceService) }
         registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }
         if (scannerService != null) {
             registerService<ScannerService> { guard(scannerService) }
