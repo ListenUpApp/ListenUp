@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
-import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.LegacyInviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
  * causing automatic navigation to the Library screen.
  */
 class InviteRegistrationViewModel(
-    private val inviteRepository: InviteRepository,
+    private val inviteRepository: LegacyInviteRepository,
     private val serverConfig: ServerConfig,
     private val serverUrl: String,
     private val inviteCode: String,

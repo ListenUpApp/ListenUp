@@ -8,7 +8,7 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.InviteDetails
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.LegacyInviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -51,7 +51,7 @@ private fun fakeUser(): User =
 
 /**
  * Tests for [InviteRegistrationViewModel] — drives the two-phase load + submit
- * flow over [InviteRepository]. The repository returns [AppResult]; the VM
+ * flow over [LegacyInviteRepository]. The repository returns [AppResult]; the VM
  * maps [AppResult.Failure] to typed [InviteErrorType] via the [AppError] hierarchy.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -64,7 +64,7 @@ class InviteRegistrationViewModelTest :
         afterTest { Dispatchers.resetMain() }
 
         fun newVm(
-            inviteRepository: InviteRepository = mock(),
+            inviteRepository: LegacyInviteRepository = mock(),
             serverConfig: ServerConfig = mock(),
             errorBus: ErrorBus = ErrorBus(),
         ): InviteRegistrationViewModel =
@@ -80,7 +80,7 @@ class InviteRegistrationViewModelTest :
 
         test("init loads invite details and lands on Ready when valid") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails(valid = true))
                 val vm = newVm(inviteRepository = invites)
@@ -94,7 +94,7 @@ class InviteRegistrationViewModelTest :
 
         test("invalid invite lands on Invalid with friendly message") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails(valid = false))
                 val vm = newVm(inviteRepository = invites)
@@ -107,7 +107,7 @@ class InviteRegistrationViewModelTest :
 
         test("repository failure during load lands on LoadError with typed message") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Failure(TransportError.NetworkUnavailable())
                 val vm = newVm(inviteRepository = invites)
@@ -123,7 +123,7 @@ class InviteRegistrationViewModelTest :
 
         test("password shorter than minimum surfaces ValidationError(PASSWORD)") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
                 val vm = newVm(inviteRepository = invites)
@@ -140,7 +140,7 @@ class InviteRegistrationViewModelTest :
 
         test("mismatched passwords surface PasswordMismatch") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
                 val vm = newVm(inviteRepository = invites)
@@ -155,7 +155,7 @@ class InviteRegistrationViewModelTest :
 
         test("successful submission transitions Ready to Submitting to Submitted") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
@@ -177,7 +177,7 @@ class InviteRegistrationViewModelTest :
 
         test("claimInvite 4xx failure surfaces InviteInvalid") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
@@ -197,7 +197,7 @@ class InviteRegistrationViewModelTest :
 
         test("claimInvite timeout maps to NetworkError") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
@@ -217,7 +217,7 @@ class InviteRegistrationViewModelTest :
 
         test("claimInvite 5xx maps to ServerError with typed message") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
@@ -238,7 +238,7 @@ class InviteRegistrationViewModelTest :
 
         test("clearError on SubmitError returns to Ready with the same details") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())
@@ -260,7 +260,7 @@ class InviteRegistrationViewModelTest :
 
         test("submission persists serverUrl via ServerConfig before claim") {
             runTest(testDispatcher) {
-                val invites = mock<InviteRepository>()
+                val invites = mock<LegacyInviteRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { invites.getInviteDetails(SERVER_URL, INVITE_CODE) } returns
                     AppResult.Success(fakeInviteDetails())

@@ -243,9 +243,11 @@ val networkModule =
         // Server URL comes from deep link, not stored settings
         single { InviteApi() } bind InviteApiContract::class
 
-        // InviteRepository - REST-backed; persists tokens and user on successful claim
-        single<com.calypsan.listenup.client.domain.repository.InviteRepository> {
-            com.calypsan.listenup.client.data.repository.InviteRepositoryImpl(
+        // LegacyInviteRepository - REST-backed; persists tokens and user on successful claim.
+        // Retained for the deep-link registration flow until that vertical is replaced by
+        // the contract-typed InviteRepository (see clientAuthModule).
+        single<com.calypsan.listenup.client.domain.repository.LegacyInviteRepository> {
+            com.calypsan.listenup.client.data.repository.LegacyInviteRepositoryImpl(
                 inviteApi = get(),
                 authSession = get(),
                 userRepository = get(),

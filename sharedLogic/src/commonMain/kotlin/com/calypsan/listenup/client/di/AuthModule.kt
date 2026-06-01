@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorInviteRpcFactory
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
+import com.calypsan.listenup.client.data.repository.InviteRepositoryImpl
 import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
@@ -34,9 +38,10 @@ import org.koin.dsl.module
  *  - `ApiClientFactory` — bearer-equipped HttpClient consumed by every API,
  *    not just auth. Its refresh-callback `{ get<AuthRepository>() … }` resolves
  *    across module boundaries at runtime, which is standard Koin.
- *  - `InviteApi` / `InviteRepository` — invite is its own domain that happens
- *    to call `AuthSession.saveAuthTokens` on a successful claim. Tracked for
- *    its own migration phase.
+ *  - `LegacyInviteRepository` / `InviteApi` — the REST-backed deep-link
+ *    registration vertical, wired in `Koin.kt`'s `networkModule`. Retired in
+ *    favour of the contract-typed [InviteRpcFactory] / [InviteRepository] below,
+ *    which live here because a successful claim calls `AuthSession.saveAuthTokens`.
  */
 val clientAuthModule: Module
     // Defined as a getter (not a backing field) so each access produces a fresh
@@ -67,6 +72,17 @@ val clientAuthModule: Module
 
             // Thin RPC adapter — translates contract calls into typed AppResult.
             singleOf(::AuthRepositoryImpl) bind AuthRepository::class
+
+            // Contract-typed invite claim vertical. The RPC factory mounts the
+            // public InviteServicePublic proxy; the repository lands the user
+            // logged-in on a successful claim via AuthSession.saveAuthTokens.
+            single<InviteRpcFactory> {
+                KtorInviteRpcFactory(
+                    apiClientFactory = get(),
+                    serverConfig = get(),
+                )
+            }
+            singleOf(::InviteRepositoryImpl) bind InviteRepository::class
 
             // SSE stream for the pending-approval flow.
             singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class
