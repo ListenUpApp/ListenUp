@@ -4,13 +4,16 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
+import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
+import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.server.api.InstanceServiceImpl
+import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -72,12 +75,15 @@ fun authModule(config: ApplicationConfig): Module =
 
         single { ServerSettingsRepository(db = get(), default = config.registrationPolicy()) }
 
+        single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
+
         single {
             AuthServiceImpl(
                 db = get(),
                 sessions = get(),
                 hasher = get(),
                 jwt = get(),
+                sessionIssuer = get(),
                 clock = get(),
                 settings = get(),
             )
@@ -88,6 +94,19 @@ fun authModule(config: ApplicationConfig): Module =
                 db = get(),
                 sessions = get(),
                 settings = get(),
+                clock = get(),
+            )
+        }
+
+        single { InviteCodeGenerator() }
+
+        single {
+            InviteServiceImpl(
+                db = get(),
+                codeGenerator = get(),
+                hasher = get(),
+                sessionIssuer = get(),
+                serverName = config.serverName(),
                 clock = get(),
             )
         }
@@ -104,10 +123,16 @@ fun authModule(config: ApplicationConfig): Module =
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
 
+private const val DEFAULT_SERVER_NAME = "ListenUp"
+
 private fun ApplicationConfig.registrationPolicy(): RegistrationPolicy {
     val raw = propertyOrNull("registration.policy")?.getString() ?: return RegistrationPolicy.OPEN
     return runCatching { RegistrationPolicy.valueOf(raw) }.getOrDefault(RegistrationPolicy.OPEN)
 }
+
+/** The instance's display name, shown on the invite landing page. Defaults to [DEFAULT_SERVER_NAME]. */
+private fun ApplicationConfig.serverName(): String =
+    propertyOrNull("app.serverName")?.getString()?.takeIf { it.isNotBlank() } ?: DEFAULT_SERVER_NAME
 
 /**
  * The effective JDBC URL: an explicit `database.jdbcUrl` (tests inject this) wins;

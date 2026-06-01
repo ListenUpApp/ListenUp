@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.api.InviteService
+import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -24,6 +26,7 @@ import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
+import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
@@ -67,7 +70,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
  * service (bugs, infra faults), logs it server-side with the correlation id,
  * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
  */
-@Suppress("CognitiveComplexMethod", "CyclomaticComplexMethod", "LongParameterList")
+@Suppress("LongParameterList")
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     instanceService: InstanceService,
@@ -84,121 +87,185 @@ fun Route.rpcRoutes(
     genreService: GenreService? = null,
     collectionService: CollectionService? = null,
     adminUserService: AdminUserService? = null,
+    inviteService: InviteServiceImpl? = null,
+) {
+    publicRpc(authService, instanceService, scannerService, inviteService)
+    authenticate(JWT_PROVIDER) {
+        authedRpc(
+            authService,
+            bookService,
+            contributorService,
+            seriesService,
+            playbackService,
+            playbackProgressService,
+            metadataLookupService,
+            searchService,
+            libraryAdminService,
+            tagService,
+            genreService,
+            collectionService,
+            adminUserService,
+            inviteService,
+        )
+    }
+}
+
+/**
+ * Mounts the anonymous `/api/rpc/public` services: ping, instance verification, public auth,
+ * and (when wired) the public invite surface + scanner.
+ */
+private fun Route.publicRpc(
+    authService: AuthServiceImpl,
+    instanceService: InstanceService,
+    scannerService: ScannerService?,
+    inviteService: InviteServiceImpl?,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
         registerService<PingService> { guard(PingServiceImpl()) }
         registerService<InstanceService> { guard(instanceService) }
         registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }
+        if (inviteService != null) {
+            registerService<InviteServicePublic> { guard(inviteService as InviteServicePublic) }
+        }
         if (scannerService != null) {
             registerService<ScannerService> { guard(scannerService) }
         }
     }
+}
 
-    authenticate(JWT_PROVIDER) {
-        rpc("/api/rpc/authed") {
-            rpcConfig { serialization { json(contractJson) } }
-            registerService<AuthServiceAuthed> {
+/**
+ * Mounts the JWT-gated `/api/rpc/authed` services. Each factory scopes its service to the
+ * call's principal via `copyWith`; an absent principal here is an auth-wall regression.
+ * Must be called inside `authenticate(JWT_PROVIDER)`.
+ */
+@Suppress("CognitiveComplexMethod", "CyclomaticComplexMethod", "LongParameterList", "LongMethod")
+private fun Route.authedRpc(
+    authService: AuthServiceImpl,
+    bookService: BookService?,
+    contributorService: ContributorService?,
+    seriesService: SeriesService?,
+    playbackService: PlaybackService?,
+    playbackProgressService: PlaybackProgressService?,
+    metadataLookupService: MetadataLookupService?,
+    searchService: SearchService?,
+    libraryAdminService: LibraryAdminService?,
+    tagService: TagService?,
+    genreService: GenreService?,
+    collectionService: CollectionService?,
+    adminUserService: AdminUserService?,
+    inviteService: InviteServiceImpl?,
+) {
+    rpc("/api/rpc/authed") {
+        rpcConfig { serialization { json(contractJson) } }
+        registerService<AuthServiceAuthed> {
+            val p =
+                call.userPrincipalOrNull()
+                    ?: error(AUTH_WALL_REGRESSION_MSG)
+            guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
+        }
+        if (bookService != null) {
+            registerService<BookService> {
                 val p =
                     call.userPrincipalOrNull()
                         ?: error(AUTH_WALL_REGRESSION_MSG)
-                guard(authService.copyWith(PrincipalProvider { p }) as AuthServiceAuthed)
+                guard((bookService as BookServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (bookService != null) {
-                registerService<BookService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((bookService as BookServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (contributorService != null) {
+            registerService<ContributorService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((contributorService as ContributorServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (contributorService != null) {
-                registerService<ContributorService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((contributorService as ContributorServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (seriesService != null) {
+            registerService<SeriesService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((seriesService as SeriesServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (seriesService != null) {
-                registerService<SeriesService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((seriesService as SeriesServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (playbackService != null) {
+            registerService<PlaybackService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((playbackService as PlaybackServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (playbackService != null) {
-                registerService<PlaybackService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((playbackService as PlaybackServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (playbackProgressService != null) {
+            registerService<PlaybackProgressService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((playbackProgressService as PlaybackProgressServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (playbackProgressService != null) {
-                registerService<PlaybackProgressService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((playbackProgressService as PlaybackProgressServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (metadataLookupService != null) {
+            registerService<MetadataLookupService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((metadataLookupService as MetadataLookupServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (metadataLookupService != null) {
-                registerService<MetadataLookupService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((metadataLookupService as MetadataLookupServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (searchService != null) {
+            registerService<SearchService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((searchService as SearchServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (searchService != null) {
-                registerService<SearchService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((searchService as SearchServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (libraryAdminService != null) {
+            registerService<LibraryAdminService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((libraryAdminService as LibraryAdminServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (libraryAdminService != null) {
-                registerService<LibraryAdminService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((libraryAdminService as LibraryAdminServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (tagService != null) {
+            registerService<TagService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((tagService as TagServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (tagService != null) {
-                registerService<TagService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((tagService as TagServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (genreService != null) {
+            registerService<GenreService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((genreService as GenreServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (genreService != null) {
-                registerService<GenreService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((genreService as GenreServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (collectionService != null) {
+            registerService<CollectionService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((collectionService as CollectionServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (collectionService != null) {
-                registerService<CollectionService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((collectionService as CollectionServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (adminUserService != null) {
+            registerService<AdminUserService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard((adminUserService as AdminUserServiceImpl).copyWith(PrincipalProvider { p }))
             }
-            if (adminUserService != null) {
-                registerService<AdminUserService> {
-                    val p =
-                        call.userPrincipalOrNull()
-                            ?: error(AUTH_WALL_REGRESSION_MSG)
-                    guard((adminUserService as AdminUserServiceImpl).copyWith(PrincipalProvider { p }))
-                }
+        }
+        if (inviteService != null) {
+            registerService<InviteService> {
+                val p =
+                    call.userPrincipalOrNull()
+                        ?: error(AUTH_WALL_REGRESSION_MSG)
+                guard(inviteService.copyWith(PrincipalProvider { p }) as InviteService)
             }
         }
     }

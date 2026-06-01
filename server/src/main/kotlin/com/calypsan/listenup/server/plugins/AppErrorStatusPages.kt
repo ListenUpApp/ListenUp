@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -87,6 +88,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is AdminError -> toHttpStatus()
 
+        is InviteError -> toHttpStatus()
+
         is BookError -> toHttpStatus()
 
         is CoverError -> toHttpStatus()
@@ -125,6 +128,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is TagError -> withCorrelationId(id)
         is CollectionError -> withCorrelationId(id)
         is AdminError -> withCorrelationId(id)
+        is InviteError -> withCorrelationId(id)
         is BookError -> withCorrelationId(id)
         is CoverError -> withCorrelationId(id)
         is ContributorError -> withCorrelationId(id)
@@ -461,4 +465,22 @@ private fun AdminError.withCorrelationId(id: String?): AdminError =
         is AdminError.CannotDeleteSelf -> copy(correlationId = id)
         is AdminError.CannotDeleteLastAdmin -> copy(correlationId = id)
         is AdminError.InvalidInput -> copy(correlationId = id)
+    }
+
+private fun InviteError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is InviteError.NotFound -> HttpStatusCode.NotFound
+        is InviteError.Expired -> HttpStatusCode.Conflict
+        is InviteError.AlreadyClaimed -> HttpStatusCode.Conflict
+        is InviteError.EmailInUse -> HttpStatusCode.Conflict
+        is InviteError.InvalidInput -> HttpStatusCode.BadRequest
+    }
+
+private fun InviteError.withCorrelationId(id: String?): InviteError =
+    when (this) {
+        is InviteError.NotFound -> copy(correlationId = id)
+        is InviteError.Expired -> copy(correlationId = id)
+        is InviteError.AlreadyClaimed -> copy(correlationId = id)
+        is InviteError.EmailInUse -> copy(correlationId = id)
+        is InviteError.InvalidInput -> copy(correlationId = id)
     }

@@ -47,6 +47,7 @@ class AuthServiceImpl(
     internal val sessions: SessionService,
     internal val hasher: PasswordHasher,
     internal val jwt: JwtConfiguration,
+    internal val sessionIssuer: SessionIssuer,
     internal val clock: Clock = Clock.System,
     internal val settings: ServerSettingsRepository,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
@@ -76,7 +77,7 @@ class AuthServiceImpl(
         }
 
         markLastLogin(user.id.value)
-        return AppResult.Success(issueSession(user, label = request.sessionLabel))
+        return AppResult.Success(sessionIssuer.issue(user, label = request.sessionLabel))
     }
 
     override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> {
@@ -130,7 +131,7 @@ class AuthServiceImpl(
             if (user.status == UserStatusColumn.PENDING_APPROVAL) {
                 RegisterResult.PendingApproval(userId = UserId(user.id.value))
             } else {
-                RegisterResult.Authenticated(issueSession(user, label = request.sessionLabel))
+                RegisterResult.Authenticated(sessionIssuer.issue(user, label = request.sessionLabel))
             }
         return AppResult.Success(outcome)
     }
@@ -159,7 +160,7 @@ class AuthServiceImpl(
                     updatedAt = now
                 }
             }
-        return AppResult.Success(issueSession(user, label = request.sessionLabel))
+        return AppResult.Success(sessionIssuer.issue(user, label = request.sessionLabel))
     }
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
@@ -212,6 +213,7 @@ class AuthServiceImpl(
             sessions = sessions,
             hasher = hasher,
             jwt = jwt,
+            sessionIssuer = sessionIssuer,
             clock = clock,
             settings = settings,
             principalProvider = provider,
@@ -239,25 +241,6 @@ class AuthServiceImpl(
                 )
             }
         return AppResult.Success(list)
-    }
-
-    private suspend fun issueSession(
-        userEntity: UserEntity,
-        label: String?,
-    ): AuthSession {
-        val userId = UserId(userEntity.id.value)
-        val role = userEntity.role.toContract()
-        val issued = sessions.createSession(userId, label = label)
-        val accessJwt = jwt.issue(userId = userId, sessionId = issued.sessionId, role = role)
-        val expiresAt = (clock.now() + jwt.accessTokenTtl).toEpochMilliseconds()
-        return AuthSession(
-            accessToken = AccessToken(accessJwt),
-            accessTokenExpiresAt = expiresAt,
-            refreshToken = issued.refreshToken,
-            refreshTokenExpiresAt = issued.expiresAt,
-            sessionId = issued.sessionId,
-            user = userEntity.toContract(),
-        )
     }
 
     private suspend fun markLastLogin(userId: String) {

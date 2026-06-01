@@ -38,8 +38,6 @@ import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
-import com.calypsan.listenup.client.data.remote.InviteApi
-import com.calypsan.listenup.client.data.remote.InviteApiContract
 import com.calypsan.listenup.client.data.remote.ShelfApi
 import com.calypsan.listenup.client.data.remote.ShelfApiContract
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
@@ -241,19 +239,6 @@ val dataModule =
  */
 val networkModule =
     module {
-        // InviteApi - handles public invite operations (no auth required)
-        // Server URL comes from deep link, not stored settings
-        single { InviteApi() } bind InviteApiContract::class
-
-        // InviteRepository - REST-backed; persists tokens and user on successful claim
-        single<com.calypsan.listenup.client.domain.repository.InviteRepository> {
-            com.calypsan.listenup.client.data.repository.InviteRepositoryImpl(
-                inviteApi = get(),
-                authSession = get(),
-                userRepository = get(),
-            )
-        }
-
         // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
         //
         // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at

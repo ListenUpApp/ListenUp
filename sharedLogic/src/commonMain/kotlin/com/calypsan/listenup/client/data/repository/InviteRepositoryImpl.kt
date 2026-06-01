@@ -1,91 +1,61 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.dto.auth.AccessToken
-import com.calypsan.listenup.api.dto.auth.RefreshToken
-import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.map
-import com.calypsan.listenup.client.data.remote.InviteApiContract
-import com.calypsan.listenup.client.data.remote.InviteClaimedUser
-import com.calypsan.listenup.client.domain.model.InviteDetails
-import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.invite.InvitePreview
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.domain.repository.InviteRepository
-import com.calypsan.listenup.client.domain.repository.UserRepository
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
-import com.calypsan.listenup.client.data.remote.InviteDetails as ApiInviteDetails
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
+
+private val logger = KotlinLogging.logger {}
 
 /**
- * REST-backed [InviteRepository]. On `claimInvite` success we persist the
- * issued tokens and the new user locally so the call site doesn't need to
- * thread session machinery — invite acceptance is a registration + login
- * combined, and the side-effect lives with the operation.
+ * Thin adapter over [InviteRpcFactory] — dispatches lookup/claim through the
+ * public RPC proxy. On a successful claim the issued session is persisted via
+ * [ClientAuthSession.saveAuthTokens], landing the user logged-in exactly like
+ * login does. Transport failures collapse to `AppResult.Failure(InternalError)`
+ * so callers never see a raw exception across the wire.
+ *
+ * Per kotlinx.coroutines convention, `CancellationException` is re-thrown.
  */
 class InviteRepositoryImpl(
-    private val inviteApi: InviteApiContract,
-    private val authSession: AuthSession,
-    private val userRepository: UserRepository,
+    private val rpc: InviteRpcFactory,
+    private val authSession: ClientAuthSession,
 ) : InviteRepository {
-    override suspend fun getInviteDetails(
-        serverUrl: String,
-        code: String,
-    ): AppResult<InviteDetails> =
-        inviteApi
-            .getInviteDetails(serverUrl, code)
-            .map { it.toDomain() }
+    override suspend fun lookupInvite(code: String): AppResult<InvitePreview> =
+        catching("lookupInvite") { rpc.publicService().lookupInvite(code) }
 
     override suspend fun claimInvite(
-        serverUrl: String,
         code: String,
         password: String,
-    ): AppResult<User> {
-        val result = inviteApi.claimInvite(serverUrl, code, password)
-        return when (result) {
-            is AppResult.Success -> {
-                val response = result.data
-                authSession.saveAuthTokens(
-                    access = AccessToken(response.accessToken),
-                    refresh = RefreshToken(response.refreshToken),
-                    sessionId = response.sessionId,
-                    userId = response.userId,
-                )
-                val user = response.user.toDomain()
-                userRepository.saveUser(user)
-                AppResult.Success(user)
-            }
-
-            is AppResult.Failure -> {
-                result
-            }
+        displayName: String?,
+    ): AppResult<AuthSession> {
+        val result = catching("claimInvite") { rpc.publicService().claimInvite(code, password, displayName) }
+        if (result is AppResult.Success) {
+            val session = result.data
+            authSession.saveAuthTokens(
+                access = session.accessToken,
+                refresh = session.refreshToken,
+                sessionId = session.sessionId.value,
+                userId = session.user.id.value,
+            )
         }
+        return result
     }
+
+    private suspend inline fun <T> catching(
+        op: String,
+        block: () -> AppResult<T>,
+    ): AppResult<T> =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "invite $op failed at the transport boundary" }
+            AppResult.Failure(InternalError())
+        }
 }
-
-private fun ApiInviteDetails.toDomain(): InviteDetails =
-    InviteDetails(
-        name = name,
-        email = email,
-        serverName = serverName,
-        invitedBy = invitedBy,
-        valid = valid,
-    )
-
-@OptIn(ExperimentalTime::class)
-private fun InviteClaimedUser.toDomain(): User =
-    User(
-        id = UserId(id),
-        email = email,
-        displayName = displayName,
-        firstName = firstName.ifEmpty { null },
-        lastName = lastName.ifEmpty { null },
-        isAdmin = isRoot,
-        avatarType = avatarType,
-        avatarValue = avatarValue,
-        avatarColor = avatarColor,
-        tagline = null,
-        createdAtMs = Instant.parse(createdAt).toEpochMilliseconds(),
-        updatedAtMs = Instant.parse(updatedAt).toEpochMilliseconds(),
-    )

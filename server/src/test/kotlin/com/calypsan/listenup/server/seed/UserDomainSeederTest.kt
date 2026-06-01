@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserTable
@@ -115,6 +116,7 @@ private fun newAuthService(db: Database): AuthServiceImpl {
         sessions = sessions,
         hasher = hasher,
         jwt = jwt,
+        sessionIssuer = SessionIssuer(sessions, jwt, clock),
         clock = clock,
         settings = settings,
     )

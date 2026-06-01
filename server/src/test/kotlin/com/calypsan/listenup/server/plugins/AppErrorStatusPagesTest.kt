@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import io.kotest.core.spec.style.FunSpec
@@ -133,6 +134,28 @@ class AppErrorStatusPagesTest :
             val stamped = err.withCorrelationId("corr-admin")
             stamped.shouldBeInstanceOf<AdminError.CannotModifyRoot>()
             stamped.correlationId shouldBe "corr-admin"
+        }
+
+        test("InviteError.NotFound maps to 404 NotFound") {
+            val err: AppError = InviteError.NotFound()
+            err.toHttpStatus() shouldBe HttpStatusCode.NotFound
+        }
+
+        test("InviteError.Expired maps to 409 Conflict") {
+            val err: AppError = InviteError.Expired()
+            err.toHttpStatus() shouldBe HttpStatusCode.Conflict
+        }
+
+        test("InviteError.InvalidInput maps to 400 BadRequest") {
+            val err: AppError = InviteError.InvalidInput()
+            err.toHttpStatus() shouldBe HttpStatusCode.BadRequest
+        }
+
+        test("InviteError.withCorrelationId stamps id on AlreadyClaimed") {
+            val err: AppError = InviteError.AlreadyClaimed()
+            val stamped = err.withCorrelationId("corr-invite")
+            stamped.shouldBeInstanceOf<InviteError.AlreadyClaimed>()
+            stamped.correlationId shouldBe "corr-invite"
         }
 
         test("unknown paths return structured JSON 404") {

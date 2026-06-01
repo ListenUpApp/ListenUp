@@ -38,6 +38,7 @@ object UserTable : IdTable<String>("users") {
     val canShare = bool("can_share").default(true)
     val approvedBy = text("approved_by").nullable()
     val approvedAt = long("approved_at").nullable()
+    val invitedBy = text("invited_by").nullable()
     val deletedAt = long("deleted_at").nullable()
 
     override val primaryKey = PrimaryKey(id)
@@ -61,5 +62,6 @@ class UserEntity(
     var canShare by UserTable.canShare
     var approvedBy by UserTable.approvedBy
     var approvedAt by UserTable.approvedAt
+    var invitedBy by UserTable.invitedBy
     var deletedAt by UserTable.deletedAt
 }

@@ -24,7 +24,7 @@ data class InviteDeepLink(
  * 1. App receives intent with invite URL
  * 2. DeepLinkParser extracts server URL and invite code
  * 3. DeepLinkManager stores the pending invite
- * 4. Navigation layer observes pendingInvite and routes to InviteRegistration
+ * 4. Navigation layer observes pendingInvite and routes to the invite-claim screen
  * 5. After processing, consumeInvite() clears the pending state
  *
  * Thread-safe via StateFlow - can be observed from any coroutine context.

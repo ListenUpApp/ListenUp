@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
-import com.calypsan.listenup.client.presentation.invite.InviteRegistrationViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryActionsViewModel
 import com.calypsan.listenup.client.presentation.library.LibrarySelectionManager
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
@@ -59,14 +58,10 @@ val authPresentationModule =
                 email = params.get<String>(1),
             )
         }
-        // InviteRegistrationViewModel - takes serverUrl and inviteCode as parameters
-        factory { params ->
-            InviteRegistrationViewModel(
-                inviteRepository = get(),
+        factory {
+            com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel(
+                repository = get(),
                 serverConfig = get(),
-                serverUrl = params.get<String>(0),
-                inviteCode = params.get<String>(1),
-                errorBus = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

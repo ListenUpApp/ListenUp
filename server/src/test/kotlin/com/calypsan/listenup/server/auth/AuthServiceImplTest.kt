@@ -48,6 +48,7 @@ class AuthServiceImplTest :
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
+                sessionIssuer = SessionIssuer(sessions, jwt, clock),
                 clock = clock,
                 settings = settings,
             )
