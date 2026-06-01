@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.SessionIssuer
@@ -119,6 +120,8 @@ fun authModule(config: ApplicationConfig): Module =
         }
 
         single { ExpiredSessionCleanupTask(sessionService = get(), clock = get()) }
+
+        single { RegistrationBroadcaster() }
     }
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
