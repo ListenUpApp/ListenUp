@@ -48,4 +48,15 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.AccessChanged")
     data object AccessChanged : SyncControl
+
+    /**
+     * The authenticated user's account was deleted by an admin. The client clears auth (logout)
+     * and may surface [reason]. Delivered per-user on the firehose control channel, published
+     * before session revocation so the still-authed connection receives it.
+     */
+    @Serializable
+    @SerialName("SyncControl.UserDeleted")
+    data class UserDeleted(
+        val reason: String? = null,
+    ) : SyncControl
 }

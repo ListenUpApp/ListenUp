@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -149,6 +150,15 @@ class AuthDtoContractTest :
         test("PendingRegistrationDecision round-trips") {
             val d = PendingRegistrationDecision(userId = UserId("u"), approved = true)
             roundTrip(d) shouldBe d
+        }
+
+        test("RegistrationStatusEvent round-trips + emits the expected JSON keys") {
+            val e = RegistrationStatusEvent(status = "approved")
+            contractJson.decodeFromString<RegistrationStatusEvent>(contractJson.encodeToString(e)) shouldBe e
+            // contractJson has encodeDefaults = false, so null timestamp/message are omitted.
+            contractJson.encodeToString(RegistrationStatusEvent(status = "approved")) shouldBe """{"status":"approved"}"""
+            contractJson.encodeToString(RegistrationStatusEvent(status = "denied", message = "no")) shouldBe
+                """{"status":"denied","message":"no"}"""
         }
 
         test("split AuthService interfaces are reachable from commonTest") {

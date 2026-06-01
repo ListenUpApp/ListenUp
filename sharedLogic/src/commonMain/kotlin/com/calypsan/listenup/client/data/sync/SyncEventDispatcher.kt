@@ -59,6 +59,10 @@ class SyncEventDispatcher(
                 logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
                 onAccessChanged()
             }
+
+            is SyncControl.UserDeleted -> {
+                // Handled in MC-T6 (clear auth / logout). No-op for now to keep the when exhaustive.
+            }
         }
     }
 

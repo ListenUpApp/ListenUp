@@ -33,6 +33,13 @@ class SyncControlContractTest :
             decoded shouldBe SyncControl.AccessChanged
         }
 
+        test("UserDeleted round-trips") {
+            val original: SyncControl = SyncControl.UserDeleted(reason = "removed by admin")
+            val json = contractJson.encodeToString(SyncControl.serializer(), original)
+            val decoded = contractJson.decodeFromString(SyncControl.serializer(), json)
+            decoded shouldBe original
+        }
+
         test("Stable discriminators") {
             val stale: SyncControl = SyncControl.CursorStale(0)
             val streamErr: SyncControl = SyncControl.StreamError(InternalError())
@@ -46,5 +53,9 @@ class SyncControlContractTest :
             contractJson
                 .encodeToString(SyncControl.serializer(), accessChanged)
                 .contains("\"type\":\"SyncControl.AccessChanged\"") shouldBe true
+            val userDeleted: SyncControl = SyncControl.UserDeleted()
+            contractJson
+                .encodeToString(SyncControl.serializer(), userDeleted)
+                .contains("\"type\":\"SyncControl.UserDeleted\"") shouldBe true
         }
     })
