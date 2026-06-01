@@ -59,6 +59,11 @@ val authPresentationModule =
                 email = params.get<String>(1),
             )
         }
+        factory {
+            com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel(
+                repository = get(),
+            )
+        }
         // InviteRegistrationViewModel - takes serverUrl and inviteCode as parameters
         factory { params ->
             InviteRegistrationViewModel(

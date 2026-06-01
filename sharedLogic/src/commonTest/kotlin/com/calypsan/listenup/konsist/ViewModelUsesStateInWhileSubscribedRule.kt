@@ -48,6 +48,7 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 "LibrarySettingsViewModel",
                 "AdminSettingsViewModel",
                 "InviteRegistrationViewModel",
+                "ClaimInviteViewModel",
                 "ContributorEditViewModel",
                 "SeriesEditViewModel",
                 "ShelfDetailViewModel",
