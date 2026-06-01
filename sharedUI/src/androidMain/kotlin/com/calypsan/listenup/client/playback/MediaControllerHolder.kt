@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,8 +110,12 @@ class MediaControllerHolder(
 
     internal fun startPositionPolling(controller: MediaController) {
         positionPollJob?.cancel()
+        // Media3's MediaController is single-threaded — isPlaying/currentPosition must
+        // be read on its application thread (the main thread). The injected scope runs
+        // on Dispatchers.IO, so the loop body is pinned to Main.immediate; without this
+        // the poll throws "MediaController method is called from a wrong thread".
         positionPollJob =
-            scope.launch {
+            scope.launch(Dispatchers.Main.immediate) {
                 while (isActive) {
                     if (controller.isPlaying) {
                         playbackManager.updatePosition(controller.currentPosition)
