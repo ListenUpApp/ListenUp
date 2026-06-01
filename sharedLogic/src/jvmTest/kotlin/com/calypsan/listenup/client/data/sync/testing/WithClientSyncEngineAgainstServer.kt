@@ -52,9 +52,12 @@ import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
+import com.calypsan.listenup.server.api.contributorServiceScopedTo
 import com.calypsan.listenup.server.api.createContributorService
 import com.calypsan.listenup.server.api.createGenreService
 import com.calypsan.listenup.server.api.createSeriesService
+import com.calypsan.listenup.server.api.genreServiceScopedTo
+import com.calypsan.listenup.server.api.seriesServiceScopedTo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
@@ -317,9 +320,27 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                                     ?: error("authed RPC mount reached without a principal")
                             guard(bookServiceScopedTo(bookService, PrincipalProvider { p }))
                         }
-                        registerService<ContributorService> { guard(contributorService) }
-                        registerService<SeriesService> { guard(seriesService) }
-                        registerService<GenreService> { guard(genreService) }
+                        // These services gate metadata mutations on the caller's canEdit
+                        // flag; scope each per-request exactly as production RpcRoutes does.
+                        // The test principal authenticates as ROOT, which passes implicitly.
+                        registerService<ContributorService> {
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(contributorServiceScopedTo(contributorService, PrincipalProvider { p }))
+                        }
+                        registerService<SeriesService> {
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(seriesServiceScopedTo(seriesService, PrincipalProvider { p }))
+                        }
+                        registerService<GenreService> {
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(genreServiceScopedTo(genreService, PrincipalProvider { p }))
+                        }
                     }
                 }
             }

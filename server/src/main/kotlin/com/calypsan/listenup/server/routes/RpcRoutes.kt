@@ -21,10 +21,15 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.ContributorServiceImpl
+import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
+import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
+import com.calypsan.listenup.server.api.SeriesServiceImpl
+import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -61,7 +66,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
  * service (bugs, infra faults), logs it server-side with the correlation id,
  * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
  */
-@Suppress("CognitiveComplexMethod", "LongParameterList")
+@Suppress("CognitiveComplexMethod", "CyclomaticComplexMethod", "LongParameterList")
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
     scannerService: ScannerService? = null,
@@ -105,10 +110,20 @@ fun Route.rpcRoutes(
                 }
             }
             if (contributorService != null) {
-                registerService<ContributorService> { guard(contributorService) }
+                registerService<ContributorService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((contributorService as ContributorServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (seriesService != null) {
-                registerService<SeriesService> { guard(seriesService) }
+                registerService<SeriesService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((seriesService as SeriesServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (playbackService != null) {
                 registerService<PlaybackService> {
@@ -127,7 +142,12 @@ fun Route.rpcRoutes(
                 }
             }
             if (metadataLookupService != null) {
-                registerService<MetadataLookupService> { guard(metadataLookupService) }
+                registerService<MetadataLookupService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((metadataLookupService as MetadataLookupServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (searchService != null) {
                 registerService<SearchService> {
@@ -146,12 +166,20 @@ fun Route.rpcRoutes(
                 }
             }
             if (tagService != null) {
-                // TODO: gate by user permissions when Multi-user lands
-                registerService<TagService> { guard(tagService) }
+                registerService<TagService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((tagService as TagServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (genreService != null) {
-                // TODO: gate by user permissions when Multi-user lands
-                registerService<GenreService> { guard(genreService) }
+                registerService<GenreService> {
+                    val p =
+                        call.userPrincipalOrNull()
+                            ?: error(AUTH_WALL_REGRESSION_MSG)
+                    guard((genreService as GenreServiceImpl).copyWith(PrincipalProvider { p }))
+                }
             }
             if (collectionService != null) {
                 registerService<CollectionService> {

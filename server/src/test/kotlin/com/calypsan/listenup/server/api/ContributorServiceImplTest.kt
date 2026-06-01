@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -340,6 +341,7 @@ private fun makeServiceAndDeps(db: Database): ServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             db = db,
+            principal = rootPrincipal(),
         )
     return ServiceDeps(service, contributorRepo, bookRepo, reindexer)
 }

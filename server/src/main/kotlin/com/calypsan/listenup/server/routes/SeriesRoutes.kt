@@ -10,6 +10,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.SeriesServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -81,14 +83,14 @@ fun Route.seriesRoutes(
 
     patch<SeriesResources.Detail> { res ->
         val patch = call.receive<SeriesUpdate>()
-        when (val result = seriesService.updateSeries(SeriesId(res.id), patch)) {
+        when (val result = call.scoped(seriesService).updateSeries(SeriesId(res.id), patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 
     delete<SeriesResources.Detail> { res ->
-        when (val result = seriesService.deleteSeries(SeriesId(res.id))) {
+        when (val result = call.scoped(seriesService).deleteSeries(SeriesId(res.id))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -96,11 +98,20 @@ fun Route.seriesRoutes(
 
     post<SeriesResources.Merge> {
         val body = call.receive<MergeSeriesBody>()
-        when (val result = seriesService.mergeSeries(body.source, body.target)) {
+        when (val result = call.scoped(seriesService).mergeSeries(body.source, body.target)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+}
+
+/**
+ * Scopes [service] to the authenticated caller so mutation handlers gate on the caller's
+ * `canEdit` flag. Reaching this without a principal is an auth-wall regression.
+ */
+private fun ApplicationCall.scoped(service: SeriesService): SeriesService {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    return (service as SeriesServiceImpl).copyWith(PrincipalProvider { p })
 }
 
 private suspend fun ApplicationCall.respondBareAppError(error: AppError) {

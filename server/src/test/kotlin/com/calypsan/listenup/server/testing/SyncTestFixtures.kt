@@ -6,9 +6,13 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -158,6 +162,19 @@ fun Database.roleOf(userId: String): UserRole =
     transaction(this) {
         UserEntity.findById(userId)?.role?.toContract() ?: UserRole.ROOT
     }
+
+/**
+ * A [PrincipalProvider] that yields a ROOT [UserPrincipal] — used by impl-level tests that
+ * drive metadata-mutation services (tag/genre/contributor/series/metadata) directly. The
+ * mutations are `canEdit`-gated; ROOT passes implicitly, so this is the minimal principal a
+ * mutation test needs. Member-deny tests build their own MEMBER principal instead.
+ */
+fun rootPrincipal(userId: String = "test-root"): PrincipalProvider =
+    PrincipalProvider { UserPrincipal(UserId(userId), SessionId("test-session-$userId"), UserRole.ROOT) }
+
+/** A [PrincipalProvider] yielding a MEMBER [UserPrincipal] for [userId] — for canEdit-deny tests. */
+fun memberPrincipal(userId: String): PrincipalProvider =
+    PrincipalProvider { UserPrincipal(UserId(userId), SessionId("test-session-$userId"), UserRole.MEMBER) }
 
 /**
  * Canonical fixture builder for [BookSyncPayload] test instances.

@@ -149,6 +149,8 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 db = get(),
+                permissionPolicy = get<UserPermissionPolicy>(),
+                principal = unscopedPlaceholder("ContributorService"),
             )
         }
         single<SeriesService> {
@@ -157,6 +159,8 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 db = get(),
+                permissionPolicy = get<UserPermissionPolicy>(),
+                principal = unscopedPlaceholder("SeriesService"),
             )
         }
         single<SearchService> {
@@ -170,10 +174,12 @@ fun booksModule(
         single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
         single<TagService> {
             TagServiceImpl(
-                get<TagRepository>(),
-                get<BookTagRepository>(),
-                get<BookSearchReindexer>(),
-                get(),
+                tagRepository = get<TagRepository>(),
+                bookTagRepository = get<BookTagRepository>(),
+                reindexer = get<BookSearchReindexer>(),
+                db = get(),
+                permissionPolicy = get<UserPermissionPolicy>(),
+                principal = unscopedPlaceholder("TagService"),
             )
         }
         single<GenreService> {
@@ -182,6 +188,8 @@ fun booksModule(
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 db = get(),
+                permissionPolicy = get<UserPermissionPolicy>(),
+                principal = unscopedPlaceholder("GenreService"),
             )
         }
         single { CollectionAccessPolicy(get(), get()) }
@@ -205,26 +213,35 @@ fun booksModule(
         // re-invocations a no-op.
         single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
 
-        single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
-        single {
-            CoverResponder(
-                repository = get<BookRepository>(),
-                cache = get(),
-                parser = get<EmbeddedMetadataParser>(),
-            )
-        }
-
-        single {
-            BookPersister(
-                ingest = get(),
-                libraryRegistry = get(),
-                db = get(),
-                scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
-                scope = get(),
-                metrics = get(),
-            )
-        }
+        coverAndPersisterBindings(embeddedCoverCacheSize)
     }
+
+/**
+ * Cover-serving ([EmbeddedCoverCache], [CoverResponder]) and scan-ingest ([BookPersister])
+ * bindings. Split out of [booksModule] so the module body stays focused on the domain
+ * services; these are the filesystem/scan-driven tail of the same slice.
+ */
+private fun Module.coverAndPersisterBindings(embeddedCoverCacheSize: Int) {
+    single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
+    single {
+        CoverResponder(
+            repository = get<BookRepository>(),
+            cache = get(),
+            parser = get<EmbeddedMetadataParser>(),
+        )
+    }
+
+    single {
+        BookPersister(
+            ingest = get(),
+            libraryRegistry = get(),
+            db = get(),
+            scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
+            scope = get(),
+            metrics = get(),
+        )
+    }
+}
 
 /**
  * The unscoped-caller placeholder every principal-scoped service binding carries: a

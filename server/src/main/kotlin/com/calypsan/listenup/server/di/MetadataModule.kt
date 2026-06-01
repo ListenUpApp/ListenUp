@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
@@ -111,6 +113,11 @@ fun metadataModule(libraryPath: Path): Module =
                 seriesRepository = get(),
                 imageStorage = get(),
                 libraryPath = libraryPath,
+                permissionPolicy = get<UserPermissionPolicy>(),
+                principal =
+                    PrincipalProvider {
+                        error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")
+                    },
             )
         }
 

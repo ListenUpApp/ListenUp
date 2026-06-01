@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.resources.GenreResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.GenreServiceImpl
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -75,7 +77,7 @@ private fun Route.genreCollectionRoutes(genreService: GenreService) {
 
     post<GenreResources> {
         val body = call.receive<CreateGenreBody>()
-        when (val result = genreService.createGenre(body.parentId, body.name, body.sortOrder)) {
+        when (val result = call.scoped(genreService).createGenre(body.parentId, body.name, body.sortOrder)) {
             is AppResult.Success -> call.respond(HttpStatusCode.Created, result.data)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
@@ -83,7 +85,7 @@ private fun Route.genreCollectionRoutes(genreService: GenreService) {
 
     post<GenreResources.Merge> {
         val body = call.receive<MergeGenresBody>()
-        when (val result = genreService.mergeGenres(body.source, body.target)) {
+        when (val result = call.scoped(genreService).mergeGenres(body.source, body.target)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
@@ -98,7 +100,7 @@ private fun Route.genreCollectionRoutes(genreService: GenreService) {
 
     post<GenreResources.Unmapped.Map> {
         val body = call.receive<MapUnmappedBody>()
-        when (val result = genreService.mapUnmappedToGenre(body.rawString, body.genreId)) {
+        when (val result = call.scoped(genreService).mapUnmappedToGenre(body.rawString, body.genreId)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
@@ -129,14 +131,14 @@ private fun Route.genreDetailRoutes(
 
     patch<GenreResources.Detail> { res ->
         val patch = call.receive<GenreUpdate>()
-        when (val result = genreService.updateGenre(GenreId(res.id), patch)) {
+        when (val result = call.scoped(genreService).updateGenre(GenreId(res.id), patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
     }
 
     delete<GenreResources.Detail> { res ->
-        when (val result = genreService.deleteGenre(GenreId(res.id))) {
+        when (val result = call.scoped(genreService).deleteGenre(GenreId(res.id))) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
@@ -174,11 +176,20 @@ private fun Route.genreDetailRoutes(
 
     post<GenreResources.Detail.Move> { res ->
         val body = call.receive<MoveGenreBody>()
-        when (val result = genreService.moveGenre(GenreId(res.parent.id), body.newParentId)) {
+        when (val result = call.scoped(genreService).moveGenre(GenreId(res.parent.id), body.newParentId)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondGenreError(result.error)
         }
     }
+}
+
+/**
+ * Scopes [service] to the authenticated caller so mutation handlers gate on the caller's
+ * `canEdit` flag. Reaching this without a principal is an auth-wall regression.
+ */
+private fun ApplicationCall.scoped(service: GenreService): GenreService {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    return (service as GenreServiceImpl).copyWith(PrincipalProvider { p })
 }
 
 private suspend fun ApplicationCall.respondGenreError(error: AppError) {

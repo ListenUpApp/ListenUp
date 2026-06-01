@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -128,6 +129,7 @@ private fun makeService(
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
         libraryPath = Path(tempDir),
+        permissionPolicy = UserPermissionPolicy(db),
     )
 }
 

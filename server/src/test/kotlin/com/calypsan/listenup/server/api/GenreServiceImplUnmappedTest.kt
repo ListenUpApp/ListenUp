@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -66,7 +67,7 @@ class GenreServiceImplUnmappedTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db)
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db, principal = rootPrincipal())
         }
 
         // ── listUnmappedStrings ───────────────────────────────────────────────

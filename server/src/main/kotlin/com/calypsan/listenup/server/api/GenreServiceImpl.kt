@@ -4,11 +4,15 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.BookGenreTable
 import com.calypsan.listenup.server.db.GenreAliasTable
 import com.calypsan.listenup.server.db.GenreTable
@@ -43,7 +47,15 @@ private const val MAX_BROWSE_LIMIT = 1000
  * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree`
  * keeps `book_search.genres` consistent with the live junction state.
  *
- * // TODO: gate by user permissions when Multi-user lands
+ * Genre reads ([listGenres], [getGenre], [getGenreChildren], [browseBooks],
+ * [listUnmappedStrings]) are open to any authenticated user. Genre-taxonomy mutations
+ * ([createGenre], [updateGenre], [deleteGenre], [moveGenre], [mergeGenres],
+ * [mapUnmappedToGenre]) are gated on the per-user `canEdit` flag via [permissionPolicy]:
+ * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per
+ * call). The authenticated caller is resolved from [principal] — route handlers call
+ * [copyWith] to bind it per-request; the Koin singleton carries an unscoped placeholder
+ * that yields no principal, so an absent principal on a mutation is a wiring bug and is
+ * denied.
  */
 @Suppress("UnusedPrivateProperty")
 internal class GenreServiceImpl(
@@ -51,7 +63,24 @@ internal class GenreServiceImpl(
     private val bookRepository: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val db: Database,
+    private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(db),
+    private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : GenreService {
+    /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
+    fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
+        GenreServiceImpl(genreRepository, bookRepository, reindexer, db, permissionPolicy, principal)
+
+    /**
+     * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
+     * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An
+     * absent principal — a wiring bug, since route handlers always [copyWith] the
+     * authenticated caller — is denied. Returns null when permitted; the denial otherwise.
+     */
+    private suspend fun requireCanEdit(): AppError? {
+        val p = principal.current() ?: return AuthError.PermissionDenied()
+        return permissionPolicy.requireCanEdit(p.userId, p.role)
+    }
+
     override suspend fun listGenres(): AppResult<List<GenreSummary>> =
         suspendTransaction(db) {
             val rows =
@@ -140,6 +169,7 @@ internal class GenreServiceImpl(
         name: String,
         sortOrder: Int,
     ): AppResult<GenreId> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         // 1. Slug normalization owns blank/empty-after-normalize validation.
         val slug =
             when (val slugResult = GenreSlug.normalize(name)) {
@@ -190,6 +220,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         patch: GenreUpdate,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val outcome: GenreUpdateOutcome =
             suspendTransaction(db) {
                 val current = genreRepository.findById(id.value)
@@ -219,6 +250,7 @@ internal class GenreServiceImpl(
     }
 
     override suspend fun deleteGenre(id: GenreId): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val result: AppResult<Unit> =
             suspendTransaction(db) {
                 val current = genreRepository.findById(id.value)
@@ -265,6 +297,7 @@ internal class GenreServiceImpl(
         id: GenreId,
         newParentId: GenreId?,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val outcome: MoveOutcome =
             suspendTransaction(db) {
                 when (val plan = planMove(id, newParentId)) {
@@ -300,6 +333,7 @@ internal class GenreServiceImpl(
         source: GenreId,
         target: GenreId,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         if (source.value == target.value) {
             return AppResult.Failure(GenreError.MergeSelfTarget(debugInfo = source.value))
         }
@@ -367,6 +401,7 @@ internal class GenreServiceImpl(
         rawString: String,
         genreId: GenreId,
     ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
         val trimmed = rawString.trim()
         val result: AppResult<Unit> =
             suspendTransaction(db) {
@@ -584,6 +619,17 @@ fun createGenreService(
     reindexer: BookSearchReindexer,
     db: Database,
 ): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, db)
+
+/**
+ * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.
+ * Public so cross-module test harnesses can bind the authenticated caller without piercing
+ * the `internal` access on [GenreServiceImpl.copyWith]. Production wiring calls
+ * [GenreServiceImpl.copyWith] directly in the RPC route.
+ */
+fun genreServiceScopedTo(
+    service: GenreService,
+    principal: PrincipalProvider,
+): GenreService = (service as GenreServiceImpl).copyWith(principal)
 
 private fun GenreSyncPayload.applyPatch(patch: GenreUpdate): GenreSyncPayload =
     copy(
