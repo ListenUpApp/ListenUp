@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackErrorHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
+import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
@@ -229,6 +230,12 @@ val playbackModule =
                 bookRepository = get(),
             )
         }
+
+        // Bind the PlaybackStateWriter write-seam to the same PlaybackManager
+        // singleton. MediaControllerHolder depends on PlaybackStateWriter (not the
+        // full PlaybackManager), and Koin resolves by the requested type — without
+        // this delegate the write-seam is unbound and MediaControllerHolder fails.
+        single<PlaybackStateWriter> { get<PlaybackManager>() }
 
         // Sleep timer manager - handles sleep timer state and countdown
         single {
@@ -493,6 +500,12 @@ class ListenUp :
                 },
                 "PlaybackManager" to {
                     get<PlaybackManager>()
+                },
+                // Resolves MediaControllerHolder → PlaybackStateWriter transitively,
+                // so a missing playback write-seam binding fails fast at startup
+                // rather than crashing deep in NowPlaying recomposition.
+                "PlaybackController" to {
+                    get<PlaybackController>()
                 },
             ),
         )

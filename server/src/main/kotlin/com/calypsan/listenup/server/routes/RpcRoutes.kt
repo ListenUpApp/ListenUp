@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.LibraryAdminService
@@ -72,6 +73,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 @Suppress("LongParameterList")
 fun Route.rpcRoutes(
     authService: AuthServiceImpl,
+    instanceService: InstanceService,
     scannerService: ScannerService? = null,
     bookService: BookService? = null,
     contributorService: ContributorService? = null,
@@ -87,7 +89,7 @@ fun Route.rpcRoutes(
     adminUserService: AdminUserService? = null,
     inviteService: InviteServiceImpl? = null,
 ) {
-    publicRpc(authService, scannerService, inviteService)
+    publicRpc(authService, instanceService, scannerService, inviteService)
     authenticate(JWT_PROVIDER) {
         authedRpc(
             authService,
@@ -108,15 +110,20 @@ fun Route.rpcRoutes(
     }
 }
 
-/** Mounts the anonymous `/api/rpc/public` services: ping, public auth, and (when wired) the public invite surface + scanner. */
+/**
+ * Mounts the anonymous `/api/rpc/public` services: ping, instance verification, public auth,
+ * and (when wired) the public invite surface + scanner.
+ */
 private fun Route.publicRpc(
     authService: AuthServiceImpl,
+    instanceService: InstanceService,
     scannerService: ScannerService?,
     inviteService: InviteServiceImpl?,
 ) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
         registerService<PingService> { guard(PingServiceImpl()) }
+        registerService<InstanceService> { guard(instanceService) }
         registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }
         if (inviteService != null) {
             registerService<InviteServicePublic> { guard(inviteService as InviteServicePublic) }

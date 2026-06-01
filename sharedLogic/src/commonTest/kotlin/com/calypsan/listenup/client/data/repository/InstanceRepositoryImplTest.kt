@@ -1,109 +1,108 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.checkIs
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult as RpcResult
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
- * Tests for InstanceRepositoryImpl.
- *
- * Note: Since InstanceRepositoryImpl now makes direct HTTP calls, these tests
- * focus on verifying the behavior when no server URL is configured.
- * Integration tests with a mock HTTP server would be needed for full coverage.
+ * Drives [InstanceRepositoryImpl]'s RPC-backed verification path through a fake
+ * [InstanceRpcFactory] — no network. Pins the two screen-one behaviours:
+ *  - [InstanceRepositoryImpl.verifyServer] returns the [ServerInfo] + the URL
+ *    that connected.
+ *  - [InstanceRepositoryImpl.getServerInfo] bridges the contract result to the
+ *    client `core.AppResult`, and fails (without calling the factory) when no
+ *    server URL is configured.
  */
-class InstanceRepositoryImplTest {
-    // ========== Error Handling Tests ==========
+class InstanceRepositoryImplTest :
+    FunSpec({
 
-    @Test
-    fun `getInstance returns failure when server URL is not configured`() =
-        runTest {
-            // Given - no server URL configured
+        val serverInfo =
+            ServerInfo(
+                name = "ListenUp",
+                version = "0.0.1",
+                apiVersion = "v1",
+                setupRequired = true,
+                registrationPolicy = RegistrationPolicy.OPEN,
+            )
+
+        /** Fake factory: records the ws URL it was asked for, returns a canned result. */
+        class FakeInstanceRpcFactory(
+            private val result: RpcResult<ServerInfo>,
+        ) : InstanceRpcFactory {
+            var lastWsUrl: String? = null
+
+            override suspend fun getServerInfo(wsBaseUrl: String): RpcResult<ServerInfo> {
+                lastWsUrl = wsBaseUrl
+                return result
+            }
+        }
+
+        test("verifyServer returns the ServerInfo and the verified URL on success") {
+            val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo))
             val repository =
                 InstanceRepositoryImpl(
                     getServerUrl = { null },
+                    instanceRpcFactory = factory,
                 )
 
-            // When
-            val result = repository.getInstance()
+            val result = repository.verifyServer("https://library.example.com")
 
-            // Then
-            // Body-level message convention: the IllegalStateException is mapped to
-            // InternalError, so the "Server URL not configured" text now lives in
-            // debugInfo. Keep the Failure assertion only.
-            assertIs<Failure>(result)
+            val verified = result.shouldBeInstanceOf<Success<*>>()
+            val data = verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer
+            data.serverInfo shouldBe serverInfo
+            data.verifiedUrl shouldBe "https://library.example.com"
+            // The factory is connected over the ws-scheme equivalent.
+            factory.lastWsUrl shouldBe "wss://library.example.com"
         }
 
-    @Test
-    fun `getInstance with forceRefresh returns failure when server URL is not configured`() =
-        runTest {
-            // Given - no server URL configured
+        test("getServerInfo returns failure without touching the factory when no URL is configured") {
+            val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo))
             val repository =
                 InstanceRepositoryImpl(
                     getServerUrl = { null },
+                    instanceRpcFactory = factory,
                 )
 
-            // When
-            val result = repository.getInstance(forceRefresh = true)
+            val result = repository.getServerInfo()
 
-            // Then
-            // Body-level message convention: the IllegalStateException is mapped to
-            // InternalError, so the "Server URL not configured" text now lives in
-            // debugInfo. Keep the Failure assertion only.
-            assertIs<Failure>(result)
+            result.shouldBeInstanceOf<Failure>()
+            factory.lastWsUrl shouldBe null
         }
 
-    @Test
-    fun `getInstance calls getServerUrl to get dynamic URL`() =
-        runTest {
-            // Given
-            var urlFetchCount = 0
+        test("getServerInfo bridges a configured-URL success to core.Success") {
+            val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo))
             val repository =
                 InstanceRepositoryImpl(
-                    getServerUrl = {
-                        urlFetchCount++
-                        // Return null to fail immediately without making HTTP call
-                        null
-                    },
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
                 )
 
-            // When
-            repository.getInstance()
-            repository.getInstance(forceRefresh = true)
+            val result = repository.getServerInfo()
 
-            // Then - getServerUrl should be called for each non-cached request
-            // First call: no cache, so getServerUrl is called
-            // Second call with forceRefresh: cache bypassed, so getServerUrl is called
-            assertTrue(urlFetchCount >= 2, "Expected getServerUrl to be called at least twice, but was $urlFetchCount")
+            val success = result.shouldBeInstanceOf<Success<ServerInfo>>()
+            success.data shouldBe serverInfo
+            factory.lastWsUrl shouldBe "ws://192.168.1.10:8080"
         }
 
-    @Test
-    fun `getInstance uses cached data when forceRefresh is false and cache exists`() =
-        runTest {
-            // Given - this test verifies caching behavior indirectly
-            // If caching works, getServerUrl won't be called on subsequent requests
-            var urlFetchCount = 0
+        test("getServerInfo bridges a contract Failure to core.Failure") {
+            val factory = FakeInstanceRpcFactory(RpcResult.Failure(InternalError()))
             val repository =
                 InstanceRepositoryImpl(
-                    getServerUrl = {
-                        urlFetchCount++
-                        // Return null - we're just testing if getServerUrl is called
-                        null
-                    },
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
                 )
 
-            // When - first call (no cache)
-            repository.getInstance()
-            val countAfterFirst = urlFetchCount
+            val result = repository.getServerInfo()
 
-            // When - second call without forceRefresh (would use cache if it existed)
-            // Since first call failed (no URL), there's no cache, so it calls again
-            repository.getInstance(forceRefresh = false)
-
-            // Then - because first call failed (no cache stored), second call also fetches
-            assertTrue(urlFetchCount > countAfterFirst, "Expected getServerUrl to be called again since cache is empty")
+            result.shouldBeInstanceOf<Failure>()
         }
-}
+    })

@@ -1,24 +1,28 @@
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.client.domain.model.Instance
 
 /**
- * Result of server verification containing the instance and verified URL.
+ * Result of server verification: the server's [ServerInfo] and the URL that
+ * successfully connected.
  *
- * @property instance The server instance information
- * @property verifiedUrl The URL that successfully connected (may include protocol that worked)
+ * @property serverInfo The verified server's identity, setup state, and registration policy.
+ * @property verifiedUrl The URL that connected (the protocol variant that worked).
  */
 data class VerifiedServer(
-    val instance: Instance,
+    val serverInfo: ServerInfo,
     val verifiedUrl: String,
 )
 
 /**
- * Repository for managing server instance data.
+ * Repository for server-instance data.
  *
- * This interface defines the contract for accessing instance information.
- * Implementations handle data fetching, caching, and error handling.
+ * Verification and the pre-auth [getServerInfo] probe go over kotlinx.rpc
+ * ([ServerInfo]); the legacy [getInstance] REST path remains for admin/settings
+ * consumers that still read the richer [Instance] (e.g. `remoteUrl`) until those
+ * screens migrate.
  */
 interface InstanceRepository {
     // Try multiple URLs to find one that's reachable.
@@ -26,22 +30,31 @@ interface InstanceRepository {
     suspend fun findReachableUrl(urls: List<String>): String?
 
     /**
-     * Retrieves the current server instance information.
+     * Fetches the current server's [ServerInfo] over RPC (the screen-one probe).
      *
-     * @param forceRefresh If true, bypasses any cached data and fetches fresh data from the server
-     * @return Result containing the Instance on success, or an error on failure
+     * @param forceRefresh If true, bypasses any cached value and re-fetches.
+     * @return [ServerInfo] on success, or a typed failure (e.g. no URL configured / unreachable).
+     */
+    suspend fun getServerInfo(forceRefresh: Boolean = false): AppResult<ServerInfo>
+
+    /**
+     * Legacy REST fetch of the richer [Instance] aggregate.
+     *
+     * Retained only for admin/settings consumers that read fields absent from
+     * [ServerInfo] (notably `remoteUrl`). Migrates away once a dedicated admin
+     * GET surface exists. New code should prefer [getServerInfo].
      */
     suspend fun getInstance(forceRefresh: Boolean = false): AppResult<Instance>
 
     /**
      * Verifies a server URL is a valid ListenUp instance before authentication.
      *
-     * Used during initial server connection setup. Creates an unauthenticated
-     * HTTP client to fetch /api/v1/instance and verify the server is ListenUp.
-     * Tries HTTPS first, then falls back to HTTP if SSL fails.
+     * Connects an unauthenticated kotlinx.rpc proxy to the candidate server's
+     * public mount and fetches [ServerInfo]. Tries HTTPS/WSS first, falls back to
+     * HTTP/WS, mirroring the protocol the user's URL implies.
      *
-     * @param baseUrl The server URL to verify (with or without protocol)
-     * @return Result containing VerifiedServer with instance and working URL on success
+     * @param baseUrl The server URL to verify (with or without protocol).
+     * @return [VerifiedServer] with the [ServerInfo] and the working URL on success.
      */
     suspend fun verifyServer(baseUrl: String): AppResult<VerifiedServer>
 }

@@ -20,8 +20,10 @@ import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorInstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
@@ -290,12 +292,14 @@ val repositoryModule =
         // InstanceRepository reads server URL directly from SecureStorage to avoid circular
         // dependency (SettingsRepository -> InstanceRepository -> SettingsRepository).
         // The URL is stored before checkServerStatus() is called.
+        single<InstanceRpcFactory> { KtorInstanceRpcFactory() }
         single<InstanceRepository> {
             val secureStorage: com.calypsan.listenup.core.SecureStorage = get()
             InstanceRepositoryImpl(
                 getServerUrl = {
                     secureStorage.read("server_url")?.let { ServerUrl(it) }
                 },
+                instanceRpcFactory = get(),
             )
         }
 

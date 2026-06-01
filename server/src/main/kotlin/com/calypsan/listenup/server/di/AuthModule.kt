@@ -11,10 +11,15 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.defaultListenupHome
+import com.calypsan.listenup.server.db.resolveDatabaseUrl
+import java.nio.file.Path
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import io.ktor.server.config.ApplicationConfig
@@ -39,7 +44,7 @@ fun authModule(config: ApplicationConfig): Module =
 
         single<Database> {
             DatabaseFactory.init(
-                DatabaseConfig(jdbcUrl = config.property("database.jdbcUrl").getString()),
+                DatabaseConfig(jdbcUrl = config.resolveJdbcUrl()),
             )
         }
 
@@ -106,6 +111,13 @@ fun authModule(config: ApplicationConfig): Module =
             )
         }
 
+        single<InstanceService> {
+            InstanceServiceImpl(
+                db = get(),
+                settings = get(),
+            )
+        }
+
         single { ExpiredSessionCleanupTask(sessionService = get(), clock = get()) }
     }
 
@@ -121,3 +133,17 @@ private fun ApplicationConfig.registrationPolicy(): RegistrationPolicy {
 /** The instance's display name, shown on the invite landing page. Defaults to [DEFAULT_SERVER_NAME]. */
 private fun ApplicationConfig.serverName(): String =
     propertyOrNull("app.serverName")?.getString()?.takeIf { it.isNotBlank() } ?: DEFAULT_SERVER_NAME
+
+/**
+ * The effective JDBC URL: an explicit `database.jdbcUrl` (tests inject this) wins;
+ * otherwise the SQLite DB defaults into `$LISTENUP_HOME/listenup.db`, with
+ * `LISTENUP_HOME` defaulting to `~/ListenUp`. Reads env / system properties here
+ * at the config edge so [resolveDatabaseUrl] stays pure.
+ */
+private fun ApplicationConfig.resolveJdbcUrl(): String {
+    val configured = propertyOrNull("database.jdbcUrl")?.getString().orEmpty()
+    val home =
+        System.getenv("LISTENUP_HOME")?.takeIf { it.isNotBlank() }?.let { Path.of(it) }
+            ?: defaultListenupHome(System.getProperty("user.home"))
+    return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
+}
