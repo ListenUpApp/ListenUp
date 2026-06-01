@@ -38,10 +38,9 @@ import org.koin.dsl.module
  *  - `ApiClientFactory` — bearer-equipped HttpClient consumed by every API,
  *    not just auth. Its refresh-callback `{ get<AuthRepository>() … }` resolves
  *    across module boundaries at runtime, which is standard Koin.
- *  - `LegacyInviteRepository` / `InviteApi` — the REST-backed deep-link
- *    registration vertical, wired in `Koin.kt`'s `networkModule`. Retired in
- *    favour of the contract-typed [InviteRpcFactory] / [InviteRepository] below,
- *    which live here because a successful claim calls `AuthSession.saveAuthTokens`.
+ *  - The public invite-claim vertical ([InviteRpcFactory] / [InviteRepository])
+ *    lives here because a successful claim calls `AuthSession.saveAuthTokens`,
+ *    landing the user logged-in exactly like login does.
  */
 val clientAuthModule: Module
     // Defined as a getter (not a backing field) so each access produces a fresh

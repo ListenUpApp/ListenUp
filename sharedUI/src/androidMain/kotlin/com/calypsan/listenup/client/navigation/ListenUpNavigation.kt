@@ -30,6 +30,8 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
@@ -49,7 +51,7 @@ import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.connect.ServerSelectScreen
 import com.calypsan.listenup.client.features.connect.ServerSetupScreen
-import com.calypsan.listenup.client.features.invite.InviteRegistrationScreen
+import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
@@ -71,8 +73,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
-import com.calypsan.listenup.client.presentation.invite.InviteRegistrationUiState
-import com.calypsan.listenup.client.presentation.invite.InviteRegistrationViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -113,9 +113,9 @@ fun ListenUpNavigation(
     val authState by authSession.authState.collectAsStateWithLifecycle()
 
     // Check for pending invite BEFORE auth state routing
-    // This allows invite registration even when already authenticated
+    // This allows invite claiming even when already authenticated
     pendingInvite?.let { invite ->
-        InviteRegistrationNavigation(
+        JoinNavigation(
             serverUrl = invite.serverUrl,
             inviteCode = invite.code,
             onComplete = { deepLinkManager.consumeInvite() },
@@ -197,36 +197,33 @@ private fun PendingApprovalNavigation(
 }
 
 /**
- * Navigation for invite registration flow.
+ * Navigation for the invite-claim flow.
  *
- * Shows the invite registration screen and handles completion/cancellation.
- * On successful registration, auth tokens are stored and AuthState becomes Authenticated,
- * which will trigger navigation to the library after the invite is consumed.
+ * Shows [JoinScreen] and handles completion/cancellation. The RPC invite vertical
+ * reads the server URL from [ServerConfig], so the deep-link's server URL is
+ * applied before the screen's lookup fires. On a successful claim the repository
+ * persists the issued session (AuthState → Authenticated); once [JoinScreen]
+ * reports the claim via `onClaimed`, the invite is consumed and auth-state routing
+ * takes over.
  */
 @Composable
-private fun InviteRegistrationNavigation(
+private fun JoinNavigation(
     serverUrl: String,
     inviteCode: String,
     onComplete: () -> Unit,
     onCancel: () -> Unit,
+    serverConfig: ServerConfig = koinInject(),
 ) {
-    val viewModel: InviteRegistrationViewModel =
-        koinViewModel {
-            org.koin.core.parameter
-                .parametersOf(serverUrl, inviteCode)
-        }
-
-    // Watch for successful registration to trigger completion
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state) {
-        if (state is InviteRegistrationUiState.Submitted) {
-            onComplete()
-        }
+    // The deep link carries the server URL; the RPC factory resolves the active
+    // URL from ServerConfig, so apply it before the lookup runs.
+    LaunchedEffect(serverUrl) {
+        serverConfig.setServerUrl(ServerUrl(serverUrl))
     }
 
-    InviteRegistrationScreen(
-        viewModel = viewModel,
+    JoinScreen(
+        onClaimed = onComplete,
         onCancel = onCancel,
+        initialCode = inviteCode,
     )
 }
 
