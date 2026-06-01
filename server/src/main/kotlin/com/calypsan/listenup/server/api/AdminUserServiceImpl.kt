@@ -14,6 +14,8 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -54,12 +56,13 @@ class AdminUserServiceImpl(
     private val db: Database,
     private val sessions: SessionService,
     private val settings: ServerSettingsRepository,
+    private val registrationBroadcaster: RegistrationBroadcaster,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
-        AdminUserServiceImpl(db, sessions, settings, clock, provider)
+        AdminUserServiceImpl(db, sessions, settings, registrationBroadcaster, clock, provider)
 
     override suspend fun listUsers(): AppResult<List<User>> {
         requireAdmin()?.let { return it }
@@ -167,23 +170,34 @@ class AdminUserServiceImpl(
         // Don't leak existence-or-state of the target — admin actions only succeed
         // against a genuinely pending row; everything else is PermissionDenied.
         val now = clock.now().toEpochMilliseconds()
-        return suspendTransaction(db) {
-            val target =
-                UserEntity.findById(request.userId.value)
-                    ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
-            if (target.status != UserStatusColumn.PENDING_APPROVAL) {
-                return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+        val outcome: AppResult<PendingRegistrationOutcome> =
+            suspendTransaction(db) {
+                val target =
+                    UserEntity.findById(request.userId.value)
+                        ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+                if (target.status != UserStatusColumn.PENDING_APPROVAL) {
+                    return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+                }
+
+                target.status = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
+                target.updatedAt = now
+                target.approvedBy = caller.userId.value
+                target.approvedAt = now
+
+                AppResult.Success(
+                    if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied,
+                )
             }
 
-            target.status = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
-            target.updatedAt = now
-            target.approvedBy = caller.userId.value
-            target.approvedAt = now
-
-            val outcome =
-                if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
-            AppResult.Success(outcome)
+        // Notify the waiting (unauthenticated) registrant only after a real decision commits —
+        // a no-op drop if they aren't currently listening, recovered on their next login retry.
+        if (outcome is AppResult.Success) {
+            registrationBroadcaster.notify(
+                request.userId.value,
+                if (request.approved) RegistrationDecision.Approved else RegistrationDecision.Denied(null),
+            )
         }
+        return outcome
     }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> {
