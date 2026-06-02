@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.auth
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -55,6 +56,7 @@ class SessionService(
     suspend fun createSession(
         userId: UserId,
         label: String? = null,
+        deviceInfo: DeviceInfo? = null,
         userAgent: String? = null,
     ): IssuedSession {
         val raw = tokenGenerator.generate()
@@ -70,6 +72,13 @@ class SessionService(
                 this.familyId = familyId
                 previousHash = null
                 this.label = label
+                deviceType = deviceInfo?.deviceType
+                platform = deviceInfo?.platform
+                platformVersion = deviceInfo?.platformVersion
+                clientName = deviceInfo?.clientName
+                clientVersion = deviceInfo?.clientVersion
+                deviceName = deviceInfo?.deviceName
+                deviceModel = deviceInfo?.deviceModel
                 this.userAgent = userAgent
                 createdAt = now
                 expiresAt = expires

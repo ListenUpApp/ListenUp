@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -27,6 +28,7 @@ open class LoginUseCase(
     private val authRepository: AuthRepository,
     private val authSession: AuthSessionStore,
     private val userRepository: UserRepository,
+    private val deviceInfoProvider: DeviceInfoProvider,
 ) {
     open suspend operator fun invoke(
         email: String,
@@ -36,8 +38,13 @@ open class LoginUseCase(
         validate(trimmedEmail, password)?.let { return it }
 
         return authRepository
-            .login(LoginRequest(email = trimmedEmail, password = password))
-            .flatMap { session -> persistSession(session) }
+            .login(
+                LoginRequest(
+                    email = trimmedEmail,
+                    password = password,
+                    deviceInfo = deviceInfoProvider.current(),
+                ),
+            ).flatMap { session -> persistSession(session) }
     }
 
     private suspend fun persistSession(session: AuthSession): AppResult<User> {

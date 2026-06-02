@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.result.AppResult
@@ -64,4 +65,11 @@ interface AuthServiceAuthed {
 
     /** List the caller's active sessions. */
     suspend fun listSessions(): AppResult<List<SessionSummary>>
+
+    /**
+     * Revoke one of the caller's sessions by id ("sign out this device").
+     * Owner-scoped: revoking a session that isn't the caller's is a silent
+     * no-op that still returns Success — no existence leak. Idempotent.
+     */
+    suspend fun revokeSession(sessionId: SessionId): AppResult<Unit>
 }

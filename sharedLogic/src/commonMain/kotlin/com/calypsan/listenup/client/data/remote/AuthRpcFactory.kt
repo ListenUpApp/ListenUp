@@ -20,6 +20,25 @@ import kotlinx.rpc.withService
  *  - [AuthServiceAuthed] over `/api/rpc/authed` — bearer-gated; logout,
  *    currentUser, listSessions.
  *
+ * An interface so the repository depends on a seam that can be faked in tests —
+ * [KtorAuthRpcFactory] is the production implementation over WebSocket RPC.
+ * Mirrors [InviteRpcFactory] — the established RPC-factory-seam precedent.
+ */
+interface AuthRpcFactory {
+    /** Returns the cached [AuthServicePublic] proxy, connecting on first use. */
+    suspend fun publicService(): AuthServicePublic
+
+    /** Returns the cached [AuthServiceAuthed] proxy, connecting on first use. */
+    suspend fun authedService(): AuthServiceAuthed
+
+    /** Drop cached proxies and the RPC-flavored HttpClient. */
+    suspend fun invalidate()
+}
+
+/**
+ * Mounts the two [AuthServicePublic]/[AuthServiceAuthed] proxies over
+ * `/api/rpc/public` and `/api/rpc/authed`.
+ *
  * Each `rpc(url)` call returns a cold [kotlinx.rpc.krpc.ktor.client.KtorRpcClient]
  * that opens its WebSocket on the first message — so the proxies are cached
  * per mount and reused. [invalidate] drops both the cached proxies *and* the
@@ -31,27 +50,26 @@ import kotlinx.rpc.withService
  * the REST surface and contract round-trip tests use. One wire format,
  * two transports.
  */
-class AuthRpcFactory(
+class KtorAuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) {
+) : AuthRpcFactory {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedPublic: AuthServicePublic? = null
     private var cachedAuthed: AuthServiceAuthed? = null
 
-    suspend fun publicService(): AuthServicePublic =
+    override suspend fun publicService(): AuthServicePublic =
         mutex.withLock {
             cachedPublic ?: connectPublic().also { cachedPublic = it }
         }
 
-    suspend fun authedService(): AuthServiceAuthed =
+    override suspend fun authedService(): AuthServiceAuthed =
         mutex.withLock {
             cachedAuthed ?: connectAuthed().also { cachedAuthed = it }
         }
 
-    /** Drop cached proxies and the RPC-flavored HttpClient. */
-    suspend fun invalidate() {
+    override suspend fun invalidate() {
         mutex.withLock {
             cachedPublic = null
             cachedAuthed = null

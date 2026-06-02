@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -22,6 +23,7 @@ import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.InviteEntity
+import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
@@ -235,6 +237,32 @@ class InviteServiceImplTest :
                         }
                     claimed.first.shouldNotBeNull()
                     claimed.second shouldBe newUserId
+                }
+            }
+        }
+
+        test("claim persists the DeviceInfo onto the issued session") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(db).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("new@x.co", "New", UserRole.MEMBER, null).shouldSucceed()
+
+                    val session =
+                        makeInviteService(db)
+                            .claimInvite(
+                                invite.code,
+                                "password123",
+                                deviceInfo = DeviceInfo(deviceModel = "iPad", platform = "iPadOS"),
+                            ).shouldSucceed()
+
+                    val persisted =
+                        transaction(db) {
+                            SessionEntity.findById(session.sessionId.value)!!.let { it.deviceModel to it.platform }
+                        }
+                    persisted.first shouldBe "iPad"
+                    persisted.second shouldBe "iPadOS"
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.remote.PlaybackApi
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
@@ -14,6 +15,7 @@ import com.calypsan.listenup.client.platform.StubBackgroundSyncScheduler
 import com.calypsan.listenup.client.platform.StubDownloadService
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AudioPlayer
@@ -119,6 +121,18 @@ val platformModule: Module =
             )
         }
 
+        // Structured device identity — shared source for auth login + listening history.
+        single<DeviceInfoProvider> {
+            DeviceInfoProvider {
+                DeviceInfo(
+                    deviceType = "desktop",
+                    platform = System.getProperty("os.name"),
+                    clientName = "ListenUp Desktop",
+                    deviceName = System.getProperty("user.name"),
+                )
+            }
+        }
+
         // Listening event recorder — span state machine for P2 listening history
         single {
             ListeningEventRecorder(
@@ -129,8 +143,7 @@ val platformModule: Module =
                     Unit
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
-                // JVM/desktop: no safe Java-free way to get device name; null is fine (advisory column).
-                deviceLabel = { null },
+                deviceInfo = get(),
             )
         }
 

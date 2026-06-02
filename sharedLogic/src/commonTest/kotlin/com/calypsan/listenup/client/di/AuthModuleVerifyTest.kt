@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -26,6 +27,8 @@ import org.koin.test.verify.verify
  *  - [PlaybackManager] — owned by the platform playback module
  *    (LogoutUseCase needs it as a `PlaybackStateProvider` to halt playback
  *    on logout).
+ *  - [DeviceInfoProvider] — owned by the per-platform playback/platform module
+ *    (login/register/setup/claim send the device's structured metadata).
  */
 @OptIn(KoinExperimentalAPI::class)
 class AuthModuleVerifyTest :
@@ -41,6 +44,7 @@ class AuthModuleVerifyTest :
                         ApiClientFactory::class,
                         UserRepository::class,
                         PlaybackManager::class,
+                        DeviceInfoProvider::class,
                     ),
             )
         }

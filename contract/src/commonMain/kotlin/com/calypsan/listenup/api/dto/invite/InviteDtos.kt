@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.invite
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.UserRole
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -53,6 +54,7 @@ data class CreateInviteRequest(
 data class ClaimInviteRequest(
     @SerialName("password") val password: String,
     @SerialName("displayName") val displayName: String? = null,
+    @SerialName("deviceInfo") val deviceInfo: DeviceInfo? = null,
 )
 
 /** What the public landing page shows for a code, before claiming. */

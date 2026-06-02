@@ -1072,11 +1072,30 @@ private fun AuthenticatedNavigation(
                                 onNavigateBack = {
                                     backStack.removeAt(backStack.lastIndex)
                                 },
+                                onNavigateToDevices = {
+                                    backStack.add(Devices)
+                                },
                                 onNavigateToStorage = {
                                     backStack.add(Storage)
                                 },
                                 onNavigateToLicenses = {
                                     backStack.add(Licenses)
+                                },
+                            )
+                        }
+                        entry<Devices> {
+                            com.calypsan.listenup.client.features.settings.DevicesScreen(
+                                onBack = {
+                                    backStack.removeAt(backStack.lastIndex)
+                                },
+                                onSignedOutEverywhere = {
+                                    // Mirror the Shell sign-out teardown: clear local library
+                                    // data, then clear auth tokens so auth-state routing returns
+                                    // the user to login.
+                                    scope.launch {
+                                        libraryResetHelper.clearLibraryData()
+                                        authSession.clearAuthTokens()
+                                    }
                                 },
                             )
                         }

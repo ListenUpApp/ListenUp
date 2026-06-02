@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.auth
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -26,6 +27,7 @@ private class RegisterFixture {
         RegisterUseCase(
             authRepository = authRepository,
             authSession = authSession,
+            deviceInfoProvider = { DeviceInfo() },
         )
 }
 
@@ -154,6 +156,7 @@ class RegisterUseCaseTest :
                             email = "user@example.com",
                             password = "password123",
                             displayName = "John Doe",
+                            deviceInfo = DeviceInfo(),
                         ),
                     )
                 }

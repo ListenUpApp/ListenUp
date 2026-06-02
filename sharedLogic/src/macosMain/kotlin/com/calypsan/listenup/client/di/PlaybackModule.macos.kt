@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.download.DownloadFileManager
@@ -90,6 +92,18 @@ val macosPlaybackModule: Module =
             )
         }
 
+        // Structured device identity — shared source for auth login + listening history.
+        single<DeviceInfoProvider> {
+            DeviceInfoProvider {
+                DeviceInfo(
+                    deviceType = "desktop",
+                    platform = "macOS",
+                    clientName = "ListenUp Desktop",
+                    deviceName = NSProcessInfo.processInfo.hostName,
+                )
+            }
+        }
+
         // Listening event recorder — span state machine for P2 listening history
         single {
             ListeningEventRecorder(
@@ -100,8 +114,7 @@ val macosPlaybackModule: Module =
                     Unit
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
-                // macOS: hostname is stable and available. null is also valid (advisory column).
-                deviceLabel = { NSProcessInfo.processInfo.hostName },
+                deviceInfo = get(),
             )
         }
 

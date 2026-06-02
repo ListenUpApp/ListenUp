@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.result.AppResult
 import kotlinx.rpc.annotations.Rpc
@@ -26,5 +27,6 @@ interface InviteServicePublic {
         code: String,
         password: String,
         displayName: String? = null,
+        deviceInfo: DeviceInfo? = null,
     ): AppResult<AuthSession>
 }

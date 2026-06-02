@@ -424,6 +424,7 @@
     "default_speed": "Default speed",
     "default_timer": "Default timer",
     "desktop": "Desktop",
+    "devices": "Devices",
     "downloaded_books": "Downloaded Books",
     "downloaded_books_will_appear_here": "Downloaded books will appear here",
     "duration_when_pressing_skip_backward": "Duration when pressing skip backward",
@@ -454,6 +455,16 @@
     "view_and_manage_downloaded_audiobooks": "View and manage downloaded audiobooks",
     "view_thirdparty_licenses": "View third-party licenses",
     "you_can_redownload_books_anytime": "You can re-download books anytime."
+  },
+  "devices": {
+    "empty": "No other devices.",
+    "last_active": "Last active %1$s",
+    "manage_active_sessions": "Manage your active sessions",
+    "sign_out": "Sign out",
+    "sign_out_everywhere": "Sign out everywhere",
+    "sign_out_everywhere_confirm": "Sign out of all devices, including this one?",
+    "this_device": "This device",
+    "title": "Devices"
   },
   "admin": {
     "1_day": "1 day",

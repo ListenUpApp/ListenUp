@@ -57,5 +57,12 @@ class AuthResources {
     @Resource("sessions")
     class Sessions(
         val parent: AuthResources = AuthResources(),
-    )
+    ) {
+        /** REST endpoint for AuthService.revokeSession — DELETE /api/v1/auth/sessions/{id}. Authenticated. */
+        @Resource("{id}")
+        class ById(
+            val id: String,
+            val parent: Sessions = Sessions(),
+        )
+    }
 }

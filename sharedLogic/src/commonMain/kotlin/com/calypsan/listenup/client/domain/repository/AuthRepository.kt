@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.result.AppResult
 
 /**
@@ -60,4 +62,13 @@ interface AuthRepository {
      * state on success — the bearer-plugin glue persists the new tokens.
      */
     suspend fun refreshAccessToken(): AppResult<AuthSession>
+
+    /** List the caller's active sessions (devices). */
+    suspend fun listSessions(): AppResult<List<SessionSummary>>
+
+    /** Revoke a specific session by id ("sign out this device"). Owner-scoped server-side. */
+    suspend fun revokeSession(sessionId: SessionId): AppResult<Unit>
+
+    /** Revoke every session for the caller ("sign out everywhere"). */
+    suspend fun logoutAll(): AppResult<Unit>
 }

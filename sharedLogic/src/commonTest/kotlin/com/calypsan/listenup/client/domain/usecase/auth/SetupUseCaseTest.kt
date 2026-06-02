@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -36,6 +37,7 @@ private class SetupFixture {
             authRepository = authRepository,
             authSession = authSession,
             userRepository = userRepository,
+            deviceInfoProvider = { DeviceInfo() },
         )
 }
 
@@ -187,6 +189,7 @@ class SetupUseCaseTest :
                             email = "root@example.com",
                             password = "password123",
                             displayName = "Root Admin",
+                            deviceInfo = DeviceInfo(),
                         ),
                     )
                 }

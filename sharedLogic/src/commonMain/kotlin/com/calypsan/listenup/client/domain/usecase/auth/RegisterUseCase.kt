@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 
@@ -31,6 +32,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 open class RegisterUseCase(
     private val authRepository: AuthRepository,
     private val authSession: AuthSession,
+    private val deviceInfoProvider: DeviceInfoProvider,
 ) {
     open suspend operator fun invoke(
         email: String,
@@ -49,6 +51,7 @@ open class RegisterUseCase(
                 email = trimmedEmail,
                 password = password,
                 displayName = displayName,
+                deviceInfo = deviceInfoProvider.current(),
             )
 
         return authRepository

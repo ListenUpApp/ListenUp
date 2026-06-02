@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
@@ -43,6 +45,14 @@ class AuthRepositoryImpl(
         val token = authSession.getRefreshToken() ?: return AppResult.Failure(AuthError.SessionExpired())
         return catching("refresh") { rpc.publicService().refreshSession(RefreshRequest(token)) }
     }
+
+    override suspend fun listSessions(): AppResult<List<SessionSummary>> =
+        catching("listSessions") { rpc.authedService().listSessions() }
+
+    override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
+        catching("revokeSession") { rpc.authedService().revokeSession(sessionId) }
+
+    override suspend fun logoutAll(): AppResult<Unit> = catching("logoutAll") { rpc.authedService().logoutAll() }
 
     private suspend inline fun <T> catching(
         op: String,

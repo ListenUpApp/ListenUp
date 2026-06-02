@@ -354,6 +354,12 @@ data object ABSImport : Route
 data object Settings : Route
 
 /**
+ * Devices screen - lists the caller's active sessions with per-device sign-out.
+ */
+@Serializable
+data object Devices : Route
+
+/**
  * Licenses screen - open source library acknowledgements.
  */
 @Serializable
