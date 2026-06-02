@@ -2,9 +2,11 @@
 
 package com.calypsan.listenup.client.listening
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -125,7 +127,7 @@ class ListeningEventEndToEndTest :
                             )
                         },
                         currentUserId = { "u1" },
-                        deviceLabel = { null },
+                        deviceInfo = DeviceInfoProvider { DeviceInfo() },
                         clock =
                             object : kotlin.time.Clock {
                                 override fun now(): kotlin.time.Instant = kotlin.time.Instant.fromEpochMilliseconds(nowMs)

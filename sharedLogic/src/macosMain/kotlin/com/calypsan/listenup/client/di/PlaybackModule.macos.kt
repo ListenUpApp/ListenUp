@@ -114,8 +114,7 @@ val macosPlaybackModule: Module =
                     Unit
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
-                // macOS: hostname is stable and available. null is also valid (advisory column).
-                deviceLabel = { NSProcessInfo.processInfo.hostName },
+                deviceInfo = get(),
             )
         }
 

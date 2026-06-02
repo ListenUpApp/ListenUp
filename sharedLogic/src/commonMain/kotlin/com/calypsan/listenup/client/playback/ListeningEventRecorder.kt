@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
@@ -50,8 +51,9 @@ private val logger = KotlinLogging.logger {}
  * @property currentUserId Returns the signed-in user's ID, or null if unauthenticated.
  *   A null result causes all write operations to no-op silently — no pending write without
  *   an owner.
- * @property deviceLabel Returns a human-readable device name for multi-device history.
- *   Null is acceptable (the column is advisory).
+ * @property deviceInfo Single source of the running device's identity; the persisted
+ *   `device_label` is derived from it (user-facing name preferred, else hardware model).
+ *   A null derived value is acceptable (the column is advisory).
  * @property clock Injected for deterministic testing. Defaults to [Clock.System].
  * @property timeZone Injected for deterministic testing. Defaults to
  *   [TimeZone.currentSystemDefault].
@@ -67,7 +69,7 @@ class ListeningEventRecorder(
         ownerUserId: String,
     ) -> Unit,
     private val currentUserId: suspend () -> String?,
-    private val deviceLabel: () -> String?,
+    private val deviceInfo: DeviceInfoProvider,
     private val clock: Clock = Clock.System,
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
 ) {
@@ -99,7 +101,7 @@ class ListeningEventRecorder(
                 lastHeartbeatAt = nowMs,
                 playbackSpeed = playbackSpeed,
                 tz = timeZone().id,
-                deviceLabel = deviceLabel(),
+                deviceLabel = deviceInfo.current().let { it.deviceName ?: it.deviceModel },
             ),
         )
     }

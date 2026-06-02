@@ -4,7 +4,9 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -341,7 +343,7 @@ private suspend fun withFixture(
                     realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
                 },
                 currentUserId = { USER_ID },
-                deviceLabel = { DEVICE_LABEL },
+                deviceInfo = DeviceInfoProvider { DeviceInfo(deviceName = DEVICE_LABEL) },
                 clock =
                     object : Clock {
                         override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillisProvider())

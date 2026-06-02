@@ -143,8 +143,7 @@ val platformModule: Module =
                     Unit
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
-                // JVM/desktop: no safe Java-free way to get device name; null is fine (advisory column).
-                deviceLabel = { null },
+                deviceInfo = get(),
             )
         }
 

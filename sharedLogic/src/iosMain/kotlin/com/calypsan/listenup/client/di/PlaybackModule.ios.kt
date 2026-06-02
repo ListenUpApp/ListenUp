@@ -111,8 +111,7 @@ val iosPlaybackModule: Module =
                     get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
-                // iOS: UIDevice.name is the user-facing device name (e.g. "Simon's iPhone"). null also valid.
-                deviceLabel = { platform.UIKit.UIDevice.currentDevice.name },
+                deviceInfo = get(),
             )
         }
 

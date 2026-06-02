@@ -209,7 +209,7 @@ val playbackModule =
                     Unit
                 },
                 currentUserId = { get<com.calypsan.listenup.client.domain.repository.AuthSession>().getUserId() },
-                deviceLabel = { android.os.Build.MODEL },
+                deviceInfo = get(),
             )
         }
 
