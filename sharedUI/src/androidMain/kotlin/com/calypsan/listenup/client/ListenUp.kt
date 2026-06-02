@@ -17,8 +17,10 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.calypsan.listenup.core.ImageLoaderFactory
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.data.remote.PlaybackApi
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.di.playbackPresentationModule
 import com.calypsan.listenup.client.di.sharedModules
@@ -179,6 +181,21 @@ val playbackModule =
                 positionRepository = get(),
                 scope = get(),
             )
+        }
+
+        // Structured device identity — shared source for auth login + listening history.
+        single<DeviceInfoProvider> {
+            DeviceInfoProvider {
+                DeviceInfo(
+                    deviceType = "phone",
+                    platform = "Android",
+                    platformVersion = android.os.Build.VERSION.RELEASE,
+                    clientName = "ListenUp Android",
+                    clientVersion = null,
+                    deviceName = null,
+                    deviceModel = android.os.Build.MODEL,
+                )
+            }
         }
 
         // Listening event recorder — span state machine for P2 listening history

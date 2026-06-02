@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
@@ -85,6 +87,19 @@ val iosPlaybackModule: Module =
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
             )
+        }
+
+        // Structured device identity — shared source for auth login + listening history.
+        single<DeviceInfoProvider> {
+            DeviceInfoProvider {
+                DeviceInfo(
+                    deviceType = "phone",
+                    platform = "iOS",
+                    platformVersion = platform.UIKit.UIDevice.currentDevice.systemVersion,
+                    clientName = "ListenUp iOS",
+                    deviceName = platform.UIKit.UIDevice.currentDevice.name,
+                )
+            }
         }
 
         // Listening event recorder — span state machine for P2 listening history
