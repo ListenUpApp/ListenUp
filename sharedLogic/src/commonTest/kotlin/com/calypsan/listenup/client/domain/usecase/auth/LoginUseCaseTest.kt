@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -30,12 +31,14 @@ private class LoginFixture {
     val authRepository: AuthRepository = mock()
     val authSession: AuthSession = mock()
     val userRepository: UserRepository = mock()
+    var deviceInfo: DeviceInfo = DeviceInfo()
 
     fun build(): LoginUseCase =
         LoginUseCase(
             authRepository = authRepository,
             authSession = authSession,
             userRepository = userRepository,
+            deviceInfoProvider = { deviceInfo },
         )
 }
 
@@ -134,7 +137,34 @@ class LoginUseCaseTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<*>>()
                 verifySuspend {
-                    fixture.authRepository.login(LoginRequest(email = "user@example.com", password = "password123"))
+                    fixture.authRepository.login(
+                        LoginRequest(
+                            email = "user@example.com",
+                            password = "password123",
+                            deviceInfo = DeviceInfo(),
+                        ),
+                    )
+                }
+            }
+        }
+
+        test("login sends DeviceInfo from the provider") {
+            runTest {
+                val fixture = createFixture()
+                fixture.deviceInfo = DeviceInfo(deviceModel = "Pixel 10")
+                everySuspend { fixture.authRepository.login(any()) } returns AppResult.Success(createAuthSession())
+                val useCase = fixture.build()
+
+                useCase(email = "u@x.co", password = "password1")
+
+                verifySuspend {
+                    fixture.authRepository.login(
+                        LoginRequest(
+                            email = "u@x.co",
+                            password = "password1",
+                            deviceInfo = DeviceInfo(deviceModel = "Pixel 10"),
+                        ),
+                    )
                 }
             }
         }

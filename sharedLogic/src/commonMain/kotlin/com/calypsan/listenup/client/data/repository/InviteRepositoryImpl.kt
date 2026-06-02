@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -24,6 +25,7 @@ private val logger = KotlinLogging.logger {}
 class InviteRepositoryImpl(
     private val rpc: InviteRpcFactory,
     private val authSession: ClientAuthSession,
+    private val deviceInfoProvider: DeviceInfoProvider,
 ) : InviteRepository {
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> =
         catching("lookupInvite") { rpc.publicService().lookupInvite(code) }
@@ -33,7 +35,10 @@ class InviteRepositoryImpl(
         password: String,
         displayName: String?,
     ): AppResult<AuthSession> {
-        val result = catching("claimInvite") { rpc.publicService().claimInvite(code, password, displayName) }
+        val result =
+            catching("claimInvite") {
+                rpc.publicService().claimInvite(code, password, displayName, deviceInfoProvider.current())
+            }
         if (result is AppResult.Success) {
             val session = result.data
             authSession.saveAuthTokens(

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.User
@@ -68,7 +69,12 @@ class InviteRepositoryImplTest :
         fun repo(
             rpc: InviteRpcFactory = mock(),
             authSession: AuthSessionStore = mock(),
-        ) = InviteRepositoryImpl(rpc = rpc, authSession = authSession)
+            deviceInfo: DeviceInfo = DeviceInfo(),
+        ) = InviteRepositoryImpl(
+            rpc = rpc,
+            authSession = authSession,
+            deviceInfoProvider = { deviceInfo },
+        )
 
         test("lookupInvite dispatches through the public service") {
             runTest {
@@ -88,7 +94,7 @@ class InviteRepositoryImplTest :
         test("claimInvite success lands logged-in via saveAuthTokens") {
             runTest {
                 val service = mock<InviteServicePublic>()
-                everySuspend { service.claimInvite(INVITE_CODE, "password123", null) } returns
+                everySuspend { service.claimInvite(INVITE_CODE, "password123", null, DeviceInfo()) } returns
                     AppResult.Success(fakeSession())
                 val rpc = mock<InviteRpcFactory>()
                 everySuspend { rpc.publicService() } returns service
@@ -109,10 +115,32 @@ class InviteRepositoryImplTest :
             }
         }
 
+        test("claimInvite sends DeviceInfo from the provider") {
+            runTest {
+                val service = mock<InviteServicePublic>()
+                everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
+                    AppResult.Success(fakeSession())
+                val rpc = mock<InviteRpcFactory>()
+                everySuspend { rpc.publicService() } returns service
+                val store = mock<AuthSessionStore>()
+                everySuspend { store.saveAuthTokens(any(), any(), any(), any()) } returns Unit
+
+                repo(
+                    rpc = rpc,
+                    authSession = store,
+                    deviceInfo = DeviceInfo(deviceModel = "Pixel 10"),
+                ).claimInvite(INVITE_CODE, "password123", null)
+
+                verifySuspend {
+                    service.claimInvite(INVITE_CODE, "password123", null, DeviceInfo(deviceModel = "Pixel 10"))
+                }
+            }
+        }
+
         test("claimInvite failure does NOT call saveAuthTokens") {
             runTest {
                 val service = mock<InviteServicePublic>()
-                everySuspend { service.claimInvite(any(), any(), any()) } returns
+                everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
                     AppResult.Failure(AuthError.InvalidCredentials())
                 val rpc = mock<InviteRpcFactory>()
                 everySuspend { rpc.publicService() } returns service
