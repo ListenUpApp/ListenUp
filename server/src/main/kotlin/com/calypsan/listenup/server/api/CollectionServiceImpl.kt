@@ -207,8 +207,15 @@ internal class CollectionServiceImpl(
                 deletedAt = null,
             )
         return when (val result = collectionBookRepo.upsert(payload)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(result.error)
+            is AppResult.Success -> {
+                // Adding the book to this collection grants its visible users (owner + active-share
+                // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
+                notifyAccessChanged(listOf(id.value))
+                AppResult.Success(Unit)
+            }
+            is AppResult.Failure -> {
+                AppResult.Failure(result.error)
+            }
         }
     }
 
@@ -223,6 +230,9 @@ internal class CollectionServiceImpl(
         // softDelete is idempotent: a Failure(NotFound) means the junction was already
         // absent, which satisfies the caller's intent — treat as success.
         collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
+        // Removing the book may have severed a visible user's only access path to it — nudge this
+        // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
+        notifyAccessChanged(listOf(id.value))
         return AppResult.Success(Unit)
     }
 
@@ -264,24 +274,12 @@ internal class CollectionServiceImpl(
             }
         }
 
-        // Changing the book's collection set changes who can see the book. Every enumerable
-        // user whose access to the book may have shifted — the owner + active-share members of
-        // each ADDED collection (they may have gained the book) and each REMOVED collection
-        // (they may have lost their only access path) — is nudged once to re-derive. A member
-        // who loses access must prune the book from their local store; the gated-out book and
-        // junction events alone would never tell them. Admins see everything regardless, so they
-        // need no signal. The non-enumerable public↔private "everyone" edge converges on the next
-        // firehose catch-up — the documented 1b behavior.
-        val affectedUserIds =
-            (added + removed)
-                .flatMap { collectionId ->
-                    val owner = collectionRepo.findById(collectionId)?.ownerId
-                    val shareUsers = shareRepo.listActiveSharesForCollection(collectionId).map { it.sharedWithUserId }
-                    if (owner != null) shareUsers + owner else shareUsers
-                }.toSet()
-        for (affectedUserId in affectedUserIds) {
-            bus.publishControl(SyncControl.AccessChanged, affectedUserId)
-        }
+        // Changing the book's collection set changes who can see the book. Every enumerable user
+        // whose access may have shifted — the visible users of each ADDED collection (they may have
+        // gained the book) and each REMOVED collection (they may have lost their only access path) —
+        // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
+        // the next firehose catch-up — the documented 1b behavior.
+        notifyAccessChanged(added + removed)
         return AppResult.Success(Unit)
     }
 
@@ -533,20 +531,34 @@ internal class CollectionServiceImpl(
             }
         }
 
-        // Every user who can see a target collection (its owner + its active share recipients)
-        // just gained access to the released books — nudge each once to re-derive. Admins see
-        // everything regardless, so they need no signal; everyone else does.
-        val usersGainingAccess =
-            distinctTargetIds
-                .flatMap { targetId ->
-                    val owner = collectionRepo.findById(targetId)?.ownerId
-                    val shareUsers = shareRepo.listActiveSharesForCollection(targetId).map { it.sharedWithUserId }
+        // Every user who can see a target collection just gained access to the released books —
+        // nudge each once to re-derive.
+        notifyAccessChanged(distinctTargetIds)
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Publishes a per-user [SyncControl.AccessChanged] nudge to every enumerable user whose
+     * visibility may have shifted because the membership of [collectionIds] changed — each
+     * collection's owner plus its active-share recipients. The single emission contract shared
+     * by every visibility-mutating method (add/remove book, [setBookCollections], [releaseBooks]).
+     *
+     * A nudged member re-derives their view and prunes any book they can no longer reach — the
+     * gated-out book/junction sync events alone would never tell them. Admins see everything, so
+     * they need no signal; the non-enumerable public↔private "everyone" edge converges on the next
+     * firehose catch-up (the documented 1b behavior).
+     */
+    private suspend fun notifyAccessChanged(collectionIds: Collection<String>) {
+        val affectedUserIds =
+            collectionIds
+                .flatMap { collectionId ->
+                    val owner = collectionRepo.findById(collectionId)?.ownerId
+                    val shareUsers = shareRepo.listActiveSharesForCollection(collectionId).map { it.sharedWithUserId }
                     if (owner != null) shareUsers + owner else shareUsers
                 }.toSet()
-        for (affectedUserId in usersGainingAccess) {
+        for (affectedUserId in affectedUserIds) {
             bus.publishControl(SyncControl.AccessChanged, affectedUserId)
         }
-        return AppResult.Success(Unit)
     }
 
     /**
