@@ -21,6 +21,15 @@ private const val SQLITE_DB_FILENAME = "listenup.db"
 fun defaultListenupHome(userHome: String): Path = Path.of(userHome, DATA_DIR_NAME)
 
 /**
+ * The effective ListenUp data home: [envHome] when non-blank, else [userHome]/ListenUp.
+ * Pure — callers read `System.getenv("LISTENUP_HOME")` / `System.getProperty("user.home")` at the edge.
+ */
+fun resolveListenupHome(
+    envHome: String?,
+    userHome: String,
+): Path = envHome?.takeIf { it.isNotBlank() }?.let { Path.of(it) } ?: defaultListenupHome(userHome)
+
+/**
  * Resolve the effective JDBC URL for the application database.
  *
  * - A non-blank [configuredUrl] (the `database.jdbcUrl` config / `LISTENUP_DB_URL`
