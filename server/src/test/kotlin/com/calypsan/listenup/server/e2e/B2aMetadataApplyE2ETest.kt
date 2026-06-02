@@ -139,7 +139,7 @@ class B2aMetadataApplyE2ETest :
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                         imageStorage = imageStorage,
-                        libraryPath = Path(tempDir),
+                        imageHome = Path(tempDir),
                         permissionPolicy = UserPermissionPolicy(db),
                         principal =
                             PrincipalProvider {
@@ -207,7 +207,7 @@ class B2aMetadataApplyE2ETest :
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-                        libraryPath = Path(tempDir),
+                        imageHome = Path(tempDir),
                         permissionPolicy = UserPermissionPolicy(db),
                         principal =
                             PrincipalProvider {

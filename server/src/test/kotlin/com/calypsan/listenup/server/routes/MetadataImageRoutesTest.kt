@@ -57,7 +57,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-200-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -97,7 +97,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-404-unknown-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -118,7 +118,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-404-nopath-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -143,7 +143,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-404-nofile-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -180,7 +180,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-traversal-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -217,7 +217,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-unauth-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
@@ -234,7 +234,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-contrib-range-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -277,7 +277,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-200-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -317,7 +317,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-404-unknown-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -338,7 +338,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-404-nopath-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -363,7 +363,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-404-nofile-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -400,7 +400,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-traversal-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
                     val token = client.mintAccessToken()
@@ -437,7 +437,7 @@ class MetadataImageRoutesTest :
             val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-unauth-")
             try {
                 testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 

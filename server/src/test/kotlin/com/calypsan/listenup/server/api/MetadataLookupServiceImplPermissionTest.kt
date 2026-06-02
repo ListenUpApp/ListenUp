@@ -105,7 +105,7 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-        libraryPath = Path(tempDir),
+        imageHome = Path(tempDir),
         permissionPolicy = UserPermissionPolicy(db),
     )
 }

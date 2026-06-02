@@ -23,11 +23,16 @@ import org.koin.ktor.ext.inject
  * @param seedProfile when set, adds `seed.profile` so `module()` installs
  *   the seed module and runs the [com.calypsan.listenup.server.seed.SeedRunner]
  *   at startup. Pass `"demo"` to exercise the demo-seed boot path.
+ * @param homeDir when set, adds `listenup.home` so `module()` resolves the
+ *   image home (covers / contributor photos / series covers) to this directory
+ *   instead of `$LISTENUP_HOME`/`~/ListenUp`. Tests serving metadata images pass
+ *   a fresh temp directory here.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
     registrationPolicy: String = "OPEN",
     libraryPath: String? = null,
     seedProfile: String? = null,
+    homeDir: String? = null,
 ) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     environment {
@@ -42,6 +47,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
             ).apply {
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
                 if (seedProfile != null) put("seed.profile", seedProfile)
+                if (homeDir != null) put("listenup.home", homeDir)
             }
     }
 }

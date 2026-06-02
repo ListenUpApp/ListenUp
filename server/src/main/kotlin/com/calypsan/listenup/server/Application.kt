@@ -77,6 +77,7 @@ import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
+import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
@@ -181,6 +182,7 @@ private fun Application.installDependencies(
     seedProfile: String?,
     applicationScope: CoroutineScope,
     resolvedLibraryPath: Path?,
+    homeDir: Path,
     metadataPrecedence: MetadataPrecedence,
     embeddedCoverCacheSize: Int,
 ) {
@@ -189,7 +191,7 @@ private fun Application.installDependencies(
         if (resolvedLibraryPath != null) {
             modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
             modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
-            modules += metadataModule(kotlinx.io.files.Path(resolvedLibraryPath.toString()))
+            modules += metadataModule(kotlinx.io.files.Path(homeDir.toString()))
             modules += playbackModule()
             modules += libraryModule()
         }
@@ -215,10 +217,18 @@ fun Application.module() {
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val homeDir = resolveImageHome()
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
 
-    installDependencies(seedProfile, applicationScope, resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+    installDependencies(
+        seedProfile,
+        applicationScope,
+        resolvedLibraryPath,
+        homeDir,
+        metadataPrecedence,
+        embeddedCoverCacheSize,
+    )
 
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
@@ -297,7 +307,7 @@ fun Application.module() {
                 adminRoutes(backfillService, searchReindexService)
             }
             if (contributorRepository != null && seriesRepository != null) {
-                metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
+                metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             }
             if (metadataLookupService != null) metadataRoutes(metadataLookupService)
             if (searchService != null) searchRoutes(searchService)
@@ -340,6 +350,27 @@ private fun Application.resolveLibraryPath(): Path? {
         return null
     }
     return path
+}
+
+/**
+ * Resolves the always-available ListenUp home directory that holds app-managed
+ * files (downloaded cover/contributor images live in per-type subdirectories
+ * under it). Unlike the audio library, this path is always available — even on a
+ * library-less boot — so it is resolved unconditionally.
+ *
+ * An explicit `listenup.home` config property wins (tests inject this to a temp
+ * dir); otherwise it falls back to `$LISTENUP_HOME`, defaulting to `~/ListenUp`.
+ * Reads env / system properties here at the config edge so [resolveListenupHome]
+ * stays pure.
+ */
+private fun Application.resolveImageHome(): Path {
+    val configured =
+        environment.config
+            .propertyOrNull("listenup.home")
+            ?.getString()
+            ?.takeIf { it.isNotBlank() }
+    if (configured != null) return Path.of(configured)
+    return resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
 }
 
 /**

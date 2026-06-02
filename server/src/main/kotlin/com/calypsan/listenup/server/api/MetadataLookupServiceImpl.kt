@@ -59,7 +59,7 @@ internal class MetadataLookupServiceImpl(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
-    private val libraryPath: Path,
+    private val imageHome: Path,
     private val permissionPolicy: UserPermissionPolicy,
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
@@ -72,7 +72,7 @@ internal class MetadataLookupServiceImpl(
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
             imageStorage = imageStorage,
-            libraryPath = libraryPath,
+            imageHome = imageHome,
             permissionPolicy = permissionPolicy,
             defaultRegion = defaultRegion,
             principal = principal,
@@ -155,7 +155,7 @@ internal class MetadataLookupServiceImpl(
             seriesRepository = seriesRepository,
             imageStorage = imageStorage,
             metadataService = metadataService,
-            libraryPath = libraryPath,
+            imageHome = imageHome,
         ).apply(bookId, asin, region)
     }
 
@@ -169,7 +169,7 @@ internal class MetadataLookupServiceImpl(
             contributorRepository = contributorRepository,
             imageStorage = imageStorage,
             metadataService = metadataService,
-            libraryPath = libraryPath,
+            imageHome = imageHome,
         ).apply(contributorId, asin, region)
     }
 }

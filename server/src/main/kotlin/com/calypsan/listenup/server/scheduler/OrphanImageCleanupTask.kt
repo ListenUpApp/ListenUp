@@ -17,10 +17,9 @@ import kotlinx.io.files.SystemFileSystem
 private val log = KotlinLogging.logger {}
 
 /**
- * Periodic sweep that removes `.jpg` image files under
- * `.listenup-meta/contributors/` and `.listenup-meta/series/` whose
- * filename stem (the part before `.jpg`) does not match the id of any
- * non-tombstoned contributor or series in the database.
+ * Periodic sweep that removes `.jpg` image files under `{imageHome}/contributors/`
+ * and `{imageHome}/series/` whose filename stem (the part before `.jpg`) does not
+ * match the id of any non-tombstoned contributor or series in the database.
  *
  * Orphans arise from two sources:
  *  1. [com.calypsan.listenup.server.api.ContributorMetadataApplier] wrote a
@@ -41,7 +40,7 @@ private val log = KotlinLogging.logger {}
 internal class OrphanImageCleanupTask(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
-    private val libraryPath: Path,
+    private val imageHome: Path,
     private val interval: Duration = 7.days,
 ) {
     /**
@@ -69,8 +68,8 @@ internal class OrphanImageCleanupTask(
     suspend fun runOnce() {
         val liveContributorIds = contributorRepository.listLiveIds()
         val liveSeriesIds = seriesRepository.listLiveIds()
-        val contributorDir = Path(libraryPath, ".listenup-meta/contributors")
-        val seriesDir = Path(libraryPath, ".listenup-meta/series")
+        val contributorDir = Path(imageHome, "contributors")
+        val seriesDir = Path(imageHome, "series")
         sweepDir(contributorDir, liveContributorIds, "contributor")
         sweepDir(seriesDir, liveSeriesIds, "series")
     }

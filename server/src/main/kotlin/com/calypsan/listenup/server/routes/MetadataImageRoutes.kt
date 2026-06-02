@@ -18,19 +18,20 @@ import java.nio.file.Path
  * installed at application startup.
  *
  * Both [imagePath] / [coverPath] stored in the database are relative paths
- * sandboxed under [libraryPath]. Paths containing `../` or starting with `/`
- * are rejected with 400 to prevent directory traversal.
+ * (e.g. `contributors/{id}.jpg`, `series/{id}.jpg`) sandboxed under [imageHome] —
+ * the same per-type layout the appliers write to. Paths containing `../` or
+ * starting with `/` are rejected with 400 to prevent directory traversal.
  */
 fun Route.metadataImageRoutes(
     contributorRepository: ContributorRepository,
     seriesRepository: SeriesRepository,
-    libraryPath: Path,
+    imageHome: Path,
 ) {
     get("/api/v1/contributors/{id}/photo") {
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val absolute = resolveSandboxed(libraryPath, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         if (!absolute.toFile().isFile) return@get call.respond(HttpStatusCode.NotFound)
         call.respondPath(absolute)
     }
@@ -39,7 +40,7 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val series = seriesRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = series.coverPath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val absolute = resolveSandboxed(libraryPath, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         if (!absolute.toFile().isFile) return@get call.respond(HttpStatusCode.NotFound)
         call.respondPath(absolute)
     }
