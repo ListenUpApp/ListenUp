@@ -22,12 +22,15 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.libraryModule
+import com.calypsan.listenup.server.di.mdnsModule
 import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
+import com.calypsan.listenup.server.mdns.InstanceIdentity
+import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
@@ -105,6 +108,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.rpc.krpc.ktor.server.Krpc
+import org.koin.core.parameter.parametersOf
+import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import java.nio.file.Files
@@ -194,6 +199,12 @@ private fun Application.installDependencies(
         modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()
+        val httpPort =
+            environment.config
+                .propertyOrNull("ktor.deployment.port")
+                ?.getString()
+                ?.toIntOrNull() ?: 8080
+        modules += mdnsModule(applicationScope, httpPort)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -489,6 +500,23 @@ private fun Application.startBackgroundTasks(
         }.onFailure { e ->
             if (e is kotlinx.coroutines.CancellationException) throw e
             logger.error(e) { "library bootstrap failed — server keeps running" }
+        }
+    }
+
+    // mDNS advertisement — best-effort, non-fatal. Resolve the persistent instance id, then start the
+    // advertiser; register its stop on shutdown. A failure here must never break startup — manual
+    // server-URL entry is the Never-Stranded fallback.
+    scope.launch {
+        runCatching {
+            val instanceId = inject<InstanceIdentity>().value.instanceId()
+            val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId) }
+            advertiser.start()
+            monitor.subscribe(ApplicationStopped) {
+                scope.launch { advertiser.stop() }
+            }
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.warn(e) { "mDNS advertisement failed to start — server keeps running" }
         }
     }
 }
