@@ -23,9 +23,11 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
@@ -40,6 +42,7 @@ import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import java.nio.file.Path
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -69,6 +72,9 @@ import org.koin.dsl.module
  *    pulls [EmbeddedMetadataParser] from the separately-installed
  *    `embeddedmetaModule`.
  *  - [CoverStorage] — filesystem-side counterpart for `BookService.deleteBookCover`.
+ *  - [CoverImageStore] — the cover-scoped [ImageStore] rooted at
+ *    `$LISTENUP_HOME/covers` (10 MiB cap). A distinct wrapper type so it doesn't
+ *    collide with the avatar [ImageStore] in [profileModule].
  *
  * Exposed as a **function** rather than a top-level `val` for the same reason
  * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
@@ -86,10 +92,13 @@ import org.koin.dsl.module
  * @param embeddedCoverCacheSize the operator-configured maximum number of covers
  *   the [EmbeddedCoverCache] retains (resolved from
  *   `LISTENUP_EMBEDDED_COVER_CACHE_SIZE`).
+ * @param homeDir `$LISTENUP_HOME` as a [Path]; the covers sub-directory is resolved
+ *   from it and passed to [CoverImageStore].
  */
 fun booksModule(
     metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     embeddedCoverCacheSize: Int = DEFAULT_EMBEDDED_COVER_CACHE_SIZE,
+    homeDir: Path,
 ): Module =
     module {
         single<MeterRegistry> { SimpleMeterRegistry() }
@@ -204,15 +213,20 @@ fun booksModule(
         // re-invocations a no-op.
         single { GenreDomainSeeder(db = get(), genreRepository = get<GenreRepository>()) }
 
-        coverAndPersisterBindings(embeddedCoverCacheSize)
+        coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
 
 /**
- * Cover-serving ([EmbeddedCoverCache], [CoverResponder]) and scan-ingest ([BookPersister])
- * bindings. Split out of [booksModule] so the module body stays focused on the domain
- * services; these are the filesystem/scan-driven tail of the same slice.
+ * Cover-serving ([EmbeddedCoverCache], [CoverResponder]), managed-cover store
+ * ([CoverImageStore]), and scan-ingest ([BookPersister]) bindings. Split out of
+ * [booksModule] so the module body stays focused on the domain services; these are
+ * the filesystem/scan-driven tail of the same slice.
  */
-private fun Module.coverAndPersisterBindings(embeddedCoverCacheSize: Int) {
+private fun Module.coverAndPersisterBindings(
+    embeddedCoverCacheSize: Int,
+    homeDir: Path,
+) {
+    single { CoverImageStore(ImageStore(homeDir.resolve("covers"), COVER_MAX_BYTES)) }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
     single {
         CoverResponder(
@@ -248,3 +262,6 @@ private fun unscopedPlaceholder(serviceName: String): PrincipalProvider =
  * is unset. Matches the cache's own built-in default.
  */
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
+
+/** Maximum accepted cover image size (10 MiB). Covers are larger than avatars (2 MiB). */
+private const val COVER_MAX_BYTES = 10L * 1024 * 1024

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -30,10 +31,12 @@ import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.cover.CoverInfo
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableRepository
+import com.calypsan.listenup.server.sync.nextRevision
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Files
 import java.nio.file.Path
@@ -524,6 +527,103 @@ class BookRepository(
      * logging a move; tests assert post-write state).
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
+
+    /**
+     * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
+     * row's revision so the change propagates to clients via the sync bus.
+     *
+     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
+     * carries the full aggregate so clients can refresh immediately.
+     *
+     * @return [AppResult.Success] on success;
+     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     */
+    suspend fun setManagedCover(
+        id: BookId,
+        relPath: String,
+        hash: String,
+        source: CoverSource,
+    ): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                BookTable.update({ BookTable.id eq idStr }) { stmt ->
+                    stmt[BookTable.coverSource] = source.name.lowercase()
+                    stmt[BookTable.coverPath] = relPath
+                    stmt[BookTable.coverHash] = hash
+                    stmt[BookTable.revision] = rev
+                    stmt[BookTable.updatedAt] = now
+                }
+            if (rowsAffected == 0) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                val saved =
+                    readPayload(idStr)
+                        ?: error("readPayload returned null immediately after setManagedCover for $idStr")
+                bus.publish(
+                    repo = this@BookRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                    userId = null,
+                )
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Nulls the managed-cover columns (`cover_source`, `cover_path`, `cover_hash`) and bumps
+     * the row's revision so the change propagates to clients via the sync bus.
+     *
+     * Opens its own transaction. The `SyncEvent.Updated` published to [ChangeBus]
+     * carries the full aggregate so clients can refresh immediately.
+     *
+     * @return [AppResult.Success] on success;
+     *   [AppResult.Failure] with [SyncError.NotFound] when [id] has no row.
+     */
+    suspend fun clearManagedCover(id: BookId): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            val rowsAffected =
+                BookTable.update({ BookTable.id eq idStr }) { stmt ->
+                    stmt[BookTable.coverSource] = null
+                    stmt[BookTable.coverPath] = null
+                    stmt[BookTable.coverHash] = null
+                    stmt[BookTable.revision] = rev
+                    stmt[BookTable.updatedAt] = now
+                }
+            if (rowsAffected == 0) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                val saved =
+                    readPayload(idStr)
+                        ?: error("readPayload returned null immediately after clearManagedCover for $idStr")
+                bus.publish(
+                    repo = this@BookRepository,
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                    userId = null,
+                )
+                AppResult.Success(Unit)
+            }
+        }
+    }
 
     /**
      * Resolves where [id]'s cover image lives, as an absolute filesystem path,

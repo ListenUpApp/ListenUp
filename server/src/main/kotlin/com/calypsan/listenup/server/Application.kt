@@ -198,7 +198,7 @@ private fun Application.installDependencies(
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
         modules += scannerModule(applicationScope, metadataPrecedence)
-        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize)
+        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(kotlinx.io.files.Path(homeDir.toString()))
         modules += playbackModule()
         modules += libraryModule()

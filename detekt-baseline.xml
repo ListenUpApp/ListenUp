@@ -3,6 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$also</ID>
+    <ID>LargeClass:BookRepository.kt$BookRepository : SyncableRepositoryBookIngestPort</ID>
     <ID>CognitiveComplexMethod:AdminCollectionDetailViewModel.kt$AdminCollectionDetailViewModel$private fun loadCollection()</ID>
     <ID>CognitiveComplexMethod:Application.kt$fun Application.module()</ID>
     <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( bookId: String, title: String, coverPath: String?, blurHash: String?, onClick: () -&gt; Unit, authorName: String? = null, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, avatarOverlay: AvatarOverlayData? = null, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, modifier: Modifier = Modifier, )</ID>
