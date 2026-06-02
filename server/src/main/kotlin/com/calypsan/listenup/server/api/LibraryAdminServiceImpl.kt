@@ -385,13 +385,24 @@ internal class LibraryAdminServiceImpl(
     /**
      * Builds a full [Library] DTO from [LibrarySyncPayload] by fetching its active
      * folder refs from [libraryFolderRepository].
+     *
+     * Folder [rootPath]s are absolute server filesystem paths — operator disk topology.
+     * They are exposed to ROOT/ADMIN callers and to internal/system reads (no principal —
+     * e.g. bootstrap, which feeds the paths to the scanner); a plain member receives folder
+     * refs with `rootPath = null` (count + identity preserved, path redacted). Mirrors the
+     * firehose `library_folders` gate so members never learn folder paths through any channel.
      */
     private suspend fun LibrarySyncPayload.toLibraryWithFolders(): Library {
+        // System/bootstrap reads (no principal) and admins see real paths; only an authenticated
+        // member has them redacted. Route handlers always bind a principal via copyWith, so a null
+        // principal here is always an internal/system caller — never a wire request.
+        val role = principal.current()?.role
+        val exposePaths = role == null || role == UserRole.ROOT || role == UserRole.ADMIN
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val folderRefs =
             folderPage.items
                 .filter { it.libraryId == this.id && it.deletedAt == null }
-                .map { LibraryFolderRef(id = FolderId(it.id), rootPath = it.rootPath) }
+                .map { LibraryFolderRef(id = FolderId(it.id), rootPath = if (exposePaths) it.rootPath else null) }
         return Library(
             id = LibraryId(this.id),
             name = this.name,

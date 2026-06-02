@@ -105,6 +105,46 @@ class LibraryAdminServiceImplTest :
             }
         }
 
+        test("getLibrary redacts folder rootPath for a member but exposes it to an admin") {
+            withInMemoryDatabase {
+                // Admin seeds the library; a member reads it back over the same DB.
+                val (admin) = makeService(db = this, role = UserRole.ADMIN)
+                val (member) = makeService(db = this, role = UserRole.MEMBER)
+                runTest {
+                    val dir = createTempDir()
+                    val created =
+                        admin.createLibrary(CreateLibraryRequest(name = "Shared", folderPaths = listOf(dir.absolutePath)))
+                    val libraryId = (created as AppResult.Success).data.id
+
+                    val adminView = (admin.getLibrary(libraryId) as AppResult.Success).data.shouldNotBeNull()
+                    adminView.folders.first().rootPath shouldBe dir.absolutePath
+
+                    val memberView = (member.getLibrary(libraryId) as AppResult.Success).data.shouldNotBeNull()
+                    // Count + identity preserved, absolute path redacted.
+                    memberView.folders shouldHaveSize 1
+                    memberView.folders.first().id shouldBe adminView.folders.first().id
+                    memberView.folders
+                        .first()
+                        .rootPath
+                        .shouldBeNull()
+                }
+            }
+        }
+
+        test("listLibraries redacts every folder rootPath for a member") {
+            withInMemoryDatabase {
+                val (admin) = makeService(db = this, role = UserRole.ADMIN)
+                val (member) = makeService(db = this, role = UserRole.MEMBER)
+                runTest {
+                    admin.createLibrary(CreateLibraryRequest(name = "A", folderPaths = listOf(createTempDir().absolutePath)))
+                    admin.createLibrary(CreateLibraryRequest(name = "B", folderPaths = listOf(createTempDir().absolutePath)))
+
+                    val libraries = (member.listLibraries() as AppResult.Success).data
+                    libraries.flatMap { it.folders }.forEach { it.rootPath.shouldBeNull() }
+                }
+            }
+        }
+
         test("getSetupStatus returns needsSetup=true when libraries empty") {
             withInMemoryDatabase {
                 val (service) = makeService(db = this)
