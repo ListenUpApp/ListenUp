@@ -288,10 +288,9 @@ class ImageApi(
      * Returns raw image bytes which can be saved to local storage
      * via ImageStorage. Returns failure if avatar doesn't exist (404).
      *
-     * Endpoint: GET /avatars/{userId}
-     * Note: This endpoint is NOT under /api/v1 - it's a static file server route.
-     * Auth: Not required (public access)
-     * Response: image/jpeg (raw bytes)
+     * Endpoint: GET /api/v1/avatars/{userId}
+     * Auth: bearer token (the authed client); any authenticated user may fetch any avatar (presence).
+     * Response: image bytes (jpeg/png/webp); 404 when the user has no uploaded avatar.
      *
      * @param userId Unique identifier for the user
      * @return Result containing image bytes or error
@@ -299,7 +298,7 @@ class ImageApi(
     override suspend fun downloadUserAvatar(userId: String): AppResult<ByteArray> =
         suspendRunCatching {
             val client = clientFactory.getClient()
-            client.get("/avatars/$userId").body<ByteArray>()
+            client.get("/api/v1/avatars/$userId").body<ByteArray>()
         }
 
     /**
