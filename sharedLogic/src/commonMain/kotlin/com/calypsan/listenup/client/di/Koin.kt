@@ -995,7 +995,13 @@ val syncModule =
 
         // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
         single<ProfileRepository> {
-            ProfileRepositoryImpl(profileApi = get())
+            ProfileRepositoryImpl(
+                profileApi = get(),
+                profileRpcFactory = get(),
+                userDao = get(),
+                userProfileDao = get(),
+                avatarDownloadRepository = get(),
+            )
         }
 
         // UserPreferencesRepository for syncing user preferences across devices

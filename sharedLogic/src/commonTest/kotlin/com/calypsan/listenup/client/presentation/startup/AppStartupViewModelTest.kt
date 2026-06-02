@@ -7,7 +7,9 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.core.AppResult as CoreAppResult
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -62,6 +64,13 @@ class AppStartupViewModelTest {
         return factory
     }
 
+    /** No-op [ProfileRepository] mock — profile refresh is fire-and-forget and not exercised here. */
+    private fun createNoOpProfileRepository(): ProfileRepository {
+        val repo = mock<ProfileRepository>()
+        everySuspend { repo.refreshMyProfile() } returns CoreAppResult.Success(Unit)
+        return repo
+    }
+
     private fun createTestUser(
         id: String = "user-001",
         isAdmin: Boolean = false,
@@ -103,7 +112,7 @@ class AppStartupViewModelTest {
             everySuspend { userRepository.getCurrentUser() } returns null
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
 
             // Then - initial state before coroutine completes
             assertTrue(viewModel.state.value.isChecking)
@@ -120,7 +129,7 @@ class AppStartupViewModelTest {
             everySuspend { userRepository.getCurrentUser() } returns regularUser
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Then
@@ -142,7 +151,7 @@ class AppStartupViewModelTest {
                 AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Then
@@ -160,7 +169,7 @@ class AppStartupViewModelTest {
             val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // When
@@ -180,7 +189,7 @@ class AppStartupViewModelTest {
             val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Verify backgroundedAtMs is null before the call
@@ -203,7 +212,7 @@ class AppStartupViewModelTest {
             val factory = createMockLibraryAdminRpcFactory()
             everySuspend { userRepository.refreshCurrentUser() } returns null
             everySuspend { userRepository.getCurrentUser() } returns null
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Initial check is complete, isChecking should be false
@@ -236,7 +245,7 @@ class AppStartupViewModelTest {
                 AppResult.Failure(TransportError.NetworkUnavailable())
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Then - check is settled, failure surfaced, NOT forced into the wizard
@@ -259,7 +268,7 @@ class AppStartupViewModelTest {
                 AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Then
@@ -279,7 +288,7 @@ class AppStartupViewModelTest {
             everySuspend { userRepository.getCurrentUser() } returns regularUser
 
             // When
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Then
@@ -301,7 +310,7 @@ class AppStartupViewModelTest {
             everySuspend { service.getSetupStatus() } returns
                 AppResult.Failure(TransportError.NetworkUnavailable())
 
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
             assertTrue(viewModel.state.value.setupCheckFailed)
 
@@ -332,7 +341,7 @@ class AppStartupViewModelTest {
             everySuspend { service.getSetupStatus() } returns
                 AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
 
-            val viewModel = AppStartupViewModel(userRepository, factory)
+            val viewModel = AppStartupViewModel(userRepository, factory, createNoOpProfileRepository())
             advanceUntilIdle()
 
             // Verify initial state

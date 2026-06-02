@@ -487,6 +487,7 @@ val startupPresentationModule =
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
                 userRepository = get(),
                 libraryAdminRpcFactory = get(),
+                profileRepository = get(),
             )
         }
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,10 +47,16 @@ data class AppStartupState(
  * - Short background resume (< BACKGROUND_THRESHOLD_MS): same as config change.
  * - Long background (>= BACKGROUND_THRESHOLD_MS): onAppForegrounded resets the
  *   state and re-runs the check so stale library-setup state is refreshed.
+ *
+ * On every startup check the own profile is refreshed from the server in the
+ * background via [ProfileRepository.refreshMyProfile] so local Room reflects the
+ * latest server values (displayName, tagline, avatarType). The refresh is
+ * fire-and-forget — failures are logged and never surfaced to the UI.
  */
 class AppStartupViewModel(
     private val userRepository: UserRepository,
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
+    private val profileRepository: ProfileRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AppStartupState())
     val state: StateFlow<AppStartupState> = _state.asStateFlow()
@@ -102,6 +109,20 @@ class AppStartupViewModel(
             try {
                 val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
                 logger.debug { "AppStartupViewModel: user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
+
+                // Refresh own profile in the background — keeps displayName/tagline/avatarType in sync.
+                // Fire-and-forget: never blocks the startup check or surfaces failures to the UI.
+                if (user != null) {
+                    launch {
+                        try {
+                            profileRepository.refreshMyProfile()
+                        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.warn(e) { "Own profile refresh failed at startup" }
+                        }
+                    }
+                }
 
                 if (user?.isAdmin == true) {
                     when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
