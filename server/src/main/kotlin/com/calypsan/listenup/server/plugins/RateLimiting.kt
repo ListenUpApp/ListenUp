@@ -14,6 +14,12 @@ object RateLimitBuckets {
     val Refresh = RateLimitName("auth-refresh")
     val Setup = RateLimitName("auth-setup")
     val BooksSearch = RateLimitName("books_search")
+
+    // Public, anonymous invite surface. Claim creates an account and runs Argon2 (CPU) —
+    // limited as tightly as registration. Lookup is a cheaper existence/inviter-name oracle
+    // (mitigated by 128-bit codes) but still anonymous, so it gets a looser bucket.
+    val InviteLookup = RateLimitName("invite_lookup")
+    val InviteClaim = RateLimitName("invite_claim")
 }
 
 /**
@@ -43,6 +49,14 @@ fun Application.installRateLimiting() {
             rateLimiter(limit = BOOKS_SEARCH_LIMIT, refillPeriod = 1.minutes)
             requestKey { call -> call.request.origin.remoteHost }
         }
+        register(RateLimitBuckets.InviteLookup) {
+            rateLimiter(limit = INVITE_LOOKUP_LIMIT, refillPeriod = 1.minutes)
+            requestKey { call -> call.request.origin.remoteHost }
+        }
+        register(RateLimitBuckets.InviteClaim) {
+            rateLimiter(limit = INVITE_CLAIM_LIMIT, refillPeriod = 1.minutes)
+            requestKey { call -> call.request.origin.remoteHost }
+        }
     }
 }
 
@@ -51,3 +65,5 @@ private const val REGISTER_LIMIT = 5
 private const val REFRESH_LIMIT = 30
 private const val SETUP_LIMIT = 3
 private const val BOOKS_SEARCH_LIMIT = 60
+private const val INVITE_LOOKUP_LIMIT = 20
+private const val INVITE_CLAIM_LIMIT = 5

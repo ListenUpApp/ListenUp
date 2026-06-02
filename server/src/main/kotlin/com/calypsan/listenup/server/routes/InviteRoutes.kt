@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.resources.InviteResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -18,6 +19,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.request.receive
 import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
@@ -76,15 +78,21 @@ fun Route.adminInviteRoutes(inviteService: InviteService) {
  * already made. Mount *outside* the auth block, next to the public auth surface.
  */
 fun Route.publicInviteRoutes(inviteService: InviteServicePublic) {
-    get<InvitePreviewResource> { res ->
-        call.respondResult(inviteService.lookupInvite(res.code))
+    // Anonymous endpoints, so they carry their own rate-limit buckets (mirroring the public
+    // auth surface): claim runs Argon2 + creates an account, lookup is an anonymous oracle.
+    rateLimit(RateLimitBuckets.InviteLookup) {
+        get<InvitePreviewResource> { res ->
+            call.respondResult(inviteService.lookupInvite(res.code))
+        }
     }
 
-    post<InvitePreviewResource.Claim> { res ->
-        val body = call.receive<ClaimInviteRequest>()
-        call.respondResult(
-            inviteService.claimInvite(res.parent.code, body.password, body.displayName, body.deviceInfo),
-        )
+    rateLimit(RateLimitBuckets.InviteClaim) {
+        post<InvitePreviewResource.Claim> { res ->
+            val body = call.receive<ClaimInviteRequest>()
+            call.respondResult(
+                inviteService.claimInvite(res.parent.code, body.password, body.displayName, body.deviceInfo),
+            )
+        }
     }
 }
 
