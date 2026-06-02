@@ -47,13 +47,16 @@ class DevicesViewModel(
 
     private suspend fun load(): DevicesUiState =
         when (val result = authRepository.listSessions()) {
-            is AppResult.Success ->
+            is AppResult.Success -> {
                 DevicesUiState.Ready(
                     devices = result.data.map { it.toRow() },
                     signingOut = signingOut.value,
                 )
+            }
 
-            is AppResult.Failure -> DevicesUiState.Error(result.error.message)
+            is AppResult.Failure -> {
+                DevicesUiState.Error(result.error.message)
+            }
         }
 
     /** Re-fetch the session list (e.g. after a transient load failure). */
@@ -112,7 +115,11 @@ class DevicesViewModel(
          */
         fun secondaryOf(info: DeviceInfo?): String {
             if (info == null) return ""
-            val platform = listOfNotNull(info.platform, info.platformVersion).filter { it.isNotBlank() }.joinToString(" ")
+            val platform =
+                listOfNotNull(
+                    info.platform,
+                    info.platformVersion,
+                ).filter { it.isNotBlank() }.joinToString(" ")
             val client = listOfNotNull(info.clientName, info.clientVersion).filter { it.isNotBlank() }.joinToString(" ")
             return listOf(platform, client).filter { it.isNotBlank() }.joinToString(" · ")
         }

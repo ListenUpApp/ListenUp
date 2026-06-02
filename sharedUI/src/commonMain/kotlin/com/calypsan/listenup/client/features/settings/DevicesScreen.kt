@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -181,7 +180,7 @@ private fun DevicesContent(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
     ) {
-        if (state.devices.none { !it.isCurrent }) {
+        if (state.devices.all { it.isCurrent }) {
             item {
                 Text(
                     text = stringResource(Res.string.devices_empty),

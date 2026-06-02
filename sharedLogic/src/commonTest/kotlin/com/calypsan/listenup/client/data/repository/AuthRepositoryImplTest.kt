@@ -42,8 +42,7 @@ class AuthRepositoryImplTest :
             override suspend fun authedService(): AuthServiceAuthed = authed
         }
 
-        fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl =
-            AuthRepositoryImpl(rpc = FakeAuthRpcFactory(authed), authSession = mock())
+        fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl = AuthRepositoryImpl(rpc = FakeAuthRpcFactory(authed), authSession = mock())
 
         test("listSessions delegates to the authed service") {
             runTest {

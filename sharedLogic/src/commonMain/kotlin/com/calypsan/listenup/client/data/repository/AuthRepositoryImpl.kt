@@ -52,8 +52,7 @@ class AuthRepositoryImpl(
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
         catching("revokeSession") { rpc.authedService().revokeSession(sessionId) }
 
-    override suspend fun logoutAll(): AppResult<Unit> =
-        catching("logoutAll") { rpc.authedService().logoutAll() }
+    override suspend fun logoutAll(): AppResult<Unit> = catching("logoutAll") { rpc.authedService().logoutAll() }
 
     private suspend inline fun <T> catching(
         op: String,

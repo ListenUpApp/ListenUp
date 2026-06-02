@@ -89,8 +89,7 @@ class DevicesViewModelTest :
                     )
                 val repo =
                     object : FakeAuthRepository() {
-                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
-                            AppResult.Success(responses.removeFirst())
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(responses.removeFirst())
 
                         override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = AppResult.Success(Unit)
                     }
@@ -116,8 +115,7 @@ class DevicesViewModelTest :
             runTest {
                 val repo =
                     object : FakeAuthRepository() {
-                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
-                            AppResult.Failure(AuthError.SessionExpired())
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Failure(AuthError.SessionExpired())
                     }
                 val vm = DevicesViewModel(repo)
                 vm.uiState.test {
