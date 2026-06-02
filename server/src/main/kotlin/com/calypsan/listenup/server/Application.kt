@@ -431,10 +431,15 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
 }
 
 /**
- * Starts all background scheduler tasks. Session cleanup runs unconditionally;
- * scanner-dependent cleanup tasks and library bootstrap are gated on
- * [libraryPath] because those Koin modules are only loaded when a library path
- * is configured — injecting them without the module would throw [NoDefinitionFoundException].
+ * Starts all background scheduler tasks. Every task — session cleanup, the
+ * scanner-dependent cleanup tasks, and library bootstrap — runs unconditionally:
+ * the library-dependent Koin modules now load regardless of whether a library
+ * path is configured, and [bootstrapLibraries] handles the zero-library case by
+ * idling until a client onboards a library at runtime.
+ *
+ * [libraryPath] (the env-var / config path, nullable) is forwarded to
+ * [bootstrapLibraries] so a configured path still creates the default library
+ * while a library-less boot starts cleanly and awaits client onboarding.
  *
  * [bootstrapLibraries] is launched in the background — callers should not
  * assume it has completed when this function returns.
@@ -446,38 +451,31 @@ private fun Application.startBackgroundTasks(
     // Session cleanup runs unconditionally — sessions exist regardless of library config.
     inject<ExpiredSessionCleanupTask>().value.start(scope)
 
-    if (libraryPath != null) {
-        val orchestrator by inject<ScanOrchestrator>()
-        val bookPersister by inject<BookPersister>()
-        val libraryAdminService by inject<LibraryAdminService>()
+    val orchestrator by inject<ScanOrchestrator>()
+    val bookPersister by inject<BookPersister>()
+    val libraryAdminService by inject<LibraryAdminService>()
 
-        // BookPersister must be started before the first scan result can arrive so it
-        // is subscribed to the scanResultBus before any ScanResult is emitted.
-        bookPersister.start()
+    // BookPersister must be subscribed to the scan-result bus before any scan can run
+    // — a scan can now be triggered at runtime via the wizard on a library-less boot.
+    bookPersister.start()
 
-        val cleanupTask by inject<ActiveSessionCleanupTask>()
-        cleanupTask.start(scope)
-        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
-        metadataCacheCleanupTask.start(scope)
-        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
-        orphanImageCleanupTask.start(scope)
+    val cleanupTask by inject<ActiveSessionCleanupTask>()
+    cleanupTask.start(scope)
+    val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
+    metadataCacheCleanupTask.start(scope)
+    val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
+    orphanImageCleanupTask.start(scope)
 
-        scope.launch {
-            runCatching {
-                bootstrapLibraries(
-                    libraryAdminService = libraryAdminService,
-                    scanOrchestrator = orchestrator,
-                    libraryPath = libraryPath.toString(),
-                )
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                logger.error(e) { "library bootstrap failed — server keeps running" }
-            }
-        }
-    } else {
-        logger.warn {
-            "scanner.libraryPath unset or invalid — server starts without scanning. " +
-                "Set LISTENUP_LIBRARY_PATH to enable."
+    scope.launch {
+        runCatching {
+            bootstrapLibraries(
+                libraryAdminService = libraryAdminService,
+                scanOrchestrator = orchestrator,
+                libraryPath = libraryPath?.toString(),
+            )
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.error(e) { "library bootstrap failed — server keeps running" }
         }
     }
 }
