@@ -82,3 +82,28 @@ internal class ProfileServiceImpl(
             updatedAt = updatedAt,
         )
 }
+
+/**
+ * Public factory for tests that need a [ProfileService] without going through Koin.
+ *
+ * Mirrors [createBookService] / [createGenreService] — cross-module test harnesses in
+ * `:sharedLogic:jvmTest` use this to build the service without piercing the `internal`
+ * access on [ProfileServiceImpl]. Production wiring constructs the impl directly inside
+ * [com.calypsan.listenup.server.di.profileModule].
+ */
+fun createProfileService(
+    db: Database,
+    passwordHasher: PasswordHasher,
+): ProfileService = ProfileServiceImpl(db = db, passwordHasher = passwordHasher)
+
+/**
+ * Scopes a [ProfileService] built by [createProfileService] to [principal] for one request.
+ *
+ * Public so cross-module test harnesses can bind the authenticated caller without piercing
+ * the `internal` access on [ProfileServiceImpl.copyWith]. Production wiring calls
+ * [ProfileServiceImpl.copyWith] directly in the RPC route via [registerScoped].
+ */
+fun profileServiceScopedTo(
+    service: ProfileService,
+    principal: PrincipalProvider,
+): ProfileService = (service as ProfileServiceImpl).copyWith(principal)

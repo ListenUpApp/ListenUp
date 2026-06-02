@@ -32,7 +32,7 @@ data class PasswordChange(
         ) { "newPassword length must be $MIN_PASSWORD..$MAX_PASSWORD" }
     }
 
-    private companion object {
+    companion object {
         const val MIN_PASSWORD = 8
         const val MAX_PASSWORD = 1024
     }
@@ -56,7 +56,7 @@ data class UpdateProfileRequest(
         avatarType?.let { require(it == "auto" || it == "image") { "avatarType must be auto|image" } }
     }
 
-    private companion object {
+    companion object {
         const val MAX_DISPLAY_NAME = 200
         const val MAX_TAGLINE = 500
     }
