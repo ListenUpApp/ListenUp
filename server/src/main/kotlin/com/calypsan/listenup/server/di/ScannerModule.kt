@@ -51,9 +51,10 @@ private val logger = KotlinLogging.logger {}
  * coordinator's worker and the watcher's event loop. Cancelling the scope
  * cancels everything cleanly on app shutdown.
  *
- * The module is only installed when [libraryPath] is set; the caller
- * (Application.module()) decides whether to skip installation when no
- * library path is configured.
+ * Libraries are mounted at runtime from the database via
+ * [ScanOrchestrator.onLibraryAdded] — the module carries no boot-time
+ * library path. The caller (Application.module()) still decides whether to
+ * install the module at all.
  *
  * @param metadataPrecedence the operator-configured textual-metadata
  *   precedence (resolved from `LISTENUP_METADATA_PRECEDENCE`), threaded into
@@ -61,12 +62,10 @@ private val logger = KotlinLogging.logger {}
  *   it builds honours the configured order.
  */
 fun scannerModule(
-    libraryPath: Path,
     applicationScope: CoroutineScope,
     metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
 ): Module =
     module {
-        single { libraryPath }
         single { applicationScope }
 
         // Event bus: one MutableSharedFlow as the writable side, exposed both
