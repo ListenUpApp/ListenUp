@@ -75,13 +75,16 @@ import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
+import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.syncRoutes
+import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.server.db.resolveListenupHome
@@ -207,7 +210,7 @@ private fun Application.installDependencies(
                 ?.getString()
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
-        modules += profileModule()
+        modules += profileModule(homeDir.resolve("avatars"))
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -288,6 +291,8 @@ fun Application.module() {
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val profileService by inject<ProfileService>()
+    val avatarImageStore by inject<ImageStore>()
+    val db by inject<Database>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
     routing {
@@ -334,6 +339,7 @@ fun Application.module() {
             genreRoutes(genreService, bookAccessPolicy)
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
+            profileRoutes(db, avatarImageStore)
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
