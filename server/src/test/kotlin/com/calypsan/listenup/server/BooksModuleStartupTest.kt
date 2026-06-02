@@ -29,10 +29,10 @@ import java.nio.file.Files
  * Wiring test for [com.calypsan.listenup.server.di.booksModule].
  *
  * Boots a real `Application.module()` over an isolated SQLite DB with a
- * configured library path, so the `if (resolvedLibraryPath != null)` branch
- * installs the scanner and books slices. This proves the Koin graph resolves
- * without a missing-binding crash — `BookRepository` (`createdAtStart`) and
- * `BookPersister` are both constructed at bootstrap.
+ * configured library path. The scanner and books slices load unconditionally
+ * now, so this proves the Koin graph resolves without a missing-binding crash —
+ * `BookRepository` (`createdAtStart`) and `BookPersister` are both constructed
+ * at bootstrap.
  *
  * It then asserts `GET /api/v1/sync/domains` lists `"books"`, which is only
  * possible if `BookRepository`'s `init` block ran and registered the domain
