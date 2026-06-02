@@ -27,12 +27,14 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * Application.kt and the scanner is reshaped to take a [Library] (Task 10).
  *
  * @param db Exposed database the `libraries` row lives in.
- * @param env environment map (injectable for tests; production passes `System.getenv()`).
+ * @param env environment map (injectable for tests). Defaults empty — the real
+ *   bootstrap is now [Application.bootstrapLibraries], so production no longer
+ *   feeds a `LISTENUP_LIBRARY_PATH` fallback here.
  * @param metadataPrecedence the operator-configured textual-metadata precedence.
  */
 class LibraryRegistry(
     private val db: Database,
-    private val env: Map<String, String>,
+    private val env: Map<String, String> = emptyMap(),
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: Clock = Clock.System,
 ) {
@@ -68,13 +70,23 @@ class LibraryRegistry(
 
     // TODO: remove when Task 18 (Application.kt bootstrap) lands — LIB-C.
     private fun bootstrapLibrary(): String {
-        val libraryPath = env["LISTENUP_LIBRARY_PATH"]
+        // The real bootstrap is Application.bootstrapLibraries. Without a usable
+        // env path there is nothing to fabricate a library from — fail loud
+        // rather than persist a bogus path-less row. This branch is unreachable
+        // post-onboarding (callers resolve a book's owning library, and there
+        // are no books before a library exists).
+        val libraryPath =
+            env["LISTENUP_LIBRARY_PATH"]?.takeIf { it.isNotBlank() }
+                ?: error(
+                    "No library exists and no LISTENUP_LIBRARY_PATH to bootstrap from — " +
+                        "libraries are created via Application.bootstrapLibraries.",
+                )
         val newId = UUID.randomUUID().toString()
         val now = clock.now().toEpochMilliseconds()
         val serializedPrecedence = metadataPrecedence.serialize()
         LibraryTable.insert {
             it[LibraryTable.id] = newId
-            it[LibraryTable.name] = libraryPath ?: "Default Library"
+            it[LibraryTable.name] = libraryPath
             it[LibraryTable.metadataPrecedence] = serializedPrecedence
             it[LibraryTable.createdAt] = now
             it[LibraryTable.updatedAt] = now
@@ -84,17 +96,15 @@ class LibraryRegistry(
         // Also insert a folder row so loadLibraryFromDb finds the path without racing
         // the test seed. The LibraryFolderTable.rootPath unique index prevents duplicates;
         // if the folder already exists, the insert is skipped (no-op via runCatching).
-        if (libraryPath != null) {
-            runCatching {
-                LibraryFolderTable.insert {
-                    it[LibraryFolderTable.id] = UUID.randomUUID().toString()
-                    it[LibraryFolderTable.libraryId] = newId
-                    it[LibraryFolderTable.rootPath] = libraryPath
-                    it[LibraryFolderTable.createdAt] = now
-                    it[LibraryFolderTable.updatedAt] = now
-                    it[LibraryFolderTable.revision] = 0L
-                    it[LibraryFolderTable.deletedAt] = null
-                }
+        runCatching {
+            LibraryFolderTable.insert {
+                it[LibraryFolderTable.id] = UUID.randomUUID().toString()
+                it[LibraryFolderTable.libraryId] = newId
+                it[LibraryFolderTable.rootPath] = libraryPath
+                it[LibraryFolderTable.createdAt] = now
+                it[LibraryFolderTable.updatedAt] = now
+                it[LibraryFolderTable.revision] = 0L
+                it[LibraryFolderTable.deletedAt] = null
             }
         }
         return newId
