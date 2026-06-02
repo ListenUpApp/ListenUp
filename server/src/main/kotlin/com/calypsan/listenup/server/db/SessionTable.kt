@@ -20,6 +20,13 @@ object SessionTable : IdTable<String>("sessions") {
     val familyId = text("family_id")
     val previousHash = text("previous_hash").nullable()
     val label = text("label").nullable()
+    val deviceType = text("device_type").nullable()
+    val platform = text("platform").nullable()
+    val platformVersion = text("platform_version").nullable()
+    val clientName = text("client_name").nullable()
+    val clientVersion = text("client_version").nullable()
+    val deviceName = text("device_name").nullable()
+    val deviceModel = text("device_model").nullable()
     val userAgent = text("user_agent").nullable()
     val createdAt = long("created_at")
     val expiresAt = long("expires_at")
@@ -39,6 +46,13 @@ class SessionEntity(
     var familyId by SessionTable.familyId
     var previousHash by SessionTable.previousHash
     var label by SessionTable.label
+    var deviceType by SessionTable.deviceType
+    var platform by SessionTable.platform
+    var platformVersion by SessionTable.platformVersion
+    var clientName by SessionTable.clientName
+    var clientVersion by SessionTable.clientVersion
+    var deviceName by SessionTable.deviceName
+    var deviceModel by SessionTable.deviceModel
     var userAgent by SessionTable.userAgent
     var createdAt by SessionTable.createdAt
     var expiresAt by SessionTable.expiresAt
