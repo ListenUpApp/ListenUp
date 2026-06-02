@@ -14,6 +14,8 @@ data class LoginRequest(
     val email: String,
     val password: String,
     val sessionLabel: String? = null,
+    @SerialName("deviceInfo")
+    val deviceInfo: DeviceInfo? = null,
 ) {
     init {
         require(password.length in PASSWORD_MIN..PASSWORD_MAX) {
@@ -30,6 +32,8 @@ data class RegisterRequest(
     val password: String,
     val displayName: String,
     val sessionLabel: String? = null,
+    @SerialName("deviceInfo")
+    val deviceInfo: DeviceInfo? = null,
 ) {
     init {
         require(password.length in PASSWORD_MIN..PASSWORD_MAX) {

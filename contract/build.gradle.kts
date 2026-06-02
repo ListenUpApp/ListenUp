@@ -86,7 +86,23 @@ kotlin {
             implementation(libs.micrometer.core)
             implementation(libs.kotlinx.coroutines.slf4j)
         }
+
+        // Contract round-trip tests: assert every @Serializable DTO survives a
+        // JSON encode/decode through contractJson. Kotest FunSpec is canonical.
+        commonTest.dependencies {
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions.core)
+        }
+
+        jvmTest.dependencies {
+            implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
+        }
     }
+}
+
+// Kotest uses JUnit 5 as its runner on JVM
+tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
+    useJUnitPlatform()
 }
 
 dependencies {
