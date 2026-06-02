@@ -30,6 +30,8 @@ object UserTable : IdTable<String>("users") {
     val passwordHash = text("password_hash")
     val role = enumerationByName("role", ROLE_COLUMN_LENGTH, UserRoleColumn::class)
     val displayName = text("display_name")
+    val tagline = text("tagline").nullable()
+    val avatarType = text("avatar_type").default("auto")
     val status = enumerationByName("status", STATUS_COLUMN_LENGTH, UserStatusColumn::class)
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
@@ -54,6 +56,8 @@ class UserEntity(
     var passwordHash by UserTable.passwordHash
     var role by UserTable.role
     var displayName by UserTable.displayName
+    var tagline by UserTable.tagline
+    var avatarType by UserTable.avatarType
     var status by UserTable.status
     var createdAt by UserTable.createdAt
     var updatedAt by UserTable.updatedAt
