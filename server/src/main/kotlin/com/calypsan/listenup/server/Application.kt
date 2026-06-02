@@ -79,6 +79,7 @@ import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
+import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.BookPersister
@@ -114,9 +115,6 @@ private val logger = KotlinLogging.logger {}
 private const val SEED_PROFILE_DEMO = "demo"
 
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
-
-private inline fun <reified T : Any> Application.injectIfConfigured(libraryPath: Path?): T? =
-    libraryPath?.let { inject<T>().value }
 
 /**
  * Kicks off seed jobs after Koin is installed. In demo profile we run the full
@@ -174,37 +172,36 @@ private fun Application.installCorePlugins() {
 }
 
 /**
- * Installs Koin with the assembled module set. The auth, embedded-metadata, and sync slices
- * load unconditionally; the library-dependent slices (scanner, books, metadata, playback,
- * library) load only when [resolvedLibraryPath] is configured; the seed module loads only in
- * the demo profile.
+ * Installs Koin with the assembled module set. Every domain slice — auth, scanner, books,
+ * metadata, playback, library, embedded-metadata, and sync — loads unconditionally so a
+ * library-less boot can onboard a library at runtime without a restart. The seed module loads
+ * only in the demo profile; [resolvedLibraryPath] supplies its demo library path when present.
  */
 private fun Application.installDependencies(
     seedProfile: String?,
     applicationScope: CoroutineScope,
     resolvedLibraryPath: Path?,
+    homeDir: Path,
     metadataPrecedence: MetadataPrecedence,
     embeddedCoverCacheSize: Int,
 ) {
     install(Koin) {
         val modules = mutableListOf(authModule(environment.config))
-        if (resolvedLibraryPath != null) {
-            modules += scannerModule(resolvedLibraryPath, applicationScope, metadataPrecedence)
-            modules += booksModule(resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
-            modules += metadataModule(kotlinx.io.files.Path(resolvedLibraryPath.toString()))
-            modules += playbackModule()
-            modules += libraryModule()
-        }
+        modules += scannerModule(applicationScope, metadataPrecedence)
+        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize)
+        modules += metadataModule(kotlinx.io.files.Path(homeDir.toString()))
+        modules += playbackModule()
+        modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
-                    hasPlaybackModule = resolvedLibraryPath != null,
-                    hasBooksModule = resolvedLibraryPath != null,
+                    hasPlaybackModule = true,
+                    hasBooksModule = true,
                     demoLibraryPath = resolvedLibraryPath?.toString(),
-                    hasGenresModule = resolvedLibraryPath != null,
-                    hasCollectionsModule = resolvedLibraryPath != null,
+                    hasGenresModule = true,
+                    hasCollectionsModule = true,
                 )
         }
         modules(modules)
@@ -228,10 +225,18 @@ fun Application.module() {
     val seedProfile = resolveSeedProfile()
     val applicationScope = CoroutineScope(coroutineContext + SupervisorJob())
     val resolvedLibraryPath = resolveLibraryPath() ?: resolveDemoLibraryFallback(seedProfile)
+    val homeDir = resolveImageHome()
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
 
-    installDependencies(seedProfile, applicationScope, resolvedLibraryPath, metadataPrecedence, embeddedCoverCacheSize)
+    installDependencies(
+        seedProfile,
+        applicationScope,
+        resolvedLibraryPath,
+        homeDir,
+        metadataPrecedence,
+        embeddedCoverCacheSize,
+    )
 
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
@@ -247,27 +252,28 @@ fun Application.module() {
 
     installJwtAuth(jwt, sessions)
 
-    val scannerService: ScannerService? = injectIfConfigured(resolvedLibraryPath)
-    val eventBus: SharedFlow<ScanEvent>? = injectIfConfigured(resolvedLibraryPath)
-    val bookService: BookService? = injectIfConfigured(resolvedLibraryPath)
-    val contributorService: ContributorService? = injectIfConfigured(resolvedLibraryPath)
-    val seriesService: SeriesService? = injectIfConfigured(resolvedLibraryPath)
-    val coverResponder: CoverResponder? = injectIfConfigured(resolvedLibraryPath)
-    val bookAccessPolicy: BookAccessPolicy? = injectIfConfigured(resolvedLibraryPath)
-    val playbackService: PlaybackService? = injectIfConfigured(resolvedLibraryPath)
-    val playbackProgressService: PlaybackProgressService? = injectIfConfigured(resolvedLibraryPath)
-    val backfillService: UserStatsBackfillService? = injectIfConfigured(resolvedLibraryPath)
-    val searchReindexService: SearchReindexService? = injectIfConfigured(resolvedLibraryPath)
-    val audioFileLocator: AudioFileLocator? = injectIfConfigured(resolvedLibraryPath)
-    val audioUrlSigner: AudioUrlSigner? = injectIfConfigured(resolvedLibraryPath)
-    val contributorRepository: ContributorRepository? = injectIfConfigured(resolvedLibraryPath)
-    val seriesRepository: SeriesRepository? = injectIfConfigured(resolvedLibraryPath)
-    val metadataLookupService: MetadataLookupService? = injectIfConfigured(resolvedLibraryPath)
-    val searchService: SearchService? = injectIfConfigured(resolvedLibraryPath)
-    val libraryAdminService: LibraryAdminService? = injectIfConfigured(resolvedLibraryPath)
-    val tagService: TagService? = injectIfConfigured(resolvedLibraryPath)
-    val genreService: GenreService? = injectIfConfigured(resolvedLibraryPath)
-    val collectionService: CollectionService? = injectIfConfigured(resolvedLibraryPath)
+    val scannerService by inject<ScannerService>()
+    val eventBus by inject<SharedFlow<ScanEvent>>()
+    val bookService by inject<BookService>()
+    val contributorService by inject<ContributorService>()
+    val seriesService by inject<SeriesService>()
+    val coverResponder by inject<CoverResponder>()
+    val bookAccessPolicy by inject<BookAccessPolicy>()
+    val playbackService by inject<PlaybackService>()
+    val playbackProgressService by inject<PlaybackProgressService>()
+    val backfillService by inject<UserStatsBackfillService>()
+    val searchReindexService by inject<SearchReindexService>()
+    val audioFileLocator by inject<AudioFileLocator>()
+    val audioUrlSigner by inject<AudioUrlSigner>()
+    val contributorRepository by inject<ContributorRepository>()
+    val seriesRepository by inject<SeriesRepository>()
+    val metadataLookupService by inject<MetadataLookupService>()
+    val searchService by inject<SearchService>()
+    val libraryAdminService by inject<LibraryAdminService>()
+    val tagService by inject<TagService>()
+    val genreService by inject<GenreService>()
+    val collectionService by inject<CollectionService>()
+    val audioRoleLookup by inject<UserRoleLookup>()
 
     routing {
         healthRoutes()
@@ -298,38 +304,23 @@ fun Application.module() {
             syncRoutes()
             adminUserRoutes(adminUserService)
             adminInviteRoutes(inviteService)
-            if (libraryAdminService != null) libraryAdminRoutes(libraryAdminService)
-            if (bookService != null && coverResponder != null && bookAccessPolicy != null) {
-                bookRoutes(bookService, coverResponder, bookAccessPolicy)
-            }
-            contributorService?.let { s -> bookAccessPolicy?.let { p -> contributorRoutes(s, p) } }
-            seriesService?.let { s -> bookAccessPolicy?.let { p -> seriesRoutes(s, p) } }
-            if (playbackService != null) playbackRoutes(playbackService)
-            playbackProgressService?.let { s -> bookAccessPolicy?.let { p -> playbackProgressRoutes(s, p) } }
-            if (backfillService != null && searchReindexService != null) {
-                adminRoutes(backfillService, searchReindexService)
-            }
-            if (contributorRepository != null && seriesRepository != null) {
-                metadataImageRoutes(contributorRepository, seriesRepository, resolvedLibraryPath!!)
-            }
-            if (metadataLookupService != null) metadataRoutes(metadataLookupService)
-            if (searchService != null) searchRoutes(searchService)
-            if (tagService != null && bookAccessPolicy != null) tagRoutes(tagService, bookAccessPolicy)
-            if (genreService != null && bookAccessPolicy != null) genreRoutes(genreService, bookAccessPolicy)
-            if (collectionService != null) {
-                collectionRoutes(collectionService)
-                collectionAdminRoutes(collectionService)
-            }
+            libraryAdminRoutes(libraryAdminService)
+            bookRoutes(bookService, coverResponder, bookAccessPolicy)
+            contributorRoutes(contributorService, bookAccessPolicy)
+            seriesRoutes(seriesService, bookAccessPolicy)
+            playbackRoutes(playbackService)
+            playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
+            adminRoutes(backfillService, searchReindexService)
+            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
+            metadataRoutes(metadataLookupService)
+            searchRoutes(searchService)
+            tagRoutes(tagService, bookAccessPolicy)
+            genreRoutes(genreService, bookAccessPolicy)
+            collectionRoutes(collectionService)
+            collectionAdminRoutes(collectionService)
         }
-        if (scannerService != null && eventBus != null) {
-            scannerRoutes(scannerService, eventBus)
-        }
-        // The role lookup lives in the same library-gated module as the locator/signer, so it
-        // resolves whenever those do; bookAccessPolicy is the same singleton bookRoutes uses.
-        if (audioFileLocator != null && audioUrlSigner != null && bookAccessPolicy != null) {
-            val audioRoleLookup by inject<UserRoleLookup>()
-            audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
-        }
+        scannerRoutes(scannerService, eventBus)
+        audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
 
     startBackgroundTasks(applicationScope, resolvedLibraryPath)
@@ -353,6 +344,27 @@ private fun Application.resolveLibraryPath(): Path? {
         return null
     }
     return path
+}
+
+/**
+ * Resolves the always-available ListenUp home directory that holds app-managed
+ * files (downloaded cover/contributor images live in per-type subdirectories
+ * under it). Unlike the audio library, this path is always available — even on a
+ * library-less boot — so it is resolved unconditionally.
+ *
+ * An explicit `listenup.home` config property wins (tests inject this to a temp
+ * dir); otherwise it falls back to `$LISTENUP_HOME`, defaulting to `~/ListenUp`.
+ * Reads env / system properties here at the config edge so [resolveListenupHome]
+ * stays pure.
+ */
+private fun Application.resolveImageHome(): Path {
+    val configured =
+        environment.config
+            .propertyOrNull("listenup.home")
+            ?.getString()
+            ?.takeIf { it.isNotBlank() }
+    if (configured != null) return Path.of(configured)
+    return resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
 }
 
 /**
@@ -432,10 +444,15 @@ private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? 
 }
 
 /**
- * Starts all background scheduler tasks. Session cleanup runs unconditionally;
- * scanner-dependent cleanup tasks and library bootstrap are gated on
- * [libraryPath] because those Koin modules are only loaded when a library path
- * is configured — injecting them without the module would throw [NoDefinitionFoundException].
+ * Starts all background scheduler tasks. Every task — session cleanup, the
+ * scanner-dependent cleanup tasks, and library bootstrap — runs unconditionally:
+ * the library-dependent Koin modules now load regardless of whether a library
+ * path is configured, and [bootstrapLibraries] handles the zero-library case by
+ * idling until a client onboards a library at runtime.
+ *
+ * [libraryPath] (the env-var / config path, nullable) is forwarded to
+ * [bootstrapLibraries] so a configured path still creates the default library
+ * while a library-less boot starts cleanly and awaits client onboarding.
  *
  * [bootstrapLibraries] is launched in the background — callers should not
  * assume it has completed when this function returns.
@@ -447,38 +464,31 @@ private fun Application.startBackgroundTasks(
     // Session cleanup runs unconditionally — sessions exist regardless of library config.
     inject<ExpiredSessionCleanupTask>().value.start(scope)
 
-    if (libraryPath != null) {
-        val orchestrator by inject<ScanOrchestrator>()
-        val bookPersister by inject<BookPersister>()
-        val libraryAdminService by inject<LibraryAdminService>()
+    val orchestrator by inject<ScanOrchestrator>()
+    val bookPersister by inject<BookPersister>()
+    val libraryAdminService by inject<LibraryAdminService>()
 
-        // BookPersister must be started before the first scan result can arrive so it
-        // is subscribed to the scanResultBus before any ScanResult is emitted.
-        bookPersister.start()
+    // BookPersister must be subscribed to the scan-result bus before any scan can run
+    // — a scan can now be triggered at runtime via the wizard on a library-less boot.
+    bookPersister.start()
 
-        val cleanupTask by inject<ActiveSessionCleanupTask>()
-        cleanupTask.start(scope)
-        val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
-        metadataCacheCleanupTask.start(scope)
-        val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
-        orphanImageCleanupTask.start(scope)
+    val cleanupTask by inject<ActiveSessionCleanupTask>()
+    cleanupTask.start(scope)
+    val metadataCacheCleanupTask by inject<MetadataCacheCleanupTask>()
+    metadataCacheCleanupTask.start(scope)
+    val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
+    orphanImageCleanupTask.start(scope)
 
-        scope.launch {
-            runCatching {
-                bootstrapLibraries(
-                    libraryAdminService = libraryAdminService,
-                    scanOrchestrator = orchestrator,
-                    libraryPath = libraryPath.toString(),
-                )
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                logger.error(e) { "library bootstrap failed — server keeps running" }
-            }
-        }
-    } else {
-        logger.warn {
-            "scanner.libraryPath unset or invalid — server starts without scanning. " +
-                "Set LISTENUP_LIBRARY_PATH to enable."
+    scope.launch {
+        runCatching {
+            bootstrapLibraries(
+                libraryAdminService = libraryAdminService,
+                scanOrchestrator = orchestrator,
+                libraryPath = libraryPath?.toString(),
+            )
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.error(e) { "library bootstrap failed — server keeps running" }
         }
     }
 }

@@ -18,9 +18,8 @@ import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.defaultListenupHome
 import com.calypsan.listenup.server.db.resolveDatabaseUrl
-import java.nio.file.Path
+import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import io.ktor.server.config.ApplicationConfig
@@ -147,8 +146,6 @@ private fun ApplicationConfig.serverName(): String =
  */
 private fun ApplicationConfig.resolveJdbcUrl(): String {
     val configured = propertyOrNull("database.jdbcUrl")?.getString().orEmpty()
-    val home =
-        System.getenv("LISTENUP_HOME")?.takeIf { it.isNotBlank() }?.let { Path.of(it) }
-            ?: defaultListenupHome(System.getProperty("user.home"))
+    val home = resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
     return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
 }

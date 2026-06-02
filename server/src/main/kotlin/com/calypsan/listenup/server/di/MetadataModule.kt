@@ -45,13 +45,14 @@ import org.koin.dsl.module
  * [Json] used here is the lenient server JSON (ignores unknown keys) — the
  * internal Audible/iTunes wire format has fields not in our domain types.
  *
- * @param libraryPath the resolved library root; [MetadataLookupServiceImpl] uses it
- *   as the base directory for downloaded cover images and contributor photos.
- *   Must be the same path passed to [booksModule].
+ * @param imageHome the always-available ListenUp home directory; downloaded cover
+ *   images and contributor photos are written into per-type subdirectories under
+ *   it (`covers/`, `contributors/`). Independent of the audio library path so it
+ *   works on a library-less boot.
  */
 private const val METADATA_HTTP_CLIENT = "metadataHttpClient"
 
-fun metadataModule(libraryPath: Path): Module =
+fun metadataModule(imageHome: Path): Module =
     module {
         single(named(METADATA_HTTP_CLIENT)) {
             HttpClient(CIO) {
@@ -112,7 +113,7 @@ fun metadataModule(libraryPath: Path): Module =
                 contributorRepository = get(),
                 seriesRepository = get(),
                 imageStorage = get(),
-                libraryPath = libraryPath,
+                imageHome = imageHome,
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal =
                     PrincipalProvider {
@@ -127,7 +128,7 @@ fun metadataModule(libraryPath: Path): Module =
             OrphanImageCleanupTask(
                 contributorRepository = get(),
                 seriesRepository = get(),
-                libraryPath = libraryPath,
+                imageHome = imageHome,
             )
         }
     }

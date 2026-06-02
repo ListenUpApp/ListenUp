@@ -33,7 +33,7 @@ private val log = KotlinLogging.logger {}
  *  - series memberships — resolved through [SeriesRepository.resolveOrCreate]
  *  - asin stamp on the book row
  *  - cover image: downloaded via [ImageStorage] to
- *    `{libraryPath}/contributors/{bookId}.jpg` — **BlurHash deferred** (no
+ *    `{imageHome}/covers/{bookId}.jpg` — **BlurHash deferred** (no
  *    Kotlin-native JPEG/PNG decoder; coverBlurHash stays null). Task 19's
  *    OrphanImageCleanupTask cleans up any orphan file if the DB write rolls back.
  *
@@ -50,7 +50,7 @@ internal class BookMetadataApplier(
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
     private val metadataService: MetadataService,
-    private val libraryPath: Path,
+    private val imageHome: Path,
 ) {
     suspend fun apply(
         bookId: BookId,
@@ -125,18 +125,18 @@ internal class BookMetadataApplier(
 
     /**
      * Downloads the cover image for a book from Audible and stores it at
-     * `covers/{bookId}.jpg` relative to [libraryPath]. Returns the relative
+     * `covers/{bookId}.jpg` relative to [imageHome]. Returns the relative
      * path stored in the DB, or `null` when [AudibleBook.coverUrl] is blank or
      * the download fails (failure is logged, not propagated — cover is best-effort).
      */
     private suspend fun AudibleBook.downloadCoverImage(bookId: BookId): String? {
         val url = coverUrl.takeIf { it.isNotBlank() } ?: return null
         val relPath = "covers/${bookId.value}.jpg"
-        val dir = Path(libraryPath.toString(), "covers")
+        val dir = Path(imageHome.toString(), "covers")
         return try {
             kotlinx.io.files.SystemFileSystem
                 .createDirectories(dir)
-            val dest = Path(libraryPath.toString(), relPath)
+            val dest = Path(imageHome.toString(), relPath)
             imageStorage.download(url, dest)
             relPath
         } catch (e: CancellationException) {

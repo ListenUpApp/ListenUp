@@ -409,6 +409,10 @@
     "the_servers_library_has_changed": "The server's library has changed. You have unsaved changes that will be lost. ",
     "your_library_is_up_to": "Your library is up to date"
   },
+  "startup": {
+    "setup_check_failed_message": "We couldn't reach your server to check your library setup. Check your connection and try again.",
+    "setup_check_failed_title": "Couldn't check library setup"
+  },
   "settings": {
     "51_surround_sound_for_immersive": "5.1 surround sound for immersive listening",
     "app_version": "App version",

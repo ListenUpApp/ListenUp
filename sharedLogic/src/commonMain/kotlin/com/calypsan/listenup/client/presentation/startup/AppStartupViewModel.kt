@@ -19,12 +19,17 @@ private val logger = KotlinLogging.logger {}
  *
  * @param isChecking True while the library-setup check is in progress.
  * @param needsLibrarySetup True if an admin user still needs to configure a library.
+ * @param setupCheckFailed True if the admin's library-setup check could not be completed
+ *                         (network failure or unexpected error). The nav layer surfaces a
+ *                         retryable error instead of silently dropping the admin into an
+ *                         empty Shell ("honest over silent").
  * @param backgroundedAtMs Epoch-ms timestamp recorded when the app last went to background.
  *                         Null when the app has not yet been backgrounded this process.
  */
 data class AppStartupState(
     val isChecking: Boolean = true,
     val needsLibrarySetup: Boolean = false,
+    val setupCheckFailed: Boolean = false,
     val backgroundedAtMs: Long? = null,
 )
 
@@ -86,35 +91,50 @@ class AppStartupViewModel(
 
     // endregion
 
+    /** Re-run the library-setup check after a transient failure (the retry the nav layer offers). */
+    fun retryLibrarySetupCheck() {
+        _state.value = AppStartupState(isChecking = true)
+        runLibrarySetupCheck()
+    }
+
     private fun runLibrarySetupCheck() {
         viewModelScope.launch {
             try {
                 val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
                 logger.debug { "AppStartupViewModel: user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
 
-                val needsSetup =
-                    if (user?.isAdmin == true) {
-                        when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
-                            is AppResult.Success -> {
-                                logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
-                                result.data.needsSetup
-                            }
-
-                            is AppResult.Failure -> {
-                                logger.warn { "AppStartupViewModel: library status check failed, defaulting to false" }
-                                false
-                            }
+                if (user?.isAdmin == true) {
+                    when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
+                        is AppResult.Success -> {
+                            logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
+                            _state.value =
+                                _state.value.copy(
+                                    isChecking = false,
+                                    needsLibrarySetup = result.data.needsSetup,
+                                    setupCheckFailed = false,
+                                )
                         }
-                    } else {
-                        false
-                    }
 
-                _state.value = _state.value.copy(isChecking = false, needsLibrarySetup = needsSetup)
+                        is AppResult.Failure -> {
+                            // Honest over silent: never drop an admin into an empty Shell when the
+                            // check fails. Surface a retryable error instead of forcing the wizard.
+                            logger.warn { "AppStartupViewModel: library status check failed: ${result.error.code}" }
+                            _state.value = _state.value.copy(isChecking = false, setupCheckFailed = true)
+                        }
+                    }
+                } else {
+                    _state.value =
+                        _state.value.copy(
+                            isChecking = false,
+                            needsLibrarySetup = false,
+                            setupCheckFailed = false,
+                        )
+                }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                logger.warn(e) { "AppStartupViewModel: user check failed, proceeding to main app" }
-                _state.value = _state.value.copy(isChecking = false, needsLibrarySetup = false)
+                logger.warn(e) { "AppStartupViewModel: setup check failed unexpectedly" }
+                _state.value = _state.value.copy(isChecking = false, setupCheckFailed = true)
             }
         }
     }

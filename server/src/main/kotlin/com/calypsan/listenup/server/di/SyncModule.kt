@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -23,10 +24,19 @@ import org.koin.dsl.module
  * factory object itself — reusing one module across containers leaks the same
  * `SyncRegistry` (and every other `single`) into both, which is exactly the
  * cross-Koin contamination H3 is fixing.
+ *
+ * [BookAccessPolicy] lives here rather than in `booksModule` because it is a sync
+ * concern: the always-mounted catch-up/digest/firehose seams resolve it to scope the
+ * `books` and three `collection_*` domains to a viewer. Binding it in the (historically
+ * library-gated) `booksModule` once left the policy unresolved on a library-less boot —
+ * the catch-up route 500'd with `NoDefinitionFoundException` for the first non-admin
+ * caller. `syncModule` is the always-loaded home that keeps it resolvable regardless of
+ * library wiring. Its sole dependency is the [Database], always bound.
  */
 fun syncModule(): Module =
     module {
         single { SyncRegistry() }
+        single { BookAccessPolicy(get()) }
         single(createdAtStart = true) { ChangeBus() }
         single(createdAtStart = true) { TagRepository(get(), get(), get()) }
         single(createdAtStart = true) { BookTagRepository(get(), get(), get()) }

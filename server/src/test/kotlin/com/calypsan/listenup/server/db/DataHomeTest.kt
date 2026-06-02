@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Pins [resolveDatabaseUrl] — the production default that maps the SQLite DB into
@@ -51,5 +52,11 @@ class DataHomeTest :
         test("defaultListenupHome is a ListenUp subfolder of the user home") {
             val home = defaultListenupHome(userHome = "/home/alice")
             home.toString() shouldBe "/home/alice/ListenUp"
+        }
+
+        test("resolveListenupHome prefers LISTENUP_HOME env, else userHome/ListenUp") {
+            resolveListenupHome(envHome = "/custom/home", userHome = "/Users/x") shouldBe Path.of("/custom/home")
+            resolveListenupHome(envHome = null, userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
+            resolveListenupHome(envHome = "  ", userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
         }
     })

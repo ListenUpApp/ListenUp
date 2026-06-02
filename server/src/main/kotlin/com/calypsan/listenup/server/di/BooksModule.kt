@@ -44,7 +44,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
-import java.nio.file.Path
 
 /**
  * Koin module for the books slice. Wires:
@@ -53,7 +52,8 @@ import java.nio.file.Path
  *    There's no Prometheus scrape today; the counter is a countable diagnostic
  *    signal in logs, not a metrics pipeline (project "no premature
  *    observability" stance). [BookPersisterMetrics] is its only consumer.
- *  - [LibraryRegistry] — single-library bootstrap keyed off `LISTENUP_LIBRARY_PATH`.
+ *  - [LibraryRegistry] — single-library id resolver (the real bootstrap is
+ *    `Application.bootstrapLibraries`).
  *  - [ContributorRepository] / [SeriesRepository] — the contributors and series
  *    syncable domains. `createdAtStart = true` so each registers with
  *    `SyncRegistry` at bootstrap, listing `"contributors"` / `"series"` on
@@ -80,12 +80,6 @@ import java.nio.file.Path
  * which only exist when the scanner slice is wired. With no library configured
  * there is no books domain — `/api/v1/sync/domains` correctly omits `"books"`.
  *
- * @param libraryPath the resolved library root — the same [Path] passed to
- *   [scannerModule]. [LibraryRegistry] keys the single `libraries` row off it.
- *   Passing the resolved path (rather than re-reading `System.getenv()`) keeps
- *   the books slice consistent with the scanner slice: both are driven by the
- *   one path `Application.module()` already resolved from configuration, so a
- *   config override of `scanner.libraryPath` reaches both.
  * @param metadataPrecedence the operator-configured textual-metadata precedence
  *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). [LibraryRegistry] persists it
  *   onto the `libraries` row at bootstrap.
@@ -94,7 +88,6 @@ import java.nio.file.Path
  *   `LISTENUP_EMBEDDED_COVER_CACHE_SIZE`).
  */
 fun booksModule(
-    libraryPath: Path,
     metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     embeddedCoverCacheSize: Int = DEFAULT_EMBEDDED_COVER_CACHE_SIZE,
 ): Module =
@@ -105,7 +98,6 @@ fun booksModule(
         single {
             LibraryRegistry(
                 db = get(),
-                env = mapOf("LISTENUP_LIBRARY_PATH" to libraryPath.toString()),
                 metadataPrecedence = metadataPrecedence,
             )
         }
@@ -128,7 +120,6 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
-        single { BookAccessPolicy(get()) }
         single { UserPermissionPolicy(db = get()) }
         single<BookService> {
             BookServiceImpl(

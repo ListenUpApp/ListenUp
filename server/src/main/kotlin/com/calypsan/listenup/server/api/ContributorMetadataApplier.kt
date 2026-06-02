@@ -24,7 +24,7 @@ private val log = KotlinLogging.logger {}
  *  - `asin` stamp
  *  - `description` (biography)
  *  - `imagePath` — downloads the photo to `contributors/{id}.jpg` relative to
- *    [libraryPath]; **BlurHash deferred** (no Kotlin-native image decoder;
+ *    [imageHome]; **BlurHash deferred** (no Kotlin-native image decoder;
  *    `imageBlurHash` stays null). Task 19's OrphanImageCleanupTask reclaims
  *    the orphan file if the DB write rolls back.
  *
@@ -38,7 +38,7 @@ internal class ContributorMetadataApplier(
     private val contributorRepository: ContributorRepository,
     private val imageStorage: ImageStorage,
     private val metadataService: MetadataService,
-    private val libraryPath: Path,
+    private val imageHome: Path,
 ) {
     suspend fun apply(
         contributorId: ContributorId,
@@ -78,7 +78,7 @@ internal class ContributorMetadataApplier(
 
     /**
      * Downloads the contributor photo from [AudibleContributorProfile.imageUrl] and
-     * stores it at `contributors/{contributorId}.jpg` relative to [libraryPath].
+     * stores it at `contributors/{contributorId}.jpg` relative to [imageHome].
      * Returns the relative path to store in the DB, or `null` when [imageUrl]
      * is blank or the download fails (failure is logged, not propagated — photo
      * is best-effort).
@@ -86,11 +86,11 @@ internal class ContributorMetadataApplier(
     private suspend fun AudibleContributorProfile.downloadImage(contributorId: ContributorId): String? {
         val url = imageUrl.takeIf { it.isNotBlank() } ?: return null
         val relPath = "contributors/${contributorId.value}.jpg"
-        val dir = Path(libraryPath.toString(), "contributors")
+        val dir = Path(imageHome.toString(), "contributors")
         return try {
             kotlinx.io.files.SystemFileSystem
                 .createDirectories(dir)
-            val dest = Path(libraryPath.toString(), relPath)
+            val dest = Path(imageHome.toString(), relPath)
             imageStorage.download(url, dest)
             relPath
         } catch (e: CancellationException) {
