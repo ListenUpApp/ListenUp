@@ -42,6 +42,19 @@ private const val COLLECTIONS_DOMAIN = "collections"
 private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
 private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 
+// Admin-only domain: a row carries an absolute server filesystem path (operator disk
+// topology), which members must never see. Unlike the per-row book/collection gates, this
+// is whole-domain by role — members hold no folder rows at all, so there is nothing for them
+// to reconcile and tombstones need not pass through.
+private const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
+
+// Splices into `id IN (...)` to yield no rows — hides the library_folders domain from
+// non-admins on catch-up/digest. `1 = 0` is a constant predicate, no interpolated input.
+private val LIBRARY_FOLDERS_HIDDEN =
+    SqlFragment(sql = "SELECT id FROM library_folders WHERE 1 = 0", args = emptyList())
+
+private fun isAdmin(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
+
 /**
  * The access filter for [domainName]'s catch-up/digest, scoped to `(userId, role)` — or `null`
  * for an ungated domain (or an admin, who sees all). A field rename in any visibility predicate
@@ -62,6 +75,7 @@ private fun accessFilterFor(
         COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
         COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionShareIdsSql(userId, role)
         COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
+        LIBRARY_FOLDERS_DOMAIN -> if (isAdmin(role)) null else LIBRARY_FOLDERS_HIDDEN
         else -> null
     }
 
@@ -238,6 +252,7 @@ private suspend fun ServerSSESession.streamFirehose(
                 // [isCollectionEventHidden].
                 if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
                 if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
+                if (isLibraryFolderEventHidden(busEvent, role)) return@collect
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
                 send(
@@ -297,6 +312,21 @@ private suspend fun isBookEventHidden(
     if (busEvent.event is SyncEvent.Deleted) return false
     return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
 }
+
+/**
+ * Whether a live firehose [busEvent] on the `library_folders` domain must be withheld from
+ * [role]. The domain is admin-only — its rows carry absolute server filesystem paths — so a
+ * non-admin sees nothing on it.
+ *
+ * Unlike [isBookEventHidden] / [isCollectionEventHidden], tombstones are withheld too: this is
+ * a whole-domain gate, not a per-row one, so a member holds no folder rows and has nothing to
+ * reconcile. Matches the [LIBRARY_FOLDERS_HIDDEN] catch-up fragment exactly, so the live tail
+ * and REST replay never disagree.
+ */
+private fun isLibraryFolderEventHidden(
+    busEvent: BusEvent<*>,
+    role: UserRole,
+): Boolean = busEvent.repo.domainName == LIBRARY_FOLDERS_DOMAIN && !isAdmin(role)
 
 /**
  * Whether a live firehose [busEvent] on a collection domain

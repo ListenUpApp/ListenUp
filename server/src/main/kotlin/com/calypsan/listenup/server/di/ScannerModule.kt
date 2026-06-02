@@ -96,7 +96,14 @@ fun scannerModule(
             val scope: CoroutineScope = get()
             val debouncer: StableSizeDebouncer = get()
             WatcherSupervisor { folder, onEvent ->
-                val folderPath = Path.of(folder.rootPath)
+                // Scanner-internal refs are always system-built with a real path; a null here
+                // means a member-redacted projection leaked into the scanner — fail loudly.
+                val folderPath =
+                    Path.of(
+                        requireNotNull(folder.rootPath) {
+                            "library folder ${folder.id.value} reached the watcher without a root path"
+                        },
+                    )
                 val watcher =
                     FolderWatcher(
                         libraryRoot = folderPath,

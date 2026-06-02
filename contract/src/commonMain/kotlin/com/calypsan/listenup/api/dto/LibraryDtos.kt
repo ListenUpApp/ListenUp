@@ -68,18 +68,26 @@ data class LibraryFolder(
 )
 
 /**
- * Lightweight reference to a [LibraryFolder] — id + path only.
+ * Lightweight reference to a [LibraryFolder] — id, plus the folder's root path
+ * for callers permitted to see it.
  *
- * Embedded in [Library.folders] so clients can display folder paths and
- * trigger per-folder operations without a separate [LibraryFolder] fetch.
+ * Embedded in [Library.folders] so clients can count folders and (for admins)
+ * display folder paths without a separate [LibraryFolder] fetch.
+ *
+ * [rootPath] is the absolute server filesystem path the scanner walks — operator
+ * disk topology. It is populated only for ROOT/ADMIN callers; for a plain member
+ * it is `null` (redacted), so the member projection carries folder identity and
+ * count without leaking the server's directory layout. The firehose `library_folders`
+ * sync domain is likewise admin-only, so members never receive folder paths through
+ * any channel.
  */
 @Serializable
 @SerialName("LibraryFolderRef")
 data class LibraryFolderRef(
     /** Stable folder identifier. */
     val id: FolderId,
-    /** Absolute filesystem path the scanner walks for this folder. */
-    val rootPath: String,
+    /** Absolute filesystem path the scanner walks for this folder; `null` when redacted for a non-admin caller. */
+    val rootPath: String?,
 )
 
 /**
