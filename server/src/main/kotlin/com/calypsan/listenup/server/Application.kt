@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -27,6 +28,7 @@ import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
+import com.calypsan.listenup.server.di.profileModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.InstanceIdentity
@@ -205,6 +207,7 @@ private fun Application.installDependencies(
                 ?.getString()
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
+        modules += profileModule()
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -284,6 +287,7 @@ fun Application.module() {
     val tagService by inject<TagService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
+    val profileService by inject<ProfileService>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
     routing {
@@ -310,6 +314,7 @@ fun Application.module() {
             collectionService,
             adminUserService,
             inviteService,
+            profileService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
