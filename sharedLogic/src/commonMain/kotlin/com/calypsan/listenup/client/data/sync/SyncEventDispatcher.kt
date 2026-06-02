@@ -22,6 +22,7 @@ class SyncEventDispatcher(
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
     private val onCursorStale: suspend (lastKnown: Long?) -> Unit = {},
     private val onAccessChanged: suspend () -> Unit = {},
+    private val onUserDeleted: suspend (reason: String?) -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -58,6 +59,11 @@ class SyncEventDispatcher(
             SyncControl.AccessChanged -> {
                 logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
                 onAccessChanged()
+            }
+
+            is SyncControl.UserDeleted -> {
+                logger.info { "UserDeleted received; clearing auth" }
+                onUserDeleted(control.reason)
             }
         }
     }

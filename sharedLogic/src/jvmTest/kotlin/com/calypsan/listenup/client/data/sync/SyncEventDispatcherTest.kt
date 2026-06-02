@@ -182,6 +182,35 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("control: SyncControl.UserDeleted invokes onUserDeleted with the reason") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var deletedReason: String? = "UNSET"
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> },
+                        onUserDeleted = { reason -> deletedReason = reason },
+                    )
+                val control = SyncControl.UserDeleted(reason = "removed by admin")
+                val frame =
+                    ParsedSseFrame(
+                        id = null,
+                        event = "control",
+                        data = contractJson.encodeToString(SyncControl.serializer(), control),
+                    )
+                dispatcher.handle(frame)
+                deletedReason shouldBe "removed by admin"
+                db.close()
+            }
+        }
+
         test("control: SyncControl.StreamError records error in state") {
             runTest {
                 val db = createInMemoryTestDatabase()

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.sync.ChangeBus
 import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
 import org.koin.test.verify.verify
@@ -27,8 +28,11 @@ class AuthModuleVerifyTest :
             // ByteArray whitelisted: RefreshTokenHasher takes a raw ByteArray pepper
             // that the closure reads from config. RegistrationPolicy whitelisted:
             // ServerSettingsRepository takes a `default` policy read from config the
-            // same way. Verify can't introspect closure bodies, so it sees the
-            // constructor param's type and asks for a binding.
-            authModule(config).verify(extraTypes = listOf(ByteArray::class, RegistrationPolicy::class))
+            // same way. ChangeBus whitelisted: AdminUserServiceImpl resolves it from
+            // syncModule, a separate module not loaded here. Verify can't introspect
+            // closure bodies, so it sees the constructor param's type and asks for a binding.
+            authModule(config).verify(
+                extraTypes = listOf(ByteArray::class, RegistrationPolicy::class, ChangeBus::class),
+            )
         }
     })

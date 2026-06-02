@@ -15,8 +15,13 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -27,11 +32,16 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -59,7 +69,11 @@ class AdminUserServiceImplTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun makeAdminUserService(db: Database): AdminUserServiceImpl {
+        fun makeAdminUserService(
+            db: Database,
+            broadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
+            bus: ChangeBus = ChangeBus(),
+        ): AdminUserServiceImpl {
             val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
@@ -67,6 +81,8 @@ class AdminUserServiceImplTest :
                 sessions = sessions,
                 settings = settings,
                 clock = fixedClock,
+                registrationBroadcaster = broadcaster,
+                bus = bus,
             )
         }
 
@@ -189,8 +205,14 @@ class AdminUserServiceImplTest :
                     val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
                     val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
                     val svc =
-                        AdminUserServiceImpl(db = db, sessions = sessions, settings = settings, clock = fixedClock)
-                            .copyWith(principalFor("a1", UserRole.ADMIN))
+                        AdminUserServiceImpl(
+                            db = db,
+                            sessions = sessions,
+                            settings = settings,
+                            clock = fixedClock,
+                            registrationBroadcaster = RegistrationBroadcaster(),
+                            bus = ChangeBus(),
+                        ).copyWith(principalFor("a1", UserRole.ADMIN))
 
                     // m1 has an active session that must be revoked on delete.
                     val m1Session = sessions.createSession(UserId("m1"), label = "phone")
@@ -221,6 +243,45 @@ class AdminUserServiceImplTest :
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.deleteUser(UserId("a1")).shouldSucceed()
                     svc.listUsers().shouldSucceed().map { it.id.value } shouldNotContain "a1"
+                }
+            }
+        }
+
+        test("deleteUser publishes UserDeleted on the control channel, targeted to the deleted user, before revoking") {
+            withInMemoryDatabase {
+                val db = this
+                val bus = ChangeBus()
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val frames = mutableListOf<ControlFrame>()
+                    val job = launch { bus.subscribeControl().collect { frames += it } }
+                    advanceUntilIdle() // subscriber live before the act (replay=0 control channel)
+                    val svc = makeAdminUserService(db, bus = bus).actAs("root1", UserRole.ROOT)
+                    svc.deleteUser(UserId("m1")).shouldSucceed()
+                    advanceUntilIdle()
+                    frames.any { it.userId == "m1" && it.control is SyncControl.UserDeleted } shouldBe true
+                    job.cancel()
+                }
+            }
+        }
+
+        test("deleteUser failure does NOT publish UserDeleted") {
+            withInMemoryDatabase {
+                val db = this
+                val bus = ChangeBus()
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedTestUser("a1", UserRoleColumn.ADMIN)
+                runTest {
+                    val frames = mutableListOf<ControlFrame>()
+                    val job = launch { bus.subscribeControl().collect { frames += it } }
+                    advanceUntilIdle()
+                    // Deleting ROOT is rejected → Failure → no UserDeleted frame.
+                    val svc = makeAdminUserService(db, bus = bus).actAs("a1", UserRole.ADMIN)
+                    svc.deleteUser(UserId("root1")).shouldFail<AdminError.CannotModifyRoot>()
+                    advanceUntilIdle()
+                    frames.any { it.control is SyncControl.UserDeleted } shouldBe false
+                    job.cancel()
                 }
             }
         }
@@ -374,6 +435,56 @@ class AdminUserServiceImplTest :
                     svc
                         .decidePendingRegistration(PendingRegistrationDecision(UserId("ghost"), approved = true))
                         .shouldFail<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("decidePendingRegistration(approve) notifies the broadcaster Approved for that user") {
+            withInMemoryDatabase {
+                val db = this
+                val broadcaster = RegistrationBroadcaster()
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                runTest {
+                    val received = async { broadcaster.subscribe("p1").first() }
+                    advanceUntilIdle()
+                    val svc = makeAdminUserService(db, broadcaster = broadcaster).actAs("root1", UserRole.ROOT)
+                    svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = true))
+                    received.await() shouldBe RegistrationDecision.Approved
+                }
+            }
+        }
+
+        test("decidePendingRegistration(deny) notifies Denied") {
+            withInMemoryDatabase {
+                val db = this
+                val broadcaster = RegistrationBroadcaster()
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
+                runTest {
+                    val received = async { broadcaster.subscribe("p1").first() }
+                    advanceUntilIdle()
+                    val svc = makeAdminUserService(db, broadcaster = broadcaster).actAs("root1", UserRole.ROOT)
+                    svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = false))
+                    received.await() shouldBe RegistrationDecision.Denied(null)
+                }
+            }
+        }
+
+        test("decidePendingRegistration failure does NOT notify") {
+            withInMemoryDatabase {
+                val db = this
+                val broadcaster = RegistrationBroadcaster()
+                seedTestUser("root1", UserRoleColumn.ROOT)
+                seedTestUser("active1", UserRoleColumn.MEMBER) // ACTIVE, not pending → Failure
+                runTest {
+                    broadcaster.subscribe("active1").test {
+                        val svc = makeAdminUserService(db, broadcaster = broadcaster).actAs("root1", UserRole.ROOT)
+                        svc
+                            .decidePendingRegistration(PendingRegistrationDecision(UserId("active1"), approved = true))
+                            .shouldFail<AuthError.PermissionDenied>()
+                        expectNoEvents()
+                    }
                 }
             }
         }

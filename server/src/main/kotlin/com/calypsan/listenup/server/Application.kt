@@ -44,6 +44,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
@@ -67,6 +68,7 @@ import com.calypsan.listenup.server.routes.instanceRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
+import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
@@ -209,6 +211,17 @@ private fun Application.installDependencies(
     }
 }
 
+/**
+ * Installs the request-pipeline plugins that depend on Koin being wired: correlation-id + logging,
+ * rate limiting, and the [com.calypsan.listenup.api.error.AppError] status-page mapper. Sequenced
+ * after [install] of Koin in [module] because each reads a Koin-provided collaborator.
+ */
+private fun Application.installRequestPipeline() {
+    installCallIdAndLogging()
+    installRateLimiting()
+    installAppErrorStatusPages()
+}
+
 fun Application.module() {
     installCorePlugins()
 
@@ -222,9 +235,7 @@ fun Application.module() {
 
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
-    installCallIdAndLogging()
-    installRateLimiting()
-    installAppErrorStatusPages()
+    installRequestPipeline()
 
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
@@ -232,6 +243,7 @@ fun Application.module() {
     val adminUserService by inject<AdminUserServiceImpl>()
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
+    val registrationBroadcaster by inject<RegistrationBroadcaster>()
 
     installJwtAuth(jwt, sessions)
 
@@ -263,6 +275,7 @@ fun Application.module() {
         sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
+        registrationStatusRoutes(registrationBroadcaster)
         rpcRoutes(
             authService,
             instanceService,

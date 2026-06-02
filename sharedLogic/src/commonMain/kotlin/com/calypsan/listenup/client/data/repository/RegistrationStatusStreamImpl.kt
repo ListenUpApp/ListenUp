@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
@@ -11,8 +12,6 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 
 private val logger = KotlinLogging.logger {}
 
@@ -102,14 +101,3 @@ class RegistrationStatusStreamImpl(
             null
         }
 }
-
-/**
- * SSE event for registration status.
- */
-@Serializable
-private data class RegistrationStatusEvent(
-    @SerialName("status")
-    val status: String,
-    val timestamp: String? = null,
-    val message: String? = null,
-)

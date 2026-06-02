@@ -13,7 +13,10 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -22,6 +25,7 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -54,12 +58,14 @@ class AdminUserServiceImpl(
     private val db: Database,
     private val sessions: SessionService,
     private val settings: ServerSettingsRepository,
+    private val registrationBroadcaster: RegistrationBroadcaster,
+    private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
-        AdminUserServiceImpl(db, sessions, settings, clock, provider)
+        AdminUserServiceImpl(db, sessions, settings, registrationBroadcaster, bus, clock, provider)
 
     override suspend fun listUsers(): AppResult<List<User>> {
         requireAdmin()?.let { return it }
@@ -152,9 +158,17 @@ class AdminUserServiceImpl(
                 AppResult.Success(Unit)
             }
 
-        // Revoke outside the user transaction: the soft-delete is the durable fact;
-        // session revocation is a follow-on side effect on a different table.
-        if (outcome is AppResult.Success) sessions.revokeAll(id)
+        // The soft-delete commit is the durable fact, so we act only on Success. Publish the
+        // control frame BEFORE revoking: revokeAll marks the session row but doesn't kill the
+        // user's live firehose coroutine, so the still-authed connection receives UserDeleted
+        // before its session dies — letting the client clear auth in real time.
+        if (outcome is AppResult.Success) {
+            bus.publishControl(
+                SyncControl.UserDeleted(reason = "Your account was removed by an administrator."),
+                id.value,
+            )
+            sessions.revokeAll(id)
+        }
         return outcome
     }
 
@@ -167,23 +181,34 @@ class AdminUserServiceImpl(
         // Don't leak existence-or-state of the target — admin actions only succeed
         // against a genuinely pending row; everything else is PermissionDenied.
         val now = clock.now().toEpochMilliseconds()
-        return suspendTransaction(db) {
-            val target =
-                UserEntity.findById(request.userId.value)
-                    ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
-            if (target.status != UserStatusColumn.PENDING_APPROVAL) {
-                return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+        val outcome: AppResult<PendingRegistrationOutcome> =
+            suspendTransaction(db) {
+                val target =
+                    UserEntity.findById(request.userId.value)
+                        ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+                if (target.status != UserStatusColumn.PENDING_APPROVAL) {
+                    return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+                }
+
+                target.status = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
+                target.updatedAt = now
+                target.approvedBy = caller.userId.value
+                target.approvedAt = now
+
+                AppResult.Success(
+                    if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied,
+                )
             }
 
-            target.status = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
-            target.updatedAt = now
-            target.approvedBy = caller.userId.value
-            target.approvedAt = now
-
-            val outcome =
-                if (request.approved) PendingRegistrationOutcome.Approved else PendingRegistrationOutcome.Denied
-            AppResult.Success(outcome)
+        // Notify the waiting (unauthenticated) registrant only after a real decision commits —
+        // a no-op drop if they aren't currently listening, recovered on their next login retry.
+        if (outcome is AppResult.Success) {
+            registrationBroadcaster.notify(
+                request.userId.value,
+                if (request.approved) RegistrationDecision.Approved else RegistrationDecision.Denied(null),
+            )
         }
+        return outcome
     }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> {

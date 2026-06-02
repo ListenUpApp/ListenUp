@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.core.qualifier.named
@@ -121,6 +122,11 @@ val clientSyncRenovationModule =
                 // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
                 // construction cycle.
                 onAccessChanged = { get<SyncEngine>().handleAccessChanged() },
+                // Account deleted by an admin: clear auth (soft logout → NeedsLogin),
+                // the same path the 401 fallback uses. Resolved lazily to avoid pulling
+                // AuthSession into the dispatcher's construction graph. The reason is logged
+                // by the dispatcher; there's no existing one-shot channel here to surface it.
+                onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
             )
         }
 
