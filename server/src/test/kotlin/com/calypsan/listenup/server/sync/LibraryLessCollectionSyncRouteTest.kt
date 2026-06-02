@@ -22,14 +22,13 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 
 /**
- * Regression guard: on a **library-less** boot (no `scanner.libraryPath`), `booksModule`
- * is not installed, so `BookAccessPolicy` is unbound unless [com.calypsan.listenup.server.di.syncModule]
- * provides it. The always-mounted collection-sync catch-up routes resolve `BookAccessPolicy`
- * via `accessFilterFor` for every non-admin caller — so a missing binding surfaces as a
- * `NoDefinitionFoundException` and a 500, not as a clean empty page.
+ * Regression guard: on a **library-less** boot (no `scanner.libraryPath`), the always-mounted
+ * collection-sync catch-up routes resolve `BookAccessPolicy` via `accessFilterFor` for every
+ * non-admin caller. `BookAccessPolicy` must therefore be bound in the always-loaded
+ * [com.calypsan.listenup.server.di.syncModule]; a missing binding surfaces as a
+ * `NoDefinitionFoundException` and a 500, not as a clean empty page. (It historically lived in
+ * the then-library-gated `booksModule`, which 500'd this path on a library-less boot.)
  *
- * `BookAccessPolicy` is a pure visibility concern of the sync seams, so its home is
- * `syncModule` (always loaded), not `booksModule` (loaded only when a library is configured).
  * This test boots library-less, registers a non-admin member, and asserts each collection-sync
  * catch-up route returns 200 with an empty page.
  */

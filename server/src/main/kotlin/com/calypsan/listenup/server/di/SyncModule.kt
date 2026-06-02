@@ -27,10 +27,11 @@ import org.koin.dsl.module
  *
  * [BookAccessPolicy] lives here rather than in `booksModule` because it is a sync
  * concern: the always-mounted catch-up/digest/firehose seams resolve it to scope the
- * `books` and three `collection_*` domains to a viewer. `booksModule` is installed only
- * when a library path is configured, so binding it there would leave the policy unresolved
- * on a library-less boot — the catch-up route would 500 with `NoDefinitionFoundException`
- * for the first non-admin caller. Its sole dependency is the [Database], always bound.
+ * `books` and three `collection_*` domains to a viewer. Binding it in the (historically
+ * library-gated) `booksModule` once left the policy unresolved on a library-less boot —
+ * the catch-up route 500'd with `NoDefinitionFoundException` for the first non-admin
+ * caller. `syncModule` is the always-loaded home that keeps it resolvable regardless of
+ * library wiring. Its sole dependency is the [Database], always bound.
  */
 fun syncModule(): Module =
     module {
