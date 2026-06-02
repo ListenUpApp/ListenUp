@@ -4,10 +4,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
-import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -30,16 +27,12 @@ class AuthRepositoryImplTest :
         /** Fake factory: every call resolves to the supplied authed proxy. */
         class FakeAuthRpcFactory(
             private val authed: AuthServiceAuthed,
-        ) : AuthRpcFactory(
-                apiClientFactory =
-                    ApiClientFactory(
-                        serverConfig = mock<ServerConfig>(),
-                        authSession = mock<AuthSession>(),
-                        refreshAccessToken = { error("unused") },
-                    ),
-                serverConfig = mock<ServerConfig>(),
-            ) {
+        ) : AuthRpcFactory {
             override suspend fun authedService(): AuthServiceAuthed = authed
+
+            override suspend fun publicService() = throw NotImplementedError()
+
+            override suspend fun invalidate() = Unit
         }
 
         fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl = AuthRepositoryImpl(rpc = FakeAuthRpcFactory(authed), authSession = mock())

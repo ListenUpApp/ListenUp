@@ -360,7 +360,6 @@
     <string name="contributor_unmerge_confirm">Unmerge</string>
     <string name="devices_empty">No other devices.</string>
     <string name="devices_last_active">Last active %1$s</string>
-    <string name="devices_load_error">Couldn\'t load your devices.</string>
     <string name="devices_manage_active_sessions">Manage your active sessions</string>
     <string name="devices_sign_out">Sign out</string>
     <string name="devices_sign_out_everywhere">Sign out everywhere</string>

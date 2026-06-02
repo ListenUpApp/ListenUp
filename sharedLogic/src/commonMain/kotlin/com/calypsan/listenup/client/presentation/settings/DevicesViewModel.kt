@@ -81,6 +81,9 @@ class DevicesViewModel(
     fun signOutEverywhere(onDone: () -> Unit) {
         viewModelScope.launch {
             authRepository.logoutAll()
+            // Never stranded: run the nav teardown unconditionally even if the
+            // server-side revoke failed — it clears local tokens and routes to
+            // login regardless, and the server revokes on next refresh as backstop.
             onDone()
         }
     }

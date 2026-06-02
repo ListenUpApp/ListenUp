@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorAuthRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorInviteRpcFactory
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
@@ -67,7 +68,12 @@ val clientAuthModule: Module
             // invalidation handshake lives at the ServerRepository binding in
             // Koin.kt — when you add another remote cache, drop an
             // `invalidate()` call there too.
-            singleOf(::AuthRpcFactory)
+            single<AuthRpcFactory> {
+                KtorAuthRpcFactory(
+                    apiClientFactory = get(),
+                    serverConfig = get(),
+                )
+            }
 
             // Thin RPC adapter — translates contract calls into typed AppResult.
             singleOf(::AuthRepositoryImpl) bind AuthRepository::class

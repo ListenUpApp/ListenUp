@@ -459,7 +459,6 @@
   "devices": {
     "empty": "No other devices.",
     "last_active": "Last active %1$s",
-    "load_error": "Couldn't load your devices.",
     "manage_active_sessions": "Manage your active sessions",
     "sign_out": "Sign out",
     "sign_out_everywhere": "Sign out everywhere",
