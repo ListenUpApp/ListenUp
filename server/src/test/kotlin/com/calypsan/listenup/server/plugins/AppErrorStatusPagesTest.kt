@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
+import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import io.kotest.core.spec.style.FunSpec
@@ -156,6 +157,16 @@ class AppErrorStatusPagesTest :
             val stamped = err.withCorrelationId("corr-invite")
             stamped.shouldBeInstanceOf<InviteError.AlreadyClaimed>()
             stamped.correlationId shouldBe "corr-invite"
+        }
+
+        test("ProfileError.WrongPassword maps to 422 UnprocessableEntity") {
+            val err: AppError = ProfileError.WrongPassword()
+            err.toHttpStatus() shouldBe HttpStatusCode.UnprocessableEntity
+        }
+
+        test("ProfileError.InvalidImage maps to 422 UnprocessableEntity") {
+            val err: AppError = ProfileError.InvalidImage()
+            err.toHttpStatus() shouldBe HttpStatusCode.UnprocessableEntity
         }
 
         test("unknown paths return structured JSON 404") {

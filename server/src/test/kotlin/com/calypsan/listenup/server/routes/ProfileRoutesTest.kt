@@ -40,6 +40,71 @@ class ProfileRoutesTest :
         // Valid minimal PNG: 8-byte PNG signature + 16 zero bytes (enough for magic-number sniff).
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + ByteArray(16)
 
+        test("GET avatar with path-traversal key returns 404 not file bytes") {
+            val homeDir = Files.createTempDirectory("listenup-profile-routes-traversal-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = client.setupRoot()
+
+                    // Ktor route parameter captures the decoded value; a traversal attempt must
+                    // not return 200 with bytes — the ImageStore safeResolve rejects it with null
+                    // (→ 404).  Ktor may also reject path-separator injection at the routing layer
+                    // (→ 400 or 404).  Either way, OK (200) is forbidden.
+                    val response =
+                        client.get("/api/v1/avatars/..%2F..%2Fbuild.gradle.kts") {
+                            bearerAuth(token)
+                        }
+                    check(response.status != HttpStatusCode.OK) {
+                        "traversal key must not return 200; got ${response.status}"
+                    }
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("upload with oversized Content-Length returns 413 PayloadTooLarge") {
+            val homeDir = Files.createTempDirectory("listenup-profile-routes-413-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = client.setupRoot()
+
+                    // A part whose declared Content-Length exceeds the 5 MiB cap — the handler
+                    // should reject before buffering the bytes.
+                    // Ktor's formData builder automatically sets Content-Length on a ByteArray
+                    // part — the server handler reads it to reject before buffering.
+                    val oversizeBytes = ByteArray((AVATAR_MAX_BYTES + 1).toInt()) { 0 }
+                    val response =
+                        client.post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            oversizeBytes,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/png")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"big.png\"")
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }
+                    response.status shouldBe HttpStatusCode.PayloadTooLarge
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
         test("upload then serve round-trips; bad image returns 422; unauthenticated GET returns 401") {
             val homeDir = Files.createTempDirectory("listenup-profile-routes-")
             try {

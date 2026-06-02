@@ -46,6 +46,18 @@ class ImageStoreTest :
                 store.pathFor("u1").shouldBeNull()
             }
         }
+        test("pathFor returns null for a path-traversal key") {
+            val dir = Files.createTempDirectory("imagestore-")
+            val store = ImageStore(dir, maxBytes = 1_000_000)
+            store.pathFor("../../etc/passwd").shouldBeNull()
+        }
+        test("store throws InvalidImageException for a path-traversal key") {
+            val dir = Files.createTempDirectory("imagestore-")
+            runTest {
+                val store = ImageStore(dir, maxBytes = 1_000_000)
+                shouldThrowInvalid { store.store("../x", pngBytes, "image/png") }
+            }
+        }
     })
 
 private inline fun shouldThrowInvalid(block: () -> Unit) {

@@ -23,6 +23,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 private const val AVATAR_CACHE_SECONDS = 86_400 // 24h, mirrors Go
 private const val AVATAR_TYPE_IMAGE = "image"
 
+/** Maximum accepted avatar size. Shared with [com.calypsan.listenup.server.di.profileModule]. */
+const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
+
 /**
  * Avatar binary surface (the JSON profile lives on ProfileService RPC):
  *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image.
@@ -40,13 +43,21 @@ fun Route.profileRoutes(
 
         var bytes: ByteArray? = null
         var declared = ContentType.Application.OctetStream.toString()
+        var oversized = false
         call.receiveMultipart().forEachPart { part ->
             if (part is PartData.FileItem && bytes == null) {
+                val declaredLength = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+                if (declaredLength != null && declaredLength > AVATAR_MAX_BYTES) {
+                    part.release()
+                    oversized = true
+                    return@forEachPart
+                }
                 declared = part.contentType?.toString() ?: declared
                 bytes = part.provider().toByteArray()
             }
             part.release()
         }
+        if (oversized) return@post call.respond(HttpStatusCode.PayloadTooLarge)
         val data = bytes ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
 
         try {

@@ -42,7 +42,8 @@ class ImageStore(
      * returns a [StoredImage] describing the result. Any previously stored image for [key]
      * is replaced atomically (delete-then-write).
      *
-     * @throws InvalidImageException if [bytes] exceed [maxBytes] or carry an unsupported magic number.
+     * @throws InvalidImageException if [bytes] exceed [maxBytes] or carry an unsupported magic number,
+     * or if [key] would escape [baseDir] via path traversal.
      */
     suspend fun store(
         key: String,
@@ -54,18 +55,21 @@ class ImageStore(
             val kind = sniff(bytes) ?: throw InvalidImageException("unsupported image (declared=$declaredContentType)")
             Files.createDirectories(baseDir)
             deleteExisting(key)
-            val target = baseDir.resolve("$key.${kind.ext}")
+            val target =
+                safeResolve(key, kind.ext)
+                    ?: throw InvalidImageException("invalid key")
             Files.write(target, bytes)
             StoredImage(target, kind.contentType, sha256(bytes))
         }
 
     /**
-     * Returns the path to the stored image for [key], or `null` if no image has been stored.
+     * Returns the path to the stored image for [key], or `null` if no image has been stored
+     * or if [key] is unsafe (contains `..`, `/`, or `\`).
      * Checks all supported extensions in order.
      */
     fun pathFor(key: String): Path? =
         Kind.entries
-            .map { baseDir.resolve("$key.${it.ext}") }
+            .mapNotNull { safeResolve(key, it.ext) }
             .firstOrNull { Files.isRegularFile(it) }
 
     /**
@@ -82,7 +86,22 @@ class ImageStore(
     }
 
     private fun deleteExisting(key: String) {
-        Kind.entries.forEach { Files.deleteIfExists(baseDir.resolve("$key.${it.ext}")) }
+        Kind.entries.forEach { kind ->
+            safeResolve(key, kind.ext)?.let { Files.deleteIfExists(it) }
+        }
+    }
+
+    /**
+     * Resolves `<baseDir>/<key>.<ext>`, returning `null` if [key] contains path-traversal
+     * characters (`..`, `/`, `\`) or if the resolved path escapes [baseDir].
+     */
+    private fun safeResolve(
+        key: String,
+        ext: String,
+    ): Path? {
+        if (".." in key || "/" in key || "\\" in key) return null
+        val resolved = baseDir.resolve("$key.$ext").normalize()
+        return resolved.takeIf { it.startsWith(baseDir.normalize()) }
     }
 
     private fun sniff(bytes: ByteArray): Kind? {

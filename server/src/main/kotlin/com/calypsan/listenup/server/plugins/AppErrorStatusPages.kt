@@ -492,7 +492,7 @@ private fun InviteError.withCorrelationId(id: String?): InviteError =
 private fun ProfileError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is ProfileError.InvalidImage -> HttpStatusCode.UnprocessableEntity
-        is ProfileError.WrongPassword -> HttpStatusCode.Unauthorized
+        is ProfileError.WrongPassword -> HttpStatusCode.UnprocessableEntity
     }
 
 private fun ProfileError.withCorrelationId(id: String?): ProfileError =
