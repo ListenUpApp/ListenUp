@@ -298,6 +298,83 @@ class BookCoverRouteTest :
             }
         }
 
+        // ── The mobile-client cover URL: GET /api/v1/covers/{id} (Go-parity alias) ──
+        // The KMP client downloads covers from /api/v1/covers/{bookId}; the Kotlin server
+        // only had /api/v1/books/{id}/cover, so every client cover request 404'd and covers
+        // never rendered. This alias serves the same access-gated bytes at the client's URL.
+
+        test("GET /api/v1/covers/{id} serves the book's cover with the right content type") {
+            val libraryRoot = Files.createTempDirectory("listenup-covers-alias-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val jpegBytes = fakeJpeg()
+                    Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    val response = client.get("/api/v1/covers/b1") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.ContentType].shouldStartWith("image/jpeg")
+                    response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/covers/{id} returns 404 when a member can't reach a private book") {
+            val libraryRoot = Files.createTempDirectory("listenup-covers-alias-deny-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    client.mintAccessToken()
+                    val (memberToken, _) = client.registerMember("member@x")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    Files.write(bookDir.resolve("cover.jpg"), fakeJpeg())
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b1", source = CoverSource.FILESYSTEM))
+
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
+
+                    val response = client.get("/api/v1/covers/b1") { bearerAuth(memberToken) }
+
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/covers/{id} returns 401 without a bearer token") {
+            val libraryRoot = Files.createTempDirectory("listenup-covers-alias-unauth-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    client.get("/api/v1/covers/b1").status shouldBe HttpStatusCode.Unauthorized
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
         test("GET /api/v1/books/{id}/cover returns 200 for ROOT on a private book they don't own") {
             val libraryRoot = Files.createTempDirectory("listenup-cover-root-bypass-")
             try {

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -29,6 +30,7 @@ import io.ktor.server.resources.patch
 import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get as routingGet
 
 private const val AUTH_WALL_REGRESSION_MSG =
     "book REST mount reached without a principal — auth wall regression"
@@ -80,15 +82,15 @@ internal fun Route.bookRoutes(
     }
 
     get<BookResources.Cover> { res ->
-        // Gate the cover (book content) by the caller's principal, mirroring getBook.
-        // A denied book answers 404 — the same shape respondCover gives for an absent
-        // or cover-less book — so the response can't probe a private book's existence.
-        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-        if (!accessPolicy.canAccess(p.userId.value, p.role, res.id.value)) {
-            call.respond(HttpStatusCode.NotFound)
-            return@get
-        }
-        coverResponder.respondCover(call, res.id)
+        call.respondGatedCover(res.id, accessPolicy, coverResponder)
+    }
+
+    // The KMP/mobile client downloads covers from /api/v1/covers/{bookId} (the Go-era URL).
+    // Serve the same access-gated bytes there: the books-nested route alone left every client
+    // cover request 404'ing, so covers never rendered.
+    routingGet("/api/v1/covers/{id}") {
+        val id = call.parameters["id"] ?: return@routingGet call.respond(HttpStatusCode.BadRequest)
+        call.respondGatedCover(BookId(id), accessPolicy, coverResponder)
     }
 
     rateLimit(RateLimitBuckets.BooksSearch) {
@@ -153,4 +155,22 @@ internal fun Route.bookRoutes(
 private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
     val typed = error.withCorrelationId(callId)
     respond(typed.toHttpStatus(), typed)
+}
+
+/**
+ * Serves the access-gated cover for [bookId]. A book the caller can't reach answers 404 — the same
+ * shape [CoverResponder] gives for an absent or cover-less book — so it never leaks a private book's
+ * existence. Shared by `GET /api/v1/books/{id}/cover` and the `GET /api/v1/covers/{id}` client alias.
+ */
+private suspend fun ApplicationCall.respondGatedCover(
+    bookId: BookId,
+    accessPolicy: BookAccessPolicy,
+    coverResponder: CoverResponder,
+) {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
+        respond(HttpStatusCode.NotFound)
+        return
+    }
+    coverResponder.respondCover(this, bookId)
 }
