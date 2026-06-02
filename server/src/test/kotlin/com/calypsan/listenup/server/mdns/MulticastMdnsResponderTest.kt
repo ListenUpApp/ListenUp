@@ -1,0 +1,77 @@
+package com.calypsan.listenup.server.mdns
+
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.net.DatagramPacket
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.MulticastSocket
+import java.net.NetworkInterface
+
+private const val MDNS_GROUP = "224.0.0.251"
+private const val MDNS_PORT = 5353
+
+class MulticastMdnsResponderTest :
+    FunSpec({
+        test("start announces an mDNS packet containing our TXT id and service type") {
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            val service =
+                MdnsServiceInfo(
+                    instanceName = "kotest-host",
+                    port = 8080,
+                    txt = linkedMapOf("id" to "test-id-123", "name" to "ListenUp", "version" to "0.0.1", "api" to "v1"),
+                )
+            val responder = MulticastMdnsResponder(service, scope)
+
+            val nif = firstMulticastIpv4Interface()
+            if (nif == null) {
+                // No multicast-capable interface in this environment — cannot exercise real I/O.
+                // Unit-level DnsCodec tests + the manual on-LAN DoD check cover encoding; skip here.
+                return@test
+            }
+            val listener =
+                MulticastSocket(MDNS_PORT).apply {
+                    reuseAddress = true
+                    soTimeout = 4000
+                    joinGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif)
+                }
+
+            try {
+                responder.start()
+                val received =
+                    withContext(Dispatchers.IO) {
+                        withTimeout(5000) {
+                            var hit: String? = null
+                            repeat(20) {
+                                val buf = ByteArray(2048)
+                                val pkt = DatagramPacket(buf, buf.size)
+                                runCatching { listener.receive(pkt) }.getOrNull() ?: return@repeat
+                                val text = String(pkt.data, 0, pkt.length, Charsets.US_ASCII)
+                                if ("id=test-id-123" in text && "_listenup" in text) {
+                                    hit = text
+                                    return@withTimeout hit
+                                }
+                            }
+                            hit
+                        }
+                    }
+                (received != null) shouldBe true
+            } finally {
+                responder.stop()
+                runCatching { listener.leaveGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif) }
+                listener.close()
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            }
+        }
+    })
+
+private fun firstMulticastIpv4Interface(): NetworkInterface? =
+    NetworkInterface.getNetworkInterfaces().toList().firstOrNull { nif ->
+        runCatching { nif.isUp && nif.supportsMulticast() }.getOrDefault(false) &&
+            nif.inetAddresses.toList().any { it.address.size == 4 }
+    }
