@@ -125,7 +125,10 @@ class EditProfileViewModel(
         }
     }
 
-    fun changePassword(newPassword: String) {
+    fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+    ) {
         if (newPassword.length < PASSWORD_MIN) {
             eventChannel.trySend(
                 EditProfileEvent.SaveFailed("Password must be at least $PASSWORD_MIN characters"),
@@ -133,7 +136,7 @@ class EditProfileViewModel(
             return
         }
         runSave(EditProfileEvent.PasswordChanged, "Failed to change password") {
-            profileEditRepository.changePassword(newPassword)
+            profileEditRepository.changePassword(currentPassword, newPassword)
         }
     }
 

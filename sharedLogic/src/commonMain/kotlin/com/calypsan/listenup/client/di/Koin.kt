@@ -44,8 +44,11 @@ import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileApi
 import com.calypsan.listenup.client.data.remote.ProfileApiContract
+import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.repository.avatarUploaderOf
 import com.calypsan.listenup.client.data.remote.SearchApi
 import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
@@ -879,11 +882,20 @@ val syncModule =
             )
         }
 
-        // ProfileEditRepository for profile editing operations (offline-first, SOLID: domain interface)
+        // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
+        single<ProfileRpcFactory> {
+            KtorProfileRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
+        // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
         single<com.calypsan.listenup.client.domain.repository.ProfileEditRepository> {
             ProfileEditRepositoryImpl(
                 userDao = get(),
-                profileApi = get(),
+                profileRpcFactory = get(),
+                avatarUploader = avatarUploaderOf(get()),
             )
         }
 

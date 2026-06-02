@@ -292,7 +292,7 @@ class EditProfileViewModelTest {
             advanceUntilIdle()
 
             viewModel.events.test {
-                viewModel.changePassword("short")
+                viewModel.changePassword("currentpass1", "short")
                 advanceUntilIdle()
                 val event = assertIs<EditProfileEvent.SaveFailed>(awaitItem())
                 assertTrue(event.message.contains("$PASSWORD_MIN"))
@@ -306,18 +306,18 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.changePassword(any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.changePassword(any(), any()) } returns Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
             advanceUntilIdle()
 
             viewModel.events.test {
-                viewModel.changePassword("strongpass1")
+                viewModel.changePassword("currentpass1", "strongpass1")
                 advanceUntilIdle()
                 assertEquals(EditProfileEvent.PasswordChanged, awaitItem())
             }
-            verifySuspend { fixture.profileEditRepository.changePassword("strongpass1") }
+            verifySuspend { fixture.profileEditRepository.changePassword("currentpass1", "strongpass1") }
         }
 
     @Test

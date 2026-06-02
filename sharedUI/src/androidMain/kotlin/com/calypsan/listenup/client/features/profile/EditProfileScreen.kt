@@ -216,7 +216,7 @@ private fun EditProfileContent(
     onUploadAvatar: () -> Unit,
     onRevertAvatar: () -> Unit,
     onSaveName: (String, String) -> Unit,
-    onChangePassword: (String) -> Unit,
+    onChangePassword: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val user = ready.user
@@ -225,6 +225,7 @@ private fun EditProfileContent(
     var editedTagline by rememberSaveable(userId) { mutableStateOf(user.tagline.orEmpty()) }
     var editedFirstName by rememberSaveable(userId) { mutableStateOf(user.firstName.orEmpty()) }
     var editedLastName by rememberSaveable(userId) { mutableStateOf(user.lastName.orEmpty()) }
+    var currentPassword by rememberSaveable { mutableStateOf("") }
     var newPassword by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
 
@@ -233,7 +234,7 @@ private fun EditProfileContent(
         editedFirstName != user.firstName.orEmpty() || editedLastName != user.lastName.orEmpty()
     val isPasswordValid = newPassword.length >= PASSWORD_MIN
     val passwordsMatch = newPassword == confirmPassword
-    val canSavePassword = newPassword.isNotEmpty() && passwordsMatch && isPasswordValid
+    val canSavePassword = currentPassword.isNotEmpty() && newPassword.isNotEmpty() && passwordsMatch && isPasswordValid
 
     Column(
         modifier =
@@ -286,6 +287,8 @@ private fun EditProfileContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         PasswordSection(
+            currentPassword = currentPassword,
+            onCurrentPasswordChange = { currentPassword = it },
             newPassword = newPassword,
             onNewPasswordChange = { newPassword = it },
             confirmPassword = confirmPassword,
@@ -295,7 +298,8 @@ private fun EditProfileContent(
             canSave = canSavePassword,
             isSaving = ready.isSaving,
             onChangePassword = {
-                onChangePassword(newPassword)
+                onChangePassword(currentPassword, newPassword)
+                currentPassword = ""
                 newPassword = ""
                 confirmPassword = ""
             },
@@ -521,6 +525,8 @@ private fun NameSection(
 
 @Composable
 private fun PasswordSection(
+    currentPassword: String,
+    onCurrentPasswordChange: (String) -> Unit,
     newPassword: String,
     onNewPasswordChange: (String) -> Unit,
     confirmPassword: String,
@@ -547,8 +553,32 @@ private fun PasswordSection(
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    var currentPasswordVisible by remember { mutableStateOf(false) }
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = currentPassword,
+        onValueChange = onCurrentPasswordChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Current Password") },
+        placeholder = { Text("Enter current password") },
+        singleLine = true,
+        enabled = !isSaving,
+        visualTransformation =
+            if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
+                Icon(
+                    imageVector =
+                        if (currentPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (currentPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
+                )
+            }
+        },
+    )
+
+    Spacer(modifier = Modifier.height(12.dp))
 
     OutlinedTextField(
         value = newPassword,
@@ -565,7 +595,7 @@ private fun PasswordSection(
                 Icon(
                     imageVector =
                         if (newPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (newPasswordVisible) "Hide password" else "Show password",
+                    contentDescription = if (newPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
                 )
             }
         },
@@ -597,7 +627,7 @@ private fun PasswordSection(
                     imageVector =
                         if (confirmPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     contentDescription =
-                        if (confirmPasswordVisible) "Hide password" else "Show password",
+                        if (confirmPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
                 )
             }
         },
@@ -624,6 +654,8 @@ private fun PasswordSection(
 
 private const val MAX_AVATAR_SIZE = 2048
 private const val AVATAR_QUALITY = 85
+private const val PASSWORD_VISIBILITY_HIDE = "Hide password"
+private const val PASSWORD_VISIBILITY_SHOW = "Show password"
 
 private suspend fun compressAvatar(
     context: Context,

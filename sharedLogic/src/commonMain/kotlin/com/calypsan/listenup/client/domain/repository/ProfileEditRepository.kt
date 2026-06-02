@@ -65,9 +65,15 @@ interface ProfileEditRepository {
      * Change the user's password.
      *
      * This is NOT an offline-first operation - requires immediate server confirmation.
+     * The server verifies [currentPassword] before storing [newPassword].
+     * Returns [com.calypsan.listenup.api.error.ProfileError.WrongPassword] if the current password is incorrect.
      *
+     * @param currentPassword The user's current password (verified server-side)
      * @param newPassword The new password to set
      * @return Result indicating success or failure
      */
-    suspend fun changePassword(newPassword: String): AppResult<Unit>
+    suspend fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+    ): AppResult<Unit>
 }

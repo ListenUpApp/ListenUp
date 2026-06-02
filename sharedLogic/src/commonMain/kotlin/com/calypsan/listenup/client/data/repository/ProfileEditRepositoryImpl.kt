@@ -1,89 +1,152 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.api.dto.profile.PasswordChange
+import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
+import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.remote.ProfileApiContract
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.call.body
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 private const val NO_CURRENT_USER_MESSAGE = "No current user"
 private const val NO_CURRENT_USER_FOUND_MESSAGE = "No current user found"
 private const val AUTO_VALUE = "auto"
+private const val IMAGE_VALUE = "image"
+private const val AVATAR_UPLOAD_PATH = "/api/v1/profile/avatar"
 private val logger = KotlinLogging.logger {}
 
 /**
- * Repository for profile editing operations using offline-first pattern.
+ * Performs the multipart avatar upload against the REST endpoint.
  *
- * Handles the edit flow:
- * 1. Apply optimistic update to local database
- * 2. Queue operation for server sync via PendingOperationRepository
- * 3. Return success immediately
+ * Extracted as an interface so [ProfileEditRepositoryImpl] can be constructed in tests
+ * without requiring a live [ApiClientFactory] (which is a final class).
+ */
+fun interface AvatarUploader {
+    /** POST [imageData] to the avatar endpoint; return success or a transport failure. */
+    suspend fun upload(
+        imageData: ByteArray,
+        contentType: String,
+    ): AppResult<Unit>
+}
+
+/**
+ * Production [AvatarUploader] backed by [ApiClientFactory].
+ */
+fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
+    AvatarUploader { imageData, contentType ->
+        try {
+            val client = clientFactory.getClient()
+            client
+                .submitFormWithBinaryData(
+                    url = AVATAR_UPLOAD_PATH,
+                    formData =
+                        formData {
+                            append(
+                                "file",
+                                imageData,
+                                Headers.build {
+                                    append(HttpHeaders.ContentType, contentType)
+                                    append(HttpHeaders.ContentDisposition, "filename=\"avatar\"")
+                                },
+                            )
+                        },
+                ).body<ApiResponse<Unit>>()
+            AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            AppResult.Failure(ErrorMapper.map(e))
+        }
+    }
+
+/**
+ * Repository for profile editing operations.
  *
- * Server propagation returns when the profile sync domain migrates to the renovated engine.
+ * Mutations call [ProfileRpcFactory] to invoke [com.calypsan.listenup.api.ProfileService]
+ * over RPC, then update local Room on success so the UI reflects the change immediately.
+ * Avatar upload delegates to [AvatarUploader] (a REST multipart POST) and flips the local
+ * [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` on success.
  */
 class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
-    private val profileApi: ProfileApiContract,
+    private val profileRpcFactory: ProfileRpcFactory,
+    private val avatarUploader: AvatarUploader,
 ) : ProfileEditRepository {
     /**
      * Update the user's tagline.
      */
     override suspend fun updateTagline(tagline: String?): AppResult<Unit> =
         withContext(IODispatcher) {
-            logger.debug { "Updating tagline (offline-first)" }
-
-            // Get current user
-            val user = userDao.getCurrentUser()
-            if (user == null) {
-                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                return@withContext Failure(Exception(NO_CURRENT_USER_MESSAGE))
-            }
-
-            // Apply optimistic update
-            userDao.updateTagline(
-                userId = user.id.value,
-                tagline = tagline,
-                updatedAt = currentEpochMilliseconds(),
-            )
-
-            logger.info { "Tagline updated locally" }
-            Success(Unit)
+            val user =
+                userDao.getCurrentUser() ?: run {
+                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                    return@withContext AppResult.Failure(
+                        ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
+                    )
+                }
+            rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(tagline = tagline)) }
+                .also { result ->
+                    if (result is AppResult.Success) {
+                        userDao.updateTagline(
+                            userId = user.id.value,
+                            tagline = tagline,
+                            updatedAt = currentEpochMilliseconds(),
+                        )
+                        logger.info { "Tagline updated" }
+                    }
+                }.toUnit()
         }
 
     /**
-     * Upload a new avatar image.
+     * Upload a new avatar image via multipart POST to the REST avatar endpoint.
      *
-     * Note: Unlike tagline updates, we do NOT apply an optimistic local update here.
-     * The new avatar path isn't known until the server processes the upload.
-     * The current avatar continues to display until sync completes and the
-     * ProfileAvatarHandler updates UserEntity with the server response.
+     * Flips [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` locally
+     * on success so the UI can immediately switch to the avatar-render path. Avatar download
+     * (Task 10) wires up the full URL; this task only persists the type change.
      */
     override suspend fun uploadAvatar(
         imageData: ByteArray,
         contentType: String,
     ): AppResult<Unit> =
         withContext(IODispatcher) {
-            logger.debug { "Uploading avatar (offline-first), size=${imageData.size}" }
+            val user =
+                userDao.getCurrentUser() ?: run {
+                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                    return@withContext AppResult.Failure(
+                        ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
+                    )
+                }
+            when (val uploadResult = avatarUploader.upload(imageData, contentType)) {
+                is AppResult.Success -> {
+                    userDao.updateAvatar(
+                        userId = user.id.value,
+                        avatarType = IMAGE_VALUE,
+                        avatarValue = null,
+                        avatarColor = user.avatarColor,
+                        updatedAt = currentEpochMilliseconds(),
+                    )
+                    logger.info { "Avatar uploaded, local type flipped to image" }
+                    AppResult.Success(Unit)
+                }
 
-            // Get current user
-            val user = userDao.getCurrentUser()
-            if (user == null) {
-                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                return@withContext Failure(Exception(NO_CURRENT_USER_MESSAGE))
+                is AppResult.Failure -> {
+                    logger.error { "Avatar upload failed: ${uploadResult.message}" }
+                    uploadResult
+                }
             }
-
-            // Do NOT update avatar locally - we don't have the server path yet.
-            // The current avatar will continue to display until:
-            // 1. ProfileAvatarHandler successfully uploads the image
-            // 2. Handler updates UserEntity with the server's response (including the new path)
-
-            logger.info { "Avatar upload skipped until profile sync domain migrates" }
-            Success(Unit)
         }
 
     /**
@@ -91,86 +154,119 @@ class ProfileEditRepositoryImpl(
      */
     override suspend fun revertToAutoAvatar(): AppResult<Unit> =
         withContext(IODispatcher) {
-            logger.debug { "Reverting to auto avatar (offline-first)" }
-
-            // Get current user
-            val user = userDao.getCurrentUser()
-            if (user == null) {
-                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                return@withContext Failure(Exception(NO_CURRENT_USER_MESSAGE))
-            }
-
-            // Apply optimistic update
-            userDao.updateAvatar(
-                userId = user.id.value,
-                avatarType = AUTO_VALUE,
-                avatarValue = null,
-                avatarColor = user.avatarColor, // Keep existing color
-                updatedAt = currentEpochMilliseconds(),
-            )
-
-            logger.info { "Reverted to auto avatar locally" }
-            Success(Unit)
+            val user =
+                userDao.getCurrentUser() ?: run {
+                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                    return@withContext AppResult.Failure(
+                        ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
+                    )
+                }
+            rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(avatarType = AUTO_VALUE)) }
+                .also { result ->
+                    if (result is AppResult.Success) {
+                        userDao.updateAvatar(
+                            userId = user.id.value,
+                            avatarType = AUTO_VALUE,
+                            avatarValue = null,
+                            avatarColor = user.avatarColor,
+                            updatedAt = currentEpochMilliseconds(),
+                        )
+                        logger.info { "Reverted to auto avatar" }
+                    }
+                }.toUnit()
         }
 
     /**
      * Update the user's name.
-     *
-     * Applies optimistic update locally, then queues for server sync.
      */
     override suspend fun updateName(
         firstName: String,
         lastName: String,
     ): AppResult<Unit> =
         withContext(IODispatcher) {
-            logger.debug { "Updating name (offline-first)" }
-
-            // Get current user
-            val user = userDao.getCurrentUser()
-            if (user == null) {
-                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
-                return@withContext Failure(Exception(NO_CURRENT_USER_MESSAGE))
-            }
-
-            // Apply optimistic update - compute displayName locally
+            val user =
+                userDao.getCurrentUser() ?: run {
+                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                    return@withContext AppResult.Failure(
+                        ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
+                    )
+                }
             val displayName = "$firstName $lastName".trim()
-            userDao.updateName(
-                userId = user.id.value,
-                firstName = firstName,
-                lastName = lastName,
-                displayName = displayName,
-                updatedAt = currentEpochMilliseconds(),
-            )
-
-            logger.info { "Name updated locally" }
-            Success(Unit)
+            rpcCall {
+                profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(displayName = displayName))
+            }.also { result ->
+                if (result is AppResult.Success) {
+                    userDao.updateName(
+                        userId = user.id.value,
+                        firstName = firstName,
+                        lastName = lastName,
+                        displayName = displayName,
+                        updatedAt = currentEpochMilliseconds(),
+                    )
+                    logger.info { "Name updated" }
+                }
+            }.toUnit()
         }
 
     /**
      * Change the user's password.
      *
-     * This is NOT an offline-first operation - requires immediate server confirmation.
+     * Requires the current password for server-side verification.
+     * Returns [com.calypsan.listenup.api.error.ProfileError.WrongPassword] on mismatch.
      */
-    override suspend fun changePassword(newPassword: String): AppResult<Unit> =
+    override suspend fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+    ): AppResult<Unit> =
         withContext(IODispatcher) {
-            logger.debug { "Changing password (requires server)" }
-
-            // Password change requires immediate server confirmation
-            when (
-                val result =
-                    profileApi.updateMyProfile(
-                        newPassword = newPassword,
-                    )
-            ) {
-                is Success -> {
-                    logger.info { "Password changed successfully" }
-                    Success(Unit)
-                }
-
-                is Failure -> {
-                    logger.error { "Password change failed: ${result.message}" }
-                    result
-                }
+            userDao.getCurrentUser() ?: run {
+                logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                return@withContext AppResult.Failure(
+                    ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
+                )
             }
+            rpcCall {
+                profileRpcFactory.get().updateMyProfile(
+                    UpdateProfileRequest(
+                        password =
+                            PasswordChange(
+                                currentPassword = currentPassword,
+                                newPassword = newPassword,
+                            ),
+                    ),
+                )
+            }.also { result ->
+                if (result is AppResult.Success) {
+                    logger.info { "Password changed successfully" }
+                } else {
+                    logger.error { "Password change failed" }
+                }
+            }.toUnit()
+        }
+
+    // ── Plumbing ────────────────────────────────────────────────────────────────
+
+    /**
+     * Run an RPC call, converting the contract-layer [WireAppResult] to the client [AppResult].
+     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure] via [ErrorMapper].
+     */
+    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
+        try {
+            when (val result = block()) {
+                is WireAppResult.Success -> AppResult.Success(result.data)
+                is WireAppResult.Failure -> AppResult.Failure(result.error)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "Profile RPC failed" }
+            AppResult.Failure(ErrorMapper.map(e))
+        }
+
+    /** Discard the typed data from a successful result, preserving failures. */
+    private fun <T> AppResult<T>.toUnit(): AppResult<Unit> =
+        when (this) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> this
         }
 }
