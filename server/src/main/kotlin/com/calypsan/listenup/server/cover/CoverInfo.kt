@@ -6,10 +6,8 @@ import java.nio.file.Path
  * Where a book's cover image lives — the resolved input the cover route needs
  * to produce image bytes.
  *
- * A book's cover is one of two kinds: a standalone image file in the library
- * directory, or artwork embedded inside the book's audio file. `BookRepository`
- * resolves the persisted `coverSource` column into the matching variant,
- * carrying an absolute filesystem [Path] in each case.
+ * `BookRepository` resolves the persisted `coverSource` column into the matching
+ * variant, carrying an absolute filesystem [Path] in each case.
  */
 sealed interface CoverInfo {
     /**
@@ -36,6 +34,17 @@ sealed interface CoverInfo {
      */
     data class Embedded(
         val audioFilePath: Path,
+        override val hash: String?,
+    ) : CoverInfo
+
+    /**
+     * The cover is a server-managed image file at [path] (an absolute path
+     * under `$LISTENUP_HOME/covers`). Written by [UPLOADED][com.calypsan.listenup.api.sync.CoverSource.UPLOADED]
+     * or [ENRICHED][com.calypsan.listenup.api.sync.CoverSource.ENRICHED] ingestion paths.
+     * The [hash] is the SHA-256 of the stored bytes and drives ETag / 304 responses.
+     */
+    data class Managed(
+        val path: Path,
         override val hash: String?,
     ) : CoverInfo
 }

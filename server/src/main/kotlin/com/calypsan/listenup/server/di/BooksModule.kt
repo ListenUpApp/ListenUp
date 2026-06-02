@@ -125,6 +125,7 @@ fun booksModule(
                 get(),
                 clock = get(),
                 bookTagRepository = getOrNull(),
+                homeDir = homeDir,
             )
         }
         single<BookIngestPort> { get<BookRepository>() }

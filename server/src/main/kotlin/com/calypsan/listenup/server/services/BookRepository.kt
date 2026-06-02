@@ -93,6 +93,7 @@ class BookRepository(
     private val analyzedBookMapper: AnalyzedBookMapper = AnalyzedBookMapper(),
     clock: Clock = Clock.System,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
+    private val homeDir: Path? = null,
 ) : SyncableRepository<BookSyncPayload, BookId>(
         db = db,
         table = BookTable,
@@ -631,9 +632,7 @@ class BookRepository(
      * has no cover (a null `coverSource`) — both are a plain 404 to the caller,
      * not an error.
      *
-     * The persisted `cover_path` column is always null — the wire DTO carries
-     * no path — so the path is *derived* here from the library root and the
-     * book's `root_rel_path`:
+     * The path is resolved differently per source:
      *
      *  - [CoverSource.FILESYSTEM] → the book directory is scanned for a cover
      *    image, mirroring the scanner's `Analyzer.resolveCover` precedence:
@@ -644,6 +643,9 @@ class BookRepository(
      *  - [CoverSource.EMBEDDED] → the book's primary audio file (lowest
      *    `ordinal`) resolves to `<root>/<rootRelPath>/<filename>`, returned as
      *    [CoverInfo.Embedded] for serve-time artwork extraction.
+     *  - [CoverSource.UPLOADED] / [CoverSource.ENRICHED] → the persisted
+     *    `cover_path` (a relative path like `covers/{id}.jpg`) is resolved
+     *    sandboxed under [homeDir], returned as [CoverInfo.Managed].
      *
      * Opens its own short read transaction — the route calls it outside any
      * substrate orchestration.
@@ -675,7 +677,8 @@ class BookRepository(
                         .orderBy(BookAudioFileTable.ordinal)
                         .firstOrNull()
                         ?.get(BookAudioFileTable.filename)
-                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash)
+                val coverPath = bookRow[BookTable.coverPath]
+                ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash, coverPath)
             } ?: return null
 
         val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)
@@ -694,13 +697,31 @@ class BookRepository(
                     ?.let { CoverInfo.Embedded(it, resolved.hash) }
             }
 
-            // Serving for UPLOADED and ENRICHED is implemented in a later task.
             CoverSource.UPLOADED,
             CoverSource.ENRICHED,
             -> {
-                null
+                val relPath = resolved.coverPath ?: return null
+                val base = homeDir ?: return null
+                resolveManagedCover(base, relPath, resolved.hash)
             }
         }
+    }
+
+    /**
+     * Resolves [relPath] sandboxed under [base], returning [CoverInfo.Managed] when the
+     * file exists or null when the path escapes the sandbox or the file is absent.
+     * Mirrors the `resolveSandboxed` logic in `MetadataImageRoutes`.
+     */
+    private suspend fun resolveManagedCover(
+        base: Path,
+        relPath: String,
+        hash: String?,
+    ): CoverInfo.Managed? {
+        if (relPath.startsWith("/") || "../" in relPath || relPath == "..") return null
+        val absolute = base.resolve(relPath).normalize()
+        if (!absolute.startsWith(base.normalize())) return null
+        val exists = withContext(Dispatchers.IO) { Files.isRegularFile(absolute) }
+        return if (exists) CoverInfo.Managed(absolute, hash) else null
     }
 
     /**
@@ -742,6 +763,7 @@ class BookRepository(
         val rootRelPath: String,
         val primaryFilename: String?,
         val hash: String?,
+        val coverPath: String?,
     )
 
     /**
