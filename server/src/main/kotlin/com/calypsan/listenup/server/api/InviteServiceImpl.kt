@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.invite.InviteDto
 import com.calypsan.listenup.api.dto.invite.InviteId
@@ -128,6 +129,7 @@ class InviteServiceImpl(
         code: String,
         password: String,
         displayName: String?,
+        deviceInfo: DeviceInfo?,
     ): AppResult<AuthSession> {
         // Argon2 is CPU-bound and slow on purpose — hash before opening the
         // transaction so we don't hold a DB connection during it (mirrors register).
@@ -162,7 +164,7 @@ class InviteServiceImpl(
             // Single-use: stamp the claim so the code can't be redeemed again.
             invite.claimedAt = now
             invite.claimedBy = user.id.value
-            AppResult.Success(sessionIssuer.issue(user, label = null))
+            AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
         }
     }
 

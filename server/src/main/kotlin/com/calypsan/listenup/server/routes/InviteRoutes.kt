@@ -83,7 +83,7 @@ fun Route.publicInviteRoutes(inviteService: InviteServicePublic) {
     post<InvitePreviewResource.Claim> { res ->
         val body = call.receive<ClaimInviteRequest>()
         call.respondResult(
-            inviteService.claimInvite(res.parent.code, body.password, body.displayName),
+            inviteService.claimInvite(res.parent.code, body.password, body.displayName, body.deviceInfo),
         )
     }
 }
