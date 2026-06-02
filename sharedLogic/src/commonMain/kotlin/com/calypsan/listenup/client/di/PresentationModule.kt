@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadFileManagerStorageAdapter
 import com.calypsan.listenup.client.download.StorageSpaceProvider
+import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
@@ -461,6 +462,8 @@ val settingsPresentationModule =
                 authSession = get(),
             )
         }
+        // DevicesViewModel for the Devices (active sessions) screen
+        factory { DevicesViewModel(authRepository = get()) }
         // SyncIndicatorViewModel as singleton for app-wide sync status
         single { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
         // StorageViewModel for storage management screen
