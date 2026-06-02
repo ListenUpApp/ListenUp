@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.startup
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.User
@@ -217,6 +218,105 @@ class AppStartupViewModelTest {
 
             // Then - isChecking should still be false (no re-check triggered)
             assertFalse(viewModel.state.value.isChecking)
+        }
+
+    // ========== Setup-status Failure Tests ==========
+
+    @Test
+    fun `admin getSetupStatus failure surfaces setupCheckFailed not silent Shell`() =
+        runTest {
+            // Given - admin user, setup-status check fails (e.g. transient network error)
+            val userRepository = createMockUserRepository()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
+            val adminUser = createTestUser(isAdmin = true)
+            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+            everySuspend { userRepository.getCurrentUser() } returns adminUser
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
+
+            // When
+            val viewModel = AppStartupViewModel(userRepository, factory)
+            advanceUntilIdle()
+
+            // Then - check is settled, failure surfaced, NOT forced into the wizard
+            assertFalse(viewModel.state.value.isChecking)
+            assertTrue(viewModel.state.value.setupCheckFailed)
+            assertFalse(viewModel.state.value.needsLibrarySetup)
+        }
+
+    @Test
+    fun `admin getSetupStatus success needsSetup true sets needsLibrarySetup not failed`() =
+        runTest {
+            // Given
+            val userRepository = createMockUserRepository()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
+            val adminUser = createTestUser(isAdmin = true)
+            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+            everySuspend { userRepository.getCurrentUser() } returns adminUser
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Success(SetupStatus(needsSetup = true, libraryCount = 0))
+
+            // When
+            val viewModel = AppStartupViewModel(userRepository, factory)
+            advanceUntilIdle()
+
+            // Then
+            assertFalse(viewModel.state.value.isChecking)
+            assertTrue(viewModel.state.value.needsLibrarySetup)
+            assertFalse(viewModel.state.value.setupCheckFailed)
+        }
+
+    @Test
+    fun `non-admin is never blocked or failed by setup-status`() =
+        runTest {
+            // Given - non-admin user; getSetupStatus must never be consulted
+            val userRepository = createMockUserRepository()
+            val factory = createMockLibraryAdminRpcFactory()
+            val regularUser = createTestUser(isAdmin = false)
+            everySuspend { userRepository.refreshCurrentUser() } returns regularUser
+            everySuspend { userRepository.getCurrentUser() } returns regularUser
+
+            // When
+            val viewModel = AppStartupViewModel(userRepository, factory)
+            advanceUntilIdle()
+
+            // Then
+            assertFalse(viewModel.state.value.isChecking)
+            assertFalse(viewModel.state.value.needsLibrarySetup)
+            assertFalse(viewModel.state.value.setupCheckFailed)
+        }
+
+    @Test
+    fun `retryLibrarySetupCheck re-runs the check after a transient failure`() =
+        runTest {
+            // Given - admin user; first check fails, then the next check succeeds
+            val userRepository = createMockUserRepository()
+            val service = mock<LibraryAdminService>()
+            val factory = createMockLibraryAdminRpcFactory(service)
+            val adminUser = createTestUser(isAdmin = true)
+            everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+            everySuspend { userRepository.getCurrentUser() } returns adminUser
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Failure(TransportError.NetworkUnavailable())
+
+            val viewModel = AppStartupViewModel(userRepository, factory)
+            advanceUntilIdle()
+            assertTrue(viewModel.state.value.setupCheckFailed)
+
+            // Flip the stub to success and retry
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Success(SetupStatus(needsSetup = false, libraryCount = 1))
+
+            // When
+            viewModel.retryLibrarySetupCheck()
+            advanceUntilIdle()
+
+            // Then - failure cleared, check settled, no wizard
+            assertFalse(viewModel.state.value.isChecking)
+            assertFalse(viewModel.state.value.setupCheckFailed)
+            assertFalse(viewModel.state.value.needsLibrarySetup)
         }
 
     @Test
