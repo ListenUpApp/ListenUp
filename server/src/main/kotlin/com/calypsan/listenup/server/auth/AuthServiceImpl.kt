@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -20,6 +21,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.db.SessionEntity
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
@@ -51,6 +53,7 @@ class AuthServiceImpl(
     internal val clock: Clock = Clock.System,
     internal val settings: ServerSettingsRepository,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
+    internal val requestUserAgent: String? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -77,7 +80,14 @@ class AuthServiceImpl(
         }
 
         markLastLogin(user.id.value)
-        return AppResult.Success(sessionIssuer.issue(user, label = request.sessionLabel))
+        return AppResult.Success(
+            sessionIssuer.issue(
+                user,
+                label = request.sessionLabel,
+                deviceInfo = request.deviceInfo,
+                userAgent = requestUserAgent,
+            ),
+        )
     }
 
     override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> {
@@ -131,7 +141,14 @@ class AuthServiceImpl(
             if (user.status == UserStatusColumn.PENDING_APPROVAL) {
                 RegisterResult.PendingApproval(userId = UserId(user.id.value))
             } else {
-                RegisterResult.Authenticated(sessionIssuer.issue(user, label = request.sessionLabel))
+                RegisterResult.Authenticated(
+                    sessionIssuer.issue(
+                        user,
+                        label = request.sessionLabel,
+                        deviceInfo = request.deviceInfo,
+                        userAgent = requestUserAgent,
+                    ),
+                )
             }
         return AppResult.Success(outcome)
     }
@@ -160,7 +177,14 @@ class AuthServiceImpl(
                     updatedAt = now
                 }
             }
-        return AppResult.Success(sessionIssuer.issue(user, label = request.sessionLabel))
+        return AppResult.Success(
+            sessionIssuer.issue(
+                user,
+                label = request.sessionLabel,
+                deviceInfo = request.deviceInfo,
+                userAgent = requestUserAgent,
+            ),
+        )
     }
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
@@ -201,6 +225,12 @@ class AuthServiceImpl(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> {
+        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        sessions.revoke(sessionId, p.userId)
+        return AppResult.Success(Unit)
+    }
+
     /**
      * Produce a copy bound to a specific [PrincipalProvider]. Route handlers
      * call this with `PrincipalProvider { p }` so the per-call principal
@@ -217,6 +247,21 @@ class AuthServiceImpl(
             clock = clock,
             settings = settings,
             principalProvider = provider,
+            requestUserAgent = requestUserAgent,
+        )
+
+    /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
+    fun withUserAgent(userAgent: String?): AuthServiceImpl =
+        AuthServiceImpl(
+            db = db,
+            sessions = sessions,
+            hasher = hasher,
+            jwt = jwt,
+            sessionIssuer = sessionIssuer,
+            clock = clock,
+            settings = settings,
+            principalProvider = principalProvider,
+            requestUserAgent = userAgent,
         )
 
     override suspend fun currentUser(): AppResult<User> {
@@ -235,6 +280,8 @@ class AuthServiceImpl(
                 SessionSummary(
                     id = SessionId(s.id.value),
                     label = s.label,
+                    deviceInfo = deviceInfoOf(s),
+                    userAgent = s.userAgent,
                     createdAt = s.createdAt,
                     lastUsedAt = s.lastUsedAt,
                     current = s.id.value == p.sessionId.value,
@@ -248,6 +295,20 @@ class AuthServiceImpl(
         suspendTransaction(db) {
             UserEntity[userId].lastLoginAt = now
         }
+    }
+
+    private fun deviceInfoOf(s: SessionEntity): DeviceInfo? {
+        val info =
+            DeviceInfo(
+                deviceType = s.deviceType,
+                platform = s.platform,
+                platformVersion = s.platformVersion,
+                clientName = s.clientName,
+                clientVersion = s.clientVersion,
+                deviceName = s.deviceName,
+                deviceModel = s.deviceModel,
+            )
+        return info.takeIf { it != DeviceInfo() }
     }
 
     // Phase 1 placeholder. UUIDv7 (lexicographically sortable, time-ordered) is the
