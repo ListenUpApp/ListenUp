@@ -43,6 +43,29 @@ class ServerSettingsRepository(
         }
     }
 
+    /** Raw value for [key], or null if unset. Generic KV access for non-policy settings. */
+    suspend fun getValue(key: String): String? =
+        suspendTransaction(db) {
+            ServerSettingsTable
+                .selectAll()
+                .where { ServerSettingsTable.key eq key }
+                .firstOrNull()
+                ?.get(ServerSettingsTable.value)
+        }
+
+    /** Upserts [key] → [value]. */
+    suspend fun setValue(
+        key: String,
+        value: String,
+    ) {
+        suspendTransaction(db) {
+            ServerSettingsTable.upsert {
+                it[ServerSettingsTable.key] = key
+                it[ServerSettingsTable.value] = value
+            }
+        }
+    }
+
     private companion object {
         const val KEY_REGISTRATION_POLICY = "registration_policy"
     }
