@@ -69,6 +69,10 @@ class ArchitectureTest :
                 // exercise the full Koin graph and authenticate against it. Same exemption
                 // class as the C3 sync fixture above — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/di/e2e/" !in it.path }
+                // Profile E2E: boots the real ProfileService in-process via testApplication to
+                // exercise the updateMyProfile → getMyProfile RPC round-trip. Same exemption
+                // class as the sync and DI fixtures above — confined to jvmTest, not production.
+                .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/profile/" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }

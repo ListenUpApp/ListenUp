@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.InstanceService
@@ -24,6 +25,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
+import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
@@ -106,6 +108,7 @@ fun Route.rpcRoutes(
     collectionService: CollectionService,
     adminUserService: AdminUserService,
     inviteService: InviteServiceImpl,
+    profileService: ProfileService,
 ) {
     publicRpc(authService, instanceService, scannerService, inviteService)
     authenticate(JWT_PROVIDER) {
@@ -124,6 +127,7 @@ fun Route.rpcRoutes(
             collectionService,
             adminUserService,
             inviteService,
+            profileService,
         )
     }
 }
@@ -169,6 +173,7 @@ private fun Route.authedRpc(
     collectionService: CollectionService,
     adminUserService: AdminUserService,
     inviteService: InviteServiceImpl,
+    profileService: ProfileService,
 ) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
@@ -190,5 +195,6 @@ private fun Route.authedRpc(
         registerScoped<CollectionService> { guard((collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<AdminUserService> { guard((adminUserService as AdminUserServiceImpl).copyWith(it)) }
         registerScoped<InviteService> { guard(inviteService.copyWith(it) as InviteService) }
+        registerScoped<ProfileService> { guard((profileService as ProfileServiceImpl).copyWith(it)) }
     }
 }

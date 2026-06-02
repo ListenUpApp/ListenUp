@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -100,6 +101,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is GenreError -> toHttpStatus()
 
+        is ProfileError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
@@ -134,6 +137,7 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is ContributorError -> withCorrelationId(id)
         is SeriesError -> withCorrelationId(id)
         is GenreError -> withCorrelationId(id)
+        is ProfileError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
@@ -483,4 +487,16 @@ private fun InviteError.withCorrelationId(id: String?): InviteError =
         is InviteError.AlreadyClaimed -> copy(correlationId = id)
         is InviteError.EmailInUse -> copy(correlationId = id)
         is InviteError.InvalidInput -> copy(correlationId = id)
+    }
+
+private fun ProfileError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ProfileError.InvalidImage -> HttpStatusCode.UnprocessableEntity
+        is ProfileError.WrongPassword -> HttpStatusCode.UnprocessableEntity
+    }
+
+private fun ProfileError.withCorrelationId(id: String?): ProfileError =
+    when (this) {
+        is ProfileError.InvalidImage -> copy(correlationId = id)
+        is ProfileError.WrongPassword -> copy(correlationId = id)
     }

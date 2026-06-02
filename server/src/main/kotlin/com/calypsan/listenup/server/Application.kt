@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.CollectionService
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -27,6 +28,7 @@ import com.calypsan.listenup.server.di.metadataModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
+import com.calypsan.listenup.server.di.profileModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.InstanceIdentity
@@ -73,13 +75,16 @@ import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
+import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.sync.syncRoutes
+import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.CreateLibraryRequest
 import com.calypsan.listenup.server.db.resolveListenupHome
@@ -205,6 +210,7 @@ private fun Application.installDependencies(
                 ?.getString()
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
+        modules += profileModule(homeDir.resolve("avatars"))
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -284,6 +290,9 @@ fun Application.module() {
     val tagService by inject<TagService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
+    val profileService by inject<ProfileService>()
+    val avatarImageStore by inject<ImageStore>()
+    val db by inject<Database>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
     routing {
@@ -310,6 +319,7 @@ fun Application.module() {
             collectionService,
             adminUserService,
             inviteService,
+            profileService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -329,6 +339,7 @@ fun Application.module() {
             genreRoutes(genreService, bookAccessPolicy)
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
+            profileRoutes(db, avatarImageStore)
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
