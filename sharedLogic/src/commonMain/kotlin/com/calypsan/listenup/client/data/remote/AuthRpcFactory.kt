@@ -30,8 +30,11 @@ import kotlinx.rpc.withService
  * Wire serialization is the contract-layer [contractJson] — same instance
  * the REST surface and contract round-trip tests use. One wire format,
  * two transports.
+ *
+ * `open` (with [authedService] overridable) so repository tests can supply a
+ * fake authed proxy without opening a real WebSocket.
  */
-class AuthRpcFactory(
+open class AuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
 ) {
@@ -45,7 +48,7 @@ class AuthRpcFactory(
             cachedPublic ?: connectPublic().also { cachedPublic = it }
         }
 
-    suspend fun authedService(): AuthServiceAuthed =
+    open suspend fun authedService(): AuthServiceAuthed =
         mutex.withLock {
             cachedAuthed ?: connectAuthed().also { cachedAuthed = it }
         }
