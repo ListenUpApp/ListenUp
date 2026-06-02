@@ -120,7 +120,6 @@ fun booksModule(
         }
         single<BookIngestPort> { get<BookRepository>() }
         single { CoverStorage() }
-        single { BookAccessPolicy(get()) }
         single { UserPermissionPolicy(db = get()) }
         single<BookService> {
             BookServiceImpl(
