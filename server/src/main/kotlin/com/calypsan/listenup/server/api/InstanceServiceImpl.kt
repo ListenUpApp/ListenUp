@@ -25,18 +25,12 @@ class InstanceServiceImpl(
         val setupRequired = suspendTransaction(db) { UserEntity.all().limit(1).empty() }
         return AppResult.Success(
             ServerInfo(
-                name = SERVER_NAME,
-                version = SERVER_VERSION,
-                apiVersion = API_VERSION,
+                name = ServerIdentity.NAME,
+                version = ServerIdentity.VERSION,
+                apiVersion = ServerIdentity.API_VERSION,
                 setupRequired = setupRequired,
                 registrationPolicy = settings.registrationPolicy(),
             ),
         )
-    }
-
-    private companion object {
-        const val SERVER_NAME = "ListenUp"
-        const val SERVER_VERSION = "0.0.1"
-        const val API_VERSION = "v1"
     }
 }

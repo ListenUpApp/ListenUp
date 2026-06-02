@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.server.api.ServerIdentity
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.mdns.MdnsServiceInfo
@@ -23,7 +24,7 @@ fun mdnsModule(
 ): Module =
     module {
         single { InstanceIdentity(get<ServerSettingsRepository>()) }
-        factory { (instanceId: String) ->
+        factory<MdnsAdvertiser> { (instanceId: String) ->
             MulticastMdnsResponder(
                 service =
                     MdnsServiceInfo(
@@ -32,20 +33,22 @@ fun mdnsModule(
                         txt =
                             linkedMapOf(
                                 "id" to instanceId,
-                                "name" to SERVER_NAME,
-                                "version" to SERVER_VERSION,
-                                "api" to API_VERSION,
+                                "name" to ServerIdentity.NAME,
+                                "version" to ServerIdentity.VERSION,
+                                "api" to ServerIdentity.API_VERSION,
                             ),
                     ),
                 scope = applicationScope,
-            ) as MdnsAdvertiser
+            )
         }
     }
 
-private fun hostname(): String = runCatching { InetAddress.getLocalHost().hostName }.getOrDefault("listenup-server")
+private fun hostname(): String =
+    runCatching { singleLabelHostname(InetAddress.getLocalHost().hostName) }.getOrDefault("listenup-server")
 
-// Mirror InstanceServiceImpl's companion constants. Those are private so cannot be referenced
-// directly — these local copies must be kept in sync if the server identity ever changes.
-private const val SERVER_NAME = "ListenUp"
-private const val SERVER_VERSION = "0.0.1"
-private const val API_VERSION = "v1"
+/**
+ * Strips a dotted FQDN to the first label (e.g. "host.example.com" → "host").
+ * A dotted instanceName would be split by [DnsCodec.encodeName] into extra labels,
+ * corrupting DNS names like "<instance>._listenup._tcp.local".
+ */
+internal fun singleLabelHostname(raw: String): String = raw.substringBefore('.').ifBlank { "listenup-server" }

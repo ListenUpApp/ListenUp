@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,6 +45,7 @@ class MulticastMdnsResponder(
     override suspend fun start() {
         withContext(Dispatchers.IO) {
             runCatching {
+                if (sockets.isNotEmpty()) return@runCatching
                 for (nif in multicastIpv4Interfaces()) {
                     val ipv4 =
                         nif.inetAddresses
@@ -53,6 +55,7 @@ class MulticastMdnsResponder(
                     val socket =
                         MulticastSocket(PORT).apply {
                             reuseAddress = true
+                            runCatching { setOption(java.net.StandardSocketOptions.SO_REUSEPORT, true) }
                             joinGroup(InetSocketAddress(group, PORT), nif)
                         }
                     sockets += Bound(socket, nif, ipv4.address)
@@ -87,11 +90,11 @@ class MulticastMdnsResponder(
 
     private suspend fun receiveLoop(bound: Bound) {
         val buf = ByteArray(BUFFER_SIZE)
-        while (scope.isActive) {
+        while (currentCoroutineContext().isActive) {
             val pkt = DatagramPacket(buf, buf.size)
             val ok = runCatching { bound.socket.receive(pkt) }.isSuccess
             if (!ok) {
-                if (!scope.isActive) break
+                if (!currentCoroutineContext().isActive) break
                 continue
             }
             val query = pkt.data.copyOf(pkt.length)
@@ -140,11 +143,6 @@ class MulticastMdnsResponder(
             .filter { nif ->
                 runCatching { nif.isUp && nif.supportsMulticast() && !nif.isLoopback }.getOrDefault(false) &&
                     nif.inetAddresses.toList().any { it is Inet4Address }
-            }.ifEmpty {
-                // Fall back to loopback so a dev box / CI with only `lo` can still bind (tests rely on this).
-                NetworkInterface.getNetworkInterfaces().toList().filter {
-                    runCatching { it.isLoopback && it.supportsMulticast() }.getOrDefault(false)
-                }
             }
 
     private companion object {

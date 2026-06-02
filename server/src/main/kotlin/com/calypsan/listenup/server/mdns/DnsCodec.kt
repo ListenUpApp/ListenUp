@@ -14,6 +14,9 @@ object DnsCodec {
     /** RFC 1035 §3.1: each label is limited to 63 octets. */
     private const val MAX_LABEL_LENGTH = 63
 
+    /** RFC 6763 §6.1: each TXT key=value string is limited to 255 octets. */
+    private const val MAX_TXT_STRING = 255
+
     private const val TYPE_A = 1
     private const val TYPE_PTR = 12
     private const val TYPE_TXT = 16
@@ -107,6 +110,7 @@ object DnsCodec {
                     } else {
                         for ((k, v) in service.txt) {
                             val kv = "$k=$v".encodeToByteArray()
+                            require(kv.size <= MAX_TXT_STRING) { "TXT string too long: $k=$v" }
                             write(kv.size)
                             write(kv)
                         }
