@@ -65,6 +65,8 @@ import listenup.composeapp.generated.resources.settings_choose_light_dark_or_fol
 import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
 import listenup.composeapp.generated.resources.settings_desktop
+import listenup.composeapp.generated.resources.settings_devices
+import listenup.composeapp.generated.resources.devices_manage_active_sessions
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_backward
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_forward
 import listenup.composeapp.generated.resources.settings_hide_series_with_only_one
@@ -169,6 +171,7 @@ object SleepTimerPresets {
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToDevices: (() -> Unit)? = null,
     onNavigateToStorage: (() -> Unit)? = null,
     onNavigateToLicenses: (() -> Unit)? = null,
     showDynamicColors: Boolean = false,
@@ -335,6 +338,13 @@ fun SettingsScreen(
                     SettingsInfoItem(
                         title = stringResource(Res.string.common_server),
                         value = url.removePrefix("https://").removePrefix("http://"),
+                    )
+                }
+                if (onNavigateToDevices != null) {
+                    SettingsNavigationItem(
+                        title = stringResource(Res.string.settings_devices),
+                        description = stringResource(Res.string.devices_manage_active_sessions),
+                        onClick = onNavigateToDevices,
                     )
                 }
                 SettingsActionItem(

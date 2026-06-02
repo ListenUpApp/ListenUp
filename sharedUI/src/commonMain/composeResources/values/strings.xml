@@ -358,6 +358,15 @@
     <string name="contributor_unmerge_aliasname">Unmerge "%1$s"?</string>
     <string name="contributor_unmerge_body">This will split "%1$s" back into its own contributor. Any books credited as "%1$s" will be re-linked to the new contributor.</string>
     <string name="contributor_unmerge_confirm">Unmerge</string>
+    <string name="devices_empty">No other devices.</string>
+    <string name="devices_last_active">Last active %1$s</string>
+    <string name="devices_load_error">Couldn\'t load your devices.</string>
+    <string name="devices_manage_active_sessions">Manage your active sessions</string>
+    <string name="devices_sign_out">Sign out</string>
+    <string name="devices_sign_out_everywhere">Sign out everywhere</string>
+    <string name="devices_sign_out_everywhere_confirm">Sign out of all devices, including this one?</string>
+    <string name="devices_this_device">This device</string>
+    <string name="devices_title">Devices</string>
     <string name="discover_activity_feed">Activity Feed</string>
     <string name="discover_book_1_of_series">Book 1 of %1$s</string>
     <string name="discover_community_stats">Community Stats</string>
@@ -482,6 +491,7 @@
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_default_timer">Default timer</string>
     <string name="settings_desktop">Desktop</string>
+    <string name="settings_devices">Devices</string>
     <string name="settings_downloaded_books">Downloaded Books</string>
     <string name="settings_downloaded_books_will_appear_here">Downloaded books will appear here</string>
     <string name="settings_duration_when_pressing_skip_backward">Duration when pressing skip backward</string>
