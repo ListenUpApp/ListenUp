@@ -140,8 +140,15 @@ data class CoverPayload(
  *
  * [FILESYSTEM] covers are standalone image files in the book's folder.
  * [EMBEDDED] covers are artwork embedded inside an audio file.
- * Clients render either identically via the `/api/v1/books/{id}/cover` route —
- * the server resolves the source transparently.
+ * [UPLOADED] covers are user-supplied custom images uploaded via the API.
+ * [ENRICHED] covers are auto-downloaded from a metadata provider.
+ * Clients render all sources identically via the `/api/v1/books/{id}/cover`
+ * route — the server resolves the source transparently.
  */
 @Serializable
-enum class CoverSource { FILESYSTEM, EMBEDDED }
+enum class CoverSource {
+    FILESYSTEM,
+    EMBEDDED,
+    UPLOADED,
+    ENRICHED,
+}

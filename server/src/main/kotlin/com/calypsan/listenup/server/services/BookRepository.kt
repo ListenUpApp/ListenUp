@@ -593,6 +593,13 @@ class BookRepository(
                     ?.takeIf { withContext(Dispatchers.IO) { Files.isRegularFile(it) } }
                     ?.let { CoverInfo.Embedded(it, resolved.hash) }
             }
+
+            // Serving for UPLOADED and ENRICHED is implemented in a later task.
+            CoverSource.UPLOADED,
+            CoverSource.ENRICHED,
+            -> {
+                null
+            }
         }
     }
 
