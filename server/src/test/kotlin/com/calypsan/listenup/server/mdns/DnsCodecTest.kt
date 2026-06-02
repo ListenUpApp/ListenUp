@@ -61,4 +61,31 @@ class DnsCodecTest :
             val packet = DnsCodec.encodeResponse(service, byteArrayOf(10, 0, 0, 1), ttlSeconds = 0)
             (packet.size > 12) shouldBe true
         }
+
+        test("questionNames extracts the queried name from a PTR query packet") {
+            val q = java.io.ByteArrayOutputStream()
+            q.write(byteArrayOf(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0)) // header, QDCOUNT=1
+            q.write(DnsCodec.encodeName("_listenup._tcp.local"))
+            q.write(byteArrayOf(0, 12)) // QTYPE = PTR
+            q.write(byteArrayOf(0, 1)) // QCLASS = IN
+            DnsCodec.questionNames(q.toByteArray()) shouldBe listOf("_listenup._tcp.local")
+        }
+
+        test("questionNames returns empty for a malformed or questionless packet") {
+            DnsCodec.questionNames(byteArrayOf(0, 0)) shouldBe emptyList()
+        }
+
+        test("isQueryForUs is true for our service type and false for an unrelated query") {
+            val ours = java.io.ByteArrayOutputStream()
+            ours.write(byteArrayOf(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+            ours.write(DnsCodec.encodeName("_listenup._tcp.local"))
+            ours.write(byteArrayOf(0, 12, 0, 1))
+            DnsCodec.isQueryForUs(ours.toByteArray()) shouldBe true
+
+            val other = java.io.ByteArrayOutputStream()
+            other.write(byteArrayOf(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+            other.write(DnsCodec.encodeName("_http._tcp.local"))
+            other.write(byteArrayOf(0, 12, 0, 1))
+            DnsCodec.isQueryForUs(other.toByteArray()) shouldBe false
+        }
     })

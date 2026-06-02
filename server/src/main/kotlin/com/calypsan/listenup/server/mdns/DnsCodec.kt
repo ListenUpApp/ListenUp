@@ -37,6 +37,21 @@ object DnsCodec {
     private const val SHIFT_16 = 16
     private const val SHIFT_8 = 8
 
+    /** DNS wire-format header is always 12 bytes (RFC 1035 §4.1.1). */
+    private const val HEADER_SIZE = 12
+
+    /** Byte offset of the high octet of QDCOUNT in the DNS header. */
+    private const val QDCOUNT_HI = 4
+
+    /** Byte offset of the low octet of QDCOUNT in the DNS header. */
+    private const val QDCOUNT_LO = 5
+
+    /** High two bits set — marks a compression pointer per RFC 1035 §4.1.4. */
+    private const val COMPRESSION_MASK = 0xC0
+
+    /** Size in bytes of the QTYPE + QCLASS fields that follow each question name. */
+    private const val QTYPE_QCLASS_SIZE = 4
+
     /** Encode a domain name as length-prefixed ASCII labels terminated by a zero byte. */
     fun encodeName(name: String): ByteArray {
         val out = ByteArrayOutputStream()
@@ -110,6 +125,46 @@ object DnsCodec {
         out.write(records.toByteArray())
         return out.toByteArray()
     }
+
+    /**
+     * Parse the question section of an inbound packet and return the queried names (lowercased).
+     * Returns an empty list on any malformed/short packet or a compression pointer in a question
+     * (treated as "not for us"). We never throw on bad input — hostile/garbage multicast traffic
+     * must not crash the responder.
+     */
+    fun questionNames(packet: ByteArray): List<String> {
+        if (packet.size < HEADER_SIZE) return emptyList()
+        val qdCount =
+            (packet[QDCOUNT_HI].toInt() and BYTE_MASK) shl SHIFT_8 or
+                (packet[QDCOUNT_LO].toInt() and BYTE_MASK)
+        if (qdCount == 0) return emptyList()
+        val names = mutableListOf<String>()
+        var pos = HEADER_SIZE
+        repeat(qdCount) {
+            val labels = mutableListOf<String>()
+            while (true) {
+                if (pos >= packet.size) return names
+                val len = packet[pos].toInt() and BYTE_MASK
+                if (len == 0) {
+                    pos += 1
+                    break
+                }
+                if (len and COMPRESSION_MASK != 0) return names // compression pointer — bail, not our query
+                if (pos + 1 + len > packet.size) return names
+                labels += String(packet, pos + 1, len, Charsets.US_ASCII)
+                pos += 1 + len
+            }
+            if (labels.isNotEmpty()) names += labels.joinToString(".").lowercase()
+            pos += QTYPE_QCLASS_SIZE // skip QTYPE + QCLASS
+        }
+        return names
+    }
+
+    /** True if [packet] is a browse for our service type (or the DNS-SD meta-query). */
+    fun isQueryForUs(packet: ByteArray): Boolean =
+        questionNames(packet).any {
+            it == MdnsServiceInfo.SERVICE_TYPE || it == MdnsServiceInfo.META_QUERY
+        }
 
     private fun record(
         out: ByteArrayOutputStream,
