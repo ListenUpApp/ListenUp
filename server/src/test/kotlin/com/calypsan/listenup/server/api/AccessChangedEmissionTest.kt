@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -216,6 +217,63 @@ class AccessChangedEmissionTest :
                         "test-library",
                         mapOf("book1" to listOf(target.data.id.value)),
                     ) shouldBe AppResult.Success(Unit)
+
+                    frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                }
+            }
+        }
+
+        test("addBookToCollection emits AccessChanged to the collection's owner + share recipients") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestBook("book1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val (service, bus) = makeHarness(db)
+                    val u1 = service.actAs("u1")
+                    val created = u1.createCollection("test-library", "Shelf")
+                    require(created is AppResult.Success)
+                    u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    // Subscribe after the share so we observe only the add's frames.
+                    val frames = mutableListOf<ControlFrame>()
+                    bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+
+                    u1.addBookToCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
+
+                    frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                }
+            }
+        }
+
+        test("removeBookFromCollection emits AccessChanged to the collection's owner + share recipients") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                seedTestUser("u2")
+                seedTestBook("book1")
+                runTest(UnconfinedTestDispatcher()) {
+                    val (service, bus) = makeHarness(db)
+                    val u1 = service.actAs("u1")
+                    val created = u1.createCollection("test-library", "Shelf")
+                    require(created is AppResult.Success)
+                    u1.shareCollection(created.data.id, "u2", SharePermission.Read).let {
+                        require(it is AppResult.Success)
+                    }
+                    u1.addBookToCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
+
+                    // Subscribe after the add so we observe only the remove's frames.
+                    val frames = mutableListOf<ControlFrame>()
+                    bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+
+                    u1.removeBookFromCollection(created.data.id, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
                     frames.forEach { it.control shouldBe SyncControl.AccessChanged }
