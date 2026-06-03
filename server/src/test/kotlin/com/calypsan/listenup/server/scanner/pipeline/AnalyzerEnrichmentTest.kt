@@ -561,6 +561,61 @@ class AnalyzerEnrichmentTest :
             }
         }
 
+        test("embedded comment is the description fallback when no description tag") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/From the Comment"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "Book")
+                                commFrame(text = "From the comment.")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.description shouldBe "From the comment."
+                }
+            }
+        }
+
+        test("explicit description still wins over comment") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Desc Wins"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "Book")
+                                txxxFrame("description", "Real desc.")
+                                commFrame(text = "Comment.")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val candidate = candidateForPath(rel, audioPath)
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.description shouldBe "Real desc."
+                }
+            }
+        }
+
         test("single-file book never triggers synthesis") {
             audioLibrary {}.use { fixture ->
                 runTest {
