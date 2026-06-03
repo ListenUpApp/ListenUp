@@ -236,8 +236,6 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun onSpeedReset(defaultSpeed: Float) = Unit
 
-    override suspend fun isServerReachable(): Boolean = false
-
     override fun clearPlayback() = Unit
 
     override fun setPlaying(playing: Boolean) = Unit

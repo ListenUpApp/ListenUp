@@ -254,7 +254,7 @@ val clientSyncRenovationModule =
                 serverReachability = get(),
                 networkMonitor = get(),
                 localPreferences = get<LocalPreferences>(),
-                playbackAvailable = getOrNull<Boolean>(qualifier = named("playbackAvailable")) ?: false,
+                playbackAvailable = get<Boolean>(qualifier = named("playbackAvailable")),
             )
         }
 

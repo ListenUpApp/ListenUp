@@ -75,7 +75,6 @@ class FakePlaybackManager : PlaybackManager {
     // === Stubbed return values & recorder lists for write-side assertions ===
 
     var stubbedPrepareResult: PrepareResult? = null
-    var stubbedServerReachable: Boolean = true
 
     val activatedBookIds: MutableList<BookId> = mutableListOf()
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
@@ -125,8 +124,6 @@ class FakePlaybackManager : PlaybackManager {
         speedResets += defaultSpeed
         playbackSpeedFlow.value = defaultSpeed
     }
-
-    override suspend fun isServerReachable(): Boolean = stubbedServerReachable
 
     // === PlaybackStateProvider overrides ===
 
