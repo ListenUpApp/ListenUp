@@ -30,7 +30,7 @@ interface BackupRepository {
     /** Returns the list of all stored backup archives, most-recent first. */
     suspend fun listBackups(): AppResult<List<BackupSummary>>
 
-    /** Soft-deletes the backup archive identified by [id]. */
+    /** Deletes the backup archive identified by [id]. */
     suspend fun deleteBackup(id: BackupId): AppResult<Unit>
 
     /**

@@ -30,8 +30,8 @@ class BackupPaths(
      * The live SQLite database file.
      *
      * Matches `SQLITE_DB_FILENAME = "listenup.db"` from `DataHome.kt`.
-     * At Koin wiring time (Task 6) this is cross-checked against
-     * `DatabaseHandle.dbFilePath` so the two stay in sync.
+     * In production both this path and [com.calypsan.listenup.server.db.DatabaseHandle.dbFilePath]
+     * derive from the same `homeDir`, so they agree. Tests may diverge (temp JDBC URLs).
      */
     val dbFile: Path get() = homeDir.resolve("listenup.db")
 
