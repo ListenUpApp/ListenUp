@@ -1,4 +1,3 @@
-@file:Suppress("SwallowedException")
 
 package com.calypsan.listenup.client.data.repository
 
@@ -127,6 +126,7 @@ private fun ActivityResponse.toDomain(): Activity {
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
+            logger.warn(e) { "Failed to parse activity createdAt '$createdAt'; falling back to current time" }
             currentEpochMilliseconds()
         }
 
