@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -19,6 +20,7 @@ private class LogoutFixture {
     val authSession: AuthSession = mock()
     val userRepository: UserRepository = mock()
     val syncRepository: SyncRepository = mock()
+    val rpcCacheInvalidator: RpcCacheInvalidator = mock()
 
     fun build(): LogoutUseCase =
         LogoutUseCase(
@@ -26,6 +28,7 @@ private class LogoutFixture {
             authSession = authSession,
             userRepository = userRepository,
             syncRepository = syncRepository,
+            rpcCacheInvalidator = rpcCacheInvalidator,
         )
 }
 
@@ -36,6 +39,7 @@ private fun createFixture(): LogoutFixture {
     everySuspend { fixture.userRepository.clearUsers() } returns Unit
     everySuspend { fixture.authRepository.logout() } returns AppResult.Success(Unit)
     everySuspend { fixture.syncRepository.disconnect() } returns Unit
+    everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
     return fixture
 }
 
@@ -110,6 +114,17 @@ class LogoutUseCaseTest :
                 useCase()
 
                 verifySuspend { fixture.syncRepository.disconnect() }
+            }
+        }
+
+        test("logout invalidates cached RPC connections so they can't be reused by the next user") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase()
+
+                verifySuspend { fixture.rpcCacheInvalidator.invalidateAll() }
             }
         }
 

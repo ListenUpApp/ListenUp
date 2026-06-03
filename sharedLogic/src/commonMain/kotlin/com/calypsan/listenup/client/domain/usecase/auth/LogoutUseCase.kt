@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.auth
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -27,6 +28,7 @@ open class LogoutUseCase(
     private val authSession: AuthSession,
     private val userRepository: UserRepository,
     private val syncRepository: SyncRepository,
+    private val rpcCacheInvalidator: RpcCacheInvalidator,
     private val playbackStateProvider: PlaybackStateProvider? = null,
 ) {
     open suspend operator fun invoke(): AppResult<Unit> {
@@ -55,6 +57,9 @@ open class LogoutUseCase(
      */
     private suspend fun clearLocalState() {
         syncRepository.disconnect()
+        // Drop every cached principal-bound RPC proxy / HttpClient so a re-login as a
+        // different user in the same process can't reuse the previous session's socket.
+        rpcCacheInvalidator.invalidateAll()
         playbackStateProvider?.clearPlayback()
         authSession.clearAuthTokens()
         userRepository.clearUsers()

@@ -48,7 +48,8 @@ interface LibraryAdminRpcFactory {
 open class KtorLibraryAdminRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : LibraryAdminRpcFactory {
+) : LibraryAdminRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: LibraryAdminService? = null

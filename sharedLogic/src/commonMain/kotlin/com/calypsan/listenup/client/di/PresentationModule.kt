@@ -476,6 +476,7 @@ val settingsPresentationModule =
                 serverConfig = get(),
                 authSession = get(),
                 syncRepository = get(),
+                rpcCacheInvalidator = get(),
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen

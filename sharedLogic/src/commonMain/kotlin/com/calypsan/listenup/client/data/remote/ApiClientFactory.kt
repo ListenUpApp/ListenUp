@@ -98,7 +98,7 @@ class ApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
-) {
+) : RemoteCache {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
     private var cachedStreamingClient: HttpClient? = null
@@ -305,7 +305,7 @@ class ApiClientFactory(
      * Invalidate the cached client and create a new one.
      * Useful when server URL changes or manual client reset is needed.
      */
-    suspend fun invalidate() {
+    override suspend fun invalidate() {
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null

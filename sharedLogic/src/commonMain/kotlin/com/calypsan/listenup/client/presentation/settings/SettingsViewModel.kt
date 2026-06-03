@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -89,6 +90,7 @@ class SettingsViewModel(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val syncRepository: SyncRepository,
+    private val rpcCacheInvalidator: RpcCacheInvalidator,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
     private val internalState = MutableStateFlow(SettingsUiState())
@@ -393,6 +395,7 @@ class SettingsViewModel(
     fun signOut() {
         viewModelScope.launch {
             syncRepository.disconnect()
+            rpcCacheInvalidator.invalidateAll()
             authSession.clearAuthTokens()
         }
     }

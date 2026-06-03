@@ -104,6 +104,7 @@ val clientAuthModule: Module
                     authSession = get(),
                     userRepository = get(),
                     syncRepository = get(),
+                    rpcCacheInvalidator = get(),
                     playbackStateProvider = get<PlaybackManager>(),
                 )
             }

@@ -53,7 +53,8 @@ interface AuthRpcFactory {
 class KtorAuthRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : AuthRpcFactory {
+) : AuthRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedPublic: AuthServicePublic? = null

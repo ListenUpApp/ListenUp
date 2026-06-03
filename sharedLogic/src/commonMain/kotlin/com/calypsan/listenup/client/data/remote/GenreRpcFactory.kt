@@ -43,7 +43,8 @@ interface GenreRpcFactory {
 class KtorGenreRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : GenreRpcFactory {
+) : GenreRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: GenreService? = null

@@ -46,7 +46,8 @@ interface InviteRpcFactory {
 open class KtorInviteRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : InviteRpcFactory {
+) : InviteRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedPublic: InviteServicePublic? = null

@@ -44,7 +44,8 @@ interface CollectionRpcFactory {
 open class KtorCollectionRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : CollectionRpcFactory {
+) : CollectionRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: CollectionService? = null

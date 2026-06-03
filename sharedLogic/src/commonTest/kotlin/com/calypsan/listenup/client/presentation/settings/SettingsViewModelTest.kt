@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferences
@@ -56,6 +57,7 @@ class SettingsViewModelTest {
         val serverConfig: ServerConfig = mock()
         val authSession: AuthSession = mock()
         val syncRepository: SyncRepository = mock()
+        val rpcCacheInvalidator: RpcCacheInvalidator = mock()
 
         // StateFlows for local preferences (mocked as MutableStateFlow)
         val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -75,6 +77,7 @@ class SettingsViewModelTest {
                 serverConfig = serverConfig,
                 authSession = authSession,
                 syncRepository = syncRepository,
+                rpcCacheInvalidator = rpcCacheInvalidator,
             )
     }
 
@@ -118,6 +121,7 @@ class SettingsViewModelTest {
             Failure(Exception("Not configured"))
         everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
         everySuspend { fixture.syncRepository.disconnect() } returns Unit
+        everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
 
         return fixture
     }
@@ -367,8 +371,10 @@ class SettingsViewModelTest {
             viewModel.signOut()
             advanceUntilIdle()
 
-            // Then — the engine is stopped (no reconnect loop) and tokens are cleared.
+            // Then — the engine is stopped (no reconnect loop), cached RPC connections
+            // are dropped (no cross-user reuse), and tokens are cleared.
             verifySuspend { fixture.syncRepository.disconnect() }
+            verifySuspend { fixture.rpcCacheInvalidator.invalidateAll() }
             verifySuspend { fixture.authSession.clearAuthTokens() }
         }
 }
