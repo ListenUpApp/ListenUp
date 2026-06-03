@@ -19,7 +19,9 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -29,6 +31,8 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -160,9 +164,68 @@ class BookServiceImplDeleteCoverTest :
                 }
             }
         }
+
+        test("deleteBookCover removes the managed file and nulls cover columns for an ENRICHED cover") {
+            withInMemoryDatabase {
+                val db = this
+                val home = Files.createTempDirectory("listenup-test-home-").toAbsolutePath()
+                home.toFile().deleteOnExit()
+                val coversDir = home.resolve("covers").apply { createDirectories() }
+                // Write a fake managed cover file at covers/<bookId>.jpg
+                val managedFile = coversDir.resolve("b1.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+                seedTestLibraryAndFolder()
+                val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
+                val (service, repo) = newService(db, coverImageStore, homeDir = home)
+                runTest {
+                    // Seed the book with an ENRICHED cover in the DB
+                    repo.upsert(bookFixture(id = "b1", title = "Enriched Cover Book"))
+                    repo.setManagedCover(BookId("b1"), "covers/b1.jpg", "sha256abc", CoverSource.ENRICHED)
+                    managedFile.exists() shouldBe true
+
+                    val result = service.deleteBookCover(BookId("b1"))
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    // Managed file must be gone
+                    managedFile.exists() shouldBe false
+                    // All cover columns must be nulled
+                    val after = repo.findById(BookId("b1")).shouldNotBeNull()
+                    after.cover.shouldBeNull()
+                }
+            }
+        }
+
+        test("deleteBookCover removes the managed file and nulls cover columns for an UPLOADED cover") {
+            withInMemoryDatabase {
+                val db = this
+                val home = Files.createTempDirectory("listenup-test-home-uploaded-").toAbsolutePath()
+                home.toFile().deleteOnExit()
+                val coversDir = home.resolve("covers").apply { createDirectories() }
+                val managedFile = coversDir.resolve("b2.png").apply { writeBytes(byteArrayOf(4, 5, 6)) }
+                seedTestLibraryAndFolder()
+                val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
+                val (service, repo) = newService(db, coverImageStore, homeDir = home)
+                runTest {
+                    repo.upsert(bookFixture(id = "b2", title = "Uploaded Cover Book"))
+                    repo.setManagedCover(BookId("b2"), "covers/b2.png", "sha256xyz", CoverSource.UPLOADED)
+                    managedFile.exists() shouldBe true
+
+                    val result = service.deleteBookCover(BookId("b2"))
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    managedFile.exists() shouldBe false
+                    repo.findById(BookId("b2"))?.cover.shouldBeNull()
+                }
+            }
+        }
     })
 
-private fun newService(db: org.jetbrains.exposed.v1.jdbc.Database): Pair<BookServiceImpl, BookRepository> {
+private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+private fun newService(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    coverImageStore: CoverImageStore? = null,
+    homeDir: java.nio.file.Path? = null,
+): Pair<BookServiceImpl, BookRepository> {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, syncRegistry)
@@ -174,6 +237,8 @@ private fun newService(db: org.jetbrains.exposed.v1.jdbc.Database): Pair<BookSer
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
+            homeDir = homeDir,
+            coverImageStore = coverImageStore,
         )
     val service =
         BookServiceImpl(
@@ -186,6 +251,7 @@ private fun newService(db: org.jetbrains.exposed.v1.jdbc.Database): Pair<BookSer
             accessPolicy = BookAccessPolicy(db),
             permissionPolicy = UserPermissionPolicy(db),
             principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
+            coverImageStore = coverImageStore,
         )
     return service to repo
 }

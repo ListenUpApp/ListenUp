@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.audible.SearchParams
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.MetadataService
@@ -59,6 +60,7 @@ internal class MetadataLookupServiceImpl(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
+    private val coverImageStore: CoverImageStore,
     private val imageHome: Path,
     private val permissionPolicy: UserPermissionPolicy,
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
@@ -72,6 +74,7 @@ internal class MetadataLookupServiceImpl(
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
             imageStorage = imageStorage,
+            coverImageStore = coverImageStore,
             imageHome = imageHome,
             permissionPolicy = permissionPolicy,
             defaultRegion = defaultRegion,
@@ -154,8 +157,8 @@ internal class MetadataLookupServiceImpl(
             contributorRepository = contributorRepository,
             seriesRepository = seriesRepository,
             imageStorage = imageStorage,
+            coverImageStore = coverImageStore,
             metadataService = metadataService,
-            imageHome = imageHome,
         ).apply(bookId, asin, region)
     }
 

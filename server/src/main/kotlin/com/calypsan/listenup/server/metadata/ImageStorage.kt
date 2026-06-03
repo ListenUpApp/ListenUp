@@ -19,6 +19,17 @@ class ImageStorage(
     private val httpClient: HttpClient,
 ) {
     /**
+     * Fetches [url] and returns the raw bytes without writing to disk.
+     *
+     * Used by [com.calypsan.listenup.server.api.BookMetadataApplier] to feed
+     * enriched-cover bytes through [com.calypsan.listenup.server.cover.CoverImageStore],
+     * which handles validation, placement, and the managed-path record.
+     *
+     * @throws Exception on network failure
+     */
+    suspend fun downloadBytes(url: String): ByteArray = httpClient.get(url).bodyAsBytes()
+
+    /**
      * Downloads [url] and writes the bytes to [destination].
      *
      * @param url the remote image URL

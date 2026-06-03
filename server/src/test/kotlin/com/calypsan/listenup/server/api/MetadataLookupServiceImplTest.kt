@@ -13,8 +13,10 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -110,10 +112,12 @@ class MetadataLookupServiceImplTest :
 
         // ── cover-image write location ────────────────────────────────────────
 
-        test("applied book cover lands under <imageHome>/covers, not the library path") {
+        test("applied book cover is stored in CoverImageStore and not written to the library path") {
             withInMemoryDatabase {
                 val db = this
-                val imageHome = Files.createTempDirectory("metadata-imagehome-").toString()
+                val imageHome = Files.createTempDirectory("metadata-imagehome-").toAbsolutePath()
+                imageHome.toFile().deleteOnExit()
+                val coversDir = imageHome.resolve("covers")
                 val libraryRoot = Files.createTempDirectory("metadata-library-").toString()
                 seedLibraryAndFolder(db, rootPath = libraryRoot)
 
@@ -135,9 +139,26 @@ class MetadataLookupServiceImplTest :
                         itunes = NoOpITunesApi(),
                         cache = MetadataCacheRepository(db, clock = FixedClock(NOW)),
                     )
-                // MockEngine returns four bytes for every request — the image payload.
+                // MockEngine returns a minimal valid JPEG so CoverImageStore validation passes.
+                val jpegBytes =
+                    byteArrayOf(
+                        0xFF.toByte(),
+                        0xD8.toByte(),
+                        0xFF.toByte(),
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x00,
+                    )
                 val imageStorage =
-                    ImageStorage(HttpClient(MockEngine { _ -> respond("ABCD", HttpStatusCode.OK) }))
+                    ImageStorage(HttpClient(MockEngine { _ -> respond(jpegBytes, HttpStatusCode.OK) }))
+                val coverImageStore =
+                    CoverImageStore(ImageStore(coversDir, maxBytes = 10L * 1024 * 1024))
 
                 runTest {
                     bookRepo.upsert(bookFixture(bookId = "book-1"))
@@ -148,15 +169,15 @@ class MetadataLookupServiceImplTest :
                             contributorRepository = contributorRepo,
                             seriesRepository = seriesRepo,
                             imageStorage = imageStorage,
+                            coverImageStore = coverImageStore,
                             metadataService = metadataService,
-                            imageHome = Path(imageHome),
                         )
 
                     val result = applier.apply(BookId("book-1"), asin = "B0TESTASIN", region = AudibleRegion.US)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // Cover lands under the image home, split into the covers/ subdir …
-                    SystemFileSystem.exists(Path(imageHome, "covers", "book-1.jpg")) shouldBe true
+                    // Cover lands under the managed covers dir …
+                    SystemFileSystem.exists(Path(coversDir.toString(), "book-1.jpg")) shouldBe true
                     // … and NOT under the library path.
                     SystemFileSystem.exists(Path(libraryRoot, "covers", "book-1.jpg")) shouldBe false
                 }
@@ -260,7 +281,7 @@ private fun makeService(
     audible: AudibleApi,
     db: Database,
 ): MetadataLookupServiceImpl {
-    val tempDir = Files.createTempDirectory("metadata-test-").toString()
+    val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
         MetadataService(
             audible = audible,
@@ -284,7 +305,8 @@ private fun makeService(
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-        imageHome = Path(tempDir),
+        coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+        imageHome = Path(tempDir.toString()),
         permissionPolicy = UserPermissionPolicy(db),
     )
 }

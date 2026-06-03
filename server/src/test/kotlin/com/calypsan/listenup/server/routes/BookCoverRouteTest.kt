@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -404,6 +405,91 @@ class BookCoverRouteTest :
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        // ── Managed covers (UPLOADED/ENRICHED via setManagedCover + hash ETag) ──
+
+        test("GET /api/v1/covers/{id} serves a managed cover and sets an ETag from the hash") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-managed-serve-")
+            val homeRoot = Files.createTempDirectory("listenup-home-managed-serve-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(
+                        libraryPath = libraryRoot.toString(),
+                        homeDir = homeRoot.toString(),
+                    )
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    // Write the managed cover under $homeDir/covers/
+                    val coversDir = Files.createDirectories(homeRoot.resolve("covers"))
+                    val jpegBytes = fakeJpeg()
+                    val coverHash = "deadbeef01"
+                    Files.write(coversDir.resolve("b4.jpg"), jpegBytes)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b4", source = CoverSource.UPLOADED))
+                    repo.setManagedCover(
+                        id = BookId("b4"),
+                        relPath = "covers/b4.jpg",
+                        hash = coverHash,
+                        source = CoverSource.UPLOADED,
+                    )
+
+                    val response = client.get("/api/v1/covers/b4") { bearerAuth(token) }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.ContentType].shouldStartWith("image/jpeg")
+                    response.headers[HttpHeaders.ETag] shouldBe "\"$coverHash\""
+                    response.bodyAsBytes().toList() shouldBe jpegBytes.toList()
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("GET /api/v1/covers/{id} returns 304 when If-None-Match matches the managed cover hash") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-managed-304-")
+            val homeRoot = Files.createTempDirectory("listenup-home-managed-304-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(
+                        libraryPath = libraryRoot.toString(),
+                        homeDir = homeRoot.toString(),
+                    )
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintAccessToken()
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val coversDir = Files.createDirectories(homeRoot.resolve("covers"))
+                    val coverHash = "deadbeef02"
+                    Files.write(coversDir.resolve("b5.jpg"), fakeJpeg())
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverFixture(id = "b5", source = CoverSource.UPLOADED))
+                    repo.setManagedCover(
+                        id = BookId("b5"),
+                        relPath = "covers/b5.jpg",
+                        hash = coverHash,
+                        source = CoverSource.UPLOADED,
+                    )
+
+                    val response =
+                        client.get("/api/v1/covers/b5") {
+                            bearerAuth(token)
+                            headers.append(HttpHeaders.IfNoneMatch, "\"$coverHash\"")
+                        }
+
+                    response.status shouldBe HttpStatusCode.NotModified
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeRoot.toFile().deleteRecursively()
             }
         }
     })

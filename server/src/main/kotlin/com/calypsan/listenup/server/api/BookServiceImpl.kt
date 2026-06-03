@@ -17,6 +17,8 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
@@ -81,6 +83,7 @@ internal class BookServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val principal: PrincipalProvider,
+    private val coverImageStore: CoverImageStore? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -96,6 +99,13 @@ internal class BookServiceImpl(
         return AppResult.Success(payload)
     }
 
+    /**
+     * Returns the [AppError] denial when the caller lacks the `canEdit` permission, or null when
+     * the edit is allowed. Exposed as `internal` so the cover-upload route can gate before buffering
+     * the multipart body — `setBookCover` also calls `requireCanEdit()` internally as defense-in-depth.
+     */
+    internal suspend fun checkCanEdit(): AppError? = requireCanEdit()
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): BookServiceImpl =
         BookServiceImpl(
@@ -108,6 +118,7 @@ internal class BookServiceImpl(
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             principal = principal,
+            coverImageStore = coverImageStore,
         )
 
     override suspend fun searchBooks(
@@ -262,30 +273,90 @@ internal class BookServiceImpl(
         }
     }
 
+    /**
+     * Validates and stores [bytes] as the book's managed cover, then records the path + hash in
+     * [BookRepository.setManagedCover] with [CoverSource.UPLOADED].
+     *
+     * Gated on [requireCanEdit] — only ROOT/ADMIN or a MEMBER with the `canEdit` flag may
+     * upload a cover. Returns [AppResult.Failure] with [AuthError.PermissionDenied] when denied.
+     *
+     * The stored relative path follows the shape `covers/<bookId>.<ext>` (e.g. `covers/abc123.png`),
+     * which matches the sandbox the cover-serving route resolves under [homeDir].
+     *
+     * Note: this method is **not** on the [BookService] @Rpc interface — cover bytes are binary,
+     * so the upload goes through a dedicated multipart REST route rather than the RPC surface.
+     *
+     * @throws IllegalStateException when [coverImageStore] is not wired (library not configured).
+     */
+    internal suspend fun setBookCover(
+        id: BookId,
+        bytes: ByteArray,
+        contentType: String,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        val store = coverImageStore ?: error("CoverImageStore not wired — library must be configured")
+        val stored = store.store.store(id.value, bytes, contentType)
+        // Derive the repo-relative path from the stored absolute path's filename only.
+        // stored.path lives under homeDir/covers/<bookId>.<ext>; the repo stores covers/<filename>.
+        val relPath = "covers/${stored.path.fileName}"
+        return repo.setManagedCover(id, relPath, stored.sha256, CoverSource.UPLOADED)
+    }
+
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        // Resolve the on-disk cover file (if any) BEFORE the transaction so
-        // we can best-effort delete it post-commit. Embedded covers have no
-        // file of their own — the artwork is inside the audio file — so they
-        // surface as Embedded here and are deliberately ignored.
-        val pathToDelete = (repo.coverInfo(id) as? CoverInfo.Filesystem)?.path
+        // Validate the book exists and has a cover before touching anything.
+        // Read the payload first to determine the cover source (authoritative) and
+        // whether the cover is managed (UPLOADED/ENRICHED) or filesystem-side.
+        val current = repo.findById(id) ?: return bookNotFound(id)
+        if (current.cover == null) {
+            return AppResult.Failure(CoverError.NotPresent(debugInfo = "bookId=${id.value}"))
+        }
+
+        val coverSource = current.cover!!.source
+        // Managed covers live in $LISTENUP_HOME/covers/ — determined by cover source,
+        // not by whether coverInfo() resolves (which depends on homeDir being configured).
+        val isManagedCover = coverSource == CoverSource.UPLOADED || coverSource == CoverSource.ENRICHED
+
+        // Resolve the filesystem path for non-managed covers BEFORE the transaction.
+        // Embedded covers have no standalone file; Filesystem covers do.
+        val filesystemPath =
+            if (!isManagedCover) {
+                (repo.coverInfo(id) as? CoverInfo.Filesystem)?.path
+            } else {
+                null
+            }
+
         val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                val current =
-                    repo.findById(id)
-                        ?: return@suspendTransaction bookNotFound(id)
-                if (current.cover == null) {
-                    return@suspendTransaction AppResult.Failure(
-                        CoverError.NotPresent(debugInfo = "bookId=${id.value}"),
-                    )
-                }
-                when (val upsertResult = repo.upsert(current.copy(cover = null))) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            if (isManagedCover) {
+                // Managed covers (UPLOADED, ENRICHED): use clearManagedCover which bypasses
+                // the sticky-upload guard in writePayload — the guard prevents re-scan from
+                // clobbering a user-uploaded cover, but an explicit delete must always win.
+                repo.clearManagedCover(id)
+            } else {
+                // Filesystem / Embedded covers: upsert with cover = null to clear the source
+                // column. writePayload skips coverPath/coverHash for non-managed payloads, so
+                // the null propagates cleanly.
+                suspendTransaction(db) {
+                    val fresh =
+                        repo.findById(id)
+                            ?: return@suspendTransaction bookNotFound(id)
+                    when (val upsertResult = repo.upsert(fresh.copy(cover = null))) {
+                        is AppResult.Success -> AppResult.Success(Unit)
+                        is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+                    }
                 }
             }
-        if (result is AppResult.Success && pathToDelete != null) {
-            coverStorage.delete(pathToDelete)
+        if (result is AppResult.Success) {
+            // Delete the standalone file — after the DB commit so a failed file delete
+            // never rolls back a successful nullify.
+            if (filesystemPath != null) {
+                coverStorage.delete(filesystemPath)
+            }
+            // Remove the managed file from $LISTENUP_HOME/covers/ using the bookId as
+            // the key — ImageStore.delete probes all extensions (jpg, png, webp).
+            if (isManagedCover) {
+                coverImageStore?.store?.delete(id.value)
+            }
         }
         return result
     }

@@ -70,6 +70,7 @@ class CoverResponder internal constructor(
         when (info) {
             is CoverInfo.Filesystem -> respondFilesystem(call, info.path)
             is CoverInfo.Embedded -> respondEmbedded(call, id, info.audioFilePath)
+            is CoverInfo.Managed -> respondFilesystem(call, info.path)
         }
     }
 

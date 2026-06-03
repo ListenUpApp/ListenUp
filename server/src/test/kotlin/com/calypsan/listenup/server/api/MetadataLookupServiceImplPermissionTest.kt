@@ -7,7 +7,9 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -87,7 +89,7 @@ class MetadataLookupServiceImplPermissionTest :
     })
 
 private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
-    val tempDir = Files.createTempDirectory("metadata-perm-").toString()
+    val tempDir = Files.createTempDirectory("metadata-perm-").toAbsolutePath()
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val contributorRepo = ContributorRepository(db, bus, registry)
@@ -105,7 +107,8 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
         contributorRepository = contributorRepo,
         seriesRepository = seriesRepo,
         imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-        imageHome = Path(tempDir),
+        coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+        imageHome = Path(tempDir.toString()),
         permissionPolicy = UserPermissionPolicy(db),
     )
 }

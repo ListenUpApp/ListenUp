@@ -6,7 +6,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
@@ -17,7 +19,6 @@ import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.io.files.Path
 
 private val log = KotlinLogging.logger {}
 
@@ -32,10 +33,13 @@ private val log = KotlinLogging.logger {}
  *    that also appear in the Audible response are preserved
  *  - series memberships — resolved through [SeriesRepository.resolveOrCreate]
  *  - asin stamp on the book row
- *  - cover image: downloaded via [ImageStorage] to
- *    `{imageHome}/covers/{bookId}.jpg` — **BlurHash deferred** (no
- *    Kotlin-native JPEG/PNG decoder; coverBlurHash stays null). Task 19's
- *    OrphanImageCleanupTask cleans up any orphan file if the DB write rolls back.
+ *  - cover image: downloaded via [ImageStorage], validated and stored through
+ *    [CoverImageStore], then recorded as [CoverSource.ENRICHED] via
+ *    [BookRepository.setManagedCover] — **only** when the book has no existing
+ *    managed cover (i.e. `cover_source` is null or already ENRICHED). Higher-
+ *    precedence covers (UPLOADED, FILESYSTEM, EMBEDDED) block enrichment.
+ *    **BlurHash deferred** (no Kotlin-native JPEG/PNG decoder; coverBlurHash
+ *    stays null).
  *
  * Returns [MetadataError.NotFound] when the book is absent from the DB (the UI
  * should not offer "apply metadata" for books it doesn't have). Returns the
@@ -49,8 +53,8 @@ internal class BookMetadataApplier(
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
+    private val coverImageStore: CoverImageStore,
     private val metadataService: MetadataService,
-    private val imageHome: Path,
 ) {
     suspend fun apply(
         bookId: BookId,
@@ -74,10 +78,6 @@ internal class BookMetadataApplier(
             val resolvedNarrators = audibleBook.narrators.resolveContributors(role = "narrator")
             val resolvedSeries = audibleBook.series.resolveSeries()
 
-            // Download cover image if available. Write file first; if the subsequent
-            // DB upsert fails, Task 19's OrphanImageCleanupTask reclaims the orphan.
-            val coverImagePath = audibleBook.downloadCoverImage(bookId)
-
             val updated =
                 existing.copy(
                     title = audibleBook.title,
@@ -88,16 +88,20 @@ internal class BookMetadataApplier(
                     asin = asin,
                     contributors = resolvedAuthors + resolvedNarrators,
                     series = resolvedSeries,
-                    // cover: BlurHash deferred — no Kotlin-native image decoder.
-                    // coverPath is server-derived at serve time (see BookTable comment).
-                    // imagePath on contributors is handled separately via coverImagePath.
                 )
 
-            if (coverImagePath != null) {
-                log.info { "Downloaded cover for book ${bookId.value} → $coverImagePath" }
-            }
+            // Text-metadata upsert first: bumps revision, publishes the text changes.
+            val upsertResult = bookRepository.upsert(updated, clientOpId = null)
+            if (upsertResult is AppResult.Failure) return@flatMap upsertResult
 
-            bookRepository.upsert(updated, clientOpId = null).flatMap { AppResult.Success(Unit) }
+            // Cover enrichment runs AFTER the upsert so it isn't clobbered by applyBookFields,
+            // which nulls cover columns when the payload's cover is null. setManagedCover issues
+            // its own revision bump + SyncEvent, so clients receive two events (text, then cover).
+            // File I/O stays outside any DB transaction — the orphan is cleaned up by
+            // Task 19's OrphanImageCleanupTask if setManagedCover subsequently fails.
+            audibleBook.applyEnrichedCoverIfAbsent(bookId, existing.cover?.source)
+
+            AppResult.Success(Unit)
         }
     }
 
@@ -124,26 +128,42 @@ internal class BookMetadataApplier(
         }
 
     /**
-     * Downloads the cover image for a book from Audible and stores it at
-     * `covers/{bookId}.jpg` relative to [imageHome]. Returns the relative
-     * path stored in the DB, or `null` when [AudibleBook.coverUrl] is blank or
-     * the download fails (failure is logged, not propagated — cover is best-effort).
+     * Downloads the Audible cover and stores it as an [CoverSource.ENRICHED] managed cover,
+     * but only when [existingSource] is null or already ENRICHED.
+     *
+     * Precedence rule: ENRICHED is the lowest-precedence managed cover. Any existing
+     * non-null, non-ENRICHED source (UPLOADED, FILESYSTEM, EMBEDDED) blocks enrichment
+     * so a user-chosen or scanner-discovered cover is never silently replaced.
+     *
+     * Binary I/O (download + [ImageStore.store]) stays outside the transaction that
+     * writes book text fields. If [bookRepository.setManagedCover] subsequently fails,
+     * the orphan file is cleaned up by Task 19's OrphanImageCleanupTask.
      */
-    private suspend fun AudibleBook.downloadCoverImage(bookId: BookId): String? {
-        val url = coverUrl.takeIf { it.isNotBlank() } ?: return null
-        val relPath = "covers/${bookId.value}.jpg"
-        val dir = Path(imageHome.toString(), "covers")
-        return try {
-            kotlinx.io.files.SystemFileSystem
-                .createDirectories(dir)
-            val dest = Path(imageHome.toString(), relPath)
-            imageStorage.download(url, dest)
-            relPath
+    private suspend fun AudibleBook.applyEnrichedCoverIfAbsent(
+        bookId: BookId,
+        existingSource: CoverSource?,
+    ) {
+        if (existingSource != null && existingSource != CoverSource.ENRICHED) {
+            log.debug {
+                "Skipping enriched cover for ${bookId.value}: existing source=$existingSource has higher precedence"
+            }
+            return
+        }
+        val url = coverUrl.takeIf { it.isNotBlank() } ?: return
+        try {
+            val bytes = imageStorage.downloadBytes(url)
+            val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
+            val relPath = "covers/${stored.path.fileName}"
+            val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.ENRICHED)
+            if (result is AppResult.Success) {
+                log.info { "Stored enriched cover for ${bookId.value} → $relPath" }
+            } else {
+                log.warn { "setManagedCover failed for ${bookId.value}: $result" }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn(e) { "Cover download failed for book ${bookId.value} (ASIN $asin) — skipping" }
-            null
+            log.warn(e) { "Enriched cover download/store failed for ${bookId.value} (ASIN $asin) — skipping" }
         }
     }
 }
