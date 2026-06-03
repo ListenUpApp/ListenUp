@@ -31,6 +31,8 @@ import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHand
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.BackupApi
 import com.calypsan.listenup.client.data.remote.BackupApiContract
+import com.calypsan.listenup.client.data.remote.BackupRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
@@ -91,6 +93,7 @@ import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.TagRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
@@ -128,6 +131,7 @@ import com.calypsan.listenup.client.domain.repository.ServerRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -642,6 +646,14 @@ val syncModule =
             )
         }
 
+        // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
+        single<BackupRpcFactory> {
+            KtorBackupRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
         single<CollectionRpcFactory> {
             KtorCollectionRpcFactory(
@@ -944,6 +956,11 @@ val syncModule =
                 tagDao = get<ListenUpDatabase>().tagDao(),
                 bookTagDao = get<ListenUpDatabase>().bookTagDao(),
             )
+        }
+
+        // BackupRepository — admin backup/restore via BackupService RPC proxy.
+        single<BackupRepository> {
+            BackupRepositoryImpl(rpcFactory = get())
         }
 
         // GenreRepository — Room-backed reads, RPC-dispatched mutations.
