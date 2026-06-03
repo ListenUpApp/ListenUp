@@ -1,18 +1,23 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CoverSource as SyncCoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.io.path.readBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import java.nio.file.Path as JPath
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
@@ -52,6 +57,12 @@ private val log = KotlinLogging.logger {}
  * ([com.calypsan.listenup.server.api.CollectionServiceImpl.addToInbox] /
  * `releaseBooks` / `listInbox`). Scan-auto-populate is a future phase with
  * atomic ingest designed in from the start.
+ *
+ * [coverImageStore] is optional: when non-null, the persister extracts cover
+ * bytes from each [AnalyzedBook] (filesystem or embedded) and passes a
+ * [PendingCover] to [BookIngestPort.resolveOrInsert] so the repository can
+ * write the managed cover file after the book id is known. When null (e.g. in
+ * pure orchestration tests), cover extraction is skipped.
  */
 class BookPersister(
     private val ingest: BookIngestPort,
@@ -60,6 +71,7 @@ class BookPersister(
     private val scanResultBus: SharedFlow<ScanResult>,
     private val scope: CoroutineScope,
     private val metrics: BookPersisterMetrics,
+    private val coverImageStore: CoverImageStore? = null,
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
@@ -76,8 +88,11 @@ class BookPersister(
         // block persistence; the TODO below tracks proper error surfacing.
         val folderId = resolveFolderId(result.rootPath)
         val seenIds = mutableSetOf<BookId>()
+        // Use the scan result's rootPath for filesystem cover reads — aligned
+        // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
+        val scanRoot = JPath.of(result.rootPath)
         for (analyzed in result.books) {
-            persistOne(analyzed, libraryId, folderId)?.let { seenIds += it }
+            persistOne(analyzed, libraryId, folderId, scanRoot)?.let { seenIds += it }
         }
         if (result.scope is ScanScope.Full) {
             ingest.softDeleteAbsent(libraryId, seenIds)
@@ -89,14 +104,21 @@ class BookPersister(
      * failure or an escaped exception is logged and counted, never aborting the
      * rest of the scan. Returns the resolved [BookId] when the aggregate landed
      * (so the caller can track it for the tombstone sweep), or null otherwise.
+     *
+     * Cover bytes are extracted from [analyzed] BEFORE calling [BookIngestPort.resolveOrInsert]
+     * so the file read happens outside the DB transaction. The [PendingCover] is passed
+     * to [BookIngestPort.resolveOrInsert], which stores the file to the managed cover
+     * store after the stable [BookId] is known.
      */
     private suspend fun persistOne(
         analyzed: AnalyzedBook,
         libraryId: LibraryId,
         folderId: FolderId,
+        scanRoot: JPath,
     ): BookId? =
         try {
-            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed)) {
+            val pending = extractPendingCover(analyzed, scanRoot)
+            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending)) {
                 is AppResult.Success -> {
                     r.data.bookId
                 }
@@ -114,6 +136,50 @@ class BookPersister(
             metrics.bookPersistFailures.increment()
             null
         }
+
+    /**
+     * Reads cover bytes from [analyzed] when [coverImageStore] is configured.
+     * Returns null when cover storage is unconfigured, the book has no cover, or
+     * the filesystem cover file cannot be read.
+     *
+     * For [CoverSource.Filesystem]: reads the image bytes from [scanRoot]/[file.relPath]
+     * using `kotlin.io.path.readBytes()` — consistent with the project's file-handling
+     * conventions; java.io.* is the JVM-only boundary this module already depends on.
+     * For [CoverSource.Embedded]: uses the artwork bytes already in memory.
+     *
+     * This is intentionally done outside the DB transaction — file I/O does not belong
+     * inside an Exposed `suspendTransaction`.
+     */
+    private fun extractPendingCover(
+        analyzed: AnalyzedBook,
+        scanRoot: JPath,
+    ): PendingCover? {
+        if (coverImageStore == null) return null
+        return when (val cover = analyzed.cover) {
+            null -> {
+                null
+            }
+
+            is CoverSource.Filesystem -> {
+                val coverPath = scanRoot.resolve(cover.file.relPath)
+                runCatching { coverPath.readBytes() }
+                    .onFailure { e ->
+                        log.warn { "Could not read filesystem cover for ${analyzed.candidate.rootRelPath}: $e" }
+                    }.getOrNull()
+                    ?.let { bytes ->
+                        PendingCover(bytes = bytes, mime = "image/jpeg", source = SyncCoverSource.FILESYSTEM)
+                    }
+            }
+
+            is CoverSource.Embedded -> {
+                PendingCover(
+                    bytes = cover.artwork.bytes,
+                    mime = cover.artwork.mime,
+                    source = SyncCoverSource.EMBEDDED,
+                )
+            }
+        }
+    }
 
     /**
      * Looks up the [FolderId] for the folder whose [LibraryFolderTable.rootPath]

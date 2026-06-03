@@ -126,6 +126,7 @@ fun booksModule(
                 clock = get(),
                 bookTagRepository = getOrNull(),
                 homeDir = homeDir,
+                coverImageStore = get<CoverImageStore>(),
             )
         }
         single<BookIngestPort> { get<BookRepository>() }
@@ -246,6 +247,7 @@ private fun Module.coverAndPersisterBindings(
             scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
             scope = get(),
             metrics = get(),
+            coverImageStore = get<CoverImageStore>(),
         )
     }
 }

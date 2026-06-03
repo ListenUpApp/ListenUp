@@ -141,6 +141,7 @@ private class FakeBookIngest(
         libraryId: LibraryId,
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
+        pendingCover: PendingCover?,
     ): AppResult<IngestOutcome> {
         val path = analyzed.candidate.rootRelPath
         if (path in throwForRootRelPath) {

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -15,11 +16,22 @@ import com.calypsan.listenup.core.LibraryId
  * implementation.
  */
 interface BookIngestPort {
-    /** Resolve-or-insert a scanned book; see [BookRepository.resolveOrInsert]. */
+    /**
+     * Resolve-or-insert a scanned book; see [BookRepository.resolveOrInsert].
+     *
+     * [pendingCover] carries the pre-validated cover bytes + provenance extracted
+     * from the [AnalyzedBook] before the call — the image file has NOT yet been
+     * written to the managed store. The implementation stores the bytes to
+     * [com.calypsan.listenup.server.cover.CoverImageStore] after resolving the
+     * stable [BookId], so the file is always named after the book it belongs to.
+     * Null means the scanned book has no cover to store (or cover storage is not
+     * configured).
+     */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
+        pendingCover: PendingCover? = null,
     ): AppResult<IngestOutcome>
 
     /** Soft-delete library books absent from [seenIds]; see [BookRepository.softDeleteAbsent]. */
@@ -27,6 +39,33 @@ interface BookIngestPort {
         libraryId: LibraryId,
         seenIds: Set<BookId>,
     )
+}
+
+/**
+ * Cover bytes extracted from an [AnalyzedBook] before the DB upsert, ready to
+ * be stored into the managed cover store once the stable [BookId] is known.
+ *
+ * [bytes] are the raw image bytes; [mime] is the MIME type declared by the
+ * source (e.g. `"image/jpeg"`); [source] is the sync-layer provenance tag
+ * ([CoverSource.FILESYSTEM] or [CoverSource.EMBEDDED]).
+ */
+data class PendingCover(
+    val bytes: ByteArray,
+    val mime: String,
+    val source: CoverSource,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is PendingCover) return false
+        return mime == other.mime && source == other.source && bytes.contentEquals(other.bytes)
+    }
+
+    override fun hashCode(): Int {
+        var result = mime.hashCode()
+        result = 31 * result + source.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        return result
+    }
 }
 
 /**
