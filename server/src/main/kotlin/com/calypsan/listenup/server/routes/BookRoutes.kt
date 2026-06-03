@@ -179,9 +179,13 @@ private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
 
 /**
  * Reads the multipart cover upload, guards the part size against [COVER_MAX_BYTES] before buffering,
- * then delegates to [BookServiceImpl.setBookCover]. Returns 413 when the declared part size exceeds
- * the cap, 400 when no file part is found, 422 when the bytes fail image validation, and 204 on
- * success.
+ * then delegates to [BookServiceImpl.setBookCover]. Returns 403 when the caller lacks `canEdit`
+ * (checked BEFORE buffering the body to avoid forcing the server to buffer up to 10 MiB for an
+ * unauthorized request), 413 when the declared part size exceeds the cap, 400 when no file part
+ * is found, 422 when the bytes fail image validation, and 204 on success.
+ *
+ * [BookServiceImpl.setBookCover] retains its own `requireCanEdit()` call as defense-in-depth —
+ * the early check here short-circuits before any body buffering occurs.
  *
  * Extracted from the [bookRoutes] function body to keep cyclomatic complexity within the project
  * threshold.
@@ -190,6 +194,10 @@ private suspend fun ApplicationCall.handleCoverUpload(
     bookId: BookId,
     service: BookServiceImpl,
 ) {
+    // Gate canEdit BEFORE buffering — an unauthorized caller must not force the server to
+    // buffer up to 10 MiB of multipart body before receiving a 403.
+    service.checkCanEdit()?.let { return respondBareAppError(it) }
+
     var bytes: ByteArray? = null
     var declared = ContentType.Application.OctetStream.toString()
     var oversized = false

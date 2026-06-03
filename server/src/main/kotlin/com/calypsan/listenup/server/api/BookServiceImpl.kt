@@ -99,6 +99,13 @@ internal class BookServiceImpl(
         return AppResult.Success(payload)
     }
 
+    /**
+     * Returns the [AppError] denial when the caller lacks the `canEdit` permission, or null when
+     * the edit is allowed. Exposed as `internal` so the cover-upload route can gate before buffering
+     * the multipart body — `setBookCover` also calls `requireCanEdit()` internally as defense-in-depth.
+     */
+    internal suspend fun checkCanEdit(): AppError? = requireCanEdit()
+
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): BookServiceImpl =
         BookServiceImpl(
