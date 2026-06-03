@@ -1,12 +1,11 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.core.Success
 
 private val logger = KotlinLogging.logger {}
 
@@ -53,32 +52,32 @@ class ImageDownloader(
         // Skip if already exists locally
         if (imageStorage.exists(bookId)) {
             logger.info { "Cover already exists locally for book ${bookId.value}" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         logger.info { "Downloading cover for book ${bookId.value}..." }
 
         // Download from server
         val downloadResult = imageApi.downloadCover(bookId)
-        if (downloadResult is Failure) {
+        if (downloadResult is AppResult.Failure) {
             // 404 is expected for books without covers - don't log as error
             logger.info { "Cover not available for book ${bookId.value}: ${downloadResult.message}" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         // Save to local storage
-        val imageBytes = (downloadResult as Success).data
+        val imageBytes = (downloadResult as AppResult.Success).data
         logger.info { "Downloaded ${imageBytes.size} bytes for book ${bookId.value}, saving..." }
 
         val saveResult = imageStorage.saveCover(bookId, imageBytes)
 
-        if (saveResult is Failure) {
+        if (saveResult is AppResult.Failure) {
             logger.error { "Failed to save cover for book ${bookId.value}: ${saveResult.message}" }
             return saveResult
         }
 
         logger.info { "Successfully downloaded and saved cover for book ${bookId.value}" }
-        return Success(true)
+        return AppResult.Success(true)
     }
 
     /**
@@ -94,32 +93,32 @@ class ImageDownloader(
         // Skip if already exists locally
         if (imageStorage.contributorImageExists(contributorId)) {
             logger.info { "Image already exists locally for contributor $contributorId" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         logger.info { "Downloading image for contributor $contributorId..." }
 
         // Download from server
         val downloadResult = imageApi.downloadContributorImage(contributorId)
-        if (downloadResult is Failure) {
+        if (downloadResult is AppResult.Failure) {
             // 404 is expected for contributors without images - don't log as error
             logger.info { "Image not available for contributor $contributorId: ${downloadResult.message}" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         // Save to local storage
-        val imageBytes = (downloadResult as Success).data
+        val imageBytes = (downloadResult as AppResult.Success).data
         logger.info { "Downloaded ${imageBytes.size} bytes for contributor $contributorId, saving..." }
 
         val saveResult = imageStorage.saveContributorImage(contributorId, imageBytes)
 
-        if (saveResult is Failure) {
+        if (saveResult is AppResult.Failure) {
             logger.error { "Failed to save image for contributor $contributorId: ${saveResult.message}" }
             return saveResult
         }
 
         logger.info { "Successfully downloaded and saved image for contributor $contributorId" }
-        return Success(true)
+        return AppResult.Success(true)
     }
 
     /**
@@ -140,7 +139,7 @@ class ImageDownloader(
 
         if (needed.isEmpty()) {
             logger.debug { "All contributor images already cached" }
-            return Success(emptyList())
+            return AppResult.Success(emptyList())
         }
 
         logger.debug { "Downloading ${needed.size} contributor images in batches of $BATCH_SIZE" }
@@ -150,12 +149,12 @@ class ImageDownloader(
                 // Download in batches
                 needed.chunked(BATCH_SIZE).forEach { batch ->
                     when (val result = imageApi.downloadContributorImageBatch(batch)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             result.data.forEach { (contributorId, bytes) ->
                                 val saveResult = imageStorage.saveContributorImage(contributorId, bytes)
-                                if (saveResult is Success) {
+                                if (saveResult is AppResult.Success) {
                                     add(contributorId)
-                                } else if (saveResult is Failure) {
+                                } else if (saveResult is AppResult.Failure) {
                                     logger.warn {
                                         "Failed to save image for contributor $contributorId: ${saveResult.message}"
                                     }
@@ -164,7 +163,7 @@ class ImageDownloader(
                             logger.debug { "Downloaded batch of ${result.data.size} contributor images" }
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             logger.warn { "Batch download failed: ${result.message}" }
                         }
                     }
@@ -172,7 +171,7 @@ class ImageDownloader(
             }
 
         logger.info { "Downloaded ${successfulDownloads.size} images out of ${contributorIds.size} contributors" }
-        return Success(successfulDownloads)
+        return AppResult.Success(successfulDownloads)
     }
 
     /**
@@ -201,32 +200,32 @@ class ImageDownloader(
         // Skip if already exists locally
         if (imageStorage.seriesCoverExists(seriesId)) {
             logger.info { "Cover already exists locally for series $seriesId" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         logger.info { "Downloading cover for series $seriesId..." }
 
         // Download from server
         val downloadResult = imageApi.downloadSeriesCover(seriesId)
-        if (downloadResult is Failure) {
+        if (downloadResult is AppResult.Failure) {
             // 404 is expected for series without covers - don't log as error
             logger.info { "Cover not available for series $seriesId: ${downloadResult.message}" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         // Save to local storage
-        val imageBytes = (downloadResult as Success).data
+        val imageBytes = (downloadResult as AppResult.Success).data
         logger.info { "Downloaded ${imageBytes.size} bytes for series $seriesId, saving..." }
 
         val saveResult = imageStorage.saveSeriesCover(seriesId, imageBytes)
 
-        if (saveResult is Failure) {
+        if (saveResult is AppResult.Failure) {
             logger.error { "Failed to save cover for series $seriesId: ${saveResult.message}" }
             return saveResult
         }
 
         logger.info { "Successfully downloaded and saved cover for series $seriesId" }
-        return Success(true)
+        return AppResult.Success(true)
     }
 
     /**
@@ -243,13 +242,13 @@ class ImageDownloader(
             buildList {
                 seriesIds.forEach { seriesId ->
                     when (val result = downloadSeriesCover(seriesId)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             if (result.data) {
                                 add(seriesId)
                             }
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             // Log and continue - non-fatal
                             logger.warn { "Failed to download cover for series $seriesId: ${result.message}" }
                         }
@@ -258,7 +257,7 @@ class ImageDownloader(
             }
 
         logger.info { "Downloaded ${successfulDownloads.size} covers out of ${seriesIds.size} series" }
-        return Success(successfulDownloads)
+        return AppResult.Success(successfulDownloads)
     }
 
     /**
@@ -275,7 +274,7 @@ class ImageDownloader(
         // Skip if already exists locally (unless forcing refresh)
         if (!forceRefresh && imageStorage.userAvatarExists(userId)) {
             logger.info { "Avatar already exists locally for user $userId" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         // Delete existing if force refresh
@@ -288,25 +287,25 @@ class ImageDownloader(
 
         // Download from server
         val downloadResult = imageApi.downloadUserAvatar(userId)
-        if (downloadResult is Failure) {
+        if (downloadResult is AppResult.Failure) {
             // 404 is expected for users without custom avatars - don't log as error
             logger.info { "Avatar not available for user $userId: ${downloadResult.message}" }
-            return Success(false)
+            return AppResult.Success(false)
         }
 
         // Save to local storage
-        val imageBytes = (downloadResult as Success).data
+        val imageBytes = (downloadResult as AppResult.Success).data
         logger.info { "Downloaded ${imageBytes.size} bytes for user $userId, saving..." }
 
         val saveResult = imageStorage.saveUserAvatar(userId, imageBytes)
 
-        if (saveResult is Failure) {
+        if (saveResult is AppResult.Failure) {
             logger.error { "Failed to save avatar for user $userId: ${saveResult.message}" }
             return saveResult
         }
 
         logger.info { "Successfully downloaded and saved avatar for user $userId" }
-        return Success(true)
+        return AppResult.Success(true)
     }
 
     /**

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.shelf
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository

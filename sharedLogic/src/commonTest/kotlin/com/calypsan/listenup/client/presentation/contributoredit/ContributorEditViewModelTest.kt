@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -8,8 +9,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -155,7 +155,7 @@ class ContributorEditViewModelTest :
                 val contributor = createContributor()
 
                 everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
-                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns Success(Unit)
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
 
                 val viewModel = fixture.build()
                 viewModel.loadContributor("contributor-1")
@@ -188,7 +188,7 @@ class ContributorEditViewModelTest :
                 // Body-level message convention: pass a typed AppError so the
                 // user-facing message survives delegation to the ViewModel.
                 everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Network error"),
                     )
@@ -217,7 +217,7 @@ class ContributorEditViewModelTest :
 
                 everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
                 everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Network error"),
                     )

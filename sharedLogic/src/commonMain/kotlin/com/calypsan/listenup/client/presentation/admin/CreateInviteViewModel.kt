@@ -1,12 +1,12 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,11 +35,11 @@ class CreateInviteViewModel(
             updateReady { it.copy(status = CreateInviteStatus.Submitting) }
 
             when (val result = createInviteUseCase(name, email, role, expiresInDays)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { it.copy(status = CreateInviteStatus.Success(result.data)) }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     val errorType = classifyError(result.error)
                     updateReady { it.copy(status = CreateInviteStatus.Error(errorType)) }
                 }

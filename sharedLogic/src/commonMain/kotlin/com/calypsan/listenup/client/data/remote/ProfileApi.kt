@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
 import com.calypsan.listenup.client.data.remote.model.ProfileResponse
 import com.calypsan.listenup.client.data.remote.model.UpdateProfileRequest

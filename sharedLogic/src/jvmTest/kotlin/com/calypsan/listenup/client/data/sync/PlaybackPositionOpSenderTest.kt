@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend

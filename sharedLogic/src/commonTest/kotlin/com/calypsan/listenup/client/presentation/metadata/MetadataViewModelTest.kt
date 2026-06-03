@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend

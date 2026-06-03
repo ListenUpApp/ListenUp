@@ -2,12 +2,11 @@
 
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.flatMap
-import com.calypsan.listenup.core.map
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.AllProgressResponse
 import com.calypsan.listenup.client.data.remote.model.ApiActiveSessions
 import com.calypsan.listenup.client.data.remote.model.ApiReadingSessions
@@ -116,20 +115,20 @@ class SyncApi(
             buildList {
                 do {
                     when (val result = getBooks(limit, cursor, updatedAfter)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             addAll(result.data.books)
                             allDeletedIds.addAll(result.data.deletedBookIds)
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             return result
                         }
                     }
                 } while (cursor != null)
             }
 
-        return Success(
+        return AppResult.Success(
             SyncBooksResponse(
                 books = allBooks,
                 deletedBookIds = allDeletedIds,
@@ -166,19 +165,19 @@ class SyncApi(
             buildList {
                 do {
                     when (val result = getSeries(limit, cursor, updatedAfter)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             addAll(result.data.series)
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             return result
                         }
                     }
                 } while (cursor != null)
             }
 
-        return Success(allSeries)
+        return AppResult.Success(allSeries)
     }
 
     /**
@@ -209,19 +208,19 @@ class SyncApi(
             buildList {
                 do {
                     when (val result = getContributors(limit, cursor, updatedAfter)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             addAll(result.data.contributors)
                             cursor = result.data.nextCursor
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             return result
                         }
                     }
                 } while (cursor != null)
             }
 
-        return Success(allContributors)
+        return AppResult.Success(allContributors)
     }
 
     /**

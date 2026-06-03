@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
@@ -223,7 +222,7 @@ class ContributorRepositoryImpl(
                 measureTimedValue { api.searchContributors(query, limit) }
 
             when (result) {
-                is Success -> {
+                is AppResult.Success -> {
                     val contributors = result.data.map { it.toDomain() }
                     logger.debug {
                         "Server contributor search: query='$query', " +
@@ -236,7 +235,7 @@ class ContributorRepositoryImpl(
                     )
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.warn {
                         "Server contributor search failed, falling back to local FTS: ${result.error.message}"
                     }
@@ -289,7 +288,7 @@ class ContributorRepositoryImpl(
     override suspend fun deleteContributor(contributorId: String): AppResult<Unit> =
         withContext(IODispatcher) {
             api.deleteContributor(contributorId).also { result ->
-                if (result is Success) logger.info { "Deleted contributor $contributorId" }
+                if (result is AppResult.Success) logger.info { "Deleted contributor $contributorId" }
             }
         }
 }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.konsist
 
+import com.calypsan.listenup.api.result.AppResult
 import com.lemonappdev.konsist.api.KoModifier
 import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec

@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.client.data.remote.api
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.core.isDebugBuild
 import com.calypsan.listenup.client.data.remote.apiCall
@@ -24,7 +24,7 @@ import com.calypsan.listenup.client.data.remote.SeriesUpdateRequest
 import com.calypsan.listenup.client.data.remote.UpdateContributorRequest
 import com.calypsan.listenup.client.data.remote.UpdateContributorResponse
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.domain.model.Instance
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient

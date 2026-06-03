@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.profile
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.UserProfile
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -17,8 +17,8 @@ private val logger = KotlinLogging.logger {}
  * ```kotlin
  * val result = loadUserProfileUseCase(userId = "user-123")
  * when (result) {
- *     is Success -> displayProfile(result.data)
- *     is Failure -> showError(result.message)
+ *     is AppResult.Success -> displayProfile(result.data)
+ *     is AppResult.Failure -> showError(result.message)
  * }
  * ```
  */

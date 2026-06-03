@@ -2,13 +2,12 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.appJson
-import com.calypsan.listenup.core.flatMap
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.data.remote.dataOrFailure
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
@@ -54,7 +53,7 @@ class InstanceRepositoryImpl(
 
     override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<ServerInfo> {
         if (!forceRefresh) {
-            cachedServerInfo?.let { return Success(it) }
+            cachedServerInfo?.let { return AppResult.Success(it) }
         }
 
         val serverUrl = getServerUrl()
@@ -64,12 +63,12 @@ class InstanceRepositoryImpl(
         }
 
         return when (val result = callServerInfo(toWebSocketScheme(serverUrl.value))) {
-            is Success -> {
+            is AppResult.Success -> {
                 cachedServerInfo = result.data
                 result
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 result
             }
         }
@@ -81,12 +80,12 @@ class InstanceRepositoryImpl(
         for ((index, currentUrl) in urlsToTry.withIndex()) {
             logger.debug { "Verifying server at $currentUrl" }
             when (val result = callServerInfo(toWebSocketScheme(currentUrl))) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.info { "Server verified at $currentUrl" }
-                    return Success(VerifiedServer(result.data, currentUrl))
+                    return AppResult.Success(VerifiedServer(result.data, currentUrl))
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     val message =
                         result.error.debugInfo
                             .orEmpty()
@@ -120,12 +119,12 @@ class InstanceRepositoryImpl(
         for (url in urls) {
             logger.debug { "Quick-checking reachability: $url" }
             when (callServerInfo(toWebSocketScheme(url))) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.info { "Server reachable at $url" }
                     return url
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     continue
                 }
             }
@@ -143,7 +142,7 @@ class InstanceRepositoryImpl(
     private suspend fun callServerInfo(wsBaseUrl: String): AppResult<ServerInfo> =
         try {
             when (val result = instanceRpcFactory.getServerInfo(wsBaseUrl)) {
-                is RpcResult.Success -> Success(result.data)
+                is RpcResult.Success -> AppResult.Success(result.data)
                 is RpcResult.Failure -> AppResult.Failure(result.error)
             }
         } catch (e: CancellationException) {
@@ -176,7 +175,7 @@ class InstanceRepositoryImpl(
 
     override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> {
         if (!forceRefresh && cachedInstance != null) {
-            return Success(cachedInstance!!)
+            return AppResult.Success(cachedInstance!!)
         }
 
         val serverUrl = getServerUrl()

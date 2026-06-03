@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.embeddedmeta.live
 
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import kotlinx.coroutines.runBlocking

@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -229,7 +229,7 @@ class AuthSessionStoreTest :
                 val instanceRepository = createMockInstanceRepository()
                 everySuspend { storage.save(any(), any()) } returns Unit
                 everySuspend { instanceRepository.getServerInfo(forceRefresh = true) } returns
-                    Success(createTestServerInfo(setupRequired = true))
+                    AppResult.Success(createTestServerInfo(setupRequired = true))
                 val store = createStore(storage = storage, instanceRepository = instanceRepository)
 
                 store.checkServerStatus()

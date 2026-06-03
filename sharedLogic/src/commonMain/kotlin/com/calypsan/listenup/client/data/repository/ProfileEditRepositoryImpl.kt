@@ -3,10 +3,10 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory

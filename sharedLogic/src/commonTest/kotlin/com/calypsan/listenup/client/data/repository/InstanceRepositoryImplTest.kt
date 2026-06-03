@@ -4,9 +4,9 @@ import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.AppResult as RpcResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -56,7 +56,7 @@ class InstanceRepositoryImplTest :
 
             val result = repository.verifyServer("https://library.example.com")
 
-            val verified = result.shouldBeInstanceOf<Success<*>>()
+            val verified = result.shouldBeInstanceOf<AppResult.Success<*>>()
             val data = verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer
             data.serverInfo shouldBe serverInfo
             data.verifiedUrl shouldBe "https://library.example.com"
@@ -74,7 +74,7 @@ class InstanceRepositoryImplTest :
 
             val result = repository.getServerInfo()
 
-            result.shouldBeInstanceOf<Failure>()
+            result.shouldBeInstanceOf<AppResult.Failure>()
             factory.lastWsUrl shouldBe null
         }
 
@@ -88,7 +88,7 @@ class InstanceRepositoryImplTest :
 
             val result = repository.getServerInfo()
 
-            val success = result.shouldBeInstanceOf<Success<ServerInfo>>()
+            val success = result.shouldBeInstanceOf<AppResult.Success<ServerInfo>>()
             success.data shouldBe serverInfo
             factory.lastWsUrl shouldBe "ws://192.168.1.10:8080"
         }
@@ -103,6 +103,6 @@ class InstanceRepositoryImplTest :
 
             val result = repository.getServerInfo()
 
-            result.shouldBeInstanceOf<Failure>()
+            result.shouldBeInstanceOf<AppResult.Failure>()
         }
     })

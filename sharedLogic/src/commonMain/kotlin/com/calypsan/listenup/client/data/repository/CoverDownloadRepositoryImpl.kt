@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult
+
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
@@ -32,7 +33,7 @@ class CoverDownloadRepositoryImpl(
         scope.launch {
             try {
                 val result = imageDownloader.downloadCover(bookId)
-                if (result is Success && result.data) {
+                if (result is AppResult.Success && result.data) {
                     try {
                         bookDao.touchUpdatedAt(bookId, Timestamp.now())
                         logger.debug { "Touched book ${bookId.value} to trigger UI refresh" }

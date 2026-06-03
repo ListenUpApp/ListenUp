@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.presentation.profile
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
@@ -215,7 +214,7 @@ class UserProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns Success(profile)
+                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -238,8 +237,8 @@ class UserProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = null, isAvatarCached = false)
-                    everySuspend { loadUserProfileUseCase(any()) } returns Success(profile)
-                    everySuspend { imageRepository.downloadUserAvatar(any(), any()) } returns Success(true)
+                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
+                    everySuspend { imageRepository.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -284,7 +283,7 @@ class UserProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = null, isBookCoverCached = true, bookCoverPath = "/local/book-1.jpg")
-                    everySuspend { loadUserProfileUseCase(any()) } returns Success(profile)
+                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -304,7 +303,7 @@ class UserProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns Success(profile)
+                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -325,7 +324,7 @@ class UserProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns Success(profile)
+                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)

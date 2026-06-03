@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.test.fake
 
+import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.core.BookId
@@ -10,7 +11,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.calypsan.listenup.core.Success
 
 class FakeBookRepositoryTest {
     @Test
@@ -66,7 +66,7 @@ class FakeBookRepositoryTest {
 
             val result = repo.refreshBooks()
 
-            assertTrue(result is Success)
+            assertTrue(result is AppResult.Success)
             assertEquals(1, repo.refreshCount)
         }
 

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus

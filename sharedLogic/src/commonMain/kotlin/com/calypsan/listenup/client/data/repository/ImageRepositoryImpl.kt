@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -130,11 +129,11 @@ class ImageRepositoryImpl(
     override fun requestBookCoverStagingCleanup(bookId: BookId) {
         appScope.launch {
             when (val r = deleteBookCoverStaging(bookId)) {
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.warn { "Staging cleanup failed for book ${bookId.value}: ${r.message}" }
                 }
 
-                is Success -> {}
+                is AppResult.Success -> {}
             }
         }
     }
@@ -142,11 +141,11 @@ class ImageRepositoryImpl(
     override fun requestSeriesCoverStagingCleanup(seriesId: String) {
         appScope.launch {
             when (val r = deleteSeriesCoverStaging(seriesId)) {
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.warn { "Staging cleanup failed for series $seriesId: ${r.message}" }
                 }
 
-                is Success -> {}
+                is AppResult.Success -> {}
             }
         }
     }

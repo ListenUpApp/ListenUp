@@ -8,10 +8,9 @@
 
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -307,7 +306,7 @@ class PlaybackPreparer(
 
         repeat(maxRetries) { attempt ->
             when (val result = api.preparePlayback(bookId, audioFileId, capabilities, spatial)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val response = result.data
                     logger.debug {
                         "Prepare result for $audioFileId (attempt ${attempt + 1}): " +
@@ -339,7 +338,7 @@ class PlaybackPreparer(
                     delay(retryDelayMs)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     onPrepareProgress(null)
                     logger.warn {
                         "Failed to prepare stream for $audioFileId (attempt ${attempt + 1}), using fallback URL"
@@ -384,7 +383,7 @@ class PlaybackPreparer(
         }
 
         return when (val result = api.getBook(bookId.value)) {
-            is Success -> {
+            is AppResult.Success -> {
                 val bookResponse = result.data
                 logger.info { "Fetched book from server: ${bookResponse.title}" }
 
@@ -416,7 +415,7 @@ class PlaybackPreparer(
                 }
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.error { "Failed to fetch book from server: ${bookId.value}" }
                 false
             }

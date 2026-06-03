@@ -62,7 +62,7 @@ class ContributorServiceImplTest :
             }
         }
 
-        test("getContributor returns Success(null) for a non-existent contributor id") {
+        test("getContributor returns AppResult.Success(null) for a non-existent contributor id") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()

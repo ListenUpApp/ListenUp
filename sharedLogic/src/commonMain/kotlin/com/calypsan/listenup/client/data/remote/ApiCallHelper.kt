@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.flatMap
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 
 // ---- AppResult-returning helpers -----------------------------------------------------
@@ -15,7 +14,7 @@ import com.calypsan.listenup.client.data.remote.model.ApiResponse
  * envelope and returns an [AppResult]. `suspendRunCatching` catches Ktor's typed
  * exceptions (`ResponseException`, `IOException`, etc.) — which the
  * [HttpClientErrorHandling] plugin's `expectSuccess = true` setting raises on
- * non-2xx — and routes them through [com.calypsan.listenup.core.error.ErrorMapper].
+ * non-2xx — and routes them through [com.calypsan.listenup.client.core.error.ErrorMapper].
  *
  * @param errorMessage Used as the `TransportError.DataMalformed.detail` if the
  *   envelope reports `success = true` but `data == null` (the only case where
@@ -40,12 +39,12 @@ suspend inline fun apiCallUnit(crossinline block: suspend () -> ApiResponse<*>):
  */
 fun <T> ApiResponse<T>.dataOrFailure(errorMessage: String): AppResult<T> =
     when (val result = toResult()) {
-        is Success -> {
+        is AppResult.Success -> {
             result.data?.let { AppResult.Success(it) }
                 ?: AppResult.Failure(TransportError.DataMalformed(detail = errorMessage))
         }
 
-        is Failure -> {
+        is AppResult.Failure -> {
             result
         }
     }
@@ -57,6 +56,6 @@ fun <T> ApiResponse<T>.dataOrFailure(errorMessage: String): AppResult<T> =
  */
 fun <T> ApiResponse<T>.validateOrFailure(): AppResult<Unit> =
     when (val result = toResult()) {
-        is Success -> AppResult.Success(Unit)
-        is Failure -> result
+        is AppResult.Success -> AppResult.Success(Unit)
+        is AppResult.Failure -> result
     }

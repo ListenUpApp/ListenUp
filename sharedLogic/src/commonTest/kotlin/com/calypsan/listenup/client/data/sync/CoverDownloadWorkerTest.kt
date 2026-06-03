@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.CoverDownloadDao
 import com.calypsan.listenup.client.data.local.db.CoverDownloadStatus
@@ -46,7 +46,7 @@ class CoverDownloadWorkerTest :
                 every { dao.observeRemainingCount() } returns flowOf(0)
                 every { dao.observeCompletedCount() } returns flowOf(0)
                 every { dao.observeTotalCount() } returns flowOf(0)
-                everySuspend { downloader.downloadCover(any()) } returns Success(true)
+                everySuspend { downloader.downloadCover(any()) } returns AppResult.Success(true)
 
                 val worker = CoverDownloadWorker(dao, downloader)
 

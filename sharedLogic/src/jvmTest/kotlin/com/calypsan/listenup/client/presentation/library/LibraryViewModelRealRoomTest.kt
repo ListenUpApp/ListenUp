@@ -21,7 +21,7 @@ import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender

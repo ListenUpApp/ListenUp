@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.UserPreferencesApiContract
 import com.calypsan.listenup.client.data.remote.UserPreferencesRequest
 import com.calypsan.listenup.client.domain.repository.UserPreferences
@@ -23,8 +22,8 @@ class UserPreferencesRepositoryImpl(
 ) : UserPreferencesRepository {
     override suspend fun getPreferences(): AppResult<UserPreferences> =
         when (val result = userPreferencesApi.getPreferences()) {
-            is com.calypsan.listenup.core.Success -> {
-                Success(
+            is AppResult.Success -> {
+                AppResult.Success(
                     UserPreferences(
                         defaultPlaybackSpeed = result.data.defaultPlaybackSpeed,
                         defaultSkipForwardSec = result.data.defaultSkipForwardSec,
@@ -35,7 +34,7 @@ class UserPreferencesRepositoryImpl(
                 )
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 result
             }
         }
@@ -57,11 +56,11 @@ class UserPreferencesRepositoryImpl(
 
     private suspend fun syncSetting(request: UserPreferencesRequest): AppResult<Unit> =
         when (val result = userPreferencesApi.updatePreferences(request)) {
-            is com.calypsan.listenup.core.Success -> {
-                Success(Unit)
+            is AppResult.Success -> {
+                AppResult.Success(Unit)
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Failed to sync preference: ${result.message}" }
                 result
             }

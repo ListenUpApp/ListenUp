@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.core.error.ErrorBus
@@ -55,7 +55,7 @@ class CoverUploadDelegate(
 
             // Save to staging location for preview (doesn't overwrite original)
             when (val saveResult = imageStagingRepository.saveBookCoverStaging(BookId(bookId), imageData)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val stagingPath = imageStagingRepository.getBookCoverStagingPath(BookId(bookId))
                     logger.info { "Cover saved to staging for preview: $stagingPath" }
 
@@ -71,7 +71,7 @@ class CoverUploadDelegate(
                     onChangesMade()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
                     state.update {

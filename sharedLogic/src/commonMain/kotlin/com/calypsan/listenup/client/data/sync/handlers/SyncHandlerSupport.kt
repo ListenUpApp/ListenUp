@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync.handlers
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import io.github.oshai.kotlinlogging.KLogger
 import kotlin.coroutines.cancellation.CancellationException
 

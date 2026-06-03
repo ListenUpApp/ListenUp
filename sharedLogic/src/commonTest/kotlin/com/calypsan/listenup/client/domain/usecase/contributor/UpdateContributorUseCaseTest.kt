@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -72,7 +71,7 @@ class UpdateContributorUseCaseTest :
                 val result = useCase(createRequest())
 
                 // Then
-                result.shouldBeInstanceOf<Success<Unit>>()
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend {
                     fixture.contributorEditRepository.updateContributor(
                         ContributorId("contributor-123"),
@@ -147,7 +146,7 @@ class UpdateContributorUseCaseTest :
                 everySuspend {
                     fixture.contributorEditRepository.updateContributor(any(), any())
                 } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Update failed"),
                     )
@@ -157,7 +156,7 @@ class UpdateContributorUseCaseTest :
                 val result = useCase(createRequest())
 
                 // Then
-                result.shouldBeInstanceOf<Failure>()
+                result.shouldBeInstanceOf<AppResult.Failure>()
                 result.message shouldBe "Update failed"
             }
         }
@@ -182,7 +181,7 @@ class UpdateContributorUseCaseTest :
                 val result = useCase(request)
 
                 // Then
-                result.shouldBeInstanceOf<Success<Unit>>()
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
     })

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.test.fake
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import com.calypsan.listenup.core.Success
 
 /**
  * In-memory fake of [BookRepository]. Backed by a [MutableStateFlow] of the book list
@@ -38,7 +37,7 @@ class FakeBookRepository(
 
     override suspend fun refreshBooks(): AppResult<Unit> {
         _refreshCount++
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     override suspend fun getChapters(bookId: String): List<Chapter> = chaptersByBookId[bookId].orEmpty()

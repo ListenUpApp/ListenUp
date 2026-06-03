@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.AdminInvite

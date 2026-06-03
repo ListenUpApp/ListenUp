@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Engine-facing seam for REST catch-up. Allows [SyncEngine] to be tested with

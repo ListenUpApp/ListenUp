@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns

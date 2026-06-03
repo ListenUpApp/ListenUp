@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Repository contract for profile editing operations.

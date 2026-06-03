@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync.handlers
 
 import com.calypsan.listenup.api.sync.ActiveSessionSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ActiveSessionEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner

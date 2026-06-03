@@ -4,7 +4,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -22,7 +21,7 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -61,7 +60,7 @@ class PlaybackManagerFallbackFetchTest {
             seedBookWithoutAudioFiles()
 
             everySuspend { syncApi.getBook(any()) } returns
-                Success(
+                AppResult.Success(
                     bookResponseWithAudioFiles(
                         id = "book-1",
                         audioFiles =

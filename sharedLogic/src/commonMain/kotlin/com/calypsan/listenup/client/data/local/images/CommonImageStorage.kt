@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.local.images
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
@@ -47,7 +46,7 @@ class CommonImageStorage(
             try {
                 val file = getCoverFile(bookId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -64,7 +63,7 @@ class CommonImageStorage(
             try {
                 val file = getCoverFile(bookId)
                 deleteIfExists(file)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -82,7 +81,7 @@ class CommonImageStorage(
             try {
                 val file = getCoverStagingFile(bookId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -109,7 +108,7 @@ class CommonImageStorage(
                 writeBytes(targetFile, data)
                 SystemFileSystem.delete(stagingFile)
 
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -121,7 +120,7 @@ class CommonImageStorage(
         withContext(IODispatcher) {
             try {
                 deleteIfExists(getCoverStagingFile(bookId))
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -143,7 +142,7 @@ class CommonImageStorage(
                 // Clear user avatars
                 deletedCount += clearDirectory(avatarsDir)
 
-                Success(deletedCount)
+                AppResult.Success(deletedCount)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -161,7 +160,7 @@ class CommonImageStorage(
             try {
                 val file = getContributorFile(contributorId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -178,7 +177,7 @@ class CommonImageStorage(
         withContext(IODispatcher) {
             try {
                 deleteIfExists(getContributorFile(contributorId))
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -196,7 +195,7 @@ class CommonImageStorage(
             try {
                 val file = getSeriesCoverFile(seriesId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -212,7 +211,7 @@ class CommonImageStorage(
         withContext(IODispatcher) {
             try {
                 deleteIfExists(getSeriesCoverFile(seriesId))
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -230,7 +229,7 @@ class CommonImageStorage(
             try {
                 val file = getSeriesCoverStagingFile(seriesId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -257,7 +256,7 @@ class CommonImageStorage(
                 writeBytes(targetFile, data)
                 SystemFileSystem.delete(stagingFile)
 
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -269,7 +268,7 @@ class CommonImageStorage(
         withContext(IODispatcher) {
             try {
                 deleteIfExists(getSeriesCoverStagingFile(seriesId))
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -287,7 +286,7 @@ class CommonImageStorage(
             try {
                 val file = getUserAvatarFile(userId)
                 writeBytes(file, imageData)
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -303,7 +302,7 @@ class CommonImageStorage(
         withContext(IODispatcher) {
             try {
                 deleteIfExists(getUserAvatarFile(userId))
-                Success(Unit)
+                AppResult.Success(Unit)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {

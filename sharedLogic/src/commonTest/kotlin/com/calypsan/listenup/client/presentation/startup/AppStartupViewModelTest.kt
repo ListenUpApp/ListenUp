@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.core.AppResult as CoreAppResult
+import com.calypsan.listenup.api.result.AppResult as CoreAppResult
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend

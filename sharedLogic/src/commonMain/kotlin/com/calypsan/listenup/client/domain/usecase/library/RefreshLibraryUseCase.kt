@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -30,8 +29,8 @@ data class RefreshLibraryResult(
  *
  * ```kotlin
  * when (val result = refreshLibraryUseCase()) {
- *     is Success -> showSuccess(result.data.message)
- *     is Failure -> showError(userMessageFor(result.error)) // presentation translator
+ *     is AppResult.Success -> showSuccess(result.data.message)
+ *     is AppResult.Failure -> showError(userMessageFor(result.error)) // presentation translator
  * }
  * ```
  */
@@ -57,9 +56,9 @@ open class RefreshLibraryUseCase(
     open suspend operator fun invoke(): AppResult<RefreshLibraryResult> {
         logger.info { "Starting library refresh" }
         return when (val syncResult = syncRepository.sync()) {
-            is Success -> {
+            is AppResult.Success -> {
                 logger.info { "Library refresh completed successfully" }
-                Success(
+                AppResult.Success(
                     RefreshLibraryResult(
                         state = syncRepository.syncState.value,
                         message = "Library refreshed successfully",
@@ -67,7 +66,7 @@ open class RefreshLibraryUseCase(
                 )
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Library refresh failed: ${syncResult.error.code}" }
                 syncResult
             }
@@ -86,9 +85,9 @@ open class RefreshLibraryUseCase(
     open suspend fun resetForNewLibrary(newLibraryId: String): AppResult<RefreshLibraryResult> {
         logger.info { "Resetting for new library: $newLibraryId" }
         return when (val syncResult = syncRepository.resetForNewLibrary(newLibraryId)) {
-            is Success -> {
+            is AppResult.Success -> {
                 logger.info { "Library reset completed successfully" }
-                Success(
+                AppResult.Success(
                     RefreshLibraryResult(
                         state = syncRepository.syncState.value,
                         message = "Library synced with new server",
@@ -96,7 +95,7 @@ open class RefreshLibraryUseCase(
                 )
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Library reset failed: ${syncResult.error.code}" }
                 syncResult
             }

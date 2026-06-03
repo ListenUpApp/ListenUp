@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.presentation.shelf
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
@@ -110,8 +110,8 @@ class CreateEditShelfViewModel(
                 }
 
             when (result) {
-                is Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
-                is Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
+                is AppResult.Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                is AppResult.Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
             }
         }
     }
@@ -124,8 +124,8 @@ class CreateEditShelfViewModel(
             _state.value = CreateEditShelfUiState.Saving
 
             when (val result = deleteShelfUseCase(shelfId)) {
-                is Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
-                is Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
+                is AppResult.Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                is AppResult.Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
             }
         }
     }

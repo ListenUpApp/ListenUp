@@ -2,8 +2,7 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -65,7 +64,7 @@ class HomeRepositoryImpl(
         logger.info { "fetchFromLocal: found ${positions.size} playback positions" }
 
         if (positions.isEmpty()) {
-            return Success(emptyList())
+            return AppResult.Success(emptyList())
         }
 
         var booksNotFound = 0
@@ -131,7 +130,7 @@ class HomeRepositoryImpl(
             "fetchFromLocal: returning ${books.size} books " +
                 "(positions=${positions.size}, notFound=$booksNotFound, filtered=$booksFiltered)"
         }
-        return Success(books)
+        return AppResult.Success(books)
     }
 
     /**

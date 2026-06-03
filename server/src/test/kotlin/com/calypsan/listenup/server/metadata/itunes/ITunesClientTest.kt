@@ -60,7 +60,7 @@ class ITunesClientTest :
             }
         }
 
-        test("findCover returns Success(null) when resultCount is 0") {
+        test("findCover returns AppResult.Success(null) when resultCount is 0") {
             runTest {
                 val engine =
                     MockEngine { _ ->

@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.presentation.library
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -849,7 +849,7 @@ class LibraryViewModelTest :
                 val fixture = createFixture()
                 everySuspend { fixture.authSession.getAccessToken() } returns AccessToken("token")
                 everySuspend { fixture.syncStatusRepository.getLastSyncTime() } returns null // Never synced
-                everySuspend { fixture.bookRepository.refreshBooks() } returns Success(Unit)
+                everySuspend { fixture.bookRepository.refreshBooks() } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()

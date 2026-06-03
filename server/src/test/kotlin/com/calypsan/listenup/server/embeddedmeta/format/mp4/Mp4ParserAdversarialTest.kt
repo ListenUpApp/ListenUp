@@ -3,7 +3,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

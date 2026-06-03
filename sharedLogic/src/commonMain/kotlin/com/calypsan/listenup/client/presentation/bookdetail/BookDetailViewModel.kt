@@ -17,10 +17,9 @@ import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -357,12 +356,12 @@ class BookDetailViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isMarkingComplete = true) }
             when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { it.copy(isMarkingComplete = false, isComplete = true) }
                     logger.info { "Marked book $bookId as complete" }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady { it.copy(isMarkingComplete = false) }
                     logger.error { "Failed to mark book $bookId as complete" }
                 }
@@ -378,7 +377,7 @@ class BookDetailViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isDiscardingProgress = true) }
             when (playbackPositionRepository.discardProgress(BookId(bookId))) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady {
                         it.copy(
                             isDiscardingProgress = false,
@@ -390,7 +389,7 @@ class BookDetailViewModel(
                     logger.info { "Discarded progress for book $bookId" }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady { it.copy(isDiscardingProgress = false) }
                     logger.error { "Failed to discard progress for book $bookId" }
                 }
@@ -406,7 +405,7 @@ class BookDetailViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isRestarting = true) }
             when (playbackPositionRepository.restartBook(BookId(bookId))) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady {
                         it.copy(
                             isRestarting = false,
@@ -417,7 +416,7 @@ class BookDetailViewModel(
                     logger.info { "Restarted book $bookId" }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady { it.copy(isRestarting = false) }
                     logger.error { "Failed to restart book $bookId" }
                 }
@@ -433,12 +432,12 @@ class BookDetailViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isAddingToShelf = true) }
             when (val result = addBooksToShelfUseCase(shelfId, listOf(bookId))) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                     logger.info { "Added book $bookId to shelf $shelfId" }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to add book $bookId to shelf $shelfId: ${result.message}" }
                 }
@@ -454,22 +453,22 @@ class BookDetailViewModel(
         viewModelScope.launch {
             updateReady { it.copy(isAddingToShelf = true) }
             when (val result = createShelfUseCase(name, null)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val shelf = result.data
                     when (val addResult = addBooksToShelfUseCase(shelf.id, listOf(bookId))) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                             logger.info { "Created shelf '${shelf.name}' and added book $bookId" }
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             updateReady { it.copy(isAddingToShelf = false, shelfError = addResult.message) }
                             logger.error { "Created shelf but failed to add book $bookId: ${addResult.message}" }
                         }
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady { it.copy(isAddingToShelf = false, shelfError = result.message) }
                     logger.error { "Failed to create shelf '$name': ${result.message}" }
                 }

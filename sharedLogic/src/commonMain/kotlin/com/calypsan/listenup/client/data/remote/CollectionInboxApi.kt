@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.map
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.client.core.suspendRunCatching
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter

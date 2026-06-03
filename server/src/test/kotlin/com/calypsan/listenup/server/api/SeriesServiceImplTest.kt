@@ -63,7 +63,7 @@ class SeriesServiceImplTest :
             }
         }
 
-        test("getSeries returns Success(null) for a non-existent series id") {
+        test("getSeries returns AppResult.Success(null) for a non-existent series id") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()

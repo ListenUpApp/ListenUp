@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
@@ -44,8 +43,8 @@ class FakePlaybackPositionRepository(
         )
 
     override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> {
-        val most = state.value.values.maxByOrNull { it.effectiveLastPlayedAtMs } ?: return Success(null)
-        return Success(
+        val most = state.value.values.maxByOrNull { it.effectiveLastPlayedAtMs } ?: return AppResult.Success(null)
+        return AppResult.Success(
             LastPlayedInfo(
                 bookId = BookId(most.bookId),
                 positionMs = most.positionMs,
@@ -61,7 +60,7 @@ class FakePlaybackPositionRepository(
 
     override suspend fun delete(bookId: BookId): AppResult<Unit> {
         state.value = state.value - bookId.value
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     override suspend fun markComplete(
@@ -90,17 +89,17 @@ class FakePlaybackPositionRepository(
                     updatedAtMs = now,
                 )
         )
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     override suspend fun discardProgress(bookId: BookId): AppResult<Unit> {
         state.value = state.value - bookId.value
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     override suspend fun restartBook(bookId: BookId): AppResult<Unit> {
         val key = bookId.value
-        val existing = state.value[key] ?: return Success(Unit)
+        val existing = state.value[key] ?: return AppResult.Success(Unit)
         state.value = state.value + (
             key to
                 existing.copy(
@@ -110,7 +109,7 @@ class FakePlaybackPositionRepository(
                     updatedAtMs = nowMs(),
                 )
         )
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     /**
@@ -242,7 +241,7 @@ class FakePlaybackPositionRepository(
         if (merged != null) {
             state.value = state.value + (key to merged)
         }
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     private fun blankPosition(

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.SeriesError
@@ -10,9 +11,8 @@ import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
@@ -292,12 +292,12 @@ class SeriesEditViewModel(
             state.update { it.copy(mergeInProgress = true, error = null) }
 
             when (val result = seriesEditRepository.mergeSeries(SeriesId(sourceId), targetId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     _navActions.trySend(SeriesEditNavAction.NavigateBack)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge series: ${result.message}" }
                     state.update {
@@ -349,7 +349,7 @@ class SeriesEditViewModel(
 
             // Save to staging location for preview (doesn't overwrite original)
             when (val saveResult = imageStagingRepository.saveSeriesCoverStaging(seriesId, imageData)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val stagingPath = imageStagingRepository.getSeriesCoverStagingPath(seriesId)
                     logger.info { "Cover saved to staging for preview: $stagingPath" }
 
@@ -365,7 +365,7 @@ class SeriesEditViewModel(
                     updateHasChanges()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
                     state.update {
@@ -439,7 +439,7 @@ class SeriesEditViewModel(
                 )
 
             when (result) {
-                is Success -> {
+                is AppResult.Success -> {
                     state.update {
                         it.copy(
                             isSaving = false,
@@ -452,7 +452,7 @@ class SeriesEditViewModel(
                     _navActions.trySend(SeriesEditNavAction.NavigateBack)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to save series: ${result.message}" }
                     state.update { it.copy(isSaving = false, error = "Failed to save: ${result.message}") }

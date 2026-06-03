@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportBook
 import com.calypsan.listenup.client.data.remote.ABSImportResponse
@@ -83,10 +83,10 @@ class ABSImportHubViewModelTest {
 
     private fun createMockedApi(): ABSImportApiContract {
         val api: ABSImportApiContract = mock()
-        everySuspend { api.listImports() } returns Success(emptyList())
-        everySuspend { api.getImport("import-1") } returns Success(testImport)
-        everySuspend { api.listImportUsers("import-1", any()) } returns Success(listOf(createUser()))
-        everySuspend { api.listImportBooks("import-1", any()) } returns Success(listOf(createBook()))
+        everySuspend { api.listImports() } returns AppResult.Success(emptyList())
+        everySuspend { api.getImport("import-1") } returns AppResult.Success(testImport)
+        everySuspend { api.listImportUsers("import-1", any()) } returns AppResult.Success(listOf(createUser()))
+        everySuspend { api.listImportBooks("import-1", any()) } returns AppResult.Success(listOf(createBook()))
         return api
     }
 
@@ -97,7 +97,7 @@ class ABSImportHubViewModelTest {
         runTest {
             val api = createMockedApi()
             val mappedBook = createBook(isMapped = true)
-            everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns Success(mappedBook)
+            everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns AppResult.Success(mappedBook)
 
             val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -153,7 +153,7 @@ class ABSImportHubViewModelTest {
         runTest {
             val api = createMockedApi()
             val mappedUser = createUser(isMapped = true)
-            everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns Success(mappedUser)
+            everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns AppResult.Success(mappedUser)
 
             val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle()
@@ -205,7 +205,7 @@ class ABSImportHubViewModelTest {
             val completedImport = testImport.copy(status = "active")
 
             // openImport will get "analyzing" → triggers startAnalysisPolling
-            everySuspend { api.getImport("import-1") } returns Success(analyzingImport)
+            everySuspend { api.getImport("import-1") } returns AppResult.Success(analyzingImport)
 
             val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
             advanceUntilIdle() // drain init (loadImports)
@@ -219,7 +219,7 @@ class ABSImportHubViewModelTest {
             assertEquals("analyzing", analyzing.import.status)
 
             // Re-stub so the next poll returns "active" — polling loop exits naturally
-            everySuspend { api.getImport("import-1") } returns Success(completedImport)
+            everySuspend { api.getImport("import-1") } returns AppResult.Success(completedImport)
 
             // Advance past the 3-second polling interval so the poll fires
             testScheduler.advanceTimeBy(3_100)

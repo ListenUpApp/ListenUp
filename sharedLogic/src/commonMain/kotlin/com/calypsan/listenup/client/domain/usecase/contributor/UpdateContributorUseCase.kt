@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging

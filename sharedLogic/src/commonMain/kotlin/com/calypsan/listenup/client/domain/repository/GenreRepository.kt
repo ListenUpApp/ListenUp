@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.client.domain.model.Genre

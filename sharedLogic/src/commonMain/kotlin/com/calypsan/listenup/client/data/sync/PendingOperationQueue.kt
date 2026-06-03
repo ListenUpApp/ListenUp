@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import io.github.oshai.kotlinlogging.KotlinLogging

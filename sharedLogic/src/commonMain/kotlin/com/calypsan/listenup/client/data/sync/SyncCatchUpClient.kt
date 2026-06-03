@@ -5,8 +5,8 @@ import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body

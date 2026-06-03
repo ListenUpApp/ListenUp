@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Boundary the queue calls to actually push an op to the server. Books-C

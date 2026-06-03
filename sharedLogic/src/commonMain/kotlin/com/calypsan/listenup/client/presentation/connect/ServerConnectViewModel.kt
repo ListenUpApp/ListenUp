@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.PlatformUtils
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -60,12 +60,12 @@ class ServerConnectViewModel(
 
             _state.value =
                 when (val result = instanceRepository.verifyServer(url)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         serverConfig.setServerUrl(ServerUrl(result.data.verifiedUrl))
                         ServerConnectUiState.Verified
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         ServerConnectUiState.Error(mapFailure(result, url))
                     }
                 }
@@ -114,7 +114,7 @@ class ServerConnectViewModel(
     }
 
     private fun mapFailure(
-        result: Failure,
+        result: AppResult.Failure,
         url: String,
     ): ServerConnectError =
         when (val error = result.error) {

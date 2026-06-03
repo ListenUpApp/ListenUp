@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.answering.returns
@@ -45,8 +45,8 @@ class ImageDownloaderTest {
 
         // Default stubs
         every { fixture.imageStorage.exists(any()) } returns false
-        everySuspend { fixture.imageApi.downloadCover(any()) } returns Success(ByteArray(100))
-        everySuspend { fixture.imageStorage.saveCover(any(), any()) } returns Success(Unit)
+        everySuspend { fixture.imageApi.downloadCover(any()) } returns AppResult.Success(ByteArray(100))
+        everySuspend { fixture.imageStorage.saveCover(any(), any()) } returns AppResult.Success(Unit)
 
         return fixture
     }
@@ -62,14 +62,14 @@ class ImageDownloaderTest {
             val bookId = BookId("book-1")
             val imageBytes = ByteArray(100) { it.toByte() }
 
-            everySuspend { fixture.imageApi.downloadCover(bookId) } returns Success(imageBytes)
-            everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns Success(Unit)
+            everySuspend { fixture.imageApi.downloadCover(bookId) } returns AppResult.Success(imageBytes)
+            everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns AppResult.Success(Unit)
 
             // When
             val result = imageDownloader.downloadCover(bookId)
 
             // Then
-            val success = assertIs<Success<Boolean>>(result)
+            val success = assertIs<AppResult.Success<Boolean>>(result)
             assertTrue(success.data)
             verifySuspend { fixture.imageApi.downloadCover(bookId) }
             verifySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) }
@@ -88,7 +88,7 @@ class ImageDownloaderTest {
             val result = imageDownloader.downloadCover(bookId)
 
             // Then
-            val success = assertIs<Success<Boolean>>(result)
+            val success = assertIs<AppResult.Success<Boolean>>(result)
             assertEquals(false, success.data)
         }
 
@@ -105,7 +105,7 @@ class ImageDownloaderTest {
             val result = imageDownloader.downloadCover(bookId)
 
             // Then - returns false (non-fatal), not failure
-            val success = assertIs<Success<Boolean>>(result)
+            val success = assertIs<AppResult.Success<Boolean>>(result)
             assertEquals(false, success.data)
         }
 
@@ -119,12 +119,12 @@ class ImageDownloaderTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation.
             val storageFailure =
-                Failure(
+                AppResult.Failure(
                     com.calypsan.listenup.api.error
                         .ValidationError(message = "Disk full"),
                 )
 
-            everySuspend { fixture.imageApi.downloadCover(bookId) } returns Success(imageBytes)
+            everySuspend { fixture.imageApi.downloadCover(bookId) } returns AppResult.Success(imageBytes)
             everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns storageFailure
             val imageDownloader = fixture.build()
 
@@ -132,7 +132,7 @@ class ImageDownloaderTest {
             val result = imageDownloader.downloadCover(bookId)
 
             // Then - storage failure is fatal
-            val failure = assertIs<Failure>(result)
+            val failure = assertIs<AppResult.Failure>(result)
             assertEquals("Disk full", failure.message)
         }
 

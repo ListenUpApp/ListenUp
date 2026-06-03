@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.activity
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -18,8 +18,8 @@ private val logger = KotlinLogging.logger {}
  * ```kotlin
  * val result = fetchActivitiesUseCase(limit = 50)
  * when (result) {
- *     is Success -> logger.info { "Fetched ${result.data} activities" }
- *     is Failure -> logger.error { "Failed: ${result.message}" }
+ *     is AppResult.Success -> logger.info { "Fetched ${result.data} activities" }
+ *     is AppResult.Failure -> logger.error { "Failed: ${result.message}" }
  * }
  * ```
  */

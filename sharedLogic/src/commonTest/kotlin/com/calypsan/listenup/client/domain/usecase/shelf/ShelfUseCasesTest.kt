@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.shelf
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import dev.mokkery.answering.returns
@@ -59,7 +59,7 @@ class ShelfUseCasesTest {
             val result = useCase(name = "My Reading List", description = null)
 
             // Then
-            val success = assertIs<Success<Shelf>>(result)
+            val success = assertIs<AppResult.Success<Shelf>>(result)
             assertEquals("My Reading List", success.data.name)
         }
 
@@ -89,7 +89,7 @@ class ShelfUseCasesTest {
             val result = useCase(name = "   ", description = null)
 
             // Then
-            val failure = assertIs<Failure>(result)
+            val failure = assertIs<AppResult.Failure>(result)
             assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
             assertEquals("Shelf name is required", failure.message)
         }
@@ -105,7 +105,7 @@ class ShelfUseCasesTest {
             val result = useCase(name = "", description = null)
 
             // Then
-            val failure = assertIs<Failure>(result)
+            val failure = assertIs<AppResult.Failure>(result)
             assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
         }
 
@@ -151,7 +151,7 @@ class ShelfUseCasesTest {
 
             val result = useCase(name = "Test", description = null)
 
-            assertIs<Failure>(result)
+            assertIs<AppResult.Failure>(result)
         }
 
     // ========== UpdateShelfUseCase Tests ==========
@@ -169,7 +169,7 @@ class ShelfUseCasesTest {
             val result = useCase(shelfId = "shelf-123", name = "Updated Name", description = null)
 
             // Then
-            val success = assertIs<Success<Shelf>>(result)
+            val success = assertIs<AppResult.Success<Shelf>>(result)
             assertEquals("Updated Name", success.data.name)
         }
 
@@ -199,7 +199,7 @@ class ShelfUseCasesTest {
             val result = useCase(shelfId = "shelf-123", name = "   ", description = null)
 
             // Then
-            val failure = assertIs<Failure>(result)
+            val failure = assertIs<AppResult.Failure>(result)
             assertIs<com.calypsan.listenup.api.error.ValidationError>(failure.error)
             assertEquals("Shelf name is required", failure.message)
         }
@@ -244,7 +244,7 @@ class ShelfUseCasesTest {
 
             val result = useCase(shelfId = "shelf-123", name = "Test", description = null)
 
-            assertIs<Failure>(result)
+            assertIs<AppResult.Failure>(result)
         }
 
     // ========== DeleteShelfUseCase Tests ==========
@@ -261,7 +261,7 @@ class ShelfUseCasesTest {
             val result = useCase(shelfId = "shelf-123")
 
             // Then
-            checkIs<Success<Unit>>(result)
+            checkIs<AppResult.Success<Unit>>(result)
         }
 
     @Test
@@ -289,6 +289,6 @@ class ShelfUseCasesTest {
 
             val result = useCase(shelfId = "shelf-123")
 
-            assertIs<Failure>(result)
+            assertIs<AppResult.Failure>(result)
         }
 }
