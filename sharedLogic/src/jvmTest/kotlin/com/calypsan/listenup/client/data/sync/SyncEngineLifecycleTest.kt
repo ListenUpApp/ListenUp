@@ -91,6 +91,7 @@ class SyncEngineLifecycleTest :
                         store = store,
                         catchUp = fakeCatchUp,
                         sseClient = fakeSse,
+                        reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                         dispatcher = dispatcher,
                         downloadRepository = FakeDownloadRepository(),
                         scope = backgroundScope,
@@ -118,14 +119,16 @@ class SyncEngineLifecycleTest :
                     )
                 val u1opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
                 val state = SyncEngineState()
+                val fakeCatchUp2 = FakeCatchUp(emptyList(), store)
                 val engine =
                     SyncEngine(
                         registry = registry,
                         queue = queue,
                         state = state,
                         store = store,
-                        catchUp = FakeCatchUp(emptyList(), store),
+                        catchUp = fakeCatchUp2,
                         sseClient = FakeSse(),
+                        reconciler = noopSyncReconciler(registry, store, fakeCatchUp2),
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,
@@ -180,14 +183,16 @@ class SyncEngineLifecycleTest :
                     )
                 val state = SyncEngineState()
                 val fakeSse = FakeSse()
+                val fakeCatchUp3 = FakeCatchUp(emptyList(), store)
                 val engine =
                     SyncEngine(
                         registry = registry,
                         queue = queue,
                         state = state,
                         store = store,
-                        catchUp = FakeCatchUp(emptyList(), store),
+                        catchUp = fakeCatchUp3,
                         sseClient = fakeSse,
+                        reconciler = noopSyncReconciler(registry, store, fakeCatchUp3),
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,
@@ -266,14 +271,16 @@ class SyncEngineLifecycleTest :
                     )
                 val state = SyncEngineState()
                 val fakeSse = FakeSse()
+                val fakeCatchUp4 = FakeCatchUp(emptyList(), store)
                 val engine =
                     SyncEngine(
                         registry = registry,
                         queue = queue,
                         state = state,
                         store = store,
-                        catchUp = FakeCatchUp(emptyList(), store),
+                        catchUp = fakeCatchUp4,
                         sseClient = fakeSse,
+                        reconciler = noopSyncReconciler(registry, store, fakeCatchUp4),
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,

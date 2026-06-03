@@ -202,6 +202,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     store = store,
                     catchUp = fakeCatchUp,
                     sseClient = FakeReconcileSse(),
+                    reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
                     downloadRepository = downloadRepository,
                     scope = scope,

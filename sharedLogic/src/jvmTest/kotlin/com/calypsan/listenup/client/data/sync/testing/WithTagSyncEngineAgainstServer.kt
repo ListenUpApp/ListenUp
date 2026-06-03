@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
+import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
@@ -247,6 +249,9 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     },
                 )
 
+            val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
+            val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
+
             val engine =
                 SyncEngine(
                     registry = registry,
@@ -255,6 +260,7 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     store = store,
                     catchUp = catchUp,
                     sseClient = sseClient,
+                    reconciler = reconciler,
                     dispatcher = dispatcher,
                     downloadRepository = FakeDownloadRepository(),
                     scope = clientScope,

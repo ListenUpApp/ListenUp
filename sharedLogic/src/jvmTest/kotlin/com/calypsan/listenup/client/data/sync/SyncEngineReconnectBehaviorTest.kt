@@ -188,6 +188,7 @@ private fun buildReconnectEngine(
         store = store,
         catchUp = NoopReconnectCatchUp,
         sseClient = sse,
+        reconciler = noopSyncReconciler(registry, store, NoopReconnectCatchUp),
         dispatcher = dispatcher,
         downloadRepository = downloadRepository,
         scope = scope,

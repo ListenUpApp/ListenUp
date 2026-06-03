@@ -155,6 +155,7 @@ private fun buildEngine(
         store = store,
         catchUp = NoopStateCatchUp,
         sseClient = sse,
+        reconciler = noopSyncReconciler(registry, store, NoopStateCatchUp),
         dispatcher = dispatcher,
         downloadRepository = FakeDownloadRepository(),
         scope = scope,
