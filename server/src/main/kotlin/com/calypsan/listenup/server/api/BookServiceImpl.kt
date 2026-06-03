@@ -297,28 +297,59 @@ internal class BookServiceImpl(
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        // Resolve the on-disk cover file (if any) BEFORE the transaction so
-        // we can best-effort delete it post-commit. Embedded covers have no
-        // file of their own — the artwork is inside the audio file — so they
-        // surface as Embedded here and are deliberately ignored.
-        val pathToDelete = (repo.coverInfo(id) as? CoverInfo.Filesystem)?.path
+        // Validate the book exists and has a cover before touching anything.
+        // Read the payload first to determine the cover source (authoritative) and
+        // whether the cover is managed (UPLOADED/ENRICHED) or filesystem-side.
+        val current = repo.findById(id) ?: return bookNotFound(id)
+        if (current.cover == null) {
+            return AppResult.Failure(CoverError.NotPresent(debugInfo = "bookId=${id.value}"))
+        }
+
+        val coverSource = current.cover!!.source
+        // Managed covers live in $LISTENUP_HOME/covers/ — determined by cover source,
+        // not by whether coverInfo() resolves (which depends on homeDir being configured).
+        val isManagedCover = coverSource == CoverSource.UPLOADED || coverSource == CoverSource.ENRICHED
+
+        // Resolve the filesystem path for non-managed covers BEFORE the transaction.
+        // Embedded covers have no standalone file; Filesystem covers do.
+        val filesystemPath =
+            if (!isManagedCover) {
+                (repo.coverInfo(id) as? CoverInfo.Filesystem)?.path
+            } else {
+                null
+            }
+
         val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                val current =
-                    repo.findById(id)
-                        ?: return@suspendTransaction bookNotFound(id)
-                if (current.cover == null) {
-                    return@suspendTransaction AppResult.Failure(
-                        CoverError.NotPresent(debugInfo = "bookId=${id.value}"),
-                    )
-                }
-                when (val upsertResult = repo.upsert(current.copy(cover = null))) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            if (isManagedCover) {
+                // Managed covers (UPLOADED, ENRICHED): use clearManagedCover which bypasses
+                // the sticky-upload guard in writePayload — the guard prevents re-scan from
+                // clobbering a user-uploaded cover, but an explicit delete must always win.
+                repo.clearManagedCover(id)
+            } else {
+                // Filesystem / Embedded covers: upsert with cover = null to clear the source
+                // column. writePayload skips coverPath/coverHash for non-managed payloads, so
+                // the null propagates cleanly.
+                suspendTransaction(db) {
+                    val fresh =
+                        repo.findById(id)
+                            ?: return@suspendTransaction bookNotFound(id)
+                    when (val upsertResult = repo.upsert(fresh.copy(cover = null))) {
+                        is AppResult.Success -> AppResult.Success(Unit)
+                        is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+                    }
                 }
             }
-        if (result is AppResult.Success && pathToDelete != null) {
-            coverStorage.delete(pathToDelete)
+        if (result is AppResult.Success) {
+            // Delete the standalone file — after the DB commit so a failed file delete
+            // never rolls back a successful nullify.
+            if (filesystemPath != null) {
+                coverStorage.delete(filesystemPath)
+            }
+            // Remove the managed file from $LISTENUP_HOME/covers/ using the bookId as
+            // the key — ImageStore.delete probes all extensions (jpg, png, webp).
+            if (isManagedCover) {
+                coverImageStore?.store?.delete(id.value)
+            }
         }
         return result
     }

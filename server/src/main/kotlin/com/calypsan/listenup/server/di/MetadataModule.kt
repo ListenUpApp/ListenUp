@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
@@ -113,6 +114,7 @@ fun metadataModule(imageHome: Path): Module =
                 contributorRepository = get(),
                 seriesRepository = get(),
                 imageStorage = get(),
+                coverImageStore = get<CoverImageStore>(),
                 imageHome = imageHome,
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal =

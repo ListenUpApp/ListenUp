@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -15,6 +17,8 @@ import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -51,6 +55,23 @@ import kotlinx.io.files.Path
 private val TEST_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val TEST_ASIN = "B017V4IM1G"
 
+// Minimal valid JPEG bytes (FF D8 FF E0 … 3-byte magic minimum for sniff).
+private val TINY_JPEG =
+    byteArrayOf(
+        0xFF.toByte(),
+        0xD8.toByte(),
+        0xFF.toByte(),
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+    )
+
 /**
  * Tier 2 E2E test for the Books-B2a metadata-apply path.
  *
@@ -58,7 +79,8 @@ private const val TEST_ASIN = "B017V4IM1G"
  * chain with:
  *  - A stubbed [AudibleApi] returning a canned [AudibleBook].
  *  - A [MockEngine]-backed [ImageStorage] that records the download URL
- *    and writes a tiny PNG to disk.
+ *    and returns a tiny valid JPEG.
+ *  - A real [CoverImageStore] backed by a temp directory so the cover lands on disk.
  *  - Real [BookRepository], [ContributorRepository], and [SeriesRepository]
  *    against an in-memory SQLite database.
  *  - Real [MetadataCacheRepository] and [MetadataService] so caching
@@ -66,9 +88,8 @@ private const val TEST_ASIN = "B017V4IM1G"
  *
  * After `applyBookMetadata` returns [AppResult.Success], the test asserts
  * the server-side [BookRepository] row carries the Audible metadata —
- * specifically `description` populated and `asin` stamped. These enrichments
- * flow to clients via the SSE sync stream; the sync round-trip is covered by
- * the existing [com.calypsan.listenup.client.books.BooksEndToEndTest] suite.
+ * specifically `description` populated, `asin` stamped, and (new in Task 6)
+ * `cover_source = enriched` with `cover_path` and `cover_hash` set.
  *
  * This test lives in `server/src/test/` (not `sharedLogic/src/jvmTest/`)
  * because [MetadataLookupServiceImpl] is server-only and the full in-process
@@ -81,7 +102,7 @@ class B2aMetadataApplyE2ETest :
 
         test("applyBookMetadata enriches the server book row and returns Success") {
             withInMemoryDatabase {
-                val tempDir = Files.createTempDirectory("b2a-e2e-").toString()
+                val tempDir = Files.createTempDirectory("b2a-e2e-").also { it.toFile().deleteOnExit() }
                 val db = this
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
@@ -94,35 +115,19 @@ class B2aMetadataApplyE2ETest :
                     BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
-                val audibleBook =
-                    AudibleBook(
-                        asin = TEST_ASIN,
-                        title = "The Way of Kings",
-                        subtitle = "The Stormlight Archive, Book One",
-                        authors = listOf(AudibleContributor(asin = "A123", name = "Brandon Sanderson")),
-                        narrators = listOf(AudibleContributor(asin = "", name = "Michael Kramer")),
-                        publisher = "Macmillan Audio",
-                        releaseDate = "2010-08-31",
-                        runtimeMinutes = 2761,
-                        description = "Roshar is a world of stone and storms.",
-                        coverUrl = "https://example.com/way-of-kings.jpg",
-                        series = emptyList(),
-                        genres = listOf("Fantasy"),
-                        language = "english",
-                        rating = 4.9f,
-                        ratingCount = 50_000,
-                    )
+                val audibleBook = canned_WayOfKings()
                 val audibleApi = SingleBookFakeAudibleApi(audibleBook)
 
-                // ── Stub: MockEngine-backed ImageStorage writes a tiny file ─────
+                // ── Stub: MockEngine-backed ImageStorage returns a tiny JPEG ─────
                 val mockEngine =
                     MockEngine { _ ->
                         respond(
-                            content = byteArrayOf(0xFF.toByte(), 0xD8.toByte()), // tiny JPEG magic
+                            content = TINY_JPEG,
                             status = HttpStatusCode.OK,
                         )
                     }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
+                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
                 // ── Wire MetadataService + MetadataLookupServiceImpl ────────────
                 val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
@@ -133,24 +138,21 @@ class B2aMetadataApplyE2ETest :
                         cache = cacheRepo,
                     )
                 val service =
-                    MetadataLookupServiceImpl(
-                        metadataService = metadataService,
-                        bookRepository = bookRepo,
-                        contributorRepository = contributorRepo,
-                        seriesRepository = seriesRepo,
-                        imageStorage = imageStorage,
-                        imageHome = Path(tempDir),
-                        permissionPolicy = UserPermissionPolicy(db),
-                        principal =
-                            PrincipalProvider {
-                                UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT)
-                            },
+                    buildService(
+                        db,
+                        bookRepo,
+                        contributorRepo,
+                        seriesRepo,
+                        imageStorage,
+                        coverImageStore,
+                        metadataService,
+                        tempDir.toString(),
                     )
 
                 // ── Act ──────────────────────────────────────────────────────────
                 val bookId = "b2a-test-book"
                 runTest {
-                    // Seed a minimal book (no description, no ASIN)
+                    // Seed a minimal book (no description, no ASIN, no cover)
                     bookRepo.upsert(minimalBook(bookId), clientOpId = null)
 
                     val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US)
@@ -174,15 +176,86 @@ class B2aMetadataApplyE2ETest :
                     narratorRef.shouldNotBeNull()
                     narratorRef.name shouldBe "Michael Kramer"
 
-                    // Image downloaded once to the cover path
+                    // Image downloaded once
                     mockEngine.requestHistory.size shouldBe 1
+
+                    // ── Assert: cover stored via CoverImageStore + columns set ────
+                    val cover = enriched.cover
+                    cover.shouldNotBeNull()
+                    cover.source shouldBe CoverSource.ENRICHED
+                    cover.hash.shouldNotBeNull()
+                }
+            }
+        }
+
+        test("applyBookMetadata does NOT overwrite a higher-precedence cover") {
+            withInMemoryDatabase {
+                val tempDir = Files.createTempDirectory("b2a-e2e-nooverwrite-").also { it.toFile().deleteOnExit() }
+                val db = this
+                seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+
+                val contributorRepo = ContributorRepository(db, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db, bus, syncRegistry)
+                val bookRepo =
+                    BookRepository(db, bus, syncRegistry, contributorRepo, seriesRepo)
+
+                val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
+                val imageStorage = ImageStorage(HttpClient(mockEngine))
+                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+
+                val cacheRepo = MetadataCacheRepository(db, clock = FixedClock(TEST_NOW))
+                val metadataService =
+                    MetadataService(
+                        audible = SingleBookFakeAudibleApi(canned_WayOfKings()),
+                        itunes = NoOpITunesApi(),
+                        cache = cacheRepo,
+                    )
+                val service =
+                    buildService(
+                        db,
+                        bookRepo,
+                        contributorRepo,
+                        seriesRepo,
+                        imageStorage,
+                        coverImageStore,
+                        metadataService,
+                        tempDir.toString(),
+                    )
+
+                val bookId = "b2a-no-overwrite"
+                runTest {
+                    // Seed a book with an UPLOADED cover (higher precedence than ENRICHED)
+                    val uploadedHash = "uploaded-sha256-hash"
+                    bookRepo.upsert(
+                        minimalBook(bookId).copy(
+                            cover = CoverPayload(source = CoverSource.UPLOADED, hash = uploadedHash),
+                        ),
+                        clientOpId = null,
+                    )
+                    // Manually set cover_path so the repo treats it as managed
+                    bookRepo.setManagedCover(BookId(bookId), "covers/$bookId.png", uploadedHash, CoverSource.UPLOADED)
+
+                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Cover columns must still reflect UPLOADED — enrichment was blocked
+                    val afterApply = bookRepo.findById(BookId(bookId))
+                    afterApply.shouldNotBeNull()
+                    afterApply.cover?.source shouldBe CoverSource.UPLOADED
+                    afterApply.cover?.hash shouldBe uploadedHash
+                    // No HTTP download for the cover (Audible text metadata still downloaded,
+                    // but we only check that the cover was NOT re-fetched by looking at
+                    // whether we still see the uploaded hash)
                 }
             }
         }
 
         test("applyBookMetadata returns MetadataError.NotFound when book is absent") {
             withInMemoryDatabase {
-                val tempDir = Files.createTempDirectory("b2a-e2e-notfound-").toString()
+                val tempDir = Files.createTempDirectory("b2a-e2e-notfound-").also { it.toFile().deleteOnExit() }
                 val db = this
                 seedTestLibraryAndFolder()
                 val bus = ChangeBus()
@@ -200,19 +273,19 @@ class B2aMetadataApplyE2ETest :
                         itunes = NoOpITunesApi(),
                         cache = cacheRepo,
                     )
+                val imageStorage =
+                    ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) }))
+                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
                 val service =
-                    MetadataLookupServiceImpl(
-                        metadataService = metadataService,
-                        bookRepository = bookRepo,
-                        contributorRepository = contributorRepo,
-                        seriesRepository = seriesRepo,
-                        imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-                        imageHome = Path(tempDir),
-                        permissionPolicy = UserPermissionPolicy(db),
-                        principal =
-                            PrincipalProvider {
-                                UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT)
-                            },
+                    buildService(
+                        db,
+                        bookRepo,
+                        contributorRepo,
+                        seriesRepo,
+                        imageStorage,
+                        coverImageStore,
+                        metadataService,
+                        tempDir.toString(),
                     )
 
                 runTest {
@@ -224,6 +297,30 @@ class B2aMetadataApplyE2ETest :
     })
 
 // ─── Test helpers ──────────────────────────────────────────────────────────────
+
+private const val MAX_COVER_BYTES = 10L * 1024 * 1024
+
+private fun buildService(
+    db: org.jetbrains.exposed.v1.jdbc.Database,
+    bookRepo: BookRepository,
+    contributorRepo: ContributorRepository,
+    seriesRepo: SeriesRepository,
+    imageStorage: ImageStorage,
+    coverImageStore: CoverImageStore,
+    metadataService: MetadataService,
+    tempDir: String,
+): MetadataLookupServiceImpl =
+    MetadataLookupServiceImpl(
+        metadataService = metadataService,
+        bookRepository = bookRepo,
+        contributorRepository = contributorRepo,
+        seriesRepository = seriesRepo,
+        imageStorage = imageStorage,
+        coverImageStore = coverImageStore,
+        imageHome = Path(tempDir),
+        permissionPolicy = UserPermissionPolicy(db),
+        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
+    )
 
 private fun minimalBook(id: String): BookSyncPayload =
     BookSyncPayload(
@@ -255,6 +352,25 @@ private fun minimalBook(id: String): BookSyncPayload =
         updatedAt = 0L,
         createdAt = 0L,
         deletedAt = null,
+    )
+
+private fun canned_WayOfKings(): AudibleBook =
+    AudibleBook(
+        asin = TEST_ASIN,
+        title = "The Way of Kings",
+        subtitle = "The Stormlight Archive, Book One",
+        authors = listOf(AudibleContributor(asin = "A123", name = "Brandon Sanderson")),
+        narrators = listOf(AudibleContributor(asin = "", name = "Michael Kramer")),
+        publisher = "Macmillan Audio",
+        releaseDate = "2010-08-31",
+        runtimeMinutes = 2761,
+        description = "Roshar is a world of stone and storms.",
+        coverUrl = "https://example.com/way-of-kings.jpg",
+        series = emptyList(),
+        genres = listOf("Fantasy"),
+        language = "english",
+        rating = 4.9f,
+        ratingCount = 50_000,
     )
 
 /**
