@@ -1,11 +1,6 @@
-@file:Suppress("TooManyFunctions")
-
 package com.calypsan.listenup.api.result
 
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.api.error.ValidationError
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.MustUseReturnValues
@@ -33,6 +28,9 @@ import kotlin.contracts.contract
  * **Cancellation:** [AppResult] does not represent cancellation — that's not a
  * domain concern. Boundary helpers ([catchingResult] and friends) re-raise
  * `CancellationException` per the kotlinx.coroutines canonical rule.
+ *
+ * Failure constructors ([success], [failure], [failureOf], [validationError], …)
+ * live in `AppResultFactories.kt`.
  */
 @MustUseReturnValues
 @Serializable
@@ -122,15 +120,7 @@ inline fun <T> AppResult<T>.onFailure(action: (AppError) -> Unit): AppResult<T> 
     return this
 }
 
-// ---- Construction sugar ------------------------------------------------------------------
-
-/** Sugar for `AppResult.Success(value)`. */
-fun <T> success(value: T): AppResult<T> = AppResult.Success(value)
-
-/** Sugar for `AppResult.Failure(error)`. */
-fun failure(error: AppError): AppResult<Nothing> = AppResult.Failure(error)
-
-// ---- Additional helpers (parity with core.AppResult) -------------------------------------
+// ---- Additional combinators --------------------------------------------------------------
 
 inline fun <T> AppResult<T>.getOrDefault(defaultValue: () -> T): T =
     when (this) {
@@ -152,35 +142,3 @@ inline fun <T> AppResult<T>.recover(recovery: (AppError) -> T): AppResult<T> =
         is AppResult.Success -> this
         is AppResult.Failure -> AppResult.Success(recovery(error))
     }
-
-/** Construct an [AppResult.Failure] carrying a generic [ValidationError] so [message] survives. */
-fun failureOf(
-    message: String,
-    debugInfo: String? = null,
-): AppResult.Failure = AppResult.Failure(ValidationError(message = message, debugInfo = debugInfo))
-
-/** Construct an [AppResult.Failure] carrying a [ValidationError] for validation failures. */
-fun validationError(message: String): AppResult.Failure = AppResult.Failure(ValidationError(message = message))
-
-/** Construct an [AppResult.Failure] carrying a [ValidationError] for "resource not found". */
-fun notFoundError(message: String = "Resource not found"): AppResult.Failure =
-    AppResult.Failure(ValidationError(message = message))
-
-/** Construct an [AppResult.Failure] carrying a [TransportError.NetworkUnavailable]. */
-@Suppress("UnusedParameter")
-fun networkError(
-    message: String = "Network unavailable",
-    cause: Throwable? = null,
-): AppResult.Failure = AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = cause?.message ?: message))
-
-/** Construct an [AppResult.Failure] carrying an [AuthError.SessionExpired]. */
-fun unauthorizedError(message: String = "Session expired"): AppResult.Failure =
-    AppResult.Failure(AuthError.SessionExpired(debugInfo = message))
-
-/** Construct an [AppResult.Failure] carrying a [TransportError.Server5xx] with unknown status. */
-@Suppress("UnusedParameter")
-fun serverError(
-    message: String,
-    cause: Throwable? = null,
-): AppResult.Failure =
-    AppResult.Failure(TransportError.Server5xx(debugInfo = cause?.message ?: message, statusCode = 0))

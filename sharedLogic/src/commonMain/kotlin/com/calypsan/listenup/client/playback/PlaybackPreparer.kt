@@ -69,10 +69,12 @@ data class PreparedPlayback(
  * Holds no mutable playback state. [PlaybackManagerImpl] constructs one
  * internally and delegates [PlaybackManager.prepareForPlayback] to it; the iOS
  * native player calls [prepare] directly via Koin.
+ *
+ * LongParameterList suppressed: the playback-prep pipeline orchestrates auth,
+ * persistence (3 DAOs + repo), cover storage, progress, codec negotiation, and
+ * download across the subsystem; [PlaybackManagerImpl] forwards the same
+ * collaborators. A parameter object would only bag them and ripples into platform code.
  */
-// The playback-prep pipeline orchestrates auth, persistence (3 DAOs + repo), cover storage,
-// progress, codec negotiation, and download across the subsystem; PlaybackManagerImpl forwards
-// the same collaborators. A parameter object would only bag them and ripples into platform code.
 @Suppress("LongParameterList")
 class PlaybackPreparer(
     private val serverConfig: ServerConfig,

@@ -22,11 +22,12 @@ import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
  *
  * Per spec §8.4 precedence rule, callers run [readNeroChpl] first; if it
  * yields any chapters, the Apple text-track path is skipped.
+ *
+ * MagicNumber suppressed: Nero `chpl` and Apple QuickTime text-track atom field
+ * offsets/sizes (chpl header layout, tkhd/mdhd version-dependent offsets,
+ * stts/stsz/stco entry widths, 100ns→ms scaling) are fixed by ISO/IEC 14496-12
+ * and the Nero chapter format.
  */
-// Nero `chpl` and Apple QuickTime text-track atom field offsets/sizes (chpl
-// header layout, tkhd/mdhd version-dependent offsets, stts/stsz/stco entry
-// widths, 100ns→ms scaling) are fixed by ISO/IEC 14496-12 and the Nero chapter
-// format.
 @Suppress("MagicNumber")
 internal object Mp4ChapterExtractor {
     /**

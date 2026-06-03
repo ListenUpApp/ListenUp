@@ -23,9 +23,11 @@ import java.io.IOException
  * TODO(VBR): Xing/VBRI VBR-header parsing is deferred. CBR is the common case
  * for audiobook MP3s; revisit when a VBR file surfaces in the live validation
  * harness. Reference: `/home/simonh/Code/audiometa/internal/mp3/technical.go`.
+ *
+ * MagicNumber suppressed: MPEG-1 Layer III frame-header field widths, the 11-bit
+ * `0xFFE` sync mask, and the bytes→bits×milliseconds duration arithmetic are fixed
+ * by ISO/IEC 11172-3.
  */
-// MPEG-1 Layer III frame-header field widths, the 11-bit `0xFFE` sync mask, and the
-// bytes→bits×milliseconds duration arithmetic are fixed by ISO/IEC 11172-3.
 @Suppress("MagicNumber")
 internal object MpegDurationCalculator {
     fun compute(

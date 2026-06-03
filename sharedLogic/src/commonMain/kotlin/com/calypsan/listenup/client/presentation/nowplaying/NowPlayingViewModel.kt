@@ -55,10 +55,12 @@ private val logger = KotlinLogging.logger {}
  * `onCleared` never fires, so a matching `release()` would be dead code. The
  * PlaybackController object's Koin singleton lifetime does **not** establish the
  * connection — only `acquire()` does.
+ *
+ * Exposes ~25 distinct, intent-named user actions (transport, chapter, speed,
+ * sleep-timer, sheet visibility), each mapping to a single UI affordance; merging
+ * them to satisfy the function-count metric would reduce call-site clarity, hence
+ * the narrow [Suppress] (replaces the former file-level suppression).
  */
-// ~25 distinct, intent-named user actions (transport, chapter, speed, sleep-timer, sheet
-// visibility); each maps to a single UI affordance. Merging them to satisfy the counter would
-// reduce call-site clarity, so this is narrowed from a file-wide @file:Suppress to the class (G5).
 @Suppress("TooManyFunctions")
 class NowPlayingViewModel(
     private val playbackManager: PlaybackManager,

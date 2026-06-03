@@ -35,10 +35,12 @@ private const val BOOK_FINISHED_THRESHOLD = 0.90f
  * Default [PlaybackManager] implementation. See the interface KDoc on
  * [PlaybackManager] for the contract; this class is the sole production
  * realisation, wired into Koin as `single<PlaybackManager> { PlaybackManagerImpl(...) }`.
+ *
+ * LongParameterList suppressed: forwards the same heterogeneous playback-prep
+ * collaborators to [PlaybackPreparer] (auth, 3 DAOs + repo, cover storage, progress,
+ * codec negotiation, download). A parameter object would only bag them and ripples
+ * into platform code that also constructs this class.
  */
-// Forwards the same heterogeneous playback-prep collaborators to PlaybackPreparer (auth,
-// 3 DAOs + repo, cover storage, progress, codec negotiation, download). A parameter object
-// would only bag them and ripples into platform code that also constructs this class.
 @Suppress("LongParameterList")
 class PlaybackManagerImpl(
     private val serverConfig: ServerConfig,

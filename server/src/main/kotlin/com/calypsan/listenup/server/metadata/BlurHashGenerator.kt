@@ -24,10 +24,11 @@ import kotlin.math.sign
  * ignored — BlurHash encodes the RGB channels only. Components are the number
  * of DCT basis functions per axis; 4×3 is the spec's recommended default and
  * produces hashes around 28 chars.
+ *
+ * MagicNumber suppressed: the DCT/sRGB-gamma float arithmetic and the base-83 /
+ * base-19 AC packing constants are canonical values fixed by the BlurHash
+ * algorithm (https://github.com/woltapp/blurhash/blob/master/Algorithm.md).
  */
-// The DCT/sRGB-gamma float arithmetic and the base-83 / base-19 AC packing
-// constants are canonical values fixed by the BlurHash algorithm
-// (https://github.com/woltapp/blurhash/blob/master/Algorithm.md).
 @Suppress("MagicNumber")
 object BlurHashGenerator {
     private const val MAX_COMPONENTS = 9

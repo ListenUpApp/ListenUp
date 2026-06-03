@@ -157,9 +157,11 @@ internal class Mp4Parser : AudioFormatParser {
      * Decode the millisecond duration from a `mvhd` atom. Version 0 carries
      * 32-bit duration; version 1 carries 64-bit. Returns 0 if the timescale
      * is invalid (zero / negative).
+     *
+     * MagicNumber suppressed: mvhd field offsets (version+flags,
+     * creation/modification, timescale, duration) are fixed by the ISO base media
+     * file format (ISO/IEC 14496-12).
      */
-    // mvhd field offsets (version+flags, creation/modification, timescale,
-    // duration) are fixed by the ISO base media file format (ISO/IEC 14496-12).
     @Suppress("MagicNumber")
     private fun readMvhdDurationMs(
         bytes: ByteArray,
