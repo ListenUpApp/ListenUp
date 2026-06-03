@@ -334,9 +334,6 @@ val downloadModule =
                 context = androidContext(),
                 downloadManager = get(),
                 nowPlayingViewModel = get(),
-                localPreferences = get(),
-                networkMonitor = get(),
-                playbackManager = get(),
             )
         }
     }
