@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.core.AppResult
-
 /**
  * Constructs a [SyncReconciler] suitable for unit tests that do not need digest
  * reconciliation to run. The [DomainDigestClient] is never called in practice
