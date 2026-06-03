@@ -168,4 +168,19 @@ class SeriesRepository(
 
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: SeriesId): String = idAsString(id)
+
+    /**
+     * Returns `(id, revision)` pairs for ALL rows in the series table, soft-deleted
+     * included, with no revision filter. Exists solely to feed the cross-stack digest
+     * parity test (`DigestParityE2ETest` in `:sharedLogic:jvmTest`) so the client
+     * [com.calypsan.listenup.client.data.sync.DigestComputer] can be driven over the
+     * identical row set the server [digest] covers.
+     *
+     * Intentionally public (not internal) because the test lives in a different Gradle
+     * module (`:sharedLogic`) and Kotlin's `internal` does not cross module boundaries.
+     */
+    suspend fun allIdRevisionsForTest(): List<Pair<String, Long>> =
+        suspendTransaction(db) {
+            BookSeriesTable.selectAll().map { it[BookSeriesTable.id] to it[BookSeriesTable.revision] }
+        }
 }

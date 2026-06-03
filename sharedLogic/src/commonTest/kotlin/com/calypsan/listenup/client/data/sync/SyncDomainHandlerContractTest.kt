@@ -29,6 +29,8 @@ class SyncDomainHandlerContractTest :
                             item: Tag,
                             isTombstone: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
 
                 val event =
@@ -66,6 +68,8 @@ class SyncDomainHandlerContractTest :
                             if (isTombstone) tombstoneSeen = true
                             return AppResult.Success(Unit)
                         }
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
 
                 val tombstone = Tag(id = "t1", name = "alpha", slug = "alpha", revision = 5L, updatedAt = 100L, deletedAt = 100L)

@@ -286,6 +286,7 @@ private fun buildEngine(
         store = store,
         catchUp = NoopCatchUp,
         sseClient = sse,
+        reconciler = noopSyncReconciler(registry, store, NoopCatchUp),
         dispatcher = dispatcher,
         downloadRepository = FakeDownloadRepository(),
         scope = scope,
@@ -295,6 +296,8 @@ private fun buildEngine(
 
 private object NoopCatchUp : CatchUp {
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -318,6 +321,8 @@ private object NoopTagHandler : SyncDomainHandler<Tag> {
         item: Tag,
         isTombstone: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
 }
 
 /**

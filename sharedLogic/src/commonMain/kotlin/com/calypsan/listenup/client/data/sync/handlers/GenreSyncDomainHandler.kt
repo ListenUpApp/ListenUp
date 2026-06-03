@@ -81,6 +81,9 @@ class GenreSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.genreDao().digestRows(maxRevision).map { it.id to it.revision }
+
     /** Soft-delete the genre row (column update; row stays for revision bookkeeping). */
     private suspend fun tombstone(
         id: String,

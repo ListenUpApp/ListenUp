@@ -81,6 +81,10 @@ interface UserStatsDao {
     @Query("SELECT COUNT(*) FROM user_stats")
     suspend fun count(): Int
 
+    /** All rows (including tombstones) with [revision][UserStatsEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM user_stats WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
+
     /**
      * Observe all live user stats joined with their profile display names.
      *

@@ -68,6 +68,8 @@ class SyncCatchUpClientTest :
                     seenItems += item to isTombstone
                     return AppResult.Success(Unit)
                 }
+
+                override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
             }
 
         test("catchUp drains all pages until hasMore is false; cursor advances per page") {
@@ -203,6 +205,8 @@ class SyncCatchUpClientTest :
                             item: Tag,
                             isTombstone: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
                 val booksHandler =
                     object : SyncDomainHandler<Tag> {
@@ -220,6 +224,8 @@ class SyncCatchUpClientTest :
                             item: Tag,
                             isTombstone: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
                 val registry = ClientSyncDomainRegistry()
                 registry.register(tagsHandler)

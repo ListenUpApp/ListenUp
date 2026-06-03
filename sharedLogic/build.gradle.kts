@@ -111,6 +111,7 @@ kotlin {
             implementation(libs.ktor.resources) // @Resource annotation for REST surface mirror
 
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlincrypto.sha2)
             implementation(libs.kotlinx.rpc.core)
             implementation(libs.kotlinx.rpc.krpc.client)
             implementation(libs.kotlinx.rpc.krpc.ktor.client)

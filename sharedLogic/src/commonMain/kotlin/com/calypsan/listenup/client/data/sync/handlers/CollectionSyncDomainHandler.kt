@@ -50,6 +50,9 @@ class CollectionSyncDomainHandler(
         now: Long,
     ) = database.collectionDao().tombstoneNotIn(accessibleIds, now)
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.collectionDao().digestRows(maxRevision).map { it.id to it.revision }
+
     override suspend fun onEvent(
         event: SyncEvent<CollectionSyncPayload>,
         isOwnEcho: Boolean,

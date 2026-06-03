@@ -406,6 +406,10 @@ interface BookDao {
     """,
     )
     fun observeRandomUnstartedBooksWithAuthor(limit: Int = 10): Flow<List<DiscoveryBookWithAuthor>>
+
+    /** All rows (including tombstones) with [revision][BookEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }
 
 /**

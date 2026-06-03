@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.ListeningEventOpSender
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
@@ -112,6 +114,24 @@ val clientSyncRenovationModule =
                 serverUrlProvider = { serverConfig.getServerUrl()?.value },
                 store = get(),
                 transactionRunner = get(),
+            )
+        }
+
+        single {
+            val apiClientFactory: ApiClientFactory = get()
+            val serverConfig: ServerConfig = get()
+            DomainDigestClient(
+                httpClientProvider = { apiClientFactory.getClient() },
+                serverUrlProvider = { serverConfig.getServerUrl()?.value ?: "" },
+            )
+        }
+
+        single {
+            SyncReconciler(
+                registry = get(),
+                store = get(),
+                digestClient = get(),
+                catchUp = get(),
             )
         }
 
@@ -266,6 +286,7 @@ val clientSyncRenovationModule =
                 store = get(),
                 catchUp = get(),
                 sseClient = get(),
+                reconciler = get(),
                 dispatcher = get(),
                 downloadRepository = get<DownloadRepository>(),
                 scope = get(qualifier = named(APP_SCOPE)),

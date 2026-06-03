@@ -118,6 +118,10 @@ interface SeriesDao {
         deletedAt: Long,
         revision: Long,
     )
+
+    /** All rows (including tombstones) with [revision][SeriesEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM series WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }
 
 @Dao
@@ -216,6 +220,10 @@ interface ContributorDao {
         deletedAt: Long,
         revision: Long,
     )
+
+    /** All rows (including tombstones) with [revision][ContributorEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM contributors WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 
     // =========================================================================
     // Book-Contributor Relationship Queries

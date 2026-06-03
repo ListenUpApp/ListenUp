@@ -76,6 +76,9 @@ class BookTagSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.bookTagDao().digestRows(maxRevision).map { it.id to it.revision }
+
     private suspend fun upsert(payload: BookTagSyncPayload) {
         database.bookTagDao().upsert(
             BookTagEntity(

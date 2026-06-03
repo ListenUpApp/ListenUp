@@ -54,6 +54,9 @@ class CollectionBookSyncDomainHandler(
         now: Long,
     ) = database.collectionBookDao().tombstoneNotIn(accessibleIds, now)
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.collectionBookDao().digestRows(maxRevision).map { it.id to it.revision }
+
     override suspend fun onEvent(
         event: SyncEvent<CollectionBookSyncPayload>,
         isOwnEcho: Boolean,

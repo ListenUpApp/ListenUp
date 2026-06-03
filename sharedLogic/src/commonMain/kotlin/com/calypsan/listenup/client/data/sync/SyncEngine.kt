@@ -48,6 +48,7 @@ class SyncEngine(
     private val store: SyncCursorStore,
     private val catchUp: CatchUp,
     private val sseClient: SseClient,
+    private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
     private val downloadRepository: DownloadRepository,
     private val scope: CoroutineScope,
@@ -192,6 +193,10 @@ class SyncEngine(
         ensureStateObservers()
         // Step 7: connect SSE.
         sseClient.connect()
+        // Step 8: digest reconciliation — compare local domain digests against the
+        // server's and re-pull any domain that has drifted. Runs after SSE connect
+        // so the live tail is already in place; reconcileAll() is non-throwing.
+        reconciler.reconcileAll()
         // All steps succeeded — flag the user's setup complete so a subsequent
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.

@@ -26,8 +26,9 @@ import org.koin.test.verify.verify
  *  - [CoroutineScope] (named `appScope`) — owned by `syncModule` until D2 cutover.
  *  - [DownloadRepository] — owned by `repositoryModule` (bound to `DownloadRepositoryImpl`).
  *    [SyncEngine] calls [DownloadRepository.recheckWaitingForServer] on every SSE reconnect.
- *  - [Function2], [Function3] — Koin's verify treats constructor lambda params
- *    (`SyncEventDispatcher.onCursorStale` is `suspend (Long?) -> Unit` =
+ *  - [Function1], [Function2], [Function3] — Koin's verify treats constructor lambda params
+ *    (`DomainDigestClient`'s `httpClientProvider`/`serverUrlProvider` are `suspend () -> X` =
+ *    Function1; `SyncEventDispatcher.onCursorStale` is `suspend (Long?) -> Unit` =
  *    Function2; `cursorAdvance` is `suspend (String, Long) -> Unit` = Function3)
  *    as resolvable deps. They're satisfied at construction time by the
  *    module's `single { }` block.
@@ -48,6 +49,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         ServerConfig::class,
                         DownloadRepository::class,
                         CoroutineScope::class,
+                        Function1::class,
                         Function2::class,
                         Function3::class,
                         Boolean::class,

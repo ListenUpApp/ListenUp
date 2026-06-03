@@ -96,6 +96,9 @@ class ContributorSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.contributorDao().digestRows(maxRevision).map { it.id to it.revision }
+
     /**
      * Apply a server tombstone: soft-delete the contributor row and clear its
      * aliases. The row stays (soft delete is a column update, not a row delete,

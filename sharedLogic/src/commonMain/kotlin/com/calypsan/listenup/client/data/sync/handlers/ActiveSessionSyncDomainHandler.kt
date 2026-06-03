@@ -84,6 +84,9 @@ class ActiveSessionSyncDomainHandler(
             }
         }
 
+    // active_sessions has no client-side revision column → opt out of digest reconciliation
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>? = null
+
     private suspend fun upsert(payload: ActiveSessionSyncPayload) {
         database.activeSessionDao().upsert(
             ActiveSessionEntity(

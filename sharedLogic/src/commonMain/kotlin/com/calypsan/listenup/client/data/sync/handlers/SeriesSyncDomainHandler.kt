@@ -83,6 +83,9 @@ class SeriesSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.seriesDao().digestRows(maxRevision).map { it.id to it.revision }
+
     /**
      * Upsert the series row.
      *

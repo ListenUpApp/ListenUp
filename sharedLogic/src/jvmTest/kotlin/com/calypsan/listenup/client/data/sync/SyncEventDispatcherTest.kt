@@ -35,6 +35,8 @@ class SyncEventDispatcherTest :
                 item: Tag,
                 isTombstone: Boolean,
             ) = AppResult.Success(Unit)
+
+            override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
         }
 
         test("data event for known domain dispatches with isOwnEcho = false when no matching pending op") {

@@ -82,6 +82,9 @@ class UserStatsSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.userStatsDao().digestRows(maxRevision).map { it.id to it.revision }
+
     /**
      * Unconditionally upsert [payload] into [UserStatsEntity]. The server is the
      * sole writer of stats — no merge logic, no local-only columns to preserve.

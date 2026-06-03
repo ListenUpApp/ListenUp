@@ -132,6 +132,8 @@ private class FakeReconcileCatchUp : CatchUp {
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> {
@@ -200,6 +202,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     store = store,
                     catchUp = fakeCatchUp,
                     sseClient = FakeReconcileSse(),
+                    reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
                     downloadRepository = downloadRepository,
                     scope = scope,

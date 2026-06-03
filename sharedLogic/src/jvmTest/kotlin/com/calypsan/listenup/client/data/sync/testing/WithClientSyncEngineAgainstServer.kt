@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImp
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -30,6 +31,7 @@ import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
@@ -204,6 +206,7 @@ data class ClientEngineScope(
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
     val sseClient: SyncSseClient,
+    val reconciler: SyncReconciler,
 )
 
 /**
@@ -410,6 +413,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     transactionRunner = RoomTransactionRunner(clientDb),
                 )
 
+            val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
+            val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
+
             val sseClient =
                 SyncSseClient(
                     serverUrlProvider = { "" },
@@ -443,6 +449,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     store = store,
                     catchUp = catchUp,
                     sseClient = sseClient,
+                    reconciler = reconciler,
                     dispatcher = dispatcher,
                     downloadRepository = FakeDownloadRepository(),
                     scope = clientScope,
@@ -474,6 +481,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     dispatcher = dispatcher,
                     queue = queue,
                     sseClient = sseClient,
+                    reconciler = reconciler,
                 ).block()
             } finally {
                 engine.stopAndJoin()

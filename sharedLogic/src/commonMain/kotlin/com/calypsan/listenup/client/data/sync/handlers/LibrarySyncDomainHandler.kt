@@ -79,6 +79,9 @@ class LibrarySyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.libraryDao().digestRows(maxRevision).map { it.id to it.revision }
+
     private suspend fun upsert(payload: LibrarySyncPayload) {
         database.libraryDao().upsert(
             LibraryEntity(

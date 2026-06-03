@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db.dao
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
+import com.calypsan.listenup.client.data.local.db.IdRevision
 import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -62,4 +63,8 @@ interface LibraryDao {
         deletedAt: Long,
         revision: Long,
     )
+
+    /** All rows (including tombstones) with [revision][LibraryEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM libraries WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }

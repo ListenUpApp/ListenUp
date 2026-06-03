@@ -85,6 +85,9 @@ class ListeningEventSyncDomainHandler(
             }
         }
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.listeningEventDao().digestRows(maxRevision).map { it.id to it.revision }
+
     /**
      * Insert [payload] as a new [ListeningEventEntity] only if no row with the
      * same id already exists. Append-only: the caller must never overwrite an

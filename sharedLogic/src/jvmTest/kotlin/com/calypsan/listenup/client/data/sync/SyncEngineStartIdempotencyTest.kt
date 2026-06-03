@@ -194,6 +194,7 @@ private fun buildEngine(
         store = store,
         catchUp = catchUp,
         sseClient = sse,
+        reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         downloadRepository = FakeDownloadRepository(),
         scope = scope,
@@ -208,6 +209,8 @@ private class CountingCatchUp : CatchUp {
     val invocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         invocations.incrementAndGet()
@@ -229,6 +232,8 @@ private class FailingThenSucceedingCatchUp : CatchUp {
     val invocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         val attempt = invocations.incrementAndGet()
@@ -258,6 +263,8 @@ private object IdempotencyNoopTagHandler : SyncDomainHandler<Tag> {
         item: Tag,
         isTombstone: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
 }
 
 /**
