@@ -31,6 +31,8 @@ import org.koin.test.verify.verify
  *    Function2; `cursorAdvance` is `suspend (String, Long) -> Unit` = Function3)
  *    as resolvable deps. They're satisfied at construction time by the
  *    module's `single { }` block.
+ *  - [Boolean] (named `"playbackAvailable"`) — platform-provided: `true` on Android/iOS,
+ *    `false` on Desktop. Declared here so `verify()` does not fail on the qualified lookup.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncRenovationModuleVerifyTest :
@@ -48,6 +50,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         CoroutineScope::class,
                         Function2::class,
                         Function3::class,
+                        Boolean::class,
                     ),
             )
         }

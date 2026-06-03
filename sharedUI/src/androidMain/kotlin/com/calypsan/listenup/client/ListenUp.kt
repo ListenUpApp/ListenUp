@@ -154,6 +154,9 @@ val playbackModule =
                 ?: "unknown-device"
         }
 
+        // Platform capability flag: Android supports download and playback.
+        single(qualifier = named("playbackAvailable")) { true }
+
         // Application-scoped coroutine for progress tracking
         single(createdAtStart = false) {
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
