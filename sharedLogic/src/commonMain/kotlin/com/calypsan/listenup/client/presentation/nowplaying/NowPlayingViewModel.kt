@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber", "TooManyFunctions")
 
 package com.calypsan.listenup.client.presentation.nowplaying
 
@@ -57,6 +56,10 @@ private val logger = KotlinLogging.logger {}
  * PlaybackController object's Koin singleton lifetime does **not** establish the
  * connection — only `acquire()` does.
  */
+// ~25 distinct, intent-named user actions (transport, chapter, speed, sleep-timer, sheet
+// visibility); each maps to a single UI affordance. Merging them to satisfy the counter would
+// reduce call-site clarity, so this is narrowed from a file-wide @file:Suppress to the class (G5).
+@Suppress("TooManyFunctions")
 class NowPlayingViewModel(
     private val playbackManager: PlaybackManager,
     private val bookRepository: BookRepository,
@@ -459,7 +462,8 @@ class NowPlayingViewModel(
         setSpeed(speeds[nextIndex])
     }
 
-    fun getChapters(): List<Chapter> = playbackManager.chapters.value
+    /** Snapshot of the current book's chapters (non-reactive; for one-shot reads). */
+    val chapters: List<Chapter> get() = playbackManager.chapters.value
 
     private data class DynamicsRaw(
         val isPlaying: Boolean,

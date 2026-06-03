@@ -192,7 +192,7 @@ private fun OverlayDispatch(
         NowPlayingOverlay.ChapterPicker -> {
             if (activeState != null) {
                 ChapterPickerSheet(
-                    chapters = viewModel.getChapters(),
+                    chapters = viewModel.chapters,
                     currentChapterIndex = activeState.chapterIndex,
                     onChapterSelected = viewModel::seekToChapter,
                     onDismiss = viewModel::hideChapterPicker,
