@@ -1,14 +1,29 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.BookTagSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
+import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Cross-stack parity guard: proves [DigestComputer.compute] produces byte-for-byte
@@ -21,6 +36,17 @@ import kotlinx.coroutines.test.runTest
  *
  * If this test ever fails it means the two algorithms have drifted — do not weaken
  * the assertion; instead reconcile the implementations.
+ *
+ * Also covers four domains with non-trivial id mappings that are still reconcilable:
+ * - `user_stats`: id = userId
+ * - `listening_events`: id = event UUID
+ * - `book_tags`: synthetic `"$bookId:$tagId"`
+ * - `collection_books`: synthetic `"$collectionId:$bookId"`
+ *
+ * For each domain: seed the server, compute the server digest, apply the same rows
+ * to the client Room DB via the handler's `onCatchUpItem`, compute the client digest,
+ * and assert count AND hash equality. If any domain fails here it is a C1-class bug
+ * and must be investigated before opting out.
  */
 class DigestParityE2ETest :
     FunSpec({
@@ -55,6 +81,341 @@ class DigestParityE2ETest :
                 // Both sides must agree on count and hash — this is the wire contract.
                 clientDigest.count shouldBe serverDigest.count
                 clientDigest.hash shouldBe serverDigest.hash
+            }
+        }
+
+        // ── user_stats: id = userId ───────────────────────────────────────────────────────────
+
+        test("user_stats: client digest matches server after applying the same rows via onCatchUpItem") {
+            val tmp =
+                Files.createTempFile("listenup-digest-parity-user-stats-", ".db").toFile().apply {
+                    deleteOnExit()
+                }
+            val serverDb =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            val userStatsRepo =
+                UserStatsRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+
+            val clientDb = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val userId = "u1"
+
+                    // Seed two user_stats rows on the server. The id == userId, so we must pass
+                    // userId as the write-owner to the user-scoped repository.
+                    val stat1 =
+                        UserStatsSyncPayload(
+                            id = userId,
+                            totalSecondsAllTime = 3600L,
+                            totalSecondsLast7Days = 600L,
+                            totalSecondsLast30Days = 1800L,
+                            booksStarted = 5,
+                            booksFinished = 2,
+                            currentStreakDays = 3,
+                            longestStreakDays = 7,
+                            lastEventDate = "2026-06-01",
+                            revision = 0L,
+                            updatedAt = 1000L,
+                            createdAt = 500L,
+                            deletedAt = null,
+                        )
+                    userStatsRepo.upsert(stat1, userId = userId)
+
+                    // Server digest — filtered by userId because this is a user-scoped domain.
+                    val serverDigest = userStatsRepo.digest(userId = userId, cursor = Long.MAX_VALUE)
+
+                    // Apply via onCatchUpItem using the server-committed payload (pullSince gives
+                    // the exact (id, revision) that the server digest hashed).
+                    val registry = ClientSyncDomainRegistry()
+                    val handler =
+                        UserStatsSyncDomainHandler(
+                            database = clientDb,
+                            transactionRunner = RoomTransactionRunner(clientDb),
+                            registry = registry,
+                        )
+
+                    val serverPage = userStatsRepo.pullSince(userId = userId, cursor = 0L, limit = 100)
+                    for (item in serverPage.items) {
+                        handler.onCatchUpItem(item, isTombstone = false)
+                    }
+
+                    val clientRows =
+                        checkNotNull(handler.localDigestRows(Long.MAX_VALUE)) {
+                            "handler ${handler.domainName} unexpectedly returned null from localDigestRows"
+                        }
+                    val clientDigest = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = clientRows)
+
+                    clientDigest.count shouldBe serverDigest.count
+                    clientDigest.hash shouldBe serverDigest.hash
+                }
+            } finally {
+                clientDb.close()
+            }
+        }
+
+        // ── listening_events: id = event UUID ────────────────────────────────────────────────
+
+        test("listening_events: client digest matches server after applying the same rows via onCatchUpItem") {
+            val tmp =
+                Files.createTempFile("listenup-digest-parity-listening-events-", ".db").toFile().apply {
+                    deleteOnExit()
+                }
+            val serverDb =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            // null userStatsUpdater is safe here — stats accrual is not under test.
+            val listeningEventRepo =
+                ListeningEventRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+
+            val clientDb = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val userId = "u1"
+
+                    // Seed two listening events on the server.
+                    val event1 =
+                        ListeningEventSyncPayload(
+                            id = "event-1",
+                            bookId = "book-1",
+                            startPositionMs = 0L,
+                            endPositionMs = 60_000L,
+                            startedAt = 1000L,
+                            endedAt = 61_000L,
+                            playbackSpeed = 1.0f,
+                            tz = "UTC",
+                            deviceLabel = "Test",
+                            revision = 0L,
+                            updatedAt = 1000L,
+                            createdAt = 1000L,
+                            deletedAt = null,
+                        )
+                    val event2 =
+                        ListeningEventSyncPayload(
+                            id = "event-2",
+                            bookId = "book-1",
+                            startPositionMs = 60_000L,
+                            endPositionMs = 120_000L,
+                            startedAt = 2000L,
+                            endedAt = 62_000L,
+                            playbackSpeed = 1.5f,
+                            tz = "UTC",
+                            deviceLabel = "Test",
+                            revision = 0L,
+                            updatedAt = 2000L,
+                            createdAt = 2000L,
+                            deletedAt = null,
+                        )
+                    listeningEventRepo.upsert(event1, userId = userId)
+                    listeningEventRepo.upsert(event2, userId = userId)
+
+                    // Server digest for user u1.
+                    val serverDigest = listeningEventRepo.digest(userId = userId, cursor = Long.MAX_VALUE)
+
+                    // Apply the same events to the client via onCatchUpItem with the server-committed
+                    // revisions (read back via pullSince to get the real revision values).
+                    val registry = ClientSyncDomainRegistry()
+                    val handler =
+                        ListeningEventSyncDomainHandler(
+                            database = clientDb,
+                            transactionRunner = RoomTransactionRunner(clientDb),
+                            registry = registry,
+                        )
+
+                    val serverPage = listeningEventRepo.pullSince(userId = userId, cursor = 0L, limit = 100)
+                    for (item in serverPage.items) {
+                        handler.onCatchUpItem(item, isTombstone = false)
+                    }
+
+                    val clientRows =
+                        checkNotNull(handler.localDigestRows(Long.MAX_VALUE)) {
+                            "handler ${handler.domainName} unexpectedly returned null from localDigestRows"
+                        }
+                    val clientDigest = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = clientRows)
+
+                    clientDigest.count shouldBe serverDigest.count
+                    clientDigest.hash shouldBe serverDigest.hash
+                }
+            } finally {
+                clientDb.close()
+            }
+        }
+
+        // ── book_tags: synthetic "$bookId:$tagId" ─────────────────────────────────────────────
+
+        test("book_tags: client digest matches server after applying the same rows via onCatchUpItem") {
+            val tmp =
+                Files.createTempFile("listenup-digest-parity-book-tags-", ".db").toFile().apply {
+                    deleteOnExit()
+                }
+            val serverDb =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            val bookTagRepo = BookTagRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+
+            val clientDb = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // Seed parent rows required by the book_tags FK constraints (foreign_keys=ON).
+                    // books.library_id REFERENCES libraries(id), so we need a library row first.
+                    val now = System.currentTimeMillis()
+                    transaction(serverDb) {
+                        exec(
+                            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                                "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                        )
+                        // Minimal books rows — include all NOT NULL columns.
+                        for (bid in listOf("book-1", "book-2", "book-3")) {
+                            exec(
+                                "INSERT INTO books(id, library_id, folder_id, title, " +
+                                    "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
+                                    "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
+                            )
+                        }
+                        // Minimal tags rows.
+                        for ((tid, slug) in listOf("tag-a" to "ta", "tag-b" to "tb", "tag-c" to "tc")) {
+                            exec(
+                                "INSERT INTO tags(id, name, slug, revision, created_at, updated_at) " +
+                                    "VALUES ('$tid', '$tid', '$slug', 0, $now, $now)",
+                            )
+                        }
+                    }
+
+                    // Seed three live book-tag junctions (no tombstones — the parity test targets
+                    // the id-mapping contract, not the tombstone catch-up path).
+                    val payload1 =
+                        BookTagSyncPayload(bookId = "book-1", tagId = "tag-a", createdAt = 1000L, revision = 0L)
+                    val payload2 =
+                        BookTagSyncPayload(bookId = "book-2", tagId = "tag-b", createdAt = 2000L, revision = 0L)
+                    val payload3 =
+                        BookTagSyncPayload(bookId = "book-3", tagId = "tag-c", createdAt = 3000L, revision = 0L)
+                    bookTagRepo.upsert(payload1)
+                    bookTagRepo.upsert(payload2)
+                    bookTagRepo.upsert(payload3)
+
+                    // Server digest (global domain — no userId).
+                    val serverDigest = bookTagRepo.digest(userId = null, cursor = Long.MAX_VALUE)
+
+                    // Apply the same live rows to the client via onCatchUpItem.
+                    val registry = ClientSyncDomainRegistry()
+                    val handler =
+                        BookTagSyncDomainHandler(
+                            database = clientDb,
+                            transactionRunner = RoomTransactionRunner(clientDb),
+                            registry = registry,
+                        )
+
+                    val serverPage = bookTagRepo.pullSince(userId = null, cursor = 0L, limit = 100)
+                    for (item in serverPage.items) {
+                        handler.onCatchUpItem(item, isTombstone = false)
+                    }
+
+                    val clientRows =
+                        checkNotNull(handler.localDigestRows(Long.MAX_VALUE)) {
+                            "handler ${handler.domainName} unexpectedly returned null from localDigestRows"
+                        }
+                    val clientDigest = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = clientRows)
+
+                    clientDigest.count shouldBe serverDigest.count
+                    clientDigest.hash shouldBe serverDigest.hash
+                }
+            } finally {
+                clientDb.close()
+            }
+        }
+
+        // ── collection_books: synthetic "$collectionId:$bookId" ──────────────────────────────
+
+        test("collection_books: client digest matches server after applying the same rows via onCatchUpItem") {
+            val tmp =
+                Files.createTempFile("listenup-digest-parity-collection-books-", ".db").toFile().apply {
+                    deleteOnExit()
+                }
+            val serverDb =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
+            val collectionBookRepo =
+                CollectionBookRepository(db = serverDb, bus = ChangeBus(), registry = SyncRegistry())
+
+            val clientDb = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // Seed parent rows required by the collection_books FK constraints (foreign_keys=ON).
+                    val now = System.currentTimeMillis()
+                    transaction(serverDb) {
+                        // Library row required by CollectionsTable.libraryId FK.
+                        exec(
+                            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                                "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                        )
+                        // Collections rows.
+                        for (cid in listOf("col-1", "col-2")) {
+                            exec(
+                                "INSERT INTO collections(id, library_id, owner_id, name, revision, created_at, updated_at) " +
+                                    "VALUES ('$cid', 'lib', 'u1', 'Collection $cid', 0, $now, $now)",
+                            )
+                        }
+                        // Books rows — include all NOT NULL columns.
+                        for (bid in listOf("book-1", "book-2", "book-3")) {
+                            exec(
+                                "INSERT INTO books(id, library_id, folder_id, title, " +
+                                    "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
+                                    "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
+                            )
+                        }
+                    }
+
+                    // Seed three live collection-book junctions (no tombstones — the parity test
+                    // targets the id-mapping contract, not the tombstone catch-up path).
+                    val payload1 =
+                        CollectionBookSyncPayload(
+                            collectionId = "col-1",
+                            bookId = "book-1",
+                            createdAt = 1000L,
+                            revision = 0L,
+                        )
+                    val payload2 =
+                        CollectionBookSyncPayload(
+                            collectionId = "col-1",
+                            bookId = "book-2",
+                            createdAt = 2000L,
+                            revision = 0L,
+                        )
+                    val payload3 =
+                        CollectionBookSyncPayload(
+                            collectionId = "col-2",
+                            bookId = "book-3",
+                            createdAt = 3000L,
+                            revision = 0L,
+                        )
+                    collectionBookRepo.upsert(payload1)
+                    collectionBookRepo.upsert(payload2)
+                    collectionBookRepo.upsert(payload3)
+
+                    // Server digest (global domain — no userId).
+                    val serverDigest = collectionBookRepo.digest(userId = null, cursor = Long.MAX_VALUE)
+
+                    // Apply the same live rows to the client via onCatchUpItem.
+                    val registry = ClientSyncDomainRegistry()
+                    val handler =
+                        CollectionBookSyncDomainHandler(
+                            database = clientDb,
+                            transactionRunner = RoomTransactionRunner(clientDb),
+                            registry = registry,
+                        )
+
+                    val serverPage = collectionBookRepo.pullSince(userId = null, cursor = 0L, limit = 100)
+                    for (item in serverPage.items) {
+                        handler.onCatchUpItem(item, isTombstone = false)
+                    }
+
+                    val clientRows =
+                        checkNotNull(handler.localDigestRows(Long.MAX_VALUE)) {
+                            "handler ${handler.domainName} unexpectedly returned null from localDigestRows"
+                        }
+                    val clientDigest = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = clientRows)
+
+                    clientDigest.count shouldBe serverDigest.count
+                    clientDigest.hash shouldBe serverDigest.hash
+                }
+            } finally {
+                clientDb.close()
             }
         }
     })
