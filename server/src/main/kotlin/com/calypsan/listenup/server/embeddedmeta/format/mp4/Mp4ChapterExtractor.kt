@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber") // Atom-format constants — readability beats names.
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
@@ -24,6 +23,11 @@ import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
  * Per spec §8.4 precedence rule, callers run [readNeroChpl] first; if it
  * yields any chapters, the Apple text-track path is skipped.
  */
+// Nero `chpl` and Apple QuickTime text-track atom field offsets/sizes (chpl
+// header layout, tkhd/mdhd version-dependent offsets, stts/stsz/stco entry
+// widths, 100ns→ms scaling) are fixed by ISO/IEC 14496-12 and the Nero chapter
+// format.
+@Suppress("MagicNumber")
 internal object Mp4ChapterExtractor {
     /**
      * Read Nero `chpl` chapters. Returns an empty list if `moov.udta.chpl`

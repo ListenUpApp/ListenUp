@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber")
 
 package com.calypsan.listenup.server.metadata
 
@@ -26,9 +25,16 @@ import kotlin.math.sign
  * of DCT basis functions per axis; 4×3 is the spec's recommended default and
  * produces hashes around 28 chars.
  */
+// The DCT/sRGB-gamma float arithmetic and the base-83 / base-19 AC packing
+// constants are canonical values fixed by the BlurHash algorithm
+// (https://github.com/woltapp/blurhash/blob/master/Algorithm.md).
+@Suppress("MagicNumber")
 object BlurHashGenerator {
     private const val MAX_COMPONENTS = 9
     private const val MIN_COMPONENTS = 1
+
+    /** The base-83 radix used for every digit of the BlurHash string. */
+    private const val BASE83 = 83
 
     // The base-83 alphabet, identical to the spec and to BlurHashCore's CHARS.
     private const val BASE83_CHARS =
@@ -183,7 +189,7 @@ object BlurHashGenerator {
     ): String {
         val result = CharArray(length)
         for (i in 1..length) {
-            val digit = value / pow83(length - i) % 83
+            val digit = value / pow83(length - i) % BASE83
             result[i - 1] = BASE83_CHARS[digit]
         }
         return String(result)
@@ -192,7 +198,7 @@ object BlurHashGenerator {
     /** Integer powers of 83 — only small values needed. */
     private fun pow83(n: Int): Int {
         var v = 1
-        repeat(n) { v *= 83 }
+        repeat(n) { v *= BASE83 }
         return v
     }
 

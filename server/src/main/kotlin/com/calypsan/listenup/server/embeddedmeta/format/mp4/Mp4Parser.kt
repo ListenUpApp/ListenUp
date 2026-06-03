@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber") // Atom-format constants — readability beats names.
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
@@ -159,6 +158,9 @@ internal class Mp4Parser : AudioFormatParser {
      * 32-bit duration; version 1 carries 64-bit. Returns 0 if the timescale
      * is invalid (zero / negative).
      */
+    // mvhd field offsets (version+flags, creation/modification, timescale,
+    // duration) are fixed by the ISO base media file format (ISO/IEC 14496-12).
+    @Suppress("MagicNumber")
     private fun readMvhdDurationMs(
         bytes: ByteArray,
         mvhd: Atom,

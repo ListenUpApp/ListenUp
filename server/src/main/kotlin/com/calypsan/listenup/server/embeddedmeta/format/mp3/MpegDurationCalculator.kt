@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber") // MPEG bit-layout constants — readability beats names.
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
@@ -25,6 +24,9 @@ import java.io.IOException
  * for audiobook MP3s; revisit when a VBR file surfaces in the live validation
  * harness. Reference: `/home/simonh/Code/audiometa/internal/mp3/technical.go`.
  */
+// MPEG-1 Layer III frame-header field widths, the 11-bit `0xFFE` sync mask, and the
+// bytes→bits×milliseconds duration arithmetic are fixed by ISO/IEC 11172-3.
+@Suppress("MagicNumber")
 internal object MpegDurationCalculator {
     fun compute(
         source: SeekableAudioSource,
