@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SeriesDao {
-    @Query("SELECT * FROM series ORDER BY name ASC")
+    @Query("SELECT * FROM series WHERE deletedAt IS NULL ORDER BY name ASC")
     fun observeAll(): Flow<List<SeriesEntity>>
 
     /**
@@ -32,7 +32,7 @@ interface SeriesDao {
      * @param id The series ID
      * @return Flow emitting the series or null if not found
      */
-    @Query("SELECT * FROM series WHERE id = :id")
+    @Query("SELECT * FROM series WHERE id = :id AND deletedAt IS NULL")
     fun observeById(id: String): Flow<SeriesEntity?>
 
     /**
@@ -49,7 +49,7 @@ interface SeriesDao {
         """
         SELECT s.* FROM series s
         INNER JOIN book_series bs ON s.id = bs.seriesId
-        WHERE bs.bookId = :bookId
+        WHERE bs.bookId = :bookId AND s.deletedAt IS NULL
         LIMIT 1
     """,
     )
@@ -88,7 +88,7 @@ interface SeriesDao {
      * Books are ordered by series sequence then title within each series.
      */
     @Transaction
-    @Query("SELECT * FROM series ORDER BY name ASC")
+    @Query("SELECT * FROM series WHERE deletedAt IS NULL ORDER BY name ASC")
     fun observeAllWithBooks(): Flow<List<SeriesWithBooks>>
 
     /**
@@ -102,7 +102,7 @@ interface SeriesDao {
      * Observe a single series by ID with all its books.
      */
     @Transaction
-    @Query("SELECT * FROM series WHERE id = :id")
+    @Query("SELECT * FROM series WHERE id = :id AND deletedAt IS NULL")
     fun observeByIdWithBooks(id: String): Flow<SeriesWithBooks?>
 
     @Query("SELECT COUNT(*) FROM series")
@@ -122,15 +122,15 @@ interface SeriesDao {
 
 @Dao
 interface ContributorDao {
-    @Query("SELECT * FROM contributors")
+    @Query("SELECT * FROM contributors WHERE deletedAt IS NULL")
     fun observeAll(): Flow<List<ContributorEntity>>
 
     @Transaction
-    @Query("SELECT * FROM contributors")
+    @Query("SELECT * FROM contributors WHERE deletedAt IS NULL")
     fun observeAllWithAliases(): Flow<List<ContributorWithAliases>>
 
     @Transaction
-    @Query("SELECT * FROM contributors WHERE id = :id")
+    @Query("SELECT * FROM contributors WHERE id = :id AND deletedAt IS NULL")
     fun observeByIdWithAliases(id: String): Flow<ContributorWithAliases?>
 
     @Transaction
@@ -168,7 +168,7 @@ interface ContributorDao {
         SELECT c.*, COUNT(bc.bookId) as bookCount
         FROM contributors c
         INNER JOIN book_contributors bc ON c.id = bc.contributorId
-        WHERE bc.role = :role
+        WHERE bc.role = :role AND c.deletedAt IS NULL
         GROUP BY c.id
         ORDER BY c.name ASC
     """,
@@ -181,7 +181,7 @@ interface ContributorDao {
      * @param id The contributor's unique ID
      * @return Flow emitting the contributor or null if not found
      */
-    @Query("SELECT * FROM contributors WHERE id = :id")
+    @Query("SELECT * FROM contributors WHERE id = :id AND deletedAt IS NULL")
     fun observeById(id: String): Flow<ContributorEntity?>
 
     /**
@@ -235,7 +235,7 @@ interface ContributorDao {
         """
         SELECT * FROM contributors
         INNER JOIN book_contributors ON contributors.id = book_contributors.contributorId
-        WHERE book_contributors.bookId = :bookId
+        WHERE book_contributors.bookId = :bookId AND contributors.deletedAt IS NULL
         ORDER BY contributors.name ASC
     """,
     )

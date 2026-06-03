@@ -169,6 +169,25 @@ class BookPersisterTest :
                 }
             }
         }
+
+        test("full scan with a failed book skips the tombstone sweep so a present book is never deleted") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest(failForRootRelPath = setOf("b"))
+                    val persister = persister(db, fake, scope = this)
+
+                    persister.persist(
+                        scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full),
+                    )
+
+                    // "b" failed to persist, so the seenIds set is an incomplete view of the
+                    // library. Sweeping on it would tombstone "b" even though it is present on
+                    // disk — so the sweep must be skipped until a clean Full scan.
+                    fake.softDeleteAbsentCalls.shouldBeEmpty()
+                }
+            }
+        }
     })
 
 // --- Fakes ------------------------------------------------------------------

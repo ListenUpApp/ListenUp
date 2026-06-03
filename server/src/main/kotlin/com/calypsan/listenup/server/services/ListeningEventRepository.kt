@@ -53,6 +53,10 @@ class ListeningEventRepository(
      * real transaction boundary; the base implementation's own [suspendTransaction] call detects
      * an active transaction and joins it (Exposed's `useNestedTransactions = false` default),
      * so all writes — event row + stats row — commit or roll back together.
+     *
+     * The stats hook fires only when the event row did not already exist: the
+     * pending-op queue delivers at-least-once, and incremental stats accrual must
+     * stay idempotent under a re-fire of an already-committed event id.
      */
     override suspend fun upsert(
         value: ListeningEventSyncPayload,
@@ -60,8 +64,13 @@ class ListeningEventRepository(
         userId: String?,
     ): AppResult<ListeningEventSyncPayload> =
         suspendTransaction(db) {
+            // The pending-op queue delivers at-least-once, so this upsert may be a
+            // re-fire of an already-committed event. Stats accrual is incremental
+            // (totalSecondsAllTime/booksStarted), so it must run exactly once per
+            // event id — fire it only when the row did not already exist.
+            val alreadyExisted = readPayload(value.id) != null
             val result = super.upsert(value, clientOpId, userId)
-            if (result is AppResult.Success && userId != null) {
+            if (result is AppResult.Success && userId != null && !alreadyExisted) {
                 userStatsUpdater?.onListeningEvent(userId, value)
             }
             result

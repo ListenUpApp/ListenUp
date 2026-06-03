@@ -103,6 +103,7 @@ val clientAuthModule: Module
                     authRepository = get(),
                     authSession = get(),
                     userRepository = get(),
+                    syncRepository = get(),
                     playbackStateProvider = get<PlaybackManager>(),
                 )
             }

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -17,12 +18,14 @@ private class LogoutFixture {
     val authRepository: AuthRepository = mock()
     val authSession: AuthSession = mock()
     val userRepository: UserRepository = mock()
+    val syncRepository: SyncRepository = mock()
 
     fun build(): LogoutUseCase =
         LogoutUseCase(
             authRepository = authRepository,
             authSession = authSession,
             userRepository = userRepository,
+            syncRepository = syncRepository,
         )
 }
 
@@ -32,6 +35,7 @@ private fun createFixture(): LogoutFixture {
     everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
     everySuspend { fixture.userRepository.clearUsers() } returns Unit
     everySuspend { fixture.authRepository.logout() } returns AppResult.Success(Unit)
+    everySuspend { fixture.syncRepository.disconnect() } returns Unit
     return fixture
 }
 
@@ -95,6 +99,28 @@ class LogoutUseCaseTest :
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { fixture.authSession.clearAuthTokens() }
                 verifySuspend { fixture.userRepository.clearUsers() }
+            }
+        }
+
+        test("logout stops the sync engine so it can't reconnect against a dead session") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase()
+
+                verifySuspend { fixture.syncRepository.disconnect() }
+            }
+        }
+
+        test("logoutLocally stops the sync engine") {
+            runTest {
+                val fixture = createFixture()
+                val useCase = fixture.build()
+
+                useCase.logoutLocally()
+
+                verifySuspend { fixture.syncRepository.disconnect() }
             }
         }
     })

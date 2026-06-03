@@ -377,6 +377,92 @@ class PlaybackServiceImplTest :
             }
         }
 
+        // ─── write/read access gate (recordPosition / recordListeningEvent / getPosition) ──
+
+        test("recordPosition returns NotFound and writes nothing for a member on an unreachable book") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
+                    deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
+                    deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
+
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+
+                    val result =
+                        service.recordPosition(
+                            RecordPositionRequest(
+                                bookId = "private-book",
+                                positionMs = 5_000L,
+                                lastPlayedAt = 1_730_000_000_000L,
+                                finished = false,
+                                playbackSpeed = 1.0f,
+                                currentChapterId = null,
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<SyncError.NotFound>()
+                    // No position may be persisted for a book the caller can't reach.
+                    deps.positionRepo.getPosition("member", "private-book").shouldBeNull()
+                }
+            }
+        }
+
+        test("recordListeningEvent returns NotFound and accrues no stats for a member on an unreachable book") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
+                    deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
+                    deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
+
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+
+                    val startedAt = 1_779_451_200_000L
+                    val result =
+                        service.recordListeningEvent(
+                            RecordListeningEventRequest(
+                                id = "evt-x",
+                                bookId = "private-book",
+                                startPositionMs = 0L,
+                                endPositionMs = 60_000L,
+                                startedAt = startedAt,
+                                endedAt = startedAt + 60_000L,
+                                playbackSpeed = 1.0f,
+                                tz = "UTC",
+                                deviceLabel = null,
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<SyncError.NotFound>()
+                    // Stats must not accrue against an inaccessible book.
+                    deps.statsRepo.getForUser("member").shouldBeNull()
+                }
+            }
+        }
+
+        test("getPosition returns NotFound for a member on an unreachable book") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                val deps = buildDeps(db)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("private-book"))
+                    deps.collectionRepo.upsert(playbackCollection("private-col", owner = "stranger"))
+                    deps.collectionBookRepo.upsert(playbackMembership("private-col", "private-book"))
+
+                    val service = deps.service(db, userId = "member", role = UserRole.MEMBER)
+
+                    val result = service.getPosition(BookId("private-book"))
+                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<SyncError.NotFound>()
+                }
+            }
+        }
+
         // ─── getStats / recordListeningEvent ──────────────────────────────────────
 
         test("getStats returns Success(null) for a user with no listening history") {
@@ -400,6 +486,7 @@ class PlaybackServiceImplTest :
                 seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -432,6 +519,7 @@ class PlaybackServiceImplTest :
                 seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L
@@ -463,6 +551,7 @@ class PlaybackServiceImplTest :
                 seedTestLibraryAndFolder()
                 val deps = buildDeps(db)
                 runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
                     val service = deps.service(db, "u1")
 
                     val startedAt = 1_779_451_200_000L

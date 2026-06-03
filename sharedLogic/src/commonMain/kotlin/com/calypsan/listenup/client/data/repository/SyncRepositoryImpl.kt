@@ -102,6 +102,10 @@ class SyncRepositoryImpl(
         startEngineForCurrentUser()
     }
 
+    override suspend fun disconnect() {
+        syncEngine.stopAndJoin()
+    }
+
     override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = startEngineForCurrentUser()
 
     override suspend fun refreshListeningHistory(): AppResult<Unit> = Success(Unit)

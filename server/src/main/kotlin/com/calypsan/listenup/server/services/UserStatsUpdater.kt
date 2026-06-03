@@ -54,8 +54,11 @@ class UserStatsUpdater(
 
         val isFirstEventForBook = !hasOtherEventForBook(userId, event.bookId, excludingId = event.id)
         val newCurrentStreak = newStreakValue(existing?.lastEventDate, eventDateStr, existing?.currentStreakDays ?: 0)
-        val last7 = sumWindowSeconds(userId, days = 7, asOfMs = event.endedAt)
-        val last30 = sumWindowSeconds(userId, days = 30, asOfMs = event.endedAt)
+        // Rolling windows are anchored at the present, not at the event: a late /
+        // backfilled event must not overwrite the totals with a past-anchored window.
+        val nowMs = clock.now().toEpochMilliseconds()
+        val last7 = sumWindowSeconds(userId, days = 7, asOfMs = nowMs)
+        val last30 = sumWindowSeconds(userId, days = 30, asOfMs = nowMs)
 
         val base = existing ?: emptyStatsFor(userId)
         val updated =

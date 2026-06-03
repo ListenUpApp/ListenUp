@@ -35,6 +35,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
+import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.koin.dsl.module
@@ -66,7 +67,19 @@ internal data class SyncTestScope(
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
     private val listeningEventRepoOrNull: ListeningEventRepository?,
     private val userStatsRepoOrNull: UserStatsRepository?,
+    private val bookRepoOrNull: BookRepository?,
 ) {
+    /**
+     * The server book repository, wired only with `playbackEvents = true`. A
+     * `test-library` / `test-folder` pair is pre-seeded, so tests can
+     * `bookRepo.upsert(...)` a book the playback access gate will admit.
+     */
+    val bookRepo: BookRepository
+        get() =
+            requireNotNull(bookRepoOrNull) {
+                "bookRepo requires withTestApplication(playbackEvents = true)"
+            }
+
     val userScopedRepo: UserScopedFixtureRepository
         get() =
             requireNotNull(userScopedRepoOrNull) {
@@ -151,6 +164,7 @@ internal fun withTestApplication(
         val listeningEventRepo: ListeningEventRepository?
         val userStatsRepo: UserStatsRepository?
         val playbackService: PlaybackService?
+        var bookRepoForScope: BookRepository? = null
         if (playbackEvents) {
             lateinit var updater: UserStatsUpdater
             val statsRepo =
@@ -178,6 +192,10 @@ internal fun withTestApplication(
                     contributorRepository = ContributorRepository(db, bus, sharedRegistry),
                     seriesRepository = SeriesRepository(db, bus, sharedRegistry),
                 )
+            bookRepoForScope = bookRepo
+            // Seed the library + folder a test book FKs to, so playback-event tests
+            // can upsert a real (accessible) book for the access gate to admit.
+            seedPlaybackTestLibrary(db)
             playbackService =
                 PlaybackServiceImpl(
                     bookRepository = bookRepo,
@@ -241,6 +259,25 @@ internal fun withTestApplication(
             playbackPositionRepoOrNull = playbackPositionRepo,
             listeningEventRepoOrNull = listeningEventRepo,
             userStatsRepoOrNull = userStatsRepo,
+            bookRepoOrNull = bookRepoForScope,
         ).block()
+    }
+}
+
+/**
+ * Seeds the `test-library` / `test-folder` rows a playback-event test book FKs to.
+ * Kept out of [withTestApplication] so that function stays within the size budget.
+ */
+private suspend fun seedPlaybackTestLibrary(db: Database) {
+    val seedNow = System.currentTimeMillis()
+    suspendTransaction(db) {
+        exec(
+            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                "VALUES ('test-library', 'Test Library', $seedNow, $seedNow, 0)",
+        )
+        exec(
+            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $seedNow, $seedNow, 0)",
+        )
     }
 }

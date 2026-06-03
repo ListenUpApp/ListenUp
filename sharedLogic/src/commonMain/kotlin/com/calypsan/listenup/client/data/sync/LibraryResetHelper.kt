@@ -22,7 +22,7 @@ interface LibraryResetHelperContract {
      * - All junction tables (book-series, book-contributor)
      * - All pending sync operations (if discarding local changes)
      * - User data
-     * - Sync timestamps
+     * - Per-domain sync cursors (so catch-up re-pulls the library on next login)
      *
      * Does NOT remove:
      * - Downloaded audio files (managed separately by DownloadDao)
@@ -76,6 +76,12 @@ class LibraryResetHelper(
             database.seriesDao().deleteAll()
             database.contributorDao().deleteAll()
             database.userDao().clear()
+
+            // Sync cursors share the library's lifecycle: if the rows are wiped
+            // but the cursors survive, the next login's catch-up resumes from the
+            // stale high-water cursor and never re-pulls the unchanged library,
+            // leaving it permanently empty. Reset them so catch-up starts fresh.
+            database.syncCursorDao().deleteAll()
 
             if (discardPendingOperations) {
                 database.pendingOperationV2Dao().deleteAll()

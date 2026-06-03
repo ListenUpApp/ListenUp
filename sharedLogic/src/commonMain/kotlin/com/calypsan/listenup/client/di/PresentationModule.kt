@@ -475,6 +475,7 @@ val settingsPresentationModule =
                 instanceRepository = get(),
                 serverConfig = get(),
                 authSession = get(),
+                syncRepository = get(),
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen
