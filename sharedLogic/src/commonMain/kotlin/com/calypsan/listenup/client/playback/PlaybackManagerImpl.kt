@@ -405,7 +405,7 @@ class PlaybackManagerImpl(
                     }
                 }
             try {
-                val response = client.get("$url/health")
+                val response = client.get("$url/healthz")
                 response.status.value in 200..299
             } finally {
                 client.close()
