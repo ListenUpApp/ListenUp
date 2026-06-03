@@ -1,10 +1,14 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
+import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.testing.SyncTestScope
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -88,6 +92,7 @@ class ListeningEventAndStatsRouteTest :
 
         test("POST /api/v1/playback/events materialises into sync catch-up and stats for the owning user") {
             withTestApplication(playbackEvents = true) {
+                seedBook("book-a")
                 // Record a 30-second listening event as u1.
                 val postResponse =
                     client.post("/api/v1/playback/events") {
@@ -117,6 +122,7 @@ class ListeningEventAndStatsRouteTest :
 
         test("per-user isolation: u2 sees empty catch-up and no stats after u1 records an event") {
             withTestApplication(playbackEvents = true) {
+                seedBook("book-a")
                 // Seed u1's event.
                 client.post("/api/v1/playback/events") {
                     bearerAuth("u1")
@@ -139,6 +145,8 @@ class ListeningEventAndStatsRouteTest :
 
         test("SSE firehose delivers a listening_events event to its owning user, not to another user") {
             withTestApplication(playbackEvents = true) {
+                seedBook("book-u1")
+                seedBook("book-u2")
                 // Subscribe as u1 and collect the first `listening_events` SSE event.
                 // u2's write is skipped for the u1 subscriber; a leaked u2 event would arrive
                 // first and the book-id assertion below would see "book-u2" instead of "book-u1".
@@ -166,3 +174,41 @@ class ListeningEventAndStatsRouteTest :
             }
         }
     })
+
+/**
+ * Upserts a minimal accessible book so the playback access gate admits events
+ * recorded against [id]. The harness pre-seeds `test-library` / `test-folder`.
+ */
+private suspend fun SyncTestScope.seedBook(id: String) {
+    bookRepo.upsert(
+        BookSyncPayload(
+            id = id,
+            libraryId = LibraryId("test-library"),
+            folderId = FolderId("test-folder"),
+            title = id,
+            sortTitle = id,
+            subtitle = null,
+            description = null,
+            publishYear = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = false,
+            explicit = false,
+            totalDuration = 60_000L,
+            cover = null,
+            rootRelPath = "books/$id",
+            inode = null,
+            scannedAt = 1L,
+            contributors = emptyList(),
+            series = emptyList(),
+            audioFiles = emptyList(),
+            chapters = emptyList(),
+            revision = 0L,
+            updatedAt = 0L,
+            createdAt = 0L,
+            deletedAt = null,
+        ),
+    )
+}
