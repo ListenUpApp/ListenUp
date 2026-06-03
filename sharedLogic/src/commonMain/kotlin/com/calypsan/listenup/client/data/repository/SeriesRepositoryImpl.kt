@@ -25,7 +25,6 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
@@ -183,7 +182,7 @@ class SeriesRepositoryImpl(
                     bookSequences = sequences,
                 )
             }
-        }.flowOn(Dispatchers.IO) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
+        }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
 
     // ========== Series Detail Methods ==========
 

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -29,7 +30,6 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
@@ -156,7 +156,7 @@ class BookRepositoryImpl(
             .map { rows -> rows.map { it.toListItem(imageStorage) } }
             // toListItem's per-book cover stat is blocking I/O — keep it off the collector
             // (Dispatchers.Main for the Library screen), or a large library freezes the UI thread.
-            .flowOn(Dispatchers.IO)
+            .flowOn(IODispatcher)
 
     override suspend fun getBookListItem(id: String): BookListItem? =
         bookDao.getByIdWithContributors(BookId(id))?.toListItem(imageStorage)

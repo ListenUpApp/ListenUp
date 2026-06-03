@@ -19,10 +19,10 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.util.decodeBlurHash
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
+import com.calypsan.listenup.client.design.util.fileLastModifiedMillis
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.Success
+import kotlinx.coroutines.withContext
 
 /**
  * Design system image component with BlurHash placeholder support.
@@ -64,10 +64,9 @@ fun ListenUpAsyncImage(
         key2 = refreshKey,
     ) {
         value =
-            withContext(Dispatchers.IO) {
+            withContext(IODispatcher) {
                 path?.let { filePath ->
-                    val file = File(filePath)
-                    if (file.exists()) "$filePath:${file.lastModified()}" else filePath
+                    fileLastModifiedMillis(filePath)?.let { "$filePath:$it" } ?: filePath
                 }
             }
     }

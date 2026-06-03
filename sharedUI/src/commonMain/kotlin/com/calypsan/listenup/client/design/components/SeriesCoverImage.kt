@@ -15,8 +15,8 @@ import coil3.request.ImageRequest
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
@@ -78,7 +78,7 @@ fun SeriesCoverImage(
                 .get()
 
         value =
-            withContext(Dispatchers.IO) {
+            withContext(IODispatcher) {
                 val localPath = imageRepository.getSeriesCoverPath(seriesId)
                 val exists = imageRepository.seriesCoverExists(seriesId)
 

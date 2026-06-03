@@ -20,12 +20,12 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.design.util.decodeBlurHash
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.produceState
 import com.calypsan.listenup.core.Success
@@ -93,7 +93,7 @@ fun BookCoverImage(
                 .get()
 
         value =
-            withContext(Dispatchers.IO) {
+            withContext(IODispatcher) {
                 val localPath = imageRepository.getBookCoverPath(BookId(bookId))
                 val exists = imageRepository.bookCoverExists(BookId(bookId))
 

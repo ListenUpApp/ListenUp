@@ -10,8 +10,6 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
@@ -50,7 +48,7 @@ import platform.Security.kSecValueData
  * Features:
  * - Hardware-backed encryption via Secure Enclave (when available)
  * - Items accessible after first device unlock (kSecAttrAccessibleAfterFirstUnlock)
- * - Thread-safe operations via Dispatchers.IO
+ * - Thread-safe operations via IODispatcher
  * - Proper memory management with memScoped
  */
 private val logger = KotlinLogging.logger {}
@@ -62,7 +60,7 @@ class AppleSecureStorage : SecureStorage {
     override suspend fun save(
         key: String,
         value: String,
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(IODispatcher) {
         logger.debug { "Keychain save started: $key" }
         val startMark = TimeSource.Monotonic.markNow()
 
@@ -107,7 +105,7 @@ class AppleSecureStorage : SecureStorage {
     }
 
     override suspend fun read(key: String): String? =
-        withContext(Dispatchers.IO) {
+        withContext(IODispatcher) {
             val query =
                 CFDictionaryCreateMutable(
                     null,
@@ -147,7 +145,7 @@ class AppleSecureStorage : SecureStorage {
         }
 
     override suspend fun delete(key: String) =
-        withContext(Dispatchers.IO) {
+        withContext(IODispatcher) {
             val query =
                 CFDictionaryCreateMutable(
                     null,
@@ -166,7 +164,7 @@ class AppleSecureStorage : SecureStorage {
         }
 
     override suspend fun clear() =
-        withContext(Dispatchers.IO) {
+        withContext(IODispatcher) {
             val query =
                 CFDictionaryCreateMutable(
                     null,
