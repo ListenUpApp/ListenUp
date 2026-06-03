@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.Failure
 import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -87,6 +88,7 @@ class SettingsViewModel(
     private val instanceRepository: InstanceRepository,
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
     private val internalState = MutableStateFlow(SettingsUiState())
@@ -384,10 +386,13 @@ class SettingsViewModel(
 
     /**
      * Sign out the current user.
-     * Clears authentication tokens and returns to login screen.
+     *
+     * Stops real-time sync first — otherwise the engine keeps reconnecting against
+     * the now-unauthenticated endpoint — then clears tokens and returns to login.
      */
     fun signOut() {
         viewModelScope.launch {
+            syncRepository.disconnect()
             authSession.clearAuthTokens()
         }
     }

@@ -64,6 +64,14 @@ interface SyncRepository {
     suspend fun connectRealtime()
 
     /**
+     * Stop real-time sync: cancel the SSE firehose and catch-up loops.
+     *
+     * Called on logout — otherwise the engine keeps reconnecting against a now
+     * unauthenticated endpoint forever. Idempotent; safe to call when already stopped.
+     */
+    suspend fun disconnect()
+
+    /**
      * Reset local data and sync with a new library.
      *
      * Used when library mismatch is detected (server was reset/changed).

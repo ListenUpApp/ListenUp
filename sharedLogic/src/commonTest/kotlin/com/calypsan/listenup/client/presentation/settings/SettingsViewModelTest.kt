@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import dev.mokkery.answering.returns
@@ -54,6 +55,7 @@ class SettingsViewModelTest {
         val instanceRepository: InstanceRepository = mock()
         val serverConfig: ServerConfig = mock()
         val authSession: AuthSession = mock()
+        val syncRepository: SyncRepository = mock()
 
         // StateFlows for local preferences (mocked as MutableStateFlow)
         val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -72,6 +74,7 @@ class SettingsViewModelTest {
                 instanceRepository = instanceRepository,
                 serverConfig = serverConfig,
                 authSession = authSession,
+                syncRepository = syncRepository,
             )
     }
 
@@ -113,6 +116,8 @@ class SettingsViewModelTest {
         everySuspend { fixture.serverConfig.getServerUrl() } returns null
         everySuspend { fixture.instanceRepository.getInstance() } returns
             Failure(Exception("Not configured"))
+        everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
+        everySuspend { fixture.syncRepository.disconnect() } returns Unit
 
         return fixture
     }
@@ -348,5 +353,22 @@ class SettingsViewModelTest {
 
             // Then
             assertTrue(viewModel.state.value.hideSingleBookSeries)
+        }
+
+    @Test
+    fun `signOut stops the sync engine before clearing tokens`() =
+        runTest {
+            // Given
+            val fixture = createFixture()
+            val viewModel = fixture.build()
+            advanceUntilIdle()
+
+            // When
+            viewModel.signOut()
+            advanceUntilIdle()
+
+            // Then — the engine is stopped (no reconnect loop) and tokens are cleared.
+            verifySuspend { fixture.syncRepository.disconnect() }
+            verifySuspend { fixture.authSession.clearAuthTokens() }
         }
 }

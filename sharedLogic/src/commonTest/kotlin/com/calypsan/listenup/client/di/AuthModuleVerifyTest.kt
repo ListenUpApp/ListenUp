@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackManager
 import io.kotest.core.spec.style.FunSpec
@@ -45,6 +46,7 @@ class AuthModuleVerifyTest :
                         UserRepository::class,
                         PlaybackManager::class,
                         DeviceInfoProvider::class,
+                        SyncRepository::class,
                     ),
             )
         }

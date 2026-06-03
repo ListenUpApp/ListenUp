@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -25,6 +26,7 @@ open class LogoutUseCase(
     private val authRepository: AuthRepository,
     private val authSession: AuthSession,
     private val userRepository: UserRepository,
+    private val syncRepository: SyncRepository,
     private val playbackStateProvider: PlaybackStateProvider? = null,
 ) {
     open suspend operator fun invoke(): AppResult<Unit> {
@@ -36,18 +38,25 @@ open class LogoutUseCase(
                 }
         }
 
-        playbackStateProvider?.clearPlayback()
-        authSession.clearAuthTokens()
-        userRepository.clearUsers()
+        clearLocalState()
         logger.info { "Local logout completed" }
         return AppResult.Success(Unit)
     }
 
     open suspend fun logoutLocally(): AppResult<Unit> {
+        clearLocalState()
+        logger.info { "Local-only logout completed" }
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Stop real-time sync first — otherwise the engine keeps reconnecting against
+     * the now-unauthenticated endpoint — then clear local auth/user/playback state.
+     */
+    private suspend fun clearLocalState() {
+        syncRepository.disconnect()
         playbackStateProvider?.clearPlayback()
         authSession.clearAuthTokens()
         userRepository.clearUsers()
-        logger.info { "Local-only logout completed" }
-        return AppResult.Success(Unit)
     }
 }
