@@ -10,7 +10,7 @@ class UserEntityTest :
 
         test("UserEntity round-trips through the users table") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}"))
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
 
             val id = "u-1"
             transaction(db) {

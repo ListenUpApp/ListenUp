@@ -108,7 +108,7 @@ private fun withThrowingTestApplication(block: suspend ThrowingTestScope.() -> U
         val tmp =
             Files.createTempFile("listenup-streamerror-test-", ".db").toFile().apply { deleteOnExit() }
         val db =
-            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val registry = SyncRegistry()
         val throwingRepo = ThrowingRepository(db, bus, registry)

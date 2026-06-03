@@ -2,10 +2,13 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
+import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.test.verify.verify
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Verifies the auth Koin module's dependency graph statically — every
@@ -31,8 +34,18 @@ class AuthModuleVerifyTest :
             // same way. ChangeBus whitelisted: AdminUserServiceImpl resolves it from
             // syncModule, a separate module not loaded here. Verify can't introspect
             // closure bodies, so it sees the constructor param's type and asks for a binding.
+            // HikariDataSource, Path, Database: DatabaseHandle's constructor takes these directly;
+            // they are constructed inside the factory closure, not injected from the Koin graph.
             authModule(config).verify(
-                extraTypes = listOf(ByteArray::class, RegistrationPolicy::class, ChangeBus::class),
+                extraTypes =
+                    listOf(
+                        ByteArray::class,
+                        RegistrationPolicy::class,
+                        ChangeBus::class,
+                        HikariDataSource::class,
+                        Path::class,
+                        Database::class,
+                    ),
             )
         }
     })

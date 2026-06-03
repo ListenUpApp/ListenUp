@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
@@ -66,54 +67,47 @@ fun Application.installAppErrorStatusPages() {
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
-
         is DownloadError -> toHttpStatus()
-
         is ImportError -> toHttpStatus()
-
         is ScanError -> toHttpStatus()
-
         is ServerConnectError -> toHttpStatus()
-
         is SyncError -> toHttpStatus()
-
         is AudioMetadataError -> toHttpStatus()
-
         is LibraryError -> toHttpStatus()
-
         is MetadataError -> toHttpStatus()
-
         is TagError -> toHttpStatus()
-
         is CollectionError -> toHttpStatus()
-
         is AdminError -> toHttpStatus()
-
         is InviteError -> toHttpStatus()
-
         is BookError -> toHttpStatus()
-
         is CoverError -> toHttpStatus()
-
         is ContributorError -> toHttpStatus()
-
         is SeriesError -> toHttpStatus()
-
         is GenreError -> toHttpStatus()
-
         is ProfileError -> toHttpStatus()
+        is BackupError -> toHttpStatus()
+        else -> fallbackToHttpStatus()
+    }
 
+/**
+ * Status for the infrastructure/utility error subtypes — separated to keep [toHttpStatus]
+ * within Detekt's cyclomatic-complexity limit while the exhaustive domain dispatch expands.
+ * The `else` in the caller is safe: every sealed [AppError] subtype not matched there lands
+ * here, and this `when` is still exhaustive over the remaining sealed subtypes.
+ */
+private fun AppError.fallbackToHttpStatus(): HttpStatusCode =
+    when (this) {
         is ValidationError -> HttpStatusCode.BadRequest
 
         is InternalError -> HttpStatusCode.InternalServerError
 
-        // TransportError is client-local — it should never originate on the server.
-        // If one escapes here it's a server bug; surface it as 500.
+        // TransportError and PlaybackError are client-local — they should never originate on
+        // the server. If one escapes here it's a server bug; surface it as 500.
         is TransportError -> HttpStatusCode.InternalServerError
 
-        // PlaybackError is client-local — it should never originate on the server.
-        // If one escapes here it's a server bug; surface it as 500.
         is PlaybackError -> HttpStatusCode.InternalServerError
+
+        else -> HttpStatusCode.InternalServerError
     }
 
 /** Stamp the request's correlation id onto a typed wire error. */
@@ -138,10 +132,21 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is SeriesError -> withCorrelationId(id)
         is GenreError -> withCorrelationId(id)
         is ProfileError -> withCorrelationId(id)
+        is BackupError -> withCorrelationId(id)
+        else -> fallbackWithCorrelationId(id)
+    }
+
+/**
+ * Correlation-id stamp for the infrastructure/utility error subtypes — separated to keep
+ * [withCorrelationId] within Detekt's cyclomatic-complexity limit.
+ */
+private fun AppError.fallbackWithCorrelationId(id: String?): AppError =
+    when (this) {
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)
+        else -> this
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -499,4 +504,24 @@ private fun ProfileError.withCorrelationId(id: String?): ProfileError =
     when (this) {
         is ProfileError.InvalidImage -> copy(correlationId = id)
         is ProfileError.WrongPassword -> copy(correlationId = id)
+    }
+
+private fun BackupError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is BackupError.SnapshotFailed -> HttpStatusCode.InternalServerError
+        is BackupError.CorruptArchive -> HttpStatusCode.UnprocessableEntity
+        is BackupError.IncompatibleSchema -> HttpStatusCode.Conflict
+        is BackupError.BackupNotFound -> HttpStatusCode.NotFound
+        is BackupError.RestoreInProgress -> HttpStatusCode.ServiceUnavailable
+        is BackupError.RestoreFailed -> HttpStatusCode.InternalServerError
+    }
+
+private fun BackupError.withCorrelationId(id: String?): BackupError =
+    when (this) {
+        is BackupError.SnapshotFailed -> copy(correlationId = id)
+        is BackupError.CorruptArchive -> copy(correlationId = id)
+        is BackupError.IncompatibleSchema -> copy(correlationId = id)
+        is BackupError.BackupNotFound -> copy(correlationId = id)
+        is BackupError.RestoreInProgress -> copy(correlationId = id)
+        is BackupError.RestoreFailed -> copy(correlationId = id)
     }

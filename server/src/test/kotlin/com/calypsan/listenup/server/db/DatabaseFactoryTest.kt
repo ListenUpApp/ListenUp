@@ -12,7 +12,7 @@ class DatabaseFactoryTest :
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
             val cfg = DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}", username = "", password = "")
 
-            val db = DatabaseFactory.init(cfg)
+            val db = DatabaseFactory.init(cfg).database
 
             // Migration produced the users and sessions tables.
             transaction(db) {

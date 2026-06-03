@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
+import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
@@ -42,11 +43,13 @@ fun authModule(config: ApplicationConfig): Module =
     module {
         single<Clock> { Clock.System }
 
-        single<Database> {
+        single<DatabaseHandle> {
             DatabaseFactory.init(
                 DatabaseConfig(jdbcUrl = config.resolveJdbcUrl()),
             )
         }
+
+        single<Database> { get<DatabaseHandle>().database }
 
         single { PasswordHasher() }
         single { RefreshTokenGenerator() }

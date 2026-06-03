@@ -38,7 +38,7 @@ import java.nio.file.Files
  */
 fun withInMemoryDatabase(block: Database.() -> Unit) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-    val db = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+    val db = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
     db.block()
 }
 

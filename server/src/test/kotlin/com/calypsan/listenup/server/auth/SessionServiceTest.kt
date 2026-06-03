@@ -31,7 +31,7 @@ class SessionServiceTest :
 
         fun freshDb(): Database {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            return DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}"))
+            return DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
         }
 
         fun seedUser(

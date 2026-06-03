@@ -131,7 +131,7 @@ internal fun withTestApplication(
         val tmp =
             Files.createTempFile("listenup-sync-test-", ".db").toFile().apply { deleteOnExit() }
         val db =
-            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+            DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val registry = SyncRegistry()
         val tagRepo = TagRepository(db, bus, registry)

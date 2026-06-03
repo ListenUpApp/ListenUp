@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 /** Failures from the backup/restore domain. See the backup-restore design spec. */
 @Serializable
 sealed interface BackupError : AppError {
+    /** The `VACUUM INTO` snapshot failed — most likely due to insufficient disk space. */
     @Serializable
     @SerialName("BackupError.SnapshotFailed")
     data class SnapshotFailed(
@@ -17,6 +18,7 @@ sealed interface BackupError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /** The archive file is missing required entries or its checksums don't match. */
     @Serializable
     @SerialName("BackupError.CorruptArchive")
     data class CorruptArchive(
@@ -28,6 +30,7 @@ sealed interface BackupError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /** The archive's schema version is newer than the running server supports. */
     @Serializable
     @SerialName("BackupError.IncompatibleSchema")
     data class IncompatibleSchema(
@@ -39,6 +42,7 @@ sealed interface BackupError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /** No archive exists with the requested backup id. */
     @Serializable
     @SerialName("BackupError.BackupNotFound")
     data class BackupNotFound(
@@ -50,6 +54,7 @@ sealed interface BackupError : AppError {
         override val isRetryable: Boolean = false
     }
 
+    /** A restore operation is already in progress; only one can run at a time. */
     @Serializable
     @SerialName("BackupError.RestoreInProgress")
     data class RestoreInProgress(
@@ -61,6 +66,10 @@ sealed interface BackupError : AppError {
         override val isRetryable: Boolean = true
     }
 
+    /**
+     * The restore failed mid-flight. [rolledBack] indicates whether the pre-swap
+     * safety copy was successfully reinstated.
+     */
     @Serializable
     @SerialName("BackupError.RestoreFailed")
     data class RestoreFailed(
