@@ -26,8 +26,8 @@ data class GenreSyncPayload(
     @SerialName("revision") val revision: Long = 0L,
     @SerialName("updatedAt") val updatedAt: Long = 0L,
     @SerialName("createdAt") val createdAt: Long = 0L,
-    @SerialName("deletedAt") val deletedAt: Long? = null,
-)
+    @SerialName("deletedAt") override val deletedAt: Long? = null,
+) : Tombstoned
 
 /**
  * Denormalized genre reference on [BookSyncPayload.genres].
