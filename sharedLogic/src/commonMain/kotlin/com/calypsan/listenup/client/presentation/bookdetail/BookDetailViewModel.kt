@@ -4,13 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
-import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -53,6 +56,7 @@ class BookDetailViewModel(
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
     private val errorBus: ErrorBus,
+    private val bookAvailability: BookAvailability,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -181,11 +185,21 @@ class BookDetailViewModel(
                 }
 
             emitAll(
-                bookRepository.observeBookDetail(bookId).map { detail ->
+                combine(
+                    bookRepository.observeBookDetail(bookId),
+                    bookAvailability.observe(BookId(bookId)),
+                ) { detail, availability ->
                     if (detail == null) {
                         BookDetailUiState.Error("Book not found")
                     } else {
-                        buildReady(detail, chapters, position)
+                        buildReady(detail, chapters, position).copy(
+                            downloadStatus = availability.downloadStatus,
+                            isPlaybackAvailable = availability.isPlaybackAvailable,
+                            canPlay = availability.canPlay,
+                            canDownload = availability.canDownload,
+                            showServerWarning = availability.showServerWarning,
+                            isWaitingForWifi = availability.isWaitingForWifi,
+                        )
                     }
                 },
             )
@@ -517,6 +531,12 @@ sealed interface BookDetailUiState {
         val showShelfPicker: Boolean = false,
         val isAddingToShelf: Boolean = false,
         val shelfError: String? = null,
+        val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
+        val isPlaybackAvailable: Boolean = true,
+        val canPlay: Boolean = true,
+        val canDownload: Boolean = false,
+        val showServerWarning: Boolean = false,
+        val isWaitingForWifi: Boolean = false,
     ) : BookDetailUiState
 
     /** Load failure (e.g., "Book not found"). */

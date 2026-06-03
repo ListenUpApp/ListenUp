@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
@@ -327,7 +328,11 @@ internal class Analyzer(
                     ?: parsed.publishedYear,
             asin = metadata?.asin ?: embedded?.tags?.asin ?: parsed.asin,
             isbn = metadata?.isbn ?: embedded?.tags?.isbn,
-            description = metadata?.description ?: embedded?.tags?.description ?: sidecar?.description,
+            description =
+                metadata?.description
+                    ?: embedded?.tags?.description
+                    ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
+                    ?: sidecar?.description,
             publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
             language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
             genres = pickGenres(embedded, metadata),

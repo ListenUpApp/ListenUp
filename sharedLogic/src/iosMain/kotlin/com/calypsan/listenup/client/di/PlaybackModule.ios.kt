@@ -40,6 +40,9 @@ import org.koin.dsl.module
  */
 val iosPlaybackModule: Module =
     module {
+        // Platform capability flag: iOS supports download and playback.
+        single(qualifier = named("playbackAvailable")) { true }
+
         // Playback-scoped coroutine scope
         single(qualifier = named("playbackScope")) {
             CoroutineScope(SupervisorJob() + IODispatcher)

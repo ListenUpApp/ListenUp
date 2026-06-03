@@ -121,6 +121,10 @@ internal object Id3v2Reader {
                         bestArtworkPriority = priority
                     }
                 }
+
+                frameId == "COMM" -> {
+                    handleComment(frameData, builder)
+                }
             }
             offset = frameDataEnd
         }
@@ -178,6 +182,21 @@ internal object Id3v2Reader {
 
             else -> builder.custom[frameId] = text
         }
+    }
+
+    private fun handleComment(
+        data: ByteArray,
+        builder: AudioTagsBuilder,
+    ) {
+        // COMM: encoding(1) + language(3) + shortDescription\0 + commentText
+        if (data.size < 5) return
+        val encoding = data[0]
+        val afterLanguage = data.copyOfRange(4, data.size)
+        val (_, text) = splitNullTerminated(afterLanguage, encoding) ?: return
+        val comment = text.trimNulls()
+        if (comment.isEmpty()) return
+        // First COMM wins; never clobber an explicit comment already seen.
+        builder.custom.putIfAbsent(AudioTags.COMMENT_KEY, comment)
     }
 
     private fun handleTxxx(

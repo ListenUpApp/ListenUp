@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -23,9 +22,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.download.DownloadService
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -384,38 +380,6 @@ class PlaybackManagerImpl(
         val positionMs = currentPositionMs.value
         _playbackSpeed.value = defaultSpeed
         progressTracker.onSpeedReset(bookId, positionMs, defaultSpeed)
-    }
-
-    /**
-     * Check if the server is reachable with a quick health check.
-     * Used to warn users before attempting to stream non-downloaded content.
-     */
-    @Suppress("TooGenericExceptionCaught")
-    override suspend fun isServerReachable(): Boolean {
-        val url = serverConfig.getActiveUrl()?.value ?: return false
-        return try {
-            val client =
-                HttpClient {
-                    installListenUpErrorHandling()
-
-                    install(HttpTimeout) {
-                        requestTimeoutMillis = 3_000
-                        connectTimeoutMillis = 3_000
-                        socketTimeoutMillis = 3_000
-                    }
-                }
-            try {
-                val response = client.get("$url/health")
-                response.status.value in 200..299
-            } finally {
-                client.close()
-            }
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.debug { "Server reachability check failed: ${e.message}" }
-            false
-        }
     }
 
     /**

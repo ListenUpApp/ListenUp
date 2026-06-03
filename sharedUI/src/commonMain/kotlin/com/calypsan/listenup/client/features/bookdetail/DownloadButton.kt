@@ -90,7 +90,7 @@ fun DownloadButton(
         ) {
             when (status) {
                 is BookDownloadStatus.NotDownloaded -> {
-                    IconButton(onClick = onDownloadClick) {
+                    IconButton(onClick = onDownloadClick, enabled = enabled) {
                         Icon(
                             Icons.Outlined.Download,
                             contentDescription = stringResource(Res.string.book_detail_download_book),
@@ -154,7 +154,7 @@ fun DownloadButton(
                 is BookDownloadStatus.Failed,
                 is BookDownloadStatus.Paused,
                 -> {
-                    IconButton(onClick = onDownloadClick) {
+                    IconButton(onClick = onDownloadClick, enabled = enabled) {
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = stringResource(Res.string.book_detail_retry_download),

@@ -34,11 +34,18 @@ import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
+import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+
+private const val APP_SCOPE = "appScope"
 
 /**
  * Koin module wiring the renovated client sync engine. Coexists with the legacy
@@ -60,6 +67,7 @@ val clientSyncRenovationModule =
 
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
+        single<ServerReachability> { SseServerReachability(get(), get(qualifier = named(APP_SCOPE))) }
         single { SyncCursorStore(dao = get()) }
 
         single<PlaybackRpcFactory> {
@@ -92,7 +100,7 @@ val clientSyncRenovationModule =
                 serverUrlProvider = { serverConfig.getServerUrl()?.value },
                 streamingClientProvider = { apiClientFactory.getStreamingClient() },
                 state = get(),
-                scope = get(qualifier = named("appScope")),
+                scope = get(qualifier = named(APP_SCOPE)),
             )
         }
 
@@ -240,6 +248,16 @@ val clientSyncRenovationModule =
             )
         }
 
+        single<BookAvailability> {
+            DefaultBookAvailability(
+                downloadRepository = get(),
+                serverReachability = get(),
+                networkMonitor = get(),
+                localPreferences = get<LocalPreferences>(),
+                playbackAvailable = get<Boolean>(qualifier = named("playbackAvailable")),
+            )
+        }
+
         single {
             SyncEngine(
                 registry = get(),
@@ -250,7 +268,7 @@ val clientSyncRenovationModule =
                 sseClient = get(),
                 dispatcher = get(),
                 downloadRepository = get<DownloadRepository>(),
-                scope = get(qualifier = named("appScope")),
+                scope = get(qualifier = named(APP_SCOPE)),
             )
         }
     }

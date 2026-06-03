@@ -190,6 +190,20 @@ internal class Id3v2FrameSet internal constructor(
         frames += id to payload
     }
 
+    /** COMM comments frame. Body = encoding + 3-byte language + shortDescription\0 + text. */
+    fun commFrame(
+        text: String,
+        language: String = "eng",
+        shortDescription: String = "",
+    ) {
+        val payload =
+            byteArrayOf(0x03) +
+                language.toByteArray(Charsets.ISO_8859_1).copyOf(3) +
+                shortDescription.toByteArray(Charsets.UTF_8) + 0x00.toByte() +
+                text.toByteArray(Charsets.UTF_8)
+        frames += "COMM" to payload
+    }
+
     /** TXXX user-defined text frame. Body = encoding + description\0 + value. */
     fun txxxFrame(
         description: String,

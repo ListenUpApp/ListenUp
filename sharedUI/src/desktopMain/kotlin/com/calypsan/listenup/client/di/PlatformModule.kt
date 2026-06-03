@@ -54,6 +54,10 @@ import java.util.UUID
  */
 val platformModule: Module =
     module {
+        // Platform capability flag: Desktop does not support download and playback
+        // (StubDownloadService + no-op controller), so BookAvailability gates those paths off.
+        single(qualifier = named("playbackAvailable")) { false }
+
         // Application-scoped coroutine scope for background operations
         single {
             CoroutineScope(SupervisorJob() + Dispatchers.IO)

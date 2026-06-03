@@ -285,6 +285,26 @@ class Mp4ParserTest :
             result.data.artwork shouldBe null
         }
 
+        test("parse maps ldes long-description atom to description") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                tag("ldes", "The long description.")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.description shouldBe "The long description."
+        }
+
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
                 object : SeekableAudioSource {

@@ -149,8 +149,10 @@ fun BookDetailScreen(
 
 /**
  * Ready-state host for [BookDetailScreen]. Holds screen-scoped state
- * (dialogs, server reachability, download status) and delegates layout
- * to [BookDetailContent].
+ * (dialogs) and delegates layout to [BookDetailContent].
+ *
+ * Reachability, download status, and wifi state are owned by [BookDetailViewModel]
+ * and read from [state] — no inline observation needed here.
  */
 @Suppress("LongParameterList", "LongMethod")
 @Composable
@@ -171,45 +173,6 @@ private fun BookDetailReadyContent(
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalSnackbarHostState.current
 
-    val downloadStatusFlow = remember(bookId) { platformActions.observeBookStatus(BookId(bookId)) }
-    val downloadStatus by downloadStatusFlow
-        .collectAsStateWithLifecycle(initialValue = BookDownloadStatus.NotDownloaded(bookId))
-
-    // WiFi-only download state detection
-    val wifiOnlyFlow = remember { platformActions.observeWifiOnlyDownloads() }
-    val wifiOnlyDownloads by wifiOnlyFlow.collectAsStateWithLifecycle(initialValue = false)
-    val unmeteredFlow = remember { platformActions.observeIsOnUnmeteredNetwork() }
-    val isOnUnmeteredNetwork by unmeteredFlow.collectAsStateWithLifecycle(initialValue = true)
-
-    // Show "Waiting for WiFi" when:
-    // - Download is queued AND
-    // - WiFi-only is enabled AND
-    // - Not currently on WiFi/unmetered network
-    val isWaitingForWifi =
-        downloadStatus.isQueued() &&
-            wifiOnlyDownloads &&
-            !isOnUnmeteredNetwork
-
-    // Server reachability check - runs when screen loads
-    var isServerReachable by remember { mutableStateOf<Boolean?>(null) }
-    val isFullyDownloaded = downloadStatus is BookDownloadStatus.Completed
-    LaunchedEffect(bookId, isFullyDownloaded) {
-        // Only check if book isn't downloaded - downloaded books always play
-        if (!isFullyDownloaded) {
-            isServerReachable = platformActions.checkServerReachable()
-        }
-    }
-
-    // Playback availability: can play if book is downloaded OR server is confirmed reachable
-    // While check is in progress (null), assume playable to avoid flicker for fast connections
-    val canPlay = isFullyDownloaded || isServerReachable != false
-
-    // Downloads are always allowed — they queue locally and don't need the server to be reachable
-    val canDownload = platformActions.isPlaybackAvailable
-
-    // Show warning when server is unreachable and book isn't downloaded (informational only)
-    val showServerWarning = isServerReachable == false && !isFullyDownloaded
-
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
 
@@ -224,12 +187,12 @@ private fun BookDetailReadyContent(
     BookDetailContent(
         bookId = bookId,
         state = state,
-        downloadStatus = downloadStatus,
+        downloadStatus = state.downloadStatus,
         isComplete = state.isComplete,
         hasProgress = hasProgress,
         isAdmin = state.isAdmin,
-        isWaitingForWifi = isWaitingForWifi,
-        showPlaybackActions = platformActions.isPlaybackAvailable,
+        isWaitingForWifi = state.isWaitingForWifi,
+        showPlaybackActions = state.isPlaybackAvailable,
         onBackClick = onBackClick,
         onEditClick = { onEditClick(bookId) },
         onFindMetadataClick = onFindMetadataClick,
@@ -257,9 +220,9 @@ private fun BookDetailReadyContent(
         },
         onDeleteBookClick = { /* TODO: Implement */ },
         onPlayClick = { platformActions.playBook(BookId(bookId)) },
-        canPlay = canPlay,
-        canDownload = canDownload,
-        showServerWarning = showServerWarning,
+        canPlay = state.canPlay,
+        canDownload = state.canDownload,
+        showServerWarning = state.showServerWarning,
         onPlayDisabledClick = {
             scope.launch {
                 snackbarHostState.showSnackbar(
@@ -288,7 +251,7 @@ private fun BookDetailReadyContent(
     if (showDeleteDialog) {
         DeleteDownloadDialog(
             bookTitle = book.title,
-            downloadSize = downloadStatus.downloadedOrTotalBytes(),
+            downloadSize = state.downloadStatus.downloadedOrTotalBytes(),
             onConfirm = {
                 scope.launch {
                     platformActions.deleteDownload(BookId(bookId))
@@ -675,10 +638,6 @@ private fun ImmersiveBookDetail(
         }
     }
 }
-
-/** True when a download is in the queue but no file is actively transferring yet. */
-private fun BookDownloadStatus.isQueued(): Boolean =
-    this is BookDownloadStatus.InProgress && downloadingFiles == 0 && completedFiles == 0
 
 /** Returns the best available byte count to display in the delete dialog. */
 private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =

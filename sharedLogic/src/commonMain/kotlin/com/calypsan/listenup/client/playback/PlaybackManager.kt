@@ -112,12 +112,6 @@ interface PlaybackManager :
      */
     fun onSpeedReset(defaultSpeed: Float)
 
-    /**
-     * Quick health check used to warn users before attempting to stream
-     * non-downloaded content.
-     */
-    suspend fun isServerReachable(): Boolean
-
     // ====================================================================
     // Nested types
     //

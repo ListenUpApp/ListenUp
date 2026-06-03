@@ -95,7 +95,7 @@ class JvmNetworkMonitor(
 
         val isReachable =
             try {
-                val response = httpClient.get("$serverUrl/health")
+                val response = httpClient.get("$serverUrl/healthz")
                 response.status.isSuccess()
             } catch (e: Exception) {
                 logger.debug(e) { "Health check failed for $serverUrl" }
