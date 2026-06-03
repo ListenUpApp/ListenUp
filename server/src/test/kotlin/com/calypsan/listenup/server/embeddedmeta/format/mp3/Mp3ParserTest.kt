@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
+import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
@@ -86,6 +87,31 @@ class Mp3ParserTest :
             result.data.artwork
                 ?.bytes
                 ?.toList() shouldBe fakePng.toList()
+        }
+
+        test("parse extracts COMM comment frame into tags.custom[COMMENT_KEY]") {
+            val bytes =
+                buildMp3File {
+                    id3v2 { commFrame(text = "A sweeping epic.") }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.custom[AudioTags.COMMENT_KEY] shouldBe "A sweeping epic."
+        }
+
+        test("parse keeps the first COMM frame when multiple are present") {
+            val bytes =
+                buildMp3File {
+                    id3v2 {
+                        commFrame(text = "First.")
+                        commFrame(text = "Second.")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.custom[AudioTags.COMMENT_KEY] shouldBe "First."
         }
 
         test("parse extracts TXXX user-defined frames into tags.custom") {

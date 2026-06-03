@@ -33,4 +33,11 @@ data class AudioTags(
     val trackNumber: Int?,
     val discNumber: Int?,
     val custom: Map<String, String>,
-)
+) {
+    companion object {
+        /** The [custom] map key under which every format reader stores the file's
+         *  comment tag (ID3v2 COMM, MP4 `©cmt`, Vorbis COMMENT). The Analyzer uses it
+         *  as the `description` fallback, matching the Go reference. */
+        const val COMMENT_KEY: String = "comment"
+    }
+}
