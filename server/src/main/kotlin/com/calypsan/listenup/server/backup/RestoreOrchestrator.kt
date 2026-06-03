@@ -117,6 +117,7 @@ class RestoreOrchestrator(
                     } catch (e: Exception) {
                         logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
                         rollback(rollbackDb, rollbackCovers, rollbackAvatars)
+                        deleteRecursively(paths.stagingDir)
                         eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))
                         AppResult.Failure(BackupError.RestoreFailed(rolledBack = true, debugInfo = e.message))
                     }

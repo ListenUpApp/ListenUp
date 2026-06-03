@@ -63,54 +63,72 @@ fun Application.installAppErrorStatusPages() {
     }
 }
 
-/** Status mapping for typed [AppError]. Used by both REST handlers and tests. */
+/**
+ * Status mapping for typed [AppError]. Used by both REST handlers and tests.
+ *
+ * This `when` is exhaustive over all direct [AppError] implementors (22 sealed sub-interfaces +
+ * [ValidationError] + a merged client-local branch for [InternalError]/[TransportError]/[PlaybackError]).
+ * The multi-type branch for the three 500-mapped client-local types keeps cyclomatic complexity at 22
+ * (under the project threshold of 25) while preserving compile-time exhaustiveness: adding a new
+ * [AppError] sub-interface will fail this `when` at compile time.
+ */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
+
         is DownloadError -> toHttpStatus()
+
         is ImportError -> toHttpStatus()
+
         is ScanError -> toHttpStatus()
+
         is ServerConnectError -> toHttpStatus()
+
         is SyncError -> toHttpStatus()
+
         is AudioMetadataError -> toHttpStatus()
+
         is LibraryError -> toHttpStatus()
+
         is MetadataError -> toHttpStatus()
+
         is TagError -> toHttpStatus()
+
         is CollectionError -> toHttpStatus()
+
         is AdminError -> toHttpStatus()
+
         is InviteError -> toHttpStatus()
+
         is BookError -> toHttpStatus()
+
         is CoverError -> toHttpStatus()
+
         is ContributorError -> toHttpStatus()
+
         is SeriesError -> toHttpStatus()
+
         is GenreError -> toHttpStatus()
+
         is ProfileError -> toHttpStatus()
+
         is BackupError -> toHttpStatus()
-        else -> fallbackToHttpStatus()
+
+        is ValidationError -> HttpStatusCode.BadRequest
+
+        // InternalError, TransportError, and PlaybackError are all server-bug / client-local paths;
+        // grouped into a single branch so the function stays under the cyclomatic-complexity threshold
+        // while remaining exhaustive — a new AppError subtype will still fail this when at compile time.
+        is InternalError, is TransportError, is PlaybackError -> HttpStatusCode.InternalServerError
     }
 
 /**
- * Status for the infrastructure/utility error subtypes — separated to keep [toHttpStatus]
- * within Detekt's cyclomatic-complexity limit while the exhaustive domain dispatch expands.
- * The `else` in the caller is safe: every sealed [AppError] subtype not matched there lands
- * here, and this `when` is still exhaustive over the remaining sealed subtypes.
+ * Stamps the request's correlation id onto a typed wire error.
+ *
+ * Exhaustive over all direct [AppError] implementors. [TransportError] and [PlaybackError] are
+ * client-local (never produced by the server), so they are delegated to [clientLocalWithCorrelationId]
+ * which keeps the cyclomatic complexity of this function under the project threshold of 25.
  */
-private fun AppError.fallbackToHttpStatus(): HttpStatusCode =
-    when (this) {
-        is ValidationError -> HttpStatusCode.BadRequest
-
-        is InternalError -> HttpStatusCode.InternalServerError
-
-        // TransportError and PlaybackError are client-local — they should never originate on
-        // the server. If one escapes here it's a server bug; surface it as 500.
-        is TransportError -> HttpStatusCode.InternalServerError
-
-        is PlaybackError -> HttpStatusCode.InternalServerError
-
-        else -> HttpStatusCode.InternalServerError
-    }
-
-/** Stamp the request's correlation id onto a typed wire error. */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
@@ -133,20 +151,23 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is GenreError -> withCorrelationId(id)
         is ProfileError -> withCorrelationId(id)
         is BackupError -> withCorrelationId(id)
-        else -> fallbackWithCorrelationId(id)
+        is ValidationError -> copy(correlationId = id)
+        is InternalError -> copy(correlationId = id)
+        is TransportError, is PlaybackError -> clientLocalWithCorrelationId(id)
     }
 
 /**
- * Correlation-id stamp for the infrastructure/utility error subtypes — separated to keep
- * [withCorrelationId] within Detekt's cyclomatic-complexity limit.
+ * Stamps a correlation id onto client-local error types ([TransportError], [PlaybackError]).
+ *
+ * Split from [withCorrelationId] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch here is unreachable in practice — this function is only
+ * called from the explicit `is TransportError, is PlaybackError` branch in [withCorrelationId].
  */
-private fun AppError.fallbackWithCorrelationId(id: String?): AppError =
+private fun AppError.clientLocalWithCorrelationId(id: String?): AppError =
     when (this) {
-        is ValidationError -> copy(correlationId = id)
-        is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)
-        else -> this
+        else -> this // unreachable: only called from the two explicit branches above
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
