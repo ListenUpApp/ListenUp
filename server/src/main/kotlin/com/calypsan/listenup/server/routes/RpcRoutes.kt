@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ProfileService
@@ -23,6 +24,7 @@ import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
+import com.calypsan.listenup.server.api.BackupServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
@@ -109,6 +111,7 @@ fun Route.rpcRoutes(
     adminUserService: AdminUserService,
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
+    backupService: BackupService,
 ) {
     publicRpc(authService, instanceService, scannerService, inviteService)
     authenticate(JWT_PROVIDER) {
@@ -128,6 +131,7 @@ fun Route.rpcRoutes(
             adminUserService,
             inviteService,
             profileService,
+            backupService,
         )
     }
 }
@@ -174,6 +178,7 @@ private fun Route.authedRpc(
     adminUserService: AdminUserService,
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
+    backupService: BackupService,
 ) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
@@ -196,5 +201,6 @@ private fun Route.authedRpc(
         registerScoped<AdminUserService> { guard((adminUserService as AdminUserServiceImpl).copyWith(it)) }
         registerScoped<InviteService> { guard(inviteService.copyWith(it) as InviteService) }
         registerScoped<ProfileService> { guard((profileService as ProfileServiceImpl).copyWith(it)) }
+        registerScoped<BackupService> { guard((backupService as BackupServiceImpl).copyWith(it)) }
     }
 }

@@ -10,7 +10,7 @@ class SessionEntityTest :
 
         test("SessionEntity round-trips and FK to UserEntity") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}"))
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
 
             transaction(db) {
                 UserEntity.new("u-1") {
@@ -54,7 +54,7 @@ class SessionEntityTest :
 
         test("deleting a user cascades to delete their sessions") {
             val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}"))
+            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
 
             transaction(db) {
                 UserEntity.new("u-1") {

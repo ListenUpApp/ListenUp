@@ -124,7 +124,7 @@ fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSyncEngineSco
     testApplication {
         // ---- Server side: temp-file SQLite + collection/book domains + access policy ----
         val tmp = Files.createTempFile("listenup-collections-e2e-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 

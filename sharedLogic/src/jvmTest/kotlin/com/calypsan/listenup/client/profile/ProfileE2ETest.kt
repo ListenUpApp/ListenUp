@@ -62,7 +62,7 @@ class ProfileE2ETest :
 
         fun setupServerDb(): Database {
             val tmp = Files.createTempFile("listenup-profile-e2e-", ".db").toFile().apply { deleteOnExit() }
-            return DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+            return DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         }
 
         /**

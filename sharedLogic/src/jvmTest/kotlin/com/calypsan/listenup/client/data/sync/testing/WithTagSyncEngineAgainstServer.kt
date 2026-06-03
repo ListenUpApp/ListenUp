@@ -87,7 +87,7 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
     testApplication {
         // ---- Server side: temp-file SQLite + tag domains ----
         val tmp = Files.createTempFile("listenup-tags-e2e-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 

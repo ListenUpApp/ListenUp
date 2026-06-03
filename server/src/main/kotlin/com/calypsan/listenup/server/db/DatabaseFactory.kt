@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
+import java.nio.file.Path
 
 /**
  * Database connection settings. JDBC URL is the only required input;
@@ -21,12 +22,13 @@ data class DatabaseConfig(
 }
 
 /**
- * Initializes the Hikari pool, runs Flyway migrations, and returns a
- * connected Exposed `Database`. Idempotent for migrations — Flyway tracks
+ * Initializes the Hikari pool, runs Flyway migrations, and returns a [DatabaseHandle] that
+ * exposes the connected Exposed `Database` alongside pool-control operations needed by the
+ * restore orchestrator (suspend/resume/vacuum). Idempotent for migrations — Flyway tracks
  * applied versions in its `flyway_schema_history` table.
  */
 object DatabaseFactory {
-    fun init(config: DatabaseConfig): Database {
+    fun init(config: DatabaseConfig): DatabaseHandle {
         val hikari =
             HikariDataSource(
                 HikariConfig().apply {
@@ -35,6 +37,7 @@ object DatabaseFactory {
                     password = config.password
                     maximumPoolSize = config.maxPoolSize
                     isAutoCommit = false
+                    isAllowPoolSuspension = true
                     transactionIsolation = "TRANSACTION_SERIALIZABLE"
                     // SQLite has FK enforcement off per-connection by default. The property
                     // key must be the pragma name (`foreign_keys`), not the SQLiteConfig
@@ -60,6 +63,7 @@ object DatabaseFactory {
             .load()
             .migrate()
 
-        return Database.connect(hikari)
+        val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
+        return DatabaseHandle(Database.connect(hikari), hikari, dbFile)
     }
 }

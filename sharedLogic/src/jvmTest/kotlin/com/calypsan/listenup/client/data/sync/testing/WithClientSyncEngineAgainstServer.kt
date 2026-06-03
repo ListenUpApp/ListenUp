@@ -226,7 +226,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
     testApplication {
         // ---- Server side: in-memory SQLite + Tag and Book domains registered ----
         val tmp = Files.createTempFile("listenup-c3-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
         val serverRepos = buildServerRepositories(serverDb, bus, syncRegistry)

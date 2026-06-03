@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
@@ -62,7 +63,15 @@ fun Application.installAppErrorStatusPages() {
     }
 }
 
-/** Status mapping for typed [AppError]. Used by both REST handlers and tests. */
+/**
+ * Status mapping for typed [AppError]. Used by both REST handlers and tests.
+ *
+ * This `when` is exhaustive over all direct [AppError] implementors (22 sealed sub-interfaces +
+ * [ValidationError] + a merged client-local branch for [InternalError]/[TransportError]/[PlaybackError]).
+ * The multi-type branch for the three 500-mapped client-local types keeps cyclomatic complexity at 22
+ * (under the project threshold of 25) while preserving compile-time exhaustiveness: adding a new
+ * [AppError] sub-interface will fail this `when` at compile time.
+ */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError -> toHttpStatus()
@@ -103,20 +112,23 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ProfileError -> toHttpStatus()
 
+        is BackupError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
-        is InternalError -> HttpStatusCode.InternalServerError
-
-        // TransportError is client-local — it should never originate on the server.
-        // If one escapes here it's a server bug; surface it as 500.
-        is TransportError -> HttpStatusCode.InternalServerError
-
-        // PlaybackError is client-local — it should never originate on the server.
-        // If one escapes here it's a server bug; surface it as 500.
-        is PlaybackError -> HttpStatusCode.InternalServerError
+        // InternalError, TransportError, and PlaybackError are all server-bug / client-local paths;
+        // grouped into a single branch so the function stays under the cyclomatic-complexity threshold
+        // while remaining exhaustive — a new AppError subtype will still fail this when at compile time.
+        is InternalError, is TransportError, is PlaybackError -> HttpStatusCode.InternalServerError
     }
 
-/** Stamp the request's correlation id onto a typed wire error. */
+/**
+ * Stamps the request's correlation id onto a typed wire error.
+ *
+ * Exhaustive over all direct [AppError] implementors. [TransportError] and [PlaybackError] are
+ * client-local (never produced by the server), so they are delegated to [clientLocalWithCorrelationId]
+ * which keeps the cyclomatic complexity of this function under the project threshold of 25.
+ */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
         is AuthError -> withCorrelationId(id)
@@ -138,10 +150,24 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         is SeriesError -> withCorrelationId(id)
         is GenreError -> withCorrelationId(id)
         is ProfileError -> withCorrelationId(id)
+        is BackupError -> withCorrelationId(id)
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is TransportError, is PlaybackError -> clientLocalWithCorrelationId(id)
+    }
+
+/**
+ * Stamps a correlation id onto client-local error types ([TransportError], [PlaybackError]).
+ *
+ * Split from [withCorrelationId] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch here is unreachable in practice — this function is only
+ * called from the explicit `is TransportError, is PlaybackError` branch in [withCorrelationId].
+ */
+private fun AppError.clientLocalWithCorrelationId(id: String?): AppError =
+    when (this) {
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the two explicit branches above
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -499,4 +525,24 @@ private fun ProfileError.withCorrelationId(id: String?): ProfileError =
     when (this) {
         is ProfileError.InvalidImage -> copy(correlationId = id)
         is ProfileError.WrongPassword -> copy(correlationId = id)
+    }
+
+private fun BackupError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is BackupError.SnapshotFailed -> HttpStatusCode.InternalServerError
+        is BackupError.CorruptArchive -> HttpStatusCode.UnprocessableEntity
+        is BackupError.IncompatibleSchema -> HttpStatusCode.Conflict
+        is BackupError.BackupNotFound -> HttpStatusCode.NotFound
+        is BackupError.RestoreInProgress -> HttpStatusCode.ServiceUnavailable
+        is BackupError.RestoreFailed -> HttpStatusCode.InternalServerError
+    }
+
+private fun BackupError.withCorrelationId(id: String?): BackupError =
+    when (this) {
+        is BackupError.SnapshotFailed -> copy(correlationId = id)
+        is BackupError.CorruptArchive -> copy(correlationId = id)
+        is BackupError.IncompatibleSchema -> copy(correlationId = id)
+        is BackupError.BackupNotFound -> copy(correlationId = id)
+        is BackupError.RestoreInProgress -> copy(correlationId = id)
+        is BackupError.RestoreFailed -> copy(correlationId = id)
     }

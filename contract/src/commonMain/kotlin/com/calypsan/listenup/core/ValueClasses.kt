@@ -258,6 +258,24 @@ value class CollectionId(
 }
 
 /**
+ * Type-safe wrapper for backup archive IDs.
+ *
+ * A backup id is the archive's stable filename stem (e.g. `backup-2026-06-02T18-30-00Z`),
+ * since backups are filesystem-truth rather than database rows.
+ */
+@Serializable
+@JvmInline
+value class BackupId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Backup ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Genre IDs.
  *
  * Genres are server-wide (global, not user-scoped) and form a hierarchy via

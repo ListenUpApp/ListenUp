@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.CollectionService
@@ -21,6 +22,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
+import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.mdnsModule
@@ -41,6 +43,8 @@ import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.backup.MaintenanceState
+import com.calypsan.listenup.server.plugins.installMaintenanceGate
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -60,6 +64,7 @@ import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
+import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.collectionAdminRoutes
 import com.calypsan.listenup.server.routes.collectionRoutes
@@ -211,6 +216,7 @@ private fun Application.installDependencies(
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
         modules += profileModule(homeDir.resolve("avatars"))
+        modules += backupModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -258,6 +264,7 @@ fun Application.module() {
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
     installRequestPipeline()
+    installMaintenanceGate(koinGet<MaintenanceState>())
 
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
@@ -291,6 +298,9 @@ fun Application.module() {
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val profileService by inject<ProfileService>()
+    val backupService by inject<BackupService>()
+    val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
+    val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val avatarImageStore by inject<ImageStore>()
     val db by inject<Database>()
     val audioRoleLookup by inject<UserRoleLookup>()
@@ -320,6 +330,7 @@ fun Application.module() {
             adminUserService,
             inviteService,
             profileService,
+            backupService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -340,6 +351,7 @@ fun Application.module() {
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
             profileRoutes(db, avatarImageStore)
+            backupRoutes(backupPaths, backupArchive)
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
