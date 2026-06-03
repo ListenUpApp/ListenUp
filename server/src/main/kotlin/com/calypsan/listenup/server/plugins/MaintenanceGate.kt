@@ -38,13 +38,29 @@ private val ALLOW_DURING_RESTORE = listOf("/api/rpc")
 fun Application.installMaintenanceGate(state: MaintenanceState) {
     intercept(ApplicationCallPipeline.Plugins) {
         val path = call.request.path()
-        if (state.isActive && ALLOW_DURING_RESTORE.none { path.startsWith(it) }) {
+        val isAllowlisted = ALLOW_DURING_RESTORE.any { path.startsWith(it) }
+
+        if (state.isActive && !isAllowlisted) {
             call.respondText(
                 text = contractJson.encodeToString<AppError>(BackupError.RestoreInProgress()),
                 contentType = ContentType.Application.Json,
                 status = HttpStatusCode.ServiceUnavailable,
             )
             finish()
+            return@intercept
+        }
+
+        // Bracket non-allowlisted requests so drain() can genuinely wait for in-flight
+        // writes before the pool is suspended. Allowlisted paths (/api/rpc) are excluded:
+        // the restore call and its progress stream run there, and counting them would cause
+        // drain() to deadlock waiting on the restore itself.
+        if (!isAllowlisted) {
+            state.beginRequest()
+            try {
+                proceed()
+            } finally {
+                state.endRequest()
+            }
         }
     }
 }

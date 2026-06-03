@@ -10,6 +10,9 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /**
  * Verifies that [installMaintenanceGate] genuinely short-circuits the pipeline:
@@ -65,6 +68,86 @@ class MaintenanceGateTest :
                 val response = client.get("/api/rpc/ping")
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldBe "rpc-pong"
+            }
+        }
+
+        test("gate brackets non-allowlisted requests: inFlight increments around proceed()") {
+            // Verify FIX B: beginRequest/endRequest wrap every non-allowlisted admitted call.
+            // We observe the inFlight count from inside the route handler using a real-coroutine
+            // latch (not runTest/virtual-time, since testApplication uses real dispatchers).
+            val state = MaintenanceState()
+            val inFlightRecorded =
+                java.util.concurrent.atomic
+                    .AtomicInteger(-1)
+            val handlerReady = java.util.concurrent.CountDownLatch(1)
+            val handlerRelease = java.util.concurrent.CountDownLatch(1)
+
+            testApplication {
+                application {
+                    installMaintenanceGate(state)
+                    routing {
+                        get("/slow") {
+                            // Record inFlight while inside the handler (after beginRequest)
+                            inFlightRecorded.set(state.inFlightCount())
+                            handlerReady.countDown()
+                            // Block until the test lets us proceed (real blocking is fine on IO thread)
+                            handlerRelease.await()
+                            call.respondText("done")
+                        }
+                    }
+                }
+
+                // Fire the request asynchronously on the IO dispatcher so it doesn't block this scope
+                coroutineScope {
+                    val deferred = async(Dispatchers.IO) { client.get("/slow") }
+                    // Wait until handler has recorded the inFlight value
+                    handlerReady.await()
+                    inFlightRecorded.get() shouldBe 1
+                    // Release the handler
+                    handlerRelease.countDown()
+                    deferred.await()
+                }
+
+                // After the handler returned, endRequest ran → inFlight == 0
+                state.inFlightCount() shouldBe 0
+            }
+        }
+
+        test("drain() waits while a request is in flight then returns once it completes") {
+            val state = MaintenanceState()
+            val handlerReady = java.util.concurrent.CountDownLatch(1)
+            val handlerRelease = java.util.concurrent.CountDownLatch(1)
+
+            testApplication {
+                application {
+                    installMaintenanceGate(state)
+                    routing {
+                        get("/slow2") {
+                            handlerReady.countDown()
+                            handlerRelease.await()
+                            call.respondText("done")
+                        }
+                    }
+                }
+
+                coroutineScope {
+                    val deferred = async(Dispatchers.IO) { client.get("/slow2") }
+
+                    // Wait for the handler to be executing (inFlight == 1)
+                    handlerReady.await()
+
+                    // drain() with a short timeout while the handler is still in-flight
+                    val drainedBeforeRelease = state.drain(timeoutMs = 200, stepMs = 20)
+                    drainedBeforeRelease shouldBe false
+
+                    // Release handler → endRequest runs → inFlight drops to 0
+                    handlerRelease.countDown()
+                    deferred.await()
+                }
+
+                // drain() now completes immediately
+                val drainedAfterRelease = state.drain(timeoutMs = 1_000, stepMs = 20)
+                drainedAfterRelease shouldBe true
             }
         }
     })
