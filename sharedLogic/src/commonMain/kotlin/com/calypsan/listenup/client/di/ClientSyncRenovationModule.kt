@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import org.koin.core.qualifier.named
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 private const val APP_SCOPE = "appScope"
@@ -77,7 +78,7 @@ val clientSyncRenovationModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         single<PendingOperationSender> {
             DomainPendingOperationSender(

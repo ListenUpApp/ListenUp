@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
@@ -166,6 +165,7 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
+import org.koin.dsl.binds
 import org.koin.dsl.module
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
@@ -260,7 +260,7 @@ val networkModule =
                 authSession = get(),
                 refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // AuthRpcFactory is provided by clientAuthModule. It still needs to be
         // invalidated alongside ApiClientFactory whenever the underlying HttpClient
@@ -587,7 +587,7 @@ val syncModule =
         // unmapped-string queue need an RPC channel.
         single<GenreRpcFactory> {
             KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // StatsApi for listening statistics
         single {
@@ -626,7 +626,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
         // live scan-progress stream that drives the scan UI + post-scan reconcile.
@@ -635,7 +635,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
         single<MetadataLookupRpcFactory> {
@@ -643,7 +643,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
         single<TagRpcFactory> {
@@ -651,7 +651,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
         single<BackupRpcFactory> {
@@ -659,7 +659,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
         single<CollectionRpcFactory> {
@@ -667,7 +667,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
         single<com.calypsan.listenup.client.domain.repository.MetadataRepository> {
@@ -799,7 +799,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // ContributorRpcFactory - kotlinx.rpc proxy for ContributorService (cache-miss fetch).
         // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
@@ -808,7 +808,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
         // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
@@ -817,7 +817,7 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // BookRepository for UI data access
         single<BookRepository> {
@@ -907,31 +907,15 @@ val syncModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // Aggregates every RemoteCache (RPC factories + the shared ApiClientFactory)
         // so logout / user-switch / server-URL change can drop them all in one sweep.
-        // New authed RPC factory? Add its get() here.
+        // The cache set is assembled automatically via getAll() from every single bound
+        // with `binds arrayOf(RemoteCache::class)` — no list to maintain.
         single<com.calypsan.listenup.client.data.remote.RpcCacheInvalidator> {
             com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator(
-                caches =
-                    listOf<Any>(
-                        get<ApiClientFactory>(),
-                        get<AuthRpcFactory>(),
-                        get<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
-                        get<BookRpcFactory>(),
-                        get<ContributorRpcFactory>(),
-                        get<SeriesRpcFactory>(),
-                        get<GenreRpcFactory>(),
-                        get<TagRpcFactory>(),
-                        get<CollectionRpcFactory>(),
-                        get<BackupRpcFactory>(),
-                        get<MetadataLookupRpcFactory>(),
-                        get<LibraryAdminRpcFactory>(),
-                        get<com.calypsan.listenup.client.data.remote.ScannerRpcFactory>(),
-                        get<ProfileRpcFactory>(),
-                        get<com.calypsan.listenup.client.data.remote.PlaybackRpcFactory>(),
-                    ).map { it as com.calypsan.listenup.client.data.remote.RemoteCache },
+                caches = getAll(),
             )
         }
 
