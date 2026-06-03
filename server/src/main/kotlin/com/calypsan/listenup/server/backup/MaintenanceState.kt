@@ -39,6 +39,9 @@ class MaintenanceState {
     /** Records that an admitted request has completed (called after the route handler). */
     fun endRequest() = inFlight.decrementAndGet()
 
+    /** Returns the current count of in-flight non-allowlisted requests. Intended for testing. */
+    fun inFlightCount(): Int = inFlight.get()
+
     /**
      * Waits until all in-flight requests drain to zero or [timeoutMs] elapses.
      *

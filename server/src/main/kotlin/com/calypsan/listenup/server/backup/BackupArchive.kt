@@ -75,25 +75,30 @@ class BackupArchive(
         dest: Path,
     ) {
         val tmpZip = Files.createTempFile(paths.tmpDir, "zip-", ".zip")
-        val checksums = linkedMapOf(DB_CHECKSUM_KEY to dbHash)
+        try {
+            val checksums = linkedMapOf(DB_CHECKSUM_KEY to dbHash)
 
-        ZipOutputStream(Files.newOutputStream(tmpZip)).use { zip ->
-            zip.putNextEntry(ZipEntry(DB_ENTRY))
-            Files.copy(tmpDb, zip)
-            zip.closeEntry()
+            ZipOutputStream(Files.newOutputStream(tmpZip)).use { zip ->
+                zip.putNextEntry(ZipEntry(DB_ENTRY))
+                Files.copy(tmpDb, zip)
+                zip.closeEntry()
 
-            if (includeImages) {
-                checksums[COVERS_CHECKSUM_KEY] = addDirToZip(zip, paths.coversDir, COVERS_PREFIX, onEvent)
-                checksums[AVATARS_CHECKSUM_KEY] = addDirToZip(zip, paths.avatarsDir, AVATARS_PREFIX, onEvent)
+                if (includeImages) {
+                    checksums[COVERS_CHECKSUM_KEY] = addDirToZip(zip, paths.coversDir, COVERS_PREFIX, onEvent)
+                    checksums[AVATARS_CHECKSUM_KEY] = addDirToZip(zip, paths.avatarsDir, AVATARS_PREFIX, onEvent)
+                }
+
+                onEvent(BackupEvent.Finalizing)
+                zip.putNextEntry(ZipEntry(MANIFEST_ENTRY))
+                zip.write(buildManifest(includeImages, checksums).toJson().toByteArray())
+                zip.closeEntry()
             }
 
-            onEvent(BackupEvent.Finalizing)
-            zip.putNextEntry(ZipEntry(MANIFEST_ENTRY))
-            zip.write(buildManifest(includeImages, checksums).toJson().toByteArray())
-            zip.closeEntry()
+            moveAtomic(tmpZip, dest)
+        } catch (e: Exception) {
+            Files.deleteIfExists(tmpZip)
+            throw e
         }
-
-        moveAtomic(tmpZip, dest)
     }
 
     private suspend fun buildManifest(
@@ -377,7 +382,7 @@ class BackupArchive(
         ) {
             try {
                 Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: Exception) {
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
                 Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING)
             }
         }
