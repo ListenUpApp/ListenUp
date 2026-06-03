@@ -47,7 +47,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelectionArray
 import androidx.media3.exoplayer.trackselection.TrackSelector
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository

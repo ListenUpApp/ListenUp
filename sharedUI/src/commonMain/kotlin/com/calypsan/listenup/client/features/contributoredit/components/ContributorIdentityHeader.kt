@@ -50,7 +50,6 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_name
 import listenup.composeapp.generated.resources.contributor_change_photo
 import listenup.composeapp.generated.resources.contributor_contributor_photo
-import com.calypsan.listenup.core.Success
 
 /**
  * Identity header with large avatar and name field side by side.

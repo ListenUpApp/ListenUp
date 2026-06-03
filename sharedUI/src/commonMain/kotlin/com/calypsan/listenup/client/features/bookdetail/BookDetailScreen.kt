@@ -44,7 +44,7 @@ import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.rememberCoverColors
 import com.calypsan.listenup.client.design.components.rememberHeroCollapseFraction
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.BookListeningHistorySection
@@ -64,7 +64,6 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
-import com.calypsan.listenup.core.Success as ResultSuccess
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_scan_warning
@@ -209,7 +208,7 @@ private fun BookDetailReadyContent(
         onShareClick = {
             scope.launch {
                 val result = instanceRepository.getInstance()
-                if (result is ResultSuccess) {
+                if (result is AppResult.Success) {
                     val instance = result.data
                     val baseUrl = (instance.remoteUrl ?: instance.localUrl)?.trimEnd('/') ?: return@launch
                     val url = "$baseUrl/share/book/${book.id.value}"

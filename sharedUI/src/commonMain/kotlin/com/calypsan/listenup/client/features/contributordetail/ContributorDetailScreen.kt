@@ -93,7 +93,6 @@ import listenup.composeapp.generated.resources.common_edit
 import listenup.composeapp.generated.resources.contributor_from_your_library_this_action
 import listenup.composeapp.generated.resources.contributor_name_profile_image
 import listenup.composeapp.generated.resources.common_view_all
-import com.calypsan.listenup.core.Success
 
 /**
  * Artist Portfolio screen - an immersive contributor detail experience.
