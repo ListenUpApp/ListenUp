@@ -5,9 +5,11 @@ import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -28,6 +30,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -57,34 +61,21 @@ class BookDetailViewModelTest :
 
         // ========== Test Fixtures ==========
 
-        fun createFixture(): Triple<BookRepository, PlaybackPositionRepository, (TagRepository) -> BookDetailViewModel> {
-            val bookRepository: BookRepository = mock()
-            val tagRepository: TagRepository = mock()
-            val playbackPositionRepository: PlaybackPositionRepository = mock()
-            val userRepository: UserRepository = mock()
-            val shelfRepository: ShelfRepository = mock()
-            val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
-            val createShelfUseCase: CreateShelfUseCase = mock()
+        // Fake BookAvailability that returns a controllable StateFlow.
+        class FakeBookAvailability(
+            initial: BookAvailability.State =
+                BookAvailability.State(
+                    downloadStatus = BookDownloadStatus.NotDownloaded(""),
+                    isPlaybackAvailable = true,
+                    canPlay = true,
+                    canDownload = false,
+                    showServerWarning = false,
+                    isWaitingForWifi = false,
+                ),
+        ) : BookAvailability {
+            val stateFlow = MutableStateFlow(initial)
 
-            // Default stubs for domain repositories
-            everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
-            every { userRepository.observeCurrentUser() } returns flowOf(null)
-            every { shelfRepository.observeMyShelves(any()) } returns flowOf(emptyList())
-            every { tagRepository.observeAll() } returns flowOf(emptyList())
-            every { userRepository.observeIsAdmin() } returns flowOf(false)
-
-            return Triple(bookRepository, playbackPositionRepository) { customTagRepo: TagRepository ->
-                BookDetailViewModel(
-                    bookRepository = bookRepository,
-                    tagRepository = customTagRepo,
-                    playbackPositionRepository = playbackPositionRepository,
-                    userRepository = userRepository,
-                    shelfRepository = shelfRepository,
-                    addBooksToShelfUseCase = addBooksToShelfUseCase,
-                    createShelfUseCase = createShelfUseCase,
-                    errorBus = ErrorBus(),
-                )
-            }
+            override fun observe(bookId: BookId): Flow<BookAvailability.State> = stateFlow
         }
 
         // Convenience fixture class to avoid Triple unpacking
@@ -96,6 +87,7 @@ class BookDetailViewModelTest :
             val shelfRepository: ShelfRepository = mock()
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
+            val bookAvailability = FakeBookAvailability()
 
             fun setup() {
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
@@ -115,6 +107,7 @@ class BookDetailViewModelTest :
                     addBooksToShelfUseCase = addBooksToShelfUseCase,
                     createShelfUseCase = createShelfUseCase,
                     errorBus = ErrorBus(),
+                    bookAvailability = bookAvailability,
                 )
         }
 
@@ -856,6 +849,44 @@ class BookDetailViewModelTest :
                     val ready2 = states.expectMostRecentItem() as BookDetailUiState.Ready
                     ready2.book.id.value shouldBe "book-2"
 
+                    states.cancel()
+                }
+            }
+        }
+
+        // ========== BookAvailability propagation test ==========
+
+        test("BookAvailability state is propagated into Ready fields") {
+            runTest {
+                // The availability matrix is tested in DefaultBookAvailabilityTest.
+                // Here we verify that the VM correctly wires the collaborator output
+                // into the Ready state.
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                // Set the fake to an availability state the VM must propagate
+                fixture.bookAvailability.stateFlow.value =
+                    BookAvailability.State(
+                        downloadStatus = BookDownloadStatus.NotDownloaded("book-1"),
+                        isPlaybackAvailable = false,
+                        canPlay = false,
+                        canDownload = false,
+                        showServerWarning = true,
+                        isWaitingForWifi = false,
+                    )
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.canPlay shouldBe false
+                    ready.showServerWarning shouldBe true
+                    ready.isPlaybackAvailable shouldBe false
                     states.cancel()
                 }
             }
