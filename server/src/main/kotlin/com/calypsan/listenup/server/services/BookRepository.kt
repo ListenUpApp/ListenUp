@@ -116,6 +116,15 @@ class BookRepository(
     override fun BookSyncPayload.revisionOf(): Long = revision
 
     /**
+     * Managed cover to be written in the next [writePayload] call. Set via
+     * [upsertWithCover] immediately before [upsert] and consumed (then cleared)
+     * inside [writePayload]. The field is [Volatile] to preserve happens-before
+     * across the coroutine dispatcher hop into [suspendTransaction].
+     */
+    @Volatile
+    private var nextManagedCover: StoredCoverInfo? = null
+
+    /**
      * Reads the book aggregate by id — joins child tables for contributors,
      * series, chapters, and audio files, and constructs the cover payload from
      * the root row's `coverSource` + `coverHash` columns. Returns null when the
@@ -275,6 +284,9 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
+        // Consume the managed cover set by upsertWithCover (null for all other callers).
+        val managedCover = nextManagedCover.also { nextManagedCover = null }
+
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
             // (cover_source = 'uploaded'), preserve the cover columns so a re-scan
@@ -289,7 +301,7 @@ class BookRepository(
             val isUploadedLocked = existingCoverSource == CoverSource.UPLOADED.name.lowercase()
 
             BookTable.update({ BookTable.id eq value.id }) { stmt ->
-                applyBookFields(stmt, value, preserveCoverColumns = isUploadedLocked)
+                applyBookFields(stmt, value, preserveCoverColumns = isUploadedLocked, managedCover = managedCover)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.updatedAt] = now
                 stmt[BookTable.deletedAt] = null
@@ -303,7 +315,7 @@ class BookRepository(
                 // source of truth here.
                 stmt[BookTable.libraryId] = value.libraryId.value
                 stmt[BookTable.folderId] = value.folderId.value
-                applyBookFields(stmt, value, preserveCoverColumns = false)
+                applyBookFields(stmt, value, preserveCoverColumns = false, managedCover = managedCover)
                 stmt[BookTable.revision] = rev
                 stmt[BookTable.createdAt] = now
                 stmt[BookTable.updatedAt] = now
@@ -360,8 +372,7 @@ class BookRepository(
         val rootRelPath = analyzed.candidate.rootRelPath
 
         findByPath(libraryId, rootRelPath)?.let { existing ->
-            val stored = storeCoverIfPresent(existing, pendingCover)
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, stored)
+            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover)
                 .map { IngestOutcome(existing, wasNew = false) }
         }
 
@@ -372,15 +383,13 @@ class BookRepository(
                 findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    val stored = storeCoverIfPresent(existing, pendingCover)
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, stored)
+                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover)
                         .map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        val stored = storeCoverIfPresent(newId, pendingCover)
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, stored)
+        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover)
             .map { IngestOutcome(newId, wasNew = true) }
     }
 
@@ -497,15 +506,19 @@ class BookRepository(
      * per-file duration backfill (or Books-B) is the natural home for richer
      * audio-file metadata — flagged for the Task 11/15 implementers.
      *
-     * `cover` carries the [StoredCoverInfo] from [storeCoverIfPresent] when a managed
-     * cover was written at scan time; null when cover storage is not configured or failed.
+     * `pendingCover` is the raw cover bytes from the scanner. When non-null and the existing
+     * row does not carry an UPLOADED cover, the bytes are stored to the managed cover store
+     * (file I/O outside the DB transaction) and the resulting [StoredCoverInfo] is written
+     * atomically with the rest of the book row — one write, one revision bump, one [SyncEvent].
+     * When the existing row carries an UPLOADED cover, [pendingCover] is discarded so no orphan
+     * file is written and the user's uploaded cover is preserved.
      */
     suspend fun upsertFromAnalyzed(
         bookId: BookId,
         libraryId: LibraryId,
         folderId: FolderId,
         analyzed: AnalyzedBook,
-        storedCover: StoredCoverInfo? = null,
+        pendingCover: PendingCover? = null,
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
@@ -524,20 +537,23 @@ class BookRepository(
                 resolvedContributors = resolvedContributors,
                 resolvedSeries = resolvedSeries,
             )
-        // Read the existing cover source BEFORE upsert so we know whether the sticky-merge
-        // will preserve an UPLOADED cover — if it does, skip setManagedCover afterward.
+        // Read the existing cover source BEFORE the upsert to decide:
+        //  (a) whether to skip file I/O (UPLOADED-locked → don't write an orphan), AND
+        //  (b) whether to include the managed cover in the upsert (atomic single write).
         val existingCoverSource = findById(bookId)?.cover?.source
-        val result = upsert(payload, clientOpId = null)
+        // File I/O must stay OUTSIDE the DB transaction — store the cover first, then upsert.
+        val storedCover =
+            if (existingCoverSource == CoverSource.UPLOADED) {
+                null // sticky: skip file write + preserve the uploaded cover in writePayload
+            } else {
+                storeCoverIfPresent(bookId, pendingCover)
+            }
+        // Single write: storedCover (if any) lands in the same transaction as the book row,
+        // producing exactly one revision bump and one SyncEvent per scanned book.
+        val result = upsertWithCover(payload, managedCover = storedCover)
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
             suspendTransaction(db) { processGenreStrings(bookId, analyzed.genres, now) }
-            // Write the managed cover path only when:
-            //  (a) a cover was stored to the managed store, AND
-            //  (b) the existing row did NOT carry an UPLOADED cover (sticky-merge
-            //      preserves UPLOADED — we must not clobber it here).
-            if (storedCover != null && existingCoverSource != CoverSource.UPLOADED) {
-                setManagedCover(bookId, storedCover.relPath, storedCover.hash, storedCover.source)
-            }
         }
         return result
     }
@@ -584,6 +600,24 @@ class BookRepository(
      * logging a move; tests assert post-write state).
      */
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
+
+    /**
+     * Calls [upsert] with [managedCover] threaded through [writePayload] via [nextManagedCover].
+     *
+     * Sets [nextManagedCover] immediately before entering the substrate's [upsert], which calls
+     * [writePayload] synchronously within its transaction. The field is consumed and cleared
+     * inside [writePayload], so callers going through the plain [upsert] path always see null.
+     *
+     * This avoids changing the substrate's abstract [writePayload] signature while keeping the
+     * scan cover write atomic with the rest of the book row.
+     */
+    private suspend fun upsertWithCover(
+        payload: BookSyncPayload,
+        managedCover: StoredCoverInfo?,
+    ): AppResult<BookSyncPayload> {
+        nextManagedCover = managedCover
+        return upsert(payload, clientOpId = null)
+    }
 
     /**
      * Sets the managed-cover columns (provenance + relative path + sha256 hash) and bumps the
@@ -688,20 +722,26 @@ class BookRepository(
      * has no cover (a null `coverSource`) — both are a plain 404 to the caller,
      * not an error.
      *
-     * The path is resolved differently per source:
+     * **Managed file wins when `cover_path` is set.** When [homeDir] is configured
+     * and the book row has a non-null `cover_path`, [resolveManagedCover] is tried
+     * first and returned when the file exists — regardless of `cover_source`. This
+     * covers FILESYSTEM and EMBEDDED books whose cover was persisted to the managed
+     * store at scan time, as well as UPLOADED and ENRICHED covers.
+     *
+     * **Source-based resolution is the fallback.** Applied when `cover_path` is null
+     * (book not yet re-scanned after the managed store was introduced) or the managed
+     * file is missing (deleted from disk — treat as 404, not 500):
      *
      *  - [CoverSource.FILESYSTEM] → the book directory is scanned for a cover
      *    image, mirroring the scanner's `Analyzer.resolveCover` precedence:
      *    a `cover.*` file (case-insensitive) wins, else the first image file
      *    by name. A [CoverInfo.Filesystem] is returned only when such a file
-     *    actually exists on disk; otherwise null (the image was deleted since
-     *    the scan — a 404, not a 500).
+     *    actually exists on disk; otherwise null.
      *  - [CoverSource.EMBEDDED] → the book's primary audio file (lowest
      *    `ordinal`) resolves to `<root>/<rootRelPath>/<filename>`, returned as
      *    [CoverInfo.Embedded] for serve-time artwork extraction.
      *  - [CoverSource.UPLOADED] / [CoverSource.ENRICHED] → the persisted
-     *    `cover_path` (a relative path like `covers/{id}.jpg`) is resolved
-     *    sandboxed under [homeDir], returned as [CoverInfo.Managed].
+     *    `cover_path` is resolved sandboxed under [homeDir], returned as [CoverInfo.Managed].
      *
      * Opens its own short read transaction — the route calls it outside any
      * substrate orchestration.
@@ -741,6 +781,17 @@ class BookRepository(
         val source =
             CoverSource.entries.firstOrNull { it.name.equals(resolved.source, ignoreCase = true) }
                 ?: return null
+
+        // Managed file wins when cover_path is set — this covers FILESYSTEM and EMBEDDED books
+        // whose cover was persisted to the managed store at scan time (Task 5), as well as
+        // UPLOADED and ENRICHED covers. Source-based fallback applies when cover_path is null
+        // (book not yet re-scanned after the managed store was introduced) or the file is
+        // missing (deleted from disk — treat as 404, not 500).
+        if (homeDir != null && resolved.coverPath != null) {
+            val managed = resolveManagedCover(homeDir, resolved.coverPath, resolved.hash)
+            if (managed != null) return managed
+        }
+
         return when (source) {
             CoverSource.FILESYSTEM -> {
                 resolveFilesystemCover(bookDir)?.let { CoverInfo.Filesystem(it, resolved.hash) }
@@ -903,11 +954,18 @@ class BookRepository(
      * [preserveCoverColumns] skips writing the three cover columns (source, path, hash) when
      * true — used by the sticky-upload merge in [writePayload] to protect a user-uploaded cover
      * from being clobbered on re-scan. For INSERT ([existed] = false) this is always false.
+     *
+     * [managedCover] supplies the cover provenance when a managed file was written at scan time.
+     * When non-null (and [preserveCoverColumns] is false), the managed columns — source, path,
+     * and hash — are written in the same statement, making the scan a single atomic write.
+     * When null, legacy behaviour applies: source/hash come from [p]'s cover payload and
+     * [BookTable.coverPath] is set to null (managed path is handled by [setManagedCover]).
      */
     private fun applyBookFields(
         stmt: UpdateBuilder<*>,
         p: BookSyncPayload,
         preserveCoverColumns: Boolean = false,
+        managedCover: StoredCoverInfo? = null,
     ) {
         stmt[BookTable.title] = p.title
         stmt[BookTable.sortTitle] = p.sortTitle
@@ -923,15 +981,22 @@ class BookRepository(
         stmt[BookTable.hasScanWarning] = p.hasScanWarning
         stmt[BookTable.totalDuration] = p.totalDuration
         if (!preserveCoverColumns) {
-            stmt[BookTable.coverSource] =
-                p.cover
-                    ?.source
-                    ?.name
-                    ?.lowercase()
-            // coverPath is managed by setManagedCover (not set here) — the wire DTO
-            // never carries a managed path for scan-produced payloads.
-            stmt[BookTable.coverPath] = null
-            stmt[BookTable.coverHash] = p.cover?.hash
+            if (managedCover != null) {
+                // Single-write path: scan-time managed cover lands in the same statement.
+                stmt[BookTable.coverSource] = managedCover.source.name.lowercase()
+                stmt[BookTable.coverPath] = managedCover.relPath
+                stmt[BookTable.coverHash] = managedCover.hash
+            } else {
+                stmt[BookTable.coverSource] =
+                    p.cover
+                        ?.source
+                        ?.name
+                        ?.lowercase()
+                // coverPath is managed by setManagedCover (not set here) — the wire DTO
+                // never carries a managed path for scan-produced payloads.
+                stmt[BookTable.coverPath] = null
+                stmt[BookTable.coverHash] = p.cover?.hash
+            }
         }
         stmt[BookTable.rootRelPath] = p.rootRelPath
         stmt[BookTable.inode] = p.inode
