@@ -73,6 +73,9 @@ class ArchitectureTest :
                 // exercise the updateMyProfile → getMyProfile RPC round-trip. Same exemption
                 // class as the sync and DI fixtures above — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/profile/" !in it.path }
+                // Cross-stack digest parity test: drives the real server `digest()` against the client
+                // `DigestComputer` to prove byte-identical algorithms. Confined to jvmTest, not production.
+                .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/DigestParityE2ETest" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }

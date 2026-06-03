@@ -64,6 +64,10 @@ interface SyncDomainHandler<T : Any> {
      * The domain's local `(id, revision)` rows with `revision <= maxRevision`, INCLUDING
      * soft-deleted rows — the exact set the server's digest covers. Used by the reconciler
      * to fingerprint the domain and detect per-domain drift.
+     *
+     * Returns `null` for a domain that cannot be fingerprinted client-side (no local
+     * `revision` column) — the reconciler skips such domains rather than re-pulling them
+     * spuriously on every connect.
      */
-    suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>
+    suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>?
 }
