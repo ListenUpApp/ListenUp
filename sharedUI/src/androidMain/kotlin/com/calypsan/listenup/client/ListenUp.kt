@@ -356,8 +356,9 @@ class ListenUp :
 
         // Initialize Koin dependency injection
         startKoin {
-            // Use Android logger for Koin diagnostic messages
-            androidLogger(Level.DEBUG)
+            // INFO, not DEBUG: Koin's DEBUG level logs every dependency resolution, which floods
+            // logcat during sync (e.g. per-event SyncCursorStore lookups across a 1000-book scan).
+            androidLogger(Level.INFO)
 
             // Provide Android Context to Koin
             androidContext(this@ListenUp)

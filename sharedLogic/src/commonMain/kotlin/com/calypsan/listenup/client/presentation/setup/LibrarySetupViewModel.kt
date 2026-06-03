@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,7 @@ sealed interface LibrarySetupNavAction {
 class LibrarySetupViewModel(
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
     private val errorBus: ErrorBus,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     val state: StateFlow<LibrarySetupUiState>
         field = MutableStateFlow(LibrarySetupUiState())
@@ -258,6 +260,7 @@ class LibrarySetupViewModel(
                         )
                     }
                     _navActions.trySend(LibrarySetupNavAction.LibraryCreated(library))
+                    triggerInitialScan(library)
                 }
 
                 is AppResult.Failure -> {
@@ -269,6 +272,35 @@ class LibrarySetupViewModel(
                             error = result.error.message,
                         )
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Kick off the initial scan of a freshly-created [library].
+     *
+     * The server creates and live-mounts the library on `createLibrary`, but a mounted
+     * watcher only reacts to *future* filesystem changes — existing files are invisible
+     * until an explicit scan walks them. So the wizard must trigger that first scan, or
+     * an onboarded library never yields any books.
+     *
+     * Runs on [appScope], not [viewModelScope]: the server's `scanLibrary` suspends for
+     * the full scan, which easily outlives this wizard (it's torn down the moment
+     * onboarding finishes and the host navigates to the Shell). Tying it to the wizard's
+     * scope would cancel the scan mid-flight. Progress streams to the Shell over SSE;
+     * a failure surfaces on the global error bus.
+     */
+    private fun triggerInitialScan(library: Library) {
+        appScope.launch {
+            when (val result = libraryAdminRpcFactory.get().scanLibrary(library.id)) {
+                is AppResult.Success -> {
+                    logger.info { "Initial scan completed for library ${library.id}" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Initial scan failed for library ${library.id}: ${result.error.message}" }
                 }
             }
         }

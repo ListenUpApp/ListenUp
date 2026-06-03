@@ -215,13 +215,7 @@ private suspend fun ServerSSESession.streamFirehose(
     // transport — likely because `launch(heartbeatJob + ...)` reparents
     // outside the session's structured-concurrency tree. A manual launch
     // on the session's own scope is observable end-to-end.
-    val heartbeatJob =
-        launch {
-            while (isActive) {
-                delay(heartbeatIntervalMillis)
-                send(ServerSentEvent(comments = "keepalive"))
-            }
-        }
+    val heartbeatJob = launch { runKeepalive(heartbeatIntervalMillis) }
 
     // Per-user control frames (e.g. AccessChanged) ride a separate, non-replayed bus
     // channel — they carry no revision and must not enter Last-Event-Id resume. Deliver
@@ -264,8 +258,52 @@ private suspend fun ServerSSESession.streamFirehose(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        val cid = UUID.randomUUID().toString()
-        log.error(e) { "Uncaught SSE flow exception [cid=$cid]" }
+        if (isClientDisconnect(e)) {
+            // Normal: the client closed the SSE connection (navigated away, backgrounded,
+            // or restarted) mid-stream. The write channel is gone, so there's nothing to
+            // report and nothing we could send. End the stream quietly — never a 500.
+            log.debug { "SSE firehose client disconnected; ending stream" }
+        } else {
+            sendStreamError(e)
+        }
+    } finally {
+        heartbeatJob.cancel()
+        controlJob.cancel()
+    }
+}
+
+/**
+ * Comment-line keepalive loop for one SSE connection: emits `:keepalive` every
+ * [intervalMillis] ms until cancelled. A failed write means the client is gone — end
+ * quietly (the main collect's teardown handles the rest); only unexpected errors are
+ * logged. Extracted from `streamFirehose` so its try/catch nesting doesn't inflate that
+ * function's cognitive complexity.
+ */
+private suspend fun ServerSSESession.runKeepalive(intervalMillis: Long) {
+    try {
+        while (coroutineContext.isActive) {
+            delay(intervalMillis)
+            send(ServerSentEvent(comments = "keepalive"))
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        if (!isClientDisconnect(e)) {
+            log.warn(e) { "SSE heartbeat stopped on unexpected error" }
+        }
+    }
+}
+
+/**
+ * Best-effort [SyncControl.StreamError] frame for a genuine (non-disconnect) firehose
+ * failure. Logs with a correlation id, then attempts the send — if the connection is
+ * already gone the write also fails, so it's wrapped in [runCatching] to ensure a dead
+ * client never escalates into an unhandled 500.
+ */
+private suspend fun ServerSSESession.sendStreamError(e: Exception) {
+    val cid = UUID.randomUUID().toString()
+    log.error(e) { "Uncaught SSE flow exception [cid=$cid]" }
+    runCatching {
         send(
             data =
                 contractJson.encodeToString(
@@ -281,10 +319,26 @@ private suspend fun ServerSSESession.streamFirehose(
                 ),
             event = SSE_EVENT_CONTROL,
         )
-    } finally {
-        heartbeatJob.cancel()
-        controlJob.cancel()
     }
+}
+
+/**
+ * True when [e] (or anything in its cause chain) is a client-closed-connection write —
+ * the expected outcome when an SSE subscriber navigates away, backgrounds, or restarts.
+ *
+ * These surface as Ktor's `ClosedWriteChannelException` / `ChannelWriteException`, usually
+ * wrapping a `java.io.IOException: Broken pipe`. We match on simple names + the broken-pipe
+ * IOException rather than importing engine-internal types, so the check stays transport-agnostic.
+ */
+private fun isClientDisconnect(e: Throwable): Boolean {
+    var cur: Throwable? = e
+    while (cur != null) {
+        val name = cur::class.simpleName
+        if (name == "ClosedWriteChannelException" || name == "ChannelWriteException") return true
+        if (cur is java.io.IOException && cur.message?.contains("Broken pipe", ignoreCase = true) == true) return true
+        cur = cur.cause
+    }
+    return false
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
@@ -113,6 +114,7 @@ class SyncCatchUpClientTest :
                         httpClientProvider = { httpClient },
                         serverUrlProvider = { "http://test" },
                         store = store,
+                        transactionRunner = passThroughTransactionRunner(),
                     )
 
                 val result = catchUp.catchUp(handler)
@@ -149,6 +151,7 @@ class SyncCatchUpClientTest :
                         httpClientProvider = { httpClient },
                         serverUrlProvider = { "http://test" },
                         store = store,
+                        transactionRunner = passThroughTransactionRunner(),
                     )
 
                 catchUp.catchUp(handler).shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -171,6 +174,7 @@ class SyncCatchUpClientTest :
                         httpClientProvider = { httpClient },
                         serverUrlProvider = { "http://test" },
                         store = SyncCursorStore(InMemorySyncCursorDao()),
+                        transactionRunner = passThroughTransactionRunner(),
                     )
 
                 val result = catchUp.domains()
@@ -235,6 +239,7 @@ class SyncCatchUpClientTest :
                         httpClientProvider = { httpClient },
                         serverUrlProvider = { "http://test" },
                         store = SyncCursorStore(InMemorySyncCursorDao()),
+                        transactionRunner = passThroughTransactionRunner(),
                     )
 
                 catchUp.catchUpAll(registry).shouldBeInstanceOf<AppResult.Success<Unit>>()

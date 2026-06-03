@@ -20,7 +20,7 @@ class SyncEventDispatcher(
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
-    private val onCursorStale: suspend (lastKnown: Long?) -> Unit = {},
+    private val onCursorStale: suspend () -> Unit = {},
     private val onAccessChanged: suspend () -> Unit = {},
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
 ) {
@@ -48,7 +48,7 @@ class SyncEventDispatcher(
                 logger.info {
                     "Cursor stale; signalling engine to orchestrate recovery (lastKnown=${control.lastKnownRevision})"
                 }
-                onCursorStale(control.lastKnownRevision)
+                onCursorStale()
             }
 
             is SyncControl.StreamError -> {

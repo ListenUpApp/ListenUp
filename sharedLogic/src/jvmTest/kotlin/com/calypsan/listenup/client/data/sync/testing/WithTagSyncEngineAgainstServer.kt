@@ -223,6 +223,7 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     httpClientProvider = { testClient },
                     serverUrlProvider = { "" },
                     store = store,
+                    transactionRunner = RoomTransactionRunner(clientDb),
                 )
 
             val sseClient =
@@ -240,9 +241,9 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-                    onCursorStale = { lastKnown ->
+                    onCursorStale = {
                         checkNotNull(engineRef) { "SyncEngine not yet constructed" }
-                            .handleCursorStale(lastKnown)
+                            .handleCursorStale()
                     },
                 )
 

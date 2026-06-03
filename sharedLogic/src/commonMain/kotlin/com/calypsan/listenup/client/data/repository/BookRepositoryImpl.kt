@@ -29,10 +29,13 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 
@@ -142,9 +145,18 @@ class BookRepositoryImpl(
         }
 
     override fun observeBookListItems(): Flow<List<BookListItem>> =
-        bookDao.observeAllWithContributors().map { rows ->
-            rows.map { it.toListItem(imageStorage) }
-        }
+        bookDao
+            .observeAllWithContributors()
+            // conflate BEFORE the map: during an initial-population burst the book table is
+            // invalidated once per inserted book, and re-mapping the whole library (a BookListItem +
+            // a blocking ImageStorage.exists cover stat per book) on every one is O(n²) allocation
+            // that exhausts the heap → OOM. Conflate collapses a burst into a single re-map of the
+            // latest snapshot; the UI still converges to the correct final list.
+            .conflate()
+            .map { rows -> rows.map { it.toListItem(imageStorage) } }
+            // toListItem's per-book cover stat is blocking I/O — keep it off the collector
+            // (Dispatchers.Main for the Library screen), or a large library freezes the UI thread.
+            .flowOn(Dispatchers.IO)
 
     override suspend fun getBookListItem(id: String): BookListItem? =
         bookDao.getByIdWithContributors(BookId(id))?.toListItem(imageStorage)

@@ -143,10 +143,11 @@ internal class Scanner(
                 scope = ScanScope.Full,
             )
         lastResult = result
+        // Hand the result to BookPersister; it emits ScanEvent.Completed once the books are
+        // persisted (see BookPersister.persist). The Scanner must NOT emit Completed here — that
+        // would signal "done" before any book is queryable.
         scanResultBus.emit(result)
-        val summary = result.toSummary()
-        eventBus.emit(ScanEvent.Completed(correlationId, library.id, summary))
-        logger.info { "scan complete [library=${library.id.value}]: ${formatScanCompleteLog(summary)}" }
+        logger.info { "scan walk complete [library=${library.id.value}]: ${formatScanCompleteLog(result.toSummary())}" }
         return result
     }
 
@@ -242,8 +243,8 @@ internal class Scanner(
                 filesSkipped = 0,
                 scope = subtreeScope,
             )
+        // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(lastResult!!)
-        eventBus.emit(ScanEvent.Completed(correlationId, library.id, lastResult!!.toSummary()))
     }
 
     private fun partitionBooksUnder(

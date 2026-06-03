@@ -87,7 +87,7 @@ class CursorStaleLifecycleTest :
                     // a real CursorStale frame.
                     sseClient.reseed(0L)
 
-                    engine.handleCursorStale(lastKnown = 0L)
+                    engine.handleCursorStale()
 
                     // Lifecycle invariants post-handling:
                     //  - SSE is reconnected, not in permanent Disconnected.

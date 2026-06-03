@@ -10,7 +10,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
@@ -27,6 +30,8 @@ import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
@@ -72,6 +77,26 @@ class MainActivity : ComponentActivity() {
         // Initialize local preferences (theme, dynamic colors, etc.) from storage
         lifecycleScope.launch {
             localPreferences.initializeLocalPreferences()
+        }
+
+        // Connect realtime sync as soon as auth becomes Authenticated — including
+        // mid-session (a fresh onboarding), not only on the next onResume/restart.
+        // Without this, a just-registered user has no live SSE stream, so books the
+        // server scans right after library creation don't arrive until the app is
+        // relaunched. Re-collected per STARTED so foreground resumes reconnect too;
+        // engine.start() is single-flight, so overlapping with onResume is safe.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                authSession.authState
+                    .map { it is AuthState.Authenticated }
+                    .distinctUntilChanged()
+                    .collect { authenticated ->
+                        if (authenticated) {
+                            logger.debug { "Authenticated — connecting realtime sync" }
+                            syncRepository.connectRealtime()
+                        }
+                    }
+            }
         }
 
         setContent {

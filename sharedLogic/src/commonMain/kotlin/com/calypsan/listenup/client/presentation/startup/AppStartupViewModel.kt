@@ -5,12 +5,21 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -32,6 +41,14 @@ data class AppStartupState(
     val needsLibrarySetup: Boolean = false,
     val setupCheckFailed: Boolean = false,
     val backgroundedAtMs: Long? = null,
+    /**
+     * True once a setup check has produced a definitive result this authenticated session. Lets the
+     * nav layer keep the readiness overlay up between "authenticated" and the first check result —
+     * otherwise the default `Shell` back-stack entry flashes before the check resolves, because a
+     * not-yet-checked state (`isChecking=false, needsLibrarySetup=false`) is indistinguishable from
+     * a resolved "go to shell" one.
+     */
+    val checkResolved: Boolean = false,
 )
 
 /**
@@ -56,10 +73,44 @@ data class AppStartupState(
 class AppStartupViewModel(
     private val userRepository: UserRepository,
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
+    private val authSession: AuthSession,
     private val profileRepository: ProfileRepository,
+    syncRepository: SyncRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AppStartupState())
     val state: StateFlow<AppStartupState> = _state.asStateFlow()
+
+    /**
+     * The single authoritative readiness state the navigation layer consumes via one `when`,
+     * derived from the setup-check [state] and the sync layer's initial-population signal. This is
+     * the consolidation of the previously-scattered overlay/gate booleans into one sealed type.
+     *
+     * Precedence: an unresolved or failed setup check, or a needs-setup answer, always outranks
+     * population — `isServerScanning` is only meaningful once the library exists. Once the library
+     * is populated and the client has imported it (`isServerScanning` false — see `applyScanEvent`),
+     * the state is [LibraryReadiness.Ready].
+     *
+     * `Eagerly`, not `WhileSubscribed`, so [LibraryReadiness] is live for the whole ViewModel
+     * lifetime — the splash gate and lifecycle hooks read state without an active UI subscription.
+     */
+    val readiness: StateFlow<LibraryReadiness> =
+        combine(
+            _state,
+            syncRepository.isServerScanning,
+            syncRepository.scanProgress,
+        ) { s, scanning, progress ->
+            when {
+                !s.checkResolved || s.isChecking -> LibraryReadiness.Checking
+                s.setupCheckFailed -> LibraryReadiness.CheckFailed
+                s.needsLibrarySetup -> LibraryReadiness.NeedsSetup
+                scanning -> LibraryReadiness.Populating(progress)
+                else -> LibraryReadiness.Ready
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = LibraryReadiness.Checking,
+        )
 
     companion object {
         /** Apps backgrounded longer than this will re-run the library-setup check on resume. */
@@ -67,7 +118,31 @@ class AppStartupViewModel(
     }
 
     init {
-        runLibrarySetupCheck()
+        // The library-setup check must run when the user is AUTHENTICATED — not at
+        // construction. This VM is created eagerly at app launch (MainActivity holds it
+        // for the foreground/background hooks and the splash gate) and is Activity-scoped,
+        // so a one-shot init check would run before login, resolve a null user, cache
+        // "no setup needed", and never re-run once the user actually registers/logs in.
+        // Observing authState re-runs the check on each transition to Authenticated.
+        observeAuthState()
+    }
+
+    private fun observeAuthState() {
+        viewModelScope.launch {
+            authSession.authState
+                .map { it is AuthState.Authenticated }
+                .distinctUntilChanged()
+                .collect { authenticated ->
+                    if (authenticated) {
+                        logger.info { "AppStartupViewModel: authenticated — running library-setup check" }
+                        _state.value = AppStartupState(isChecking = true)
+                        runLibrarySetupCheck()
+                    } else {
+                        logger.debug { "AppStartupViewModel: not authenticated — no library-setup check" }
+                        _state.value = AppStartupState(isChecking = false)
+                    }
+                }
+        }
     }
 
     // region Lifecycle hooks (call from MainActivity)
@@ -98,6 +173,21 @@ class AppStartupViewModel(
 
     // endregion
 
+    /**
+     * Clear the needs-setup state once the user finishes the create-library wizard. Without this the
+     * stale `needsLibrarySetup = true` keeps the nav layer's pre-wizard readiness overlay latched on
+     * top of the shell forever after setup. Call from the setup-complete callback.
+     */
+    fun onLibrarySetupComplete() {
+        _state.value =
+            _state.value.copy(
+                isChecking = false,
+                needsLibrarySetup = false,
+                setupCheckFailed = false,
+                checkResolved = true,
+            )
+    }
+
     /** Re-run the library-setup check after a transient failure (the retry the nav layer offers). */
     fun retryLibrarySetupCheck() {
         _state.value = AppStartupState(isChecking = true)
@@ -108,7 +198,7 @@ class AppStartupViewModel(
         viewModelScope.launch {
             try {
                 val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
-                logger.debug { "AppStartupViewModel: user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
+                logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
 
                 // Refresh own profile in the background — keeps displayName/tagline/avatarType in sync.
                 // Fire-and-forget: never blocks the startup check or surfaces failures to the UI.
@@ -133,6 +223,7 @@ class AppStartupViewModel(
                                     isChecking = false,
                                     needsLibrarySetup = result.data.needsSetup,
                                     setupCheckFailed = false,
+                                    checkResolved = true,
                                 )
                         }
 
@@ -140,22 +231,29 @@ class AppStartupViewModel(
                             // Honest over silent: never drop an admin into an empty Shell when the
                             // check fails. Surface a retryable error instead of forcing the wizard.
                             logger.warn { "AppStartupViewModel: library status check failed: ${result.error.code}" }
-                            _state.value = _state.value.copy(isChecking = false, setupCheckFailed = true)
+                            _state.value =
+                                _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
                         }
                     }
                 } else {
+                    logger.info {
+                        "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
+                            "skipping library-setup check"
+                    }
                     _state.value =
                         _state.value.copy(
                             isChecking = false,
                             needsLibrarySetup = false,
                             setupCheckFailed = false,
+                            checkResolved = true,
                         )
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "AppStartupViewModel: setup check failed unexpectedly" }
-                _state.value = _state.value.copy(isChecking = false, setupCheckFailed = true)
+                _state.value =
+                    _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
             }
         }
     }

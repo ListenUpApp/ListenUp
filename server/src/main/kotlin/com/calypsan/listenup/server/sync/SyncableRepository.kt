@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
 import java.security.MessageDigest
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -173,6 +174,10 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         if (userScoped) {
             requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
         }
+        // Read the suppression marker in the outer suspend context, before the transaction:
+        // the revision still bumps and the row still commits, but a suppressed write skips
+        // the live-tail publish (see [FirehoseSuppressed]).
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
@@ -209,7 +214,9 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                         payload = saved,
                     )
                 }
-            bus.publish(repo = this@SyncableRepository, event = event, userId = userId)
+            if (!suppressed) {
+                bus.publish(repo = this@SyncableRepository, event = event, userId = userId)
+            }
 
             AppResult.Success(saved)
         }
@@ -260,6 +267,7 @@ abstract class SyncableRepository<T : Any, ID : Any>(
         if (userScoped) {
             requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
         }
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
@@ -279,17 +287,19 @@ abstract class SyncableRepository<T : Any, ID : Any>(
                     ),
                 )
             } else {
-                bus.publish(
-                    repo = this@SyncableRepository,
-                    event =
-                        SyncEvent.Deleted(
-                            id = idStr,
-                            revision = rev,
-                            occurredAt = now,
-                            clientOpId = clientOpId,
-                        ),
-                    userId = userId,
-                )
+                if (!suppressed) {
+                    bus.publish(
+                        repo = this@SyncableRepository,
+                        event =
+                            SyncEvent.Deleted(
+                                id = idStr,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = clientOpId,
+                            ),
+                        userId = userId,
+                    )
+                }
                 AppResult.Success(Unit)
             }
         }

@@ -55,7 +55,7 @@ internal class ScanCoordinator(
     val libraryId: LibraryId,
     private val runFullScan: suspend () -> ScanResult,
     private val runIncremental: suspend (Path) -> Unit,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
 ) {
     private val mutex = Mutex()
     private val pendingPaths: MutableSet<Path> = ConcurrentHashMap.newKeySet()
@@ -88,6 +88,31 @@ internal class ScanCoordinator(
         } finally {
             mutex.unlock()
         }
+    }
+
+    /**
+     * Fire-and-forget full scan: acquire the single-flight lock synchronously (so the
+     * caller learns [ScanError.AlreadyRunning] immediately), then run the scan on [scope]
+     * and return [AppResult.Success] right away — "202 Accepted" semantics. The scan
+     * outlives the triggering request; progress streams over SSE. Used by the admin/wizard
+     * `scanLibrary` trigger, which must not block on the whole walk.
+     */
+    fun scanFullAsync(): AppResult<Unit> {
+        if (!mutex.tryLock()) {
+            return AppResult.Failure(ScanError.AlreadyRunning())
+        }
+        scope.launch {
+            try {
+                runFullScan()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.error(e) { "background full scan failed for library ${libraryId.value}" }
+            } finally {
+                mutex.unlock()
+            }
+        }
+        return AppResult.Success(Unit)
     }
 
     fun reanalyze(bookRoot: Path) {

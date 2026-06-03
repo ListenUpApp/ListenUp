@@ -78,6 +78,17 @@ class SyncEngine(
     private var currentUser: String? = null
     private var engineJob: Job? = null
 
+    // Serializes + coalesces CursorStale recovery. During initial population the server can emit
+    // CursorStale repeatedly (its replay-bus floor outruns the client's reseeded cursor while the
+    // scan is still writing), and the dispatcher routes each straight into handleCursorStale — on
+    // top of the scan-completion reconcile. Unguarded, every signal started ANOTHER full catchUpAll
+    // concurrently: overlapping page re-decodes (runaway large-object GC) that saturated the
+    // dispatcher and starved the UI. This guard runs at most one recovery at a time and collapses a
+    // burst of triggers into a single follow-up pass.
+    private val cursorStaleMutex = Mutex()
+    private var cursorStaleRunning = false
+    private var cursorStalePending = false
+
     // Flips to true on the last line of [runStart] for the active user. If
     // [runStart] throws before that line, the flag stays false even though
     // engineJob has completed — that's the signal start() uses to retry
@@ -244,8 +255,51 @@ class SyncEngine(
      *     and the loop would spin forever (the H1 bug).
      *  4. Reconnect SSE. Live tail resumes from the new cursor.
      */
-    internal suspend fun handleCursorStale(lastKnown: Long?) {
-        logger.info { "CursorStale received; lastKnown=$lastKnown — disconnect → catchUp → reseed → reconnect" }
+    internal suspend fun handleCursorStale() {
+        // Coalesce: if a recovery is already running, request a single follow-up pass and return
+        // instead of starting a concurrent catchUpAll. The first caller drains the pending flag in a
+        // loop so the last-requested signal is honoured exactly once.
+        val shouldRun =
+            cursorStaleMutex.withLock {
+                if (cursorStaleRunning) {
+                    cursorStalePending = true
+                    false
+                } else {
+                    cursorStaleRunning = true
+                    true
+                }
+            }
+        if (!shouldRun) return
+
+        try {
+            var more = true
+            while (more) {
+                runCursorStaleRecovery()
+                more =
+                    cursorStaleMutex.withLock {
+                        if (cursorStalePending) {
+                            cursorStalePending = false
+                            true
+                        } else {
+                            cursorStaleRunning = false
+                            false
+                        }
+                    }
+            }
+        } finally {
+            // Normal exit already cleared cursorStaleRunning in the loop; this only fires when a
+            // recovery threw or was cancelled, so a future CursorStale can still recover.
+            if (cursorStaleRunning) {
+                cursorStaleMutex.withLock {
+                    cursorStaleRunning = false
+                    cursorStalePending = false
+                }
+            }
+        }
+    }
+
+    private suspend fun runCursorStaleRecovery() {
+        logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
         sseClient.disconnect()
         when (val result = catchUp.catchUpAll(registry)) {
             is AppResult.Success -> {}

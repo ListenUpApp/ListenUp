@@ -52,14 +52,20 @@ open class SetupUseCase(
     }
 
     private suspend fun persistSession(session: AuthSession): AppResult<User> {
+        // Persist the user locally BEFORE flipping auth state. saveAuthTokens moves
+        // AuthState to Authenticated, which immediately spins up the post-login
+        // startup check (AppStartupViewModel). That check reads the current user to
+        // decide whether an admin still needs to create a library; if Room is empty
+        // because we hadn't saved yet, it reads null and silently lands the admin in
+        // the Shell instead of the Create-Library wizard. Save first, then authenticate.
+        val user = session.user.toDomain()
+        userRepository.saveUser(user)
         authSession.saveAuthTokens(
             access = session.accessToken,
             refresh = session.refreshToken,
             sessionId = session.sessionId.value,
             userId = session.user.id.value,
         )
-        val user = session.user.toDomain()
-        userRepository.saveUser(user)
         return AppResult.Success(user)
     }
 

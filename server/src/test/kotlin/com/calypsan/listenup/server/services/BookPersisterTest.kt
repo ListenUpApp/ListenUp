@@ -10,9 +10,11 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -21,6 +23,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -74,6 +77,57 @@ class BookPersisterTest :
 
                     fake.softDeleteAbsentCalls shouldHaveSize 1
                     fake.softDeleteAbsentCalls.single() shouldBe setOf(BookId("id-a"), BookId("id-b"))
+                }
+            }
+        }
+
+        test("emits ScanEvent.Completed only after every book is persisted") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+
+                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+
+                    // Completed is emitted by the persister — proving it fires AFTER persistence, not
+                    // before it (the premature-Completed race). Its summary reflects the committed books.
+                    val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
+                    completed.result.totalBooks shouldBe 2
+                    fake.resolved shouldContainExactly listOf("a", "b")
+                }
+            }
+        }
+
+        test("full scan suppresses the firehose while persisting books") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this)
+
+                    persister.persist(scanResult(listOf(analyzedBook("a"), analyzedBook("b")), ScanScope.Full))
+
+                    // Every book is persisted with FirehoseSuppressed active, so the bulk burst
+                    // never hits the lossy live tail; the sweep runs suppressed too.
+                    fake.suppressionObserved shouldContainExactly listOf(true, true)
+                    fake.softDeleteAbsentSuppressed shouldContainExactly listOf(true)
+                }
+            }
+        }
+
+        test("incremental scan persists with the firehose live (no suppression)") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(db, fake, scope = this)
+
+                    persister.persist(scanResult(listOf(analyzedBook("a")), ScanScope.Subtree("some/path")))
+
+                    // Incremental scans ARE live deltas — they publish normally.
+                    fake.suppressionObserved shouldContainExactly listOf(false)
                 }
             }
         }
@@ -137,12 +191,19 @@ private class FakeBookIngest(
     /** seenIds sets passed to each [softDeleteAbsent] call. */
     val softDeleteAbsentCalls = mutableListOf<Set<BookId>>()
 
+    /** Whether [FirehoseSuppressed] was in the coroutine context for each [resolveOrInsert], in call order. */
+    val suppressionObserved = mutableListOf<Boolean>()
+
+    /** Whether [FirehoseSuppressed] was in the coroutine context for each [softDeleteAbsent], in call order. */
+    val softDeleteAbsentSuppressed = mutableListOf<Boolean>()
+
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
     ): AppResult<IngestOutcome> {
+        suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
         if (path in throwForRootRelPath) {
             error("simulated escaped failure for $path")
@@ -158,6 +219,7 @@ private class FakeBookIngest(
         libraryId: LibraryId,
         seenIds: Set<BookId>,
     ) {
+        softDeleteAbsentSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         softDeleteAbsentCalls += seenIds
     }
 }
@@ -168,6 +230,7 @@ private fun persister(
     db: Database,
     ingest: BookIngestPort,
     scope: CoroutineScope,
+    eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
     metrics: BookPersisterMetrics = BookPersisterMetrics(SimpleMeterRegistry()),
 ): BookPersister =
     BookPersister(
@@ -175,6 +238,7 @@ private fun persister(
         libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/lib")),
         db = db,
         scanResultBus = MutableSharedFlow(),
+        eventBus = eventBus,
         scope = scope,
         metrics = metrics,
     )

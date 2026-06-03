@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CoverSource as SyncCoverSource
 import com.calypsan.listenup.core.BookId
@@ -11,12 +12,16 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.LibraryFolderTable
+import com.calypsan.listenup.server.scanner.toSummary
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.io.path.readBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.nio.file.Path as JPath
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -69,6 +74,7 @@ class BookPersister(
     private val libraryRegistry: LibraryRegistry,
     private val db: Database,
     private val scanResultBus: SharedFlow<ScanResult>,
+    private val eventBus: MutableSharedFlow<ScanEvent>,
     private val scope: CoroutineScope,
     private val metrics: BookPersisterMetrics,
     private val coverImageStore: CoverImageStore? = null,
@@ -87,6 +93,35 @@ class BookPersister(
         // Falls back to a sentinel folderId so a misconfigured folder doesn't
         // block persistence; the TODO below tracks proper error surfacing.
         val folderId = resolveFolderId(result.rootPath)
+
+        // A FULL scan is bulk population (onboarding, re-scan): suppress the per-book firehose
+        // PUBLISH so the lossy live tail (ChangeBus replay=256, DROP_OLDEST) never carries the
+        // burst — an arbitrarily large library would otherwise overflow it and trip a client
+        // CursorStale → catch-up spin. Revisions still bump, so the client does one clean REST
+        // catch-up after the Completed below. Incremental scans ARE live deltas; they publish.
+        if (result.scope is ScanScope.Full) {
+            withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
+        } else {
+            persistAll(result, libraryId, folderId)
+        }
+
+        // Completed is emitted HERE — after every book is committed and (for a full scan) the
+        // tombstone sweep has run — not by the Scanner before this persist runs. `Completed` must
+        // mean "the library is persisted and queryable", so the client reconciles a settled server
+        // exactly once instead of racing a still-writing one (the premature-Completed bug).
+        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary()))
+    }
+
+    /**
+     * Persists every book in [result] and, for a [ScanScope.Full] result, runs the tombstone
+     * sweep. The caller decides whether this runs under [FirehoseSuppressed]; this method is
+     * suppression-agnostic.
+     */
+    private suspend fun persistAll(
+        result: ScanResult,
+        libraryId: LibraryId,
+        folderId: FolderId,
+    ) {
         val seenIds = mutableSetOf<BookId>()
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).

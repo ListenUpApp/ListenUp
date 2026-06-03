@@ -630,6 +630,15 @@ val syncModule =
             )
         }
 
+        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
+        // live scan-progress stream that drives the scan UI + post-scan reconcile.
+        single<com.calypsan.listenup.client.data.remote.ScannerRpcFactory> {
+            com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        }
+
         // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
         single<MetadataLookupRpcFactory> {
             KtorMetadataLookupRpcFactory(
@@ -913,7 +922,7 @@ val syncModule =
 
         // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
         single<UserRepository> {
-            UserRepositoryImpl(userDao = get(), sessionApi = get())
+            UserRepositoryImpl(userDao = get(), authRpcFactory = get())
         }
 
         // UserProfileRepository for other users' profile data (avatars in activity feed, etc.)
@@ -930,6 +939,7 @@ val syncModule =
                 syncEngineState = get(),
                 authSession = get(),
                 listeningEventRecorder = get(),
+                scannerRpcFactory = get(),
                 scope =
                     get(
                         qualifier =

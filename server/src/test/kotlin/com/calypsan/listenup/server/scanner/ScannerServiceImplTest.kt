@@ -5,17 +5,23 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
+import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
+import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 
@@ -45,6 +51,49 @@ class ScannerServiceImplTest :
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<ScanError.LibraryPathNotConfigured>()
                 }
+            }
+        }
+
+        test("observeProgress drops heavy Change events, keeping only lifecycle/progress") {
+            runTest {
+                // replay so the late subscriber sees all pre-emitted events deterministically.
+                val eventBus = MutableSharedFlow<ScanEvent>(replay = 10)
+                val orchestrator =
+                    ScanOrchestrator(
+                        scannerFactory = { error("scannerFactory unused by observeProgress") },
+                        watcherSupervisor = NoOpWatcherSupervisor,
+                    )
+                val service = ScannerServiceImpl(orchestrator, { TEST_LIBRARY_ID }, eventBus.asSharedFlow())
+
+                eventBus.emit(ScanEvent.Started(correlationId = "c", libraryId = TEST_LIBRARY_ID, rootPath = "/x"))
+                // A Change carries a full AnalyzedBook (artwork bytes) — must NOT reach the progress stream.
+                eventBus.emit(
+                    ScanEvent.Change(
+                        correlationId = "c",
+                        libraryId = TEST_LIBRARY_ID,
+                        event = ChangeEventDto.Removed(rootRelPath = "Author/Title"),
+                    ),
+                )
+                eventBus.emit(
+                    ScanEvent.Progress(
+                        correlationId = "c",
+                        libraryId = TEST_LIBRARY_ID,
+                        phase = ScanPhase.ANALYZING,
+                        filesWalked = 2,
+                        booksAnalyzed = 1,
+                        errors = 0,
+                    ),
+                )
+
+                // Change is filtered, so the first two delivered events are Started then Progress.
+                val received =
+                    service
+                        .observeProgress()
+                        .take(2)
+                        .toList()
+                        .map { (it as RpcEvent.Data).value::class.simpleName }
+
+                received shouldContainExactly listOf("Started", "Progress")
             }
         }
 
