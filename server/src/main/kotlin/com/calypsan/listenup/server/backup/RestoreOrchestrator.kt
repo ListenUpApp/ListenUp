@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.db.DatabaseHandle
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
@@ -78,44 +79,47 @@ class RestoreOrchestrator(
                 Files.createDirectories(paths.stagingDir)
                 archive.extractTo(archivePath, paths.stagingDir)
 
-                // 5. Swap
-                eventBus.tryEmit(BackupEvent.Swapping)
-                dbHandle.suspendPool()
-                dbHandle.evictConnections()
-                try {
-                    val dbFileName = paths.dbFile.fileName.toString()
-                    swapFile(paths.stagingDir.resolve("listenup.db"), paths.dbFile)
-                    Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-wal"))
-                    Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-shm"))
-                    if (manifest.includesImages) {
-                        swapDir(paths.stagingDir.resolve("covers"), paths.coversDir)
-                        swapDir(paths.stagingDir.resolve("avatars"), paths.avatarsDir)
+                // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
+                // Hikari pool suspended forever. Once suspendPool() is called the swap MUST
+                // run to a consistent end (pool resumed on either success or rollback path)
+                // before cancellation can propagate.
+                withContext(NonCancellable) {
+                    eventBus.tryEmit(BackupEvent.Swapping)
+                    dbHandle.suspendPool()
+                    dbHandle.evictConnections()
+                    try {
+                        val dbFileName = paths.dbFile.fileName.toString()
+                        swapFile(paths.stagingDir.resolve("listenup.db"), paths.dbFile)
+                        Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-wal"))
+                        Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-shm"))
+                        if (manifest.includesImages) {
+                            swapDir(paths.stagingDir.resolve("covers"), paths.coversDir)
+                            swapDir(paths.stagingDir.resolve("avatars"), paths.avatarsDir)
+                        }
+                        dbHandle.resumePool()
+
+                        // 6. Flyway migrate
+                        eventBus.tryEmit(BackupEvent.Migrating)
+                        val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
+
+                        eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
+                        deleteRecursively(paths.rollbackDir)
+                        deleteRecursively(paths.stagingDir)
+
+                        AppResult.Success(
+                            RestoreResult(
+                                restoredFrom = id,
+                                includedImages = manifest.includesImages,
+                                schemaMigratedFrom = manifest.schemaVersion,
+                                schemaMigratedTo = migratedTo,
+                            ),
+                        )
+                    } catch (e: Exception) {
+                        logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
+                        rollback(rollbackDb, rollbackCovers, rollbackAvatars)
+                        eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))
+                        AppResult.Failure(BackupError.RestoreFailed(rolledBack = true, debugInfo = e.message))
                     }
-                    dbHandle.resumePool()
-
-                    // 6. Flyway migrate
-                    eventBus.tryEmit(BackupEvent.Migrating)
-                    val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
-
-                    eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
-                    deleteRecursively(paths.rollbackDir)
-                    deleteRecursively(paths.stagingDir)
-
-                    AppResult.Success(
-                        RestoreResult(
-                            restoredFrom = id,
-                            includedImages = manifest.includesImages,
-                            schemaMigratedFrom = manifest.schemaVersion,
-                            schemaMigratedTo = migratedTo,
-                        ),
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.error(e) { "restore swap/migrate failed — rolling back to safety copy" }
-                    rollback(rollbackDb, rollbackCovers, rollbackAvatars)
-                    eventBus.tryEmit(BackupEvent.RolledBack(e.message ?: "restore failed"))
-                    AppResult.Failure(BackupError.RestoreFailed(rolledBack = true, debugInfo = e.message))
                 }
             } finally {
                 maintenance.exit()
