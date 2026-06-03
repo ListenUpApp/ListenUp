@@ -1,4 +1,4 @@
-package com.calypsan.listenup.core.error
+package com.calypsan.listenup.client.core.error
 
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
