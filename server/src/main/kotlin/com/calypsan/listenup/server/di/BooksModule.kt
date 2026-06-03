@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
+import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
@@ -245,6 +246,7 @@ private fun Module.coverAndPersisterBindings(
             libraryRegistry = get(),
             db = get(),
             scanResultBus = get<MutableSharedFlow<ScanResult>>(named("scanResultBus")),
+            eventBus = get<MutableSharedFlow<ScanEvent>>(),
             scope = get(),
             metrics = get(),
             coverImageStore = get<CoverImageStore>(),

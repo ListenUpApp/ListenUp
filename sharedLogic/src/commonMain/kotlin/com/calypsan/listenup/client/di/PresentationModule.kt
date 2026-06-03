@@ -70,6 +70,15 @@ val authPresentationModule =
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
                 libraryAdminRpcFactory = get(),
                 errorBus = get(),
+                // App-lifetime scope: the initial scan triggered after createLibrary must
+                // outlive this wizard (torn down when onboarding finishes and we navigate
+                // to the Shell), so it can't ride viewModelScope.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named("appScope"),
+                    ),
             )
         }
     }
@@ -212,9 +221,15 @@ val libraryPresentationModule =
         // Shared selection state - singleton so both ViewModels observe the same state
         single { LibrarySelectionManager() }
 
-        // LibraryViewModel as singleton for preloading - starts loading Room data
-        // immediately when injected at AppShell level, making Library instant
-        single {
+        // factory (NOT single): koinViewModel() then scopes a fresh instance to each
+        // ViewModelStore. A singleton VM is fatal here — when the first owning store is cleared
+        // (e.g. onboarding's backStack.clear()), onCleared() cancels the singleton's viewModelScope,
+        // and the re-served same instance has uiState.stateIn(deadScope) pinned at Loading forever.
+        // Preloading still works: the AppShell's koinViewModel() creates it for the shell's store and
+        // the Library screen reuses that same store-scoped instance. (Matches SearchViewModel below
+        // and sharedUI rule 8; viewModelOf isn't on sharedLogic's classpath, so factory is the
+        // commonMain-equivalent.)
+        factory {
             LibraryViewModel(
                 bookRepository = get(),
                 seriesRepository = get(),
@@ -228,8 +243,8 @@ val libraryPresentationModule =
             )
         }
 
-        // LibraryActionsViewModel as singleton - shares selection state with LibraryViewModel
-        single {
+        // factory — shares selection with LibraryViewModel via the singleton LibrarySelectionManager.
+        factory {
             LibraryActionsViewModel(
                 selectionManager = get(),
                 userRepository = get(),
@@ -464,8 +479,8 @@ val settingsPresentationModule =
         }
         // DevicesViewModel for the Devices (active sessions) screen
         factory { DevicesViewModel(authRepository = get()) }
-        // SyncIndicatorViewModel as singleton for app-wide sync status
-        single { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
+        // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
+        factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
         // StorageViewModel for storage management screen
         factory<StorageSpaceProvider> { DownloadFileManagerStorageAdapter(get<DownloadFileManager>()) }
         factory {
@@ -487,7 +502,9 @@ val startupPresentationModule =
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
                 userRepository = get(),
                 libraryAdminRpcFactory = get(),
+                authSession = get(),
                 profileRepository = get(),
+                syncRepository = get(),
             )
         }
     }

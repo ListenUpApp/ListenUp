@@ -152,10 +152,10 @@ class SyncEventDispatcherTest :
             }
         }
 
-        test("control: SyncControl.CursorStale sets state and triggers callback with lastKnown") {
+        test("control: SyncControl.CursorStale triggers the recovery callback") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                var seenLastKnown: Long? = null
+                var recoveryTriggered = false
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
@@ -166,10 +166,9 @@ class SyncEventDispatcherTest :
                             ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
-                        onCursorStale = { lastKnown -> seenLastKnown = lastKnown },
+                        onCursorStale = { recoveryTriggered = true },
                     )
-                val lastKnownRevision = 1_000L
-                val control = SyncControl.CursorStale(lastKnownRevision = lastKnownRevision)
+                val control = SyncControl.CursorStale(lastKnownRevision = 1_000L)
                 val frame =
                     ParsedSseFrame(
                         id = null,
@@ -177,7 +176,7 @@ class SyncEventDispatcherTest :
                         data = contractJson.encodeToString(SyncControl.serializer(), control),
                     )
                 dispatcher.handle(frame)
-                seenLastKnown shouldBe lastKnownRevision
+                recoveryTriggered shouldBe true
                 db.close()
             }
         }

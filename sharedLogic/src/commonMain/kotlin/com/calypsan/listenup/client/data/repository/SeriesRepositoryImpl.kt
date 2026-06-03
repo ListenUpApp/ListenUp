@@ -27,6 +27,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
@@ -153,7 +155,10 @@ class SeriesRepositoryImpl(
     override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> =
         combine(
             seriesDao.observeAllWithBooks(),
-            bookDao.observeAllWithContributors(),
+            // conflate the book stream: during initial population it invalidates once per inserted
+            // book, and the combine below re-maps every book via toListItem (blocking cover stat) on
+            // each — O(n²) allocation that OOMs. Collapse the burst to the latest snapshot.
+            bookDao.observeAllWithContributors().conflate(),
         ) { seriesEntities, allBooksWithContributors ->
             val booksById = allBooksWithContributors.associateBy { it.book.id }
             seriesEntities.map { entity ->
@@ -177,7 +182,7 @@ class SeriesRepositoryImpl(
                     bookSequences = sequences,
                 )
             }
-        }
+        }.flowOn(IODispatcher) // per-book toListItem does a blocking cover stat — keep it off the collector (Main).
 
     // ========== Series Detail Methods ==========
 

@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
 import com.calypsan.listenup.core.FolderId
@@ -328,7 +327,10 @@ internal class LibraryAdminServiceImpl(
     override suspend fun scanLibrary(libraryId: LibraryId): AppResult<Unit> {
         // Admin-only: triggering a scan is a privileged server operation.
         requireAdmin()?.let { return AppResult.Failure(it) }
-        return scanOrchestrator.scanLibrary(libraryId).map {}
+        // Fire-and-forget: kick the scan off and return "accepted" immediately. The scan
+        // runs on the server's lifecycle scope and streams progress over SSE, so the
+        // caller (admin RPC / onboarding wizard) never blocks on the full walk.
+        return scanOrchestrator.scanLibraryAsync(libraryId)
     }
 
     override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {

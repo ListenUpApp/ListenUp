@@ -103,6 +103,7 @@ val clientSyncRenovationModule =
                 httpClientProvider = { apiClientFactory.getClient() },
                 serverUrlProvider = { serverConfig.getServerUrl()?.value },
                 store = get(),
+                transactionRunner = get(),
             )
         }
 
@@ -117,7 +118,7 @@ val clientSyncRenovationModule =
                 // one place. Resolving SyncEngine lazily breaks the Koin
                 // construction cycle (engine depends on dispatcher; dispatcher
                 // only needs engine at runtime, not at construction).
-                onCursorStale = { lastKnown -> get<SyncEngine>().handleCursorStale(lastKnown) },
+                onCursorStale = { get<SyncEngine>().handleCursorStale() },
                 // AccessChanged re-derives the accessible set via catch-up without tearing down
                 // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
                 // construction cycle.

@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.PlaybackApiContract
@@ -19,8 +20,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentLength
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
 import kotlinx.io.buffered
@@ -86,7 +85,7 @@ internal suspend fun downloadAudioFile(
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
 ): AppResult<Unit> =
     suspendRunCatching {
-        withContext(Dispatchers.IO) {
+        withContext(IODispatcher) {
             // Resolve the download URL (relative — Ktor's defaultRequest provides the base).
             // Phase D: if transcoding is in progress, write WAITING_FOR_SERVER and exit cleanly.
             // SSE transcode.complete handler will re-enqueue via repository.resumeForAudioFile.

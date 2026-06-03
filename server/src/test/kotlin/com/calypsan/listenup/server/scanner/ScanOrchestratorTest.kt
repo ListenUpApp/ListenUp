@@ -95,6 +95,25 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("scanLibraryAsync returns Success immediately for a registered library") {
+            runTest {
+                val orchestrator = orchestrator(FakeScannerFactory(), FakeWatcherSupervisor(), backgroundScope)
+                orchestrator.onLibraryAdded(testLib("lib-1", "/tmp/books"))
+
+                val result = orchestrator.scanLibraryAsync(LibraryId("lib-1"))
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("scanLibraryAsync returns LibraryError.NotFound for unknown library") {
+            runTest {
+                val orchestrator = orchestrator(FakeScannerFactory(), FakeWatcherSupervisor(), backgroundScope)
+
+                val result = orchestrator.scanLibraryAsync(LibraryId("ghost"))
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<LibraryError.NotFound>()
+            }
+        }
+
         test("scanLibrary returns LibraryError.NotFound for unknown library") {
             runTest {
                 val orchestrator = orchestrator(FakeScannerFactory(), FakeWatcherSupervisor(), backgroundScope)

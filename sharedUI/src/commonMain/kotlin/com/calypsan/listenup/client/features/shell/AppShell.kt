@@ -23,19 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -154,8 +142,6 @@ fun AppShell(
     }
 
     // Collect reactive state - use collectAsState for multiplatform compatibility
-    val isServerScanning by syncRepository.isServerScanning.collectAsStateWithLifecycle()
-    val scanProgress by syncRepository.scanProgress.collectAsStateWithLifecycle()
     val syncState by syncRepository.syncState.collectAsStateWithLifecycle()
     val user by userRepository.observeCurrentUser().collectAsStateWithLifecycle(initialValue = null)
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
@@ -291,52 +277,41 @@ fun AppShell(
 
     // Common content configuration
     val shellContent: @Composable (PaddingValues) -> Unit = { padding ->
-        if (isServerScanning) {
-            // Block the entire app shell with a scanning overlay
-            ScanningOverlay(
-                scanProgress = scanProgress,
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Content based on current destination
+            when (currentDestination) {
+                ShellDestination.Home -> {
+                    homeContent(
+                        padding,
+                        topBarCollapseFraction,
+                        { onDestinationChange(ShellDestination.Library) },
+                    )
+                }
+
+                ShellDestination.Library -> {
+                    libraryContent(padding, topBarCollapseFraction)
+                }
+
+                ShellDestination.Discover -> {
+                    discoverContent(padding)
+                }
+            }
+
+            // Search results overlay (floats above content when search is active)
+            SearchResultsOverlay(
+                state = searchState,
+                isExpanded = isSearchExpanded,
+                onResultClick = { hit ->
+                    searchViewModel.onResultClicked(hit)
+                },
+                onTypeFilterToggle = { type ->
+                    searchViewModel.toggleTypeFilter(type)
+                },
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .padding(padding),
             )
-        } else {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Content based on current destination
-                when (currentDestination) {
-                    ShellDestination.Home -> {
-                        homeContent(
-                            padding,
-                            topBarCollapseFraction,
-                            { onDestinationChange(ShellDestination.Library) },
-                        )
-                    }
-
-                    ShellDestination.Library -> {
-                        libraryContent(padding, topBarCollapseFraction)
-                    }
-
-                    ShellDestination.Discover -> {
-                        discoverContent(padding)
-                    }
-                }
-
-                // Search results overlay (floats above content when search is active)
-                SearchResultsOverlay(
-                    state = searchState,
-                    isExpanded = isSearchExpanded,
-                    onResultClick = { hit ->
-                        searchViewModel.onResultClicked(hit)
-                    },
-                    onTypeFilterToggle = { type ->
-                        searchViewModel.toggleTypeFilter(type)
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                )
-            }
         }
     }
 
@@ -378,65 +353,6 @@ fun AppShell(
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 content = shellContent,
             )
-        }
-    }
-}
-
-/**
- * Full-screen scanning overlay.
- *
- * Blocks all app content while the server is scanning the library.
- * Shows the standard ListenUpLoadingIndicator with phase and progress info.
- */
-@Composable
-private fun ScanningOverlay(
-    scanProgress: ScanProgressState?,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .background(MaterialTheme.colorScheme.surfaceContainerLow),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            ListenUpLoadingIndicator(size = 64.dp)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text =
-                    if (scanProgress != null) {
-                        scanProgress.phaseDisplayName +
-                            if (scanProgress.total > 0) " ${scanProgress.current}/${scanProgress.total}" else ""
-                    } else {
-                        "Scanning your library\u2026"
-                    },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            if (scanProgress?.progressFraction != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                LinearProgressIndicator(
-                    progress = { scanProgress.progressFraction!! },
-                    modifier = Modifier.fillMaxWidth(0.6f),
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                )
-            }
-
-            val summary = scanProgress?.changesSummary
-            if (summary != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }

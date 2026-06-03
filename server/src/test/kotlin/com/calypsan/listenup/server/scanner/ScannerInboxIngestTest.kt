@@ -189,6 +189,7 @@ private fun fixture(
             libraryRegistry = LibraryRegistry(db, env = mapOf("LISTENUP_LIBRARY_PATH" to "/tmp/test-library")),
             db = db,
             scanResultBus = MutableSharedFlow(),
+            eventBus = MutableSharedFlow(),
             scope = scope,
             metrics = BookPersisterMetrics(SimpleMeterRegistry()),
         )

@@ -5,6 +5,9 @@ import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
@@ -18,8 +21,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -38,10 +46,27 @@ class SyncRepositoryImpl(
     private val syncEngineState: SyncEngineState,
     private val authSession: AuthSession,
     private val listeningEventRecorder: ListeningEventRecorder,
-    scope: CoroutineScope,
+    private val scannerRpcFactory: ScannerRpcFactory,
+    private val scope: CoroutineScope,
 ) : SyncRepository {
     /** Ensures [ListeningEventRecorder.recoverOrphan] runs at most once per process lifetime. */
     private var orphanRecovered = false
+
+    /**
+     * Guards the at-most-once launch of the scan-progress observer. [startEngineForCurrentUser] can
+     * be called concurrently (sync + connectRealtime + resetForNewLibrary) on the multi-threaded
+     * [scope], so the launch decision must be a single atomic check-and-set, not a plain var read.
+     */
+    private val scanObserverMutex = Mutex()
+    private var scanObserverStarted = false
+
+    /**
+     * Latches once the initial library-population scan completes. After that the shell is "ready"
+     * and later (watcher-driven incremental) scans must never re-block it via [isServerScanning].
+     * Process-lived: a fresh launch starts `false`, but with no scan running nothing re-arms the
+     * overlay, so a relaunched client with books already in Room shows the library immediately.
+     */
+    private var hasCompletedInitialScan = false
     override val syncState: StateFlow<SyncState> =
         syncEngineState
             .observe()
@@ -65,8 +90,11 @@ class SyncRepositoryImpl(
                 initialValue = SyncState.Idle,
             )
 
-    override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
-    override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
+    private val _isServerScanning = MutableStateFlow(false)
+    override val isServerScanning: StateFlow<Boolean> = _isServerScanning.asStateFlow()
+
+    private val _scanProgress = MutableStateFlow<ScanProgressState?>(null)
+    override val scanProgress: StateFlow<ScanProgressState?> = _scanProgress.asStateFlow()
 
     override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 
@@ -84,6 +112,7 @@ class SyncRepositoryImpl(
         suspendRunCatching {
             val userId = authSession.getUserId() ?: return@suspendRunCatching Unit
             syncEngine.start(userId)
+            startScanProgressObserver()
             if (!orphanRecovered) {
                 orphanRecovered = true
                 try {
@@ -97,4 +126,146 @@ class SyncRepositoryImpl(
                 }
             }
         }
+
+    /**
+     * Launches (once) the live scan-progress observer over [ScannerService.observeProgress].
+     *
+     * The live SSE tail that delivers scanned books is best-effort (the server's change bus
+     * drops events under a large-scan burst), so a freshly-scanned library can finish with the
+     * client still missing rows. This observer drives the [isServerScanning]/[scanProgress] UI
+     * state from the scan event stream and, on [ScanEvent.Completed], forces a catch-up
+     * reconcile ([SyncEngine.handleCursorStale]) so every scanned book lands in Room — no app
+     * restart required. Runs on the long-lived [scope]; failures are logged and the stream is
+     * left to re-establish on the next [startEngineForCurrentUser].
+     */
+    private suspend fun startScanProgressObserver() {
+        val shouldStart =
+            scanObserverMutex.withLock {
+                if (scanObserverStarted) {
+                    false
+                } else {
+                    scanObserverStarted = true
+                    true
+                }
+            }
+        if (!shouldStart) return
+        scope.launch {
+            try {
+                scannerRpcFactory
+                    .get()
+                    .observeProgress()
+                    .catch { e ->
+                        if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                        logger.warn(e) { "Scan-progress stream failed; scan UI/reconcile paused" }
+                        resetScanObserver()
+                    }.collect { rpcEvent ->
+                        val event = (rpcEvent as? RpcEvent.Data)?.value ?: return@collect
+                        applyScanEvent(
+                            event = event,
+                            isInitialScanComplete = { hasCompletedInitialScan },
+                            setScanning = { _isServerScanning.value = it },
+                            setProgress = { _scanProgress.value = it },
+                            markInitialScanComplete = { hasCompletedInitialScan = true },
+                            // Awaited, not fire-and-forget: the initial populating gate must stay up
+                            // until this reconcile actually lands the books in Room (see applyScanEvent).
+                            // Parking this collector for the duration is safe — [SyncEngine.handleCursorStale]
+                            // is mutex-guarded + coalescing (no concurrent catch-up spin), Completed is
+                            // already consumed, and the cold RPC stream applies backpressure rather than
+                            // dropping any later event.
+                            reconcile = { syncEngine.handleCursorStale() },
+                        )
+                    }
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Scan-progress observer stopped unexpectedly" }
+                resetScanObserver()
+            }
+        }
+    }
+
+    /** Never-stranded reset: a dropped progress stream must not leave the shell blocked. */
+    private suspend fun resetScanObserver() {
+        _isServerScanning.value = false
+        _scanProgress.value = null
+        scanObserverMutex.withLock { scanObserverStarted = false }
+    }
+}
+
+/**
+ * Pure reducer for a single [ScanEvent]: maps it to scan-UI state (via [setScanning] / [setProgress])
+ * and, on [ScanEvent.Completed], invokes [reconcile] — a catch-up that pulls the books the lossy
+ * live tail may have dropped during the scan burst. Extracted as a top-level function so it is
+ * testable without mocking the final [SyncEngine]: tests drive it with recording lambdas.
+ *
+ * **Initial-population semantics.** `isServerScanning` is the app-readiness signal: the navigation
+ * layer shows a full-screen populating screen while it is `true`, because a brand-new library has
+ * nothing to navigate yet. That signal must therefore reflect **only the initial population**. A
+ * later watcher-driven incremental scan emits its own `Started`/`Progress` (a fresh `correlationId`)
+ * — if those re-armed the flag they would slam the populating screen back over an already-usable
+ * library, and a missed terminal event would latch it there forever. So once the first population
+ * settles ([markInitialScanComplete]), subsequent scans never drive it: [isInitialScanComplete]
+ * short-circuits `setScanning(true)`.
+ *
+ * **Completed ≠ ready.** `ScanEvent.Completed` means the *server* persisted the books, not that the
+ * *client's* Room reflects them — the catch-up [reconcile] still has to pull them in. So on the
+ * initial Completed the gate stays up (`scanning` true) across the awaited [reconcile]; only once it
+ * returns (Room now holds the library) does the gate clear and readiness latch. Clearing on Completed
+ * would mount the shell mid-import (empty grid, then a thousand covers decoding under the catch-up —
+ * the onboarding OOM). [reconcile] runs on every Completed (incrementals also pull dropped deltas),
+ * but only the initial one drives the gate.
+ */
+internal suspend fun applyScanEvent(
+    event: ScanEvent,
+    isInitialScanComplete: () -> Boolean,
+    setScanning: (Boolean) -> Unit,
+    setProgress: (ScanProgressState?) -> Unit,
+    markInitialScanComplete: () -> Unit,
+    reconcile: suspend () -> Unit,
+) {
+    when (event) {
+        is ScanEvent.Started -> {
+            if (!isInitialScanComplete()) {
+                setScanning(true)
+                setProgress(null)
+            }
+        }
+
+        is ScanEvent.Progress -> {
+            if (!isInitialScanComplete()) {
+                setScanning(true)
+                setProgress(
+                    ScanProgressState(
+                        phase = event.phase.name,
+                        current = event.booksAnalyzed,
+                        total = event.filesWalked,
+                        added = 0,
+                        updated = 0,
+                        removed = 0,
+                    ),
+                )
+            }
+        }
+
+        is ScanEvent.Completed -> {
+            val drivesGate = !isInitialScanComplete()
+            if (drivesGate) {
+                // Server done persisting; client now imports. Drop the granular walk progress so the
+                // populating screen shows its indeterminate "finishing up" state while we pull books.
+                setProgress(null)
+            }
+            logger.info { "Scan completed — reconciling to pull scanned books" }
+            reconcile()
+            if (drivesGate) {
+                // Room now holds the library — clear the gate and latch so no later incremental can
+                // re-block the shell.
+                setScanning(false)
+                markInitialScanComplete()
+            }
+        }
+
+        is ScanEvent.Change -> {
+            // No-op: the live tail plus the Completed reconcile cover applied changes.
+        }
+    }
 }

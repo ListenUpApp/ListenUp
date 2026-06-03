@@ -50,9 +50,15 @@ import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.data.sync.LibraryResetHelperContract
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.LinearProgressIndicator
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.admin.AdminScreen
@@ -90,6 +96,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
+import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.core.Success
@@ -289,6 +296,68 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
 }
 
 /**
+ * Full-screen "setting up your library" gate, shown while the initial population scan runs INSTEAD
+ * of the app shell. The shell (and its Library grid + cover loading) only mounts once the library
+ * is ready — so the user never navigates an empty app and the heavy grid doesn't compete with the
+ * sync/catch-up for memory during onboarding.
+ *
+ * Drives live progress off [ScanProgressState]; falls back to an indeterminate state before the
+ * first progress event arrives.
+ */
+private const val POPULATING_PROGRESS_WIDTH_FRACTION = 0.6f
+
+@Composable
+private fun LibraryPopulatingScreen(scanProgress: ScanProgressState?) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(32.dp),
+        ) {
+            ListenUpLoadingIndicator(size = 64.dp)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text =
+                    if (scanProgress != null) {
+                        scanProgress.phaseDisplayName +
+                            if (scanProgress.total > 0) " ${scanProgress.current}/${scanProgress.total}" else ""
+                    } else {
+                        "Setting up your library…"
+                    },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            if (scanProgress?.progressFraction != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { scanProgress.progressFraction!! },
+                    modifier = Modifier.fillMaxWidth(POPULATING_PROGRESS_WIDTH_FRACTION),
+                )
+            }
+
+            val summary = scanProgress?.changesSummary
+            if (summary != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
  * Server setup navigation - shown when no server URL is configured.
  *
  * Flow:
@@ -457,7 +526,9 @@ private fun AuthenticatedNavigation(
     // foreground resume. The ViewModel lives in the Activity's ViewModelStore, so it is only
     // discarded on process death (true cold start).
     val startupViewModel: AppStartupViewModel = koinViewModel()
-    val startupState by startupViewModel.state.collectAsStateWithLifecycle()
+    // One authoritative readiness state drives every onboarding gate below — no more juggling
+    // isChecking/needsLibrarySetup/checkResolved/setupCheckFailed/isServerScanning across three sites.
+    val readiness by startupViewModel.readiness.collectAsStateWithLifecycle()
 
     // Hoist navigation state above the isChecking check so it survives loading periods.
     // rememberNavBackStack persists across configuration changes and process death
@@ -468,9 +539,9 @@ private fun AuthenticatedNavigation(
     // Track shell tab state here so it survives navigation to detail screens
     var currentShellDestination by remember { mutableStateOf<ShellDestination>(ShellDestination.Home) }
 
-    // Navigate to LibrarySetup when the check completes and setup is needed
-    LaunchedEffect(startupState.needsLibrarySetup, startupState.isChecking) {
-        if (!startupState.isChecking && startupState.needsLibrarySetup) {
+    // Navigate to LibrarySetup the moment readiness resolves to "needs setup".
+    LaunchedEffect(readiness) {
+        if (readiness is LibraryReadiness.NeedsSetup && backStack.lastOrNull() != LibrarySetup) {
             backStack.clear()
             backStack.add(LibrarySetup)
         }
@@ -593,6 +664,17 @@ private fun AuthenticatedNavigation(
                 entryProvider =
                     entryProvider {
                         entry<Shell> {
+                            // Readiness gate: while the initial library population is running we show a
+                            // dedicated full-screen progress screen and DO NOT mount the shell — so the
+                            // user never navigates an empty app, and the Library grid + Coil don't decode
+                            // a thousand covers while the sync/catch-up is still churning (which exhausted
+                            // the heap → OOM). Populating spans the server scan AND the client import, so
+                            // when it clears the books are already in Room (see applyScanEvent).
+                            (readiness as? LibraryReadiness.Populating)?.let { populating ->
+                                LibraryPopulatingScreen(scanProgress = populating.progress)
+                                return@entry
+                            }
+
                             // Preload library data by injecting LibraryViewModel early
                             @Suppress("UNUSED_VARIABLE")
                             val libraryViewModel: LibraryViewModel = koinViewModel()
@@ -684,6 +766,9 @@ private fun AuthenticatedNavigation(
                         entry<LibrarySetup> {
                             LibrarySetupScreen(
                                 onSetupComplete = {
+                                    // Clear the stale needs-setup flag so the startup readiness overlay
+                                    // can't re-latch on top of the shell after we navigate away.
+                                    startupViewModel.onLibrarySetupComplete()
                                     // Trigger sync to pull newly scanned books
                                     scope.launch {
                                         logger.info { "Library setup complete, triggering sync" }
@@ -1232,17 +1317,31 @@ private fun AuthenticatedNavigation(
                         .padding(bottom = 16.dp),
             )
 
-            // Overlay loading indicator while startup check is in progress.
-            // Using an overlay instead of early return preserves the backStack state.
-            if (startupState.isChecking) {
-                FullScreenLoadingIndicator()
-            } else if (startupState.setupCheckFailed) {
-                // Honest over silent: when the admin's library-setup check could not be
-                // completed (e.g. transient network failure), surface a retryable error
-                // instead of silently dropping them into an empty Shell.
-                SetupCheckFailedScreen(
-                    onRetry = { startupViewModel.retryLibrarySetupCheck() },
-                )
+            // Single readiness gate for the non-shell startup states. Populating is handled inside the
+            // Shell entry above (so the shell never mounts during import); everything else is covered
+            // here by one `when`. The overlays use an OPAQUE surface because they sit on top of the
+            // default `Shell` back-stack entry, and FullScreenLoadingIndicator is transparent by itself
+            // — without a background the shell flashes through (the "shell flash before the picker").
+            when (readiness) {
+                LibraryReadiness.Checking -> {
+                    FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
+                }
+
+                LibraryReadiness.NeedsSetup -> {
+                    // Bridge the gap until the LaunchedEffect above swaps the back stack to LibrarySetup;
+                    // once it has, the wizard renders and no overlay is needed.
+                    if (backStack.lastOrNull() != LibrarySetup) {
+                        FullScreenLoadingIndicator(modifier = Modifier.background(MaterialTheme.colorScheme.surface))
+                    }
+                }
+
+                LibraryReadiness.CheckFailed -> {
+                    // Honest over silent: surface a retryable error instead of an empty Shell.
+                    SetupCheckFailedScreen(onRetry = { startupViewModel.retryLibrarySetupCheck() })
+                }
+
+                // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
+                is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
             }
         }
     }

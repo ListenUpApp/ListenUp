@@ -275,6 +275,7 @@ private fun buildMemberSyncEngine(
             httpClientProvider = { testClient },
             serverUrlProvider = { "" },
             store = store,
+            transactionRunner = RoomTransactionRunner(clientDb),
         )
     val sseClient =
         SyncSseClient(
@@ -291,8 +292,8 @@ private fun buildMemberSyncEngine(
             queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-            onCursorStale = { lastKnown ->
-                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale(lastKnown)
+            onCursorStale = {
+                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale()
             },
             onAccessChanged = {
                 checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleAccessChanged()

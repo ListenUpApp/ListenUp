@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.Tombstoned
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.suspendRunCatching
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -13,7 +14,12 @@ import io.ktor.client.request.get
 import kotlinx.serialization.json.JsonElement
 
 private val logger = KotlinLogging.logger {}
-private const val PAGE_LIMIT = 500
+
+// Smaller pages trade a few more HTTP round-trips for a much lower peak heap: each page is decoded
+// to a JsonElement tree AND a List<Payload> before it is applied, so a 500-book page is a large
+// transient spike during onboarding. Stability over raw sync speed (a 1000-book initial population
+// otherwise pushed the client to OOM).
+private const val PAGE_LIMIT = 100
 private const val SERVER_URL_NOT_CONFIGURED = "Server URL not configured"
 
 /**
@@ -39,6 +45,7 @@ class SyncCatchUpClient(
     private val httpClientProvider: suspend () -> HttpClient,
     private val serverUrlProvider: suspend () -> String?,
     private val store: SyncCursorStore,
+    private val transactionRunner: TransactionRunner,
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
@@ -56,9 +63,25 @@ class SyncCatchUpClient(
                         Page.serializer(handler.payloadSerializer),
                         element,
                     )
-                for (item in page.items) {
-                    val isTomb = (item as? Tombstoned)?.deletedAt != null
-                    handler.onCatchUpItem(item, isTomb)
+                // Apply the whole page in ONE outer transaction. Each handler.onCatchUpItem still
+                // runs its own atomically {} — those nest as savepoints, so per-item failures stay
+                // isolated, but Room's invalidation tracker fires ONCE per page instead of once per
+                // row. On a fresh library that turns ~1000 single-row commits (each re-running the
+                // whole-table observe query → the onboarding GC storm) into a handful of page commits,
+                // and books still stream in page-by-page.
+                val failed =
+                    transactionRunner.atomically {
+                        var failures = 0
+                        for (item in page.items) {
+                            val isTomb = (item as? Tombstoned)?.deletedAt != null
+                            if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) failures++
+                        }
+                        failures
+                    }
+                if (failed > 0) {
+                    // The cursor still advances (idempotent upserts + a later reconcile re-pulls), but
+                    // surface the loss rather than discarding it silently.
+                    logger.warn { "catchUp(${handler.domainName}): $failed/${page.items.size} items failed to apply" }
                 }
                 page.nextCursor?.let {
                     store.setCursor(handler.domainName, it)
@@ -94,10 +117,12 @@ class SyncCatchUpClient(
                         Page.serializer(handler.payloadSerializer),
                         element,
                     )
-                for (item in page.items) {
-                    val isTomb = (item as? Tombstoned)?.deletedAt != null
-                    handler.onCatchUpItem(item, isTomb)
-                    if (!isTomb) accessibleIds += handler.syncId(item)
+                transactionRunner.atomically {
+                    for (item in page.items) {
+                        val isTomb = (item as? Tombstoned)?.deletedAt != null
+                        handler.onCatchUpItem(item, isTomb)
+                        if (!isTomb) accessibleIds += handler.syncId(item)
+                    }
                 }
                 val next = page.nextCursor
                 if (next != null) since = next

@@ -407,6 +407,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     // testApplication serves relative URLs in-process — an empty base URL is correct here.
                     serverUrlProvider = { "" },
                     store = store,
+                    transactionRunner = RoomTransactionRunner(clientDb),
                 )
 
             val sseClient =
@@ -428,9 +429,9 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-                    onCursorStale = { lastKnown ->
+                    onCursorStale = {
                         checkNotNull(engineRef) { "SyncEngine not yet constructed" }
-                            .handleCursorStale(lastKnown)
+                            .handleCursorStale()
                     },
                 )
 

@@ -5,25 +5,28 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
 /**
- * Konsist guard: non-JVM `:shared` source sets must never import a `java.*` or
- * `javax.*` package. Those APIs do not exist on Kotlin/Native (iOS), so a stray
- * import silently breaks the Apple targets — which cannot be compiled on the
- * Linux CI runner to catch it. This rule is the portable structural guard.
+ * Konsist guard: `commonMain` and the Apple/Native source sets must never import a
+ * `java.*` or `javax.*` package. `commonMain` is platform-agnostic by contract, and
+ * those APIs do not exist on Kotlin/Native (iOS) — so a stray import either breaks
+ * the Apple targets outright or quietly bars a JVM-only module (e.g. `:sharedUI`)
+ * from ever gaining one. Either way the Linux CI runner cannot compile the Apple
+ * targets to catch it, so this is the portable structural guard.
  *
- * `jvmMain` / `androidMain` / `desktopMain` are intentionally not checked: the
- * JVM is a legitimate target there.
+ * Scope is every module's shared source sets. The JVM-specific sets (`jvmMain` /
+ * `androidMain` / `desktopMain`) are intentionally excluded: the JVM is a
+ * legitimate target there, and that is where `expect`/`actual` actuals bind to
+ * `java.*` (e.g. `design/util/FileLastModified`).
  */
 class NoJvmOnlyApisInSharedRule :
     FunSpec({
-        test("no non-JVM :shared source set imports java.* or javax.*") {
-            val nonJvmSourceSetMarkers =
-                listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/")
+        test("no commonMain or Apple/Native source set imports java.* or javax.*") {
+            val sharedSourceSetMarkers =
+                listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/", "/macosMain/")
             val offenders =
                 Konsist
                     .scopeFromProduction()
                     .files
-                    .filter { file -> file.path.contains("/shared/src/") }
-                    .filter { file -> nonJvmSourceSetMarkers.any { file.path.contains(it) } }
+                    .filter { file -> sharedSourceSetMarkers.any { file.path.contains(it) } }
                     .flatMap { file ->
                         file.imports
                             .filter { it.name.startsWith("java.") || it.name.startsWith("javax.") }

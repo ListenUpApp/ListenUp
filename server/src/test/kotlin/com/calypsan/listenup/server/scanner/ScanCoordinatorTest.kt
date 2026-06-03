@@ -52,6 +52,55 @@ class ScanCoordinatorTest :
             }
         }
 
+        test("scanFullAsync returns Success immediately and runs the scan on the scope") {
+            runTest {
+                var scanRan = false
+                val coordinator =
+                    ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
+                        runFullScan = {
+                            scanRan = true
+                            emptyResult()
+                        },
+                        runIncremental = { /* unused */ },
+                        scope = backgroundScope,
+                    )
+
+                // Returns "accepted" without waiting for the walk.
+                val result = coordinator.scanFullAsync()
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The scan runs on the background scope.
+                runCurrent()
+                scanRan shouldBe true
+            }
+        }
+
+        test("scanFullAsync — a second call while the first is in flight gets AlreadyRunning") {
+            runTest {
+                val gate = CompletableDeferred<Unit>()
+                val coordinator =
+                    ScanCoordinator(
+                        libraryId = LibraryId("test-lib"),
+                        runFullScan = {
+                            gate.await()
+                            emptyResult()
+                        },
+                        runIncremental = { /* unused */ },
+                        scope = backgroundScope,
+                    )
+
+                coordinator.scanFullAsync().shouldBeInstanceOf<AppResult.Success<Unit>>()
+                runCurrent() // first scan acquires the lock and suspends on the gate
+
+                val second = coordinator.scanFullAsync()
+                second.shouldBeInstanceOf<AppResult.Failure>()
+                second.error.shouldBeInstanceOf<ScanError.AlreadyRunning>()
+
+                gate.complete(Unit)
+            }
+        }
+
         test("incremental triggered during a full scan runs after the scan finishes") {
             runTest {
                 val incrementalCalls = mutableListOf<Path>()

@@ -48,5 +48,10 @@ internal class ScannerServiceImpl(
     override fun observeProgress(libraryId: LibraryId?): Flow<RpcEvent<ScanEvent>> =
         eventBus
             .let { bus -> if (libraryId != null) bus.filter { it.libraryId == libraryId } else bus }
+            // Progress monitoring needs only the lightweight lifecycle/progress events. Each
+            // [ScanEvent.Change] carries a full [AnalyzedBook] (metadata + artwork) — a 1000-book
+            // scan would stream multi-MB frames and OOM a subscriber that just wants progress.
+            // Per-book changes reach clients via the sync substrate (firehose + catch-up), not here.
+            .filter { it !is ScanEvent.Change }
             .map { RpcEvent.Data(it) }
 }

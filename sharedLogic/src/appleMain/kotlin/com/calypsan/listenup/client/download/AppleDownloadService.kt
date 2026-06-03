@@ -5,6 +5,7 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.core.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -21,8 +22,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -214,7 +213,7 @@ class AppleDownloadService(
         audioFile: AudioFileResponse,
         serverUrl: String,
         token: String,
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(IODispatcher) {
         val audioFileId = audioFile.id
         val filename = audioFile.filename
 

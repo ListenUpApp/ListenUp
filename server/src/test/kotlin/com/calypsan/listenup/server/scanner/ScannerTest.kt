@@ -36,9 +36,11 @@ class ScannerTest :
                     result.changes.size shouldBe 2
                     result.changes.all { it is ChangeEventDto.Added } shouldBe true
 
+                    // The Scanner emits the scanning-phase events only. ScanEvent.Completed is emitted
+                    // by BookPersister AFTER persistence (see BookPersisterTest), so it is NOT here.
                     val events = eventBus.replayCache
                     events.first().shouldBeInstanceOf<ScanEvent.Started>()
-                    events.last().shouldBeInstanceOf<ScanEvent.Completed>()
+                    events.none { it is ScanEvent.Completed } shouldBe true
                     events.count { it is ScanEvent.Change } shouldBe 2
                 }
             }
