@@ -1,23 +1,23 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
+import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -151,8 +151,7 @@ class PlaybackManagerPrepareTest {
             tokenProvider = tokenProvider,
             deviceContext = DeviceContext(type = DeviceType.Phone),
             downloadService = downloadService,
-            playbackApi = null,
-            capabilityDetector = null,
+            playbackRpcFactory = testPlaybackRpcFactory("af-0", "af-1", "af-2"),
             syncApi = null,
             scope = CoroutineScope(Job()),
             bookRepository = mock<BookRepository>(),

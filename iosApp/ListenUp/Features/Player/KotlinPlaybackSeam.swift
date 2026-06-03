@@ -8,7 +8,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 
     func prepare(bookId: String) async -> PreparedPlayback? {
         guard let prepared = try? await preparer.prepare(
-            bookId: bookId, onPrepareProgress: { @Sendable _ in }
+            bookId: bookId
         ) else { return nil }
         return PreparedPlayback(
             bookTitle: prepared.bookTitle,

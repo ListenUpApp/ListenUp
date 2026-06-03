@@ -11,9 +11,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.diagnostics.JobReasonLogger
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.upload.ABSUploadWorker
 import kotlinx.coroutines.runBlocking
 
@@ -34,9 +32,7 @@ class ListenUpWorkerFactory(
     // Deferred to worker-creation time so getClient() is never called before onboarding
     // completes (i.e. before serverConfig.getActiveUrl() returns non-null).
     private val apiClientFactory: Lazy<ApiClientFactory>,
-    private val playbackPreferences: Lazy<PlaybackPreferences>,
-    private val playbackApi: Lazy<PlaybackApiContract>,
-    private val capabilityDetector: Lazy<AudioCapabilityDetector>,
+    private val playbackRpcFactory: Lazy<PlaybackRpcFactory>,
     private val backupApi: Lazy<BackupApiContract>,
     private val absImportApi: Lazy<ABSImportApiContract>,
     private val errorBus: Lazy<ErrorBus>,
@@ -66,9 +62,7 @@ class ListenUpWorkerFactory(
                     downloadRepository.value,
                     fileManager.value,
                     httpClient,
-                    playbackPreferences.value,
-                    playbackApi.value,
-                    capabilityDetector.value,
+                    playbackRpcFactory.value,
                     errorBus.value,
                 )
             }

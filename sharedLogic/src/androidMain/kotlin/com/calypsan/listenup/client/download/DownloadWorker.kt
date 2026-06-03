@@ -10,10 +10,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.data.local.db.DownloadState
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
@@ -25,7 +23,7 @@ private val logger = KotlinLogging.logger {}
  * WorkManager worker that downloads a single audio file.
  *
  * Features:
- * - Codec negotiation (downloads transcoded variant if needed)
+ * - Signed URL resolution via [PlaybackService.prepare]
  * - Resume support (Range headers)
  * - Progress updates
  * - Cancellation handling
@@ -37,9 +35,7 @@ class DownloadWorker(
     private val downloadRepository: DownloadRepository,
     private val fileManager: DownloadFileManager,
     private val httpClient: HttpClient,
-    private val playbackPreferences: PlaybackPreferences,
-    private val playbackApi: PlaybackApiContract,
-    private val capabilityDetector: AudioCapabilityDetector,
+    private val playbackRpcFactory: PlaybackRpcFactory,
     private val errorBus: ErrorBus,
 ) : CoroutineWorker(context, params) {
     companion object {
@@ -164,9 +160,7 @@ class DownloadWorker(
         httpClient = httpClient,
         repository = downloadRepository,
         fileManager = fileManager,
-        playbackApi = playbackApi,
-        playbackPreferences = playbackPreferences,
-        capabilityDetector = capabilityDetector,
+        playbackRpcFactory = playbackRpcFactory,
         isStopped = { isStopped },
         setProgress = { downloaded, total ->
             setProgress(workDataOf("progress" to downloaded, "total" to total))
