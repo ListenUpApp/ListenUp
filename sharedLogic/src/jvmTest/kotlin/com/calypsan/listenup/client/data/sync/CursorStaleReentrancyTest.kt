@@ -51,6 +51,8 @@ class CursorStaleReentrancyTest :
                         object : CatchUp {
                             override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>) = AppResult.Success(Unit)
 
+                            override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>) = AppResult.Success(Unit)
+
                             override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
                                 totalCalls.incrementAndGet()
                                 val now = inFlight.incrementAndGet()

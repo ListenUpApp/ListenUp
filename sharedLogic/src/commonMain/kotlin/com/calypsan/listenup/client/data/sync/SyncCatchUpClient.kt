@@ -49,10 +49,28 @@ class SyncCatchUpClient(
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
+        pageFrom(handler, startSince = store.getCursor(handler.domainName) ?: 0L)
+
+    /**
+     * Re-pull [handler]'s domain from `since = 0`, applying every item and advancing the
+     * persisted cursor. Used by the reconciler to repair a domain whose digest diverged.
+     */
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> =
+        pageFrom(handler, startSince = 0L)
+
+    /**
+     * Core paging loop shared by [catchUp] and [catchUpFromZero]. Pulls pages of [handler]'s
+     * domain starting from [startSince], applies each item via [SyncDomainHandler.onCatchUpItem],
+     * and advances the persisted cursor after each page.
+     */
+    private suspend fun <T : Any> pageFrom(
+        handler: SyncDomainHandler<T>,
+        startSince: Long,
+    ): AppResult<Unit> =
         suspendRunCatching {
             val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
             val httpClient = httpClientProvider()
-            var since = store.getCursor(handler.domainName) ?: 0L
+            var since = startSince
             while (true) {
                 val element: JsonElement =
                     httpClient

@@ -9,6 +9,12 @@ import com.calypsan.listenup.core.AppResult
 interface CatchUp {
     suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit>
 
+    /**
+     * Re-pull [handler]'s domain from `since = 0`, applying every item and advancing the
+     * persisted cursor. Used by the reconciler to repair a domain whose digest diverged.
+     */
+    suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit>
+
     suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit>
 
     /**

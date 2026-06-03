@@ -209,6 +209,8 @@ private class CountingCatchUp : CatchUp {
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         invocations.incrementAndGet()
         return AppResult.Success(Unit)
@@ -229,6 +231,8 @@ private class FailingThenSucceedingCatchUp : CatchUp {
     val invocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         val attempt = invocations.incrementAndGet()

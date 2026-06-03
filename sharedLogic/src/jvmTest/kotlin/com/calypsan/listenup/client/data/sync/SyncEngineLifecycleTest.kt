@@ -333,6 +333,8 @@ private class FakeCatchUp(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = catchUp(handler)
+
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
         for (name in registry.registeredDomains()) {
             val h = registry.lookup(name) ?: continue
