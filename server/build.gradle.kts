@@ -139,7 +139,26 @@ tasks.test {
             .dir("test-cwd")
             .get()
             .asFile
-    doFirst { workingDir.mkdirs() }
+    // Redirect the test JVM's temp directory under build/ as well. Specs create temp SQLite
+    // DBs (`listenup-test-*.db` + SQLite's `-wal`/`-shm` sidecars) and temp dirs via
+    // `Files.createTempFile`/`createTempDirectory`; `deleteOnExit()` never covers the sidecars
+    // and doesn't fire when a forked worker is killed, so these leaked into the system temp
+    // dir (`/var/folders`, which macOS reports as "System Storage") — tens of GB over a few
+    // days. Pointing `java.io.tmpdir` here keeps every temp artefact inside build/, so `clean`
+    // wipes it and it never touches System Storage.
+    val testTmpDir =
+        layout.buildDirectory
+            .dir("test-tmp")
+            .get()
+            .asFile
+    systemProperty("java.io.tmpdir", testTmpDir.absolutePath)
+    // Wipe and recreate before each run: starts every run from empty (bounding disk use) and
+    // reclaims leftovers from any previous run whose workers were force-killed.
+    doFirst {
+        workingDir.mkdirs()
+        testTmpDir.deleteRecursively()
+        testTmpDir.mkdirs()
+    }
 }
 
 val seedLibraryDir = layout.buildDirectory.dir("seed-library")

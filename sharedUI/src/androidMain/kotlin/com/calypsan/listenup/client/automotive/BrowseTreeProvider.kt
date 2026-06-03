@@ -6,7 +6,7 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
@@ -137,7 +137,7 @@ class BrowseTreeProvider(
 
     private suspend fun getResumeItem(): MediaItem? {
         val result = homeRepository.getContinueListening(1)
-        if (result !is Success || result.data.isEmpty()) {
+        if (result !is AppResult.Success || result.data.isEmpty()) {
             return null
         }
 
@@ -173,7 +173,7 @@ class BrowseTreeProvider(
 
     private suspend fun getRecentBooks(): List<MediaItem> {
         val result = homeRepository.getContinueListening(MAX_ITEMS_PER_LEVEL)
-        if (result !is Success) {
+        if (result !is AppResult.Success) {
             return emptyList()
         }
 

@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.local.db.ShelfBookCrossRef
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao

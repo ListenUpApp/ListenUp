@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.voice
 
-import com.calypsan.listenup.core.getOrNull
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.BookRepository

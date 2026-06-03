@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Instance
@@ -60,7 +60,7 @@ class AdminViewModelTest {
 
     private fun createMockInstanceRepository(openRegistration: Boolean = false): InstanceRepository {
         val instanceRepo: InstanceRepository = mock()
-        everySuspend { instanceRepo.getInstance() } returns Success(createMockInstance(openRegistration))
+        everySuspend { instanceRepo.getInstance() } returns AppResult.Success(createMockInstance(openRegistration))
         return instanceRepo
     }
 
@@ -124,9 +124,9 @@ class AdminViewModelTest {
             val denyUserUseCase: DenyUserUseCase = mock()
             val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
 
-            everySuspend { loadUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(emptyList())
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
 
             val viewModel =
                 AdminViewModel(
@@ -160,9 +160,9 @@ class AdminViewModelTest {
 
             val users = listOf(createUser("user-1"), createUser("user-2"))
             val invites = listOf(createInvite("invite-1"))
-            everySuspend { loadUsersUseCase() } returns Success(users)
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(invites)
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(users)
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
 
             val viewModel =
                 AdminViewModel(
@@ -202,9 +202,9 @@ class AdminViewModelTest {
                     createInvite("pending", claimedAt = null),
                     createInvite("claimed", claimedAt = "2024-01-15T00:00:00Z"),
                 )
-            everySuspend { loadUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(invites)
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
 
             val viewModel =
                 AdminViewModel(
@@ -240,8 +240,8 @@ class AdminViewModelTest {
             val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
 
             everySuspend { loadUsersUseCase() } returns Failure(RuntimeException("Network error"))
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(emptyList())
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
 
             val viewModel =
                 AdminViewModel(
@@ -276,10 +276,10 @@ class AdminViewModelTest {
             val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
 
             val users = listOf(createUser("user-1"), createUser("user-2"))
-            everySuspend { loadUsersUseCase() } returns Success(users)
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(emptyList())
-            everySuspend { deleteUserUseCase("user-1") } returns Success(Unit)
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(users)
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { deleteUserUseCase("user-1") } returns AppResult.Success(Unit)
 
             val viewModel =
                 AdminViewModel(
@@ -320,10 +320,10 @@ class AdminViewModelTest {
             val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
 
             val invites = listOf(createInvite("invite-1"), createInvite("invite-2"))
-            everySuspend { loadUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadInvitesUseCase() } returns Success(invites)
-            everySuspend { revokeInviteUseCase("invite-1") } returns Success(Unit)
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
+            everySuspend { revokeInviteUseCase("invite-1") } returns AppResult.Success(Unit)
 
             val viewModel =
                 AdminViewModel(
@@ -362,8 +362,8 @@ class AdminViewModelTest {
             val setOpenRegistrationUseCase: SetOpenRegistrationUseCase = mock()
 
             // Users succeeds to land in Ready; invites fails to surface transient error on Ready.
-            everySuspend { loadUsersUseCase() } returns Success(emptyList())
-            everySuspend { loadPendingUsersUseCase() } returns Success(emptyList())
+            everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
+            everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
             everySuspend { loadInvitesUseCase() } returns Failure(RuntimeException("Invites error"))
 
             val viewModel =
@@ -395,7 +395,7 @@ class AdminViewModelTest {
             val instanceRepo: InstanceRepository = mock()
             everySuspend { instanceRepo.getInstance() } calls {
                 delay(100)
-                Success(createMockInstance())
+                AppResult.Success(createMockInstance())
             }
 
             val loadUsersUseCase: LoadUsersUseCase = mock()
@@ -409,15 +409,15 @@ class AdminViewModelTest {
 
             everySuspend { loadUsersUseCase() } calls {
                 delay(100)
-                Success(listOf(createUser()))
+                AppResult.Success(listOf(createUser()))
             }
             everySuspend { loadPendingUsersUseCase() } calls {
                 delay(100)
-                Success(emptyList())
+                AppResult.Success(emptyList())
             }
             everySuspend { loadInvitesUseCase() } calls {
                 delay(100)
-                Success(listOf(createInvite()))
+                AppResult.Success(listOf(createInvite()))
             }
 
             val viewModel =

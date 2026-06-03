@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -110,7 +110,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             assertTrue((success.data as List<*>).isEmpty())
         }
 
@@ -130,7 +130,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
@@ -159,7 +159,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
         }
@@ -180,7 +180,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then: Book should be filtered out because isFinished=true AND position>=95%
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertTrue(books.isEmpty())
         }
@@ -202,7 +202,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then: Book should be included because isFinished=false (progress doesn't matter)
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
         }
@@ -223,7 +223,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
         }
@@ -244,7 +244,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then - progress should be 0, book not filtered (progress < 0.99)
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
@@ -267,7 +267,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
             assertEquals("Stephen King", continueBook.authorNames)
@@ -289,7 +289,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
             assertEquals("/path/to/cover.jpg", continueBook.coverPath)
@@ -311,7 +311,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(5)
 
             // Then
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val returnedBooks = success.data as List<*>
             assertEquals(5, returnedBooks.size)
         }
@@ -345,7 +345,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then: lastPlayedAt should be ISO 8601, not raw milliseconds
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             assertEquals(1, books.size)
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
@@ -384,7 +384,7 @@ class HomeRepositoryTest {
             val result = repository.getContinueListening(10)
 
             // Then: Should fall back to updatedAt, still as ISO 8601
-            val success = assertIs<Success<*>>(result)
+            val success = assertIs<AppResult.Success<*>>(result)
             val books = success.data as List<*>
             val continueBook = books[0] as com.calypsan.listenup.client.domain.model.ContinueListeningBook
             assertTrue(

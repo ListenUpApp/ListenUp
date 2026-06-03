@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.home
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
@@ -332,8 +334,7 @@ class HomeViewModelTest {
             // Given
             val fixture = createFixture()
             everySuspend { fixture.syncRepository.sync() } returns
-                com.calypsan.listenup.core
-                    .Success(Unit)
+                AppResult.Success(Unit)
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 
@@ -351,8 +352,7 @@ class HomeViewModelTest {
             // Given - sync returns a failure Result (not an exception)
             val fixture = createFixture()
             everySuspend { fixture.syncRepository.sync() } returns
-                com.calypsan.listenup.core
-                    .Failure(RuntimeException("Network error"))
+                Failure(RuntimeException("Network error"))
             val viewModel = fixture.build().also { keepStateHot(it) }
             advanceUntilIdle()
 

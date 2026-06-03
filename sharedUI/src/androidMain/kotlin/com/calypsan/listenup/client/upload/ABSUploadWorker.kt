@@ -17,8 +17,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.calypsan.listenup.client.MainActivity
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
@@ -136,7 +135,7 @@ class ABSUploadWorker(
             // Upload the backup file
             val fileSource = CachedFileSource(cacheFile, filename)
             val uploadResult = backupApi.uploadABSBackup(fileSource)
-            if (uploadResult is Failure) {
+            if (uploadResult is AppResult.Failure) {
                 val error = uploadResult.message
                 logger.error { "ABS upload failed: $error" }
                 workerResult = retryOrFail(error)
@@ -145,7 +144,7 @@ class ABSUploadWorker(
                 }
                 return workerResult
             }
-            val uploadedPath = (uploadResult as Success).data.path
+            val uploadedPath = (uploadResult as AppResult.Success).data.path
             logger.info { "Upload complete, server path: $uploadedPath" }
 
             // Signal to the UI that upload is done and analysis is starting
@@ -154,7 +153,7 @@ class ABSUploadWorker(
             // Create the import from the uploaded file
             workerResult =
                 when (val importResult = absImportApi.createImportFromPath(uploadedPath, filename)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         val importId = importResult.data.id
                         logger.info { "Import created: id=$importId" }
                         showResultNotification(
@@ -166,11 +165,11 @@ class ABSUploadWorker(
                         Result.success(workDataOf(KEY_IMPORT_ID to importId))
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         val error = importResult.message
                         logger.error { "Import creation failed: $error" }
                         val result = retryOrFail(error)
-                        if (result is Failure) {
+                        if (result is Result.Failure) {
                             showFailureNotification()
                         }
                         result
@@ -180,7 +179,7 @@ class ABSUploadWorker(
         } catch (e: Exception) {
             logger.error(e) { "ABS upload failed" }
             workerResult = retryOrFail(e.message ?: "Upload failed")
-            if (workerResult is Failure) {
+            if (workerResult is Result.Failure) {
                 showFailureNotification()
             }
             workerResult

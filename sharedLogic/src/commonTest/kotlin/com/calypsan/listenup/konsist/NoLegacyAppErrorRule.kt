@@ -10,7 +10,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  *
  * The `client.core.error` package still holds infrastructure types that survived the
  * deletion ([com.calypsan.listenup.core.error.ErrorBus],
- * [com.calypsan.listenup.core.error.ErrorMapper]) — those imports are allowed.
+ * [com.calypsan.listenup.client.core.error.ErrorMapper]) — those imports are allowed.
  * `AppException` was also a survivor through Phase 3.5 but was deleted in Task 27d
  * (slice 18); any new import targeting it will simply fail to resolve, so it no
  * longer needs an allowlist entry here. Any other reference into that package
@@ -23,7 +23,7 @@ class NoLegacyAppErrorRule :
             val allowedSurvivors =
                 setOf(
                     "com.calypsan.listenup.core.error.ErrorBus",
-                    "com.calypsan.listenup.core.error.ErrorMapper",
+                    "com.calypsan.listenup.client.core.error.ErrorMapper",
                 )
 
             val offenders =

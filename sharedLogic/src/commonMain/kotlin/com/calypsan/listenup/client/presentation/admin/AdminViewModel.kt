@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -111,8 +111,8 @@ class AdminViewModel(
 
             val openRegistration =
                 when (val result = deferredInstance.await()) {
-                    is Success -> result.data.openRegistration
-                    is Failure -> false
+                    is AppResult.Success -> result.data.openRegistration
+                    is AppResult.Failure -> false
                 }
 
             val usersResult = deferredUsers.await()
@@ -121,7 +121,7 @@ class AdminViewModel(
 
             // Users fetch is the primary load. If it fails on initial load, surface as Error.
             // If already Ready (refresh), surface as transient error on Ready.
-            if (usersResult is Failure) {
+            if (usersResult is AppResult.Failure) {
                 val message = "Failed to load users: ${usersResult.message}"
                 state.update { current ->
                     if (current is AdminUiState.Ready) {
@@ -133,21 +133,21 @@ class AdminViewModel(
                 return@launch
             }
 
-            val users = (usersResult as Success).data
+            val users = (usersResult as AppResult.Success).data
             val pendingUsers =
                 when (pendingResult) {
-                    is Success -> pendingResult.data
-                    is Failure -> emptyList()
+                    is AppResult.Success -> pendingResult.data
+                    is AppResult.Failure -> emptyList()
                 }
             val pendingInvites =
                 when (invitesResult) {
-                    is Success -> invitesResult.data.filter { it.claimedAt == null }
-                    is Failure -> emptyList()
+                    is AppResult.Success -> invitesResult.data.filter { it.claimedAt == null }
+                    is AppResult.Failure -> emptyList()
                 }
             val invitesError =
                 when (invitesResult) {
-                    is Success -> null
-                    is Failure -> "Failed to load invites: ${invitesResult.message}"
+                    is AppResult.Success -> null
+                    is AppResult.Failure -> "Failed to load invites: ${invitesResult.message}"
                 }
 
             // Sort users: root user first, then by creation date (oldest first)
@@ -186,7 +186,7 @@ class AdminViewModel(
             updateReady { it.copy(deletingUserId = userId) }
 
             when (val result = deleteUserUseCase(userId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { ready ->
                         ready.copy(
                             deletingUserId = null,
@@ -195,7 +195,7 @@ class AdminViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady {
                         it.copy(
                             deletingUserId = null,
@@ -212,7 +212,7 @@ class AdminViewModel(
             updateReady { it.copy(revokingInviteId = inviteId) }
 
             when (val result = revokeInviteUseCase(inviteId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { ready ->
                         ready.copy(
                             revokingInviteId = null,
@@ -221,7 +221,7 @@ class AdminViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady {
                         it.copy(
                             revokingInviteId = null,
@@ -242,7 +242,7 @@ class AdminViewModel(
             updateReady { it.copy(approvingUserId = userId) }
 
             when (val result = approveUserUseCase(userId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val approvedUser = result.data
                     updateReady { ready ->
                         // Move from pending to active users
@@ -262,7 +262,7 @@ class AdminViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady {
                         it.copy(
                             approvingUserId = null,
@@ -279,7 +279,7 @@ class AdminViewModel(
             updateReady { it.copy(denyingUserId = userId) }
 
             when (val result = denyUserUseCase(userId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady { ready ->
                         ready.copy(
                             denyingUserId = null,
@@ -288,7 +288,7 @@ class AdminViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady {
                         it.copy(
                             denyingUserId = null,
@@ -305,7 +305,7 @@ class AdminViewModel(
             updateReady { it.copy(isTogglingOpenRegistration = true) }
 
             when (val result = setOpenRegistrationUseCase(enabled)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateReady {
                         it.copy(
                             isTogglingOpenRegistration = false,
@@ -314,7 +314,7 @@ class AdminViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     updateReady {
                         it.copy(
                             isTogglingOpenRegistration = false,

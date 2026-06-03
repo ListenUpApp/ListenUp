@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.domain.model.Series
@@ -8,8 +9,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -196,7 +196,7 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns Success(Unit)
+                everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns AppResult.Success(Unit)
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
@@ -221,7 +221,7 @@ class SeriesEditViewModelTest :
                 // Body-level message convention: pass a typed AppError so the
                 // user-facing message survives delegation to the ViewModel.
                 everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Save failed"),
                     )
@@ -248,7 +248,7 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
                 everySuspend { fixture.updateSeriesUseCase.invoke(any()) } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Save failed"),
                     )
@@ -274,7 +274,7 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.imageStagingRepository.deleteSeriesCoverStaging(any()) } returns Success(Unit)
+                everySuspend { fixture.imageStagingRepository.deleteSeriesCoverStaging(any()) } returns AppResult.Success(Unit)
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
@@ -315,7 +315,7 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns series
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.imageStagingRepository.saveSeriesCoverStaging("series-1", any()) } returns Success(Unit)
+                everySuspend { fixture.imageStagingRepository.saveSeriesCoverStaging("series-1", any()) } returns AppResult.Success(Unit)
                 every { fixture.imageStagingRepository.getSeriesCoverStagingPath("series-1") } returns "/tmp/staging-series-1.jpg"
                 every { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup(any()) } returns Unit
 

@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -78,7 +78,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("nonexistent")
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<com.calypsan.listenup.api.error.ValidationError>()
                 (failure.message.contains("not found", ignoreCase = true)) shouldBe true
             }
@@ -110,7 +110,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.bookId shouldBe "book-1"
@@ -149,7 +149,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.metadata.subtitle shouldBe ""
@@ -182,7 +182,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.contributors.size shouldBe 2
@@ -221,7 +221,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.contributors.size shouldBe 1
@@ -253,7 +253,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.series.size shouldBe 1
@@ -276,7 +276,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.series.isEmpty() shouldBe true
@@ -304,7 +304,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allGenres.size shouldBe 3
@@ -331,7 +331,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.genres.size shouldBe 1
@@ -354,7 +354,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then - should still succeed, just with empty genres
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allGenres.isEmpty() shouldBe true
@@ -383,7 +383,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allTags.size shouldBe 3
@@ -410,7 +410,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.tags.size shouldBe 1
@@ -433,7 +433,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then - should still succeed, just with empty tags
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.allTags.isEmpty() shouldBe true
@@ -459,7 +459,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.coverPath shouldBe "/covers/great-gatsby.jpg"
@@ -482,7 +482,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("book-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 editData.coverPath shouldBe null
@@ -539,7 +539,7 @@ class LoadBookForEditUseCaseTest :
                 val result = useCase("stormlight-1")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
                 val editData = success.data as com.calypsan.listenup.client.domain.model.BookEditData
 
                 // Verify all data is present

@@ -3,9 +3,9 @@
 package com.calypsan.listenup.client.presentation.bookedit
 
 import androidx.lifecycle.ViewModel
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
@@ -138,7 +138,7 @@ class BookEditViewModel(
             _state.update { it.copy(isLoading = true, bookId = bookId) }
 
             when (val result = loadBookForEditUseCase(bookId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val editData = result.data
                     originalState = editData
 
@@ -187,7 +187,7 @@ class BookEditViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     _state.update { it.copy(isLoading = false, error = result.message) }
                 }
@@ -435,12 +435,12 @@ class BookEditViewModel(
             val updateRequest = current.toUpdateRequest()
 
             when (val result = updateBookUseCase(updateRequest, original)) {
-                is Success -> {
+                is AppResult.Success -> {
                     // Collections persist via a dedicated access-aware RPC, not the
                     // UpdateBookUseCase — dispatch only when the set actually changed.
                     val collectionsResult =
                         if (collectionDelegate.hasChanges()) saveCollections(current) else null
-                    if (collectionsResult is Failure) {
+                    if (collectionsResult is AppResult.Failure) {
                         errorBus.emit(collectionsResult.error)
                         _state.update {
                             it.copy(isSaving = false, error = collectionsResult.message)
@@ -460,7 +460,7 @@ class BookEditViewModel(
                     _navActions.trySend(BookEditNavAction.NavigateBack)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     _state.update {
                         it.copy(isSaving = false, error = result.message)

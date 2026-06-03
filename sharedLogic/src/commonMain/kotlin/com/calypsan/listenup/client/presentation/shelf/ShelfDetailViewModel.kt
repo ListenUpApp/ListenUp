@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.shelf
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
@@ -56,7 +56,7 @@ class ShelfDetailViewModel(
 
             _state.value =
                 when (val result = loadShelfDetailUseCase(shelfId)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         val shelfDetail = result.data
                         logger.debug { "Loaded shelf detail: ${shelfDetail.name}" }
                         ShelfDetailUiState.Ready(
@@ -65,7 +65,7 @@ class ShelfDetailViewModel(
                         )
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         logger.error { "Failed to load shelf: $shelfId - ${result.message}" }
                         ShelfDetailUiState.Error(result.message)
                     }
@@ -79,13 +79,13 @@ class ShelfDetailViewModel(
 
         viewModelScope.launch {
             when (val result = removeBookFromShelfUseCase(shelfId, bookId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.info { "Removed book $bookId from shelf $shelfId" }
                     currentShelfId = null // Force reload
                     loadShelf(shelfId)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to remove book from shelf: ${result.message}" }
                     _snackbarMessages.trySend(result.message)
                 }

@@ -9,7 +9,7 @@ import io.ktor.client.HttpClientConfig
  *
  * Typed error mapping happens at the API method boundary — each `apiCall { ... }`
  * wraps its request in `suspendRunCatching`, catches the Ktor exception, and routes
- * it through [com.calypsan.listenup.core.error.ErrorMapper] to produce an
+ * it through [com.calypsan.listenup.client.core.error.ErrorMapper] to produce an
  * `AppResult.Failure(typedError)`.
  *
  * (Finding 01 D6 / rubric rule "Ktor clients must enable `expectSuccess = true`.")

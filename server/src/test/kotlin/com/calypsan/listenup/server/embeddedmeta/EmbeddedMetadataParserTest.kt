@@ -1,9 +1,9 @@
 package com.calypsan.listenup.server.embeddedmeta
 
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.isFailure
-import com.calypsan.listenup.core.isSuccess
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.isFailure
+import com.calypsan.listenup.api.result.isSuccess
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser

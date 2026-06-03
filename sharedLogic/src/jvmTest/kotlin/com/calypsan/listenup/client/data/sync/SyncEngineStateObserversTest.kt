@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase

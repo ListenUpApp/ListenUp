@@ -5,13 +5,12 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.core.GenreId
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookOriginalState
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -34,8 +33,8 @@ private val logger = KotlinLogging.logger {}
  * Usage:
  * ```kotlin
  * when (val result = updateBookUseCase(current, original)) {
- *     is Success -> navigateBack()
- *     is Failure -> showError(result.message)
+ *     is AppResult.Success -> navigateBack()
+ *     is AppResult.Failure -> showError(result.message)
  * }
  * ```
  */
@@ -63,7 +62,7 @@ open class UpdateBookUseCase(
 
         if (!changes.hasAnyChanges) {
             logger.debug { "No changes detected for book ${current.bookId}" }
-            return Success(Unit)
+            return AppResult.Success(Unit)
         }
 
         logger.info {
@@ -72,9 +71,9 @@ open class UpdateBookUseCase(
 
         if (changes.metadataChanged) {
             when (val result = updateMetadata(current)) {
-                is Success -> {}
+                is AppResult.Success -> {}
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     return result
                 }
             }
@@ -82,9 +81,9 @@ open class UpdateBookUseCase(
 
         if (changes.contributorsChanged) {
             when (val result = updateContributors(current)) {
-                is Success -> {}
+                is AppResult.Success -> {}
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     return result
                 }
             }
@@ -92,9 +91,9 @@ open class UpdateBookUseCase(
 
         if (changes.seriesChanged) {
             when (val result = updateSeries(current)) {
-                is Success -> {}
+                is AppResult.Success -> {}
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     return result
                 }
             }
@@ -102,9 +101,9 @@ open class UpdateBookUseCase(
 
         if (changes.genresChanged) {
             when (val result = updateGenres(current)) {
-                is Success -> {}
+                is AppResult.Success -> {}
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     return result
                 }
             }
@@ -243,8 +242,8 @@ open class UpdateBookUseCase(
 
         // Commit staging to main location
         when (val commitResult = imageStagingRepository.commitBookCoverStaging(bookId)) {
-            is Success -> logger.debug { "Staging cover committed to main location" }
-            is Failure -> logger.error { "Failed to commit staging cover: ${commitResult.message}" }
+            is AppResult.Success -> logger.debug { "Staging cover committed to main location" }
+            is AppResult.Failure -> logger.error { "Failed to commit staging cover: ${commitResult.message}" }
         }
 
         // Upload to server (best-effort - local cover is already saved)
@@ -256,11 +255,11 @@ open class UpdateBookUseCase(
                     filename = pendingCover.filename,
                 )
         ) {
-            is Success -> {
+            is AppResult.Success -> {
                 logger.info { "Cover uploaded to server" }
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Failed to upload cover to server: ${uploadResult.message}" }
                 // Don't fail the save - local cover is saved, server sync can happen later
             }

@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any

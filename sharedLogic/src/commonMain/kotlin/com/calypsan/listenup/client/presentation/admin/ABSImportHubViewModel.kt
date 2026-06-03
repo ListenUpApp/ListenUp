@@ -2,12 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.FileSource
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportBook
 import com.calypsan.listenup.client.data.remote.ABSImportResponse
@@ -179,7 +178,7 @@ class ABSImportHubViewModel(
     fun loadImports() {
         viewModelScope.launch {
             when (val result = absImportApi.listImports()) {
-                is Success -> {
+                is AppResult.Success -> {
                     listState.update { current ->
                         if (current is ABSImportListUiState.Ready) {
                             current.copy(imports = result.data, error = null)
@@ -189,7 +188,7 @@ class ABSImportHubViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load imports: ${result.message}" }
                     val message = "Failed to load imports"
                     listState.update { current ->
@@ -211,7 +210,7 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateListReady { it.copy(isCreating = true, error = null) }
             when (val result = absImportApi.createImport(fileSource, name)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateListReady { it.copy(isCreating = false) }
                     loadImports() // Refresh list
                     if (result.data.status == IMPORT_STATUS_ANALYZING) {
@@ -219,7 +218,7 @@ class ABSImportHubViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     val detail = createImportFailureDetail(result.message)
                     logger.error { detail }
                     updateListReady { it.copy(isCreating = false, error = detail) }
@@ -237,15 +236,15 @@ class ABSImportHubViewModel(
         name: String,
     ): AppResult<String> =
         when (val result = absImportApi.createImport(fileSource, name)) {
-            is Success -> {
+            is AppResult.Success -> {
                 loadImports() // Refresh list in background
                 if (result.data.status == IMPORT_STATUS_ANALYZING) {
                     startAnalysisPolling(result.data.id)
                 }
-                Success(result.data.id)
+                AppResult.Success(result.data.id)
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 val detail = createImportFailureDetail(result.message)
                 logger.error { detail }
                 result
@@ -259,7 +258,7 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateListReady { it.copy(isCreating = true, error = null) }
             when (val result = absImportApi.createImportFromPath(backupPath, name)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateListReady { it.copy(isCreating = false) }
                     loadImports() // Refresh list
                     if (result.data.status == IMPORT_STATUS_ANALYZING) {
@@ -267,7 +266,7 @@ class ABSImportHubViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     val detail = createImportFailureDetail(result.message)
                     logger.error { detail }
                     updateListReady { it.copy(isCreating = false, error = detail) }
@@ -279,11 +278,11 @@ class ABSImportHubViewModel(
     fun deleteImport(importId: String) {
         viewModelScope.launch {
             when (val result = absImportApi.deleteImport(importId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     loadImports()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to delete import: ${result.message}" }
                     updateListReady { it.copy(error = "Failed to delete import") }
                 }
@@ -298,7 +297,7 @@ class ABSImportHubViewModel(
         hubState.value = ABSImportHubUiState.Loading
         viewModelScope.launch {
             when (val result = absImportApi.getImport(importId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     hubState.value =
                         ABSImportHubUiState.Ready(
                             importId = importId,
@@ -318,7 +317,7 @@ class ABSImportHubViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load import: ${result.message}" }
                     hubState.value = ABSImportHubUiState.Error("Failed to load import")
                 }
@@ -347,11 +346,11 @@ class ABSImportHubViewModel(
 
         viewModelScope.launch {
             when (val result = absImportApi.getImport(importId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { it.copy(import = result.data) }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to refresh import: ${result.message}" }
                 }
             }
@@ -373,11 +372,11 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateHubReady { it.copy(isLoadingUsers = true) }
             when (val result = absImportApi.listImportUsers(importId, ready.usersFilter)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { it.copy(users = result.data, isLoadingUsers = false) }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load users: ${result.message}" }
                     updateHubReady { it.copy(isLoadingUsers = false, error = "Failed to load users") }
                 }
@@ -422,13 +421,13 @@ class ABSImportHubViewModel(
                 delay(SEARCH_DEBOUNCE_MS)
                 updateHubReady { it.copy(isSearchingUsers = true) }
                 when (val result = absImportApi.searchUsers(query, limit = SEARCH_LIMIT)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         updateHubReady {
                             it.copy(userSearchResults = result.data, isSearchingUsers = false)
                         }
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         logger.error { "User search failed: ${result.message}" }
                         updateHubReady {
                             it.copy(userSearchResults = emptyList(), isSearchingUsers = false)
@@ -449,7 +448,7 @@ class ABSImportHubViewModel(
         updateHubReady { it.copy(mappingInFlightUsers = it.mappingInFlightUsers + absUserId) }
         viewModelScope.launch {
             when (val result = absImportApi.mapUser(importId, absUserId, listenUpId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     deactivateUserSearch()
                     updateHubReady { state ->
                         state.copy(
@@ -463,7 +462,7 @@ class ABSImportHubViewModel(
                     refreshImport()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to map user: ${result.message}" }
                     updateHubReady {
                         it.copy(
@@ -483,7 +482,7 @@ class ABSImportHubViewModel(
 
         viewModelScope.launch {
             when (val result = absImportApi.clearUserMapping(importId, absUserId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { state ->
                         state.copy(
                             users =
@@ -495,7 +494,7 @@ class ABSImportHubViewModel(
                     refreshImport()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to clear user mapping: ${result.message}" }
                     updateHubReady { it.copy(error = "Failed to clear mapping") }
                 }
@@ -518,11 +517,11 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateHubReady { it.copy(isLoadingBooks = true) }
             when (val result = absImportApi.listImportBooks(importId, ready.booksFilter)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { it.copy(books = result.data, isLoadingBooks = false) }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load books: ${result.message}" }
                     updateHubReady { it.copy(isLoadingBooks = false, error = "Failed to load books") }
                 }
@@ -604,7 +603,7 @@ class ABSImportHubViewModel(
         updateHubReady { it.copy(mappingInFlightBooks = it.mappingInFlightBooks + absMediaId) }
         viewModelScope.launch {
             when (val result = absImportApi.mapBook(importId, absMediaId, listenUpId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     deactivateBookSearch()
                     updateHubReady { state ->
                         state.copy(
@@ -618,7 +617,7 @@ class ABSImportHubViewModel(
                     refreshImport()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to map book: ${result.message}" }
                     updateHubReady {
                         it.copy(
@@ -638,7 +637,7 @@ class ABSImportHubViewModel(
 
         viewModelScope.launch {
             when (val result = absImportApi.clearBookMapping(importId, absMediaId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { state ->
                         state.copy(
                             books =
@@ -650,7 +649,7 @@ class ABSImportHubViewModel(
                     refreshImport()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to clear book mapping: ${result.message}" }
                     updateHubReady { it.copy(error = "Failed to clear mapping") }
                 }
@@ -673,11 +672,11 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateHubReady { it.copy(isLoadingSessions = true) }
             when (val result = absImportApi.listSessions(importId, ready.sessionsFilter)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady { it.copy(sessionsResponse = result.data, isLoadingSessions = false) }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load sessions: ${result.message}" }
                     updateHubReady { it.copy(isLoadingSessions = false, error = "Failed to load sessions") }
                 }
@@ -693,7 +692,7 @@ class ABSImportHubViewModel(
         viewModelScope.launch {
             updateHubReady { it.copy(isImportingSessions = true, importResult = null) }
             when (val result = absImportApi.importReadySessions(importId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     updateHubReady {
                         it.copy(isImportingSessions = false, importResult = result.data)
                     }
@@ -703,7 +702,7 @@ class ABSImportHubViewModel(
                     syncRepository.refreshListeningHistory()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to import sessions: ${result.message}" }
                     updateHubReady {
                         it.copy(isImportingSessions = false, error = "Failed to import sessions")
@@ -723,12 +722,12 @@ class ABSImportHubViewModel(
 
         viewModelScope.launch {
             when (val result = absImportApi.skipSession(importId, sessionId, reason)) {
-                is Success -> {
+                is AppResult.Success -> {
                     loadSessions()
                     refreshImport()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to skip session: ${result.message}" }
                     updateHubReady { it.copy(error = "Failed to skip session") }
                 }
@@ -752,7 +751,7 @@ class ABSImportHubViewModel(
                 while (true) {
                     delay(ANALYSIS_POLL_INTERVAL_MS)
                     when (val result = absImportApi.getImport(importId)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             val imp = result.data
                             // Update hub state if we're viewing this import
                             val currentHub = hubState.value
@@ -790,7 +789,7 @@ class ABSImportHubViewModel(
                             }
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             logger.error { "Failed to poll import status: ${result.message}" }
                             break
                         }

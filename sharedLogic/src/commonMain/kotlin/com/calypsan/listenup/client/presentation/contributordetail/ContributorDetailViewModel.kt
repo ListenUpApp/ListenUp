@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.presentation.contributordetail
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -110,12 +110,12 @@ class ContributorDetailViewModel(
             deleteOverlay.value = DeleteOverlay.Deleting
 
             when (val result = deleteContributorUseCase(contributorId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     deleteOverlay.value = DeleteOverlay.None
                     _navActions.trySend(ContributorDetailNavAction.Deleted)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     deleteOverlay.value = DeleteOverlay.Failed(result.message)
                 }
             }

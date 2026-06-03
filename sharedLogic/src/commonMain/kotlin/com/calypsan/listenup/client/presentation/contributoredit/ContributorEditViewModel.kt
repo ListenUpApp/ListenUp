@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.contributoredit
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.ContributorError
@@ -11,8 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
@@ -338,12 +338,12 @@ class ContributorEditViewModel(
             state.update { it.copy(mergeInProgress = true, error = null) }
 
             when (val result = contributorEditRepository.mergeContributor(ContributorId(sourceId), targetId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     _navActions.trySend(ContributorEditNavAction.NavigateBack)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge contributor: ${result.message}" }
                     state.update {
@@ -375,11 +375,11 @@ class ContributorEditViewModel(
 
         viewModelScope.launch {
             when (val result = contributorEditRepository.unmergeContributor(ContributorId(contributorId), aliasName)) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.debug { "Unmerged alias '$aliasName'; new contributor id=${result.data}" }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to unmerge alias '$aliasName': ${result.message}" }
                     state.update {
@@ -413,12 +413,12 @@ class ContributorEditViewModel(
             state.update { it.copy(isUploadingImage = true, error = null) }
 
             when (val result = imageRepository.uploadContributorImage(contributorId, imageData, filename)) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.info { "Contributor image uploaded successfully to server" }
 
                     // Save image locally for offline-first access
                     when (val saveResult = imageRepository.saveContributorImage(contributorId, imageData)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             val localPath = imageRepository.getContributorImagePath(contributorId)
                             logger.info { "Contributor image saved locally: $localPath" }
                             state.update {
@@ -430,7 +430,7 @@ class ContributorEditViewModel(
                             updateHasChanges()
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             errorBus.emit(saveResult.error)
                             logger.error { "Failed to save contributor image locally: ${saveResult.message}" }
                             // Still mark upload as successful since server has the image
@@ -444,7 +444,7 @@ class ContributorEditViewModel(
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to upload contributor image: ${result.message}" }
                     state.update {
@@ -497,12 +497,12 @@ class ContributorEditViewModel(
                 )
 
             when (result) {
-                is Success -> {
+                is AppResult.Success -> {
                     state.update { it.copy(isSaving = false, hasChanges = false) }
                     _navActions.trySend(ContributorEditNavAction.SaveSuccess)
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to save contributor: ${result.message}" }
                     state.update {

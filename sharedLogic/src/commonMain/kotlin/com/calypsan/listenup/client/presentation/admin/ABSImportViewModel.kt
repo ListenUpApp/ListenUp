@@ -2,12 +2,11 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.FileSource
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
@@ -710,7 +709,7 @@ class ABSImportViewModel(
             updateReady { it.copy(isSearchingUsers = true) }
             try {
                 when (val result = absImportApi.searchUsers(query, limit = SEARCH_LIMIT)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         updateReady {
                             it.copy(
                                 userSearchResults = result.data,
@@ -719,7 +718,7 @@ class ABSImportViewModel(
                         }
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         logger.error { "User search failed: ${null as Exception?}" }
                         updateReady {
                             it.copy(

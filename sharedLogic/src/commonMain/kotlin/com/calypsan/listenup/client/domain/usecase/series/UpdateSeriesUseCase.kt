@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.series
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
@@ -66,11 +65,11 @@ open class UpdateSeriesUseCase(
 
                 val patch = SeriesUpdate(name = name, description = description)
                 when (val result = seriesEditRepository.updateSeries(SeriesId(request.seriesId), patch)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         logger.info { "Series metadata updated" }
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         throw null as Exception? ?: Exception(result.message)
                     }
                 }
@@ -94,11 +93,11 @@ open class UpdateSeriesUseCase(
 
         // First, commit staging to main cover location
         when (val commitResult = imageStagingRepository.commitSeriesCoverStaging(request.seriesId)) {
-            is Success -> {
+            is AppResult.Success -> {
                 logger.info { "Staging cover committed to main location" }
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.error { "Failed to commit staging cover: ${commitResult.message}" }
                 // Continue anyway - try to upload
             }
@@ -106,11 +105,11 @@ open class UpdateSeriesUseCase(
 
         // Then upload to server (best-effort)
         when (val result = imageRepository.uploadSeriesCover(request.seriesId, pendingData, pendingFilename)) {
-            is Success -> {
+            is AppResult.Success -> {
                 logger.info { "Cover uploaded to server" }
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.error { "Failed to upload cover: ${result.message}" }
                 logger.warn { "Continuing despite cover upload failure (local cover saved)" }
                 // Don't fail - local cover is saved

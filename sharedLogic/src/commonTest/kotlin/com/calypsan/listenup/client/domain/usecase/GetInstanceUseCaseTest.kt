@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.model.InstanceId
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -61,14 +61,14 @@ class GetInstanceUseCaseTest {
             // Given
             val fixture = createFixture()
             val instance = createInstance(name = "My Server")
-            everySuspend { fixture.repository.getInstance(false) } returns Success(instance)
+            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
             val useCase = fixture.build()
 
             // When
             val result = useCase()
 
             // Then
-            val success = assertIs<Success<Instance>>(result)
+            val success = assertIs<AppResult.Success<Instance>>(result)
             assertEquals("My Server", success.data.name)
         }
 
@@ -80,7 +80,7 @@ class GetInstanceUseCaseTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation.
             everySuspend { fixture.repository.getInstance(false) } returns
-                Failure(
+                AppResult.Failure(
                     com.calypsan.listenup.api.error
                         .ValidationError(message = "Network error"),
                 )
@@ -90,7 +90,7 @@ class GetInstanceUseCaseTest {
             val result = useCase()
 
             // Then
-            val failure = assertIs<Failure>(result)
+            val failure = assertIs<AppResult.Failure>(result)
             assertEquals("Network error", failure.message)
         }
 
@@ -102,7 +102,7 @@ class GetInstanceUseCaseTest {
             // Given
             val fixture = createFixture()
             val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(true) } returns Success(instance)
+            everySuspend { fixture.repository.getInstance(true) } returns AppResult.Success(instance)
             val useCase = fixture.build()
 
             // When
@@ -118,7 +118,7 @@ class GetInstanceUseCaseTest {
             // Given
             val fixture = createFixture()
             val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(false) } returns Success(instance)
+            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
             val useCase = fixture.build()
 
             // When
@@ -134,7 +134,7 @@ class GetInstanceUseCaseTest {
             // Given
             val fixture = createFixture()
             val instance = createInstance()
-            everySuspend { fixture.repository.getInstance(false) } returns Success(instance)
+            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
             val useCase = fixture.build()
 
             // When
@@ -157,14 +157,14 @@ class GetInstanceUseCaseTest {
                     name = "Production Server",
                     version = "2.5.0",
                 )
-            everySuspend { fixture.repository.getInstance(false) } returns Success(instance)
+            everySuspend { fixture.repository.getInstance(false) } returns AppResult.Success(instance)
             val useCase = fixture.build()
 
             // When
             val result = useCase()
 
             // Then
-            val success = assertIs<Success<Instance>>(result)
+            val success = assertIs<AppResult.Success<Instance>>(result)
             assertEquals("test-123", success.data.id.value)
             assertEquals("Production Server", success.data.name)
             assertEquals("2.5.0", success.data.version)

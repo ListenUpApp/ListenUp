@@ -2,13 +2,12 @@ package com.calypsan.listenup.client.automotive
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookEntity
@@ -493,7 +492,7 @@ class BrowseTreeProviderTest {
 private class FakeHomeRepository(
     private val books: List<ContinueListeningBook>,
 ) : HomeRepository {
-    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = Success(books.take(limit))
+    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(books.take(limit))
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
 }
@@ -570,6 +569,8 @@ private class FakeBookDao(
         accessibleIds: Collection<String>,
         now: Long,
     ) = Unit
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeSeriesDao(
@@ -611,6 +612,8 @@ private class FakeSeriesDao(
         deletedAt: Long,
         revision: Long,
     ) = Unit
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeContributorDao(
@@ -659,6 +662,8 @@ private class FakeContributorDao(
     override suspend fun getByBookId(bookId: String): List<ContributorEntity> = emptyList()
 
     override fun observeBookIdsForContributor(contributorId: String): Flow<List<String>> = flowOf(bookIdsForContributor[contributorId] ?: emptyList())
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeDownloadDao(
@@ -738,64 +743,64 @@ private class FakeImageStorage : ImageStorage {
     override suspend fun saveCover(
         bookId: BookId,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun deleteCover(bookId: BookId): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteCover(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun saveCoverStaging(
         bookId: BookId,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override fun getCoverStagingPath(bookId: BookId): String = "/fake/staging/${bookId.value}.jpg"
 
-    override suspend fun commitCoverStaging(bookId: BookId): AppResult<Unit> = Success(Unit)
+    override suspend fun commitCoverStaging(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun deleteCoverStaging(bookId: BookId): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteCoverStaging(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun clearAll(): AppResult<Int> = Success(0)
+    override suspend fun clearAll(): AppResult<Int> = AppResult.Success(0)
 
     override suspend fun saveContributorImage(
         contributorId: String,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override fun getContributorImagePath(contributorId: String): String = "/fake/contributors/$contributorId.jpg"
 
     override fun contributorImageExists(contributorId: String): Boolean = false
 
-    override suspend fun deleteContributorImage(contributorId: String): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteContributorImage(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun saveSeriesCover(
         seriesId: String,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override fun getSeriesCoverPath(seriesId: String): String = "/fake/series/$seriesId.jpg"
 
     override fun seriesCoverExists(seriesId: String): Boolean = false
 
-    override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun saveUserAvatar(
         userId: String,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override fun getUserAvatarPath(userId: String): String = "/fake/avatars/$userId.jpg"
 
     override fun userAvatarExists(userId: String): Boolean = false
 
-    override suspend fun deleteUserAvatar(userId: String): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteUserAvatar(userId: String): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun saveSeriesCoverStaging(
         seriesId: String,
         imageData: ByteArray,
-    ): AppResult<Unit> = Success(Unit)
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override fun getSeriesCoverStagingPath(seriesId: String): String = "/fake/staging/series/$seriesId.jpg"
 
-    override suspend fun commitSeriesCoverStaging(seriesId: String): AppResult<Unit> = Success(Unit)
+    override suspend fun commitSeriesCoverStaging(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun deleteSeriesCoverStaging(seriesId: String): AppResult<Unit> = Success(Unit)
+    override suspend fun deleteSeriesCoverStaging(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
 }

@@ -9,10 +9,10 @@ import com.calypsan.listenup.client.data.local.db.GenreWithBookCount
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow

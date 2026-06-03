@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * User preferences that are synced to the server.

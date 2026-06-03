@@ -5,9 +5,9 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import io.github.oshai.kotlinlogging.KotlinLogging

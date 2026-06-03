@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.SyncError
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Routes a [PendingOperation] to the concrete [PendingOperationSender] registered

@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.test.fake
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDuration
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
@@ -53,7 +52,7 @@ class FakeListeningEventRepository(
             )
         events.value = events.value + entity
         queueCount++
-        return Success(Unit)
+        return AppResult.Success(Unit)
     }
 
     override fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>> =

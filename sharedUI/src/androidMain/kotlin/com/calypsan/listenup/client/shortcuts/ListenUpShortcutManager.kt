@@ -11,8 +11,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.calypsan.listenup.client.MainActivity
 import com.calypsan.listenup.client.composeapp.R
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -80,7 +79,7 @@ class ListenUpShortcutManager(
                 val result = homeRepository.getContinueListening(ShortcutActions.MAX_BOOK_SHORTCUTS)
 
                 when (result) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         val books = result.data
                         if (books.isEmpty()) {
                             logger.debug { "No recent books, clearing dynamic shortcuts" }
@@ -93,7 +92,7 @@ class ListenUpShortcutManager(
                         setDynamicShortcuts(shortcuts)
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         logger.warn { "Failed to get recent books for shortcuts: ${result.message}" }
                         // Don't clear existing shortcuts on failure - keep stale data
                     }

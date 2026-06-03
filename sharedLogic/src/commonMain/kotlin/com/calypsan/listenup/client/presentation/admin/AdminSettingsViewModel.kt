@@ -2,9 +2,8 @@ package com.calypsan.listenup.client.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -53,7 +52,7 @@ class AdminSettingsViewModel(
     fun loadSettings() {
         viewModelScope.launch {
             when (val result = loadServerSettingsUseCase()) {
-                is Success -> {
+                is AppResult.Success -> {
                     savedServerName = result.data.serverName
                     savedInboxEnabled = result.data.inboxEnabled
                     state.update { current ->
@@ -76,7 +75,7 @@ class AdminSettingsViewModel(
                     loadRemoteUrl()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to load server settings: ${result.error}" }
                     val message = userMessageFor(result.error)
                     state.update { current ->
@@ -139,13 +138,13 @@ class AdminSettingsViewModel(
     private fun loadRemoteUrl() {
         viewModelScope.launch {
             when (val result = instanceRepository.getInstance(forceRefresh = true)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val url = result.data.remoteUrl ?: ""
                     savedRemoteUrl = url
                     updateReady { it.copy(remoteUrl = url).withDirty() }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     // Non-fatal, just leave remote URL empty
                 }
             }
@@ -176,12 +175,12 @@ class AdminSettingsViewModel(
             // Save server name if changed
             if (ready.serverName != savedServerName) {
                 when (val result = updateServerSettingsUseCase.updateServerName(ready.serverName)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         savedServerName = result.data.serverName
                         logger.info { "Server name saved: ${result.data.serverName}" }
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to save server name: ${result.error}" }
                         updateReady {
@@ -222,14 +221,14 @@ class AdminSettingsViewModel(
             // Save inbox enabled if changed
             if (ready.inboxEnabled != savedInboxEnabled) {
                 when (val result = updateServerSettingsUseCase(ready.inboxEnabled)) {
-                    is Success -> {
+                    is AppResult.Success -> {
                         savedInboxEnabled = result.data.inboxEnabled
                         val refreshedCount = result.data.inboxCount
                         updateReady { it.copy(inboxCount = refreshedCount) }
                         logger.info { "Inbox workflow ${if (ready.inboxEnabled) "enabled" else "disabled"}" }
                     }
 
-                    is Failure -> {
+                    is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to save inbox setting: ${result.error}" }
                         updateReady {

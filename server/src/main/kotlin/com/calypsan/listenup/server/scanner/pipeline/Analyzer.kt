@@ -13,7 +13,7 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata

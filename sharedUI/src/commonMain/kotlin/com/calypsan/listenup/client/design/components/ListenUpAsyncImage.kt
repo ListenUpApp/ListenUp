@@ -21,7 +21,6 @@ import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.util.decodeBlurHash
 import com.calypsan.listenup.client.design.util.fileLastModifiedMillis
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.Success
 import kotlinx.coroutines.withContext
 
 /**

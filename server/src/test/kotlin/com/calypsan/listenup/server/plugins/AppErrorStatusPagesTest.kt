@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.plugins
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError

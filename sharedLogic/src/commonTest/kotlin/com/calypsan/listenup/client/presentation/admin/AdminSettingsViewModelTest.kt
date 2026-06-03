@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.model.InstanceId
 import com.calypsan.listenup.client.domain.model.ServerSettings
@@ -73,9 +73,9 @@ class AdminSettingsViewModelTest {
         remoteUrl: String? = "https://remote.example.com",
     ): TestFixture {
         val fixture = TestFixture()
-        everySuspend { fixture.loadServerSettingsUseCase() } returns Success(settings)
+        everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
         everySuspend { fixture.instanceRepository.getInstance(forceRefresh = true) } returns
-            Success(createInstance(remoteUrl = remoteUrl))
+            AppResult.Success(createInstance(remoteUrl = remoteUrl))
         return fixture
     }
 
@@ -158,7 +158,7 @@ class AdminSettingsViewModelTest {
             // Body-level message convention: pass a typed AppError so the
             // user-facing message survives delegation to the ViewModel.
             everySuspend { fixture.loadServerSettingsUseCase() } returns
-                Failure(
+                AppResult.Failure(
                     com.calypsan.listenup.api.error
                         .ValidationError(message = "Network down"),
                 )
@@ -230,7 +230,7 @@ class AdminSettingsViewModelTest {
         runTest {
             val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
             everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                Success(createServerSettings(serverName = "Renamed"))
+                AppResult.Success(createServerSettings(serverName = "Renamed"))
             val viewModel = fixture.build()
             advanceUntilIdle()
 
@@ -256,7 +256,7 @@ class AdminSettingsViewModelTest {
             // "Forbidden" text reaches the ViewModel's IllegalStateException
             // re-throw, which then surfaces in the Ready.error string.
             everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
-                Failure(
+                AppResult.Failure(
                     com.calypsan.listenup.api.error
                         .ValidationError(message = "Forbidden"),
                 )

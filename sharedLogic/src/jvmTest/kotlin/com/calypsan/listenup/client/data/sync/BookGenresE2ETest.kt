@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId

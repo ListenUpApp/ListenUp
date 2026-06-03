@@ -6,8 +6,8 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 

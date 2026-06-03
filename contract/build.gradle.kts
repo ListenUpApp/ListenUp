@@ -71,7 +71,6 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.rpc.core)
             implementation(libs.ktor.resources)
-            implementation(libs.ktor.client.core) // ErrorMapper matches Ktor client exception types
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.collections.immutable)

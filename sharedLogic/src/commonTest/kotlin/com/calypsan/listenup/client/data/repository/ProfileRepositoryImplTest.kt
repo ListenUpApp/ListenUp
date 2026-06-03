@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.every

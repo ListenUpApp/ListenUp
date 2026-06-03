@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -24,7 +24,7 @@ class AvatarDownloadRepositoryImplTest {
     fun `queueAvatarDownload triggers download with forceRefresh=false`() =
         runTest {
             val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns Success(false)
+            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(false)
             val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
             repo.queueAvatarDownload("user-1")
@@ -37,7 +37,7 @@ class AvatarDownloadRepositoryImplTest {
     fun `queueAvatarForceRefresh triggers download with forceRefresh=true`() =
         runTest {
             val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns Success(true)
+            everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
             val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
             repo.queueAvatarForceRefresh("user-1")
@@ -50,7 +50,7 @@ class AvatarDownloadRepositoryImplTest {
     fun `deleteAvatar delegates to imageDownloader deleteUserAvatar`() =
         runTest {
             val imageDownloader: ImageDownloaderContract = mock()
-            everySuspend { imageDownloader.deleteUserAvatar(any()) } returns Success(Unit)
+            everySuspend { imageDownloader.deleteUserAvatar(any()) } returns AppResult.Success(Unit)
             val repo = AvatarDownloadRepositoryImpl(imageDownloader, this)
 
             repo.deleteAvatar("user-1")

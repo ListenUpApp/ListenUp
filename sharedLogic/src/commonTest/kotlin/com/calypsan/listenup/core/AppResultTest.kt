@@ -1,5 +1,17 @@
 package com.calypsan.listenup.core
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.errorOrNull
+import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.api.result.fold
+import com.calypsan.listenup.api.result.getOrNull
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.result.networkError
+import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.api.result.onSuccess
+import com.calypsan.listenup.api.result.unauthorizedError
+import com.calypsan.listenup.api.result.validationError
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError

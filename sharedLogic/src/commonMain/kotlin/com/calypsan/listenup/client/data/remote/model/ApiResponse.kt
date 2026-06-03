@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.data.remote.model
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -74,12 +73,12 @@ data class ApiResponse<T>(
 
         // Handle standard envelope format
         return if (success && data != null) {
-            Success(data)
+            AppResult.Success(data)
         } else if (success && data == null) {
             // Success with null data is valid for some operations (DELETE, etc.)
             // The caller must handle T being nullable
             @Suppress("UNCHECKED_CAST")
-            Success(null as T)
+            AppResult.Success(null as T)
         } else {
             Failure(ApiException(message = error ?: "Unknown API error"))
         }

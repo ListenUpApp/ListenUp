@@ -3,7 +3,7 @@
 
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.repository.DownloadRepository

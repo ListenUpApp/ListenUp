@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.db.TagTable
 import kotlin.time.Clock

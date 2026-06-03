@@ -14,10 +14,10 @@ import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.UserProfile
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext

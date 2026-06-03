@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.library
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
@@ -217,7 +217,7 @@ class LibraryActionsViewModelTest :
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 fixture.selectionManager.toggleSelection("book-2")
-                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -235,7 +235,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
                 checkIs<SelectionMode.Active>(fixture.selectionManager.selectionMode.value)
@@ -273,7 +273,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.collectionRepository.addBook(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -309,7 +309,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -327,7 +327,7 @@ class LibraryActionsViewModelTest :
                 // Given
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -383,8 +383,8 @@ class LibraryActionsViewModelTest :
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 val newShelf = createShelf(id = "new-shelf", name = "My New Shelf")
-                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns AppResult.Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -404,8 +404,8 @@ class LibraryActionsViewModelTest :
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 val newShelf = createShelf()
-                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns AppResult.Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -443,7 +443,7 @@ class LibraryActionsViewModelTest :
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 val newShelf = createShelf()
-                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns AppResult.Success(newShelf)
                 everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns
                     Failure(RuntimeException("Failed to add books"))
                 val viewModel = fixture.build()
@@ -464,8 +464,8 @@ class LibraryActionsViewModelTest :
                 val fixture = createFixture()
                 fixture.selectionManager.enterSelectionMode("book-1")
                 val newShelf = createShelf()
-                everySuspend { fixture.createShelfUseCase(any(), any()) } returns Success(newShelf)
-                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.createShelfUseCase(any(), any()) } returns AppResult.Success(newShelf)
+                everySuspend { fixture.addBooksToShelfUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 

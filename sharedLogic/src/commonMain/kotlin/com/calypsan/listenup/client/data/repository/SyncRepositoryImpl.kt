@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
@@ -108,7 +107,7 @@ class SyncRepositoryImpl(
 
     override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = startEngineForCurrentUser()
 
-    override suspend fun refreshListeningHistory(): AppResult<Unit> = Success(Unit)
+    override suspend fun refreshListeningHistory(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun forceFullResync(): AppResult<Unit> = startEngineForCurrentUser()
 

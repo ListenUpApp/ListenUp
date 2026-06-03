@@ -1,8 +1,7 @@
 package com.calypsan.listenup.server.embeddedmeta
 
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -40,7 +39,7 @@ internal class EmbeddedMetadataParser(
                 try {
                     sourceFactory(path)
                 } catch (e: IOException) {
-                    return@withContext Failure(
+                    return@withContext AppResult.Failure(
                         AudioMetadataError.IoError(
                             pathString = path.toString(),
                             ioMessage = e.message ?: "unknown IO error",
@@ -55,7 +54,7 @@ internal class EmbeddedMetadataParser(
                 src.seek(0)
                 val format = detector.detect(head)
                 if (format == null) {
-                    return@use Failure(
+                    return@use AppResult.Failure(
                         AudioMetadataError.UnsupportedFormat(
                             pathString = path.toString(),
                             detectedMagic = head.take(MAGIC_HEX_BYTES).joinToString("") { "%02X".format(it) },
@@ -66,7 +65,7 @@ internal class EmbeddedMetadataParser(
                 currentCoroutineContext().ensureActive()
                 val parser = parsers.firstOrNull { format in it.supports }
                 if (parser == null) {
-                    return@use Failure(
+                    return@use AppResult.Failure(
                         AudioMetadataError.UnsupportedFormat(
                             pathString = path.toString(),
                             detectedMagic = head.take(MAGIC_HEX_BYTES).joinToString("") { "%02X".format(it) },

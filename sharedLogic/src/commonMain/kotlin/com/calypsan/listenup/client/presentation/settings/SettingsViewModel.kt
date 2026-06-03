@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -173,13 +173,13 @@ class SettingsViewModel(
      */
     private suspend fun fetchServerInfo() {
         when (val result = instanceRepository.getInstance()) {
-            is Success -> {
+            is AppResult.Success -> {
                 internalState.update {
                     it.copy(serverVersion = result.data.version)
                 }
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Failed to fetch server info: ${result.message}" }
             }
         }
@@ -193,7 +193,7 @@ class SettingsViewModel(
         internalState.update { it.copy(isSyncing = true, syncError = null) }
 
         when (val result = userPreferencesRepository.getPreferences()) {
-            is Success -> {
+            is AppResult.Success -> {
                 val prefs = result.data
                 internalState.update {
                     it.copy(
@@ -211,7 +211,7 @@ class SettingsViewModel(
                 playbackPreferences.setDefaultPlaybackSpeed(prefs.defaultPlaybackSpeed)
             }
 
-            is Failure -> {
+            is AppResult.Failure -> {
                 logger.warn { "Failed to fetch synced settings: ${result.message}" }
                 internalState.update {
                     it.copy(

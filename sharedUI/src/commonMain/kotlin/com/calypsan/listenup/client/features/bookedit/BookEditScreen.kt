@@ -70,7 +70,6 @@ import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.book_edit_talent
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
-import com.calypsan.listenup.core.Success
 
 /**
  * Creative Studio book editing screen following Material 3 Expressive Design.

@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.presentation.library
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -191,7 +190,7 @@ class LibraryActionsViewModel(
             val failure =
                 bookIds
                     .map { collectionRepository.addBook(collectionId, it) }
-                    .firstOrNull { it is Failure } as? Failure
+                    .firstOrNull { it is AppResult.Failure } as? AppResult.Failure
 
             if (failure == null) {
                 logger.info { "Added ${bookIds.size} books to collection $collectionId" }
@@ -225,13 +224,13 @@ class LibraryActionsViewModel(
             val bookIds = selectedIds.toList()
 
             when (val result = addBooksToShelfUseCase(shelfId, bookIds)) {
-                is Success -> {
+                is AppResult.Success -> {
                     logger.info { "Added ${bookIds.size} books to shelf $shelfId" }
                     eventsChannel.send(LibraryActionEvent.BooksAddedToShelf(bookIds.size))
                     selectionManager.clearAfterAction()
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to add books to shelf: ${result.message}" }
                     eventsChannel.send(LibraryActionEvent.AddToShelfFailed(result.message))
                 }
@@ -257,13 +256,13 @@ class LibraryActionsViewModel(
 
             // Create the shelf
             when (val createResult = createShelfUseCase(name, null)) {
-                is Success -> {
+                is AppResult.Success -> {
                     val newShelf = createResult.data
                     logger.info { "Created shelf '${newShelf.name}' with id ${newShelf.id}" }
 
                     // Add books to the new shelf
                     when (val addResult = addBooksToShelfUseCase(newShelf.id, bookIds)) {
-                        is Success -> {
+                        is AppResult.Success -> {
                             logger.info { "Added ${bookIds.size} books to new shelf ${newShelf.id}" }
                             eventsChannel.send(
                                 LibraryActionEvent.ShelfCreatedAndBooksAdded(newShelf.name, bookIds.size),
@@ -271,14 +270,14 @@ class LibraryActionsViewModel(
                             selectionManager.clearAfterAction()
                         }
 
-                        is Failure -> {
+                        is AppResult.Failure -> {
                             logger.error { "Failed to add books to new shelf: ${addResult.message}" }
                             eventsChannel.send(LibraryActionEvent.AddToShelfFailed(addResult.message))
                         }
                     }
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.error { "Failed to create shelf: ${createResult.message}" }
                     eventsChannel.send(LibraryActionEvent.AddToShelfFailed(createResult.message))
                 }

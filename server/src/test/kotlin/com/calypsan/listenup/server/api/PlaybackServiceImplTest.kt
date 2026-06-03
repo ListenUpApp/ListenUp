@@ -465,7 +465,7 @@ class PlaybackServiceImplTest :
 
         // ─── getStats / recordListeningEvent ──────────────────────────────────────
 
-        test("getStats returns Success(null) for a user with no listening history") {
+        test("getStats returns AppResult.Success(null) for a user with no listening history") {
             withInMemoryDatabase {
                 val db = this
                 seedTestLibraryAndFolder()

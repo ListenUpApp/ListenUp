@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -113,7 +113,7 @@ class BackupRepositoryImplTest :
 
         // ── deleteBackup ──────────────────────────────────────────────────────
 
-        test("deleteBackup returns Success(Unit) on wire success") {
+        test("deleteBackup returns AppResult.Success(Unit) on wire success") {
             runTest {
                 val svc = mock<BackupService>()
                 everySuspend { svc.deleteBackup(BackupId("bk-1")) } returns WireAppResult.Success(Unit)

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging

@@ -21,7 +21,6 @@ import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import com.calypsan.listenup.core.Success
 
 /**
  * Android implementation of rememberCoverColors using Palette API.

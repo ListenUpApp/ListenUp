@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.suspendRunCatching
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -97,7 +96,7 @@ class BookRepositoryImpl(
      * deliberate no-op retained for the pull-to-refresh UI affordance in
      * [LibraryViewModel] until that surface is revisited in Books-C.
      */
-    override suspend fun refreshBooks(): AppResult<Unit> = Success(Unit)
+    override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)
 
     /**
      * Get chapters for a book from the local database.

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.client.TestData
@@ -18,10 +19,9 @@ import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.api.result.failureOf
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -72,15 +72,15 @@ class UpdateBookUseCaseTest :
             val fixture = TestFixture()
 
             // Default stubs for successful operations
-            everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns Success(Unit)
-            everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns Success(Unit)
-            everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns Success(Unit)
-            everySuspend { fixture.bookEditRepository.deleteBookCover(any()) } returns Success(Unit)
-            everySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) } returns Success(Unit)
-            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns Success(TestData.tag())
-            everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns Success(Unit)
-            everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns Success(Unit)
-            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns Success("https://example.com/cover.jpg")
+            everySuspend { fixture.bookEditRepository.updateBook(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.bookEditRepository.deleteBookCover(any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.tagRepository.addTagToBook(any(), any()) } returns AppResult.Success(TestData.tag())
+            everySuspend { fixture.tagRepository.removeTagFromBook(any(), any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.imageStagingRepository.commitBookCoverStaging(any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.imageRepository.uploadBookCover(any(), any(), any()) } returns AppResult.Success("https://example.com/cover.jpg")
 
             return fixture
         }
@@ -214,7 +214,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
 
                 // Verify no repository calls were made
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.updateBook(any(), any()) }
@@ -241,7 +241,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend {
                     fixture.bookEditRepository.updateBook(
                         BookId("book-1"),
@@ -276,7 +276,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend {
                     fixture.bookEditRepository.updateBook(
                         BookId("book-1"),
@@ -319,7 +319,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.bookEditRepository.setBookContributors(BookId("book-1"), any()) }
             }
         }
@@ -365,7 +365,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.bookEditRepository.setBookSeries(BookId("book-1"), any()) }
             }
         }
@@ -417,7 +417,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.bookEditRepository.setBookGenres(any(), any()) }
             }
         }
@@ -461,7 +461,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.tagRepository.addTagToBook("book-1", "to-read") }
             }
         }
@@ -485,7 +485,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
             }
         }
@@ -513,7 +513,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.tagRepository.removeTagFromBook("book-1", "to-read", "t2") }
                 verifySuspend { fixture.tagRepository.addTagToBook("book-1", "completed") }
             }
@@ -558,7 +558,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.imageStagingRepository.commitBookCoverStaging(BookId("book-1")) }
                 verifySuspend { fixture.imageRepository.uploadBookCover("book-1", any(), "cover.jpg") }
             }
@@ -601,7 +601,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then - should still succeed (cover upload is best-effort)
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
             }
         }
 
@@ -623,7 +623,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 (failure.message.contains("Update failed")) shouldBe true
             }
         }
@@ -669,7 +669,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 (failure.message.contains("Contributor update failed")) shouldBe true
             }
         }
@@ -689,7 +689,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 (failure.message.contains("Series update failed")) shouldBe true
             }
         }
@@ -741,7 +741,7 @@ class UpdateBookUseCaseTest :
                 val result = useCase(current, original)
 
                 // Then - all operations should be called
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
                 verifySuspend { fixture.bookEditRepository.updateBook(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookContributors(any(), any()) }
                 verifySuspend { fixture.bookEditRepository.setBookSeries(any(), any()) }

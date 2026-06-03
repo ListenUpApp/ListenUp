@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every

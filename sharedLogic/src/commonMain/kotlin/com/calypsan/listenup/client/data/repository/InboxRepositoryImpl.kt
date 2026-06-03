@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.domain.repository.InboxRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 
 /**
  * [InboxRepository] backed by the 1b admin REST routes via [CollectionInboxApiContract].

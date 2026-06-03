@@ -2,10 +2,10 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.map as wireMap
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookTagDao
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity

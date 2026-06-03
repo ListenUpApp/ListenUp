@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.TagSummary

@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.presentation.profile
 
+import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.User
@@ -165,7 +165,7 @@ class UserProfileViewModel(
     private fun otherProfileFlow(userId: String): Flow<UserProfileUiState> =
         flow {
             when (val result = loadUserProfileUseCase(userId)) {
-                is Success -> {
+                is AppResult.Success -> {
                     emitAll(otherProfileReadyFlow(result.data))
                 }
 

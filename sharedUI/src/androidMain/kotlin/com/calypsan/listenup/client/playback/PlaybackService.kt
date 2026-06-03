@@ -30,10 +30,10 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.core.getOrNull
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.voice.MediaFocus

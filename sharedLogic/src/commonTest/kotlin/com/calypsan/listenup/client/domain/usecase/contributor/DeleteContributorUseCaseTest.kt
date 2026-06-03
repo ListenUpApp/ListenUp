@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -13,7 +13,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.api.result.failureOf
 
 /**
  * Tests for DeleteContributorUseCase.
@@ -39,7 +39,7 @@ class DeleteContributorUseCaseTest :
         fun createFixture(): TestFixture {
             val fixture = TestFixture()
             // Default: successful deletion
-            everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns Success(Unit)
+            everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns AppResult.Success(Unit)
             return fixture
         }
 
@@ -55,7 +55,7 @@ class DeleteContributorUseCaseTest :
                 val result = useCase(contributorId = "contributor-123")
 
                 // Then
-                checkIs<Success<Unit>>(result)
+                checkIs<AppResult.Success<Unit>>(result)
             }
         }
 
@@ -87,7 +87,7 @@ class DeleteContributorUseCaseTest :
                 val result = useCase(contributorId = "contributor-123")
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.message shouldBe "Contributor not found"
             }
         }
@@ -99,7 +99,7 @@ class DeleteContributorUseCaseTest :
                 // Body-level message convention: pass a typed AppError so the
                 // user-facing message survives delegation.
                 everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns
-                    Failure(
+                    AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Network error"),
                     )
@@ -109,7 +109,7 @@ class DeleteContributorUseCaseTest :
                 val result = useCase(contributorId = "contributor-123")
 
                 // Then
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.message shouldBe "Network error"
             }
         }

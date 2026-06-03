@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -187,7 +187,7 @@ class ContributorRepositoryTest :
                         createContributorSearchResult(id = "c1", name = "Brandon Sanderson", bookCount = 10),
                         createContributorSearchResult(id = "c2", name = "Brian McClellan", bookCount = 5),
                     )
-                everySuspend { api.searchContributors(any(), any()) } returns Success(serverResults)
+                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(serverResults)
 
                 // When
                 val result = repository.searchContributors("bran")
@@ -219,7 +219,7 @@ class ContributorRepositoryTest :
                     )
 
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns Success(emptyList())
+                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
 
                 // When
                 repository.searchContributors("test", limit = 5)
@@ -253,7 +253,7 @@ class ContributorRepositoryTest :
                     listOf(
                         createContributorSearchResult(id = "c1", name = "Brandon Sanderson", bookCount = 15),
                     )
-                everySuspend { api.searchContributors(any(), any()) } returns Success(serverResults)
+                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(serverResults)
 
                 // When
                 val result = repository.searchContributors("sanderson")
@@ -382,7 +382,7 @@ class ContributorRepositoryTest :
                     )
 
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns Success(emptyList())
+                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
 
                 // When - query with FTS special chars that should be stripped
                 val result = repository.searchContributors("test*()\":")
@@ -411,7 +411,7 @@ class ContributorRepositoryTest :
                     )
 
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns Success(emptyList())
+                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
 
                 // When - query longer than 100 chars
                 val longQuery = "ab" + "a".repeat(200)

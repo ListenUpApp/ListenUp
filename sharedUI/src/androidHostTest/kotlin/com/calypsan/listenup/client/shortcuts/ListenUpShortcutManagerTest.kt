@@ -2,8 +2,7 @@ package com.calypsan.listenup.client.shortcuts
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -41,7 +40,7 @@ class ListenUpShortcutManagerTest {
             context = RuntimeEnvironment.getApplication(),
             homeRepository =
                 object : HomeRepository {
-                    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = Success(emptyList())
+                    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(emptyList())
 
                     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
                 },

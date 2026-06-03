@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.test.http.testMockEngine
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body

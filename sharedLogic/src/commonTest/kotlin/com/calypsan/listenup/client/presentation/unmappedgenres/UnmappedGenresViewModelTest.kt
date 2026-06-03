@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.presentation.error.userMessageFor
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns

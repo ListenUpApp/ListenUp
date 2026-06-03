@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote.model
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -68,7 +68,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val success = assertIs<Success<String>>(result)
+        val success = assertIs<AppResult.Success<String>>(result)
         assertEquals("test data", success.data)
     }
 
@@ -83,7 +83,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        val success = assertIs<Success<String?>>(result)
+        val success = assertIs<AppResult.Success<String?>>(result)
         assertNull(success.data)
     }
 
@@ -105,7 +105,7 @@ class ApiResponseTest {
         // Body-level message convention: ApiException is mapped to InternalError by
         // ErrorMapper, so the failure surfaces as a Failure (the original `error`
         // string is now in debugInfo, not message).
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     @Test
@@ -119,7 +119,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     // endregion
@@ -137,7 +137,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     @Test
@@ -153,7 +153,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     @Test
@@ -174,7 +174,7 @@ class ApiResponseTest {
 
         val result = response.toResult()
 
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     // endregion

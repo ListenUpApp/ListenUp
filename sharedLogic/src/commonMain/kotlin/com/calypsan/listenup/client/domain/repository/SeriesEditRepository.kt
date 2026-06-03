@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
 
 /**

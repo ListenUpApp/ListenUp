@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.CollectionId
 import dev.mokkery.answering.returns
 import dev.mokkery.every

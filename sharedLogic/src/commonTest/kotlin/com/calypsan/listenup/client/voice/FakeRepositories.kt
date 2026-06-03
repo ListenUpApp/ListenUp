@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.voice
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
@@ -101,7 +100,7 @@ class FakeHomeRepository : HomeRepository {
     }
 
     override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
-        Success(continueListeningBooks.take(limit))
+        AppResult.Success(continueListeningBooks.take(limit))
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
         flowOf(
@@ -133,7 +132,7 @@ class FakeBookRepository : BookRepository {
         chapters[bookId] = bookChapters
     }
 
-    override suspend fun refreshBooks(): AppResult<Unit> = Success(Unit)
+    override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId] ?: emptyList()
 

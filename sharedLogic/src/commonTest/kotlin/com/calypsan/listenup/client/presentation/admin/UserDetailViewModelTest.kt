@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository

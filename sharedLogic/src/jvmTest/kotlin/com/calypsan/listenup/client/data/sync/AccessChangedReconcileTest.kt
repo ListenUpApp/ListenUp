@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomain
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId

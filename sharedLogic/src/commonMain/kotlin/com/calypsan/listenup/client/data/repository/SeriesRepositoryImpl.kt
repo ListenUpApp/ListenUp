@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Failure
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.core.Success
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
@@ -249,7 +248,7 @@ class SeriesRepositoryImpl(
                 measureTimedValue { api.searchSeries(query, limit) }
 
             when (result) {
-                is Success -> {
+                is AppResult.Success -> {
                     val series = result.data.map { it.toDomain() }
                     logger.debug {
                         "Server series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
@@ -261,7 +260,7 @@ class SeriesRepositoryImpl(
                     )
                 }
 
-                is Failure -> {
+                is AppResult.Failure -> {
                     logger.warn { "Server series search failed, falling back to local FTS: ${result.error.message}" }
                     null
                 }

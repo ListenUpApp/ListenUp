@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.presentation.bookedit
 
+import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.api.result.failureOf
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookMetadata
@@ -189,7 +189,7 @@ class BookEditViewModelTest :
                         language = "en",
                         contributors = listOf(author, narrator),
                     )
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
 
                 // When
@@ -244,7 +244,7 @@ class BookEditViewModelTest :
                         title = "The Name of the Wind",
                         contributors = listOf(contributor),
                     )
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
 
                 // When
@@ -268,7 +268,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original Title")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -288,7 +288,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original Title")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -308,7 +308,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -328,7 +328,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -346,7 +346,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", contributors = emptyList())
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -370,7 +370,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", contributors = emptyList())
                 val searchResult = ContributorSearchResult(id = "existing-1", name = "Existing Author", bookCount = 10)
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -393,7 +393,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val author = EditableContributor(id = "author-1", name = "Author Name", roles = setOf(ContributorRole.AUTHOR))
                 val editData = createBookEditData(bookId = "book-1", contributors = listOf(author))
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -419,7 +419,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
                 val searchResult = SeriesSearchResult(id = "series-1", name = "The Stormlight Archive", bookCount = 4)
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -441,7 +441,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -466,7 +466,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val series = EditableSeries(id = "series-1", name = "Mistborn", sequence = null)
                 val editData = createBookEditData(bookId = "book-1", series = listOf(series))
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -493,7 +493,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
                 val genre = EditableGenre(id = "genre-1", name = "Fantasy", path = "/fiction/fantasy")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -516,7 +516,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val genre = EditableGenre(id = "genre-1", name = "Fantasy", path = "/fiction/fantasy")
                 val editData = createBookEditData(bookId = "book-1", genres = listOf(genre))
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -542,7 +542,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
                 val tag = EditableTag(id = "tag-1", slug = "favorites")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -565,7 +565,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 val tag = EditableTag(id = "tag-1", slug = "favorites")
                 val editData = createBookEditData(bookId = "book-1", tags = listOf(tag))
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -590,7 +590,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Unchanged")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -610,8 +610,8 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -632,7 +632,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 everySuspend { fixture.updateBookUseCase(any(), any()) } returns failureOf("Save failed")
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -657,7 +657,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 everySuspend { fixture.updateBookUseCase(any(), any()) } returns failureOf("Save failed")
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
@@ -678,7 +678,7 @@ class BookEditViewModelTest :
                 // Given
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -714,7 +714,7 @@ class BookEditViewModelTest :
                 val fixture = createFixture()
                 every { fixture.userRepository.observeIsAdmin() } returns flowOf(true)
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
 
                 // When
@@ -731,7 +731,7 @@ class BookEditViewModelTest :
                 // Given — createFixture stubs observeIsAdmin() to flowOf(false) by default
                 val fixture = createFixture()
                 val editData = createBookEditData(bookId = "book-1")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
                 val viewModel = fixture.build()
 
                 // When
@@ -755,9 +755,9 @@ class BookEditViewModelTest :
                 every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
                     flowOf(emptyList())
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns Success(Unit)
-                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
@@ -784,9 +784,9 @@ class BookEditViewModelTest :
                 every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns
                     flowOf(listOf("coll-1"))
                 val editData = createBookEditData(bookId = "book-1", title = "Original")
-                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns Success(editData)
-                everySuspend { fixture.updateBookUseCase(any(), any()) } returns Success(Unit)
-                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns Success(Unit)
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns AppResult.Success(Unit)
+                everySuspend { fixture.bookEditRepository.setBookCollections(any(), any()) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()

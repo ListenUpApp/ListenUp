@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -16,8 +16,8 @@ private val logger = KotlinLogging.logger {}
  * ```kotlin
  * val result = deleteContributorUseCase(contributorId = "contributor-123")
  * when (result) {
- *     is Success -> navigateBack()
- *     is Failure -> showError(result.message)
+ *     is AppResult.Success -> navigateBack()
+ *     is AppResult.Failure -> showError(result.message)
  * }
  * ```
  */

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.domain.usecase.contributor
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend

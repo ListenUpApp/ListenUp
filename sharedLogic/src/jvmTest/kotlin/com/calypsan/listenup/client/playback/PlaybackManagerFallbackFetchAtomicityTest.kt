@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.core.AppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Success
-import com.calypsan.listenup.core.failureOf
+import com.calypsan.listenup.api.result.failureOf
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -56,7 +55,7 @@ class PlaybackManagerFallbackFetchAtomicityTest {
             everySuspend { bookRepository.upsertWithAudioFiles(any(), any()) } returns AppResult.Success(Unit)
 
             everySuspend { syncApi.getBook(any()) } returns
-                Success(
+                AppResult.Success(
                     bookResponseWithAudioFiles(
                         id = "book-rollback",
                         audioFiles =
@@ -111,7 +110,7 @@ class PlaybackManagerFallbackFetchAtomicityTest {
                 failureOf("persistence error")
 
             everySuspend { syncApi.getBook(any()) } returns
-                Success(
+                AppResult.Success(
                     bookResponseWithAudioFiles(
                         id = "book-fail",
                         audioFiles =

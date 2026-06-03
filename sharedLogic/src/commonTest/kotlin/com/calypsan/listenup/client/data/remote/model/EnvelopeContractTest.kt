@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote.model
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -51,7 +51,7 @@ class EnvelopeContractTest {
         assertTrue(response.success, "Success must be true")
         assertNotNull(response.data, "Data must be present")
         val result = response.toResult()
-        val success = assertIs<Success<Map<String, String>>>(result)
+        val success = assertIs<AppResult.Success<Map<String, String>>>(result)
         assertEquals("test-123", success.data["id"])
         assertEquals("Test Item", success.data["name"])
     }
@@ -64,7 +64,7 @@ class EnvelopeContractTest {
         val result = response.toResult()
 
         @Suppress("UNUSED_VARIABLE")
-        val success = assertIs<Success<Unit?>>(result)
+        val success = assertIs<AppResult.Success<Unit?>>(result)
     }
 
     @Test
@@ -76,7 +76,7 @@ class EnvelopeContractTest {
         val result = response.toResult()
         // Body-level message convention: ApiException is mapped via ErrorMapper
         // to InternalError; the original `error` text moves to debugInfo.
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     @Test
@@ -87,7 +87,7 @@ class EnvelopeContractTest {
         assertEquals("Entity already exists", response.message)
         assertNotNull(response.details)
         val result = response.toResult()
-        assertIs<Failure>(result)
+        assertIs<AppResult.Failure>(result)
     }
 
     @Test

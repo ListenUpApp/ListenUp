@@ -99,7 +99,7 @@ import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 
 private val logger = KotlinLogging.logger {}
 
@@ -564,7 +564,7 @@ private fun AuthenticatedNavigation(
             is ShortcutAction.Resume -> {
                 // Get the most recent book and play it
                 val result = homeRepository.getContinueListening(1)
-                if (result is com.calypsan.listenup.core.Success && result.data.isNotEmpty()) {
+                if (result is AppResult.Success && result.data.isNotEmpty()) {
                     val book = result.data.first()
                     logger.info { "Resuming book: ${book.title}" }
                     nowPlayingViewModel.playBook(BookId(book.bookId))
@@ -608,7 +608,7 @@ private fun AuthenticatedNavigation(
             is ShortcutAction.SleepTimer -> {
                 // If playing, show sleep timer; otherwise resume + set timer
                 val result = homeRepository.getContinueListening(1)
-                if (result is com.calypsan.listenup.core.Success && result.data.isNotEmpty()) {
+                if (result is AppResult.Success && result.data.isNotEmpty()) {
                     val book = result.data.first()
                     nowPlayingViewModel.playBook(BookId(book.bookId))
                     nowPlayingViewModel.expand()

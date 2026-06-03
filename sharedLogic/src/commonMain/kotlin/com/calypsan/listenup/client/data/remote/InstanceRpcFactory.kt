@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.contractJson
 import io.ktor.client.HttpClient

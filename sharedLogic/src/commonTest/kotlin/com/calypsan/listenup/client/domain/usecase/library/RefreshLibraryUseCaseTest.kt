@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.library
 
-import com.calypsan.listenup.core.Failure
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -55,14 +55,14 @@ class RefreshLibraryUseCaseTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
                 val useCase = fixture.build()
 
                 // When
                 val result = useCase()
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<RefreshLibraryResult>>()
                 success.data.message shouldBe "Library refreshed successfully"
             }
         }
@@ -71,7 +71,7 @@ class RefreshLibraryUseCaseTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.syncRepository.sync() } returns Success(Unit)
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
                 val useCase = fixture.build()
 
                 // When
@@ -80,7 +80,7 @@ class RefreshLibraryUseCaseTest :
                 fixture.syncStateFlow.value = SyncState.Success(timestamp = Timestamp.now())
 
                 // Then
-                result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                result.shouldBeInstanceOf<AppResult.Success<RefreshLibraryResult>>()
                 // State flow accessible via useCase.syncState
                 useCase.syncState.value shouldBe fixture.syncStateFlow.value
             }
@@ -99,7 +99,7 @@ class RefreshLibraryUseCaseTest :
 
                 val result = useCase()
 
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error shouldBe repoFailure.error
             }
         }
@@ -110,7 +110,7 @@ class RefreshLibraryUseCaseTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
+                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns AppResult.Success(Unit)
                 val useCase = fixture.build()
 
                 // When
@@ -127,14 +127,14 @@ class RefreshLibraryUseCaseTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns Success(Unit)
+                everySuspend { fixture.syncRepository.resetForNewLibrary(any()) } returns AppResult.Success(Unit)
                 val useCase = fixture.build()
 
                 // When
                 val result = useCase.resetForNewLibrary("new-library-id")
 
                 // Then
-                val success = result.shouldBeInstanceOf<Success<RefreshLibraryResult>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<RefreshLibraryResult>>()
                 success.data.message shouldBe "Library synced with new server"
             }
         }
@@ -148,7 +148,7 @@ class RefreshLibraryUseCaseTest :
 
                 val result = useCase.resetForNewLibrary("new-library-id")
 
-                val failure = result.shouldBeInstanceOf<Failure>()
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error shouldBe repoFailure.error
             }
         }

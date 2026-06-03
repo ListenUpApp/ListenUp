@@ -2,8 +2,7 @@ package com.calypsan.listenup.client.presentation.profile
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.Success
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.model.User
@@ -159,7 +158,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.updateTagline(any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -181,7 +180,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.updateTagline(any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -228,7 +227,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.updateName(any(), any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.updateName(any(), any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -249,7 +248,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.uploadAvatar(any(), any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -269,7 +268,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.revertToAutoAvatar() } returns Success(Unit)
+                    everySuspend { profileEditRepository.revertToAutoAvatar() } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -306,7 +305,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.changePassword(any(), any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.changePassword(any(), any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)
@@ -330,7 +329,7 @@ class EditProfileViewModelTest {
             val fixture =
                 createFixture().apply {
                     configure(currentUser = user)
-                    everySuspend { profileEditRepository.updateTagline(any()) } returns Success(Unit)
+                    everySuspend { profileEditRepository.updateTagline(any()) } returns AppResult.Success(Unit)
                 }
             val viewModel = fixture.build()
             keepStateHot(viewModel)

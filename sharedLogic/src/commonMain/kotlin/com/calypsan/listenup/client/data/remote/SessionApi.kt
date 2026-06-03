@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
-import com.calypsan.listenup.core.AppResult
-import com.calypsan.listenup.core.map
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.model.CurrentUserApiResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
