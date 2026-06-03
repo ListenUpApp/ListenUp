@@ -21,9 +21,10 @@ interface RpcCacheInvalidator {
 }
 
 /**
- * Default [RpcCacheInvalidator]. The cache set is the list of every [RemoteCache]
- * the DI module assembles and hands in. A new authed RPC factory must be added to
- * that list (in `Koin.kt`) to join the sweep.
+ * Default [RpcCacheInvalidator]. The cache set is assembled automatically by Koin
+ * via `getAll<RemoteCache>()` — every single bound with `binds arrayOf(RemoteCache::class)`
+ * joins the sweep automatically. A new authed RPC factory joins the sweep the moment
+ * its Koin binding declares `binds arrayOf(RemoteCache::class)`; there is no list to maintain.
  */
 class DefaultRpcCacheInvalidator(
     internal val caches: List<RemoteCache>,

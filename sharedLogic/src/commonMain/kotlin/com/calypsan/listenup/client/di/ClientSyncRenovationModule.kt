@@ -38,6 +38,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import org.koin.core.qualifier.named
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -67,7 +68,7 @@ val clientSyncRenovationModule =
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
-        }
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         single<PendingOperationSender> {
             DomainPendingOperationSender(

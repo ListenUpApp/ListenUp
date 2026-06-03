@@ -21,6 +21,7 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -65,15 +66,14 @@ val clientAuthModule: Module
             // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.
             // Cached per mount; invalidated alongside ApiClientFactory whenever
             // the underlying HttpClient is recycled (server URL change). The
-            // invalidation handshake lives at the ServerRepository binding in
-            // Koin.kt — when you add another remote cache, drop an
-            // `invalidate()` call there too.
+            // The `binds arrayOf(RemoteCache::class)` declaration registers these with the
+            // RpcCacheInvalidator sweep automatically via getAll().
             single<AuthRpcFactory> {
                 KtorAuthRpcFactory(
                     apiClientFactory = get(),
                     serverConfig = get(),
                 )
-            }
+            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
             // Thin RPC adapter — translates contract calls into typed AppResult.
             singleOf(::AuthRepositoryImpl) bind AuthRepository::class
@@ -86,7 +86,7 @@ val clientAuthModule: Module
                     apiClientFactory = get(),
                     serverConfig = get(),
                 )
-            }
+            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
             singleOf(::InviteRepositoryImpl) bind InviteRepository::class
 
             // SSE stream for the pending-approval flow.

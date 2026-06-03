@@ -3,9 +3,13 @@ package com.calypsan.listenup.client.di.e2e
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator
+import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -77,6 +81,21 @@ class ClientKoinGraphE2ETest :
                     // not as cycles.
                 }
             }
+        }
+
+        test("RpcCacheInvalidator receives all 15 RemoteCache instances via getAll") {
+            val fixture = autoClose(DiWiredClientFixture.start())
+            val koin = fixture.koin.koin
+
+            val invalidator = koin.get<RpcCacheInvalidator>()
+            val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
+
+            // getAll<RemoteCache>() must return exactly 15: ApiClientFactory + 14 KtorXRpcFactory
+            // implementations. If any single is missing a `bind RemoteCache::class` declaration,
+            // the count will be wrong and the assertion fails before production code ever misses
+            // an invalidation.
+            defaultInvalidator.caches shouldHaveSize 15
+            defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
         test("the DI-wired client graph authenticates against the live server") {
