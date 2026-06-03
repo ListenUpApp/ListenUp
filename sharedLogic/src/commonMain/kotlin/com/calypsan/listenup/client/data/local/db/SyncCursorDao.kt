@@ -18,4 +18,7 @@ interface SyncCursorDao {
 
     @Query("SELECT * FROM sync_cursor")
     suspend fun all(): List<SyncCursorEntity>
+
+    @Query("DELETE FROM sync_cursor")
+    suspend fun deleteAll()
 }
