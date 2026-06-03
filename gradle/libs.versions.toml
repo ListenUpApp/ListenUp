@@ -84,6 +84,7 @@ micrometer = "1.16.5"
 ksp-symbol-processing-api = "2.3.8" # matches project ksp version — bump in lockstep with `ksp`
 kctfork = "0.12.1" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 cryptography-kotlin = "0.6.0"
+kotlincrypto-hash = "0.5.6"
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
@@ -249,6 +250,7 @@ ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processin
 kctfork-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kctfork" }
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography-kotlin" }
 cryptography-provider-jdk = { module = "dev.whyoleg.cryptography:cryptography-provider-jdk", version.ref = "cryptography-kotlin" }
+kotlincrypto-sha2 = { module = "org.kotlincrypto.hash:sha2", version.ref = "kotlincrypto-hash" }
 
 [bundles]
 # Kotest JVM runner + assertions — the cluster every Kotest test source set needs
