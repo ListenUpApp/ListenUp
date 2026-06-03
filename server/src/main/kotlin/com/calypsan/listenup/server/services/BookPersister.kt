@@ -35,7 +35,10 @@ private val log = KotlinLogging.logger {}
  * etc.) is logged and counted, never aborting the rest of the scan's books.
  *
  * Tombstone sweep: a [ScanScope.Full] result is authoritative for the whole
- * library, so books absent from it are soft-deleted. A [ScanScope.Subtree]
+ * library, so books absent from it are soft-deleted — but only when every book
+ * persisted. If any book failed, the seen-set is incomplete and the sweep is
+ * skipped (it would otherwise tombstone a present-but-transiently-failed book);
+ * the next clean Full scan reconciles genuine removals. A [ScanScope.Subtree]
  * result only re-walked one book-root — absence there is not authoritative, so
  * no sweep runs.
  *
@@ -91,11 +94,26 @@ class BookPersister(
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
+        var anyFailed = false
         for (analyzed in result.books) {
-            persistOne(analyzed, libraryId, folderId, scanRoot)?.let { seenIds += it }
+            val bookId = persistOne(analyzed, libraryId, folderId, scanRoot)
+            if (bookId != null) seenIds += bookId else anyFailed = true
         }
         if (result.scope is ScanScope.Full) {
-            ingest.softDeleteAbsent(libraryId, seenIds)
+            if (anyFailed) {
+                // A book failed to persist, so `seenIds` is an incomplete view of the
+                // library. The tombstone sweep is authoritative only for a fully-applied
+                // Full scan — sweeping on a partial set would soft-delete a book that is
+                // present on disk but transiently failed. Skip it; the next clean Full
+                // scan reconciles genuine removals. Losing a present book is unacceptable;
+                // deferring a tombstone is not.
+                log.warn {
+                    "Skipping tombstone sweep for library ${libraryId.value}: " +
+                        "${result.books.size} scanned, some failed to persist"
+                }
+            } else {
+                ingest.softDeleteAbsent(libraryId, seenIds)
+            }
         }
     }
 
