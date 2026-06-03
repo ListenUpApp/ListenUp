@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.auth
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AppError

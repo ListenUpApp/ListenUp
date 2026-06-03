@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.error
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError

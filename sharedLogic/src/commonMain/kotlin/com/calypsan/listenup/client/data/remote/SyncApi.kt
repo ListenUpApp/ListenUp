@@ -4,7 +4,6 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.AllProgressResponse
