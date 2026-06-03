@@ -46,7 +46,8 @@ interface BookRpcFactory {
 class KtorBookRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : BookRpcFactory {
+) : BookRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: BookService? = null

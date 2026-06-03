@@ -44,7 +44,8 @@ interface TagRpcFactory {
 open class KtorTagRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : TagRpcFactory {
+) : TagRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: TagService? = null

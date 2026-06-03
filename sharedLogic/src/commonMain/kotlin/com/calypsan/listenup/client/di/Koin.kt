@@ -359,15 +359,13 @@ val repositoryModule =
                     ),
                 urlChangeListener =
                     ServerUrlChangeListener { newUrl ->
-                        // Update settings with new URL and invalidate every remote cache that
-                        // captured the old HttpClient. When you add another such cache, drop
-                        // an `invalidate()` call here too — there's no automatic propagation.
+                        // Update settings with the new URL, then drop every remote cache that
+                        // captured the old HttpClient — all of them, via the aggregate, so no
+                        // authed proxy is left pointing at the stale host.
                         val serverConfig: ServerConfig = get()
-                        val apiClientFactory: ApiClientFactory = get()
-                        val authRpcFactory: AuthRpcFactory = get()
                         serverConfig.setServerUrl(newUrl)
-                        apiClientFactory.invalidate()
-                        authRpcFactory.invalidate()
+                        get<com.calypsan.listenup.client.data.remote.RpcCacheInvalidator>()
+                            .invalidateAll()
                     },
             )
         }
@@ -908,6 +906,32 @@ val syncModule =
             KtorProfileRpcFactory(
                 apiClientFactory = get(),
                 serverConfig = get(),
+            )
+        }
+
+        // Aggregates every RemoteCache (RPC factories + the shared ApiClientFactory)
+        // so logout / user-switch / server-URL change can drop them all in one sweep.
+        // New authed RPC factory? Add its get() here.
+        single<com.calypsan.listenup.client.data.remote.RpcCacheInvalidator> {
+            com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator(
+                caches =
+                    listOf<Any>(
+                        get<ApiClientFactory>(),
+                        get<AuthRpcFactory>(),
+                        get<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                        get<BookRpcFactory>(),
+                        get<ContributorRpcFactory>(),
+                        get<SeriesRpcFactory>(),
+                        get<GenreRpcFactory>(),
+                        get<TagRpcFactory>(),
+                        get<CollectionRpcFactory>(),
+                        get<BackupRpcFactory>(),
+                        get<MetadataLookupRpcFactory>(),
+                        get<LibraryAdminRpcFactory>(),
+                        get<com.calypsan.listenup.client.data.remote.ScannerRpcFactory>(),
+                        get<ProfileRpcFactory>(),
+                        get<com.calypsan.listenup.client.data.remote.PlaybackRpcFactory>(),
+                    ).map { it as com.calypsan.listenup.client.data.remote.RemoteCache },
             )
         }
 

@@ -45,7 +45,8 @@ interface PlaybackRpcFactory {
 class KtorPlaybackRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : PlaybackRpcFactory {
+) : PlaybackRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: PlaybackService? = null

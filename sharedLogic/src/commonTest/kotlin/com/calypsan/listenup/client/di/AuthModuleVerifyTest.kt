@@ -47,6 +47,7 @@ class AuthModuleVerifyTest :
                         PlaybackManager::class,
                         DeviceInfoProvider::class,
                         SyncRepository::class,
+                        com.calypsan.listenup.client.data.remote.RpcCacheInvalidator::class,
                     ),
             )
         }

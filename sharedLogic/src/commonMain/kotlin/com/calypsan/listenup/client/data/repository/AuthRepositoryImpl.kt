@@ -15,6 +15,9 @@ import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,9 +44,41 @@ class AuthRepositoryImpl(
 
     override suspend fun logout(): AppResult<Unit> = catching("logout") { rpc.authedService().logout() }
 
+    private val refreshMutex = Mutex()
+    private var inFlightRefresh: CompletableDeferred<AppResult<AuthSession>>? = null
+
+    /**
+     * Single-flight token refresh. The refresh token rotates on every use, so two
+     * concurrent refreshes (e.g. the bearer plugin's on-401 path racing the
+     * playback token provider's proactive loop) would each present the same token —
+     * the server's replay detection reads the second as a stolen token and revokes
+     * the whole session family, force-logging-out the user mid-listen. Coalescing
+     * concurrent callers onto one in-flight refresh keeps exactly one rotation.
+     */
     override suspend fun refreshAccessToken(): AppResult<AuthSession> {
-        val token = authSession.getRefreshToken() ?: return AppResult.Failure(AuthError.SessionExpired())
-        return catching("refresh") { rpc.publicService().refreshSession(RefreshRequest(token)) }
+        val leader = CompletableDeferred<AppResult<AuthSession>>()
+        val existing =
+            refreshMutex.withLock { inFlightRefresh ?: leader.also { inFlightRefresh = it } }
+        if (existing !== leader) return existing.await()
+
+        return try {
+            val token = authSession.getRefreshToken()
+            val result =
+                if (token == null) {
+                    AppResult.Failure(AuthError.SessionExpired())
+                } else {
+                    catching("refresh") { rpc.publicService().refreshSession(RefreshRequest(token)) }
+                }
+            leader.complete(result)
+            result
+        } catch (e: CancellationException) {
+            // Wake followers with a transient failure rather than cancelling their
+            // (independent) coroutines; they retry on their next trigger.
+            leader.complete(AppResult.Failure(InternalError()))
+            throw e
+        } finally {
+            refreshMutex.withLock { if (inFlightRefresh === leader) inFlightRefresh = null }
+        }
     }
 
     override suspend fun listSessions(): AppResult<List<SessionSummary>> =

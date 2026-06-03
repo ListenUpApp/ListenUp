@@ -44,7 +44,8 @@ interface ProfileRpcFactory {
 open class KtorProfileRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : ProfileRpcFactory {
+) : ProfileRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: ProfileService? = null

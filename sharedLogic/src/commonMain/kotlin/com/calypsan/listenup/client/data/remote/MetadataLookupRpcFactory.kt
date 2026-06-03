@@ -48,7 +48,8 @@ interface MetadataLookupRpcFactory {
 open class KtorMetadataLookupRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : MetadataLookupRpcFactory {
+) : MetadataLookupRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: MetadataLookupService? = null

@@ -46,7 +46,8 @@ interface ContributorRpcFactory {
 class KtorContributorRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : ContributorRpcFactory {
+) : ContributorRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: ContributorService? = null

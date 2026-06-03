@@ -42,7 +42,8 @@ interface BackupRpcFactory {
 open class KtorBackupRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : BackupRpcFactory {
+) : BackupRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: BackupService? = null

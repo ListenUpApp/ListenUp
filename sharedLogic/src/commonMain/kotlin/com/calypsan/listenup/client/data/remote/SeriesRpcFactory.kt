@@ -46,7 +46,8 @@ interface SeriesRpcFactory {
 class KtorSeriesRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : SeriesRpcFactory {
+) : SeriesRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: SeriesService? = null

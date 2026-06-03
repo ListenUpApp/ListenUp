@@ -36,7 +36,8 @@ interface ScannerRpcFactory {
 open class KtorScannerRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
-) : ScannerRpcFactory {
+) : ScannerRpcFactory,
+    RemoteCache {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedService: ScannerService? = null
