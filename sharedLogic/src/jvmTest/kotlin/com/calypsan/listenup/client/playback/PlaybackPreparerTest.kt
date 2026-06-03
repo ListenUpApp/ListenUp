@@ -307,6 +307,8 @@ class PlaybackPreparerTest :
 
 // ── Test doubles ──────────────────────────────────────────────────────────────────────────────
 
+private val stubFailure = AppResult.Failure(InternalError(debugInfo = "stub"))
+
 /**
  * Fake [PlaybackService] that returns a pre-configured result for [prepare] and records
  * how many times it was called. All other methods return [AppResult.Failure].
@@ -322,17 +324,17 @@ private class FakePlaybackService(
         return prepareResult
     }
 
-    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = AppResult.Failure(InternalError(debugInfo = "stub"))
+    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = stubFailure
 
     override suspend fun recordPosition(
         request: RecordPositionRequest,
-    ): AppResult<PlaybackPositionSyncPayload> = AppResult.Failure(InternalError(debugInfo = "stub"))
+    ): AppResult<PlaybackPositionSyncPayload> = stubFailure
 
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = AppResult.Failure(InternalError(debugInfo = "stub"))
+    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 
     override suspend fun recordListeningEvent(
         request: RecordListeningEventRequest,
-    ): AppResult<ListeningEventSyncPayload> = AppResult.Failure(InternalError(debugInfo = "stub"))
+    ): AppResult<ListeningEventSyncPayload> = stubFailure
 }
 
 /**

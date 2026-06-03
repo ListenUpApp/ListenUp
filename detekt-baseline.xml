@@ -39,9 +39,7 @@
     <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `cancellation via isStopped — throws CancellationException`()</ID>
     <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `disk full on move — IOException with ENOSPC message`()</ID>
     <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `network drop mid-stream — IOException on size mismatch`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `preparePlayback returns transcoding — writes WAITING_FOR_SERVER and exits cleanly`()</ID>
     <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `progress throttling — updateProgress called sparsely not per-chunk`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `resolved URL from preparePlayback is used for download`()</ID>
     <ID>FunctionMaxLength:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `encryption produces different ciphertext for same plaintext`()</ID>
     <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabasePath returns path ending in listenup db`()</ID>
     <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getSecureStoragePath returns path ending in auth enc`()</ID>
@@ -90,9 +88,9 @@
     <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `cancellation via isStopped — throws CancellationException`()</ID>
     <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `disk full on move — IOException with ENOSPC message`()</ID>
     <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `network drop mid-stream — IOException on size mismatch`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `preparePlayback returns transcoding — writes WAITING_FOR_SERVER and exits cleanly`()</ID>
+    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `prepare failure propagates as AppResult Failure`()</ID>
     <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `progress throttling — updateProgress called sparsely not per-chunk`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `resolved URL from preparePlayback is used for download`()</ID>
+    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `signed URL from prepare is used for download`()</ID>
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames drops unknown names silently`()</ID>
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames matches case-insensitively`()</ID>
     <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames returns empty list for empty input`()</ID>

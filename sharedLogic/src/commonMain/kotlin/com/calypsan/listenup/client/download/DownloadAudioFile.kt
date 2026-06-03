@@ -3,13 +3,12 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -28,22 +27,14 @@ import kotlinx.io.files.SystemFileSystem
 private val logger = KotlinLogging.logger {}
 
 /**
- * Result of [resolveDownloadUrl]. Either a [Ready] URL to download from, or a [WaitForServer]
- * signal that means: write WAITING_FOR_SERVER + exit cleanly; SSE `transcode.complete` will
- * re-enqueue the worker via [DownloadRepository.resumeForAudioFile].
+ * Result of [resolveDownloadUrl]. Only [Ready] — the [WaitForServer] variant has been removed
+ * because the RPC [com.calypsan.listenup.api.PlaybackService.prepare] always returns signed URLs
+ * for files that are ready; there is no transcoding-in-progress state in the new path.
  */
 internal sealed interface ResolveResult {
     /** Server is ready to stream the audio at [url]; caller proceeds with the download. */
     data class Ready(
         val url: String,
-    ) : ResolveResult
-
-    /**
-     * Server is still transcoding under [transcodeJobId]; caller writes WAITING_FOR_SERVER
-     * and exits. SSE `transcode.complete` will re-enqueue the worker when the variant is ready.
-     */
-    data class WaitForServer(
-        val transcodeJobId: String,
     ) : ResolveResult
 }
 
@@ -55,19 +46,16 @@ private const val PROGRESS_BYTES_INTERVAL = 256 * 1024L // 256KB — emit progre
  * Core download logic for a single audio file, extracted from [DownloadWorker] so it can be
  * driven from commonTest/jvmTest without WorkManager or an Android Context.
  *
- * Returns [AppResult.Success] when the file is fully downloaded (or when the server is still
- * transcoding and the worker should write WAITING_FOR_SERVER and exit). Returns
+ * Returns [AppResult.Success] when the file is fully downloaded. Returns
  * [AppResult.Failure] with a typed [com.calypsan.listenup.api.error.AppError] on any failure;
  * [kotlinx.coroutines.CancellationException] still propagates so callers can distinguish
  * cancellation from failure.
  *
  * Features:
- * - Codec negotiation (downloads transcoded variant if needed)
+ * - Signed URL resolution via [PlaybackService.prepare] (Task 3 of the playback-fix plan)
  * - Resume support (Range headers)
  * - Progress updates via [setProgress] lambda
  * - Cancellation handling via [isStopped] lambda
- *
- * Phase D: transcode-poll loop replaced by WAITING_FOR_SERVER + SSE re-enqueue path.
  */
 @Suppress("CyclomaticComplexMethod", "CognitiveComplexMethod")
 internal suspend fun downloadAudioFile(
@@ -78,39 +66,22 @@ internal suspend fun downloadAudioFile(
     httpClient: HttpClient,
     repository: DownloadRepository,
     fileManager: DownloadFileManager,
-    playbackApi: PlaybackApiContract,
-    playbackPreferences: PlaybackPreferences,
-    capabilityDetector: AudioCapabilityDetector,
+    playbackRpcFactory: PlaybackRpcFactory,
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
 ): AppResult<Unit> =
     suspendRunCatching {
         withContext(IODispatcher) {
-            // Resolve the download URL (relative — Ktor's defaultRequest provides the base).
-            // Phase D: if transcoding is in progress, write WAITING_FOR_SERVER and exit cleanly.
-            // SSE transcode.complete handler will re-enqueue via repository.resumeForAudioFile.
+            // Resolve the signed download URL from PlaybackService.prepare.
+            // The download HTTP client uses a defaultRequest base URL, so the URL must be
+            // RELATIVE (e.g. /api/v1/audio/{book}/{fileId}?u=&exp=&sig=).
             val resolved =
                 resolveDownloadUrl(
                     bookId = bookId,
                     audioFileId = audioFileId,
-                    playbackApi = playbackApi,
-                    playbackPreferences = playbackPreferences,
-                    capabilityDetector = capabilityDetector,
+                    playbackRpcFactory = playbackRpcFactory,
                 )
-            val url =
-                when (resolved) {
-                    is ResolveResult.Ready -> {
-                        resolved.url
-                    }
-
-                    is ResolveResult.WaitForServer -> {
-                        // Bug 4 fix: server is transcoding. Write WAITING_FOR_SERVER and exit cleanly.
-                        // The future transcode sync domain will
-                        // re-enqueue the worker via repository.resumeForAudioFile when ready.
-                        repository.markWaitingForServer(audioFileId, resolved.transcodeJobId)
-                        return@withContext
-                    }
-                }
+            val url = resolved.url
 
             val destPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = false)
             val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = true)
@@ -206,61 +177,36 @@ internal suspend fun downloadAudioFile(
     }
 
 /**
- * Resolve the correct download URL via the prepare endpoint. Returns:
- * - [ResolveResult.Ready] when transcoding is done OR not needed; caller proceeds to download.
- * - [ResolveResult.WaitForServer] when transcoding is in progress; caller writes WAITING_FOR_SERVER
- *   and exits cleanly. SSE `transcode.complete` will re-enqueue via [DownloadRepository.resumeForAudioFile].
+ * Resolve the correct download URL via [PlaybackService.prepare].
  *
- * Phase D Bug 4 fix: previously polled for up to 30 minutes inside this function while the worker
- * showed DOWNLOADING in the UI. The polling loop was the root cause of "minutes to first byte" —
- * the worker reported active progress while actually waiting for the server. Now the worker exits
- * cleanly and the user sees WAITING_FOR_SERVER honestly.
+ * Calls [playbackRpcFactory] to obtain the [com.calypsan.listenup.api.PlaybackService] proxy,
+ * invokes [prepare(bookId)][com.calypsan.listenup.api.PlaybackService.prepare], and finds the
+ * matching [com.calypsan.listenup.api.dto.PreparedAudioFile] by [audioFileId]. The [url] on
+ * that file is the signed RELATIVE path (the download HTTP client has a defaultRequest base —
+ * do NOT prepend the server base URL here).
+ *
+ * Throws [IllegalStateException] on [AppResult.Failure] or when the fileId is absent from the
+ * response; [suspendRunCatching] in [downloadAudioFile] catches it and routes to
+ * [AppResult.Failure].
  */
 private suspend fun resolveDownloadUrl(
     bookId: String,
     audioFileId: String,
-    playbackApi: PlaybackApiContract,
-    playbackPreferences: PlaybackPreferences,
-    capabilityDetector: AudioCapabilityDetector,
-): ResolveResult {
-    val capabilities = capabilityDetector.getSupportedCodecs()
-    val spatial = playbackPreferences.getSpatialPlayback()
-    val result = playbackApi.preparePlayback(bookId, audioFileId, capabilities, spatial)
+    playbackRpcFactory: PlaybackRpcFactory,
+): ResolveResult.Ready {
+    val rpcResult = playbackRpcFactory.playbackService().prepare(BookId(bookId))
 
-    if (result !is AppResult.Success) {
-        logger.warn { "Prepare call failed for $audioFileId, falling back to original URL" }
-        return ResolveResult.Ready("/api/v1/books/$bookId/audio/$audioFileId")
+    if (rpcResult !is AppResult.Success) {
+        val error = (rpcResult as AppResult.Failure).error
+        logger.warn { "prepare() failed for $audioFileId: ${error.message} (${error.debugInfo})" }
+        error("prepare() failed for book=$bookId audioFile=$audioFileId: ${error.message}")
     }
 
-    val response = result.data
+    val preparedPlayback = rpcResult.data
+    val audioFile =
+        preparedPlayback.audioFiles.firstOrNull { it.fileId == audioFileId }
+            ?: error("prepare() response for book=$bookId does not contain audioFileId=$audioFileId")
 
-    // Bug 4 fix: if transcode is in progress, write WAITING_FOR_SERVER and exit. SSE handler
-    // will re-enqueue via repository.resumeForAudioFile once its sync domain migrates.
-    if (!response.ready && response.transcodeJobId != null) {
-        logger.info {
-            "Transcoding in progress for $audioFileId (jobId=${response.transcodeJobId}); " +
-                "writing WAITING_FOR_SERVER and exiting cleanly. SSE will re-enqueue when ready."
-        }
-        return ResolveResult.WaitForServer(response.transcodeJobId)
-    }
-
-    logger.debug { "Using ${response.variant} variant for $audioFileId (codec: ${response.codec})" }
-    return ResolveResult.Ready(relativizeUrl(response.streamUrl))
+    logger.debug { "Using signed URL for $audioFileId: ${audioFile.url}" }
+    return ResolveResult.Ready(audioFile.url)
 }
-
-/** Strip an absolute server URL prefix off [streamUrl] so we always pass a relative URL to Ktor. */
-internal fun relativizeUrl(streamUrl: String): String =
-    when {
-        streamUrl.startsWith("/") -> {
-            streamUrl
-        }
-
-        streamUrl.startsWith("http") -> {
-            val pathStart = streamUrl.indexOf('/', startIndex = "https://".length)
-            if (pathStart > 0) streamUrl.substring(pathStart) else "/$streamUrl"
-        }
-
-        else -> {
-            "/$streamUrl"
-        }
-    }
