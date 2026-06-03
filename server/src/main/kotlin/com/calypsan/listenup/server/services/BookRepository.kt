@@ -116,13 +116,18 @@ class BookRepository(
     override fun BookSyncPayload.revisionOf(): Long = revision
 
     /**
-     * Managed cover to be written in the next [writePayload] call. Set via
-     * [upsertWithCover] immediately before [upsert] and consumed (then cleared)
-     * inside [writePayload]. The field is [Volatile] to preserve happens-before
-     * across the coroutine dispatcher hop into [suspendTransaction].
+     * Per-book managed covers pending write in [writePayload]. Keyed by book-id string.
+     *
+     * [upsertWithManagedCover] inserts an entry for the target book-id, calls [upsert]
+     * (which calls [writePayload] synchronously inside its transaction), then removes the
+     * entry in a `finally` block — so the map is always leak-free even on failure.
+     *
+     * Using a [java.util.concurrent.ConcurrentHashMap] keyed by book-id eliminates the
+     * data-corruption race that the old `@Volatile` single-field approach had: two
+     * concurrent `upsertFromAnalyzed` calls on DIFFERENT books now have distinct keys
+     * and cannot clobber each other's pending cover.
      */
-    @Volatile
-    private var nextManagedCover: StoredCoverInfo? = null
+    private val pendingManagedCovers = java.util.concurrent.ConcurrentHashMap<String, StoredCoverInfo>()
 
     /**
      * Reads the book aggregate by id — joins child tables for contributors,
@@ -284,8 +289,9 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        // Consume the managed cover set by upsertWithCover (null for all other callers).
-        val managedCover = nextManagedCover.also { nextManagedCover = null }
+        // Read the managed cover registered by upsertWithManagedCover (null for all other callers).
+        // Do NOT remove here — the finally block in upsertWithManagedCover owns the cleanup.
+        val managedCover = pendingManagedCovers[value.id]
 
         if (existed) {
             // Sticky-upload merge: if the existing row carries a user-uploaded cover
@@ -550,7 +556,7 @@ class BookRepository(
             }
         // Single write: storedCover (if any) lands in the same transaction as the book row,
         // producing exactly one revision bump and one SyncEvent per scanned book.
-        val result = upsertWithCover(payload, managedCover = storedCover)
+        val result = upsertWithManagedCover(payload, managedCover = storedCover)
         if (result is AppResult.Success) {
             val now = clock.now().toEpochMilliseconds()
             suspendTransaction(db) { processGenreStrings(bookId, analyzed.genres, now) }
@@ -602,21 +608,28 @@ class BookRepository(
     suspend fun findById(id: BookId): BookSyncPayload? = suspendTransaction(db) { readPayload(id.value) }
 
     /**
-     * Calls [upsert] with [managedCover] threaded through [writePayload] via [nextManagedCover].
+     * Calls [upsert] with [managedCover] threaded through [writePayload] via [pendingManagedCovers].
      *
-     * Sets [nextManagedCover] immediately before entering the substrate's [upsert], which calls
-     * [writePayload] synchronously within its transaction. The field is consumed and cleared
-     * inside [writePayload], so callers going through the plain [upsert] path always see null.
+     * Inserts the cover into [pendingManagedCovers] under the payload's book-id key, then calls
+     * [upsert] (which calls [writePayload] synchronously within its transaction). The `finally`
+     * block removes the entry unconditionally — guaranteeing no map-entry leak even when [upsert]
+     * throws or is cancelled.
      *
-     * This avoids changing the substrate's abstract [writePayload] signature while keeping the
-     * scan cover write atomic with the rest of the book row.
+     * Using the book-id as key makes concurrent scans of DIFFERENT books safe: each book's cover
+     * lives under its own key and cannot overwrite another book's entry.
      */
-    private suspend fun upsertWithCover(
+    private suspend fun upsertWithManagedCover(
         payload: BookSyncPayload,
         managedCover: StoredCoverInfo?,
     ): AppResult<BookSyncPayload> {
-        nextManagedCover = managedCover
-        return upsert(payload, clientOpId = null)
+        if (managedCover == null) return upsert(payload, clientOpId = null)
+        val idStr = payload.id
+        pendingManagedCovers[idStr] = managedCover
+        return try {
+            upsert(payload, clientOpId = null)
+        } finally {
+            pendingManagedCovers.remove(idStr)
+        }
     }
 
     /**

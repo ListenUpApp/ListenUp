@@ -44,6 +44,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
@@ -61,8 +64,10 @@ import java.nio.file.Files
  *  4. Control case: a non-UPLOADED (EMBEDDED) existing cover IS replaced on re-scan.
  *  5. (FIX 1) `resolveOrInsert` with a cover produces exactly ONE SyncEvent that
  *     already carries the cover — no blank-then-cover flicker.
- *  6. (FIX 2) Re-scan of an UPLOADED-locked book writes NO orphan file to disk.
- *  7. (FIX 3) `GET /api/v1/covers/{id}` serves the managed file when `cover_path`
+ *  6. (CONCURRENCY) Two concurrent `resolveOrInsert` calls for different books each
+ *     land their own cover bytes — no cross-contamination from the old @Volatile race.
+ *  7. (FIX 2) Re-scan of an UPLOADED-locked book writes NO orphan file to disk.
+ *  8. (FIX 3) `GET /api/v1/covers/{id}` serves the managed file when `cover_path`
  *     is set, even for a FILESYSTEM-sourced book (managed bytes win over dir re-scan).
  */
 class BookPersistCoverTest :
@@ -367,6 +372,106 @@ class BookPersistCoverTest :
                         event.payload.cover!!
                             .hash
                             .shouldNotBeNull()
+                    } finally {
+                        homeDir.toFile().deleteRecursively()
+                    }
+                }
+            }
+        }
+
+        // ── CONCURRENCY: distinct books get their own covers, never swapped ────
+        //
+        // Guards against the @Volatile single-field race: two concurrent upserts on
+        // DIFFERENT books would clobber each other's pending cover under the old scheme,
+        // silently writing the wrong bytes to the wrong book.  The keyed-map approach
+        // (ConcurrentHashMap<bookId, StoredCoverInfo>) gives each book its own slot so
+        // concurrent upserts cannot interfere.
+        //
+        // True parallelism is hard to force deterministically in a coroutine test harness
+        // (SQLite serialises writers), so we interleave two sequential upserts via
+        // coroutineScope { async + awaitAll } and then assert no cross-contamination.
+        // Even without a real concurrent write race, this test would have FAILED against
+        // the @Volatile mechanism if an adversary set the field between the two upserts.
+
+        test("concurrent resolveOrInsert for two different books stores distinct cover bytes without cross-contamination") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val homeDir = Files.createTempDirectory("listenup-cover-concurrent-")
+                    try {
+                        val coverStore =
+                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                        val bus = ChangeBus()
+                        val syncRegistry = SyncRegistry()
+                        val repo =
+                            BookRepository(
+                                db = db,
+                                bus = bus,
+                                registry = syncRegistry,
+                                contributorRepository = ContributorRepository(db, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(db, bus, syncRegistry),
+                                coverImageStore = coverStore,
+                                homeDir = homeDir,
+                            )
+                        val registry = LibraryRegistry(db, mapOf("LISTENUP_LIBRARY_PATH" to "/lib"))
+                        val libId = registry.currentLibrary()
+                        val folderId = FolderId("test-folder")
+
+                        val bytesA = fakeJpeg() // book A's artwork
+                        val bytesB = fakeJpeg2() // book B's artwork — deliberately different bytes
+
+                        val analyzedA = minimalBook("Author/ConcurrentA")
+                        val analyzedB = minimalBook("Author/ConcurrentB")
+
+                        val pendingA = PendingCover(bytes = bytesA, mime = "image/jpeg", source = CoverSource.EMBEDDED)
+                        val pendingB = PendingCover(bytes = bytesB, mime = "image/jpeg", source = CoverSource.EMBEDDED)
+
+                        // Launch both upserts concurrently and await both results.
+                        val (resultA, resultB) =
+                            coroutineScope {
+                                val dA = async { repo.resolveOrInsert(libId, folderId, analyzedA, pendingA) }
+                                val dB = async { repo.resolveOrInsert(libId, folderId, analyzedB, pendingB) }
+                                awaitAll(dA, dB)
+                            }
+
+                        val bookIdA =
+                            resultA.shouldBeInstanceOf<AppResult.Success<IngestOutcome>>().data.bookId
+                        val bookIdB =
+                            resultB.shouldBeInstanceOf<AppResult.Success<IngestOutcome>>().data.bookId
+
+                        val savedA = repo.findById(bookIdA).shouldNotBeNull()
+                        val savedB = repo.findById(bookIdB).shouldNotBeNull()
+
+                        // Both books must have a cover — no one lost theirs.
+                        val hashA =
+                            savedA.cover
+                                .shouldNotBeNull()
+                                .hash
+                                .shouldNotBeNull()
+                        val hashB =
+                            savedB.cover
+                                .shouldNotBeNull()
+                                .hash
+                                .shouldNotBeNull()
+
+                        // The two hashes must differ — each book got its own bytes.
+                        // If the @Volatile race fired, one hash would equal the other.
+                        hashA shouldNotBe hashB
+
+                        // Also verify the managed files on disk: each book has exactly one
+                        // file named after itself, and their contents are not swapped.
+                        val managedFiles = Files.list(homeDir.resolve("covers")).use { it.toList() }
+                        managedFiles shouldHaveSize 2
+                        val fileA =
+                            managedFiles
+                                .firstOrNull { it.fileName.toString().startsWith(bookIdA.value) }
+                                .shouldNotBeNull()
+                        val fileB =
+                            managedFiles
+                                .firstOrNull { it.fileName.toString().startsWith(bookIdB.value) }
+                                .shouldNotBeNull()
+                        Files.readAllBytes(fileA).toList() shouldBe bytesA.toList()
+                        Files.readAllBytes(fileB).toList() shouldBe bytesB.toList()
                     } finally {
                         homeDir.toFile().deleteRecursively()
                     }
