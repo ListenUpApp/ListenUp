@@ -17,6 +17,8 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
+import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.BookGenreTable
@@ -81,6 +83,7 @@ internal class BookServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
     private val principal: PrincipalProvider,
+    private val coverImageStore: CoverImageStore? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -108,6 +111,7 @@ internal class BookServiceImpl(
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             principal = principal,
+            coverImageStore = coverImageStore,
         )
 
     override suspend fun searchBooks(
@@ -260,6 +264,35 @@ internal class BookServiceImpl(
                 is AppResult.Failure -> AppResult.Failure(upsertResult.error)
             }
         }
+    }
+
+    /**
+     * Validates and stores [bytes] as the book's managed cover, then records the path + hash in
+     * [BookRepository.setManagedCover] with [CoverSource.UPLOADED].
+     *
+     * Gated on [requireCanEdit] — only ROOT/ADMIN or a MEMBER with the `canEdit` flag may
+     * upload a cover. Returns [AppResult.Failure] with [AuthError.PermissionDenied] when denied.
+     *
+     * The stored relative path follows the shape `covers/<bookId>.<ext>` (e.g. `covers/abc123.png`),
+     * which matches the sandbox the cover-serving route resolves under [homeDir].
+     *
+     * Note: this method is **not** on the [BookService] @Rpc interface — cover bytes are binary,
+     * so the upload goes through a dedicated multipart REST route rather than the RPC surface.
+     *
+     * @throws IllegalStateException when [coverImageStore] is not wired (library not configured).
+     */
+    internal suspend fun setBookCover(
+        id: BookId,
+        bytes: ByteArray,
+        contentType: String,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        val store = coverImageStore ?: error("CoverImageStore not wired — library must be configured")
+        val stored = store.store.store(id.value, bytes, contentType)
+        // Derive the repo-relative path from the stored absolute path's filename only.
+        // stored.path lives under homeDir/covers/<bookId>.<ext>; the repo stores covers/<filename>.
+        val relPath = "covers/${stored.path.fileName}"
+        return repo.setManagedCover(id, relPath, stored.sha256, CoverSource.UPLOADED)
     }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> {

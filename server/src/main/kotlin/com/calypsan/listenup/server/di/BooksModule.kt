@@ -142,6 +142,7 @@ fun booksModule(
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("BookService"),
+                coverImageStore = get<CoverImageStore>(),
             )
         }
         single<ContributorService> {
