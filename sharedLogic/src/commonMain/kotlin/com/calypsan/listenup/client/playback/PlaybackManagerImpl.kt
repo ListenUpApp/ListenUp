@@ -1,10 +1,3 @@
-@file:Suppress(
-    "MagicNumber",
-    "LongMethod",
-    "LongParameterList",
-    "CyclomaticComplexMethod",
-    "CognitiveComplexMethod",
-)
 
 package com.calypsan.listenup.client.playback
 
@@ -32,10 +25,21 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /**
+ * Fraction of total duration a position must reach for an `Ended` state to count
+ * as genuine completion. Guards against spurious `Ended` events on player
+ * release/stop falsely marking a book finished (#204).
+ */
+private const val BOOK_FINISHED_THRESHOLD = 0.90f
+
+/**
  * Default [PlaybackManager] implementation. See the interface KDoc on
  * [PlaybackManager] for the contract; this class is the sole production
  * realisation, wired into Koin as `single<PlaybackManager> { PlaybackManagerImpl(...) }`.
  */
+// Forwards the same heterogeneous playback-prep collaborators to PlaybackPreparer (auth,
+// 3 DAOs + repo, cover storage, progress, codec negotiation, download). A parameter object
+// would only bag them and ripples into platform code that also constructs this class.
+@Suppress("LongParameterList")
 class PlaybackManagerImpl(
     private val serverConfig: ServerConfig,
     private val playbackPreferences: PlaybackPreferences,
@@ -257,7 +261,7 @@ class PlaybackManagerImpl(
                             // Guard: only mark finished if position is actually near the end.
                             // Prevents false completion from spurious Ended events on player
                             // release/stop (#204).
-                            if (duration > 0 && position.toFloat() / duration >= 0.90f) {
+                            if (duration > 0 && position.toFloat() / duration >= BOOK_FINISHED_THRESHOLD) {
                                 progressTracker.onBookFinished(bookId, duration)
                             } else {
                                 logger.warn {
