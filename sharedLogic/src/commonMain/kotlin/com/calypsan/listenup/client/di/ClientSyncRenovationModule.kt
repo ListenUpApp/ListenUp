@@ -34,9 +34,11 @@ import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -60,6 +62,7 @@ val clientSyncRenovationModule =
 
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
+        single<ServerReachability> { SseServerReachability(get(), get(qualifier = named("appScope"))) }
         single { SyncCursorStore(dao = get()) }
 
         single<PlaybackRpcFactory> {
