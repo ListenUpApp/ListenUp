@@ -1188,4 +1188,13 @@ private class StubAuthRepository : com.calypsan.listenup.client.domain.repositor
     override suspend fun refreshAccessToken() =
         com.calypsan.listenup.api.result.AppResult
             .Success(rotatedSession)
+
+    override suspend fun listSessions(): com.calypsan.listenup.api.result.AppResult<List<com.calypsan.listenup.api.dto.auth.SessionSummary>> =
+        com.calypsan.listenup.api.result.AppResult.Success(emptyList())
+
+    override suspend fun revokeSession(sessionId: com.calypsan.listenup.api.dto.auth.SessionId): com.calypsan.listenup.api.result.AppResult<Unit> =
+        com.calypsan.listenup.api.result.AppResult.Success(Unit)
+
+    override suspend fun logoutAll(): com.calypsan.listenup.api.result.AppResult<Unit> =
+        com.calypsan.listenup.api.result.AppResult.Success(Unit)
 }

@@ -569,6 +569,8 @@ private class FakeBookDao(
         accessibleIds: Collection<String>,
         now: Long,
     ) = Unit
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeSeriesDao(
@@ -610,6 +612,8 @@ private class FakeSeriesDao(
         deletedAt: Long,
         revision: Long,
     ) = Unit
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeContributorDao(
@@ -658,6 +662,8 @@ private class FakeContributorDao(
     override suspend fun getByBookId(bookId: String): List<ContributorEntity> = emptyList()
 
     override fun observeBookIdsForContributor(contributorId: String): Flow<List<String>> = flowOf(bookIdsForContributor[contributorId] ?: emptyList())
+
+    override suspend fun digestRows(max: Long): List<com.calypsan.listenup.client.data.local.db.IdRevision> = emptyList()
 }
 
 private class FakeDownloadDao(
