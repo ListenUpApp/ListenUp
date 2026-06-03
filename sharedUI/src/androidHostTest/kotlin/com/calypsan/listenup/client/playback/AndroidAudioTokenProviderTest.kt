@@ -94,14 +94,11 @@ private class FakeAuthRepository(
         )
     }
 
-    override suspend fun listSessions(): AppResult<List<com.calypsan.listenup.api.dto.auth.SessionSummary>> =
-        AppResult.Success(emptyList())
+    override suspend fun listSessions(): AppResult<List<com.calypsan.listenup.api.dto.auth.SessionSummary>> = AppResult.Success(emptyList())
 
-    override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
-        AppResult.Success(Unit)
+    override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun logoutAll(): AppResult<Unit> =
-        AppResult.Success(Unit)
+    override suspend fun logoutAll(): AppResult<Unit> = AppResult.Success(Unit)
 
     companion object {
         private const val ONE_HOUR_MS = 60L * 60L * 1000L
