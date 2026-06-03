@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
 
 package com.calypsan.listenup.client.di
 
@@ -188,6 +187,9 @@ expect val platformDiscoveryModule: Module
  */
 expect val platformDeviceModule: Module
 
+/** Koin qualifier for the application-lifetime [kotlinx.coroutines.CoroutineScope]. */
+private const val APP_SCOPE = "appScope"
+
 /**
  * Data layer dependencies.
  * Provides repositories for settings and domain data.
@@ -355,7 +357,7 @@ val repositoryModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
                 urlChangeListener =
                     ServerUrlChangeListener { newUrl ->
@@ -551,7 +553,7 @@ val syncModule =
         single<kotlinx.coroutines.CoroutineScope>(
             qualifier =
                 org.koin.core.qualifier
-                    .named("appScope"),
+                    .named(APP_SCOPE),
         ) {
             kotlinx.coroutines.CoroutineScope(
                 kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
@@ -684,7 +686,7 @@ val syncModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
@@ -748,7 +750,7 @@ val syncModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
@@ -761,7 +763,7 @@ val syncModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }
@@ -952,7 +954,7 @@ val syncModule =
                     get(
                         qualifier =
                             org.koin.core.qualifier
-                                .named("appScope"),
+                                .named(APP_SCOPE),
                     ),
             )
         }

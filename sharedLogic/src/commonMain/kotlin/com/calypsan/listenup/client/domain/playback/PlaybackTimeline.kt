@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
 
 package com.calypsan.listenup.client.domain.playback
 
@@ -116,6 +115,13 @@ data class PlaybackTimeline(
         get() = files.all { it.isDownloaded }
 
     companion object {
+        /** Builds the canonical server streaming URL for an audio file within a book. */
+        private fun buildStreamingUrl(
+            baseUrl: String,
+            bookId: BookId,
+            audioFileId: String,
+        ): String = "$baseUrl/api/v1/books/${bookId.value}/audio/$audioFileId"
+
         /**
          * Build a PlaybackTimeline from audio files and a base streaming URL.
          *
@@ -140,7 +146,7 @@ data class PlaybackTimeline(
                             startOffsetMs = cumulativeOffset,
                             durationMs = file.duration,
                             size = file.size,
-                            streamingUrl = "$baseUrl/api/v1/books/${bookId.value}/audio/${file.id}",
+                            streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id),
                             localPath = null,
                             mediaItemIndex = index,
                         )
@@ -182,7 +188,7 @@ data class PlaybackTimeline(
                             startOffsetMs = cumulativeOffset,
                             durationMs = file.duration,
                             size = file.size,
-                            streamingUrl = "$baseUrl/api/v1/books/${bookId.value}/audio/${file.id}",
+                            streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id),
                             localPath = localPath,
                             mediaItemIndex = index,
                         )
@@ -225,8 +231,7 @@ data class PlaybackTimeline(
                     for ((index, file) in audioFiles.withIndex()) {
                         val localPath = resolveLocalPath(file.id)
 
-                        val streamingUrl =
-                            "$baseUrl/api/v1/books/${bookId.value}/audio/${file.id}"
+                        val streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id)
 
                         add(
                             FileSegment(

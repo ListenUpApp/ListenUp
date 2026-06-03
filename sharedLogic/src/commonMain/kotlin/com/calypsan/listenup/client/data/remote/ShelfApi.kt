@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
 
 package com.calypsan.listenup.client.data.remote
 
@@ -76,6 +75,10 @@ interface ShelfApiContract {
     ): AppResult<Unit>
 }
 
+private const val SHELVES_PATH = "/api/v1/shelves"
+
+private fun shelfPath(shelfId: String) = "$SHELVES_PATH/$shelfId"
+
 /**
  * API client for shelf operations.
  *
@@ -86,12 +89,12 @@ class ShelfApi(
 ) : ShelfApiContract {
     override suspend fun getMyShelves(): AppResult<List<ShelfResponse>> =
         apiCall(errorMessage = "My shelves response missing data") {
-            clientFactory.getClient().get("/api/v1/shelves").body<ApiResponse<ListShelvesResponse>>()
+            clientFactory.getClient().get(SHELVES_PATH).body<ApiResponse<ListShelvesResponse>>()
         }.map { it.shelves }
 
     override suspend fun discoverShelves(): AppResult<List<UserShelvesResponse>> =
         apiCall(errorMessage = "Discover shelves response missing data") {
-            clientFactory.getClient().get("/api/v1/shelves/discover").body<ApiResponse<DiscoverShelvesResponse>>()
+            clientFactory.getClient().get("$SHELVES_PATH/discover").body<ApiResponse<DiscoverShelvesResponse>>()
         }.map { it.users }
 
     override suspend fun createShelf(
@@ -101,7 +104,7 @@ class ShelfApi(
         apiCall(errorMessage = "Create shelf response missing data") {
             clientFactory
                 .getClient()
-                .post("/api/v1/shelves") {
+                .post(SHELVES_PATH) {
                     contentType(ContentType.Application.Json)
                     setBody(CreateShelfRequest(name, description ?: ""))
                 }.body<ApiResponse<ShelfResponse>>()
@@ -109,7 +112,7 @@ class ShelfApi(
 
     override suspend fun getShelf(shelfId: String): AppResult<ShelfDetailResponse> =
         apiCall(errorMessage = "Shelf detail response missing data") {
-            clientFactory.getClient().get("/api/v1/shelves/$shelfId").body<ApiResponse<ShelfDetailResponse>>()
+            clientFactory.getClient().get(shelfPath(shelfId)).body<ApiResponse<ShelfDetailResponse>>()
         }
 
     override suspend fun updateShelf(
@@ -120,7 +123,7 @@ class ShelfApi(
         apiCall(errorMessage = "Update shelf response missing data") {
             clientFactory
                 .getClient()
-                .patch("/api/v1/shelves/$shelfId") {
+                .patch(shelfPath(shelfId)) {
                     contentType(ContentType.Application.Json)
                     setBody(UpdateShelfRequest(name, description ?: ""))
                 }.body<ApiResponse<ShelfResponse>>()
@@ -128,7 +131,7 @@ class ShelfApi(
 
     override suspend fun deleteShelf(shelfId: String): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().delete("/api/v1/shelves/$shelfId").body<ApiResponse<Unit>>()
+            clientFactory.getClient().delete(shelfPath(shelfId)).body<ApiResponse<Unit>>()
         }
 
     override suspend fun addBooks(
@@ -138,7 +141,7 @@ class ShelfApi(
         apiCallUnit {
             clientFactory
                 .getClient()
-                .post("/api/v1/shelves/$shelfId/books") {
+                .post("$SHELVES_PATH/$shelfId/books") {
                     contentType(ContentType.Application.Json)
                     setBody(AddBooksToShelfRequest(bookIds))
                 }.body<ApiResponse<Unit>>()
@@ -149,7 +152,7 @@ class ShelfApi(
         bookId: String,
     ): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().delete("/api/v1/shelves/$shelfId/books/$bookId").body<ApiResponse<Unit>>()
+            clientFactory.getClient().delete("$SHELVES_PATH/$shelfId/books/$bookId").body<ApiResponse<Unit>>()
         }
 }
 

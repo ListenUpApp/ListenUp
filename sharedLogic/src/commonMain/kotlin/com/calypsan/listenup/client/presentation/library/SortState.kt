@@ -1,6 +1,10 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.presentation.library
+
+/** Ascending label shared by every alphabetical sort category (Title, Author, Name). */
+private const val ALPHABETICAL_ASC = "A → Z"
+
+/** Descending label shared by every alphabetical sort category (Title, Author, Name). */
+private const val ALPHABETICAL_DESC = "Z → A"
 
 /**
  * Direction of a sort operation.
@@ -38,20 +42,20 @@ enum class SortCategory(
     // Text-based sorts (alphabetical)
     TITLE(
         label = "Title",
-        ascLabel = "A \u2192 Z",
-        descLabel = "Z \u2192 A",
+        ascLabel = ALPHABETICAL_ASC,
+        descLabel = ALPHABETICAL_DESC,
         defaultDirection = SortDirection.ASCENDING,
     ),
     AUTHOR(
         label = "Author",
-        ascLabel = "A \u2192 Z",
-        descLabel = "Z \u2192 A",
+        ascLabel = ALPHABETICAL_ASC,
+        descLabel = ALPHABETICAL_DESC,
         defaultDirection = SortDirection.ASCENDING,
     ),
     NAME(
         label = "Name",
-        ascLabel = "A \u2192 Z",
-        descLabel = "Z \u2192 A",
+        ascLabel = ALPHABETICAL_ASC,
+        descLabel = ALPHABETICAL_DESC,
         defaultDirection = SortDirection.ASCENDING,
     ),
 
