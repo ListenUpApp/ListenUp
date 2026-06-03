@@ -81,7 +81,7 @@ class SyncCatchUpFromZeroTest :
                     mockClient { since ->
                         sinceValues += since
                         when (since) {
-                            0L ->
+                            0L -> {
                                 contractJson.encodeToString(
                                     Page.serializer(Tag.serializer()),
                                     Page(
@@ -94,8 +94,11 @@ class SyncCatchUpFromZeroTest :
                                         hasMore = false,
                                     ),
                                 )
+                            }
 
-                            else -> error("unexpected since=$since")
+                            else -> {
+                                error("unexpected since=$since")
+                            }
                         }
                     }
 
@@ -130,8 +133,7 @@ private class InMemoryDao : SyncCursorDao {
         cursors[entity.domainName] = entity.revision
     }
 
-    override suspend fun all(): List<SyncCursorEntity> =
-        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {
         cursors.clear()

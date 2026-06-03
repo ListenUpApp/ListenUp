@@ -75,8 +75,7 @@ class SyncReconcilerTest :
                         cursors[entity.domainName] = entity.revision
                     }
 
-                    override suspend fun all(): List<SyncCursorEntity> =
-                        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+                    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
                     override suspend fun deleteAll() {
                         cursors.clear()
@@ -95,7 +94,10 @@ class SyncReconcilerTest :
                 HttpClient(
                     MockEngine { req ->
                         // URL: /api/v1/sync/<domain>/digest  →  segments[-2] = domain
-                        val domain = req.url.pathSegments.dropLast(1).last()
+                        val domain =
+                            req.url.pathSegments
+                                .dropLast(1)
+                                .last()
                         val digest = domainDigests[domain]
                         if (digest != null) {
                             respond(

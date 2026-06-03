@@ -34,11 +34,12 @@ class SyncReconciler(
         val max = store.highestCursor() ?: return
         val handlers = registry.registeredDomains().mapNotNull { registry.lookup(it) }
         coroutineScope {
-            handlers.map { handler ->
-                @Suppress("UNCHECKED_CAST")
-                val typed = handler as SyncDomainHandler<Any>
-                async { reconcileOne(typed, max) }
-            }.awaitAll()
+            handlers
+                .map { handler ->
+                    @Suppress("UNCHECKED_CAST")
+                    val typed = handler as SyncDomainHandler<Any>
+                    async { reconcileOne(typed, max) }
+                }.awaitAll()
         }
     }
 
@@ -60,7 +61,10 @@ class SyncReconciler(
             val local = DigestComputer.compute(max, rows)
             val remote =
                 when (val r = digestClient.fetch(handler.domainName, max)) {
-                    is AppResult.Success -> r.data
+                    is AppResult.Success -> {
+                        r.data
+                    }
+
                     is AppResult.Failure -> {
                         logger.warn { "Digest fetch failed for ${handler.domainName}: ${r.error.code}" }
                         return
