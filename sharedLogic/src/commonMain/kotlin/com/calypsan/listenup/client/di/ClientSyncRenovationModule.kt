@@ -40,7 +40,6 @@ import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
-import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -289,7 +288,6 @@ val clientSyncRenovationModule =
                 sseClient = get(),
                 reconciler = get(),
                 dispatcher = get(),
-                downloadRepository = get<DownloadRepository>(),
                 scope = get(qualifier = named(APP_SCOPE)),
             )
         }

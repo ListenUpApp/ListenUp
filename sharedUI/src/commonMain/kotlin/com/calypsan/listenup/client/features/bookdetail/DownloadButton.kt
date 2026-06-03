@@ -39,7 +39,6 @@ import listenup.composeapp.generated.resources.book_detail_progresspercent
 import listenup.composeapp.generated.resources.book_detail_queued
 import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.book_detail_retry_download
-import listenup.composeapp.generated.resources.book_detail_preparing_on_server
 import listenup.composeapp.generated.resources.book_detail_waiting_for_wifi
 
 /**
@@ -118,12 +117,6 @@ fun DownloadButton(
                                         tint = contentColor.copy(alpha = 0.6f),
                                     )
                                 }
-                            }
-
-                            // Bug 4 (W8 Phase D): server is transcoding. Distinct visual state
-                            // so the user knows the worker isn't stuck — server-side work in flight.
-                            status.waitingForServerFiles > 0 -> {
-                                ListenUpLoadingIndicatorSmall()
                             }
 
                             isWaitingForWifi -> {
@@ -219,14 +212,6 @@ fun DownloadButtonExpanded(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(Res.string.book_detail_progresspercent, progressPercent))
                         }
-                    }
-
-                    // Bug 4 (W8 Phase D): server is transcoding. Distinct text state
-                    // so the user knows the worker isn't stuck — server-side work in flight.
-                    status.waitingForServerFiles > 0 -> {
-                        ListenUpLoadingIndicatorSmall()
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(Res.string.book_detail_preparing_on_server))
                     }
 
                     isWaitingForWifi -> {

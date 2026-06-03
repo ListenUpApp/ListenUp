@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -314,7 +313,6 @@ private fun buildMemberSyncEngine(
         sseClient = sseClient,
         reconciler = reconciler,
         dispatcher = dispatcher,
-        downloadRepository = FakeDownloadRepository(),
         scope = clientScope,
     ).also { engineRef = it }
 }

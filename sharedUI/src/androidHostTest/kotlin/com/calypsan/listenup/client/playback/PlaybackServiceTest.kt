@@ -187,22 +187,13 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
         error: com.calypsan.listenup.api.error.DownloadError,
     ) = TODO("not used")
 
-    override suspend fun markWaitingForServer(
-        audioFileId: String,
-        transcodeJobId: String,
-    ) = TODO("not used")
-
     override suspend fun enqueueForBook(bookId: BookId) = TODO("not used")
 
     override suspend fun cancelForBook(bookId: BookId) = TODO("not used")
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used")
 
-    override suspend fun resumeForAudioFile(audioFileId: String) = TODO("not used")
-
     override suspend fun resumeIncompleteDownloads() = TODO("not used")
-
-    override suspend fun recheckWaitingForServer() = TODO("not used")
 }
 
 private object ThrowingListeningEventRepository2 : ListeningEventRepository {

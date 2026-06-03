@@ -18,17 +18,12 @@ sealed interface BookDownloadStatus {
     ) : BookDownloadStatus
 
     /**
-     * One or more files in this book are mid-flight (downloading, waiting for server, queued).
-     *
-     * @property waitingForServerFiles Count of files currently in `WAITING_FOR_SERVER` state. Zero
-     * until Phase D adds the state. The field is on the type now so Phase C/D don't reshape the
-     * sealed hierarchy mid-stream.
+     * One or more files in this book are mid-flight (downloading, queued).
      */
     data class InProgress(
         override val bookId: String,
         val totalFiles: Int,
         val downloadingFiles: Int,
-        val waitingForServerFiles: Int,
         val completedFiles: Int,
         val totalBytes: Long,
         val downloadedBytes: Long,

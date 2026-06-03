@@ -698,9 +698,6 @@ val syncModule =
                 downloadDao = get(),
                 bookRepository = get(),
                 enqueuer = get(),
-                playbackApi = get(),
-                playbackPreferences = get(),
-                capabilityDetector = get(),
             )
         }
 

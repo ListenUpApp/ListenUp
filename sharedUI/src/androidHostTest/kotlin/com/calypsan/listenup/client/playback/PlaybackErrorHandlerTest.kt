@@ -528,22 +528,13 @@ private object ThrowingDownloadRepository : DownloadRepository {
         error: com.calypsan.listenup.api.error.DownloadError,
     ) = TODO("not used in handler test")
 
-    override suspend fun markWaitingForServer(
-        audioFileId: String,
-        transcodeJobId: String,
-    ) = TODO("not used in handler test")
-
     override suspend fun enqueueForBook(bookId: BookId) = TODO("not used in handler test")
 
     override suspend fun cancelForBook(bookId: BookId) = TODO("not used in handler test")
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used in handler test")
 
-    override suspend fun resumeForAudioFile(audioFileId: String) = TODO("not used in handler test")
-
     override suspend fun resumeIncompleteDownloads() = TODO("not used in handler test")
-
-    override suspend fun recheckWaitingForServer() = TODO("not used in handler test")
 }
 
 private object ThrowingListeningEventRepository : ListeningEventRepository {

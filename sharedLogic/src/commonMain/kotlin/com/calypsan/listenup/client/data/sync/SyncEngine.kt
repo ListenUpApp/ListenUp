@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +49,6 @@ class SyncEngine(
     private val sseClient: SseClient,
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
-    private val downloadRepository: DownloadRepository,
     private val scope: CoroutineScope,
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
 ) {
@@ -441,11 +439,6 @@ class SyncEngine(
                         .filter { it }
                         .collect {
                             runDrain()
-                            runCatching { downloadRepository.recheckWaitingForServer() }
-                                .onFailure { e ->
-                                    if (e is kotlinx.coroutines.CancellationException) throw e
-                                    logger.warn(e) { "recheckWaitingForServer failed on reconnect" }
-                                }
                         }
                 }
             ready.await()

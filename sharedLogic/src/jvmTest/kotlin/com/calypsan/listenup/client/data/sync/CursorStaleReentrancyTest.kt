@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
@@ -129,7 +128,6 @@ private fun buildEngineWithCatchUp(
         sseClient = NoopSseClient(state),
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
-        downloadRepository = FakeDownloadRepository(),
         scope = scope,
     )
 }

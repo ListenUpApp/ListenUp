@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -196,7 +195,6 @@ private fun buildEngine(
         sseClient = sse,
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
-        downloadRepository = FakeDownloadRepository(),
         scope = scope,
     )
 }

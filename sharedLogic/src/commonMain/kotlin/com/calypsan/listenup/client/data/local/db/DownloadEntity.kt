@@ -31,5 +31,4 @@ data class DownloadEntity(
     val completedAt: Long?,
     val errorMessage: String?,
     val retryCount: Int = 0,
-    val transcodeJobId: String? = null, // W8 Phase D — set when state=WAITING_FOR_SERVER for SSE re-enqueue
 )
