@@ -86,6 +86,10 @@ interface CollectionDao {
     /** Delete all collection rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collections")
     suspend fun deleteAll()
+
+    /** All rows (including tombstones) with [revision][CollectionEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM collections WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }
 
 /**
@@ -158,6 +162,14 @@ interface CollectionBookDao {
     /** Delete all junction rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collection_books")
     suspend fun deleteAll()
+
+    /**
+     * All rows (including tombstones) with [revision][CollectionBookEntity.revision] <= [max], for digest computation.
+     *
+     * The synthetic id is `"$collectionId:$bookId"` — the same form the server uses on the wire.
+     */
+    @Query("SELECT collectionId || ':' || bookId AS id, revision FROM collection_books WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }
 
 /**
@@ -214,4 +226,8 @@ interface CollectionShareDao {
     /** Delete all share rows (used in tests and full re-sync scenarios). */
     @Query("DELETE FROM collection_shares")
     suspend fun deleteAll()
+
+    /** All rows (including tombstones) with [revision][CollectionShareEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM collection_shares WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }

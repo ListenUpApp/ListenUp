@@ -144,6 +144,10 @@ interface GenreDao {
     @Query("DELETE FROM genres")
     suspend fun deleteAll()
 
+    /** All rows (including tombstones) with [revision][GenreEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM genres WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
+
     // ========== Book-Genre Relationship Operations ==========
 
     /**

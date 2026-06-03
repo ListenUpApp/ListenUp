@@ -55,6 +55,8 @@ class SyncEngineLifecycleTest :
                             sequence += "catchup:${item.id}"
                             return AppResult.Success(Unit)
                         }
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
                 val registry = ClientSyncDomainRegistry()
                 registry.register(handler)
@@ -164,6 +166,8 @@ class SyncEngineLifecycleTest :
                             item: Tag,
                             isTombstone: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     }
                 val registry = ClientSyncDomainRegistry()
                 registry.register(handler)
@@ -249,6 +253,8 @@ class SyncEngineLifecycleTest :
                             item: Tag,
                             isTombstone: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
                     },
                 )
                 val db = createInMemoryTestDatabase()

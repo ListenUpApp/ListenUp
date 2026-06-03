@@ -52,6 +52,9 @@ class CollectionShareSyncDomainHandler(
         now: Long,
     ) = database.collectionShareDao().tombstoneNotIn(accessibleIds, now)
 
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
+        database.collectionShareDao().digestRows(maxRevision).map { it.id to it.revision }
+
     override suspend fun onEvent(
         event: SyncEvent<CollectionShareSyncPayload>,
         isOwnEcho: Boolean,

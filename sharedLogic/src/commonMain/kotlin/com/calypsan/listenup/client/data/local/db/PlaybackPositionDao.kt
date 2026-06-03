@@ -148,4 +148,12 @@ interface PlaybackPositionDao {
      */
     @Query("SELECT * FROM playback_positions")
     fun observeAll(): Flow<List<PlaybackPositionEntity>>
+
+    /**
+     * All rows (including tombstones) with [revision][PlaybackPositionEntity.revision] <= [max], for digest computation.
+     *
+     * The id maps [PlaybackPositionEntity.bookId] (the row's identity on the wire).
+     */
+    @Query("SELECT bookId AS id, revision FROM playback_positions WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }

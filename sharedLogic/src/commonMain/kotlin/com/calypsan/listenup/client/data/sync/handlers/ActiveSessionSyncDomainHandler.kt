@@ -84,6 +84,13 @@ class ActiveSessionSyncDomainHandler(
             }
         }
 
+    /**
+     * Active sessions are ephemeral — the [ActiveSessionEntity] table carries no `revision`
+     * column, so there is nothing to fingerprint. Digest reconciliation is not applicable
+     * to this domain; always returns an empty list.
+     */
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
+
     private suspend fun upsert(payload: ActiveSessionSyncPayload) {
         database.activeSessionDao().upsert(
             ActiveSessionEntity(

@@ -61,4 +61,6 @@ class RecordingTagSyncDomainHandler(
         catchUpObservedFlow.emit(item to isTombstone)
         return AppResult.Success(Unit)
     }
+
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
 }

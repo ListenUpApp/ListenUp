@@ -318,6 +318,8 @@ private object NoopTagHandler : SyncDomainHandler<Tag> {
         item: Tag,
         isTombstone: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
 }
 
 /**
