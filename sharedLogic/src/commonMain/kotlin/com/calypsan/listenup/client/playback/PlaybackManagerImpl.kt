@@ -92,10 +92,6 @@ class PlaybackManagerImpl(
     private val _playbackSpeed = MutableStateFlow(1.0f)
     override val playbackSpeed: StateFlow<Float> = _playbackSpeed
 
-    // Transcode preparation progress (0-100, null when not preparing)
-    private val _prepareProgress = MutableStateFlow<PlaybackManager.PrepareProgress?>(null)
-    override val prepareProgress: StateFlow<PlaybackManager.PrepareProgress?> = _prepareProgress
-
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
     private val _playbackError = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)

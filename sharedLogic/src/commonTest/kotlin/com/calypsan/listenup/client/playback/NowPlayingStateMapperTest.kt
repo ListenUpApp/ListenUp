@@ -25,7 +25,6 @@ class NowPlayingStateMapperTest {
     private val emptyMetadata =
         SurfaceMetadata(
             currentChapter = null,
-            prepareProgress = null,
             error = null,
             defaultPlaybackSpeed = 1.0f,
         )
@@ -92,29 +91,6 @@ class NowPlayingStateMapperTest {
         assertEquals("Sample Book", result.title)
         assertEquals("Codec error", result.message)
         assertEquals(false, result.isRecoverable)
-    }
-
-    @Test
-    fun `mapToNowPlayingState returns Preparing when book present and prepareProgress non-null`() {
-        val book = sampleBook()
-        val metadata =
-            emptyMetadata.copy(
-                prepareProgress =
-                    PlaybackManager.PrepareProgress(
-                        audioFileId = "file-1",
-                        progress = 42,
-                        message = "Transcoding...",
-                    ),
-            )
-        val result = mapToNowPlayingState(book = book, dynamics = emptyDynamics, metadata = metadata)
-        assertIs<NowPlayingState.Preparing>(result)
-        assertEquals("book-1", result.bookId)
-        assertEquals("Sample Book", result.title)
-        assertEquals("Test Author", result.author)
-        assertEquals("/covers/sample.jpg", result.coverPath)
-        assertEquals("L6PZfSi_.AyE_3t7t7R**0o#DgR4", result.coverBlurHash)
-        assertEquals(42, result.progress)
-        assertEquals("Transcoding...", result.message)
     }
 
     @Test

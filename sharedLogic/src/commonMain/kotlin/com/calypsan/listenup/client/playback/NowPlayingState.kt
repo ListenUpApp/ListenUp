@@ -9,7 +9,6 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Sealed hierarchy makes illegal state combinations unrepresentable:
  * - [Idle] — no book loaded; mini-player hidden
- * - [Preparing] — book is being prepared (transcoding/loading); shown with progress
  * - [Active] — playback-ready; full UI state populated
  * - [Error] — something failed; shown with optional book context for "Failed to play X"
  *
@@ -23,17 +22,6 @@ import kotlin.time.Duration.Companion.milliseconds
 sealed interface NowPlayingState {
     /** No active playback session. Default state. Mini-player hidden. */
     data object Idle : NowPlayingState
-
-    /** Book loaded; pre-playback transcoding / loading in flight. */
-    data class Preparing(
-        val bookId: String,
-        val title: String,
-        val author: String,
-        val coverPath: String?,
-        val coverBlurHash: String?,
-        val progress: Int, // 0-100
-        val message: String?,
-    ) : NowPlayingState
 
     /** Playback-ready. Full UI state populated. */
     data class Active(
