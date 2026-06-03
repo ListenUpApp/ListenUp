@@ -290,6 +290,62 @@ class ListeningEventRecorderTest :
                 }
             }
         }
+
+        // ── Orphan recovery must not resurrect an already-committed event ─────────
+
+        test("recoverOrphan does not clobber an already-synced/tombstoned event row") {
+            runTest {
+                withFixture(nowMillis = 99_000L) { recorder, db, _ ->
+                    val eventId = "evt-already-synced"
+
+                    // The event was finalized on a prior run, synced (revision advanced),
+                    // and later tombstoned server-side — exactly the state a re-promoted
+                    // orphan must NOT regress back to revision=0 / deletedAt=null.
+                    db.listeningEventDao().upsert(
+                        com.calypsan.listenup.client.data.local.db.ListeningEventEntity(
+                            id = eventId,
+                            userId = USER_ID,
+                            bookId = BOOK_ID,
+                            startPositionMs = 10_000L,
+                            endPositionMs = 45_000L,
+                            startedAt = 50_000L,
+                            endedAt = 80_000L,
+                            playbackSpeed = 1.25f,
+                            tz = "America/New_York",
+                            deviceLabel = "Crashed Device",
+                            revision = 7L,
+                            deletedAt = 90_000L,
+                        ),
+                    )
+
+                    // An orphan tentative span survives for the SAME id (delete failed
+                    // after the event upsert on the prior run).
+                    db.tentativeSpanDao().upsertSingleton(
+                        TentativeSpanEntity(
+                            id = eventId,
+                            userId = USER_ID,
+                            bookId = BOOK_ID,
+                            startPositionMs = 10_000L,
+                            currentPositionMs = 45_000L,
+                            startedAt = 50_000L,
+                            lastHeartbeatAt = 80_000L,
+                            playbackSpeed = 1.25f,
+                            tz = "America/New_York",
+                            deviceLabel = "Crashed Device",
+                        ),
+                    )
+
+                    recorder.recoverOrphan()
+
+                    // The committed row is untouched — not regressed to revision=0/deletedAt=null.
+                    val row = db.listeningEventDao().getById(eventId).shouldNotBeNull()
+                    row.revision shouldBe 7L
+                    row.deletedAt shouldBe 90_000L
+                    // And the orphan span is cleaned up so it can't loop forever.
+                    db.tentativeSpanDao().get().shouldBeNull()
+                }
+            }
+        }
     })
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────

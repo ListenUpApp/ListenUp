@@ -206,7 +206,9 @@ class ListeningEventRecorder(
      * wrapped in a Room transaction. An orphan recovery run on the next launch handles any of the
      * three intermediate states safely:
      * - If the event upsert succeeded but enqueue / delete failed, the orphan is re-promoted on
-     *   the next launch (Room's `IGNORE` conflict on the duplicate id is a no-op).
+     *   the next launch. The event write is insert-if-absent (see [finalizeCurrentSpan]), so a
+     *   re-promotion never clobbers an already-synced/tombstoned row; only the enqueue + delete
+     *   are retried.
      * - If all three succeed, there is no orphan row to recover.
      * Full transactionality would require [com.calypsan.listenup.client.data.local.db.TransactionRunner]
      * involvement and cross-DAO scope — the recovery path is the designed safety net.
@@ -239,7 +241,14 @@ class ListeningEventRecorder(
                 revision = 0L,
                 deletedAt = null,
             )
-        listeningEventDao.upsert(entity)
+        // Insert-if-absent. A re-promoted orphan whose event row already exists must
+        // NOT be clobbered: the row may have synced (revision advanced) and even been
+        // tombstoned server-side since. Writing a fresh revision=0/deletedAt=null row
+        // would resurrect/regress it. Only write the event the first time; the enqueue
+        // + tentative-delete below still run so a stalled recovery completes.
+        if (listeningEventDao.getById(entity.id) == null) {
+            listeningEventDao.upsert(entity)
+        }
 
         val request =
             RecordListeningEventRequest(
