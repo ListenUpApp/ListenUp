@@ -3,9 +3,11 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.backup.BackupTestFixture
@@ -17,7 +19,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import app.cash.turbine.test
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
@@ -156,6 +160,68 @@ class BackupServiceTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("admin observeProgress receives events emitted on the bus") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val maintenance = MaintenanceState()
+                    val orchestrator =
+                        RestoreOrchestrator(
+                            paths = fixture.paths,
+                            archive = fixture.archive,
+                            dbHandle = fixture.handle,
+                            maintenance = maintenance,
+                            eventBus = eventBus,
+                        )
+                    val svc =
+                        BackupServiceImpl(
+                            paths = fixture.paths,
+                            archive = fixture.archive,
+                            restoreOrchestrator = orchestrator,
+                            eventBus = eventBus,
+                            principal = rootPrincipalProvider(),
+                        )
+
+                    svc.observeProgress().test {
+                        eventBus.emit(BackupEvent.Validating)
+                        val received = awaitItem()
+                        received.shouldBeInstanceOf<RpcEvent.Data<BackupEvent>>()
+                        received.value shouldBe BackupEvent.Validating
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            }
+        }
+
+        test("non-admin observeProgress emits nothing") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val maintenance = MaintenanceState()
+                    val orchestrator =
+                        RestoreOrchestrator(
+                            paths = fixture.paths,
+                            archive = fixture.archive,
+                            dbHandle = fixture.handle,
+                            maintenance = maintenance,
+                            eventBus = eventBus,
+                        )
+                    val svc =
+                        BackupServiceImpl(
+                            paths = fixture.paths,
+                            archive = fixture.archive,
+                            restoreOrchestrator = orchestrator,
+                            eventBus = eventBus,
+                            principal = memberPrincipalProvider(),
+                        )
+
+                    // emptyFlow() completes immediately — toList() returns [] without blocking
+                    val events = svc.observeProgress().toList()
+                    events.shouldBeEmpty()
                 }
             }
         }

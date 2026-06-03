@@ -18,6 +18,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
@@ -109,7 +110,12 @@ class BackupServiceImpl(
         return restoreOrchestrator.restore(id)
     }
 
-    override fun observeProgress(): Flow<RpcEvent<BackupEvent>> = eventBus.map { RpcEvent.Data(it) }
+    override fun observeProgress(): Flow<RpcEvent<BackupEvent>> =
+        if (principal.current()?.role?.isAdmin() == true) {
+            eventBus.map { RpcEvent.Data(it) }
+        } else {
+            emptyFlow()
+        }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
 
