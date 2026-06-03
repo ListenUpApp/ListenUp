@@ -25,14 +25,21 @@ class BackupTestFixture(
 }
 
 /**
- * Builds a [BackupTestFixture] in a fresh temp directory.
+ * Builds a [BackupTestFixture] in the given [homeDir] (or a fresh temp directory when null).
+ *
+ * Passing an existing [homeDir] allows route tests to share the same filesystem root as
+ * the running server (configured via `listenup.home`) so the route's [BackupPaths] and the
+ * fixture's [BackupPaths] both resolve archives under the same `backups/` subdirectory.
  *
  * If [withImages] is true, a dummy file is written into the `covers/` dir so
  * image-related code paths are exercised.
  */
-fun backupTestFixture(withImages: Boolean = false): BackupTestFixture {
-    val homeDir = Files.createTempDirectory("backup-test-")
-    val dbFile = homeDir.resolve("listenup.db")
+fun backupTestFixture(
+    homeDir: java.nio.file.Path? = null,
+    withImages: Boolean = false,
+): BackupTestFixture {
+    val resolvedHomeDir = homeDir ?: Files.createTempDirectory("backup-test-")
+    val dbFile = resolvedHomeDir.resolve("listenup.db")
 
     val handle =
         DatabaseFactory.init(
@@ -45,7 +52,7 @@ fun backupTestFixture(withImages: Boolean = false): BackupTestFixture {
         exec("INSERT INTO dummy_seed(v) VALUES ('seed')")
     }
 
-    val paths = BackupPaths(homeDir)
+    val paths = BackupPaths(resolvedHomeDir)
 
     if (withImages) {
         val coversDir = paths.coversDir
@@ -63,7 +70,7 @@ fun backupTestFixture(withImages: Boolean = false): BackupTestFixture {
             counts = { 1 to 1 },
         )
 
-    return BackupTestFixture(homeDir, handle, paths, archive)
+    return BackupTestFixture(resolvedHomeDir, handle, paths, archive)
 }
 
 /**

@@ -64,6 +64,7 @@ import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
+import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.collectionAdminRoutes
 import com.calypsan.listenup.server.routes.collectionRoutes
@@ -298,6 +299,8 @@ fun Application.module() {
     val collectionService by inject<CollectionService>()
     val profileService by inject<ProfileService>()
     val backupService by inject<BackupService>()
+    val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
+    val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val avatarImageStore by inject<ImageStore>()
     val db by inject<Database>()
     val audioRoleLookup by inject<UserRoleLookup>()
@@ -348,6 +351,7 @@ fun Application.module() {
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
             profileRoutes(db, avatarImageStore)
+            backupRoutes(backupPaths, backupArchive)
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
