@@ -1,5 +1,4 @@
 @file:OptIn(kotlin.time.ExperimentalTime::class)
-@file:Suppress("MagicNumber")
 
 package com.calypsan.listenup.client.download
 

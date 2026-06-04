@@ -1,5 +1,4 @@
 @file:OptIn(ExperimentalForeignApi::class)
-@file:Suppress("MagicNumber")
 
 package com.calypsan.listenup.client.download
 
@@ -44,6 +43,18 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
+
+/** Per-request timeout for download tasks, in seconds. */
+private const val REQUEST_TIMEOUT_SECONDS = 60.0
+
+/** Whole-resource timeout for a single download, in seconds (1 hour for large files). */
+private const val RESOURCE_TIMEOUT_SECONDS = 3600.0
+
+/** Storage headroom multiplier — require 10% more free space than the download needs. */
+private const val STORAGE_HEADROOM_FACTOR = 1.1
+
+/** Divisor to convert bytes into whole megabytes for log output. */
+private const val BYTES_PER_MEGABYTE = 1_000_000
 
 /**
  * iOS implementation of [DownloadService] using NSURLSession background downloads.
@@ -90,8 +101,8 @@ class AppleDownloadService(
     private val urlSession: NSURLSession =
         run {
             val config = NSURLSessionConfiguration.defaultSessionConfiguration
-            config.timeoutIntervalForRequest = 60.0
-            config.timeoutIntervalForResource = 3600.0 // 1 hour for large files
+            config.timeoutIntervalForRequest = REQUEST_TIMEOUT_SECONDS
+            config.timeoutIntervalForResource = RESOURCE_TIMEOUT_SECONDS
             NSURLSession.sessionWithConfiguration(
                 configuration = config,
                 delegate = sessionDelegate,
@@ -145,7 +156,7 @@ class AppleDownloadService(
         // Check storage
         val requiredBytes = toDownload.sumOf { it.size }
         val availableBytes = fileManager.getAvailableSpace()
-        if (availableBytes < (requiredBytes * 1.1).toLong()) {
+        if (availableBytes < (requiredBytes * STORAGE_HEADROOM_FACTOR).toLong()) {
             return AppResult.Success(DownloadOutcome.InsufficientStorage(requiredBytes, availableBytes))
         }
 
@@ -229,7 +240,7 @@ class AppleDownloadService(
         val request = NSMutableURLRequest.requestWithURL(nsUrl)
         request.setValue("Bearer $token", forHTTPHeaderField = "Authorization")
 
-        logger.info { "Downloading: $filename (${audioFile.size / 1_000_000}MB)" }
+        logger.info { "Downloading: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
 
         // Register this download so delegate can track it
         val destPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = false)
@@ -259,7 +270,7 @@ class AppleDownloadService(
 
         if (result) {
             downloadDao.markCompleted(audioFileId, destPath.toString(), Clock.System.now().toEpochMilliseconds())
-            logger.info { "Downloaded: $filename (${audioFile.size / 1_000_000}MB)" }
+            logger.info { "Downloaded: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
         } else {
             // Error already logged/stored by delegate
             logger.error { "Download failed: $filename" }
@@ -540,7 +551,7 @@ private class DownloadSessionDelegate(
             return
         }
 
-        logger.info { "Download saved: $filename (${fileSize / 1_000_000}MB)" }
+        logger.info { "Download saved: $filename (${fileSize / BYTES_PER_MEGABYTE}MB)" }
         removePending(taskId)?.let { safeResume(it.continuation, true) }
     }
 
@@ -566,7 +577,7 @@ private class DownloadSessionDelegate(
                     downloadDao.updateProgress(audioFileId, totalBytesWritten, totalBytesExpectedToWrite)
                 }
                 logger.info {
-                    "Download $pct%: $filename (${totalBytesWritten / 1_000_000}/${totalBytesExpectedToWrite / 1_000_000}MB)"
+                    "Download $pct%: $filename (${totalBytesWritten / BYTES_PER_MEGABYTE}/${totalBytesExpectedToWrite / BYTES_PER_MEGABYTE}MB)"
                 }
             }
         }

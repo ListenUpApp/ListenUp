@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
@@ -32,6 +30,8 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
+private const val PLAYBACK_SCOPE = "playbackScope"
+
 /**
  * macOS playback module.
  *
@@ -45,7 +45,7 @@ import org.koin.dsl.module
 val macosPlaybackModule: Module =
     module {
         // Playback-scoped coroutine scope
-        single(qualifier = named("playbackScope")) {
+        single(qualifier = named(PLAYBACK_SCOPE)) {
             CoroutineScope(SupervisorJob() + IODispatcher)
         }
 
@@ -65,7 +65,7 @@ val macosPlaybackModule: Module =
             CachedAudioTokenProvider(
                 authSession = get(),
                 authRepository = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 
@@ -78,7 +78,7 @@ val macosPlaybackModule: Module =
                 serverConfig = get(),
                 tokenProvider = get(),
                 fileManager = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 
@@ -88,7 +88,7 @@ val macosPlaybackModule: Module =
                 downloadRepository = get(),
                 listeningEventRepository = get(),
                 positionRepository = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 
@@ -121,7 +121,7 @@ val macosPlaybackModule: Module =
         // Sleep timer manager
         single {
             SleepTimerManager(
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 
@@ -140,7 +140,7 @@ val macosPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 deviceContext = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 bookRepository = get(),
             )
         }
@@ -149,7 +149,7 @@ val macosPlaybackModule: Module =
         single<AudioPlayer> {
             AvFoundationAudioPlayer(
                 tokenProvider = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
 
