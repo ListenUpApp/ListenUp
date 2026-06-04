@@ -23,7 +23,12 @@ class PublicProfileRepository(
     registry: SyncRegistry,
     clock: Clock = Clock.System,
 ) : SyncableRepository<PublicProfileSyncPayload, String>(
-        db, PublicProfilesTable, bus, registry, "public_profiles", clock,
+        db,
+        PublicProfilesTable,
+        bus,
+        registry,
+        "public_profiles",
+        clock,
     ) {
     override val elementSerializer: KSerializer<PublicProfileSyncPayload> =
         PublicProfileSyncPayload.serializer()

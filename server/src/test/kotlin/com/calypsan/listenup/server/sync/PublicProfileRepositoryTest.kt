@@ -7,23 +7,25 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
-private fun row(id: String, secs: Long) =
-    PublicProfileSyncPayload(
-        id = id,
-        displayName = "User $id",
-        avatarType = "auto",
-        totalSecondsAllTime = secs,
-        totalSecondsLast7Days = secs,
-        totalSecondsLast30Days = secs,
-        totalSecondsLast365Days = secs,
-        booksFinished = 1,
-        currentStreakDays = 1,
-        longestStreakDays = 1,
-        revision = 0,
-        updatedAt = 0,
-        createdAt = 0,
-        deletedAt = null,
-    )
+private fun row(
+    id: String,
+    secs: Long,
+) = PublicProfileSyncPayload(
+    id = id,
+    displayName = "User $id",
+    avatarType = "auto",
+    totalSecondsAllTime = secs,
+    totalSecondsLast7Days = secs,
+    totalSecondsLast30Days = secs,
+    totalSecondsLast365Days = secs,
+    booksFinished = 1,
+    currentStreakDays = 1,
+    longestStreakDays = 1,
+    revision = 0,
+    updatedAt = 0,
+    createdAt = 0,
+    deletedAt = null,
+)
 
 class PublicProfileRepositoryTest :
     FunSpec({
