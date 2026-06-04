@@ -11,6 +11,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class PublicProfileSyncDomainHandlerTest :
@@ -75,6 +76,29 @@ class PublicProfileSyncDomainHandlerTest :
                 val rows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
                 val row = rows.first { it.id == "user-3" }
                 row.revision shouldBe 3L
+            }
+        }
+
+        test("Deleted event soft-deletes the row so observeAll no longer returns it") {
+            withHandler { handler, db ->
+                // Seed a live row via a Created event
+                handler.onEvent(created(payload("user-deleted", revision = 1L)), isOwnEcho = false)
+
+                // Apply a live Deleted event — this was previously a no-op (the bug)
+                handler
+                    .onEvent(
+                        SyncEvent.Deleted(id = "user-deleted", revision = 2L, occurredAt = 999_000L),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // digestRows includes all rows; the tombstoned row must carry the updated revision
+                val allRows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
+                val row = allRows.first { it.id == "user-deleted" }
+                row.revision shouldBe 2L
+                // observeAll() only emits live rows; confirm the row is absent there
+                // (collect one emission — we're inside runTest so the Room Flow is synchronous)
+                val liveRows = db.publicProfileDao().observeAll().first()
+                liveRows.none { it.id == "user-deleted" } shouldBe true
             }
         }
 

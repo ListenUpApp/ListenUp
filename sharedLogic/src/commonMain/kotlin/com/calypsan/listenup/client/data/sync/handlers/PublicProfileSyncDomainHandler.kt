@@ -17,7 +17,8 @@ private val logger = KotlinLogging.logger {}
  *
  * Each row is a server-maintained materialized view of a user's public social identity;
  * the client always replaces its local row unconditionally (server-wins, no client-writable
- * fields). Mirrors [UserStatsSyncDomainHandler].
+ * fields). Unlike [UserStatsSyncDomainHandler], this domain tombstones (deleted users):
+ * [SyncEvent.Deleted] events are applied immediately via [softDelete][com.calypsan.listenup.client.data.local.db.PublicProfileDao.softDelete].
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
@@ -50,7 +51,11 @@ class PublicProfileSyncDomainHandler(
                 }
 
                 is SyncEvent.Deleted -> {
-                    logger.debug { "[$domainName] Deleted event for ${event.id} — deferred to catch-up" }
+                    database.publicProfileDao().softDelete(
+                        id = event.id,
+                        deletedAt = event.occurredAt,
+                        revision = event.revision,
+                    )
                 }
             }
         }
