@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.seed.InviteDomainSeeder
 import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
+import com.calypsan.listenup.server.seed.PublicProfileDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.seed.ShelfDomainSeeder
 import com.calypsan.listenup.server.seed.TagDomainSeeder
@@ -53,6 +54,10 @@ import org.koin.dsl.module
  * @param hasShelvesModule whether the shelves slice is active. When true,
  *   [ShelfDomainSeeder] is registered to seed demo shelves for the demo user (a public
  *   shelf + a private shelf so the discovery + privacy surfaces have demo data).
+ *
+ * [PublicProfileDomainSeeder] is always registered — [publicProfileModule] is always
+ * active, so [com.calypsan.listenup.server.services.PublicProfileMaintainer] is always
+ * available to the seeder.
  */
 fun seedModule(
     hasPlaybackModule: Boolean = false,
@@ -91,6 +96,8 @@ fun seedModule(
         if (hasShelvesModule) {
             single { ShelfDomainSeeder(db = get(), shelfRepo = get()) }
         }
+        // publicProfileModule() is always active, so PublicProfileMaintainer is always bound.
+        single { PublicProfileDomainSeeder(db = get(), publicProfileMaintainer = get()) }
         // GenreDomainSeeder is bound in booksModule (it runs on every install, not just demo),
         // so we don't bind it here — but the runner still includes it for demo.
         single {
@@ -151,4 +158,5 @@ private fun assembleSeeders(
         if (hasShelvesModule) {
             add(koin.get<ShelfDomainSeeder>())
         }
+        add(koin.get<PublicProfileDomainSeeder>())
     }
