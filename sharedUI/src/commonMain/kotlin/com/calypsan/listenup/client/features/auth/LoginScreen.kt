@@ -124,7 +124,7 @@ fun LoginScreen(
 }
 
 @Composable
-private fun LoginFields(
+internal fun LoginFields(
     state: LoginUiState,
     onSubmit: (String, String) -> Unit,
 ) {
@@ -176,7 +176,7 @@ private fun LoginFields(
 }
 
 @Composable
-private fun LoginFooter(
+internal fun LoginFooter(
     openRegistration: Boolean,
     onRegister: () -> Unit,
     onChangeServer: () -> Unit,

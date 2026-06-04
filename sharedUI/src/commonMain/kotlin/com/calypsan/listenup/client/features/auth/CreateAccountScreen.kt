@@ -220,7 +220,7 @@ private fun CreateAccountScreen(
 
 @Suppress("LongMethod")
 @Composable
-private fun CreateAccountFields(
+internal fun CreateAccountFields(
     isLoading: Boolean,
     validationField: SetupField?,
     submitLabel: String,
