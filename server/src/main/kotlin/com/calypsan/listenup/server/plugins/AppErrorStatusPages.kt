@@ -265,7 +265,7 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
 
 private fun ImportError.toHttpStatus(): HttpStatusCode =
     when (this) {
-        is ImportError.UploadFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.UploadFailed -> HttpStatusCode.UnprocessableEntity
         is ImportError.AnalysisFailed -> HttpStatusCode.ServiceUnavailable
         is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
         is ImportError.ImportNotFound -> HttpStatusCode.NotFound

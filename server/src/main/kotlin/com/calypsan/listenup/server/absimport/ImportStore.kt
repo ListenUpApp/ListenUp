@@ -1,0 +1,188 @@
+package com.calypsan.listenup.server.absimport
+
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.import.ImportAnalysis
+import com.calypsan.listenup.api.dto.import.ImportStatus
+import com.calypsan.listenup.api.dto.import.ImportSummary
+import com.calypsan.listenup.core.AbsItemId
+import com.calypsan.listenup.core.AbsUserId
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ImportId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.nio.file.Files
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+import kotlin.io.path.name
+import kotlin.io.path.readText
+import kotlin.io.path.useDirectoryEntries
+import kotlin.io.path.writeText
+
+/**
+ * Filesystem-truth job state for staged ABS imports.
+ *
+ * There is no database table for import jobs: the state of an import is entirely determined by the
+ * files present in its working directory under [ImportPaths.dirFor]. [ImportStore] is the single
+ * place that reads and writes those files — enumerating jobs, deriving their
+ * [ImportStatus] from which staging files exist, and persisting/reading the
+ * `analysis.json` and `mapping.json` sidecars.
+ *
+ * All file I/O runs on [Dispatchers.IO].
+ */
+class ImportStore(
+    private val paths: ImportPaths,
+) {
+    /** Lists every staged import, newest first, deriving status and counts from the filesystem. */
+    suspend fun listImports(): List<ImportSummary> =
+        onIo {
+            val root = paths.importsDir
+            if (!root.exists()) return@onIo emptyList()
+            root.useDirectoryEntries { entries ->
+                entries
+                    .filter { entry -> entry.isDirectory() && entry.name != paths.tmpDir.name }
+                    .mapNotNull { dir -> summaryFor(dir.name) }
+                    .sortedByDescending { it.createdAt }
+                    .toList()
+            }
+        }
+
+    /** Returns the summary for [id], or null if no such import directory exists. */
+    suspend fun getImport(id: ImportId): ImportSummary? = onIo { summaryFor(id.value) }
+
+    /** Recursively deletes the working directory for [id]. Returns false if it did not exist. */
+    suspend fun deleteImport(id: ImportId): Boolean =
+        onIo {
+            val dir = paths.dirFor(id.value)
+            if (!dir.exists()) {
+                false
+            } else {
+                dir.toFile().deleteRecursively()
+            }
+        }
+
+    /** Persists the analysis preview for [id] as `analysis.json`. */
+    suspend fun writeAnalysis(
+        id: ImportId,
+        analysis: ImportAnalysis,
+    ) = onIo {
+        paths.analysisFor(id.value).writeText(json.encodeToString(analysis))
+    }
+
+    /** Reads the persisted analysis preview for [id], or null if not yet analyzed. */
+    suspend fun readAnalysis(id: ImportId): ImportAnalysis? =
+        onIo {
+            val file = paths.analysisFor(id.value)
+            if (file.exists()) json.decodeFromString<ImportAnalysis>(file.readText()) else null
+        }
+
+    /** Persists the confirmed mapping for [id] as `mapping.json`. */
+    suspend fun writeMapping(
+        id: ImportId,
+        userMappings: Map<AbsUserId, UserId>,
+        bookOverrides: Map<AbsItemId, BookId?>,
+    ) = onIo {
+        paths.mappingFor(id.value).writeText(json.encodeToString(StoredMapping(userMappings, bookOverrides)))
+    }
+
+    /** Reads the persisted mapping for [id], or null if no mapping has been confirmed. */
+    suspend fun readMapping(id: ImportId): StoredMapping? =
+        onIo {
+            val file = paths.mappingFor(id.value)
+            if (file.exists()) json.decodeFromString<StoredMapping>(file.readText()) else null
+        }
+
+    /** Touches the `.applied` marker, recording that apply has completed for [id]. */
+    suspend fun markApplied(id: ImportId) =
+        onIo {
+            paths.appliedMarkerFor(id.value).writeText("")
+        }
+
+    /** Derives the lifecycle status of [id] from which staging files exist. */
+    fun statusOf(id: ImportId): ImportStatus = statusOf(id.value)
+
+    private fun statusOf(id: String): ImportStatus =
+        when {
+            paths.appliedMarkerFor(id).exists() -> ImportStatus.APPLIED
+            paths.mappingFor(id).exists() -> ImportStatus.MAPPED
+            paths.analysisFor(id).exists() -> ImportStatus.ANALYZED
+            else -> ImportStatus.UPLOADED
+        }
+
+    /** Builds the summary for a single import directory, or null if the directory is absent. */
+    private fun summaryFor(id: String): ImportSummary? {
+        val dir = paths.dirFor(id)
+        if (!dir.exists()) return null
+        val analysis = readAnalysisBlocking(id)
+        return ImportSummary(
+            id = ImportId(id),
+            createdAt = createdAtFor(id),
+            status = statusOf(id),
+            bookCount = analysis?.let(::bookCountOf) ?: 0,
+            userCount = analysis?.userMatches?.size ?: 0,
+        )
+    }
+
+    private fun readAnalysisBlocking(id: String): ImportAnalysis? {
+        val file = paths.analysisFor(id)
+        return if (file.exists()) json.decodeFromString<ImportAnalysis>(file.readText()) else null
+    }
+
+    /** Reads `createdAt` from the upload-time `meta.json`, falling back to the dir creation time. */
+    private fun createdAtFor(id: String): Long {
+        val meta = paths.metaFor(id)
+        if (meta.exists()) {
+            runCatching { json.decodeFromString<ImportMeta>(meta.readText()).createdAt }
+                .getOrNull()
+                ?.let { return it }
+        }
+        return runCatching {
+            Files
+                .readAttributes(paths.dirFor(id), java.nio.file.attribute.BasicFileAttributes::class.java)
+                .creationTime()
+                .toMillis()
+        }.getOrDefault(0L)
+    }
+
+    /** Total books surfaced in the preview: matched (definitive tiers) + ambiguous + unmatched. */
+    private fun bookCountOf(analysis: ImportAnalysis): Int {
+        val definitive =
+            analysis.bookMatchCounts
+                .filterKeys { it.isDefinitiveBookTier() }
+                .values
+                .sum()
+        return definitive + analysis.ambiguous.size + analysis.unmatched.size
+    }
+
+    private suspend fun <T> onIo(block: () -> T): T = withContext(Dispatchers.IO) { block() }
+
+    /** Server-internal persisted shape of a confirmed mapping (`mapping.json`). */
+    @Serializable
+    data class StoredMapping(
+        val userMappings: Map<AbsUserId, UserId>,
+        val bookOverrides: Map<AbsItemId, BookId?>,
+    )
+
+    /** Server-internal upload-time metadata sidecar (`meta.json`). */
+    @Serializable
+    private data class ImportMeta(
+        val createdAt: Long,
+    )
+
+    private companion object {
+        val json = Json { ignoreUnknownKeys = true }
+    }
+}
+
+/** The book-match tiers that represent a confident single-book match (not ambiguous/unmatched). */
+private fun com.calypsan.listenup.api.dto.import.MatchTier.isDefinitiveBookTier(): Boolean =
+    when (this) {
+        com.calypsan.listenup.api.dto.import.MatchTier.ASIN,
+        com.calypsan.listenup.api.dto.import.MatchTier.ISBN,
+        com.calypsan.listenup.api.dto.import.MatchTier.PATH,
+        com.calypsan.listenup.api.dto.import.MatchTier.TITLE_AUTHOR,
+        -> true
+
+        else -> false
+    }
