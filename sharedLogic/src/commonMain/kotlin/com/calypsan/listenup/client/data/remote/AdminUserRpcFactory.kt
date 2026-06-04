@@ -27,6 +27,17 @@ interface AdminUserRpcFactory {
     suspend fun invalidate()
 }
 
+/**
+ * Production [AdminUserRpcFactory] over the bearer-gated `/api/rpc/authed` WebSocket.
+ *
+ * Caches the [AdminUserService] proxy and the RPC-flavored [HttpClient] per mount.
+ * [invalidate] drops both caches; the next [get] call reconnects fresh — used by
+ * [RpcCacheInvalidator] on logout or server-URL change.
+ *
+ * Declared `open` so tests can subclass and override [connect] with a fake WebSocket.
+ *
+ * Mirrors [KtorLibraryAdminRpcFactory] — the established RPC-factory shape.
+ */
 open class KtorAdminUserRpcFactory(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,

@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
@@ -28,12 +30,19 @@ import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.model.StagedCollection
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Implementation of AdminRepository using AdminApiContract for non-user operations
  * and [AdminUserRpcFactory] for user management (routed through the Kotlin RPC server).
  *
- * All methods return [AppResult] — no exceptions are thrown.
+ * All methods return [AppResult] — no exceptions are thrown. The [catching] helper wraps
+ * every RPC call so that transport-level exceptions (e.g. [io.ktor.client.plugins.websocket.WebSocketException]
+ * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
+ * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
  *
  * @property adminApi API client for invite/settings/inbox/library operations
  * @property adminUserRpc RPC factory for user-management operations
@@ -47,27 +56,39 @@ class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getUsers(): AppResult<List<AdminUserInfo>> =
-        adminUserRpc.get().listUsers().map { users -> users.map { it.toAdminUserInfo() } }
+        catching("getUsers") {
+            adminUserRpc.get().listUsers().map { users -> users.map { it.toAdminUserInfo() } }
+        }
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> =
-        adminUserRpc.get().listPendingUsers().map { users -> users.map { it.toAdminUserInfo() } }
+        catching("getPendingUsers") {
+            adminUserRpc.get().listPendingUsers().map { users -> users.map { it.toAdminUserInfo() } }
+        }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        adminUserRpc.get()
-            .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
-            .flatMap { adminUserRpc.get().getUser(UserId(userId)) }
-            .map { it.toAdminUserInfo() }
+        catching("approveUser") {
+            adminUserRpc
+                .get()
+                .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
+                .flatMap { adminUserRpc.get().getUser(UserId(userId)) }
+                .map { it.toAdminUserInfo() }
+        }
 
     override suspend fun denyUser(userId: String): AppResult<Unit> =
-        adminUserRpc.get()
-            .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = false))
-            .map { }
+        catching("denyUser") {
+            adminUserRpc
+                .get()
+                .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = false))
+                .map { }
+        }
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> =
-        adminUserRpc.get().deleteUser(UserId(userId))
+        catching("deleteUser") { adminUserRpc.get().deleteUser(UserId(userId)) }
 
     override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
-        adminUserRpc.get().getUser(UserId(userId)).map { it.toAdminUserInfo() }
+        catching("getUser") {
+            adminUserRpc.get().getUser(UserId(userId)).map { it.toAdminUserInfo() }
+        }
 
     override suspend fun updateUser(
         userId: String,
@@ -78,14 +99,39 @@ class AdminRepositoryImpl(
     ): AppResult<AdminUserInfo> {
         // firstName/lastName have no contract field — they must NOT be sent to the server.
         // displayName is deferred to a future domain-realignment follow-up.
-        val patch = AdminUserPatch(
-            role = role?.let { UserRole.valueOf(it) },
-            permissions = canShare?.let {
-                com.calypsan.listenup.api.dto.auth.UserPermissions(canShare = it)
-            },
-        )
-        return adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
+        val patch =
+            AdminUserPatch(
+                role = role?.let { UserRole.valueOf(it) },
+                permissions = canShare?.let { UserPermissions(canShare = it) },
+            )
+        return catching("updateUser") {
+            adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
+        }
     }
+
+    /**
+     * Catches transport-level exceptions from RPC calls and converts them to
+     * [AppResult.Failure], preserving the [AppResult] contract. [CancellationException]
+     * is always re-thrown per kotlinx.coroutines convention.
+     *
+     * This is required because [AdminUserRpcFactory.get] opens a WebSocket connection
+     * on first use; if authentication fails (HTTP 401 during the WS upgrade), the RPC
+     * library throws [io.ktor.client.plugins.websocket.WebSocketException] rather than
+     * returning an error response. Without this boundary the exception escapes into the
+     * caller's coroutine as an unhandled exception.
+     */
+    private suspend inline fun <T> catching(
+        op: String,
+        block: () -> AppResult<T>,
+    ): AppResult<T> =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "admin user RPC $op failed at the transport boundary" }
+            AppResult.Failure(InternalError())
+        }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT
