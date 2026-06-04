@@ -1,4 +1,3 @@
-@file:Suppress("LongMethod")
 
 package com.calypsan.listenup.client.features.auth
 
@@ -229,56 +228,17 @@ private fun RegisterForm(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = stringResource(Res.string.auth_request_account),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        Text(
-            text = stringResource(Res.string.auth_create_an_account_request_an),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        RegisterFormHeader()
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // First Name
-        ListenUpTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
-            label = stringResource(Res.string.auth_first_name),
+        RegisterNameFields(
+            firstName = firstName,
+            onFirstNameChange = { firstName = it },
+            lastName = lastName,
+            onLastNameChange = { lastName = it },
             enabled = !isLoading,
-            keyboardOptions =
-                KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next,
-                ),
-            keyboardActions =
-                KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        // Last Name
-        ListenUpTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
-            label = stringResource(Res.string.auth_last_name),
-            enabled = !isLoading,
-            keyboardOptions =
-                KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next,
-                ),
-            keyboardActions =
-                KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                ),
-            modifier = Modifier.fillMaxWidth(),
+            onImeNext = { focusManager.moveFocus(FocusDirection.Down) },
         )
 
         // Email
@@ -360,4 +320,73 @@ private fun RegisterForm(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+/**
+ * Heading and explanatory copy at the top of the registration form.
+ */
+@Composable
+private fun RegisterFormHeader() {
+    Text(
+        text = stringResource(Res.string.auth_request_account),
+        style = MaterialTheme.typography.headlineMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+
+    Text(
+        text = stringResource(Res.string.auth_create_an_account_request_an),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * First and last name inputs. State is hoisted to the form so the values flow into submit.
+ */
+@Composable
+private fun RegisterNameFields(
+    firstName: String,
+    onFirstNameChange: (String) -> Unit,
+    lastName: String,
+    onLastNameChange: (String) -> Unit,
+    enabled: Boolean,
+    onImeNext: () -> Unit,
+) {
+    // First Name
+    ListenUpTextField(
+        value = firstName,
+        onValueChange = onFirstNameChange,
+        label = stringResource(Res.string.auth_first_name),
+        enabled = enabled,
+        keyboardOptions =
+            KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next,
+            ),
+        keyboardActions =
+            KeyboardActions(
+                onNext = { onImeNext() },
+            ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    // Last Name
+    ListenUpTextField(
+        value = lastName,
+        onValueChange = onLastNameChange,
+        label = stringResource(Res.string.auth_last_name),
+        enabled = enabled,
+        keyboardOptions =
+            KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Next,
+            ),
+        keyboardActions =
+            KeyboardActions(
+                onNext = { onImeNext() },
+            ),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
