@@ -189,7 +189,12 @@ class AdminRepositoryImpl(
     // SERVER SETTINGS
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> = adminApi.setOpenRegistration(enabled)
+    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
+        catching("setOpenRegistration") {
+            adminUserRpc.get().setRegistrationPolicy(
+                if (enabled) RegistrationPolicy.OPEN else RegistrationPolicy.CLOSED,
+            )
+        }
 
     override suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?> =
         adminApi.updateInstance(UpdateInstanceRequest(remoteUrl = remoteUrl)).map { it.remoteUrl }
