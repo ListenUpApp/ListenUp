@@ -80,9 +80,10 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      # Kotest across the shared client core (every client consumes :sharedLogic) + server.
+      # Kotest across the contract DTOs, the shared client core (every client consumes
+      # :sharedLogic), and the server.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:jvmTest :server:test --no-daemon
+        run: ./gradlew :contract:jvmTest :sharedLogic:jvmTest :server:test --no-daemon
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
