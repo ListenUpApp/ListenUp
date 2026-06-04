@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -33,7 +34,7 @@ class UserStatsWindowAnchorTest :
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 // No internal updater — we drive onListeningEvent explicitly.
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock)
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
 
                 runTest {
                     val endedAt = nowMs - 10 * dayMs // 10 days before "now"

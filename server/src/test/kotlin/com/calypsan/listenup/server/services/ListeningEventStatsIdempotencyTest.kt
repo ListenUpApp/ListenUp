@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -34,7 +35,7 @@ class ListeningEventStatsIdempotencyTest :
         test("re-firing the same listening event does not double-count totalSecondsAllTime") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock)
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
                 // The repository fires the stats hook internally on a successful upsert —
                 // wire the real updater so the idempotency guard is exercised end-to-end.
                 val eventRepo =

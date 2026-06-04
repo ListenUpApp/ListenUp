@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
@@ -356,7 +357,7 @@ private suspend fun stageAnalyzedImport(
     val registry = SyncRegistry()
     val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
     val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-    val statsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo)
+    val statsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() })
     val listeningEventRepo =
         ListeningEventRepository(db = db, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
     val statsBackfill = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)

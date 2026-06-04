@@ -36,6 +36,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -75,7 +76,7 @@ class PlaybackServiceImplTest :
             val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-            val updater = UserStatsUpdater(db = db, userStatsRepo = statsRepo)
+            val updater = UserStatsUpdater(db = db, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() })
             val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), userStatsUpdater = updater)
             return TestDeps(
                 bookRepo = bookRepo,

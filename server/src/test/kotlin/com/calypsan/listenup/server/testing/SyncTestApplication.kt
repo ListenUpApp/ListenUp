@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -179,7 +180,22 @@ internal fun withTestApplication(
                     db = db,
                     bus = bus,
                     registry = registry,
-                    userStatsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo).also { updater = it },
+                    userStatsUpdater =
+                        UserStatsUpdater(
+                            db = db,
+                            userStatsRepo = statsRepo,
+                            publicProfileMaintainerProvider = {
+                                com.calypsan.listenup.server.services.PublicProfileMaintainer(
+                                    db = db,
+                                    publicProfileRepo =
+                                        PublicProfileRepository(
+                                            db = db,
+                                            bus = ChangeBus(),
+                                            registry = SyncRegistry(),
+                                        ),
+                                )
+                            },
+                        ).also { updater = it },
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))

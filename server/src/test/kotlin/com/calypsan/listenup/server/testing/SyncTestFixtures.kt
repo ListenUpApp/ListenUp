@@ -22,6 +22,10 @@ import com.calypsan.listenup.server.db.LibraryTable
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.sync.SyncRegistry
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -175,6 +179,20 @@ fun rootPrincipal(userId: String = "test-root"): PrincipalProvider =
 /** A [PrincipalProvider] yielding a MEMBER [UserPrincipal] for [userId] — for canEdit-deny tests. */
 fun memberPrincipal(userId: String): PrincipalProvider =
     PrincipalProvider { UserPrincipal(UserId(userId), SessionId("test-session-$userId"), UserRole.MEMBER) }
+
+/**
+ * Returns a [PublicProfileMaintainer] backed by this database, for use in tests that exercise
+ * [com.calypsan.listenup.server.services.UserStatsUpdater.onListeningEvent] or
+ * [com.calypsan.listenup.server.services.UserStatsUpdater.onPositionFinishedFlip] but don't
+ * assert on the public-profiles projection. The maintainer's [PublicProfileMaintainer.refresh]
+ * is a structural no-op when the user row doesn't exist in [UserTable] — so tests that don't
+ * call [seedTestUser] pay no cost beyond a single SELECT per stats write.
+ */
+fun Database.noOpPublicProfileMaintainer(): PublicProfileMaintainer =
+    PublicProfileMaintainer(
+        db = this,
+        publicProfileRepo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry()),
+    )
 
 /**
  * Canonical fixture builder for [BookSyncPayload] test instances.

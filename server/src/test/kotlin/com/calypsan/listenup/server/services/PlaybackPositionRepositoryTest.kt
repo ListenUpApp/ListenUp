@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -194,7 +195,7 @@ class PlaybackPositionRepositoryTest :
         test("recordPosition false→true flip increments booksFinished via UserStatsUpdater") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
                 val repo =
                     PlaybackPositionRepository(
                         db = this,
@@ -233,7 +234,7 @@ class PlaybackPositionRepositoryTest :
         test("recordPosition finished=true on a new row (no prior) also counts as a flip") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
                 val repo =
                     PlaybackPositionRepository(
                         db = this,
