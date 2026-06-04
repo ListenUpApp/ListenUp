@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.Dao
-import androidx.room.Embedded
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -84,33 +83,4 @@ interface UserStatsDao {
     /** All rows (including tombstones) with [revision][UserStatsEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM user_stats WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
-
-    /**
-     * Observe all live user stats joined with their profile display names.
-     *
-     * LEFT JOIN so that users whose profile row hasn't synced yet still appear;
-     * callers fall back to `"User"` when [UserStatsWithProfile.displayName] is null.
-     *
-     * @return Flow emitting the joined list whenever either table changes.
-     */
-    @Query(
-        """
-        SELECT us.*, up.displayName
-        FROM user_stats us
-        LEFT JOIN user_profiles up ON up.id = us.id
-        WHERE us.deletedAt IS NULL
-        """,
-    )
-    fun observeAllJoinedWithProfiles(): Flow<List<UserStatsWithProfile>>
 }
-
-/**
- * Projection that pairs a [UserStatsEntity] row with the user's display name
- * from `user_profiles`.
- *
- * [displayName] is null when no matching profile row exists yet.
- */
-data class UserStatsWithProfile(
-    @Embedded val stats: UserStatsEntity,
-    val displayName: String?,
-)
