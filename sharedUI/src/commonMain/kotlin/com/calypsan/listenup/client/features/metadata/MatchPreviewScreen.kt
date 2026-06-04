@@ -1,4 +1,3 @@
-@file:Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod", "CognitiveComplexMethod")
 
 package com.calypsan.listenup.client.features.metadata
 
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -86,6 +86,9 @@ import listenup.composeapp.generated.resources.metadata_your_book_already_has_al
  * trying different Audible markets.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+// Screen entry point hoists every metadata field's state + toggle callback; a parameter object
+// would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
 @Composable
 fun MatchPreviewScreen(
     currentBook: BookDetail,
@@ -139,37 +142,12 @@ fun MatchPreviewScreen(
             )
         },
         bottomBar = {
-            Surface(
-                tonalElevation = 3.dp,
-            ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                ) {
-                    applyError?.let { error ->
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
-
-                    Button(
-                        onClick = onApply,
-                        enabled = !isApplying && hasAnySelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (isApplying) {
-                            ListenUpLoadingIndicatorSmall()
-                        } else {
-                            Text(stringResource(Res.string.metadata_apply_selected_metadata))
-                        }
-                    }
-                }
-            }
+            ApplyBottomBar(
+                applyError = applyError,
+                isApplying = isApplying,
+                hasAnySelected = hasAnySelected,
+                onApply = onApply,
+            )
         },
     ) { padding ->
         LazyColumn(
@@ -213,143 +191,216 @@ fun MatchPreviewScreen(
                     }
                 }
             } else {
-                // Cover selection row
-                item {
-                    CoverSelectionRow(
-                        currentCoverPath = currentBook.coverPath,
-                        coverOptions = coverOptions,
-                        isLoading = isLoadingCovers,
-                        selectedUrl = selectedCoverUrl,
-                        isCoverEnabled = selections.cover,
-                        onSelectCover = onSelectCover,
-                        onToggleCover = { onToggleField(MetadataField.COVER) },
-                    )
-                }
+                metadataFieldsSection(
+                    currentBook = currentBook,
+                    newMetadata = newMetadata,
+                    selections = selections,
+                    coverOptions = coverOptions,
+                    isLoadingCovers = isLoadingCovers,
+                    selectedCoverUrl = selectedCoverUrl,
+                    onSelectCover = onSelectCover,
+                    onToggleField = onToggleField,
+                    onToggleAuthor = onToggleAuthor,
+                    onToggleNarrator = onToggleNarrator,
+                    onToggleSeries = onToggleSeries,
+                    onToggleGenre = onToggleGenre,
+                )
+            }
+        }
+    }
+}
 
-                // Title
-                if (newMetadata.title.isNotBlank()) {
-                    item {
-                        SimpleFieldItem(
-                            label = "Title",
-                            value = newMetadata.title,
-                            isSelected = selections.title,
-                            onToggle = { onToggleField(MetadataField.TITLE) },
-                        )
-                    }
-                }
+@Composable
+private fun ApplyBottomBar(
+    applyError: String?,
+    isApplying: Boolean,
+    hasAnySelected: Boolean,
+    onApply: () -> Unit,
+) {
+    Surface(
+        tonalElevation = 3.dp,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+        ) {
+            applyError?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
 
-                // Subtitle
-                newMetadata.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
-                    item {
-                        SimpleFieldItem(
-                            label = "Subtitle",
-                            value = subtitle,
-                            isSelected = selections.subtitle,
-                            onToggle = { onToggleField(MetadataField.SUBTITLE) },
-                        )
-                    }
-                }
-
-                // Authors
-                if (newMetadata.authors.isNotEmpty()) {
-                    item {
-                        ContributorListItem(
-                            label = "Authors",
-                            contributors = newMetadata.authors,
-                            selectedAsins = selections.selectedAuthors,
-                            onToggle = onToggleAuthor,
-                        )
-                    }
-                }
-
-                // Narrators
-                if (newMetadata.narrators.isNotEmpty()) {
-                    item {
-                        ContributorListItem(
-                            label = "Narrators",
-                            contributors = newMetadata.narrators,
-                            selectedAsins = selections.selectedNarrators,
-                            onToggle = onToggleNarrator,
-                        )
-                    }
-                }
-
-                // Series
-                if (newMetadata.series.isNotEmpty()) {
-                    item {
-                        SeriesListItem(
-                            series = newMetadata.series,
-                            selectedAsins = selections.selectedSeries,
-                            onToggle = onToggleSeries,
-                        )
-                    }
-                }
-
-                // Genres
-                if (newMetadata.genres.isNotEmpty()) {
-                    item {
-                        GenreListItem(
-                            genres = newMetadata.genres,
-                            selectedGenres = selections.selectedGenres,
-                            onToggle = onToggleGenre,
-                        )
-                    }
-                }
-
-                // Description
-                newMetadata.description?.takeIf { it.isNotBlank() }?.let { description ->
-                    item {
-                        val displayText =
-                            if (description.length > 200) {
-                                description.take(200) + "..."
-                            } else {
-                                description
-                            }
-                        SimpleFieldItem(
-                            label = "Description",
-                            value = displayText,
-                            isSelected = selections.description,
-                            onToggle = { onToggleField(MetadataField.DESCRIPTION) },
-                        )
-                    }
-                }
-
-                // Publisher
-                newMetadata.publisher?.takeIf { it.isNotBlank() }?.let { publisher ->
-                    item {
-                        SimpleFieldItem(
-                            label = "Publisher",
-                            value = publisher,
-                            isSelected = selections.publisher,
-                            onToggle = { onToggleField(MetadataField.PUBLISHER) },
-                        )
-                    }
-                }
-
-                // Release Date
-                newMetadata.releaseDate?.takeIf { it.isNotBlank() }?.let { releaseDate ->
-                    item {
-                        SimpleFieldItem(
-                            label = stringResource(Res.string.metadata_release_date),
-                            value = releaseDate,
-                            isSelected = selections.releaseDate,
-                            onToggle = { onToggleField(MetadataField.RELEASE_DATE) },
-                        )
-                    }
-                }
-
-                // Language
-                newMetadata.language?.takeIf { it.isNotBlank() }?.let { language ->
-                    item {
-                        SimpleFieldItem(
-                            label = "Language",
-                            value = language,
-                            isSelected = selections.language,
-                            onToggle = { onToggleField(MetadataField.LANGUAGE) },
-                        )
-                    }
+            Button(
+                onClick = onApply,
+                enabled = !isApplying && hasAnySelected,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (isApplying) {
+                    ListenUpLoadingIndicatorSmall()
+                } else {
+                    Text(stringResource(Res.string.metadata_apply_selected_metadata))
                 }
             }
+        }
+    }
+}
+
+// Emits one LazyColumn item per available metadata field; the callback set is fanned straight
+// to each row, so a parameter object would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
+private fun LazyListScope.metadataFieldsSection(
+    currentBook: BookDetail,
+    newMetadata: MetadataBook,
+    selections: MetadataSelections,
+    coverOptions: List<CoverEntry>,
+    isLoadingCovers: Boolean,
+    selectedCoverUrl: String?,
+    onSelectCover: (String?) -> Unit,
+    onToggleField: (MetadataField) -> Unit,
+    onToggleAuthor: (String) -> Unit,
+    onToggleNarrator: (String) -> Unit,
+    onToggleSeries: (String) -> Unit,
+    onToggleGenre: (String) -> Unit,
+) {
+    // Cover selection row
+    item {
+        CoverSelectionRow(
+            currentCoverPath = currentBook.coverPath,
+            coverOptions = coverOptions,
+            isLoading = isLoadingCovers,
+            selectedUrl = selectedCoverUrl,
+            isCoverEnabled = selections.cover,
+            onSelectCover = onSelectCover,
+            onToggleCover = { onToggleField(MetadataField.COVER) },
+        )
+    }
+
+    // Title
+    if (newMetadata.title.isNotBlank()) {
+        item {
+            SimpleFieldItem(
+                label = "Title",
+                value = newMetadata.title,
+                isSelected = selections.title,
+                onToggle = { onToggleField(MetadataField.TITLE) },
+            )
+        }
+    }
+
+    // Subtitle
+    newMetadata.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
+        item {
+            SimpleFieldItem(
+                label = "Subtitle",
+                value = subtitle,
+                isSelected = selections.subtitle,
+                onToggle = { onToggleField(MetadataField.SUBTITLE) },
+            )
+        }
+    }
+
+    // Authors
+    if (newMetadata.authors.isNotEmpty()) {
+        item {
+            ContributorListItem(
+                label = "Authors",
+                contributors = newMetadata.authors,
+                selectedAsins = selections.selectedAuthors,
+                onToggle = onToggleAuthor,
+            )
+        }
+    }
+
+    // Narrators
+    if (newMetadata.narrators.isNotEmpty()) {
+        item {
+            ContributorListItem(
+                label = "Narrators",
+                contributors = newMetadata.narrators,
+                selectedAsins = selections.selectedNarrators,
+                onToggle = onToggleNarrator,
+            )
+        }
+    }
+
+    // Series
+    if (newMetadata.series.isNotEmpty()) {
+        item {
+            SeriesListItem(
+                series = newMetadata.series,
+                selectedAsins = selections.selectedSeries,
+                onToggle = onToggleSeries,
+            )
+        }
+    }
+
+    // Genres
+    if (newMetadata.genres.isNotEmpty()) {
+        item {
+            GenreListItem(
+                genres = newMetadata.genres,
+                selectedGenres = selections.selectedGenres,
+                onToggle = onToggleGenre,
+            )
+        }
+    }
+
+    // Description
+    newMetadata.description?.takeIf { it.isNotBlank() }?.let { description ->
+        item {
+            val displayText =
+                if (description.length > 200) {
+                    description.take(200) + "..."
+                } else {
+                    description
+                }
+            SimpleFieldItem(
+                label = "Description",
+                value = displayText,
+                isSelected = selections.description,
+                onToggle = { onToggleField(MetadataField.DESCRIPTION) },
+            )
+        }
+    }
+
+    // Publisher
+    newMetadata.publisher?.takeIf { it.isNotBlank() }?.let { publisher ->
+        item {
+            SimpleFieldItem(
+                label = "Publisher",
+                value = publisher,
+                isSelected = selections.publisher,
+                onToggle = { onToggleField(MetadataField.PUBLISHER) },
+            )
+        }
+    }
+
+    // Release Date
+    newMetadata.releaseDate?.takeIf { it.isNotBlank() }?.let { releaseDate ->
+        item {
+            SimpleFieldItem(
+                label = stringResource(Res.string.metadata_release_date),
+                value = releaseDate,
+                isSelected = selections.releaseDate,
+                onToggle = { onToggleField(MetadataField.RELEASE_DATE) },
+            )
+        }
+    }
+
+    // Language
+    newMetadata.language?.takeIf { it.isNotBlank() }?.let { language ->
+        item {
+            SimpleFieldItem(
+                label = "Language",
+                value = language,
+                isSelected = selections.language,
+                onToggle = { onToggleField(MetadataField.LANGUAGE) },
+            )
         }
     }
 }

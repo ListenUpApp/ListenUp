@@ -1,11 +1,10 @@
-@file:Suppress("CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.contributordetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -318,7 +317,6 @@ private fun WideContributorPortfolio(
  * Avatar on the left, name/metadata/bio on the right, with subtle gradient.
  */
 @Composable
-@Suppress("CognitiveComplexMethod")
 private fun WideHeroHeader(
     name: String,
     aliases: List<String>,
@@ -381,66 +379,93 @@ private fun WideHeroHeader(
 
                 // Name, aliases, metadata, bio
                 Column(modifier = Modifier.weight(1f)) {
-                    // Name
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.headlineLargeEmphasized,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                    WideHeroInfoColumn(
+                        name = name,
+                        aliases = aliases,
+                        birthDate = birthDate,
+                        deathDate = deathDate,
+                        website = website,
+                        description = description,
+                        isDescriptionExpanded = isDescriptionExpanded,
+                        onToggleDescription = onToggleDescription,
                     )
-
-                    // Aliases
-                    if (aliases.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "aka ${aliases.joinToString(", ")}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    // Life dates
-                    val lifeDates = formatLifeDates(birthDate, deathDate)
-                    if (lifeDates != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = lifeDates,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    // Website
-                    website?.takeIf { it.isNotBlank() }?.let { url ->
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = url,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-
-                    // Biography
-                    description?.takeIf { it.isNotBlank() }?.let { desc ->
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = desc,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (desc.length > 200) {
-                            TextButton(
-                                onClick = onToggleDescription,
-                                contentPadding = PaddingValues(0.dp),
-                            ) {
-                                Text(if (isDescriptionExpanded) "Read less" else "Read more")
-                            }
-                        }
-                    }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Name, aliases, life dates, website, and biography column for the wide hero header.
+ * Renders into the surrounding info [Column] in the exact order of the immersive layout.
+ */
+@Composable
+private fun ColumnScope.WideHeroInfoColumn(
+    name: String,
+    aliases: List<String>,
+    birthDate: String?,
+    deathDate: String?,
+    website: String?,
+    description: String?,
+    isDescriptionExpanded: Boolean,
+    onToggleDescription: () -> Unit,
+) {
+    // Name
+    Text(
+        text = name,
+        style = MaterialTheme.typography.headlineLargeEmphasized,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+
+    // Aliases
+    if (aliases.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "aka ${aliases.joinToString(", ")}",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    // Life dates
+    val lifeDates = formatLifeDates(birthDate, deathDate)
+    if (lifeDates != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = lifeDates,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    // Website
+    website?.takeIf { it.isNotBlank() }?.let { url ->
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = url,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+
+    // Biography
+    description?.takeIf { it.isNotBlank() }?.let { desc ->
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = desc,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (desc.length > 200) {
+            TextButton(
+                onClick = onToggleDescription,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text(if (isDescriptionExpanded) "Read less" else "Read more")
             }
         }
     }

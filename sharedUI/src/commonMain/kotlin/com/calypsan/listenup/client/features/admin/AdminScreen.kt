@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber", "LongMethod", "LongParameterList", "CognitiveComplexMethod")
 
 package com.calypsan.listenup.client.features.admin
 
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -55,6 +55,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -152,9 +153,9 @@ fun AdminScreen(
     val scope = rememberCoroutineScope()
     val copyToClipboard = rememberCopyToClipboard()
 
-    var userToDelete by remember { mutableStateOf<AdminUserInfo?>(null) }
-    var inviteToRevoke by remember { mutableStateOf<InviteInfo?>(null) }
-    var userToDeny by remember { mutableStateOf<AdminUserInfo?>(null) }
+    val userToDeleteState = remember { mutableStateOf<AdminUserInfo?>(null) }
+    val inviteToRevokeState = remember { mutableStateOf<InviteInfo?>(null) }
+    val userToDenyState = remember { mutableStateOf<AdminUserInfo?>(null) }
 
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminUiState.Ready)?.error
@@ -212,8 +213,8 @@ fun AdminScreen(
                     state = current,
                     onOpenRegistrationChange = { viewModel.setOpenRegistration(it) },
                     onApproveUserClick = { viewModel.approveUser(it.id) },
-                    onDenyUserClick = { userToDeny = it },
-                    onDeleteUserClick = { userToDelete = it },
+                    onDenyUserClick = { userToDenyState.value = it },
+                    onDeleteUserClick = { userToDeleteState.value = it },
                     onUserClick = onUserClick,
                     onCopyInviteClick = { invite ->
                         copyToClipboard(invite.url)
@@ -221,7 +222,7 @@ fun AdminScreen(
                             snackbarHostState.showSnackbar("Link copied!")
                         }
                     },
-                    onRevokeInviteClick = { inviteToRevoke = it },
+                    onRevokeInviteClick = { inviteToRevokeState.value = it },
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
@@ -241,6 +242,25 @@ fun AdminScreen(
             }
         }
     }
+
+    AdminConfirmationDialogs(
+        viewModel = viewModel,
+        userToDeleteState = userToDeleteState,
+        inviteToRevokeState = inviteToRevokeState,
+        userToDenyState = userToDenyState,
+    )
+}
+
+@Composable
+private fun AdminConfirmationDialogs(
+    viewModel: AdminViewModel,
+    userToDeleteState: MutableState<AdminUserInfo?>,
+    inviteToRevokeState: MutableState<InviteInfo?>,
+    userToDenyState: MutableState<AdminUserInfo?>,
+) {
+    var userToDelete by userToDeleteState
+    var inviteToRevoke by inviteToRevokeState
+    var userToDeny by userToDenyState
 
     // Delete user confirmation dialog
     userToDelete?.let { user ->
@@ -292,6 +312,9 @@ fun AdminScreen(
     }
 }
 
+// AdminContent fans hoisted state + per-row callbacks straight into its LazyColumn sections;
+// a parameter object would only add an indirection layer that Compose tooling discourages.
+@Suppress("LongParameterList")
 @Composable
 private fun AdminContent(
     state: AdminUiState.Ready,
@@ -351,154 +374,26 @@ private fun AdminContent(
 
         // Pending users section (only shown when open registration is enabled)
         if (state.openRegistration) {
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = stringResource(Res.string.admin_pending_registrations),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors =
-                        CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        ),
-                ) {
-                    if (state.pendingUsers.isEmpty()) {
-                        Text(
-                            text = stringResource(Res.string.admin_no_pending_registrations),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    } else {
-                        Column {
-                            state.pendingUsers.forEachIndexed { index, user ->
-                                PendingUserRow(
-                                    user = user,
-                                    isApproving = state.approvingUserId == user.id,
-                                    isDenying = state.denyingUserId == user.id,
-                                    onApproveClick = { onApproveUserClick(user) },
-                                    onDenyClick = { onDenyUserClick(user) },
-                                )
-                                if (index < state.pendingUsers.lastIndex) {
-                                    HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Users section header
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.common_users),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
+            pendingUsersSection(
+                state = state,
+                onApproveUserClick = onApproveUserClick,
+                onDenyUserClick = onDenyUserClick,
             )
         }
 
-        // Users table
-        item {
-            val cardShape = MaterialTheme.shapes.large
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = cardShape,
-                colors =
-                    CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
-            ) {
-                Column {
-                    // Table header - clip top corners to match card shape
-                    UserTableHeader(
-                        modifier =
-                            Modifier.clip(
-                                RoundedCornerShape(
-                                    topStart = 28.dp,
-                                    topEnd = 28.dp,
-                                ),
-                            ),
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    // User rows
-                    if (state.users.isEmpty()) {
-                        Text(
-                            text = stringResource(Res.string.common_no_items_found, "users"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    } else {
-                        state.users.forEachIndexed { index, user ->
-                            UserTableRow(
-                                user = user,
-                                isDeleting = state.deletingUserId == user.id,
-                                onClick = { onUserClick(user.id) },
-                                onDeleteClick = { onDeleteUserClick(user) },
-                            )
-                            if (index < state.users.lastIndex) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        usersTableSection(
+            state = state,
+            onUserClick = onUserClick,
+            onDeleteUserClick = onDeleteUserClick,
+        )
 
         // Pending invites section (only if there are any)
         if (state.pendingInvites.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = stringResource(Res.string.admin_pending_invites),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-
-            item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors =
-                        CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        ),
-                ) {
-                    Column {
-                        state.pendingInvites.forEachIndexed { index, invite ->
-                            InviteRow(
-                                invite = invite,
-                                isRevoking = state.revokingInviteId == invite.id,
-                                onCopyClick = { onCopyInviteClick(invite) },
-                                onRevokeClick = { onRevokeInviteClick(invite) },
-                            )
-                            if (index < state.pendingInvites.lastIndex) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            pendingInvitesSection(
+                state = state,
+                onCopyInviteClick = onCopyInviteClick,
+                onRevokeInviteClick = onRevokeInviteClick,
+            )
         }
 
         // Invite someone button
@@ -548,6 +443,170 @@ private fun AdminContent(
     }
 }
 
+private fun LazyListScope.pendingUsersSection(
+    state: AdminUiState.Ready,
+    onApproveUserClick: (AdminUserInfo) -> Unit,
+    onDenyUserClick: (AdminUserInfo) -> Unit,
+) {
+    item {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = stringResource(Res.string.admin_pending_registrations),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+
+    item {
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors =
+                CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                ),
+        ) {
+            if (state.pendingUsers.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.admin_no_pending_registrations),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                Column {
+                    state.pendingUsers.forEachIndexed { index, user ->
+                        PendingUserRow(
+                            user = user,
+                            isApproving = state.approvingUserId == user.id,
+                            isDenying = state.denyingUserId == user.id,
+                            onApproveClick = { onApproveUserClick(user) },
+                            onDenyClick = { onDenyUserClick(user) },
+                        )
+                        if (index < state.pendingUsers.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.usersTableSection(
+    state: AdminUiState.Ready,
+    onUserClick: (String) -> Unit,
+    onDeleteUserClick: (AdminUserInfo) -> Unit,
+) {
+    // Users section header
+    item {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = stringResource(Res.string.common_users),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+
+    // Users table
+    item {
+        val cardShape = MaterialTheme.shapes.large
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = cardShape,
+            colors =
+                CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
+        ) {
+            Column {
+                // Table header - clip top corners to match card shape
+                UserTableHeader(
+                    modifier =
+                        Modifier.clip(
+                            RoundedCornerShape(
+                                topStart = 28.dp,
+                                topEnd = 28.dp,
+                            ),
+                        ),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // User rows
+                if (state.users.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.common_no_items_found, "users"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                } else {
+                    state.users.forEachIndexed { index, user ->
+                        UserTableRow(
+                            user = user,
+                            isDeleting = state.deletingUserId == user.id,
+                            onClick = { onUserClick(user.id) },
+                            onDeleteClick = { onDeleteUserClick(user) },
+                        )
+                        if (index < state.users.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.pendingInvitesSection(
+    state: AdminUiState.Ready,
+    onCopyInviteClick: (InviteInfo) -> Unit,
+    onRevokeInviteClick: (InviteInfo) -> Unit,
+) {
+    item {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = stringResource(Res.string.admin_pending_invites),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+
+    item {
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors =
+                CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+        ) {
+            Column {
+                state.pendingInvites.forEachIndexed { index, invite ->
+                    InviteRow(
+                        invite = invite,
+                        isRevoking = state.revokingInviteId == invite.id,
+                        onCopyClick = { onCopyInviteClick(invite) },
+                        onRevokeClick = { onRevokeInviteClick(invite) },
+                    )
+                    if (index < state.pendingInvites.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SettingsCard(
     serverName: String,
@@ -571,137 +630,181 @@ private fun SettingsCard(
             ),
     ) {
         Column {
-            // Server Name field
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Badge,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = serverName,
-                    onValueChange = onServerNameChange,
-                    label = { Text(stringResource(Res.string.admin_server_name)) },
-                    placeholder = { Text(stringResource(Res.string.connect_listenup_server)) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            SettingsServerNameRow(
+                serverName = serverName,
+                onServerNameChange = onServerNameChange,
+            )
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Remote URL field
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CloudDownload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = remoteUrl,
-                    onValueChange = onRemoteUrlChange,
-                    label = { Text(stringResource(Res.string.admin_remote_url)) },
-                    placeholder = { Text("https://audiobooks.example.com") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            SettingsRemoteUrlRow(
+                remoteUrl = remoteUrl,
+                onRemoteUrlChange = onRemoteUrlChange,
+            )
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Open Registration toggle
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.HowToReg,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.admin_open_registration),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.admin_allow_anyone_to_request_an),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (isTogglingOpenRegistration) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Switch(
-                        checked = openRegistration,
-                        onCheckedChange = onOpenRegistrationChange,
-                    )
-                }
-            }
+            SettingsOpenRegistrationRow(
+                openRegistration = openRegistration,
+                isTogglingOpenRegistration = isTogglingOpenRegistration,
+                onOpenRegistrationChange = onOpenRegistrationChange,
+            )
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Inbox Workflow toggle
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Inbox,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.admin_inbox_workflow),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.admin_review_new_books_before_they),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (isSaving) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Switch(
-                        checked = inboxEnabled,
-                        onCheckedChange = onInboxEnabledChange,
-                    )
-                }
-            }
+            SettingsInboxWorkflowRow(
+                inboxEnabled = inboxEnabled,
+                isSaving = isSaving,
+                onInboxEnabledChange = onInboxEnabledChange,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsServerNameRow(
+    serverName: String,
+    onServerNameChange: (String) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Badge,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = serverName,
+            onValueChange = onServerNameChange,
+            label = { Text(stringResource(Res.string.admin_server_name)) },
+            placeholder = { Text(stringResource(Res.string.connect_listenup_server)) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun SettingsRemoteUrlRow(
+    remoteUrl: String,
+    onRemoteUrlChange: (String) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.CloudDownload,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = remoteUrl,
+            onValueChange = onRemoteUrlChange,
+            label = { Text(stringResource(Res.string.admin_remote_url)) },
+            placeholder = { Text("https://audiobooks.example.com") },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun SettingsOpenRegistrationRow(
+    openRegistration: Boolean,
+    isTogglingOpenRegistration: Boolean,
+    onOpenRegistrationChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.HowToReg,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(Res.string.admin_open_registration),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(Res.string.admin_allow_anyone_to_request_an),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (isTogglingOpenRegistration) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            Switch(
+                checked = openRegistration,
+                onCheckedChange = onOpenRegistrationChange,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsInboxWorkflowRow(
+    inboxEnabled: Boolean,
+    isSaving: Boolean,
+    onInboxEnabledChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Inbox,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(Res.string.admin_inbox_workflow),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(Res.string.admin_review_new_books_before_they),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (isSaving) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            Switch(
+                checked = inboxEnabled,
+                onCheckedChange = onInboxEnabledChange,
+            )
         }
     }
 }

@@ -1,4 +1,3 @@
-@file:Suppress("CognitiveComplexMethod", "UnusedParameter")
 
 package com.calypsan.listenup.client.features.nowplaying
 
@@ -62,6 +61,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.State
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -82,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import androidx.compose.runtime.produceState
+import coil3.Image
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import coil3.network.NetworkHeaders
@@ -295,7 +297,6 @@ fun NowPlayingScreen(
                     WideNowPlayingLayout(
                         state = state,
                         sleepTimerState = sleepTimerState,
-                        dominantColor = dominantColor,
                         breathScale = breathScale,
                         ambientAlpha = ambientAlpha,
                         onColorExtracted = { dominantColor = it },
@@ -689,7 +690,6 @@ private fun TabletopNowPlayingLayout(
 private fun WideNowPlayingLayout(
     state: NowPlayingState.Active,
     sleepTimerState: SleepTimerState,
-    dominantColor: Color,
     breathScale: Float,
     ambientAlpha: Float,
     onColorExtracted: (Color) -> Unit,
@@ -984,14 +984,54 @@ private fun CoverArt(
     breathScale: Float = 1f,
     onColorExtracted: (Color) -> Unit,
 ) {
-    val context = LocalContext.current
-
     // Track if color has been extracted for this cover to prevent repeated extraction
-    var colorExtracted by remember(bookId, coverUrl) { mutableStateOf(false) }
+    val colorExtracted = remember(bookId, coverUrl) { mutableStateOf(false) }
 
-    // Resolve cover image: local file fast path, or server URL fallback with auth.
-    // Covers are never blank when online even if the local download hasn't completed yet.
-    val imageRequest by produceState<ImageRequest>(
+    val imageRequest by rememberCoverImageRequest(bookId = bookId, coverUrl = coverUrl)
+
+    // Cover art with shadow and breathing animation
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .aspectRatio(1f)
+                .graphicsLayer {
+                    scaleX = breathScale
+                    scaleY = breathScale
+                },
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 24.dp,
+        tonalElevation = 0.dp,
+    ) {
+        SubcomposeAsyncImage(
+            model = imageRequest,
+            contentDescription = "Book cover",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            success = { state ->
+                CoverColorExtractor(
+                    image = state.result.image,
+                    colorExtracted = colorExtracted,
+                    onColorExtracted = onColorExtracted,
+                )
+                SubcomposeAsyncImageContent()
+            },
+        )
+    }
+}
+
+/**
+ * Resolves the cover [ImageRequest]: local file fast path, or server URL fallback with auth.
+ *
+ * Covers are never blank when online even if the local download hasn't completed yet.
+ */
+@Composable
+private fun rememberCoverImageRequest(
+    bookId: String,
+    coverUrl: String?,
+): State<ImageRequest> {
+    val context = LocalContext.current
+    return produceState<ImageRequest>(
         initialValue =
             ImageRequest
                 .Builder(context)
@@ -1036,49 +1076,36 @@ private fun CoverArt(
             }
         }
     }
+}
 
-    // Cover art with shadow and breathing animation
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f)
-                .graphicsLayer {
-                    scaleX = breathScale
-                    scaleY = breathScale
-                },
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 24.dp,
-        tonalElevation = 0.dp,
-    ) {
-        SubcomposeAsyncImage(
-            model = imageRequest,
-            contentDescription = "Book cover",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            success = { state ->
-                // Extract dominant color once per image load
-                LaunchedEffect(state.result.image) {
-                    if (!colorExtracted) {
-                        colorExtracted = true
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val bitmap = state.result.image.toBitmap()
-                                val color = extractDominantColor(bitmap)
-                                if (color != null) {
-                                    withContext(Dispatchers.Main) {
-                                        onColorExtracted(color)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                logger.debug(e) { "Color extraction from cover art failed" }
-                            }
+/**
+ * Extracts the dominant color once per image load, flipping [colorExtracted] so the
+ * extraction never repeats for the same cover. Errors are swallowed to a debug log —
+ * a missing accent color degrades gracefully to the default surface.
+ */
+@Composable
+private fun CoverColorExtractor(
+    image: Image,
+    colorExtracted: MutableState<Boolean>,
+    onColorExtracted: (Color) -> Unit,
+) {
+    LaunchedEffect(image) {
+        if (!colorExtracted.value) {
+            colorExtracted.value = true
+            withContext(Dispatchers.IO) {
+                try {
+                    val bitmap = image.toBitmap()
+                    val color = extractDominantColor(bitmap)
+                    if (color != null) {
+                        withContext(Dispatchers.Main) {
+                            onColorExtracted(color)
                         }
                     }
+                } catch (e: Exception) {
+                    logger.debug(e) { "Color extraction from cover art failed" }
                 }
-                SubcomposeAsyncImageContent()
-            },
-        )
+            }
+        }
     }
 }
 

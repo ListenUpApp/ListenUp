@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.unmappedgenres
 
 import androidx.compose.foundation.clickable
@@ -83,64 +81,17 @@ fun UnmappedGenresScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("Unmapped Genres") },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                        }
-                    },
-                )
-                val ready = state as? UnmappedGenresUiState.Ready
-                if (ready != null && (ready.isLoadingUnmapped || ready.isSaving)) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            }
+            UnmappedGenresTopBar(
+                state = state,
+                onBackClick = onBackClick,
+            )
         },
     ) { innerPadding ->
-        when (val s = state) {
-            is UnmappedGenresUiState.Loading -> {
-                FullScreenLoadingIndicator()
-            }
-
-            is UnmappedGenresUiState.Error -> {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(top = innerPadding.calculateTopPadding())
-                            .padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = s.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            is UnmappedGenresUiState.Ready -> {
-                if (s.unmapped.isEmpty()) {
-                    EmptyUnmappedMessage(topPadding = innerPadding.calculateTopPadding())
-                } else {
-                    LazyColumn(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(top = innerPadding.calculateTopPadding()),
-                    ) {
-                        items(s.unmapped, key = { it.rawString }) { summary ->
-                            UnmappedRow(
-                                summary = summary,
-                                onClick = { pickerForRawString = summary.rawString },
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        UnmappedGenresContent(
+            state = state,
+            topPadding = innerPadding.calculateTopPadding(),
+            onPickRawString = { pickerForRawString = it },
+        )
     }
 
     pickerForRawString?.let { rawString ->
@@ -154,6 +105,78 @@ fun UnmappedGenresScreen(
             },
             onDismiss = { pickerForRawString = null },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UnmappedGenresTopBar(
+    state: UnmappedGenresUiState,
+    onBackClick: () -> Unit,
+) {
+    Column {
+        TopAppBar(
+            title = { Text("Unmapped Genres") },
+            navigationIcon = {
+                IconButton(onClick = onBackClick) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+                }
+            },
+        )
+        val ready = state as? UnmappedGenresUiState.Ready
+        if (ready != null && (ready.isLoadingUnmapped || ready.isSaving)) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun UnmappedGenresContent(
+    state: UnmappedGenresUiState,
+    topPadding: androidx.compose.ui.unit.Dp,
+    onPickRawString: (String) -> Unit,
+) {
+    when (state) {
+        is UnmappedGenresUiState.Loading -> {
+            FullScreenLoadingIndicator()
+        }
+
+        is UnmappedGenresUiState.Error -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(top = topPadding)
+                        .padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = state.message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
+        is UnmappedGenresUiState.Ready -> {
+            if (state.unmapped.isEmpty()) {
+                EmptyUnmappedMessage(topPadding = topPadding)
+            } else {
+                LazyColumn(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(top = topPadding),
+                ) {
+                    items(state.unmapped, key = { it.rawString }) { summary ->
+                        UnmappedRow(
+                            summary = summary,
+                            onClick = { onPickRawString(summary.rawString) },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

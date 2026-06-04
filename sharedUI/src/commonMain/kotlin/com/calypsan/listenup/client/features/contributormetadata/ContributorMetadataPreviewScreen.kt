@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "CognitiveComplexMethod", "StringLiteralDuplication")
-
 package com.calypsan.listenup.client.features.contributormetadata
 
 import androidx.compose.foundation.layout.Arrangement
@@ -103,140 +101,178 @@ fun ContributorMetadataPreviewScreen(
             )
         },
         bottomBar = {
-            Surface(
-                tonalElevation = 3.dp,
-            ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                ) {
-                    state.applyError?.let { error ->
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = onChangeMatch,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(stringResource(Res.string.contributor_change_match))
-                        }
-
-                        Button(
-                            onClick = onApply,
-                            enabled = !state.isApplying && hasAnySelected,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            if (state.isApplying) {
-                                ListenUpLoadingIndicatorSmall(
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                            } else {
-                                Text(
-                                    stringResource(
-                                        Res.string.contributor_apply_selectedcount_of_availablefieldcount,
-                                        selectedCount,
-                                        availableFieldCount,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            PreviewBottomBar(
+                applyError = state.applyError,
+                isApplying = state.isApplying,
+                hasAnySelected = hasAnySelected,
+                selectedCount = selectedCount,
+                availableFieldCount = availableFieldCount,
+                onApply = onApply,
+                onChangeMatch = onChangeMatch,
+            )
         },
     ) { padding ->
-        when {
-            state.isLoadingPreview -> {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ListenUpLoadingIndicator()
-                }
+        PreviewContent(
+            state = state,
+            onToggleField = onToggleField,
+            padding = padding,
+        )
+    }
+}
+
+@Composable
+private fun PreviewBottomBar(
+    applyError: String?,
+    isApplying: Boolean,
+    hasAnySelected: Boolean,
+    selectedCount: Int,
+    availableFieldCount: Int,
+    onApply: () -> Unit,
+    onChangeMatch: () -> Unit,
+) {
+    Surface(
+        tonalElevation = 3.dp,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+        ) {
+            applyError?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
 
-            state.previewError != null -> {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onChangeMatch,
+                    modifier = Modifier.weight(1f),
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(32.dp),
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.contributor_failed_to_load_profile),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error,
+                    Text(stringResource(Res.string.contributor_change_match))
+                }
+
+                Button(
+                    onClick = onApply,
+                    enabled = !isApplying && hasAnySelected,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (isApplying) {
+                        ListenUpLoadingIndicatorSmall(
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
-                        Spacer(Modifier.height(8.dp))
+                    } else {
                         Text(
-                            text = state.previewError ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            stringResource(
+                                Res.string.contributor_apply_selectedcount_of_availablefieldcount,
+                                selectedCount,
+                                availableFieldCount,
+                            ),
                         )
                     }
                 }
             }
+        }
+    }
+}
 
-            currentContributor != null && profile != null -> {
-                LazyColumn(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+@Composable
+private fun PreviewContent(
+    state: ContributorMetadataUiState,
+    onToggleField: (ContributorMetadataField) -> Unit,
+    padding: PaddingValues,
+) {
+    val currentContributor = state.currentContributor
+    val profile = state.previewProfile
+    val selections = state.selections
+
+    when {
+        state.isLoadingPreview -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                ListenUpLoadingIndicator()
+            }
+        }
+
+        state.previewError != null -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp),
                 ) {
-                    // Image comparison
-                    item {
-                        ImageComparisonRow(
-                            currentImagePath = currentContributor.imagePath,
-                            newImageUrl = profile.imageUrl,
-                            isSelected = selections.image,
-                            onToggle = { onToggleField(ContributorMetadataField.IMAGE) },
-                        )
-                    }
+                    Text(
+                        text = stringResource(Res.string.contributor_failed_to_load_profile),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = state.previewError ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
-                    // Name comparison
-                    item {
-                        TextComparisonRow(
-                            label = "Name",
-                            currentValue = currentContributor.name,
-                            newValue = profile.name,
-                            isSelected = selections.name,
-                            onToggle = { onToggleField(ContributorMetadataField.NAME) },
-                        )
-                    }
+        currentContributor != null && profile != null -> {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // Image comparison
+                item {
+                    ImageComparisonRow(
+                        currentImagePath = currentContributor.imagePath,
+                        newImageUrl = profile.imageUrl,
+                        isSelected = selections.image,
+                        onToggle = { onToggleField(ContributorMetadataField.IMAGE) },
+                    )
+                }
 
-                    // Biography comparison
-                    item {
-                        TextComparisonRow(
-                            label = "Biography",
-                            currentValue = currentContributor.description,
-                            newValue = profile.description,
-                            isSelected = selections.biography,
-                            onToggle = { onToggleField(ContributorMetadataField.BIOGRAPHY) },
-                            isMultiline = true,
-                        )
-                    }
+                // Name comparison
+                item {
+                    TextComparisonRow(
+                        label = "Name",
+                        currentValue = currentContributor.name,
+                        newValue = profile.name,
+                        isSelected = selections.name,
+                        onToggle = { onToggleField(ContributorMetadataField.NAME) },
+                    )
+                }
+
+                // Biography comparison
+                item {
+                    TextComparisonRow(
+                        label = "Biography",
+                        currentValue = currentContributor.description,
+                        newValue = profile.description,
+                        isSelected = selections.biography,
+                        onToggle = { onToggleField(ContributorMetadataField.BIOGRAPHY) },
+                        isMultiline = true,
+                    )
                 }
             }
         }
@@ -371,6 +407,8 @@ private fun ImageComparisonRow(
     }
 }
 
+private const val EMPTY_VALUE_PLACEHOLDER = "(empty)"
+
 /**
  * Text comparison row showing current and new values.
  */
@@ -428,46 +466,52 @@ private fun TextComparisonRow(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Current value
-                Text(
-                    text = stringResource(Res.string.contributor_current),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = currentValue?.ifBlank { "(empty)" } ?: "(empty)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color =
-                        if (currentValue.isNullOrBlank()) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    maxLines = if (isMultiline) 4 else 2,
-                    overflow = TextOverflow.Ellipsis,
+                ComparisonValue(
+                    labelText = stringResource(Res.string.contributor_current),
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    value = currentValue,
+                    isMultiline = isMultiline,
                 )
 
                 Spacer(Modifier.height(12.dp))
 
-                // New value
-                Text(
-                    text = stringResource(Res.string.contributor_audible),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = newValue?.ifBlank { "(empty)" } ?: "(empty)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color =
-                        if (newValue.isNullOrBlank()) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    maxLines = if (isMultiline) 4 else 2,
-                    overflow = TextOverflow.Ellipsis,
+                ComparisonValue(
+                    labelText = stringResource(Res.string.contributor_audible),
+                    labelColor = MaterialTheme.colorScheme.primary,
+                    value = newValue,
+                    isMultiline = isMultiline,
                 )
             }
         }
     }
+}
+
+/**
+ * A single labelled value within [TextComparisonRow] — the label line plus the
+ * value line, with an empty-value placeholder and de-emphasised colour for blanks.
+ */
+@Composable
+private fun ComparisonValue(
+    labelText: String,
+    labelColor: androidx.compose.ui.graphics.Color,
+    value: String?,
+    isMultiline: Boolean,
+) {
+    Text(
+        text = labelText,
+        style = MaterialTheme.typography.labelSmall,
+        color = labelColor,
+    )
+    Text(
+        text = value?.ifBlank { EMPTY_VALUE_PLACEHOLDER } ?: EMPTY_VALUE_PLACEHOLDER,
+        style = MaterialTheme.typography.bodyMedium,
+        color =
+            if (value.isNullOrBlank()) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+        maxLines = if (isMultiline) 4 else 2,
+        overflow = TextOverflow.Ellipsis,
+    )
 }

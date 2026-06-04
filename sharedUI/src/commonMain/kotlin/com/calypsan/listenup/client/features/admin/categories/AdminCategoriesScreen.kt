@@ -1,4 +1,3 @@
-@file:Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod", "UnusedParameter")
 
 package com.calypsan.listenup.client.features.admin.categories
 
@@ -12,6 +11,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -113,21 +114,21 @@ fun AdminCategoriesScreen(
 
     // Dialog state — hoisted to top level so both the FAB (in the Scaffold)
     // and the per-row context menus (in the Ready content) can trigger dialogs.
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var createParentId by remember { mutableStateOf<String?>(null) }
-    var createParentName by remember { mutableStateOf<String?>(null) }
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var renameGenreId by remember { mutableStateOf("") }
-    var renameGenreName by remember { mutableStateOf("") }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var deleteGenreId by remember { mutableStateOf("") }
-    var deleteGenreName by remember { mutableStateOf("") }
-    var showMergeDialog by remember { mutableStateOf(false) }
-    var mergeSourceId by remember { mutableStateOf("") }
-    var mergeSourceName by remember { mutableStateOf("") }
-    var showMoveDialog by remember { mutableStateOf(false) }
-    var moveSourceId by remember { mutableStateOf("") }
-    var moveSourceName by remember { mutableStateOf("") }
+    val showCreateDialogState = remember { mutableStateOf(false) }
+    val createParentIdState = remember { mutableStateOf<String?>(null) }
+    val createParentNameState = remember { mutableStateOf<String?>(null) }
+    val showRenameDialogState = remember { mutableStateOf(false) }
+    val renameGenreIdState = remember { mutableStateOf("") }
+    val renameGenreNameState = remember { mutableStateOf("") }
+    val showDeleteDialogState = remember { mutableStateOf(false) }
+    val deleteGenreIdState = remember { mutableStateOf("") }
+    val deleteGenreNameState = remember { mutableStateOf("") }
+    val showMergeDialogState = remember { mutableStateOf(false) }
+    val mergeSourceIdState = remember { mutableStateOf("") }
+    val mergeSourceNameState = remember { mutableStateOf("") }
+    val showMoveDialogState = remember { mutableStateOf(false) }
+    val moveSourceIdState = remember { mutableStateOf("") }
+    val moveSourceNameState = remember { mutableStateOf("") }
 
     // Show transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminCategoriesUiState.Ready)?.error
@@ -142,45 +143,21 @@ fun AdminCategoriesScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text(stringResource(Res.string.common_categories)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
-                        }
-                    },
-                    actions = {
-                        val ready = state as? AdminCategoriesUiState.Ready
-                        if (ready != null && ready.tree.isNotEmpty()) {
-                            val allExpanded = ready.expandedIds.size >= ready.genres.count {
-                                ready.tree.any { root -> hasChildren(root, it.id) }
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (allExpanded) viewModel.collapseAll() else viewModel.expandAll()
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = if (allExpanded) Icons.Outlined.UnfoldLess else Icons.Outlined.UnfoldMore,
-                                    contentDescription = if (allExpanded) "Collapse All" else "Expand All",
-                                )
-                            }
-                        }
-                    },
-                )
-                if ((state as? AdminCategoriesUiState.Ready)?.isSaving == true) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            }
+            CategoriesTopBar(
+                state = state,
+                onBackClick = onBackClick,
+                onToggleAll = { allExpanded ->
+                    if (allExpanded) viewModel.collapseAll() else viewModel.expandAll()
+                },
+            )
         },
         floatingActionButton = {
             if (state is AdminCategoriesUiState.Ready) {
                 ListenUpFab(
                     onClick = {
-                        createParentId = null
-                        createParentName = null
-                        showCreateDialog = true
+                        createParentIdState.value = null
+                        createParentNameState.value = null
+                        showCreateDialogState.value = true
                     },
                     icon = Icons.Outlined.Add,
                     contentDescription = stringResource(Res.string.admin_add_genre),
@@ -188,61 +165,177 @@ fun AdminCategoriesScreen(
             }
         },
     ) { innerPadding ->
-        when (val s = state) {
-            is AdminCategoriesUiState.Loading -> {
-                FullScreenLoadingIndicator()
-            }
+        CategoriesScreenBody(
+            state = state,
+            innerPadding = innerPadding,
+            onToggleExpanded = viewModel::toggleExpanded,
+            onAddChild = { id, name ->
+                createParentIdState.value = id
+                createParentNameState.value = name
+                showCreateDialogState.value = true
+            },
+            onRename = { id, name ->
+                renameGenreIdState.value = id
+                renameGenreNameState.value = name
+                showRenameDialogState.value = true
+            },
+            onDelete = { id, name ->
+                deleteGenreIdState.value = id
+                deleteGenreNameState.value = name
+                showDeleteDialogState.value = true
+            },
+            onMerge = { id, name ->
+                mergeSourceIdState.value = id
+                mergeSourceNameState.value = name
+                showMergeDialogState.value = true
+            },
+            onMove = { id, name ->
+                moveSourceIdState.value = id
+                moveSourceNameState.value = name
+                showMoveDialogState.value = true
+            },
+            onMoveGenre = viewModel::moveGenre,
+        )
+    }
 
-            is AdminCategoriesUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = s.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+    CreateGenreDialog(
+        viewModel = viewModel,
+        showDialogState = showCreateDialogState,
+        parentIdState = createParentIdState,
+        parentNameState = createParentNameState,
+    )
+
+    RenameGenreDialog(
+        viewModel = viewModel,
+        showDialogState = showRenameDialogState,
+        genreIdState = renameGenreIdState,
+        genreNameState = renameGenreNameState,
+    )
+
+    DeleteGenreDialog(
+        viewModel = viewModel,
+        showDialogState = showDeleteDialogState,
+        genreIdState = deleteGenreIdState,
+        genreNameState = deleteGenreNameState,
+    )
+
+    MergeGenreDialogHost(
+        viewModel = viewModel,
+        state = state,
+        showDialogState = showMergeDialogState,
+        sourceIdState = mergeSourceIdState,
+        sourceNameState = mergeSourceNameState,
+    )
+
+    MoveGenreDialogHost(
+        viewModel = viewModel,
+        state = state,
+        showDialogState = showMoveDialogState,
+        sourceIdState = moveSourceIdState,
+        sourceNameState = moveSourceNameState,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoriesTopBar(
+    state: AdminCategoriesUiState,
+    onBackClick: () -> Unit,
+    onToggleAll: (allExpanded: Boolean) -> Unit,
+) {
+    Column {
+        TopAppBar(
+            title = { Text(stringResource(Res.string.common_categories)) },
+            navigationIcon = {
+                IconButton(onClick = onBackClick) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
                 }
-            }
+            },
+            actions = {
+                val ready = state as? AdminCategoriesUiState.Ready
+                if (ready != null && ready.tree.isNotEmpty()) {
+                    val allExpanded =
+                        ready.expandedIds.size >=
+                            ready.genres.count {
+                                ready.tree.any { root -> hasChildren(root, it.id) }
+                            }
+                    IconButton(
+                        onClick = { onToggleAll(allExpanded) },
+                    ) {
+                        Icon(
+                            imageVector = if (allExpanded) Icons.Outlined.UnfoldLess else Icons.Outlined.UnfoldMore,
+                            contentDescription = if (allExpanded) "Collapse All" else "Expand All",
+                        )
+                    }
+                }
+            },
+        )
+        if ((state as? AdminCategoriesUiState.Ready)?.isSaving == true) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
 
-            is AdminCategoriesUiState.Ready -> {
-                AdminCategoriesReadyContent(
-                    state = s,
-                    onToggleExpanded = viewModel::toggleExpanded,
-                    onAddChild = { id, name ->
-                        createParentId = id
-                        createParentName = name
-                        showCreateDialog = true
-                    },
-                    onRename = { id, name ->
-                        renameGenreId = id
-                        renameGenreName = name
-                        showRenameDialog = true
-                    },
-                    onDelete = { id, name ->
-                        deleteGenreId = id
-                        deleteGenreName = name
-                        showDeleteDialog = true
-                    },
-                    onMerge = { id, name ->
-                        mergeSourceId = id
-                        mergeSourceName = name
-                        showMergeDialog = true
-                    },
-                    onMove = { id, name ->
-                        moveSourceId = id
-                        moveSourceName = name
-                        showMoveDialog = true
-                    },
-                    onMoveGenre = viewModel::moveGenre,
-                    modifier = Modifier.padding(innerPadding),
+// CategoriesScreenBody routes per-row callbacks straight through to the tree; flattening
+// them into a parameter object would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
+@Composable
+private fun CategoriesScreenBody(
+    state: AdminCategoriesUiState,
+    innerPadding: PaddingValues,
+    onToggleExpanded: (String) -> Unit,
+    onAddChild: (String, String) -> Unit,
+    onRename: (String, String) -> Unit,
+    onDelete: (String, String) -> Unit,
+    onMerge: (String, String) -> Unit,
+    onMove: (String, String) -> Unit,
+    onMoveGenre: (String, String?) -> Unit,
+) {
+    when (val s = state) {
+        is AdminCategoriesUiState.Loading -> {
+            FullScreenLoadingIndicator()
+        }
+
+        is AdminCategoriesUiState.Error -> {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = s.message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         }
-    }
 
-    // Create dialog
+        is AdminCategoriesUiState.Ready -> {
+            AdminCategoriesReadyContent(
+                state = s,
+                onToggleExpanded = onToggleExpanded,
+                onAddChild = onAddChild,
+                onRename = onRename,
+                onDelete = onDelete,
+                onMerge = onMerge,
+                onMove = onMove,
+                onMoveGenre = onMoveGenre,
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CreateGenreDialog(
+    viewModel: AdminCategoriesViewModel,
+    showDialogState: MutableState<Boolean>,
+    parentIdState: MutableState<String?>,
+    parentNameState: MutableState<String?>,
+) {
+    var showCreateDialog by showDialogState
+    val createParentId by parentIdState
+    val createParentName by parentNameState
+
     if (showCreateDialog) {
         GenreNameDialog(
             title = if (createParentName != null) "Add Sub-genre" else "Add Root Genre",
@@ -256,8 +349,19 @@ fun AdminCategoriesScreen(
             onDismiss = { showCreateDialog = false },
         )
     }
+}
 
-    // Rename dialog
+@Composable
+private fun RenameGenreDialog(
+    viewModel: AdminCategoriesViewModel,
+    showDialogState: MutableState<Boolean>,
+    genreIdState: MutableState<String>,
+    genreNameState: MutableState<String>,
+) {
+    var showRenameDialog by showDialogState
+    val renameGenreId by genreIdState
+    val renameGenreName by genreNameState
+
     if (showRenameDialog) {
         GenreNameDialog(
             title = stringResource(Res.string.admin_rename_genre),
@@ -270,8 +374,19 @@ fun AdminCategoriesScreen(
             onDismiss = { showRenameDialog = false },
         )
     }
+}
 
-    // Delete confirmation dialog
+@Composable
+private fun DeleteGenreDialog(
+    viewModel: AdminCategoriesViewModel,
+    showDialogState: MutableState<Boolean>,
+    genreIdState: MutableState<String>,
+    genreNameState: MutableState<String>,
+) {
+    var showDeleteDialog by showDialogState
+    val deleteGenreId by genreIdState
+    val deleteGenreName by genreNameState
+
     if (showDeleteDialog) {
         ListenUpDestructiveDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -285,8 +400,20 @@ fun AdminCategoriesScreen(
             onDismiss = { showDeleteDialog = false },
         )
     }
+}
 
-    // Merge dialog — pick a target genre to merge the source into.
+@Composable
+private fun MergeGenreDialogHost(
+    viewModel: AdminCategoriesViewModel,
+    state: AdminCategoriesUiState,
+    showDialogState: MutableState<Boolean>,
+    sourceIdState: MutableState<String>,
+    sourceNameState: MutableState<String>,
+) {
+    var showMergeDialog by showDialogState
+    val mergeSourceId by sourceIdState
+    val mergeSourceName by sourceNameState
+
     if (showMergeDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
         MergeGenreDialog(
@@ -299,8 +426,20 @@ fun AdminCategoriesScreen(
             onDismiss = { showMergeDialog = false },
         )
     }
+}
 
-    // Move dialog — pick a new parent (or top level) for the source genre.
+@Composable
+private fun MoveGenreDialogHost(
+    viewModel: AdminCategoriesViewModel,
+    state: AdminCategoriesUiState,
+    showDialogState: MutableState<Boolean>,
+    sourceIdState: MutableState<String>,
+    sourceNameState: MutableState<String>,
+) {
+    var showMoveDialog by showDialogState
+    val moveSourceId by sourceIdState
+    val moveSourceName by sourceNameState
+
     if (showMoveDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
         val source = ready?.genres?.firstOrNull { it.id == moveSourceId }
@@ -431,11 +570,17 @@ private fun GenreNameDialog(
 /**
  * Check if a node or any of its descendants has the given ID.
  */
-private fun hasChildren(node: GenreTreeNode, id: String): Boolean {
+private fun hasChildren(
+    node: GenreTreeNode,
+    id: String,
+): Boolean {
     if (node.genre.id == id) return node.children.isNotEmpty()
     return node.children.any { hasChildren(it, id) }
 }
 
+// The category tree threads expansion + per-row action + drag callbacks down each level;
+// a parameter object would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
 @Composable
 private fun CategoriesContent(
     state: AdminCategoriesUiState.Ready,
@@ -456,9 +601,10 @@ private fun CategoriesContent(
         EmptyCategoriesMessage(modifier = modifier)
     } else {
         LazyColumn(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
         ) {
             item {
                 Text(
@@ -473,9 +619,10 @@ private fun CategoriesContent(
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
+                    colors =
+                        CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
                 ) {
                     Column {
                         state.tree.forEachIndexed { index, rootNode ->
@@ -507,6 +654,9 @@ private fun CategoriesContent(
     }
 }
 
+// Recursive tree node forwards the full expansion + action + drag callback set to each child;
+// a parameter object would only add an indirection layer Compose tooling discourages.
+@Suppress("LongParameterList")
 @Composable
 private fun CategoryTreeNode(
     node: GenreTreeNode,
@@ -585,6 +735,10 @@ private fun CategoryTreeNode(
     }
 }
 
+// Row holds the full per-row action + drag callback set so the drag gesture can be wired onto
+// it without re-threading; a parameter object would only add Compose-discouraged indirection.
+// The drag callbacks are the not-yet-wired reparent-gesture seam the tree threads down to each row.
+@Suppress("LongParameterList", "UnusedParameter")
 @Composable
 private fun CategoryRow(
     node: GenreTreeNode,
@@ -615,147 +769,191 @@ private fun CategoryRow(
     val dropHighlightColor = MaterialTheme.colorScheme.primaryContainer
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (isDropTarget) {
-                    Modifier.background(dropHighlightColor, RoundedCornerShape(8.dp))
-                } else {
-                    Modifier
-                }
-            )
-            .onGloballyPositioned { coordinates ->
-                rowPosition = coordinates.positionInRoot()
-                rowHeight = coordinates.size.height
-            },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(
+                    if (isDropTarget) {
+                        Modifier.background(dropHighlightColor, RoundedCornerShape(8.dp))
+                    } else {
+                        Modifier
+                    },
+                ).onGloballyPositioned { coordinates ->
+                    rowPosition = coordinates.positionInRoot()
+                    rowHeight = coordinates.size.height
+                },
     ) {
-        Row(
-            modifier = Modifier
+        CategoryRowContent(
+            node = node,
+            isExpanded = isExpanded,
+            hasChildren = hasChildren,
+            rotation = rotation,
+            onToggleExpanded = onToggleExpanded,
+            onLongClick = { showContextMenu = true },
+        )
+
+        // Context menu
+        CategoryContextMenu(
+            expanded = showContextMenu,
+            onDismiss = { showContextMenu = false },
+            onAddChild = onAddChild,
+            onRename = onRename,
+            onMerge = onMerge,
+            onMove = onMove,
+            onDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+private fun CategoryRowContent(
+    node: GenreTreeNode,
+    isExpanded: Boolean,
+    hasChildren: Boolean,
+    rotation: Float,
+    onToggleExpanded: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = { if (hasChildren) onToggleExpanded() },
-                    onLongClick = { showContextMenu = true },
-                )
-                .padding(
+                    onLongClick = onLongClick,
+                ).padding(
                     start = (16 + node.depth * 24).dp,
                     end = 16.dp,
                     top = 12.dp,
                     bottom = 12.dp,
                 ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Expand/collapse icon or spacer
-            if (hasChildren) {
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Expand/collapse icon or spacer
+        if (hasChildren) {
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
                         .size(20.dp)
                         .rotate(rotation),
-                )
-            } else {
-                Spacer(modifier = Modifier.width(20.dp))
-            }
+            )
+        } else {
+            Spacer(modifier = Modifier.width(20.dp))
+        }
 
-            // Category icon
-            Icon(
-                imageVector = Icons.Outlined.Category,
-                contentDescription = null,
-                tint = if (node.depth == 0) {
+        // Category icon
+        Icon(
+            imageVector = Icons.Outlined.Category,
+            contentDescription = null,
+            tint =
+                if (node.depth == 0) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.size(20.dp),
-            )
+            modifier = Modifier.size(20.dp),
+        )
 
-            // Category name
-            Text(
-                text = node.genre.name,
-                style = if (node.depth == 0) {
+        // Category name
+        Text(
+            text = node.genre.name,
+            style =
+                if (node.depth == 0) {
                     MaterialTheme.typography.bodyLarge
                 } else {
                     MaterialTheme.typography.bodyMedium
                 },
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
 
-            // Book count badge
-            if (node.genre.bookCount > 0) {
-                Text(
-                    text = "${node.genre.bookCount}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        // Context menu
-        DropdownMenu(
-            expanded = showContextMenu,
-            onDismissRequest = { showContextMenu = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.admin_add_subgenre)) },
-                onClick = {
-                    showContextMenu = false
-                    onAddChild()
-                },
-                leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.common_rename)) },
-                onClick = {
-                    showContextMenu = false
-                    onRename()
-                },
-                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-            )
-            DropdownMenuItem(
-                text = { Text("Merge into…") },
-                onClick = {
-                    showContextMenu = false
-                    onMerge()
-                },
-                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
-            )
-            DropdownMenuItem(
-                text = { Text("Move to…") },
-                onClick = {
-                    showContextMenu = false
-                    onMove()
-                },
-                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    showContextMenu = false
-                    onDelete()
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                },
+        // Book count badge
+        if (node.genre.bookCount > 0) {
+            Text(
+                text = "${node.genre.bookCount}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
 @Composable
+private fun CategoryContextMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onAddChild: () -> Unit,
+    onRename: () -> Unit,
+    onMerge: () -> Unit,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+    ) {
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.admin_add_subgenre)) },
+            onClick = {
+                onDismiss()
+                onAddChild()
+            },
+            leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.common_rename)) },
+            onClick = {
+                onDismiss()
+                onRename()
+            },
+            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text("Merge into…") },
+            onClick = {
+                onDismiss()
+                onMerge()
+            },
+            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text("Move to…") },
+            onClick = {
+                onDismiss()
+                onMove()
+            },
+            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
+            onClick = {
+                onDismiss()
+                onDelete()
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+        )
+    }
+}
+
+@Composable
 private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -800,10 +998,11 @@ private fun MergeGenreDialog(
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(candidates, key = { it.id }) { candidate ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onConfirm(candidate.id) }
-                                .padding(vertical = 12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onConfirm(candidate.id) }
+                                    .padding(vertical = 12.dp),
                         ) {
                             Column {
                                 Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
@@ -845,10 +1044,11 @@ private fun MoveGenreDialog(
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 item(key = "__top_level__") {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onConfirmTopLevel() }
-                            .padding(vertical = 12.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onConfirmTopLevel() }
+                                .padding(vertical = 12.dp),
                     ) {
                         Text(text = "Top level", style = MaterialTheme.typography.bodyLarge)
                     }
@@ -865,10 +1065,11 @@ private fun MoveGenreDialog(
                 }
                 items(candidates, key = { it.id }) { candidate ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onConfirmTarget(candidate.id) }
-                            .padding(vertical = 12.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onConfirmTarget(candidate.id) }
+                                .padding(vertical = 12.dp),
                     ) {
                         Column {
                             Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)

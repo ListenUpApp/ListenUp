@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.calypsan.listenup.client.shortcuts
 
 import android.content.Context

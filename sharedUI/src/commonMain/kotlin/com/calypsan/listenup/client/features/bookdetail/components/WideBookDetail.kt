@@ -1,4 +1,3 @@
-@file:Suppress("LongMethod")
 
 package com.calypsan.listenup.client.features.bookdetail.components
 
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -171,193 +171,281 @@ fun WideBookDetail(
             contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             // Hero section with gradient background
-            item {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Brush.verticalGradient(gradientColors))
-                            .padding(horizontal = 32.dp, vertical = 24.dp),
-                ) {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    ) {
-                        // Cover
-                        ElevatedCoverCard(
-                            path = book.coverPath,
-                            bookId = book.id.value,
-                            blurHash = book.coverBlurHash,
-                            contentDescription = book.title,
-                            modifier =
-                                Modifier
-                                    .width(300.dp)
-                                    .aspectRatio(1f),
-                        ) {
-                            state.progress?.let { progress ->
-                                ProgressOverlay(
-                                    progress = progress,
-                                    timeRemaining = state.timeRemainingFormatted,
-                                    modifier = Modifier.align(Alignment.BottomCenter),
-                                )
-                            }
-                        }
+            bookDetailHeroItem(
+                state = state,
+                gradientColors = gradientColors,
+                downloadStatus = downloadStatus,
+                isWaitingForWifi = isWaitingForWifi,
+                showPlaybackActions = showPlaybackActions,
+                playEnabled = playEnabled,
+                downloadEnabled = downloadEnabled,
+                onContributorClick = onContributorClick,
+                onPlayClick = onPlayClick,
+                onDownloadClick = onDownloadClick,
+                onCancelClick = onCancelClick,
+                onDeleteClick = onDeleteClick,
+                onPlayDisabledClick = onPlayDisabledClick,
+            )
 
-                        // Metadata + actions
-                        Column(
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            // Top: metadata
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                // Title
-                                Text(
-                                    text = book.title,
-                                    style = MaterialTheme.typography.headlineMediumEmphasized,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-
-                                // Subtitle
-                                state.subtitle?.let {
-                                    Text(
-                                        text = it,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-
-                                // Talent
-                                TalentSectionWithRoles(
-                                    authors = book.authors,
-                                    narrators = book.narrators,
-                                    allContributors = book.allContributors,
-                                    onContributorClick = onContributorClick,
-                                    horizontalAlignment = Alignment.Start,
-                                )
-                            }
-
-                            // Bottom: actions (flush with cover bottom)
-                            if (showPlaybackActions) {
-                                PrimaryActionsSection(
-                                    downloadStatus = downloadStatus,
-                                    onPlayClick = onPlayClick,
-                                    onDownloadClick = onDownloadClick,
-                                    onCancelClick = onCancelClick,
-                                    onDeleteClick = onDeleteClick,
-                                    modifier = Modifier.widthIn(max = 400.dp),
-                                    isWaitingForWifi = isWaitingForWifi,
-                                    playEnabled = playEnabled,
-                                    downloadEnabled = downloadEnabled,
-                                    onPlayDisabledClick = onPlayDisabledClick,
-                                    requestFocus = LocalDeviceContext.current.hasDpad,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
-            item {
-                BookDetailScanWarning(
-                    hasScanWarning = state.hasScanWarning,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
-                )
-            }
-
-            // Server unreachable warning — informational only, does not disable buttons
-            if (showServerWarning) {
-                item { ServerUnreachableWarning() }
-            }
-
-            // Content below hero — standard surface background
-            // Description
-            state.description.takeIf { it.isNotBlank() }?.let { description ->
-                item {
-                    DescriptionSection(
-                        description = description,
-                        isExpanded = isDescriptionExpanded,
-                        onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
-                    )
-                }
-            }
-
-            // Context metadata
-            item {
-                ContextMetadataSection(
-                    seriesId = book.seriesId,
-                    seriesName = state.series ?: book.seriesName,
-                    rating = state.rating,
-                    duration = book.duration,
-                    year = state.year,
-                    addedAt = state.addedAt,
-                    genres = state.genresList,
-                    onSeriesClick = onSeriesClick,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
-                )
-            }
-
-            // Tags
-            if (state.tags.isNotEmpty()) {
-                item {
-                    TagsSection(
-                        tags = state.tags,
-                        isLoading = state.isLoadingTags,
-                        onTagClick = { tag -> onTagClick(tag.id) },
-                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
-                    )
-                }
-            }
-
-            // Readers
-            item {
-                BookReadersSection(
-                    bookId = bookId,
-                    onUserClick = onUserProfileClick,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
-                )
-            }
+            bookDetailContentItems(
+                bookId = bookId,
+                state = state,
+                showServerWarning = showServerWarning,
+                isDescriptionExpanded = isDescriptionExpanded,
+                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                onSeriesClick = onSeriesClick,
+                onTagClick = onTagClick,
+                onUserProfileClick = onUserProfileClick,
+            )
 
             // Chapters
-            item {
-                ChaptersHeader(
-                    chapterCount = state.chapters.size,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
-                )
-            }
+            bookDetailChaptersItems(
+                chapters = state.chapters,
+                isChaptersExpanded = isChaptersExpanded,
+                onExpandChapters = { isChaptersExpanded = true },
+            )
+        }
+    }
+}
 
-            val displayedChapters = if (isChaptersExpanded) state.chapters else state.chapters.take(10)
-            itemsIndexed(
-                items = displayedChapters,
-                key = { _, chapter -> chapter.id },
-            ) { index, chapter ->
-                ChapterListItemCompact(
-                    chapter = chapter,
-                    chapterNumber = index + 1,
-                    modifier = Modifier.padding(horizontal = 32.dp),
-                )
-            }
+private const val CHAPTER_PREVIEW_LIMIT = 10
 
-            if (state.chapters.size > 10 && !isChaptersExpanded) {
-                item {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 32.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.CenterStart,
+/**
+ * Content below the hero: scan/server advisories, description, context metadata, tags, and readers.
+ * Authored as a [LazyListScope] extension so item order and conditional presence stay byte-identical
+ * to the inline emissions they replaced.
+ */
+@Suppress("LongParameterList")
+private fun LazyListScope.bookDetailContentItems(
+    bookId: String,
+    state: BookDetailUiState.Ready,
+    showServerWarning: Boolean,
+    isDescriptionExpanded: Boolean,
+    onToggleDescription: () -> Unit,
+    onSeriesClick: (seriesId: String) -> Unit,
+    onTagClick: (tagId: String) -> Unit,
+    onUserProfileClick: (userId: String) -> Unit,
+) {
+    val book = state.book
+
+    // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+    item {
+        BookDetailScanWarning(
+            hasScanWarning = state.hasScanWarning,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+        )
+    }
+
+    // Server unreachable warning — informational only, does not disable buttons
+    if (showServerWarning) {
+        item { ServerUnreachableWarning() }
+    }
+
+    // Content below hero — standard surface background
+    // Description
+    state.description.takeIf { it.isNotBlank() }?.let { description ->
+        item {
+            DescriptionSection(
+                description = description,
+                isExpanded = isDescriptionExpanded,
+                onToggleExpanded = onToggleDescription,
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+            )
+        }
+    }
+
+    // Context metadata
+    item {
+        ContextMetadataSection(
+            seriesId = book.seriesId,
+            seriesName = state.series ?: book.seriesName,
+            rating = state.rating,
+            duration = book.duration,
+            year = state.year,
+            addedAt = state.addedAt,
+            genres = state.genresList,
+            onSeriesClick = onSeriesClick,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+        )
+    }
+
+    // Tags
+    if (state.tags.isNotEmpty()) {
+        item {
+            TagsSection(
+                tags = state.tags,
+                isLoading = state.isLoadingTags,
+                onTagClick = { tag -> onTagClick(tag.id) },
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+            )
+        }
+    }
+
+    // Readers
+    item {
+        BookReadersSection(
+            bookId = bookId,
+            onUserClick = onUserProfileClick,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+        )
+    }
+}
+
+/**
+ * Chapter section: header, the (optionally collapsed) chapter rows, and a "show all" affordance.
+ * Authored as a [LazyListScope] extension so item order and key identity stay byte-identical to
+ * the inline emission they replaced.
+ */
+private fun LazyListScope.bookDetailChaptersItems(
+    chapters: List<ChapterUiModel>,
+    isChaptersExpanded: Boolean,
+    onExpandChapters: () -> Unit,
+) {
+    item {
+        ChaptersHeader(
+            chapterCount = chapters.size,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+        )
+    }
+
+    val displayedChapters = if (isChaptersExpanded) chapters else chapters.take(CHAPTER_PREVIEW_LIMIT)
+    itemsIndexed(
+        items = displayedChapters,
+        key = { _, chapter -> chapter.id },
+    ) { index, chapter ->
+        ChapterListItemCompact(
+            chapter = chapter,
+            chapterNumber = index + 1,
+            modifier = Modifier.padding(horizontal = 32.dp),
+        )
+    }
+
+    if (chapters.size > CHAPTER_PREVIEW_LIMIT && !isChaptersExpanded) {
+        item {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 8.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                TextButton(onClick = onExpandChapters) {
+                    Text("Show all ${chapters.size} chapters")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Hero header: gradient backdrop, cover with progress overlay, and the title/talent/actions column.
+ * Authored as a [LazyListScope] extension so it stays the first item in the list, identical to the
+ * inline `item { }` it replaced.
+ */
+@Suppress("LongParameterList")
+private fun LazyListScope.bookDetailHeroItem(
+    state: BookDetailUiState.Ready,
+    gradientColors: List<Color>,
+    downloadStatus: BookDownloadStatus,
+    isWaitingForWifi: Boolean,
+    showPlaybackActions: Boolean,
+    playEnabled: Boolean,
+    downloadEnabled: Boolean,
+    onContributorClick: (contributorId: String) -> Unit,
+    onPlayClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+    onCancelClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onPlayDisabledClick: () -> Unit,
+) {
+    item {
+        val book = state.book
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(gradientColors))
+                    .padding(horizontal = 32.dp, vertical = 24.dp),
+        ) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                // Cover
+                ElevatedCoverCard(
+                    path = book.coverPath,
+                    bookId = book.id.value,
+                    blurHash = book.coverBlurHash,
+                    contentDescription = book.title,
+                    modifier =
+                        Modifier
+                            .width(300.dp)
+                            .aspectRatio(1f),
+                ) {
+                    state.progress?.let { progress ->
+                        ProgressOverlay(
+                            progress = progress,
+                            timeRemaining = state.timeRemainingFormatted,
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
+                }
+
+                // Metadata + actions
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    // Top: metadata
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        TextButton(onClick = { isChaptersExpanded = true }) {
-                            Text("Show all ${state.chapters.size} chapters")
+                        // Title
+                        Text(
+                            text = book.title,
+                            style = MaterialTheme.typography.headlineMediumEmphasized,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+
+                        // Subtitle
+                        state.subtitle?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
+
+                        // Talent
+                        TalentSectionWithRoles(
+                            authors = book.authors,
+                            narrators = book.narrators,
+                            allContributors = book.allContributors,
+                            onContributorClick = onContributorClick,
+                            horizontalAlignment = Alignment.Start,
+                        )
+                    }
+
+                    // Bottom: actions (flush with cover bottom)
+                    if (showPlaybackActions) {
+                        PrimaryActionsSection(
+                            downloadStatus = downloadStatus,
+                            onPlayClick = onPlayClick,
+                            onDownloadClick = onDownloadClick,
+                            onCancelClick = onCancelClick,
+                            onDeleteClick = onDeleteClick,
+                            modifier = Modifier.widthIn(max = 400.dp),
+                            isWaitingForWifi = isWaitingForWifi,
+                            playEnabled = playEnabled,
+                            downloadEnabled = downloadEnabled,
+                            onPlayDisabledClick = onPlayDisabledClick,
+                            requestFocus = LocalDeviceContext.current.hasDpad,
+                        )
                     }
                 }
             }

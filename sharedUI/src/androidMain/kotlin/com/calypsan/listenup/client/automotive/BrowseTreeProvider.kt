@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.calypsan.listenup.client.automotive
 
 import android.net.Uri

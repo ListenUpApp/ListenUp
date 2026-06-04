@@ -1,11 +1,10 @@
-@file:Suppress("CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.seriesdetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -205,7 +204,6 @@ private fun WideSeriesDetailContent(
  * Horizontal header: cover on the left, stats and description on the right.
  */
 @Composable
-@Suppress("CognitiveComplexMethod")
 private fun SeriesHeaderRow(
     coverPath: String?,
     featuredBookId: String?,
@@ -244,42 +242,13 @@ private fun SeriesHeaderRow(
 
         // Stats and description
         Column(modifier = Modifier.weight(1f)) {
-            // Stats row
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StatItem(
-                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
-                    value = "$bookCount",
-                    label = if (bookCount == 1) "Book" else "Books",
-                )
-                StatItem(
-                    icon = Icons.Default.Schedule,
-                    value = totalDuration,
-                    label = "Total",
-                )
-            }
-
-            // Description
-            description?.takeIf { it.isNotBlank() }?.let { desc ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (desc.length > 200) {
-                    TextButton(
-                        onClick = onToggleDescription,
-                        contentPadding = PaddingValues(0.dp),
-                    ) {
-                        Text(if (isDescriptionExpanded) "Read less" else "Read more")
-                    }
-                }
-            }
+            SeriesHeaderInfoColumn(
+                bookCount = bookCount,
+                totalDuration = totalDuration,
+                description = description,
+                isDescriptionExpanded = isDescriptionExpanded,
+                onToggleDescription = onToggleDescription,
+            )
         }
 
         if (!LocalDeviceContext.current.isLeanback) {
@@ -288,6 +257,56 @@ private fun SeriesHeaderRow(
                     imageVector = Icons.Default.Edit,
                     contentDescription = stringResource(Res.string.series_edit_series),
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Stats row and expandable description for the wide series header.
+ * Renders into the surrounding info [Column] in the exact order of the header layout.
+ */
+@Composable
+private fun ColumnScope.SeriesHeaderInfoColumn(
+    bookCount: Int,
+    totalDuration: String,
+    description: String?,
+    isDescriptionExpanded: Boolean,
+    onToggleDescription: () -> Unit,
+) {
+    // Stats row
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatItem(
+            icon = Icons.AutoMirrored.Filled.LibraryBooks,
+            value = "$bookCount",
+            label = if (bookCount == 1) "Book" else "Books",
+        )
+        StatItem(
+            icon = Icons.Default.Schedule,
+            value = totalDuration,
+            label = "Total",
+        )
+    }
+
+    // Description
+    description?.takeIf { it.isNotBlank() }?.let { desc ->
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = desc,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (desc.length > 200) {
+            TextButton(
+                onClick = onToggleDescription,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text(if (isDescriptionExpanded) "Read less" else "Read more")
             }
         }
     }
