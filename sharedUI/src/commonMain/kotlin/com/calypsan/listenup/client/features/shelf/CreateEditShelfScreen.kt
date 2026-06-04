@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.calypsan.listenup.client.features.shelf
 
 import androidx.compose.foundation.layout.Column
