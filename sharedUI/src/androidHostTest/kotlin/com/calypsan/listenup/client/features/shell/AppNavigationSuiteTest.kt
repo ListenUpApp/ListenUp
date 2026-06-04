@@ -28,6 +28,7 @@ class AppNavigationSuiteTest {
                     navType = ShellNavType.BottomBar,
                     currentDestination = ShellDestination.Home,
                     onDestinationSelected = {},
+                    onSignOut = {},
                 )
             }
         }
@@ -44,6 +45,7 @@ class AppNavigationSuiteTest {
                     navType = ShellNavType.RailCollapsed,
                     currentDestination = ShellDestination.Library,
                     onDestinationSelected = {},
+                    onSignOut = {},
                 )
             }
         }
@@ -59,6 +61,7 @@ class AppNavigationSuiteTest {
                     navType = ShellNavType.BottomBar,
                     currentDestination = ShellDestination.Home,
                     onDestinationSelected = { selected = it },
+                    onSignOut = {},
                 )
             }
         }
@@ -75,10 +78,28 @@ class AppNavigationSuiteTest {
                     navType = ShellNavType.RailExpanded,
                     currentDestination = ShellDestination.Home,
                     onDestinationSelected = { selected = it },
+                    onSignOut = {},
                 )
             }
         }
         composeRule.onNodeWithText("Discover").performClick()
         assertEquals(ShellDestination.Discover, selected)
+    }
+
+    @Test
+    fun tappingRailLogoutInvokesSignOut() {
+        var signedOut = false
+        composeRule.setContent {
+            MaterialTheme {
+                AppNavigationSuite(
+                    navType = ShellNavType.RailExpanded,
+                    currentDestination = ShellDestination.Home,
+                    onDestinationSelected = {},
+                    onSignOut = { signedOut = true },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Logout").performClick()
+        assertEquals(true, signedOut)
     }
 }

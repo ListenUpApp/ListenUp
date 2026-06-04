@@ -324,6 +324,7 @@ fun AppShell(
                         navType = navType,
                         currentDestination = currentDestination,
                         onDestinationSelected = onDestinationChange,
+                        onSignOut = onSignOut,
                     )
                 }
             },
@@ -339,6 +340,7 @@ fun AppShell(
                 navType = navType,
                 currentDestination = currentDestination,
                 onDestinationSelected = onDestinationChange,
+                onSignOut = onSignOut,
             )
             Scaffold(
                 modifier =
