@@ -44,7 +44,7 @@ compose.resources {
 
 kotlin {
     // Android target using new AGP 9.0-compatible plugin
-    androidLibrary {
+    android {
         namespace = "com.calypsan.listenup.client.composeapp"
         compileSdk =
             libs.versions.android.compileSdk

@@ -21,7 +21,7 @@ androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.11.2"
 androidx-core-splashscreen = "1.2.0"
 robolectric = "4.16.1"
-composeMultiplatform = "1.11.0"
+composeMultiplatform = "1.11.1"
 compose-material3 = "1.11.0-alpha07"
 kotlin = "2.3.20"
 ksp = "2.3.8"
@@ -29,7 +29,7 @@ mokkery = "3.3.0"
 ktor = "3.5.0"
 kotlinx-rpc = "0.11.0-grpc-188"
 kotest = "6.1.11"
-junit-vintage = "5.13.4" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
+junit-vintage = "6.1.0" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
@@ -53,7 +53,7 @@ kmpalette = "3.1.0"
 skie = "0.10.12"
 
 # Desktop
-logback = "1.5.33"
+logback = "1.5.34"
 logstash-logback-encoder = "9.0"
 janino = "3.1.12"
 jmdns = "3.6.3"
@@ -81,10 +81,10 @@ password4j = "1.8.4"
 konsist = "0.17.3"
 kfswatch = "1.4.0"
 micrometer = "1.16.5"
-ksp-symbol-processing-api = "2.3.8" # matches project ksp version — bump in lockstep with `ksp`
-kctfork = "0.12.1" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
+ksp-symbol-processing-api = "2.3.9" # matches project ksp version — bump in lockstep with `ksp`
+kctfork = "0.13.0" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
 cryptography-kotlin = "0.6.0"
-kotlincrypto-hash = "0.5.6"
+kotlincrypto-hash = "0.8.0"
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
