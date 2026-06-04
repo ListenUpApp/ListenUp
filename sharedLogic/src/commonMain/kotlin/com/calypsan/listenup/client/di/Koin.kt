@@ -12,7 +12,9 @@ import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
 import com.calypsan.listenup.client.data.remote.AdminApiContract
+import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
@@ -657,6 +659,14 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
+        // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
+        single<AdminUserRpcFactory> {
+            KtorAdminUserRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
         // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).
         single<TagRpcFactory> {
             KtorTagRpcFactory(
@@ -1048,7 +1058,7 @@ val syncModule =
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
         single<AdminRepository> {
-            AdminRepositoryImpl(adminApi = get())
+            AdminRepositoryImpl(adminApi = get(), adminUserRpc = get())
         }
 
         // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
