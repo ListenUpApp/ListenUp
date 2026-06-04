@@ -1,8 +1,13 @@
 
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
+import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -21,24 +26,22 @@ import kotlinx.serialization.Serializable
  */
 @Suppress("TooManyFunctions")
 interface AdminApiContract {
-    // User management
-    suspend fun getUsers(): AppResult<List<AdminUser>>
+    // User management — bare contract types matching the Kotlin server's REST responses
+    suspend fun getUsers(): AppResult<List<User>>
 
-    suspend fun getUser(userId: String): AppResult<AdminUser>
+    suspend fun getUser(userId: String): AppResult<User>
 
     suspend fun updateUser(
         userId: String,
-        request: UpdateUserRequest,
-    ): AppResult<AdminUser>
+        patch: AdminUserPatch,
+    ): AppResult<User>
 
     suspend fun deleteUser(userId: String): AppResult<Unit>
 
     // Pending user management
-    suspend fun getPendingUsers(): AppResult<List<AdminUser>>
+    suspend fun getPendingUsers(): AppResult<List<User>>
 
-    suspend fun approveUser(userId: String): AppResult<AdminUser>
-
-    suspend fun denyUser(userId: String): AppResult<Unit>
+    suspend fun decidePendingRegistration(decision: PendingRegistrationDecision): AppResult<PendingRegistrationOutcome>
 
     // Invite management
     suspend fun getInvites(): AppResult<List<AdminInvite>>
@@ -108,56 +111,63 @@ private fun userPath(userId: String) = "$ADMIN_USERS_PATH/$userId"
 /**
  * API client for admin operations.
  *
- * Requires authentication via ApiClientFactory.
+ * Requires authentication via [ApiClientFactory].
  * All endpoints require the user to be an admin (IsRoot or Role=admin).
+ *
+ * User-management methods use [suspendRunCatching] directly because the Kotlin server
+ * returns **bare** contract types — not the `ApiResponse` envelope that the Go server
+ * used. The [apiCall]/[apiCallUnit] helpers are envelope-shaped and cannot be used here;
+ * this is the same pattern as [CollectionInboxApi].
  */
 class AdminApi(
     private val clientFactory: ApiClientFactory,
 ) : AdminApiContract {
-    // User Management
+    // User Management — bare contract types (Kotlin server returns no ApiResponse envelope)
 
-    override suspend fun getUsers(): AppResult<List<AdminUser>> =
-        apiCall(errorMessage = "Admin users response missing data") {
-            clientFactory.getClient().get(ADMIN_USERS_PATH).body<ApiResponse<UsersResponse>>()
-        }.map { it.users }
+    override suspend fun getUsers(): AppResult<List<User>> =
+        suspendRunCatching {
+            clientFactory.getClient().get(ADMIN_USERS_PATH).body<List<User>>()
+        }
 
-    override suspend fun getUser(userId: String): AppResult<AdminUser> =
-        apiCall(errorMessage = "Admin user detail response missing data") {
-            clientFactory.getClient().get(userPath(userId)).body<ApiResponse<AdminUser>>()
+    override suspend fun getUser(userId: String): AppResult<User> =
+        suspendRunCatching {
+            clientFactory.getClient().get(userPath(userId)).body<User>()
         }
 
     override suspend fun updateUser(
         userId: String,
-        request: UpdateUserRequest,
-    ): AppResult<AdminUser> =
-        apiCall(errorMessage = "Admin update-user response missing data") {
+        patch: AdminUserPatch,
+    ): AppResult<User> =
+        suspendRunCatching {
             clientFactory
                 .getClient()
                 .patch(userPath(userId)) {
-                    setBody(request)
-                }.body<ApiResponse<AdminUser>>()
+                    setBody(patch)
+                }.body<User>()
         }
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> =
-        apiCallUnit {
-            clientFactory.getClient().delete(userPath(userId)).body<ApiResponse<Unit>>()
-        }
+        suspendRunCatching {
+            // 204 No Content — read the status to consume the response; no body to decode.
+            clientFactory.getClient().delete(userPath(userId)).status
+        }.map { }
 
     // Pending User Management
 
-    override suspend fun getPendingUsers(): AppResult<List<AdminUser>> =
-        apiCall(errorMessage = "Pending users response missing data") {
-            clientFactory.getClient().get("$ADMIN_USERS_PATH/pending").body<ApiResponse<UsersResponse>>()
-        }.map { it.users }
-
-    override suspend fun approveUser(userId: String): AppResult<AdminUser> =
-        apiCall(errorMessage = "Approve user response missing data") {
-            clientFactory.getClient().post("$ADMIN_USERS_PATH/$userId/approve").body<ApiResponse<AdminUser>>()
+    override suspend fun getPendingUsers(): AppResult<List<User>> =
+        suspendRunCatching {
+            clientFactory.getClient().get("$ADMIN_USERS_PATH/pending").body<List<User>>()
         }
 
-    override suspend fun denyUser(userId: String): AppResult<Unit> =
-        apiCallUnit {
-            clientFactory.getClient().post("$ADMIN_USERS_PATH/$userId/deny").body<ApiResponse<Unit>>()
+    override suspend fun decidePendingRegistration(
+        decision: PendingRegistrationDecision,
+    ): AppResult<PendingRegistrationOutcome> =
+        suspendRunCatching {
+            clientFactory
+                .getClient()
+                .post("$ADMIN_USERS_PATH/pending-decision") {
+                    setBody(decision)
+                }.body<PendingRegistrationOutcome>()
         }
 
     // Invite Management
@@ -329,56 +339,11 @@ class AdminApi(
 // Response wrappers
 
 @Serializable
-private data class UsersResponse(
-    @SerialName("users") val users: List<AdminUser>,
-)
-
-@Serializable
 private data class InvitesResponse(
     @SerialName("invites") val invites: List<AdminInvite>,
 )
 
 // Models
-
-/**
- * Admin view of a user.
- * Contains more information than the regular user model.
- */
-@Serializable
-data class AdminUser(
-    @SerialName("id") val id: String,
-    @SerialName("email") val email: String,
-    @SerialName("display_name") val displayName: String? = null,
-    @SerialName("first_name") val firstName: String? = null,
-    @SerialName("last_name") val lastName: String? = null,
-    @SerialName("is_root") val isRoot: Boolean,
-    @SerialName("role") val role: String,
-    @SerialName("status") val status: String = "active",
-    @SerialName("permissions") val permissions: UserPermissionsResponse = UserPermissionsResponse(),
-    @SerialName("invited_by") val invitedBy: String? = null,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("last_login_at") val lastLoginAt: String? = null,
-) {
-    /**
-     * Check if this user can be modified/deleted by the current admin.
-     * Root users cannot be modified except by themselves.
-     */
-    val isProtected: Boolean get() = isRoot
-
-    /**
-     * Whether this user is pending admin approval.
-     */
-    val isPending: Boolean get() = status == "pending"
-}
-
-/**
- * User permission flags returned by the server.
- */
-@Serializable
-data class UserPermissionsResponse(
-    @SerialName("can_share") val canShare: Boolean = true,
-)
 
 /**
  * Admin view of an invite.
@@ -426,26 +391,6 @@ data class CreateInviteRequest(
     @SerialName("email") val email: String,
     @SerialName("role") val role: String = "member",
     @SerialName("expires_in_days") val expiresInDays: Int = 7,
-)
-
-/**
- * Request to update a user.
- */
-@Serializable
-data class UpdateUserRequest(
-    @SerialName("role") val role: String? = null,
-    @SerialName("first_name") val firstName: String? = null,
-    @SerialName("last_name") val lastName: String? = null,
-    @SerialName("permissions") val permissions: UpdatePermissionsRequest? = null,
-)
-
-/**
- * Request to update user permissions.
- * Only include fields that should be changed.
- */
-@Serializable
-data class UpdatePermissionsRequest(
-    @SerialName("can_share") val canShare: Boolean? = null,
 )
 
 /**
