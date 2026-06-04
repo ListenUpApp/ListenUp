@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.client.playback
 
 import androidx.media3.common.PlaybackException
@@ -10,6 +8,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 
 private val logger = KotlinLogging.logger {}
+
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_FORBIDDEN = 403
+private const val HTTP_NOT_FOUND = 404
 
 /**
  * Handles playback errors with the principle: "Position is sacred."
@@ -78,9 +80,9 @@ class PlaybackErrorHandler(
                 val statusCode = (cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
 
                 when (statusCode) {
-                    401 -> ClassifiedError.AuthExpired("Session expired")
-                    403 -> ClassifiedError.AuthExpired("Access denied")
-                    404 -> ClassifiedError.NotFound("Audio file not found")
+                    HTTP_UNAUTHORIZED -> ClassifiedError.AuthExpired("Session expired")
+                    HTTP_FORBIDDEN -> ClassifiedError.AuthExpired("Access denied")
+                    HTTP_NOT_FOUND -> ClassifiedError.NotFound("Audio file not found")
                     in 500..599 -> ClassifiedError.Network("Server error, retrying...")
                     else -> ClassifiedError.Unknown(error)
                 }

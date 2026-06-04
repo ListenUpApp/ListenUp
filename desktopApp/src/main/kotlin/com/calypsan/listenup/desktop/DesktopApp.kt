@@ -248,7 +248,6 @@ private fun DesktopAuthenticatedNavigation() {
                         onBookClick = { navigateTo(DetailDestination.Book(it)) },
                         onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                         onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
-                        onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                         onTagClick = { navigateTo(DetailDestination.Tag(it)) },
                         onAdminClick = { navigateTo(DetailDestination.Admin) },
                         onSettingsClick = {

@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber")
 @file:OptIn(ExperimentalTime::class)
 
 package com.calypsan.listenup.client.features.home.components

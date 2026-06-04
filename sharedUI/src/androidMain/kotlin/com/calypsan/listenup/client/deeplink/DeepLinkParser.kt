@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.client.deeplink
 
 import android.content.Intent
