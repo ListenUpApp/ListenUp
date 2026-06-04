@@ -71,6 +71,10 @@ class ImportApplier internal constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AbsBackupReader.AbsReadException) {
+                onEvent(ImportEvent.Failed(reason = e.message ?: "Failed to read the ABS backup."))
+                AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
+            } catch (e: Exception) {
+                onEvent(ImportEvent.Failed(reason = e.message ?: "Apply failed unexpectedly."))
                 AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
             }
         }

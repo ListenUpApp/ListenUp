@@ -83,6 +83,10 @@ class ImportAnalyzer internal constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: AbsBackupReader.AbsReadException) {
+                onEvent(ImportEvent.Failed(reason = e.message ?: "Failed to read the ABS backup."))
+                AppResult.Failure(ImportError.AnalysisFailed(debugInfo = e.message))
+            } catch (e: Exception) {
+                onEvent(ImportEvent.Failed(reason = e.message ?: "Analysis failed unexpectedly."))
                 AppResult.Failure(ImportError.AnalysisFailed(debugInfo = e.message))
             }
         }

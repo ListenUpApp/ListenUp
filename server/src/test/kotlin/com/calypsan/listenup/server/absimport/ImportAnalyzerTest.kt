@@ -103,9 +103,11 @@ class ImportAnalyzerTest :
                 val analyzer = analyzerFor(db, paths)
 
                 runTest {
-                    val result = analyzer.analyze(importId) {}
+                    val events = mutableListOf<ImportEvent>()
+                    val result = analyzer.analyze(importId) { events += it }
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ImportError.AnalysisFailed>()
+                    events.last().shouldBeInstanceOf<ImportEvent.Failed>()
                 }
             }
         }
