@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber", "TooManyFunctions")
-
 package com.calypsan.listenup.client.playback
 
 import io.github.oshai.kotlinlogging.KotlinLogging

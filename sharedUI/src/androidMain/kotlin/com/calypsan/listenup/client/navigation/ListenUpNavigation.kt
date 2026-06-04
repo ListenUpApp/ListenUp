@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "UnusedParameter")
-
 package com.calypsan.listenup.client.navigation
 
 import androidx.compose.animation.slideInHorizontally
@@ -38,6 +36,8 @@ import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.startup_setup_check_failed_message
 import listenup.composeapp.generated.resources.startup_setup_check_failed_title
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -492,6 +492,84 @@ private fun LoginNavigation(
 }
 
 /**
+ * Routes a launcher/shortcut [ShortcutAction] to the right playback or navigation effect.
+ *
+ * Extracted from [AuthenticatedNavigation] so the composable's cyclomatic complexity stays
+ * within budget — this is plain control flow with no Compose surface of its own. [backStack]
+ * mutations and [onSelectShellDestination] are invoked from the caller's `LaunchedEffect`
+ * coroutine, preserving the original ordering and threading.
+ */
+private suspend fun handleShortcutAction(
+    action: ShortcutAction,
+    homeRepository: HomeRepository,
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+) {
+    fun resetToShell() {
+        if (backStack.lastOrNull() != Shell) {
+            backStack.clear()
+            backStack.add(Shell)
+        }
+    }
+
+    when (action) {
+        is ShortcutAction.Resume -> {
+            // Get the most recent book and play it
+            val result = homeRepository.getContinueListening(1)
+            if (result is AppResult.Success && result.data.isNotEmpty()) {
+                val book = result.data.first()
+                logger.info { "Resuming book: ${book.title}" }
+                nowPlayingViewModel.playBook(BookId(book.bookId))
+                nowPlayingViewModel.expand()
+            } else {
+                logger.warn { "No recent book to resume" }
+                // Navigate to library as fallback
+                resetToShell()
+                onSelectShellDestination(ShellDestination.Library)
+            }
+        }
+
+        is ShortcutAction.PlayBook -> {
+            logger.info { "Playing book: ${action.bookId}" }
+            nowPlayingViewModel.playBook(BookId(action.bookId))
+            nowPlayingViewModel.expand()
+        }
+
+        is ShortcutAction.Search -> {
+            // Navigate to library (search tab)
+            resetToShell()
+            onSelectShellDestination(ShellDestination.Library)
+        }
+
+        is ShortcutAction.NavigateToBook -> {
+            logger.info { "Navigating to book: ${'$'}{action.bookId}" }
+            // Ensure we're on Shell first, then navigate to book detail
+            resetToShell()
+            backStack.add(BookDetail(action.bookId))
+        }
+
+        is ShortcutAction.SleepTimer -> {
+            // If playing, show sleep timer; otherwise resume + set timer
+            val result = homeRepository.getContinueListening(1)
+            if (result is AppResult.Success && result.data.isNotEmpty()) {
+                val book = result.data.first()
+                nowPlayingViewModel.playBook(BookId(book.bookId))
+                nowPlayingViewModel.expand()
+                // Let the user interact with sleep timer in the player
+            }
+        }
+
+        is ShortcutAction.NavigateToAbsImport -> {
+            logger.info { "Navigating to ABS import: ${action.importId}" }
+            resetToShell()
+            backStack.add(AdminBackups)
+            backStack.add(ABSImportDetail(action.importId))
+        }
+    }
+}
+
+/**
  * Navigation graph for authenticated users.
  *
  * Entry point: AppShell (contains bottom nav with Home, Library, Discover)
@@ -560,72 +638,13 @@ private fun AuthenticatedNavigation(
 
         logger.info { "Processing shortcut action: $action" }
 
-        when (action) {
-            is ShortcutAction.Resume -> {
-                // Get the most recent book and play it
-                val result = homeRepository.getContinueListening(1)
-                if (result is AppResult.Success && result.data.isNotEmpty()) {
-                    val book = result.data.first()
-                    logger.info { "Resuming book: ${book.title}" }
-                    nowPlayingViewModel.playBook(BookId(book.bookId))
-                    nowPlayingViewModel.expand()
-                } else {
-                    logger.warn { "No recent book to resume" }
-                    // Navigate to library as fallback
-                    if (backStack.lastOrNull() != Shell) {
-                        backStack.clear()
-                        backStack.add(Shell)
-                    }
-                    currentShellDestination = ShellDestination.Library
-                }
-            }
-
-            is ShortcutAction.PlayBook -> {
-                logger.info { "Playing book: ${action.bookId}" }
-                nowPlayingViewModel.playBook(BookId(action.bookId))
-                nowPlayingViewModel.expand()
-            }
-
-            is ShortcutAction.Search -> {
-                // Navigate to library (search tab)
-                if (backStack.lastOrNull() != Shell) {
-                    backStack.clear()
-                    backStack.add(Shell)
-                }
-                currentShellDestination = ShellDestination.Library
-            }
-
-            is ShortcutAction.NavigateToBook -> {
-                logger.info { "Navigating to book: ${'$'}{action.bookId}" }
-                // Ensure we're on Shell first, then navigate to book detail
-                if (backStack.lastOrNull() != Shell) {
-                    backStack.clear()
-                    backStack.add(Shell)
-                }
-                backStack.add(BookDetail(action.bookId))
-            }
-
-            is ShortcutAction.SleepTimer -> {
-                // If playing, show sleep timer; otherwise resume + set timer
-                val result = homeRepository.getContinueListening(1)
-                if (result is AppResult.Success && result.data.isNotEmpty()) {
-                    val book = result.data.first()
-                    nowPlayingViewModel.playBook(BookId(book.bookId))
-                    nowPlayingViewModel.expand()
-                    // Let the user interact with sleep timer in the player
-                }
-            }
-
-            is ShortcutAction.NavigateToAbsImport -> {
-                logger.info { "Navigating to ABS import: ${action.importId}" }
-                if (backStack.lastOrNull() != Shell) {
-                    backStack.clear()
-                    backStack.add(Shell)
-                }
-                backStack.add(AdminBackups)
-                backStack.add(ABSImportDetail(action.importId))
-            }
-        }
+        handleShortcutAction(
+            action = action,
+            homeRepository = homeRepository,
+            nowPlayingViewModel = nowPlayingViewModel,
+            backStack = backStack,
+            onSelectShellDestination = { currentShellDestination = it },
+        )
 
         // Consume the action after processing
         shortcutActionManager.consumeAction()
