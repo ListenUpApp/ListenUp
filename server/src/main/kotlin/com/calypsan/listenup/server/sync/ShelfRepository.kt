@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.db.ShelvesTable
+import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.and
@@ -142,6 +144,33 @@ class ShelfRepository(
                 .firstOrNull()
                 ?.toOwnedShelf()
         }
+
+    /**
+     * Creates a "To Read" starter shelf for [userId].
+     *
+     * This is a one-shot call made at user-registration time. It is intentionally NOT
+     * idempotent — registering a user is idempotent at the row level and this call is
+     * gated by that; the caller is responsible for calling it only once per user.
+     *
+     * Returns the created [ShelfSyncPayload] on success, or a [AppResult.Failure] if the
+     * underlying [upsert] fails (e.g. a duplicate id collision on the extremely unlikely
+     * event of a UUID clash).
+     */
+    suspend fun createStarterShelf(userId: String): AppResult<ShelfSyncPayload> {
+        val now = clock.now().toEpochMilliseconds()
+        val payload =
+            ShelfSyncPayload(
+                id = UUID.randomUUID().toString(),
+                name = "To Read",
+                description = "",
+                isPrivate = false,
+                revision = 0L,
+                updatedAt = now,
+                createdAt = now,
+                deletedAt = null,
+            )
+        return upsert(payload, userId = userId)
+    }
 
     /**
      * Returns every live, public shelf NOT owned by [excludeUserId], each paired with

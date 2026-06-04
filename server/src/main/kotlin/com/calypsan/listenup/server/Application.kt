@@ -232,6 +232,7 @@ private fun Application.installDependencies(
                     demoLibraryPath = resolvedLibraryPath?.toString(),
                     hasGenresModule = true,
                     hasCollectionsModule = true,
+                    hasShelvesModule = true,
                 )
         }
         modules(modules)

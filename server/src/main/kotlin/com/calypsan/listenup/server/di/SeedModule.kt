@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.seed.LibraryDomainSeeder
 import com.calypsan.listenup.server.seed.ListeningEventDomainSeeder
 import com.calypsan.listenup.server.seed.PlaybackPositionDomainSeeder
 import com.calypsan.listenup.server.seed.SeedRunner
+import com.calypsan.listenup.server.seed.ShelfDomainSeeder
 import com.calypsan.listenup.server.seed.TagDomainSeeder
 import com.calypsan.listenup.server.seed.UserDomainSeeder
 import org.koin.core.module.Module
@@ -49,6 +50,9 @@ import org.koin.dsl.module
  *   [CollectionDomainSeeder] is registered to seed the demo library's inbox plus one
  *   demo collection. The collections bindings live in [booksModule], so this is true
  *   exactly when [hasBooksModule] is.
+ * @param hasShelvesModule whether the shelves slice is active. When true,
+ *   [ShelfDomainSeeder] is registered to seed demo shelves for the demo user (a public
+ *   shelf + a private shelf so the discovery + privacy surfaces have demo data).
  */
 fun seedModule(
     hasPlaybackModule: Boolean = false,
@@ -57,6 +61,7 @@ fun seedModule(
     hasTagsModule: Boolean = false,
     hasGenresModule: Boolean = false,
     hasCollectionsModule: Boolean = false,
+    hasShelvesModule: Boolean = false,
 ): Module =
     module {
         single { UserDomainSeeder(db = get(), authService = get()) }
@@ -83,6 +88,9 @@ fun seedModule(
                 )
             }
         }
+        if (hasShelvesModule) {
+            single { ShelfDomainSeeder(db = get(), shelfRepo = get()) }
+        }
         // GenreDomainSeeder is bound in booksModule (it runs on every install, not just demo),
         // so we don't bind it here — but the runner still includes it for demo.
         single {
@@ -96,6 +104,7 @@ fun seedModule(
                         hasTagsModule = hasTagsModule,
                         hasGenresModule = hasGenresModule,
                         hasCollectionsModule = hasCollectionsModule,
+                        hasShelvesModule = hasShelvesModule,
                     ),
             )
         }
@@ -115,6 +124,7 @@ private fun assembleSeeders(
     hasTagsModule: Boolean,
     hasGenresModule: Boolean,
     hasCollectionsModule: Boolean,
+    hasShelvesModule: Boolean,
 ): List<DomainSeeder> =
     buildList {
         add(koin.get<UserDomainSeeder>())
@@ -137,5 +147,8 @@ private fun assembleSeeders(
         }
         if (hasCollectionsModule) {
             add(koin.get<CollectionDomainSeeder>())
+        }
+        if (hasShelvesModule) {
+            add(koin.get<ShelfDomainSeeder>())
         }
     }
