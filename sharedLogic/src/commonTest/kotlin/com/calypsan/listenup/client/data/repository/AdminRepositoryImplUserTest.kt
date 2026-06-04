@@ -43,31 +43,36 @@ private class FakeAdminUserService : AdminUserService {
         users[user.id.value] = user
     }
 
-    override suspend fun listUsers(): AppResult<List<User>> =
-        AppResult.Success(users.values.toList())
+    override suspend fun listUsers(): AppResult<List<User>> = AppResult.Success(users.values.toList())
 
-    override suspend fun listPendingUsers(): AppResult<List<User>> =
-        AppResult.Success(users.values.filter { it.status == UserStatus.PENDING_APPROVAL })
+    override suspend fun listPendingUsers(): AppResult<List<User>> = AppResult.Success(users.values.filter { it.status == UserStatus.PENDING_APPROVAL })
 
     override suspend fun getUser(id: UserId): AppResult<User> {
-        val user = users[id.value] ?: return AppResult.Failure(
-            com.calypsan.listenup.api.error.InternalError(debugInfo = "not found: ${id.value}"),
-        )
+        val user =
+            users[id.value] ?: return AppResult.Failure(
+                com.calypsan.listenup.api.error
+                    .InternalError(debugInfo = "not found: ${id.value}"),
+            )
         return AppResult.Success(user)
     }
 
-    override suspend fun searchUsers(query: String): AppResult<List<User>> =
-        AppResult.Success(users.values.filter { it.email.contains(query) || it.displayName.contains(query) })
+    override suspend fun searchUsers(query: String): AppResult<List<User>> = AppResult.Success(users.values.filter { it.email.contains(query) || it.displayName.contains(query) })
 
-    override suspend fun updateUser(id: UserId, patch: AdminUserPatch): AppResult<User> {
+    override suspend fun updateUser(
+        id: UserId,
+        patch: AdminUserPatch,
+    ): AppResult<User> {
         lastPatch = patch
-        val existing = users[id.value] ?: return AppResult.Failure(
-            com.calypsan.listenup.api.error.InternalError(debugInfo = "not found: ${id.value}"),
-        )
-        val updated = existing.copy(
-            role = patch.role ?: existing.role,
-            permissions = patch.permissions ?: existing.permissions,
-        )
+        val existing =
+            users[id.value] ?: return AppResult.Failure(
+                com.calypsan.listenup.api.error
+                    .InternalError(debugInfo = "not found: ${id.value}"),
+            )
+        val updated =
+            existing.copy(
+                role = patch.role ?: existing.role,
+                permissions = patch.permissions ?: existing.permissions,
+            )
         users[id.value] = updated
         return AppResult.Success(updated)
     }
@@ -82,10 +87,12 @@ private class FakeAdminUserService : AdminUserService {
         request: PendingRegistrationDecision,
     ): AppResult<PendingRegistrationOutcome> {
         lastDecision = request
-        val user = users[request.userId.value]
-            ?: return AppResult.Failure(
-                com.calypsan.listenup.api.error.InternalError(debugInfo = "not found: ${request.userId.value}"),
-            )
+        val user =
+            users[request.userId.value]
+                ?: return AppResult.Failure(
+                    com.calypsan.listenup.api.error
+                        .InternalError(debugInfo = "not found: ${request.userId.value}"),
+                )
         val newStatus = if (request.approved) UserStatus.ACTIVE else UserStatus.DENIED
         users[request.userId.value] = user.copy(status = newStatus)
         return AppResult.Success(
@@ -93,17 +100,16 @@ private class FakeAdminUserService : AdminUserService {
         )
     }
 
-    override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
-        AppResult.Success(RegistrationPolicy.OPEN)
+    override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> = AppResult.Success(RegistrationPolicy.OPEN)
 
-    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> =
-        AppResult.Success(Unit)
+    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> = AppResult.Success(Unit)
 }
 
 private class FakeAdminUserRpcFactory(
     private val service: FakeAdminUserService,
 ) : AdminUserRpcFactory {
     override suspend fun get(): AdminUserService = service
+
     override suspend fun invalidate() = Unit
 }
 
@@ -206,13 +212,14 @@ class AdminRepositoryImplUserTest :
             )
             val repo = buildRepo(service)
 
-            val result = repo.updateUser(
-                userId = "u4",
-                firstName = "Alice",
-                lastName = "Smith",
-                role = "ADMIN",
-                canShare = false,
-            )
+            val result =
+                repo.updateUser(
+                    userId = "u4",
+                    firstName = "Alice",
+                    lastName = "Smith",
+                    role = "ADMIN",
+                    canShare = false,
+                )
 
             (result is AppResult.Success) shouldBe true
             val patch = service.lastPatch

@@ -10,15 +10,16 @@ import com.calypsan.listenup.client.domain.model.UserPermissions
  * admin-screen domain model [AdminUserInfo]. The contract has no first/last name (only
  * [User.displayName]); [AdminUserInfo.displayableName] already falls back to displayName.
  */
-internal fun User.toAdminUserInfo(): AdminUserInfo = AdminUserInfo(
-    id = id.value,
-    email = email,
-    displayName = displayName,
-    firstName = null,
-    lastName = null,
-    isRoot = role == UserRole.ROOT,
-    role = role.name,
-    status = status.name,
-    permissions = UserPermissions(canShare = permissions.canShare),
-    createdAt = createdAt.toString(),
-)
+internal fun User.toAdminUserInfo(): AdminUserInfo =
+    AdminUserInfo(
+        id = id.value,
+        email = email,
+        displayName = displayName,
+        firstName = null,
+        lastName = null,
+        isRoot = role == UserRole.ROOT,
+        role = role.name,
+        status = status.name,
+        permissions = UserPermissions(canShare = permissions.canShare),
+        createdAt = createdAt.toString(),
+    )
