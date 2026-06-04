@@ -158,7 +158,7 @@ val platformModule: Module =
             )
         }
 
-        // Playback manager (with codec negotiation enabled)
+        // Playback manager
         single<PlaybackManager> {
             PlaybackManagerImpl(
                 serverConfig = get(),
@@ -170,8 +170,7 @@ val platformModule: Module =
                 progressTracker = get(),
                 tokenProvider = get(),
                 downloadService = get(),
-                playbackApi = get(),
-                capabilityDetector = get(),
+                playbackRpcFactory = get(),
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named("playbackScope")),

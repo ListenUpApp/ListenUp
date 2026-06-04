@@ -137,8 +137,7 @@ val macosPlaybackModule: Module =
                 progressTracker = get(),
                 tokenProvider = get(),
                 downloadService = get(),
-                playbackApi = null, // macOS uses native AVPlayer, no transcoding API needed
-                capabilityDetector = null, // macOS doesn't need codec detection
+                playbackRpcFactory = get(),
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named("playbackScope")),

@@ -3,13 +3,12 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.remote.model.toEntity
@@ -18,7 +17,7 @@ import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.domain.playback.StreamPrepareResult
+import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -26,7 +25,6 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -71,7 +69,7 @@ data class PreparedPlayback(
  * native player calls [prepare] directly via Koin.
  *
  * LongParameterList suppressed: the playback-prep pipeline orchestrates auth,
- * persistence (3 DAOs + repo), cover storage, progress, codec negotiation, and
+ * persistence (3 DAOs + repo), cover storage, progress, signed-URL RPC, and
  * download across the subsystem; [PlaybackManagerImpl] forwards the same
  * collaborators. A parameter object would only bag them and ripples into platform code.
  */
@@ -87,8 +85,7 @@ class PlaybackPreparer(
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
-    private val playbackApi: PlaybackApiContract?,
-    private val capabilityDetector: AudioCapabilityDetector?,
+    private val playbackRpcFactory: PlaybackRpcFactory,
     private val syncApi: SyncApiContract?,
     private val scope: CoroutineScope,
     private val bookRepository: BookRepository,
@@ -96,15 +93,13 @@ class PlaybackPreparer(
     /**
      * Prepare playback for [bookId].
      *
-     * @param onPrepareProgress invoked with transcode progress during the
-     *   (Android/Desktop-only) transcode-aware timeline build, and with `null`
-     *   when progress is cleared. iOS passes the no-op default.
+     * Offline-first: if every audio file is already downloaded, the server prepare
+     * endpoint is skipped entirely and local paths are used. Otherwise, a single call
+     * to [PlaybackService.prepare] fetches signed streaming URLs for all files.
+     *
      * @return a [PreparedPlayback] value, or `null` on any failure (logged).
      */
-    suspend fun prepare(
-        bookId: BookId,
-        onPrepareProgress: (PlaybackManager.PrepareProgress?) -> Unit = {},
-    ): PreparedPlayback? {
+    suspend fun prepare(bookId: BookId): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
         // 1. Ensure fresh auth token
@@ -159,9 +154,9 @@ class PlaybackPreparer(
 
         logAudioFileDiagnostics(bookId, audioFiles)
 
-        // 5. Build PlaybackTimeline with codec negotiation (if available) or local path resolution
+        // 5. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toDomain() }
-        val timeline = buildTimeline(bookId, domainAudioFiles, serverUrl, onPrepareProgress)
+        val timeline = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
 
         // Load chapters for this book
         val chapters = loadChapters(bookId)
@@ -288,125 +283,50 @@ class PlaybackPreparer(
     }
 
     /**
-     * Build the [PlaybackTimeline] for [domainAudioFiles]: codec-negotiated
-     * (transcode-aware) when both [playbackApi] and [capabilityDetector] are
-     * present, otherwise local-path resolution only.
+     * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
+     * streaming URLs from the server only when not fully downloaded (offline-first),
+     * then assemble the timeline. Returns `null` if the server prepare call fails.
      */
     private suspend fun buildTimeline(
         bookId: BookId,
         domainAudioFiles: List<AudioFile>,
         serverUrl: String,
-        onPrepareProgress: (PlaybackManager.PrepareProgress?) -> Unit,
-    ): PlaybackTimeline =
-        if (playbackApi != null && capabilityDetector != null) {
-            val capabilities = capabilityDetector.getSupportedCodecs()
-            logger.debug { "Client codec capabilities: $capabilities" }
+    ): PlaybackTimeline? {
+        val localPaths: Map<String, String?> =
+            domainAudioFiles.associate { it.id to downloadService.getLocalPath(it.id) }
 
-            PlaybackTimeline.buildWithTranscodeSupport(
-                bookId = bookId,
-                audioFiles = domainAudioFiles,
-                baseUrl = serverUrl,
-                resolveLocalPath = { audioFileId -> downloadService.getLocalPath(audioFileId) },
-                prepareStream = { audioFileId, codec ->
-                    prepareStreamForFile(
-                        bookId.value,
-                        audioFileId,
-                        codec,
-                        capabilities,
-                        serverUrl,
-                        onPrepareProgress,
-                    )
-                },
-            )
-        } else {
-            PlaybackTimeline.buildWithLocalPaths(
-                bookId = bookId,
-                audioFiles = domainAudioFiles,
-                baseUrl = serverUrl,
-                resolveLocalPath = { audioFileId -> downloadService.getLocalPath(audioFileId) },
-            )
-        }
-
-    /**
-     * Negotiate streaming URL for a single audio file. Calls the server's
-     * prepare endpoint; if transcoding is in progress, polls until ready or
-     * timeout, reporting progress through [onPrepareProgress].
-     */
-    private suspend fun prepareStreamForFile(
-        bookId: String,
-        audioFileId: String,
-        codec: String,
-        capabilities: List<String>,
-        baseUrl: String,
-        onPrepareProgress: (PlaybackManager.PrepareProgress?) -> Unit,
-    ): StreamPrepareResult {
-        val api = playbackApi ?: return fallbackStreamResult(bookId, audioFileId, baseUrl)
-
-        val maxRetries = 120 // ~10 minutes at 5 second intervals
-        val retryDelayMs = 5000L
-
-        val spatial = playbackPreferences.getSpatialPlayback()
-
-        repeat(maxRetries) { attempt ->
-            when (val result = api.preparePlayback(bookId, audioFileId, capabilities, spatial)) {
-                is AppResult.Success -> {
-                    val response = result.data
-                    logger.debug {
-                        "Prepare result for $audioFileId (attempt ${attempt + 1}): " +
-                            "ready=${response.ready}, variant=${response.variant}, codec=${response.codec}"
+        val signedUrls: Map<String, String> =
+            if (localPaths.values.all { it != null }) {
+                emptyMap() // fully downloaded — never touch the server (offline-first)
+            } else {
+                when (val result = playbackRpcFactory.playbackService().prepare(bookId)) {
+                    is AppResult.Success -> {
+                        result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
                     }
 
-                    if (response.ready) {
-                        onPrepareProgress(null)
-                        return StreamPrepareResult(
-                            streamUrl = response.streamUrl,
-                            ready = true,
-                            transcodeJobId = response.transcodeJobId,
-                        )
+                    is AppResult.Failure -> {
+                        logger.error { "prepare() failed for ${bookId.value}: ${result.error.message}" }
+                        return null
                     }
-
-                    onPrepareProgress(
-                        PlaybackManager.PrepareProgress(
-                            audioFileId = audioFileId,
-                            progress = response.progress,
-                            message = "Preparing audio... ${response.progress}%",
-                        ),
-                    )
-
-                    logger.info {
-                        "Transcoding in progress for $audioFileId: " +
-                            "jobId=${response.transcodeJobId}, progress=${response.progress}%, " +
-                            "waiting ${retryDelayMs}ms before retry..."
-                    }
-                    delay(retryDelayMs)
-                }
-
-                is AppResult.Failure -> {
-                    onPrepareProgress(null)
-                    logger.warn {
-                        "Failed to prepare stream for $audioFileId (attempt ${attempt + 1}), using fallback URL"
-                    }
-                    return fallbackStreamResult(bookId, audioFileId, baseUrl)
                 }
             }
-        }
 
-        onPrepareProgress(null)
-        logger.warn { "Transcode polling timeout for $audioFileId after $maxRetries attempts" }
-        return fallbackStreamResult(bookId, audioFileId, baseUrl)
-    }
-
-    /** Fallback stream result when the prepare endpoint fails. */
-    private fun fallbackStreamResult(
-        bookId: String,
-        audioFileId: String,
-        baseUrl: String,
-    ): StreamPrepareResult =
-        StreamPrepareResult(
-            streamUrl = "$baseUrl/api/v1/books/$bookId/audio/$audioFileId",
-            ready = true,
-            transcodeJobId = null,
+        return PlaybackTimeline.build(
+            bookId = bookId,
+            files =
+                domainAudioFiles.map { file ->
+                    TimelineFileInput(
+                        audioFileId = file.id,
+                        filename = file.filename,
+                        format = file.format,
+                        durationMs = file.duration,
+                        size = file.size,
+                        localPath = localPaths[file.id],
+                        streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                    )
+                },
         )
+    }
 
     /**
      * Fetch book data from server and persist locally. Used as a fallback when

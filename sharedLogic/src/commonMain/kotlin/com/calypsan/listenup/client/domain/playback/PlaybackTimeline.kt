@@ -1,8 +1,6 @@
-
 package com.calypsan.listenup.client.domain.playback
 
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.domain.model.AudioFile
 
 /**
  * Runtime construct for translating between book-relative positions and ExoPlayer coordinates.
@@ -115,160 +113,55 @@ data class PlaybackTimeline(
         get() = files.all { it.isDownloaded }
 
     companion object {
-        /** Builds the canonical server streaming URL for an audio file within a book. */
-        private fun buildStreamingUrl(
-            baseUrl: String,
-            bookId: BookId,
-            audioFileId: String,
-        ): String = "$baseUrl/api/v1/books/${bookId.value}/audio/$audioFileId"
-
         /**
-         * Build a PlaybackTimeline from audio files and a base streaming URL.
+         * Build a [PlaybackTimeline] from pre-resolved per-file inputs.
+         *
+         * The caller is responsible for resolving the local path and the signed streaming URL
+         * for each file. This method only assembles cumulative offsets — it never constructs
+         * or templates any URL.
          *
          * @param bookId The book being played
-         * @param audioFiles List of audio files from server
-         * @param baseUrl Server base URL for building streaming URLs
+         * @param files Pre-resolved per-file inputs (signed URLs + local paths already set)
          * @return Constructed timeline ready for playback
          */
         fun build(
             bookId: BookId,
-            audioFiles: List<AudioFile>,
-            baseUrl: String,
+            files: List<TimelineFileInput>,
         ): PlaybackTimeline {
             var cumulativeOffset = 0L
             val segments =
-                audioFiles.mapIndexed { index, file ->
+                files.mapIndexed { index, file ->
                     val segment =
                         FileSegment(
-                            audioFileId = file.id,
+                            audioFileId = file.audioFileId,
                             filename = file.filename,
                             format = file.format,
                             startOffsetMs = cumulativeOffset,
-                            durationMs = file.duration,
+                            durationMs = file.durationMs,
                             size = file.size,
-                            streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id),
-                            localPath = null,
+                            streamingUrl = file.streamingUrl,
+                            localPath = file.localPath,
                             mediaItemIndex = index,
                         )
-                    cumulativeOffset += file.duration
+                    cumulativeOffset += file.durationMs
                     segment
                 }
-
-            return PlaybackTimeline(
-                bookId = bookId,
-                totalDurationMs = cumulativeOffset,
-                files = segments,
-            )
-        }
-
-        /**
-         * Build timeline with local path resolution for offline playback.
-         *
-         * @param bookId The book being played
-         * @param audioFiles List of audio files from server
-         * @param baseUrl Server base URL for building streaming URLs
-         * @param resolveLocalPath Function to resolve local file paths for downloaded files
-         * @return Constructed timeline with local paths where available
-         */
-        suspend fun buildWithLocalPaths(
-            bookId: BookId,
-            audioFiles: List<AudioFile>,
-            baseUrl: String,
-            resolveLocalPath: suspend (String) -> String?,
-        ): PlaybackTimeline {
-            var cumulativeOffset = 0L
-            val segments =
-                audioFiles.mapIndexed { index, file ->
-                    val localPath = resolveLocalPath(file.id)
-                    val segment =
-                        FileSegment(
-                            audioFileId = file.id,
-                            filename = file.filename,
-                            format = file.format,
-                            startOffsetMs = cumulativeOffset,
-                            durationMs = file.duration,
-                            size = file.size,
-                            streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id),
-                            localPath = localPath,
-                            mediaItemIndex = index,
-                        )
-                    cumulativeOffset += file.duration
-                    segment
-                }
-
-            return PlaybackTimeline(
-                bookId = bookId,
-                totalDurationMs = cumulativeOffset,
-                files = segments,
-            )
-        }
-
-        /**
-         * Build timeline with local path resolution and direct streaming URLs.
-         *
-         * Non-local files use the direct URL pattern immediately -- ExoPlayer
-         * buffers naturally so playback starts without waiting for transcoding.
-         *
-         * @param bookId The book being played
-         * @param audioFiles List of audio files from server
-         * @param baseUrl Server base URL for building streaming URLs
-         * @param resolveLocalPath Function to resolve local file paths for downloaded files
-         * @param prepareStream Unused, kept for API compatibility
-         * @return Constructed timeline with direct streaming URLs
-         */
-        suspend fun buildWithTranscodeSupport(
-            bookId: BookId,
-            audioFiles: List<AudioFile>,
-            baseUrl: String,
-            resolveLocalPath: suspend (String) -> String?,
-            @Suppress("UNUSED_PARAMETER")
-            prepareStream: suspend (audioFileId: String, codec: String) -> StreamPrepareResult,
-        ): PlaybackTimeline {
-            var cumulativeOffset = 0L
-
-            val segments =
-                buildList {
-                    for ((index, file) in audioFiles.withIndex()) {
-                        val localPath = resolveLocalPath(file.id)
-
-                        val streamingUrl = buildStreamingUrl(baseUrl, bookId, file.id)
-
-                        add(
-                            FileSegment(
-                                audioFileId = file.id,
-                                filename = file.filename,
-                                format = file.format,
-                                startOffsetMs = cumulativeOffset,
-                                durationMs = file.duration,
-                                size = file.size,
-                                streamingUrl = streamingUrl,
-                                localPath = localPath,
-                                mediaItemIndex = index,
-                            ),
-                        )
-                        cumulativeOffset += file.duration
-                    }
-                }
-
-            return PlaybackTimeline(
-                bookId = bookId,
-                totalDurationMs = cumulativeOffset,
-                files = segments,
-            )
+            return PlaybackTimeline(bookId = bookId, totalDurationMs = cumulativeOffset, files = segments)
         }
     }
 }
 
-/**
- * Result from preparing a stream for playback.
- */
-data class StreamPrepareResult(
-    /** URL to stream (may be relative or absolute) */
-    val streamUrl: String,
-    /** Whether the stream is ready (false = transcoding in progress) */
-    val ready: Boolean,
-    /** Transcode job ID if not ready */
-    val transcodeJobId: String? = null,
+/** Pre-resolved per-file inputs for [PlaybackTimeline.build]: the caller resolves the
+ *  local path and the signed streaming URL; the timeline only assembles offsets. */
+data class TimelineFileInput(
+    val audioFileId: String,
+    val filename: String,
+    val format: String,
+    val durationMs: Long,
+    val size: Long,
+    val localPath: String?,
+    /** Full signed streaming URL, or "" when the file is downloaded (local path wins). */
+    val streamingUrl: String,
 )
 
 /**

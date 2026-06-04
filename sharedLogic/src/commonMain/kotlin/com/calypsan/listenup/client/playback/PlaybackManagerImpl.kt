@@ -5,7 +5,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -53,8 +53,7 @@ class PlaybackManagerImpl(
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
-    private val playbackApi: PlaybackApiContract?,
-    private val capabilityDetector: AudioCapabilityDetector?,
+    private val playbackRpcFactory: PlaybackRpcFactory,
     private val syncApi: SyncApiContract?,
     private val scope: CoroutineScope,
     private val bookRepository: BookRepository,
@@ -71,8 +70,7 @@ class PlaybackManagerImpl(
             tokenProvider = tokenProvider,
             deviceContext = deviceContext,
             downloadService = downloadService,
-            playbackApi = playbackApi,
-            capabilityDetector = capabilityDetector,
+            playbackRpcFactory = playbackRpcFactory,
             syncApi = syncApi,
             scope = scope,
             bookRepository = bookRepository,
@@ -148,7 +146,7 @@ class PlaybackManagerImpl(
      * @return PrepareResult with timeline and resume position, or null on failure
      */
     override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult? {
-        val prepared = preparer.prepare(bookId) { _prepareProgress.value = it } ?: return null
+        val prepared = preparer.prepare(bookId) ?: return null
 
         _currentTimeline.value = prepared.timeline
         // Note: currentBookId is set by caller after reachability checks pass

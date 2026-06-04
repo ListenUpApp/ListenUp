@@ -3,19 +3,25 @@
 
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.dto.PreparedAudioFile
+import com.calypsan.listenup.api.dto.PreparedPlayback
+import com.calypsan.listenup.api.dto.RecordListeningEventRequest
+import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
+import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
-import com.calypsan.listenup.client.data.remote.PreparePlaybackResponse
+import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.mock.MockEngine
@@ -34,7 +40,6 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -43,7 +48,6 @@ import kotlinx.io.write
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFails
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -59,8 +63,8 @@ import kotlin.test.assertTrue
  *
  * Per project memory `feedback_fakes_for_seams.md`: hand-rolled fakes + MockEngine, not mokkery.
  *
- * Phase C scope: HTTP migration only. Phase D rewrites the transcode-poll path; Phase C locks
- * current polling behavior as a regression marker (scenario 11).
+ * Phase D: transcode-poll loop replaced by WAITING_FOR_SERVER + SSE re-enqueue path.
+ * Task 3: download URL now resolved via PlaybackService.prepare signed URLs (not PlaybackApiContract).
  */
 class DownloadWorkerLogicTest {
     // ---- Fixtures ----
@@ -134,17 +138,29 @@ class DownloadWorkerLogicTest {
             }
         }
 
-    /** A ready PreparePlaybackResponse for standard test setup. */
-    private fun readyResponse(
-        streamUrl: String = "/api/v1/books/book-1/audio/file-1",
-        codec: String = "mp3",
-    ) = PreparePlaybackResponse(
-        ready = true,
-        streamUrl = streamUrl,
-        variant = "original",
-        codec = codec,
-        transcodeJobId = null,
-        progress = 100,
+    /** A ready [FakePlaybackRpcFactory] for standard test setup. */
+    private fun readyRpcFactory(
+        audioFileId: String = "file-1",
+        bookId: String = "book-1",
+        streamUrl: String = "/api/v1/audio/$bookId/$audioFileId",
+    ) = FakePlaybackRpcFactory(
+        AppResult.Success(
+            PreparedPlayback(
+                bookId = bookId,
+                audioFiles =
+                    listOf(
+                        PreparedAudioFile(
+                            fileId = audioFileId,
+                            index = 0,
+                            url = streamUrl,
+                            format = "mp3",
+                            durationMs = 1000L,
+                            sizeBytes = 1000L,
+                        ),
+                    ),
+                resumePosition = null,
+            ),
+        ),
     )
 
     /** Create a DownloadFileManager backed by [tmpRoot]. */
@@ -187,9 +203,7 @@ class DownloadWorkerLogicTest {
                     httpClient = productionLikeClient(binaryEngine),
                     repository = fakeRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = readyRpcFactory(),
                 )
 
                 val final = fakeRepo.entities.single()
@@ -240,9 +254,7 @@ class DownloadWorkerLogicTest {
                     httpClient = productionLikeClient(partialEngine),
                     repository = fakeRepo,
                     fileManager = fileManager,
-                    playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = readyRpcFactory(),
                 )
 
                 assertEquals("bytes=400-", capturedRangeHeader)
@@ -296,9 +308,7 @@ class DownloadWorkerLogicTest {
                         },
                     repository = fakeRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = readyRpcFactory(),
                 )
 
                 val final = fakeRepo.entities.single()
@@ -346,9 +356,7 @@ class DownloadWorkerLogicTest {
                         httpClient = authProductionLikeClient(authEngine) { null },
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                     )
 
                 assertIs<AppResult.Failure>(result)
@@ -403,9 +411,7 @@ class DownloadWorkerLogicTest {
                     httpClient = retryProductionLikeClient(retryEngine),
                     repository = fakeRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = readyRpcFactory(),
                 )
 
                 assertEquals(DownloadState.COMPLETED, fakeRepo.entities.single().state)
@@ -444,9 +450,7 @@ class DownloadWorkerLogicTest {
                         httpClient = retryProductionLikeClient(retryEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                     )
 
                 assertIs<AppResult.Failure>(result)
@@ -497,9 +501,7 @@ class DownloadWorkerLogicTest {
                         httpClient = productionLikeClient(dropEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                     )
 
                 assertIs<AppResult.Failure>(result)
@@ -541,9 +543,7 @@ class DownloadWorkerLogicTest {
                         httpClient = productionLikeClient(binaryEngine),
                         repository = fakeRepo,
                         fileManager = FailingMoveFileManager(tmpRoot),
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                     )
 
                 // The internal IOException("Failed to move...") is caught by suspendRunCatching
@@ -596,9 +596,7 @@ class DownloadWorkerLogicTest {
                         httpClient = productionLikeClient(binaryEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                         isStopped = { true },
                     )
                 } catch (e: CancellationException) {
@@ -658,9 +656,7 @@ class DownloadWorkerLogicTest {
                     httpClient = productionLikeClient(binaryEngine),
                     repository = trackingRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = readyRpcFactory(),
                 )
 
                 assertEquals(DownloadState.COMPLETED, trackingRepo.entities.single().state)
@@ -678,57 +674,44 @@ class DownloadWorkerLogicTest {
     // ---- Scenario 11 ----
 
     /**
-     * preparePlayback returns !ready (transcodeJobId set) → writes WAITING_FOR_SERVER + exits.
+     * prepare() returns Failure → downloadAudioFile returns AppResult.Failure.
      *
-     * Phase D Bug 4 fix: the 30-minute polling loop is gone. When the server is still transcoding,
-     * the worker now writes WAITING_FOR_SERVER and exits cleanly. SSE transcode.complete will
-     * re-enqueue via repository.resumeForAudioFile when the server finishes.
+     * Task 3 replaces the WaitForServer path. When prepare() fails (RPC error, network, etc.),
+     * the download fails cleanly rather than falling back to a bare URL or writing WAITING_FOR_SERVER.
      */
     @Test
-    fun `preparePlayback returns transcoding — writes WAITING_FOR_SERVER and exits cleanly`() =
+    fun `prepare failure propagates as AppResult Failure`() =
         runTest {
             val tmpRoot = tempDir()
             try {
                 val fakeRepo = FakeDownloadRepository(initial = listOf(entity("file-1", totalBytes = 1000L)))
-                val transcodingApi =
-                    FakePlaybackApiContract(
-                        AppResult.Success(
-                            PreparePlaybackResponse(
-                                ready = false,
-                                streamUrl = "",
-                                variant = "",
-                                codec = "",
-                                transcodeJobId = "abc-123",
-                                progress = 42,
+                val failingRpcFactory =
+                    FakePlaybackRpcFactory(
+                        AppResult.Failure(
+                            com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
+                                debugInfo = "simulated rpc failure",
                             ),
                         ),
                     )
 
-                // No stream engine handler needed — if the worker tries to fetch bytes, the test will
-                // fail because the MockEngine has no registered handler. This enforces the contract
-                // that the worker must exit before ever touching the HTTP stream.
                 val unusedEngine =
                     MockEngine { request ->
-                        error("Unexpected HTTP request: ${request.url} — worker should have exited cleanly")
+                        error("Unexpected HTTP request: ${request.url} — worker should have failed before download")
                     }
 
-                downloadAudioFile(
-                    audioFileId = "file-1",
-                    bookId = "book-1",
-                    filename = "file-1.mp3",
-                    expectedSize = 1000L,
-                    httpClient = productionLikeClient(unusedEngine),
-                    repository = fakeRepo,
-                    fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = transcodingApi,
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
-                )
+                val result =
+                    downloadAudioFile(
+                        audioFileId = "file-1",
+                        bookId = "book-1",
+                        filename = "file-1.mp3",
+                        expectedSize = 1000L,
+                        httpClient = productionLikeClient(unusedEngine),
+                        repository = fakeRepo,
+                        fileManager = fileManagerFor(tmpRoot),
+                        playbackRpcFactory = failingRpcFactory,
+                    )
 
-                // Bug 4 fix verification: row should be WAITING_FOR_SERVER, not stuck in DOWNLOADING.
-                val final = fakeRepo.entities.single()
-                assertEquals(DownloadState.WAITING_FOR_SERVER, final.state)
-                assertEquals("abc-123", final.transcodeJobId)
+                assertIs<AppResult.Failure>(result)
             } finally {
                 tmpRoot.deleteRecursively()
             }
@@ -737,34 +720,23 @@ class DownloadWorkerLogicTest {
     // ---- Scenario 12 ----
 
     /**
-     * preparePlayback returns a resolved URL different from the default.
-     * MockEngine only handles the resolved URL path; function must use it.
+     * prepare() resolves a signed URL: MockEngine verifies the path is the signed URL from prepare.
      */
     @Test
-    fun `resolved URL from preparePlayback is used for download`() =
+    fun `signed URL from prepare is used for download`() =
         runTest {
             val tmpRoot = tempDir()
             try {
                 val fakeRepo = FakeDownloadRepository(initial = listOf(entity("file-1", totalBytes = 1000L)))
-                val resolvedPath = "/transcoded/book-1/file-1-transcoded.mp3"
-                val fakePlaybackApi =
-                    FakePlaybackApiContract(
-                        AppResult.Success(
-                            PreparePlaybackResponse(
-                                ready = true,
-                                streamUrl = resolvedPath,
-                                variant = "transcoded",
-                                codec = "mp3",
-                                transcodeJobId = null,
-                                progress = 100,
-                            ),
-                        ),
-                    )
+                val signedPath = "/api/v1/audio/book-1/file-1"
+                val signedQuery = "u=&exp=123&sig=abc"
+                val rpcFactory = readyRpcFactory(streamUrl = "$signedPath?$signedQuery")
 
                 var resolvedPathHit = false
                 val resolvedEngine =
                     MockEngine { request ->
-                        if (request.url.encodedPath == resolvedPath) {
+                        val fullPath = request.url.encodedPath + "?" + (request.url.encodedQuery ?: "")
+                        if (request.url.encodedPath == signedPath) {
                             resolvedPathHit = true
                             respond(
                                 content = ByteArray(1000) { 0x42 },
@@ -772,7 +744,7 @@ class DownloadWorkerLogicTest {
                                 headers = headersOf(HttpHeaders.ContentLength, "1000"),
                             )
                         } else {
-                            error("Unexpected path: ${request.url.encodedPath} (expected $resolvedPath)")
+                            error("Unexpected path: $fullPath (expected $signedPath)")
                         }
                     }
 
@@ -784,12 +756,10 @@ class DownloadWorkerLogicTest {
                     httpClient = productionLikeClient(resolvedEngine),
                     repository = fakeRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackApi = fakePlaybackApi,
-                    playbackPreferences = FakePlaybackPreferences(),
-                    capabilityDetector = FakeAudioCapabilityDetector(),
+                    playbackRpcFactory = rpcFactory,
                 )
 
-                assertTrue(resolvedPathHit, "Expected download to hit resolved URL $resolvedPath")
+                assertTrue(resolvedPathHit, "Expected download to hit signed URL path $signedPath")
                 assertEquals(DownloadState.COMPLETED, fakeRepo.entities.single().state)
             } finally {
                 tmpRoot.deleteRecursively()
@@ -832,9 +802,7 @@ class DownloadWorkerLogicTest {
                         httpClient = productionLikeClient(binaryEngine),
                         repository = fakeRepo,
                         fileManager = fileManager,
-                        playbackApi = FakePlaybackApiContract(AppResult.Success(readyResponse())),
-                        playbackPreferences = FakePlaybackPreferences(),
-                        capabilityDetector = FakeAudioCapabilityDetector(),
+                        playbackRpcFactory = readyRpcFactory(),
                         isStopped = { true },
                     )
                 } catch (_: CancellationException) {
@@ -867,36 +835,30 @@ class DownloadWorkerLogicTest {
 
 // ---- Fakes ----
 
-private class FakePlaybackApiContract(
-    private val result: AppResult<PreparePlaybackResponse>,
-) : PlaybackApiContract {
-    override suspend fun preparePlayback(
-        bookId: String,
-        audioFileId: String,
-        capabilities: List<String>,
-        spatial: Boolean,
-    ): AppResult<PreparePlaybackResponse> = result
+internal class FakePlaybackService(
+    private val prepareResult: AppResult<PreparedPlayback>,
+) : PlaybackService {
+    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = prepareResult
 
-    override suspend fun cancelTranscode(jobId: String): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = error("not used in test")
+
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = error("not used in test")
+
+    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = error("not used in test")
+
+    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> {
+        error("not used in test")
+    }
 }
 
-private class FakePlaybackPreferences : PlaybackPreferences {
-    override val preferenceChanges: SharedFlow<com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent>
-        get() = error("not used in test")
+internal class FakePlaybackRpcFactory(
+    prepareResult: AppResult<PreparedPlayback>,
+) : PlaybackRpcFactory {
+    private val service = FakePlaybackService(prepareResult)
 
-    override fun observeDefaultPlaybackSpeed(): kotlinx.coroutines.flow.Flow<Float> = error("not used in test")
+    override suspend fun playbackService(): PlaybackService = service
 
-    override suspend fun getDefaultPlaybackSpeed(): Float = error("not used in test")
-
-    override suspend fun setDefaultPlaybackSpeed(speed: Float) = error("not used in test")
-
-    override suspend fun getSpatialPlayback(): Boolean = false
-
-    override suspend fun setSpatialPlayback(enabled: Boolean) = error("not used in test")
-}
-
-private class FakeAudioCapabilityDetector : AudioCapabilityDetector {
-    override fun getSupportedCodecs(): List<String> = listOf("mp3", "aac", "opus")
+    override suspend fun invalidate() = Unit
 }
 
 /**
