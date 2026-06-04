@@ -203,11 +203,12 @@ class AdminRepositoryImplUserTest :
             service.deletedIds shouldBe listOf("u3")
         }
 
-        test("updateUser builds patch with role and permissions but null displayName") {
+        test("updateUser sets role + canShare, preserves canEdit, never sends displayName") {
             val service = FakeAdminUserService()
+            // Seed canEdit = false to prove it is preserved, not reset to the default true.
             service.seedUser(
                 testUser("u4", role = UserRole.MEMBER).copy(
-                    permissions = UserPermissions(canEdit = true, canShare = true),
+                    permissions = UserPermissions(canEdit = false, canShare = true),
                 ),
             )
             val repo = buildRepo(service)
@@ -227,9 +228,27 @@ class AdminRepositoryImplUserTest :
             patch?.displayName shouldBe null
             patch?.role shouldBe UserRole.ADMIN
             patch?.permissions?.canShare shouldBe false
+            // canEdit preserved via read-before-write (server applies permissions wholesale)
+            patch?.permissions?.canEdit shouldBe false
 
             val info = (result as AppResult.Success).data
             info.role shouldBe "ADMIN"
             info.permissions.canShare shouldBe false
+        }
+
+        test("a transport exception from the RPC factory becomes AppResult.Failure, not a throw") {
+            val throwingFactory =
+                object : AdminUserRpcFactory {
+                    override suspend fun get(): AdminUserService = throw IllegalStateException("simulated WS 401")
+
+                    override suspend fun invalidate() = Unit
+                }
+            val repo =
+                AdminRepositoryImpl(
+                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
+                    adminUserRpc = throwingFactory,
+                )
+
+            (repo.getUsers() is AppResult.Failure) shouldBe true
         }
     })

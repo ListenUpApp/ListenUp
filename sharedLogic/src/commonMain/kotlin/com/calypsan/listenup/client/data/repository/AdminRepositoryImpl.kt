@@ -96,18 +96,27 @@ class AdminRepositoryImpl(
         lastName: String?,
         role: String?,
         canShare: Boolean?,
-    ): AppResult<AdminUserInfo> {
-        // firstName/lastName have no contract field — they must NOT be sent to the server.
-        // displayName is deferred to a future domain-realignment follow-up.
-        val patch =
-            AdminUserPatch(
-                role = role?.let { UserRole.valueOf(it) },
-                permissions = canShare?.let { UserPermissions(canShare = it) },
-            )
-        return catching("updateUser") {
+    ): AppResult<AdminUserInfo> =
+        catching("updateUser") {
+            // firstName/lastName have no contract field — they must NOT be sent (displayName is
+            // deferred to a future domain-realignment follow-up). The server applies
+            // AdminUserPatch.permissions wholesale (canEdit + canShare) and the admin UI only
+            // toggles canShare, so read the user first to preserve its current canEdit.
+            val permissions =
+                canShare?.let { share ->
+                    when (val current = adminUserRpc.get().getUser(UserId(userId))) {
+                        is AppResult.Success -> {
+                            UserPermissions(canEdit = current.data.permissions.canEdit, canShare = share)
+                        }
+
+                        is AppResult.Failure -> {
+                            return@catching current
+                        }
+                    }
+                }
+            val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = permissions)
             adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
         }
-    }
 
     /**
      * Catches transport-level exceptions from RPC calls and converts them to
