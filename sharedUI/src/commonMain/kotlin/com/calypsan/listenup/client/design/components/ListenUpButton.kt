@@ -5,14 +5,21 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
@@ -26,6 +33,7 @@ import androidx.compose.ui.unit.dp
  * @param modifier Optional modifier
  * @param enabled Whether button is interactive
  * @param isLoading Whether to show loading spinner (animates transition)
+ * @param leadingIcon Optional icon shown before the text (hidden while loading)
  */
 @Composable
 fun ListenUpButton(
@@ -34,6 +42,7 @@ fun ListenUpButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
+    leadingIcon: ImageVector? = null,
 ) {
     Button(
         onClick = onClick,
@@ -55,6 +64,18 @@ fun ListenUpButton(
                 ListenUpLoadingIndicatorSmall(
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
+            } else if (leadingIcon != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(ButtonDefaults.IconSpacing),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = leadingIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Text(text = text, style = MaterialTheme.typography.titleMedium)
+                }
             } else {
                 Text(
                     text = text,
