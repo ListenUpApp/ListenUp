@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.ContributorTable
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -21,6 +22,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * search immediately and returns [MatchTier.AMBIGUOUS] with no book id — surfacing the conflict for
  * an admin rather than risking the wrong book being marked finished. Exhausting every tier with no
  * candidate returns [MatchTier.UNMATCHED].
+ *
+ * Every tier filters out tombstoned books (`deletedAt IS NULL`): a soft-deleted book must never be
+ * auto-matched, or apply would write progress to a row the user already removed.
  *
  * Every lookup is a parameterized Exposed `eq` (never string-interpolated SQL). Path and title/author
  * tiers compare normalized values: ABS `relPath` and ListenUp `rootRelPath` are not pre-normalized in
@@ -57,8 +61,11 @@ internal class BookMatcher(
         val ids =
             BookTable
                 .select(BookTable.id)
-                .where { (BookTable.libraryId eq libraryId.value) and (BookTable.asin eq asin) }
-                .map { it[BookTable.id] }
+                .where {
+                    (BookTable.libraryId eq libraryId.value) and
+                        (BookTable.asin eq asin) and
+                        BookTable.deletedAt.isNull()
+                }.map { it[BookTable.id] }
         return resolve(ids, MatchTier.ASIN)
     }
 
@@ -70,8 +77,11 @@ internal class BookMatcher(
         val ids =
             BookTable
                 .select(BookTable.id)
-                .where { (BookTable.libraryId eq libraryId.value) and (BookTable.isbn eq isbn) }
-                .map { it[BookTable.id] }
+                .where {
+                    (BookTable.libraryId eq libraryId.value) and
+                        (BookTable.isbn eq isbn) and
+                        BookTable.deletedAt.isNull()
+                }.map { it[BookTable.id] }
         return resolve(ids, MatchTier.ISBN)
     }
 
@@ -83,7 +93,7 @@ internal class BookMatcher(
         val ids =
             BookTable
                 .select(BookTable.id, BookTable.rootRelPath)
-                .where { BookTable.libraryId eq libraryId.value }
+                .where { (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull() }
                 .filter { normalizeRelPath(it[BookTable.rootRelPath]) == target }
                 .map { it[BookTable.id] }
         return resolve(ids, MatchTier.PATH)
@@ -99,7 +109,7 @@ internal class BookMatcher(
         val ids =
             BookTable
                 .select(BookTable.id, BookTable.title)
-                .where { BookTable.libraryId eq libraryId.value }
+                .where { (BookTable.libraryId eq libraryId.value) and BookTable.deletedAt.isNull() }
                 .filter { normalizeText(it[BookTable.title]) == targetTitle }
                 .map { it[BookTable.id] }
                 .filter { bookId -> targetAuthor == null || authorMatches(bookId, targetAuthor) }

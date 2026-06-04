@@ -316,9 +316,10 @@ value class AbsUserId(
 /**
  * Type-safe wrapper for Audiobookshelf library item IDs.
  *
- * ABS item IDs are opaque strings from the ABS SQLite `libraryItems` table.
- * Wrapping them prevents accidentally passing a ListenUp [BookId] where an ABS
- * item ID is expected during book-matching and progress-apply operations.
+ * ABS item IDs are opaque strings identifying the ABS media item — the ABS SQLite `books.id`
+ * value that `AbsBackupReader` correlates progress and matches against. Wrapping them prevents
+ * accidentally passing a ListenUp [BookId] where an ABS item ID is expected during book-matching
+ * and progress-apply operations.
  */
 @Serializable
 @JvmInline

@@ -90,6 +90,23 @@ class MatcherTest :
             }
         }
 
+        test("a tombstoned book whose ASIN matches is never auto-matched (UNMATCHED)") {
+            withSeededLibrary { matcher, libId ->
+                // b-deleted shares no field with any live book; its ASIN is unique to it.
+                val result = matcher.match(absItem(id = "abs-deleted", asin = "B00DELETED"), libId)
+                result.tier shouldBe MatchTier.UNMATCHED
+                result.bookId.shouldBeNull()
+            }
+        }
+
+        test("a tombstoned book whose path matches is never auto-matched (UNMATCHED)") {
+            withSeededLibrary { matcher, libId ->
+                val result = matcher.match(absItem(id = "abs-deleted-path", relPath = "Deleted/Gone"), libId)
+                result.tier shouldBe MatchTier.UNMATCHED
+                result.bookId.shouldBeNull()
+            }
+        }
+
         // --- UserMatcher coverage --------------------------------------------------------------
 
         test("UserMatcher matches by email (case-insensitive) at STRONG with the right user id") {
@@ -110,6 +127,32 @@ class MatcherTest :
                 )
             match.confidence shouldBe MatchTier.STRONG
             match.suggestedUserId shouldBe UserId("lu-2")
+        }
+
+        test("UserMatcher with two users sharing a normalized displayName is AMBIGUOUS, no suggestion") {
+            val match =
+                UserMatcher().match(
+                    AbsUser(id = "abs-amb-name", username = "Simon Hull", email = null),
+                    listOf(
+                        MatchableUser(UserId("lu-a"), "a@x.test", "simon hull"),
+                        MatchableUser(UserId("lu-b"), "b@x.test", "Simon   Hull!"),
+                    ),
+                )
+            match.confidence shouldBe MatchTier.AMBIGUOUS
+            match.suggestedUserId.shouldBeNull()
+        }
+
+        test("UserMatcher with two users sharing an email is AMBIGUOUS, no suggestion") {
+            val match =
+                UserMatcher().match(
+                    AbsUser(id = "abs-amb-email", username = "irrelevant", email = "dup@x.test"),
+                    listOf(
+                        MatchableUser(UserId("lu-c"), "DUP@x.test", "Name One"),
+                        MatchableUser(UserId("lu-d"), "dup@x.TEST", "Name Two"),
+                    ),
+                )
+            match.confidence shouldBe MatchTier.AMBIGUOUS
+            match.suggestedUserId.shouldBeNull()
         }
 
         test("UserMatcher with no email or name match is UNMATCHED with a null suggestion") {
@@ -148,6 +191,16 @@ private fun seedBooks(libraryId: String) {
     // Two books sharing an ASIN to prove the AMBIGUOUS guard.
     insertBook(libraryId, "b-dup1", "Dup One", asin = "B00DUP", isbn = null, relPath = "Dup/One")
     insertBook(libraryId, "b-dup2", "Dup Two", asin = "B00DUP", isbn = null, relPath = "Dup/Two")
+    // A soft-deleted book to prove tombstones are excluded from every tier.
+    insertBook(
+        libraryId,
+        "b-deleted",
+        "Deleted Book",
+        asin = "B00DELETED",
+        isbn = null,
+        relPath = "Deleted/Gone",
+        deletedAt = 1_730_000_000_001L,
+    )
 
     ContributorTable.insert {
         it[id] = "c-sanderson"
@@ -169,6 +222,7 @@ private fun insertBook(
     asin: String?,
     isbn: String?,
     relPath: String,
+    deletedAt: Long? = null,
 ) {
     val now = 1_730_000_000_000L
     BookTable.insert {
@@ -183,6 +237,7 @@ private fun insertBook(
         it[revision] = 1L
         it[createdAt] = now
         it[updatedAt] = now
+        it[BookTable.deletedAt] = deletedAt
     }
 }
 
