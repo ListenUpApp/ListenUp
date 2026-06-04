@@ -33,8 +33,9 @@ fun interface ServerUrlChangeListener {
  * Repository implementation for managing ListenUp servers.
  *
  * Bridges mDNS discovery with local persistence:
- * - Discovered servers are automatically persisted
- * - Persisted servers show online/offline status based on discovery
+ * - Discovery results surface in the list keyed by host:port (one row per physical server,
+ *   regardless of mDNS id churn); they are persisted only when the user activates one
+ * - Persisted servers show online/offline status based on discovery and follow IP changes
  * - Auth tokens are stored per-server for instant switching
  * - Notifies listeners when active server URL changes (for API client invalidation)
  *
@@ -54,59 +55,68 @@ class ServerRepositoryImpl(
             serverDao.observeAll().distinctUntilChanged(),
             discoveryService.discover().onStart { emit(emptyList()) }.distinctUntilChanged(),
         ) { persisted, discovered ->
-            val discoveredIds = discovered.map { it.id }.toSet()
+            // Follow IP changes for servers the user already saved: when a persisted server's mDNS
+            // id reappears at a new address, refresh its stored URL (and notify the active-server
+            // listener). Discovery-only servers are deliberately NOT persisted here — blindly
+            // persisting every advertised id is what let the list grow without bound as a host's
+            // mDNS id churned across restarts.
+            scope.launch { refreshRediscoveredServers(discovered) }
 
-            // Update local URLs for rediscovered servers
-            scope.launch {
-                for (disc in discovered) {
-                    val existing = serverDao.getById(disc.id)
-                    if (existing != null) {
-                        // Check if this is the active server and URL changed
-                        val urlChanged = existing.isActive && existing.localUrl != disc.localUrl
-                        if (urlChanged) {
-                            logger.info {
-                                "Active server IP changed: ${existing.localUrl} -> ${disc.localUrl}"
-                            }
-                        }
+            val onlineKeys = discovered.mapNotNull { hostPortKey(it.localUrl) }.toSet()
 
-                        // Server exists - update from discovery
-                        serverDao.updateFromDiscovery(
-                            id = disc.id,
-                            name = disc.name,
-                            apiVersion = disc.apiVersion,
-                            serverVersion = disc.serverVersion,
-                            localUrl = disc.localUrl,
-                            remoteUrl = disc.remoteUrl,
+            // One row per physical host: collapse historical duplicate rows (same host, stale ids),
+            // preferring the active server. A host is online when it is currently advertised.
+            val persistedRows =
+                persisted
+                    .groupBy { hostPortKey(it.localUrl ?: it.remoteUrl) ?: "id:${it.id}" }
+                    .values
+                    .map { rows -> rows.firstOrNull { it.isActive } ?: rows.first() }
+                    .map { server ->
+                        ServerWithStatus(
+                            server = server.toDomain(),
+                            isOnline = hostPortKey(server.localUrl ?: server.remoteUrl) in onlineKeys,
                         )
-
-                        // Notify listener if active server's URL changed
-                        if (urlChanged) {
-                            urlChangeListener?.onServerUrlChanged(ServerUrl(disc.localUrl))
-                        }
-                    } else {
-                        // New server - insert it
-                        serverDao.upsert(disc.toEntity())
                     }
-                }
-            }
 
-            // Merge persisted servers with online status
-            val merged =
-                persisted.map { server ->
-                    ServerWithStatus(
-                        server = server.toDomain(),
-                        isOnline = server.id in discoveredIds,
-                    )
-                }
+            val persistedKeys = persisted.mapNotNull { hostPortKey(it.localUrl ?: it.remoteUrl) }.toSet()
 
-            // Add newly discovered servers that aren't persisted yet
-            val newServers =
+            // Discovered servers not already represented by a persisted row, deduped by host.
+            val discoveredRows =
                 discovered
-                    .filter { d -> persisted.none { it.id == d.id } }
+                    .associateBy { hostPortKey(it.localUrl) }
+                    .values
+                    .filter { hostPortKey(it.localUrl) !in persistedKeys }
                     .map { ServerWithStatus(it.toEntity().toDomain(), isOnline = true) }
 
-            merged + newServers
+            persistedRows + discoveredRows
         }
+
+    /**
+     * Refreshes the stored URL of any persisted server whose mDNS id is currently advertised, so a
+     * saved server (notably the active one) follows its address across DHCP/IP changes. Servers not
+     * already persisted are left untouched — they surface in the discovered list and are only
+     * written to the database when the user activates one.
+     */
+    private suspend fun refreshRediscoveredServers(discovered: List<DataDiscoveredServer>) {
+        for (disc in discovered) {
+            val existing = serverDao.getById(disc.id) ?: continue
+            val urlChanged = existing.isActive && existing.localUrl != disc.localUrl
+            if (urlChanged) {
+                logger.info { "Active server IP changed: ${existing.localUrl} -> ${disc.localUrl}" }
+            }
+            serverDao.updateFromDiscovery(
+                id = disc.id,
+                name = disc.name,
+                apiVersion = disc.apiVersion,
+                serverVersion = disc.serverVersion,
+                localUrl = disc.localUrl,
+                remoteUrl = disc.remoteUrl,
+            )
+            if (urlChanged) {
+                urlChangeListener?.onServerUrlChanged(ServerUrl(disc.localUrl))
+            }
+        }
+    }
 
     override fun observeActiveServer(): Flow<Server?> = serverDao.observeActive().map { it?.toDomain() }
 
@@ -217,6 +227,18 @@ class ServerRepositoryImpl(
 // ============================================================
 // Mapping functions
 // ============================================================
+
+/**
+ * Normalizes a server URL to a stable host:port identity — scheme and trailing slash dropped,
+ * lower-cased — so the same physical server is recognized regardless of its (churn-prone) mDNS id.
+ * Returns null for a null/blank URL.
+ */
+private fun hostPortKey(url: String?): String? =
+    url
+        ?.takeIf { it.isNotBlank() }
+        ?.substringAfter("://")
+        ?.trimEnd('/')
+        ?.lowercase()
 
 /**
  * Convert entity to domain model.
