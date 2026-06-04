@@ -131,6 +131,17 @@ interface AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
+     * Get the current registration policy as a simple open/closed boolean.
+     *
+     * Returns `true` when registration policy is [com.calypsan.listenup.api.dto.auth.RegistrationPolicy.OPEN],
+     * `false` for all other policies (approval queue or closed). Callers do not need to
+     * depend on the contract enum — the VM needs only the boolean to drive the UI toggle.
+     *
+     * @return [AppResult] carrying `true` if registration is open, `false` otherwise, or a failure.
+     */
+    suspend fun getRegistrationPolicy(): AppResult<Boolean>
+
+    /**
      * Enable or disable open registration.
      *
      * When enabled, new users can register without an invite.

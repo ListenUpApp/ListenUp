@@ -123,6 +123,8 @@ class AdminRepositoryImplUserTest :
             return AdminRepositoryImpl(
                 adminApi = unusedApi,
                 adminUserRpc = FakeAdminUserRpcFactory(service),
+                inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
             )
         }
 
@@ -236,6 +238,15 @@ class AdminRepositoryImplUserTest :
             info.permissions.canShare shouldBe false
         }
 
+        test("getRegistrationPolicy returns Success(true) when policy is OPEN") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.getRegistrationPolicy()
+
+            result shouldBe AppResult.Success(true)
+        }
+
         test("a transport exception from the RPC factory becomes AppResult.Failure, not a throw") {
             val throwingFactory =
                 object : AdminUserRpcFactory {
@@ -247,6 +258,8 @@ class AdminRepositoryImplUserTest :
                 AdminRepositoryImpl(
                     adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
+                    inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                    serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 )
 
             (repo.getUsers() is AppResult.Failure) shouldBe true

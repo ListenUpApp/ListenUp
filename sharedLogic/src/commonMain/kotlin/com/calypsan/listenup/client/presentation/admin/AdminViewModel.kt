@@ -8,13 +8,13 @@ import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
-import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetOpenRegistrationUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -33,7 +33,7 @@ private val logger = KotlinLogging.logger {}
  * Subscribes to SSE events for real-time updates of pending users.
  */
 class AdminViewModel(
-    private val instanceRepository: InstanceRepository,
+    private val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase,
     private val loadUsersUseCase: LoadUsersUseCase,
     private val loadPendingUsersUseCase: LoadPendingUsersUseCase,
     private val loadInvitesUseCase: LoadInvitesUseCase,
@@ -104,14 +104,14 @@ class AdminViewModel(
     fun loadData() {
         viewModelScope.launch {
             // Load all data in parallel — no dependencies between these calls
-            val deferredInstance = async { instanceRepository.getInstance() }
+            val deferredOpenReg = async { getRegistrationPolicyUseCase() }
             val deferredUsers = async { loadUsersUseCase() }
             val deferredPending = async { loadPendingUsersUseCase() }
             val deferredInvites = async { loadInvitesUseCase() }
 
             val openRegistration =
-                when (val result = deferredInstance.await()) {
-                    is AppResult.Success -> result.data.openRegistration
+                when (val result = deferredOpenReg.await()) {
+                    is AppResult.Success -> result.data
                     is AppResult.Failure -> false
                 }
 

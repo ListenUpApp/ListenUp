@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -14,19 +15,21 @@ import kotlinx.rpc.withService
 /**
  * Supplies the [InviteServicePublic] kotlinx.rpc proxy backing the anonymous
  * invite surface — landing-page lookup ([InviteServicePublic.lookupInvite]) and
- * claim ([InviteServicePublic.claimInvite]).
+ * claim ([InviteServicePublic.claimInvite]) — and the authed [InviteService]
+ * proxy for admin invite management.
  *
  * An interface so the repository depends on a seam that can be faked in tests —
  * [KtorInviteRpcFactory] is the production implementation over WebSocket RPC.
- * Mirrors [TagRpcFactory] — the established RPC-factory-seam precedent. Public
- * only: the client never talks to the authed invite-management service (admin
- * invite mgmt is deferred), so there is no authed proxy here.
+ * Mirrors [TagRpcFactory] — the established RPC-factory-seam precedent.
  */
 interface InviteRpcFactory {
     /** Returns the cached [InviteServicePublic] proxy, connecting on first use. */
     suspend fun publicService(): InviteServicePublic
 
-    /** Drop the cached proxy and the RPC-flavored HttpClient. */
+    /** Returns the cached authed [InviteService] proxy, connecting on first use. */
+    suspend fun adminService(): InviteService
+
+    /** Drop the cached proxies and the RPC-flavored HttpClient. */
     suspend fun invalidate()
 }
 
@@ -51,15 +54,22 @@ open class KtorInviteRpcFactory(
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedPublic: InviteServicePublic? = null
+    private var cachedAdmin: InviteService? = null
 
     override suspend fun publicService(): InviteServicePublic =
         mutex.withLock {
             cachedPublic ?: connectPublic().also { cachedPublic = it }
         }
 
+    override suspend fun adminService(): InviteService =
+        mutex.withLock {
+            cachedAdmin ?: connectAdmin().also { cachedAdmin = it }
+        }
+
     override suspend fun invalidate() {
         mutex.withLock {
             cachedPublic = null
+            cachedAdmin = null
             cachedRpcClient = null
         }
     }
@@ -67,6 +77,11 @@ open class KtorInviteRpcFactory(
     internal open suspend fun connectPublic(): InviteServicePublic {
         val baseUrl = rpcBaseUrl()
         return rpcClient().rpc("$baseUrl/api/rpc/public").withService<InviteServicePublic>()
+    }
+
+    internal open suspend fun connectAdmin(): InviteService {
+        val baseUrl = rpcBaseUrl()
+        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<InviteService>()
     }
 
     private suspend fun rpcClient(): HttpClient =

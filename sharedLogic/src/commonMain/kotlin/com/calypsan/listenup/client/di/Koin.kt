@@ -145,6 +145,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
@@ -515,6 +516,11 @@ val useCaseModule =
         }
         factory {
             DenyUserUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            GetRegistrationPolicyUseCase(
                 adminRepository = get(),
             )
         }
@@ -1058,7 +1064,7 @@ val syncModule =
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
         single<AdminRepository> {
-            AdminRepositoryImpl(adminApi = get(), adminUserRpc = get())
+            AdminRepositoryImpl(adminApi = get(), adminUserRpc = get(), inviteRpc = get(), serverConfig = get())
         }
 
         // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
