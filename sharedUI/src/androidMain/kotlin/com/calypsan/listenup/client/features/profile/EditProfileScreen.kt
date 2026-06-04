@@ -1,10 +1,3 @@
-@file:Suppress(
-    "MagicNumber",
-    "LongMethod",
-    "LongParameterList",
-    "CyclomaticComplexMethod",
-    "CognitiveComplexMethod",
-)
 
 package com.calypsan.listenup.client.features.profile
 
@@ -553,52 +546,22 @@ private fun PasswordSection(
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    var currentPasswordVisible by remember { mutableStateOf(false) }
-    var newPasswordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
-
-    OutlinedTextField(
+    PasswordField(
         value = currentPassword,
         onValueChange = onCurrentPasswordChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Current Password") },
-        placeholder = { Text("Enter current password") },
-        singleLine = true,
-        enabled = !isSaving,
-        visualTransformation =
-            if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
-                Icon(
-                    imageVector =
-                        if (currentPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (currentPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
-                )
-            }
-        },
+        label = "Current Password",
+        placeholder = "Enter current password",
+        isSaving = isSaving,
     )
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    OutlinedTextField(
+    PasswordField(
         value = newPassword,
         onValueChange = onNewPasswordChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("New Password") },
-        placeholder = { Text("Enter new password") },
-        singleLine = true,
-        enabled = !isSaving,
-        visualTransformation =
-            if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
-                Icon(
-                    imageVector =
-                        if (newPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (newPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
-                )
-            }
-        },
+        label = "New Password",
+        placeholder = "Enter new password",
+        isSaving = isSaving,
         supportingText = {
             if (newPassword.isNotEmpty() && !isPasswordValid) {
                 Text(
@@ -611,26 +574,12 @@ private fun PasswordSection(
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    OutlinedTextField(
+    PasswordField(
         value = confirmPassword,
         onValueChange = onConfirmPasswordChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Confirm Password") },
-        placeholder = { Text("Re-enter new password") },
-        singleLine = true,
-        enabled = !isSaving,
-        visualTransformation =
-            if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                Icon(
-                    imageVector =
-                        if (confirmPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription =
-                        if (confirmPasswordVisible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
-                )
-            }
-        },
+        label = "Confirm Password",
+        placeholder = "Re-enter new password",
+        isSaving = isSaving,
         supportingText = {
             if (confirmPassword.isNotEmpty() && !passwordsMatch) {
                 Text(
@@ -650,6 +599,40 @@ private fun PasswordSection(
     ) {
         Text("Change Password")
     }
+}
+
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    isSaving: Boolean,
+    supportingText: (@Composable () -> Unit)? = null,
+) {
+    var visible by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        singleLine = true,
+        enabled = !isSaving,
+        visualTransformation =
+            if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { visible = !visible }) {
+                Icon(
+                    imageVector =
+                        if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (visible) PASSWORD_VISIBILITY_HIDE else PASSWORD_VISIBILITY_SHOW,
+                )
+            }
+        },
+        supportingText = supportingText,
+    )
 }
 
 private const val MAX_AVATAR_SIZE = 2048
