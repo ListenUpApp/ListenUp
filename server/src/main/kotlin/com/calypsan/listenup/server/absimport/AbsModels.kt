@@ -44,3 +44,27 @@ internal data class AbsProgress(
     val progress: Double,
     val lastUpdateMs: Long,
 )
+
+/**
+ * One Audiobookshelf playback session for an audiobook — a single bounded listen of [timeListeningSeconds]
+ * actual seconds, used to backfill ListeningUp listening-event history.
+ *
+ * [itemId] is the ABS `mediaItemId` (= `books.id` for `mediaItemType = 'book'`), so it joins to
+ * [AbsItem.id] and resolves through the same Phase-2 matcher path as [AbsProgress].
+ * [startPositionSeconds]/[endPositionSeconds] are the playhead positions at session start/end.
+ * [timeListeningSeconds] is ABS's authoritative actually-listened span (NOT the wall-clock duration).
+ * [startedAtMs] is epoch **millis**, parsed from the ISO-8601 `createdAt` text column.
+ * [playbackSpeed] defaults to `1.0` — ABS does not store a per-session playback rate.
+ * [deviceLabel] is the ABS `mediaPlayer` column (nullable).
+ */
+internal data class AbsSession(
+    val id: String,
+    val userId: String,
+    val itemId: String,
+    val startPositionSeconds: Double,
+    val endPositionSeconds: Double,
+    val timeListeningSeconds: Double,
+    val startedAtMs: Long,
+    val playbackSpeed: Float,
+    val deviceLabel: String?,
+)
