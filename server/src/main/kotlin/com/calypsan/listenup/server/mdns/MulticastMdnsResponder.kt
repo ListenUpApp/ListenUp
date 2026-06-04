@@ -52,13 +52,7 @@ class MulticastMdnsResponder(
                             .toList()
                             .filterIsInstance<Inet4Address>()
                             .firstOrNull() ?: continue
-                    val socket =
-                        MulticastSocket(PORT).apply {
-                            reuseAddress = true
-                            runCatching { setOption(java.net.StandardSocketOptions.SO_REUSEPORT, true) }
-                            joinGroup(InetSocketAddress(group, PORT), nif)
-                        }
-                    sockets += Bound(socket, nif, ipv4.address)
+                    sockets += Bound(bindMulticastSocket(nif), nif, ipv4.address)
                 }
                 if (sockets.isEmpty()) {
                     log.warn {
@@ -79,6 +73,21 @@ class MulticastMdnsResponder(
             }
         }
     }
+
+    /**
+     * Bind one multicast socket to [nif] and join 224.0.0.251:5353 on it. The crucial step is pinning
+     * the *egress* interface ([MulticastSocket.setNetworkInterface]): `joinGroup` only governs which
+     * interface we *receive* group traffic on, so without this every `send()` would leave via the OS
+     * default route — fatal on a multi-homed host (docker/VPN/multiple NICs), where announcements
+     * would never reach LAN clients on the intended interface.
+     */
+    internal fun bindMulticastSocket(nif: NetworkInterface): MulticastSocket =
+        MulticastSocket(PORT).apply {
+            reuseAddress = true
+            runCatching { setOption(java.net.StandardSocketOptions.SO_REUSEPORT, true) }
+            networkInterface = nif
+            joinGroup(InetSocketAddress(group, PORT), nif)
+        }
 
     private suspend fun announce(bound: Bound) {
         val packet = DnsCodec.encodeResponse(service, bound.ipv4, ttlSeconds = TTL_SECONDS)

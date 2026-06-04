@@ -18,6 +18,26 @@ private const val MDNS_PORT = 5353
 
 class MulticastMdnsResponderTest :
     FunSpec({
+        test("bindMulticastSocket pins the egress interface so sends leave via the joined NIC") {
+            // Deterministic guard (works on any host, incl. single-NIC CI): without setNetworkInterface,
+            // a multi-homed host sends every announcement out the OS default route instead of `nif`,
+            // and no LAN client on the other interfaces ever discovers us.
+            val nif =
+                firstMulticastIpv4Interface()
+                    ?: return@test // no multicast-capable interface here — nothing to assert
+            val service =
+                MdnsServiceInfo(instanceName = "kotest-host", port = 8080, txt = linkedMapOf("id" to "x"))
+            val responder = MulticastMdnsResponder(service, CoroutineScope(Dispatchers.IO + SupervisorJob()))
+
+            val socket = responder.bindMulticastSocket(nif)
+            try {
+                socket.networkInterface.name shouldBe nif.name
+            } finally {
+                runCatching { socket.leaveGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif) }
+                socket.close()
+            }
+        }
+
         test("start announces an mDNS packet containing our TXT id and service type") {
             val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
             val service =
