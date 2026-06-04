@@ -49,7 +49,7 @@ class PublicProfileMaintainer(
                         .firstOrNull()
 
                 val nowMs = clock.now().toEpochMilliseconds()
-                val last365 = sumWindowSeconds(userId, days = YEAR_WINDOW_DAYS, asOfMs = nowMs)
+                val yearWindowSeconds = sumWindowSeconds(userId, days = YEAR_WINDOW_DAYS, asOfMs = nowMs)
 
                 PublicProfileSyncPayload(
                     id = userId,
@@ -58,7 +58,7 @@ class PublicProfileMaintainer(
                     totalSecondsAllTime = statsRow?.get(UserStatsTable.totalSecondsAllTime) ?: 0L,
                     totalSecondsLast7Days = statsRow?.get(UserStatsTable.totalSecondsLast7Days) ?: 0L,
                     totalSecondsLast30Days = statsRow?.get(UserStatsTable.totalSecondsLast30Days) ?: 0L,
-                    totalSecondsLast365Days = last365,
+                    totalSecondsLast365Days = yearWindowSeconds,
                     booksFinished = statsRow?.get(UserStatsTable.booksFinished) ?: 0,
                     currentStreakDays = statsRow?.get(UserStatsTable.currentStreakDays) ?: 0,
                     longestStreakDays = statsRow?.get(UserStatsTable.longestStreakDays) ?: 0,
