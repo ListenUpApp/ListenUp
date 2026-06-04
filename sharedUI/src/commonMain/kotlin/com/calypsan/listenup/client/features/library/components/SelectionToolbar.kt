@@ -1,5 +1,3 @@
-@file:Suppress("CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.foundation.layout.Row
@@ -21,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -86,62 +85,58 @@ fun SelectionToolbar(
             Spacer(modifier = Modifier.weight(1f))
 
             // Add to shelf button (all users)
-            TextButton(
-                onClick = onAddToShelf,
+            SelectionActionButton(
+                icon = Icons.Default.FilterList,
+                label = stringResource(Res.string.library_shelf),
                 enabled = selectedCount > 0,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint =
-                        if (selectedCount > 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = stringResource(Res.string.library_shelf),
-                    color =
-                        if (selectedCount > 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
+                onClick = onAddToShelf,
+            )
 
             // Add to collection button (admin only)
             if (onAddToCollection != null) {
-                TextButton(
-                    onClick = onAddToCollection,
+                SelectionActionButton(
+                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    label = stringResource(Res.string.library_collection),
                     enabled = selectedCount > 0,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint =
-                            if (selectedCount > 0) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(Res.string.library_collection),
-                        color =
-                            if (selectedCount > 0) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                }
+                    onClick = onAddToCollection,
+                )
             }
         }
+    }
+}
+
+/**
+ * A single labelled selection action (icon + text). Tint follows [enabled] so disabled actions
+ * read as muted, matching the inline buttons it replaces.
+ */
+@Composable
+private fun SelectionActionButton(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val contentColor =
+        if (enabled) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = contentColor,
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            color = contentColor,
+        )
     }
 }
