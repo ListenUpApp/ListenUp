@@ -357,7 +357,12 @@ private suspend fun stageAnalyzedImport(
     val registry = SyncRegistry()
     val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
     val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
-    val statsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() })
+    val statsUpdater =
+        UserStatsUpdater(
+            db = db,
+            userStatsRepo = statsRepo,
+            publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+        )
     val listeningEventRepo =
         ListeningEventRepository(db = db, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
     val statsBackfill = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)

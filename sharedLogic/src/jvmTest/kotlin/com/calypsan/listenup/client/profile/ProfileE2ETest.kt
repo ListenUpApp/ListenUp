@@ -98,7 +98,11 @@ class ProfileE2ETest :
                 createProfileService(
                     db = serverDb,
                     passwordHasher = PasswordHasher(),
-                    publicProfileMaintainer = PublicProfileMaintainer(serverDb, PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry())),
+                    publicProfileMaintainer =
+                        PublicProfileMaintainer(
+                            serverDb,
+                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                        ),
                 )
 
             testApplication {
@@ -147,7 +151,11 @@ class ProfileE2ETest :
                 createProfileService(
                     db = serverDb,
                     passwordHasher = hasher,
-                    publicProfileMaintainer = PublicProfileMaintainer(serverDb, PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry())),
+                    publicProfileMaintainer =
+                        PublicProfileMaintainer(
+                            serverDb,
+                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                        ),
                 )
 
             testApplication {

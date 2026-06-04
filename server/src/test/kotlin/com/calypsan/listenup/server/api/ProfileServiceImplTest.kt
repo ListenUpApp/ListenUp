@@ -25,12 +25,15 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 class ProfileServiceImplTest :
     FunSpec({
         fun Database.svc(userId: String): ProfileServiceImpl =
-            ProfileServiceImpl(db = this, passwordHasher = PasswordHasher(), publicProfileMaintainer = noOpPublicProfileMaintainer())
-                .copyWith(
-                    PrincipalProvider {
-                        UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
-                    },
-                )
+            ProfileServiceImpl(
+                db = this,
+                passwordHasher = PasswordHasher(),
+                publicProfileMaintainer = noOpPublicProfileMaintainer(),
+            ).copyWith(
+                PrincipalProvider {
+                    UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
+                },
+            )
 
         test("getMyProfile returns the caller's profile") {
             withInMemoryDatabase {
@@ -64,12 +67,15 @@ class ProfileServiceImplTest :
                         UserEntity.findById("u1")!!.passwordHash = hash
                     }
                     val svc =
-                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher, publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer())
-                            .copyWith(
-                                PrincipalProvider {
-                                    UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
-                                },
-                            )
+                        ProfileServiceImpl(
+                            db = this@withInMemoryDatabase,
+                            passwordHasher = hasher,
+                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
                     val r =
                         svc.updateMyProfile(
                             UpdateProfileRequest(
@@ -92,12 +98,15 @@ class ProfileServiceImplTest :
                         UserEntity.findById("u1")!!.passwordHash = hash
                     }
                     val svc =
-                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher, publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer())
-                            .copyWith(
-                                PrincipalProvider {
-                                    UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
-                                },
-                            )
+                        ProfileServiceImpl(
+                            db = this@withInMemoryDatabase,
+                            passwordHasher = hasher,
+                            publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer(),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
                     val r =
                         svc.updateMyProfile(
                             UpdateProfileRequest(

@@ -35,7 +35,13 @@ class ListeningEventStatsIdempotencyTest :
         test("re-firing the same listening event does not double-count totalSecondsAllTime") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
                 // The repository fires the stats hook internally on a successful upsert —
                 // wire the real updater so the idempotency guard is exercised end-to-end.
                 val eventRepo =

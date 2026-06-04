@@ -195,7 +195,12 @@ class PlaybackPositionRepositoryTest :
         test("recordPosition false→true flip increments booksFinished via UserStatsUpdater") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
                 val repo =
                     PlaybackPositionRepository(
                         db = this,
@@ -234,7 +239,12 @@ class PlaybackPositionRepositoryTest :
         test("recordPosition finished=true on a new row (no prior) also counts as a flip") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
                 val repo =
                     PlaybackPositionRepository(
                         db = this,

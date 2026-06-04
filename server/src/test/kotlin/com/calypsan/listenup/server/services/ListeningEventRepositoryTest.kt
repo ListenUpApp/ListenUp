@@ -95,7 +95,12 @@ class ListeningEventRepositoryTest :
         test("upsert with userStatsUpdater wired fires onListeningEvent and materialises totalSecondsAllTime") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
                 val repo =
                     ListeningEventRepository(
                         db = this,

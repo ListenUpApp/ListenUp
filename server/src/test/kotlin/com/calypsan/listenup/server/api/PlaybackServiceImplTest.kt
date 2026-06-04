@@ -76,7 +76,12 @@ class PlaybackServiceImplTest :
             val positionRepo = PlaybackPositionRepository(db = db, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-            val updater = UserStatsUpdater(db = db, userStatsRepo = statsRepo, publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() })
+            val updater =
+                UserStatsUpdater(
+                    db = db,
+                    userStatsRepo = statsRepo,
+                    publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+                )
             val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), userStatsUpdater = updater)
             return TestDeps(
                 bookRepo = bookRepo,

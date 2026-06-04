@@ -150,14 +150,7 @@ internal fun withTestApplication(
         val bus = ChangeBus()
         val registry = SyncRegistry()
         val tagRepo = TagRepository(db, bus, registry)
-        val userScopedRepo =
-            if (userScoped) {
-                UserScopedFixtureRepository(db, bus, registry).also {
-                    suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
-                }
-            } else {
-                null
-            }
+        val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
         val playbackPositionRepo =
             if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
 
@@ -176,11 +169,7 @@ internal fun withTestApplication(
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
                 )
-            // public_profiles is a first-class global domain in this harness — register it
-            // once on the shared bus/registry so its catch-up + firehose work, and so the
-            // maintainer (re-resolved per stats write via the provider) never re-registers.
-            val publicProfileRepo = PublicProfileRepository(db = db, bus = bus, registry = registry)
-            val publicProfileMaintainer = PublicProfileMaintainer(db = db, publicProfileRepo = publicProfileRepo)
+            val publicProfileMaintainer = buildPublicProfileMaintainer(db = db, bus = bus, registry = registry)
             val eventRepo =
                 ListeningEventRepository(
                     db = db,
@@ -274,6 +263,29 @@ internal fun withTestApplication(
             bookRepoOrNull = bookRepoForScope,
         ).block()
     }
+}
+
+/** Creates and schema-initialises a [UserScopedFixtureRepository] for the given test database. */
+private suspend fun buildUserScopedFixtureRepo(
+    db: Database,
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): UserScopedFixtureRepository =
+    UserScopedFixtureRepository(db, bus, registry).also {
+        suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
+    }
+
+/**
+ * Constructs a [PublicProfileMaintainer] wired to the shared [bus]/[registry].
+ * Extracted from [withTestApplication] to keep that function within the size budget.
+ */
+private fun buildPublicProfileMaintainer(
+    db: Database,
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): PublicProfileMaintainer {
+    val repo = PublicProfileRepository(db = db, bus = bus, registry = registry)
+    return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
 }
 
 /**

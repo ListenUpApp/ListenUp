@@ -53,7 +53,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     val event = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -75,7 +81,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -98,7 +110,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -120,7 +138,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -142,7 +166,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     // Build a 2-day streak
@@ -170,7 +200,13 @@ class UserStatsUpdaterTest :
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     // Event 14 days ago (outside 7-day window)
@@ -198,7 +234,13 @@ class UserStatsUpdaterTest :
         test("onPositionFinishedFlip increments booksFinished each call") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo, clock = clock, publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() })
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
 
                 runTest {
                     updater.onPositionFinishedFlip("u1")
