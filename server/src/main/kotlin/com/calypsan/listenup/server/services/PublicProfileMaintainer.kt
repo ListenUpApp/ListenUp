@@ -114,6 +114,9 @@ class PublicProfileMaintainer(
     /**
      * One-time backfill: refresh the projection for every non-deleted user. Idempotent;
      * invoked at startup after migrations to populate the table for pre-existing users.
+     *
+     * Cost is O(users) transactions (one [refresh] each, including a window SUM); fine for
+     * the self-hosted small-userbase scale this app targets — not designed for large fleets.
      */
     suspend fun backfillAll() {
         val userIds =
