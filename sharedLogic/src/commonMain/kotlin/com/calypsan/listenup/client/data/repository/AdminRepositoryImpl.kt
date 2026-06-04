@@ -9,13 +9,13 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.client.data.remote.AdminApiContract
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
-import com.calypsan.listenup.client.data.remote.AdminInvite
 import com.calypsan.listenup.client.data.remote.CollectionRef
-import com.calypsan.listenup.client.data.remote.CreateInviteRequest
 import com.calypsan.listenup.client.data.remote.InboxBookResponse
+import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
 import com.calypsan.listenup.client.data.remote.ServerSettingsRequest
 import com.calypsan.listenup.client.data.remote.UpdateInstanceRequest
@@ -30,26 +30,32 @@ import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.model.StagedCollection
 import com.calypsan.listenup.client.domain.repository.AdminRepository
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Implementation of AdminRepository using AdminApiContract for non-user operations
- * and [AdminUserRpcFactory] for user management (routed through the Kotlin RPC server).
+ * Implementation of AdminRepository using AdminApiContract for non-user operations,
+ * [AdminUserRpcFactory] for user management, and [InviteRpcFactory] for invite management
+ * (both routed through the Kotlin RPC server).
  *
  * All methods return [AppResult] — no exceptions are thrown. The [catching] helper wraps
  * every RPC call so that transport-level exceptions (e.g. [io.ktor.client.plugins.websocket.WebSocketException]
  * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
  * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
  *
- * @property adminApi API client for invite/settings/inbox/library operations
+ * @property adminApi API client for settings/inbox/library operations
  * @property adminUserRpc RPC factory for user-management operations
+ * @property inviteRpc RPC factory for invite-management operations
+ * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
     private val adminApi: AdminApiContract,
     private val adminUserRpc: AdminUserRpcFactory,
+    private val inviteRpc: InviteRpcFactory,
+    private val serverConfig: ServerConfig,
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT
@@ -147,25 +153,31 @@ class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getInvites(): AppResult<List<InviteInfo>> =
-        adminApi.getInvites().map { invites -> invites.map { it.toDomain() } }
+        catching("getInvites") {
+            val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
+            inviteRpc.adminService().listInvites().map { list -> list.map { it.toInviteInfo(serverUrl) } }
+        }
 
     override suspend fun createInvite(
         name: String,
         email: String,
         role: String,
         expiresInDays: Int,
-    ): AppResult<InviteInfo> {
-        val request =
-            CreateInviteRequest(
-                name = name,
-                email = email,
-                role = role,
-                expiresInDays = expiresInDays,
-            )
-        return adminApi.createInvite(request).map { it.toDomain() }
-    }
+    ): AppResult<InviteInfo> =
+        catching("createInvite") {
+            val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
+            inviteRpc
+                .adminService()
+                .createInvite(
+                    email = email,
+                    displayName = name,
+                    role = UserRole.valueOf(role),
+                    expiresInDays = expiresInDays,
+                ).map { it.toInviteInfo(serverUrl) }
+        }
 
-    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> = adminApi.deleteInvite(inviteId)
+    override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
+        catching("deleteInvite") { inviteRpc.adminService().revokeInvite(InviteId(inviteId)) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER SETTINGS
@@ -258,22 +270,6 @@ class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVERSION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert AdminInvite API model to InviteInfo domain model.
- */
-private fun AdminInvite.toDomain(): InviteInfo =
-    InviteInfo(
-        id = id,
-        code = code,
-        name = name,
-        email = email,
-        role = role,
-        expiresAt = expiresAt,
-        claimedAt = claimedAt,
-        url = url,
-        createdAt = createdAt,
-    )
 
 /**
  * Convert ServerSettingsResponse API model to ServerSettings domain model.
