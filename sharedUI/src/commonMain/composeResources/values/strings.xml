@@ -117,11 +117,13 @@
     <string name="auth_join_listenup">Join ListenUp to start listening</string>
     <string name="auth_last_name">Last Name</string>
     <string name="auth_last_name_placeholder">Last</string>
+    <string name="auth_new_to_listenup">New to ListenUp?</string>
     <string name="auth_password_label">Password</string>
     <string name="auth_password_placeholder">Enter your password</string>
     <string name="auth_passwords_dont_match">Passwords don\'t match</string>
     <string name="auth_pending_approval_message">Your account is pending administrator approval.</string>
     <string name="auth_request_account">Request Account</string>
+    <string name="auth_server_administrator">Server administrator</string>
     <string name="auth_server_error">Server error. Please try again.</string>
     <string name="auth_set_up_your_listenup_server">Set up your ListenUp server by creating the first admin account.</string>
     <string name="auth_sign_in">Sign In</string>
@@ -298,6 +300,7 @@
     <string name="connect_choose_server">Choose a server from your network</string>
     <string name="connect_connect">Connect</string>
     <string name="connect_connect_to_server">Connect to Server</string>
+    <string name="connect_connect_to_server_subtitle">Enter the address of your ListenUp server to get started.</string>
     <string name="connect_enter_server_url">Enter your ListenUp server URL</string>
     <string name="connect_enter_server_url_directly">Enter server URL directly</string>
     <string name="connect_has_root_user">Has Root User</string>
@@ -307,10 +310,14 @@
     <string name="connect_instance_status">Status</string>
     <string name="connect_listenup_server">ListenUp Server</string>
     <string name="connect_make_sure_your_listenup_server">Make sure your ListenUp server is running on the same network</string>
+    <string name="connect_on_your_network">On your network</string>
+    <string name="connect_rescan">Rescan</string>
     <string name="connect_searching">Searching for servers...</string>
     <string name="connect_select_server">Select Server</string>
+    <string name="connect_select_server_subtitle">Choose a ListenUp server on your network — or add one manually.</string>
     <string name="connect_server_needs_setup">⚠️ Server needs initial setup</string>
     <string name="connect_server_url">Server URL</string>
+    <string name="connect_server_url_hint">Your server address looks like https://yourname.listenup.app — find it in your server dashboard.</string>
     <string name="connect_server_url_placeholder">example.com or 192.168.1.100:8080</string>
     <string name="contributor_aka">aka %1$s</string>
     <string name="contributor_also_known_as">Also Known As</string>

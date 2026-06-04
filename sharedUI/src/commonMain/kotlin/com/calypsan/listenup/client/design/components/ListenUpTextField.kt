@@ -3,11 +3,14 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 
 /**
@@ -27,6 +30,10 @@ import androidx.compose.ui.text.input.VisualTransformation
  * @param visualTransformation Visual transformation applied to text (e.g., password masking)
  * @param keyboardOptions Keyboard type and IME action configuration
  * @param keyboardActions Keyboard action handlers
+ * @param leadingIcon Optional icon shown at the start of the field
+ * @param trailingIcon Optional icon shown at the end of the field
+ * @param onTrailingClick When non-null, the trailing icon becomes a clickable button
+ *   (e.g. a password visibility toggle)
  */
 @Composable
 fun ListenUpTextField(
@@ -41,6 +48,9 @@ fun ListenUpTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    onTrailingClick: (() -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = value,
@@ -53,6 +63,17 @@ fun ListenUpTextField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
+        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
+        trailingIcon =
+            trailingIcon?.let { icon ->
+                {
+                    if (onTrailingClick != null) {
+                        IconButton(onClick = onTrailingClick) { Icon(icon, contentDescription = null) }
+                    } else {
+                        Icon(icon, contentDescription = null)
+                    }
+                }
+            },
         singleLine = true,
         shape = MaterialTheme.shapes.medium,
         modifier = modifier.fillMaxWidth(),

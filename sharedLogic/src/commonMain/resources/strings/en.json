@@ -141,7 +141,9 @@
     "unable_to_connect": "Unable to connect to server",
     "waiting_for_approval": "Waiting for Approval",
     "youll_be_automatically_signed_in": "You'll be automatically signed in once approved.",
-    "your_registration_request_has_been": "Your registration request has been submitted and is awaiting admin approval."
+    "your_registration_request_has_been": "Your registration request has been submitted and is awaiting admin approval.",
+    "new_to_listenup": "New to ListenUp?",
+    "server_administrator": "Server administrator"
   },
   "connect": {
     "add_server": "Add Server",
@@ -163,7 +165,12 @@
     "select_server": "Select Server",
     "server_needs_setup": "⚠️ Server needs initial setup",
     "server_url": "Server URL",
-    "server_url_placeholder": "example.com or 192.168.1.100:8080"
+    "server_url_placeholder": "example.com or 192.168.1.100:8080",
+    "connect_to_server_subtitle": "Enter the address of your ListenUp server to get started.",
+    "on_your_network": "On your network",
+    "rescan": "Rescan",
+    "select_server_subtitle": "Choose a ListenUp server on your network — or add one manually.",
+    "server_url_hint": "Your server address looks like https://yourname.listenup.app — find it in your server dashboard."
   },
   "library": {
     "add_audiobooks_to_your_server": "Add audiobooks to your server to get started",
