@@ -151,30 +151,13 @@ interface AdminRepository {
      */
     suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit>
 
-    /**
-     * Get server settings.
-     *
-     * @return [AppResult] carrying current server settings including inbox status, or a failure.
-     */
+    /** Current server-identity settings (name + remote URL). */
     suspend fun getServerSettings(): AppResult<ServerSettings>
 
-    /**
-     * Update instance settings (remote URL, name).
-     *
-     * @return [AppResult] carrying the updated remote URL (may be null), or a failure.
-     */
-    suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?>
-
-    /**
-     * Update server-wide settings.
-     *
-     * @param serverName New server display name (null to keep unchanged)
-     * @param inboxEnabled New inbox workflow state (null to keep unchanged)
-     * @return [AppResult] carrying updated server settings, or a failure.
-     */
+    /** Patch server-identity settings (null = unchanged; remoteUrl "" clears). */
     suspend fun updateServerSettings(
         serverName: String? = null,
-        inboxEnabled: Boolean? = null,
+        remoteUrl: String? = null,
     ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════
