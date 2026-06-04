@@ -12,7 +12,7 @@ kotlin {
     // JVM target — used by :server, and for the rpc-guard runtime + KSP-generated guards.
     jvm()
 
-    androidLibrary {
+    android {
         namespace = "com.calypsan.listenup.contract"
         compileSdk =
             libs.versions.android.compileSdk
@@ -62,7 +62,6 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
     macosArm64()
-    macosX64()
 
     applyDefaultHierarchyTemplate()
 

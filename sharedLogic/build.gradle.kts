@@ -17,7 +17,7 @@ kotlin {
     jvm()
 
     // Android target using new AGP 9.0-compatible plugin
-    androidLibrary {
+    android {
         namespace = "com.calypsan.listenup.client.shared"
         compileSdk =
             libs.versions.android.compileSdk
@@ -87,7 +87,6 @@ kotlin {
 
     // macOS targets
     macosArm64()
-    macosX64()
 
     applyDefaultHierarchyTemplate()
 
@@ -99,7 +98,6 @@ kotlin {
         // Default hierarchy template provides: commonMain -> nativeMain -> appleMain -> {iosMain, macosMain}
         // We just get references to configure dependencies
         val appleMain by getting
-        val macosMain by getting
 
         commonMain.dependencies {
             api(projects.contract)
@@ -227,9 +225,8 @@ dependencies {
     add("kspIosArm64", libs.androidx.room.compiler)
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
 
-    // macOS targets
+    // macOS target
     add("kspMacosArm64", libs.androidx.room.compiler)
-    add("kspMacosX64", libs.androidx.room.compiler)
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
