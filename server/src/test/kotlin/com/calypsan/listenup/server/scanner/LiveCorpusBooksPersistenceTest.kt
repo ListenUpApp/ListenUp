@@ -91,6 +91,7 @@ class LiveCorpusBooksPersistenceTest :
                                 "jwt.issuer" to "listenup",
                                 "jwt.audience" to "listenup-client",
                                 "registration.policy" to "OPEN",
+                                "mdns.enabled" to "false",
                                 "scanner.libraryPath" to corpusPath,
                             )
                     }

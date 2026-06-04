@@ -536,18 +536,25 @@ private fun Application.startBackgroundTasks(
 
     // mDNS advertisement — best-effort, non-fatal. Resolve the persistent instance id, then start the
     // advertiser; register its stop on shutdown. A failure here must never break startup — manual
-    // server-URL entry is the Never-Stranded fallback.
-    scope.launch {
-        runCatching {
-            val instanceId = inject<InstanceIdentity>().value.instanceId()
-            val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId) }
-            advertiser.start()
-            monitor.subscribe(ApplicationStopped) {
-                scope.launch { advertiser.stop() }
+    // server-URL entry is the Never-Stranded fallback. Gated by `mdns.enabled` (default true) so the
+    // test harness can opt out — no test should bind multicast sockets or run a receive loop.
+    if (environment.config
+            .propertyOrNull("mdns.enabled")
+            ?.getString()
+            ?.toBooleanStrictOrNull() != false
+    ) {
+        scope.launch {
+            runCatching {
+                val instanceId = inject<InstanceIdentity>().value.instanceId()
+                val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId) }
+                advertiser.start()
+                monitor.subscribe(ApplicationStopped) {
+                    scope.launch { advertiser.stop() }
+                }
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                logger.warn(e) { "mDNS advertisement failed to start — server keeps running" }
             }
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.warn(e) { "mDNS advertisement failed to start — server keeps running" }
         }
     }
 }
