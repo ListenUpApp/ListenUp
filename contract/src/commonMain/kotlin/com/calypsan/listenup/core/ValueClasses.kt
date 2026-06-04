@@ -276,6 +276,63 @@ value class BackupId(
 }
 
 /**
+ * Type-safe wrapper for ABS import job IDs.
+ *
+ * Import IDs are server-minted stable identifiers for staged ABS import jobs
+ * (e.g. `abs-550e8400-e29b-41d4-a716-446655440000`). Jobs are filesystem-truth
+ * under `$LISTENUP_HOME/imports/<id>/`, so the ID is the directory name.
+ */
+@Serializable
+@JvmInline
+value class ImportId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Import ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
+ * Type-safe wrapper for Audiobookshelf user IDs.
+ *
+ * ABS user IDs are opaque strings from the ABS SQLite database. Wrapping them
+ * prevents accidentally passing a ListenUp [UserId][com.calypsan.listenup.api.dto.auth.UserId]
+ * where an ABS user ID is expected during user-mapping operations.
+ */
+@Serializable
+@JvmInline
+value class AbsUserId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "ABS user ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
+ * Type-safe wrapper for Audiobookshelf library item IDs.
+ *
+ * ABS item IDs are opaque strings from the ABS SQLite `libraryItems` table.
+ * Wrapping them prevents accidentally passing a ListenUp [BookId] where an ABS
+ * item ID is expected during book-matching and progress-apply operations.
+ */
+@Serializable
+@JvmInline
+value class AbsItemId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "ABS item ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for Genre IDs.
  *
  * Genres are server-wide (global, not user-scoped) and form a hierarchy via
