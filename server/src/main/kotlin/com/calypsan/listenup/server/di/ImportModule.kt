@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportPaths
 import com.calypsan.listenup.server.absimport.ImportStore
 import com.calypsan.listenup.server.absimport.MappingValidator
+import com.calypsan.listenup.server.absimport.SessionConverter
 import com.calypsan.listenup.server.absimport.UserMatcher
 import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -27,13 +28,16 @@ import java.nio.file.Path
  *  - [BookMatcher] / [UserMatcher] — confidence-tiered matching against the live library.
  *  - [MappingValidator] — rejects an incoherent admin mapping before it is written.
  *  - [ImportAnalyzer] — read + match → [com.calypsan.listenup.api.dto.import.ImportAnalysis].
- *  - [ImportApplier] — write listening progress through the playback repository.
+ *  - [com.calypsan.listenup.server.absimport.SessionConverter] — ABS session → listening event.
+ *  - [ImportApplier] — write listening progress + sessions, then backfill per-user stats.
  *  - [MutableSharedFlow]<[ImportEvent]> — process-wide progress event bus.
  *  - [ImportService] / [ImportServiceImpl] — admin-only RPC surface.
  *
  * [org.jetbrains.exposed.v1.jdbc.Database], [com.calypsan.listenup.server.services.LibraryRegistry],
- * and [com.calypsan.listenup.server.services.PlaybackPositionRepository] are resolved from the auth,
- * books, and playback modules respectively (all installed in the same Koin container).
+ * [com.calypsan.listenup.server.services.PlaybackPositionRepository],
+ * [com.calypsan.listenup.server.services.ListeningEventRepository], and
+ * [com.calypsan.listenup.server.services.UserStatsBackfillService] are resolved from the auth, books,
+ * and playback modules respectively (all installed in the same Koin container).
  */
 fun importModule(homeDir: Path): Module =
     module {
@@ -43,6 +47,7 @@ fun importModule(homeDir: Path): Module =
         single { BookMatcher(get()) }
         single { UserMatcher() }
         single { MappingValidator(get()) }
+        single { SessionConverter() }
 
         single {
             ImportAnalyzer(
@@ -62,6 +67,9 @@ fun importModule(homeDir: Path): Module =
                 store = get(),
                 paths = get(),
                 playbackPositionRepository = get(),
+                sessionConverter = get(),
+                listeningEventRepository = get(),
+                statsBackfill = get(),
             )
         }
 

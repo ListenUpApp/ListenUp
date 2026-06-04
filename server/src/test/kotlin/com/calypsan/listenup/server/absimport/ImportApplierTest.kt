@@ -9,22 +9,31 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.BookTable
+import com.calypsan.listenup.server.db.ListeningEventTable
 import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.ListeningEventRepository
+import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 
@@ -43,19 +52,19 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val (paths, importId, repo) = stageAnalyzedImport(db)
-                    val applier = applierFor(repo, paths)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
 
-                    confirmSimonMapping(paths, importId)
-                    val result = applier.apply(importId) {}
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val result = applier.apply(staged.importId) {}
 
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
                     val imported = (result as AppResult.Success).data
 
-                    val finished = repo.getPosition(LU_USER, LU_KINGS).shouldNotBeNull()
+                    val finished = staged.repo.getPosition(LU_USER, LU_KINGS).shouldNotBeNull()
                     finished.finished shouldBe true
 
-                    val inProgress = repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    val inProgress = staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
                     inProgress.positionMs shouldBe 1_234_000L
                     inProgress.finished shouldBe false
 
@@ -65,19 +74,67 @@ class ImportApplierTest :
             }
         }
 
-        test("an unmapped ABS user's progress is skipped and counted in skippedCount") {
+        test("playback sessions import as listening events with stable abs ids") {
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val (paths, importId, repo) = stageAnalyzedImport(db, withExtraProgressUser = true)
-                    val applier = applierFor(repo, paths)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
 
-                    confirmSimonMapping(paths, importId)
-                    val result = (applier.apply(importId) {} as AppResult.Success).data
+                    val result = (applier.apply(staged.importId) {} as AppResult.Success).data
 
-                    // simon's two books import; the extra ABS user's one row is unmapped → skipped.
-                    result.importedCount shouldBe 2
-                    result.skippedCount shouldBe 1
+                    // Three resolvable book sessions (kings, mist, fidelity); unresolved + podcast skipped.
+                    result.sessionsImported shouldBe 3
+                    listeningEventIdsFor(db, LU_USER)
+                        .shouldContainAll(listOf("abs:sess-kings", "abs:sess-mist", "abs:sess-fidelity"))
+                }
+            }
+        }
+
+        test("stats backfill totals listen-seconds from imported sessions and counts started/finished books") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}
+
+                    val stats = staged.statsRepo.getForUser(LU_USER).shouldNotBeNull()
+                    // 3600 + 1800 + 60 — the fidelity session contributes its timeListening, not its
+                    // ~28-hour wall span (proves endedAt = startedAt + timeListening*1000).
+                    stats.totalSecondsAllTime shouldBe 5_460L
+                    // Distinct books across imported events: book-1 + book-2.
+                    stats.booksStarted shouldBe 2
+                    // book-1's finished progress position is reflected after backfill.
+                    stats.booksFinished shouldBe 1
+                    // sess-kings/mist/fidelity end on Jan 17/18/19 UTC (consecutive days) → streak = 3.
+                    stats.longestStreakDays shouldBe 3
+                }
+            }
+        }
+
+        test("re-apply is idempotent: sessions don't duplicate and stats are unchanged") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}
+                    applier.apply(staged.importId) {}
+
+                    // Each ABS session id appears exactly once — stable id + append-only upsert.
+                    val ids = listeningEventIdsFor(db, LU_USER)
+                    ids.count { it == "abs:sess-kings" } shouldBe 1
+                    ids.count { it == "abs:sess-mist" } shouldBe 1
+                    ids.count { it == "abs:sess-fidelity" } shouldBe 1
+
+                    val stats = staged.statsRepo.getForUser(LU_USER).shouldNotBeNull()
+                    stats.totalSecondsAllTime shouldBe 5_460L
                 }
             }
         }
@@ -86,20 +143,20 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val (paths, importId, repo) = stageAnalyzedImport(db)
-                    val applier = applierFor(repo, paths)
-                    confirmSimonMapping(paths, importId)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
 
-                    applier.apply(importId) {}
+                    applier.apply(staged.importId) {}
                     // Second apply re-fires the same recordPosition calls with the same ABS lastPlayedAt.
-                    applier.apply(importId) {}
+                    applier.apply(staged.importId) {}
 
                     // Exactly one row per (user, book) — last-played-wins upsert, no duplication.
-                    val mist = repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    val mist = staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
                     mist.positionMs shouldBe 1_234_000L
 
                     // A local position with a NEWER lastPlayedAt must survive a re-apply.
-                    repo.recordPosition(
+                    staged.repo.recordPosition(
                         userId = LU_USER,
                         bookId = LU_MIST,
                         positionMs = 9_999_000L,
@@ -108,10 +165,30 @@ class ImportApplierTest :
                         playbackSpeed = 1.0f,
                         currentChapterId = null,
                     )
-                    applier.apply(importId) {}
+                    applier.apply(staged.importId) {}
 
-                    val preserved = repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    val preserved = staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
                     preserved.positionMs shouldBe 9_999_000L
+                }
+            }
+        }
+
+        test("an unmapped ABS user's progress and an unresolved session are skipped and counted") {
+            withInMemoryDatabase {
+                val db = this
+                runTest {
+                    val staged = stageAnalyzedImport(db, withExtraProgressUser = true)
+                    val applier = applierFor(staged)
+
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val result = (applier.apply(staged.importId) {} as AppResult.Success).data
+
+                    // simon's two books import; the extra ABS user's one progress row is unmapped → skipped.
+                    result.importedCount shouldBe 2
+                    // sessions: kings/mist/fidelity import; sess-unresolved's book never matched → skipped.
+                    result.sessionsImported shouldBe 3
+                    // 1 unmapped progress row + 1 unresolved session.
+                    result.skippedCount shouldBe 2
                 }
             }
         }
@@ -120,20 +197,20 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val (paths, importId, repo) = stageAnalyzedImport(db)
-                    val applier = applierFor(repo, paths)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
 
                     // Map simon, but skip book-1 (the finished item) via a null override.
-                    ImportStore(paths).writeMapping(
-                        importId,
+                    ImportStore(staged.paths).writeMapping(
+                        staged.importId,
                         userMappings = mapOf(AbsUserId(ABS_USER) to UserId(LU_USER)),
                         bookOverrides = mapOf(AbsItemId("book-1") to null),
                     )
-                    val result = (applier.apply(importId) {} as AppResult.Success).data
+                    val result = (applier.apply(staged.importId) {} as AppResult.Success).data
 
                     // book-1 skipped; only book-2 (in-progress) imported.
-                    repo.getPosition(LU_USER, LU_KINGS).shouldBeNull()
-                    repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    staged.repo.getPosition(LU_USER, LU_KINGS).shouldBeNull()
+                    staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
                     result.importedCount shouldBe 1
                 }
             }
@@ -143,10 +220,10 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val (paths, importId, repo) = stageAnalyzedImport(db)
-                    val applier = applierFor(repo, paths)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
 
-                    val result = applier.apply(importId) {}
+                    val result = applier.apply(staged.importId) {}
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ImportError.ApplyFailed>()
                 }
@@ -157,10 +234,8 @@ class ImportApplierTest :
             withInMemoryDatabase {
                 val db = this
                 runTest {
-                    val home = Files.createTempDirectory("abs-apply-missing-")
-                    val paths = ImportPaths(home).apply { ensureDirs() }
-                    val repo = PlaybackPositionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
-                    val applier = applierFor(repo, paths)
+                    val staged = stageAnalyzedImport(db)
+                    val applier = applierFor(staged)
 
                     val result = applier.apply(ImportId("never-analyzed")) {}
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -252,11 +327,16 @@ private data class StagedImport(
     val paths: ImportPaths,
     val importId: ImportId,
     val repo: PlaybackPositionRepository,
+    val statsRepo: UserStatsRepository,
+    val listeningEventRepo: ListeningEventRepository,
+    val statsBackfill: UserStatsBackfillService,
 )
 
 /**
  * Stages the synthetic ABS backup, seeds the matching ListenUp library + user, and runs analyze so
- * `matches.json` exists. Apply tests then confirm a mapping and call [ImportApplier.apply].
+ * `matches.json` exists. Apply tests then confirm a mapping and call [ImportApplier.apply]. The
+ * playback, listening-event, and stats repositories all share [db] so the apply path and the test
+ * read through the same substrate.
  */
 private suspend fun stageAnalyzedImport(
     db: Database,
@@ -272,7 +352,15 @@ private suspend fun stageAnalyzedImport(
     val libId = seedLibraryUser(db)
     transaction(db) { seedApplierBooks(libId.value) }
 
-    val repo = PlaybackPositionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
+    val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
+    val statsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo)
+    val listeningEventRepo =
+        ListeningEventRepository(db = db, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
+    val statsBackfill = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
+
     val analyzer =
         ImportAnalyzer(
             reader = AbsBackupReader(),
@@ -284,19 +372,33 @@ private suspend fun stageAnalyzedImport(
             db = db,
         )
     analyzer.analyze(importId) {}
-    return StagedImport(paths, importId, repo)
+    return StagedImport(paths, importId, repo, statsRepo, listeningEventRepo, statsBackfill)
 }
 
 private fun applierFor(
-    repo: PlaybackPositionRepository,
-    paths: ImportPaths,
+    staged: StagedImport,
 ): ImportApplier =
     ImportApplier(
         reader = AbsBackupReader(),
-        store = ImportStore(paths),
-        paths = paths,
-        playbackPositionRepository = repo,
+        store = ImportStore(staged.paths),
+        paths = staged.paths,
+        playbackPositionRepository = staged.repo,
+        sessionConverter = SessionConverter(),
+        listeningEventRepository = staged.listeningEventRepo,
+        statsBackfill = staged.statsBackfill,
     )
+
+/** Reads back the listening-event ids stored for [userId] through the shared db. */
+private suspend fun listeningEventIdsFor(
+    db: Database,
+    userId: String,
+): List<String> =
+    suspendTransaction(db) {
+        ListeningEventTable
+            .selectAll()
+            .where { ListeningEventTable.userId eq userId }
+            .map { it[ListeningEventTable.id] }
+    }
 
 private suspend fun confirmSimonMapping(
     paths: ImportPaths,

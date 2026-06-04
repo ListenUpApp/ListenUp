@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportPaths
 import com.calypsan.listenup.server.absimport.ImportStore
 import com.calypsan.listenup.server.absimport.MappingValidator
+import com.calypsan.listenup.server.absimport.SessionConverter
 import com.calypsan.listenup.server.absimport.UserMatcher
 import com.calypsan.listenup.server.absimport.buildSyntheticAbsDb
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -26,7 +27,10 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
@@ -73,7 +77,10 @@ class ImportServiceTest :
 
                     val applied = service.apply(importId)
                     applied.shouldBeInstanceOf<AppResult.Success<*>>()
-                    (applied as AppResult.Success).data.importedCount shouldBeGreaterThan 0
+                    val appliedData = (applied as AppResult.Success).data
+                    appliedData.importedCount shouldBeGreaterThan 0
+                    // kings + mist + fidelity resolve to ListenUp books; unresolved + podcast skipped.
+                    appliedData.sessionsImported shouldBe 3
 
                     val summary = service.getImport(importId)
                     summary.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -214,7 +221,12 @@ private suspend fun stageService(
     transaction(db) { seedBooks(libId.value) }
 
     val store = ImportStore(paths)
-    val repo = PlaybackPositionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+    val bus = ChangeBus()
+    val registry = SyncRegistry()
+    val repo = PlaybackPositionRepository(db = db, bus = bus, registry = registry)
+    val statsRepo = UserStatsRepository(db = db, bus = bus, registry = registry)
+    val listeningEventRepo = ListeningEventRepository(db = db, bus = bus, registry = registry)
+    val statsBackfill = UserStatsBackfillService(db = db, userStatsRepo = statsRepo)
     val analyzer =
         ImportAnalyzer(
             reader = AbsBackupReader(),
@@ -231,6 +243,9 @@ private suspend fun stageService(
             store = store,
             paths = paths,
             playbackPositionRepository = repo,
+            sessionConverter = SessionConverter(),
+            listeningEventRepository = listeningEventRepo,
+            statsBackfill = statsBackfill,
         )
     val service =
         ImportServiceImpl(

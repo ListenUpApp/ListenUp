@@ -24,6 +24,7 @@ import java.time.format.DateTimeParseException
  *     val users = handle.users()
  *     val items = handle.bookItems()
  *     val progress = handle.progress()
+ *     val sessions = handle.playbackSessions()
  * }
  * ```
  */
@@ -114,6 +115,39 @@ internal class AbsBackupReader {
             }
         }
 
+        /**
+         * Playback sessions for audiobooks only (podcasts excluded), correlated on the book id
+         * ([AbsItem.id]). Maps the ABS `mediaPlayer` column to [AbsSession.deviceLabel]; the start
+         * timestamp is the ISO-8601 `createdAt` column (ABS's session start). ABS stores no
+         * per-session playback rate, so [AbsSession.playbackSpeed] defaults to `1.0`.
+         */
+        fun playbackSessions(): List<AbsSession> {
+            val sql =
+                "SELECT ${AbsSchema.SESSION_ID} AS id, " +
+                    "${AbsSchema.SESSION_USER_ID} AS userId, " +
+                    "${AbsSchema.SESSION_MEDIA_ITEM_ID} AS itemId, " +
+                    "${AbsSchema.SESSION_START_TIME} AS startTime, " +
+                    "${AbsSchema.SESSION_CURRENT_TIME} AS currentTime, " +
+                    "${AbsSchema.SESSION_TIME_LISTENING} AS timeListening, " +
+                    "${AbsSchema.SESSION_STARTED_AT} AS startedAt, " +
+                    "${AbsSchema.SESSION_DEVICE} AS deviceLabel " +
+                    "FROM ${AbsSchema.PLAYBACK_SESSIONS} " +
+                    "WHERE ${AbsSchema.SESSION_MEDIA_ITEM_TYPE} = ?"
+            return query(sql, { it.setString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { rs ->
+                AbsSession(
+                    id = rs.getString("id"),
+                    userId = rs.getString("userId"),
+                    itemId = rs.getString("itemId"),
+                    startPositionSeconds = rs.getDouble("startTime"),
+                    endPositionSeconds = rs.getDouble("currentTime"),
+                    timeListeningSeconds = rs.getDouble("timeListening"),
+                    startedAtMs = parseTimestampMs(rs.getString("startedAt")),
+                    playbackSpeed = DEFAULT_PLAYBACK_SPEED,
+                    deviceLabel = rs.getString("deviceLabel")?.ifBlank { null },
+                )
+            }
+        }
+
         override fun close() {
             try {
                 connection.close()
@@ -169,6 +203,9 @@ internal class AbsBackupReader {
         }
 
         private const val MILLIS_PER_SECOND = 1_000L
+
+        /** ABS stores no per-session playback rate; sessions default to normal speed. */
+        private const val DEFAULT_PLAYBACK_SPEED = 1.0f
 
         /** Epoch values below this are treated as seconds (≈ year 33658 in ms). */
         private const val SECONDS_THRESHOLD = 1_000_000_000_000L

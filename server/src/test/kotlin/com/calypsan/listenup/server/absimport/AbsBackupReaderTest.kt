@@ -58,6 +58,29 @@ class AbsBackupReaderTest :
             }
         }
 
+        test("playbackSessions() returns book sessions (podcasts excluded) with parsed fields") {
+            val absDb = Files.createTempDirectory("abs-sessions-").resolve(AbsSchema.DB_FILENAME)
+            buildSyntheticAbsDb(absDb)
+
+            AbsBackupReader().open(absDb).use { handle ->
+                val sessions = handle.playbackSessions()
+                // The podcast session is filtered out; only the book session surfaces.
+                sessions.none { it.itemId == "podcast-1" }.shouldBeTrue()
+
+                val session = sessions.single { it.itemId == "book-1" }
+                session.id shouldBe "sess-kings"
+                session.userId shouldBe "user-simon"
+                session.timeListeningSeconds shouldBe 3600.0
+                session.startPositionSeconds shouldBe 100.0
+                session.endPositionSeconds shouldBe 3700.0
+                // ABS stores no per-session playback rate → default 1.0.
+                session.playbackSpeed shouldBe 1.0f
+                session.deviceLabel shouldBe "Pixel 8"
+                // createdAt 2022-01-17T04:33:12.000Z → epoch millis.
+                session.startedAtMs shouldBe 1_642_393_992_000L
+            }
+        }
+
         test("a non-ABS / malformed file surfaces a typed AbsReadException, not a raw exception") {
             val bad = Files.createTempDirectory("abs-bad-").resolve(AbsSchema.DB_FILENAME)
             Files.write(bad, "not a database".toByteArray())

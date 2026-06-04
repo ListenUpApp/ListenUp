@@ -71,6 +71,18 @@ private fun java.sql.Connection.createAbsTables() {
                 "${AbsSchema.PROGRESS_IS_FINISHED} INTEGER, " +
                 "${AbsSchema.PROGRESS_UPDATED_AT} TEXT)",
         )
+        st.executeUpdate(
+            "CREATE TABLE ${AbsSchema.PLAYBACK_SESSIONS} (" +
+                "${AbsSchema.SESSION_ID} TEXT PRIMARY KEY, " +
+                "${AbsSchema.SESSION_USER_ID} TEXT, " +
+                "${AbsSchema.SESSION_MEDIA_ITEM_ID} TEXT, " +
+                "${AbsSchema.SESSION_MEDIA_ITEM_TYPE} TEXT, " +
+                "${AbsSchema.SESSION_START_TIME} REAL, " +
+                "${AbsSchema.SESSION_CURRENT_TIME} REAL, " +
+                "${AbsSchema.SESSION_TIME_LISTENING} INTEGER, " +
+                "${AbsSchema.SESSION_STARTED_AT} TEXT, " +
+                "${AbsSchema.SESSION_DEVICE} TEXT)",
+        )
     }
 }
 
@@ -171,6 +183,87 @@ private fun java.sql.Connection.insertAbsRows() {
                 ),
             ).forEach { insertProgress(ps, it) }
         }
+
+    insertAbsSessions()
+}
+
+/**
+ * Playback sessions for `user-simon`:
+ *  - `sess-kings` (book-1, `timeListening = 3600`) and `sess-mist` (book-2, `timeListening = 1800`) —
+ *    the two resolvable book sessions.
+ *  - `sess-fidelity` (book-2, `timeListening = 60` but a ~28-hour wall span) — proves listen-seconds
+ *    follow `timeListening`, not the wall clock.
+ *  - `sess-unresolved` (book-unmatched) — its item never matches a ListenUp book → skipped on apply.
+ *  - `sess-podcast` (podcastEpisode) — excluded by the reader's media-type filter.
+ */
+private fun java.sql.Connection.insertAbsSessions() {
+    prepareStatement(
+        "INSERT INTO ${AbsSchema.PLAYBACK_SESSIONS} (${AbsSchema.SESSION_ID}, " +
+            "${AbsSchema.SESSION_USER_ID}, ${AbsSchema.SESSION_MEDIA_ITEM_ID}, " +
+            "${AbsSchema.SESSION_MEDIA_ITEM_TYPE}, ${AbsSchema.SESSION_START_TIME}, " +
+            "${AbsSchema.SESSION_CURRENT_TIME}, ${AbsSchema.SESSION_TIME_LISTENING}, " +
+            "${AbsSchema.SESSION_STARTED_AT}, ${AbsSchema.SESSION_DEVICE}) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).use { ps ->
+        listOf(
+            SessionRow(
+                "sess-kings",
+                "user-simon",
+                "book-1",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 100.0,
+                currentTime = 3700.0,
+                timeListening = 3600,
+                startedAt = "2022-01-17T04:33:12.000Z",
+                device = "Pixel 8",
+            ),
+            SessionRow(
+                "sess-mist",
+                "user-simon",
+                "book-2",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 1800.0,
+                timeListening = 1800,
+                startedAt = "2022-01-18T04:33:12.000Z",
+                device = "Pixel 8",
+            ),
+            // Wall span ~28h (currentTime far past timeListening) but only 60s actually listened.
+            SessionRow(
+                "sess-fidelity",
+                "user-simon",
+                "book-2",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 1800.0,
+                currentTime = 102_000.0,
+                timeListening = 60,
+                startedAt = "2022-01-19T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
+                "sess-unresolved",
+                "user-simon",
+                "book-unmatched",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 30.0,
+                timeListening = 30,
+                startedAt = "2022-01-20T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
+                "sess-podcast",
+                "user-simon",
+                "podcast-1",
+                "podcastEpisode",
+                startTime = 0.0,
+                currentTime = 120.0,
+                timeListening = 120,
+                startedAt = "2022-01-21T04:33:12.000Z",
+                device = "Web",
+            ),
+        ).forEach { insertSession(ps, it) }
+    }
 }
 
 /**
@@ -210,6 +303,18 @@ private data class ProgressRow(
     val duration: Double,
     val finished: Boolean,
     val updatedAt: String,
+)
+
+private data class SessionRow(
+    val id: String,
+    val userId: String,
+    val itemId: String,
+    val mediaItemType: String,
+    val startTime: Double,
+    val currentTime: Double,
+    val timeListening: Long,
+    val startedAt: String,
+    val device: String?,
 )
 
 private fun insertUser(
@@ -269,5 +374,21 @@ private fun insertProgress(
     ps.setDouble(6, row.duration)
     ps.setInt(7, if (row.finished) 1 else 0)
     ps.setString(8, row.updatedAt)
+    ps.executeUpdate()
+}
+
+private fun insertSession(
+    ps: PreparedStatement,
+    row: SessionRow,
+) {
+    ps.setString(1, row.id)
+    ps.setString(2, row.userId)
+    ps.setString(3, row.itemId)
+    ps.setString(4, row.mediaItemType)
+    ps.setDouble(5, row.startTime)
+    ps.setDouble(6, row.currentTime)
+    ps.setLong(7, row.timeListening)
+    ps.setString(8, row.startedAt)
+    ps.setString(9, row.device)
     ps.executeUpdate()
 }

@@ -53,6 +53,35 @@ package com.calypsan.listenup.server.absimport
  * - **Timestamp unit:** `updatedAt` is `DataTypes.DATE`, which Sequelize stores in SQLite as an
  *   **ISO-8601 text string** (e.g. `2022-01-17T04:33:12.000Z`), NOT epoch millis. The reader
  *   parses it to epoch millis for [AbsModels.AbsProgress.lastUpdateMs].
+ *
+ * ### `playbackSessions` — `server/models/PlaybackSession.js` (`modelName: 'playbackSession'` → `playbackSessions`)
+ * - Defined columns (from the model `init()`): `id` (UUID, PK), `mediaItemId` (UUID, nullable),
+ *   `mediaItemType` (STRING — `book | podcastEpisode`), `displayTitle`, `displayAuthor`,
+ *   `duration` (FLOAT, seconds), `playMethod` (INTEGER), `mediaPlayer` (STRING — the player/device
+ *   label, e.g. `unknown`/an app id), `startTime` (FLOAT, seconds — position at session start),
+ *   `currentTime` (FLOAT, seconds — position at session end), `serverVersion`, `coverPath`,
+ *   `timeListening` (INTEGER, **seconds actually listened**), `mediaMetadata` (JSON), `date`,
+ *   `dayOfWeek`, `extraData` (JSON — holds `libraryItemId`).
+ * - **Implicit columns:** the model leaves Sequelize `timestamps` on (no override), so SQLite also
+ *   has `createdAt` and `updatedAt` (`DataTypes.DATE` → ISO-8601 text). ABS maps the legacy
+ *   `startedAt` onto `createdAt` (`getFromOld(): createdAt = oldPlaybackSession.startedAt`), so the
+ *   reader uses **`createdAt`** as the session start timestamp.
+ * - **Associated columns:** `userId` and `deviceId` are added by `belongsTo` associations
+ *   (`user.hasMany(PlaybackSession)`, `device.hasMany(PlaybackSession)`), not the `init()` block —
+ *   they are real FK columns on the table. We read `userId`.
+ * - **Item FK:** like `mediaProgresses`, a `mediaItemType = 'book'` session keys the item via
+ *   `mediaItemId = books.id`, so [AbsModels.AbsSession.itemId] correlates against the same key the
+ *   Phase-2 matcher resolves (`books.id`). Podcast sessions (`mediaItemType = 'podcastEpisode'`) are
+ *   excluded by the `WHERE mediaItemType = 'book'` filter.
+ * - **ASSUMED — no playback-rate column:** the model defines NO `playbackRate`/`playbackSpeed`
+ *   column, so the reader cannot recover the speed; it defaults to `1.0`. Flagged for verification
+ *   against a real backup — if a future ABS version adds one, thread it here.
+ * - **Device label:** `mediaPlayer` is the only stored device/player column. `deviceInfo` is NOT a
+ *   column — it is reconstructed at runtime from the `device` association — so the reader reads
+ *   `mediaPlayer` for the device label (nullable).
+ *
+ * **Verify against a real backup:** all session column names are source-derived (no real sample was
+ * available); the ASSUMED no-playback-rate caveat in particular should be re-checked.
  */
 internal object AbsSchema {
     /** The SQLite database file packed inside a `.audiobookshelf` backup zip. */
@@ -65,6 +94,7 @@ internal object AbsSchema {
     const val BOOK_AUTHORS = "bookAuthors"
     const val AUTHORS = "authors"
     const val MEDIA_PROGRESSES = "mediaProgresses"
+    const val PLAYBACK_SESSIONS = "playbackSessions"
 
     // ── users ───────────────────────────────────────────────────────────────
     const val USER_ID = "id"
@@ -109,4 +139,19 @@ internal object AbsSchema {
     const val PROGRESS_DURATION = "duration"
     const val PROGRESS_IS_FINISHED = "isFinished"
     const val PROGRESS_UPDATED_AT = "updatedAt"
+
+    // ── playbackSessions ──────────────────────────────────────────────────────
+    const val SESSION_ID = "id"
+    const val SESSION_USER_ID = "userId"
+    const val SESSION_MEDIA_ITEM_ID = "mediaItemId"
+    const val SESSION_MEDIA_ITEM_TYPE = "mediaItemType"
+    const val SESSION_CURRENT_TIME = "currentTime"
+    const val SESSION_START_TIME = "startTime"
+    const val SESSION_TIME_LISTENING = "timeListening"
+
+    /** Session start timestamp: ABS maps the legacy `startedAt` onto Sequelize's `createdAt`. */
+    const val SESSION_STARTED_AT = "createdAt"
+
+    /** The player/device label column (`deviceInfo` is reconstructed at runtime, not stored). */
+    const val SESSION_DEVICE = "mediaPlayer"
 }

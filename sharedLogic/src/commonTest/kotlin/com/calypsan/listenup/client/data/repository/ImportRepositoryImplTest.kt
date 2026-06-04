@@ -218,7 +218,7 @@ class ImportRepositoryImplTest :
                         emit(RpcEvent.Data<ImportEvent>(ImportEvent.Parsing))
                         emit(RpcEvent.Error(InternalError()))
                         emit(RpcEvent.Complete)
-                        emit(RpcEvent.Data(ImportEvent.Applied(ImportResult(8, 3, emptyMap()))))
+                        emit(RpcEvent.Data(ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, skippedCount = 3, perUser = emptyMap()))))
                     }
 
                 val svc = mock<ImportService>()
@@ -227,7 +227,7 @@ class ImportRepositoryImplTest :
                 val events = mutableListOf<ImportEvent>()
                 buildRepo(svc).observeProgress(importId).collect { events.add(it) }
 
-                events shouldBe listOf(ImportEvent.Parsing, ImportEvent.Applied(ImportResult(8, 3, emptyMap())))
+                events shouldBe listOf(ImportEvent.Parsing, ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, skippedCount = 3, perUser = emptyMap())))
             }
         }
     })

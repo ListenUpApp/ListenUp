@@ -30,8 +30,25 @@ class ImportContractTest :
             contractJson.decodeFromString<ImportAnalysis>(contractJson.encodeToString(a)) shouldBe a
         }
 
+        test("ImportAnalysis round-trips with importableSessionCount") {
+            val a =
+                ImportAnalysis(
+                    userMatches = emptyList(),
+                    bookMatchCounts = mapOf(MatchTier.ASIN to 3),
+                    ambiguous = emptyList(),
+                    unmatched = emptyList(),
+                    importableSessionCount = 17,
+                )
+            contractJson.decodeFromString<ImportAnalysis>(contractJson.encodeToString(a)) shouldBe a
+        }
+
         test("ImportResult round-trips") {
             val r = ImportResult(importedCount = 8, skippedCount = 3, perUser = mapOf(UserId("lu1") to 8))
+            contractJson.decodeFromString<ImportResult>(contractJson.encodeToString(r)) shouldBe r
+        }
+
+        test("ImportResult round-trips with sessionsImported") {
+            val r = ImportResult(importedCount = 8, sessionsImported = 42, skippedCount = 3, perUser = emptyMap())
             contractJson.decodeFromString<ImportResult>(contractJson.encodeToString(r)) shouldBe r
         }
 
@@ -47,7 +64,7 @@ class ImportContractTest :
                     ImportEvent.Matching(3, 10),
                     ImportEvent.Analyzed(ImportSummary(ImportId("imp1"), 1L, ImportStatus.ANALYZED, 10, 2)),
                     ImportEvent.Applying(5, 8),
-                    ImportEvent.Applied(ImportResult(8, 3, emptyMap())),
+                    ImportEvent.Applied(ImportResult(importedCount = 8, skippedCount = 3, perUser = emptyMap())),
                     ImportEvent.Failed("boom"),
                 )
             events.forEach { contractJson.decodeFromString<ImportEvent>(contractJson.encodeToString(it)) shouldBe it }
