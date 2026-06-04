@@ -55,6 +55,10 @@ class ImportAnalyzerTest :
                     analysis.ambiguous.size shouldBe 0
                     analysis.unmatched.size shouldBe 0
 
+                    // Three book sessions resolve to matched books (kings + mist×2); the unresolved-book
+                    // and podcast sessions are excluded from the importable estimate.
+                    analysis.importableSessionCount shouldBe 3
+
                     // The ABS user "simon" (email simon@x.test) suggests the seeded ListenUp user.
                     val simon = analysis.userMatches.first { it.absUsername == "simon" }
                     simon.confidence shouldBe MatchTier.STRONG

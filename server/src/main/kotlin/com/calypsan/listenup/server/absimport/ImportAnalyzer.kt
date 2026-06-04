@@ -61,20 +61,26 @@ class ImportAnalyzer internal constructor(
             }
             try {
                 onEvent(ImportEvent.Parsing)
-                val (users, items, progress) =
+                val absData =
                     reader.open(absDb).use { handle ->
-                        AbsReadResult(handle.users(), handle.bookItems(), handle.progress())
+                        AbsReadResult(
+                            handle.users(),
+                            handle.bookItems(),
+                            handle.progress(),
+                            handle.playbackSessions(),
+                        )
                     }
 
                 val libraryId = libraryRegistry.currentLibrary()
                 val listenupUsers = loadMatchableUsers()
 
-                val userMatches = users.map { userMatcher.match(it, listenupUsers) }
+                val userMatches = absData.users.map { userMatcher.match(it, listenupUsers) }
 
-                val itemsWithProgress = itemsWithProgress(items, progress)
+                val itemsWithProgress = itemsWithProgress(absData.items, absData.progress)
                 val matches = matchItems(itemsWithProgress, libraryId, onEvent)
 
-                val analysis = assembleAnalysis(userMatches, matches)
+                val importableSessionCount = importableSessionCount(absData.sessions, matches)
+                val analysis = assembleAnalysis(userMatches, matches, importableSessionCount)
                 store.writeAnalysis(importId, analysis)
                 store.writeMatches(importId, resolvedFrom(userMatches, matches))
 
@@ -133,13 +139,24 @@ class ImportAnalyzer internal constructor(
     private fun assembleAnalysis(
         userMatches: List<AbsUserMatch>,
         matches: List<ItemMatch>,
+        importableSessionCount: Int,
     ): ImportAnalysis =
         ImportAnalysis(
             userMatches = userMatches,
             bookMatchCounts = matches.groupingBy { it.tier }.eachCount(),
             ambiguous = matches.filter { it.tier == MatchTier.AMBIGUOUS }.map { it.item.toRef() },
             unmatched = matches.filter { it.tier == MatchTier.UNMATCHED }.map { it.item.toRef() },
+            importableSessionCount = importableSessionCount,
         )
+
+    /** Counts playback sessions whose item resolved to a confident book — the importable estimate. */
+    private fun importableSessionCount(
+        sessions: List<AbsSession>,
+        matches: List<ItemMatch>,
+    ): Int {
+        val resolvedItems = matches.mapNotNull { m -> m.bookId?.let { m.item.id } }.toSet()
+        return sessions.count { it.itemId in resolvedItems }
+    }
 
     /** Persists only the confidently-resolved item→book pairs; ambiguous/unmatched are omitted. */
     private fun resolvedFrom(
@@ -158,6 +175,7 @@ class ImportAnalyzer internal constructor(
         val users: List<AbsUser>,
         val items: List<AbsItem>,
         val progress: List<AbsProgress>,
+        val sessions: List<AbsSession>,
     )
 
     private data class ItemMatch(

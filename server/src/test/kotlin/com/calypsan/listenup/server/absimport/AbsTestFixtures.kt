@@ -187,7 +187,15 @@ private fun java.sql.Connection.insertAbsRows() {
     insertAbsSessions()
 }
 
-/** Playback sessions: a book session (imported) + a podcast session (excluded). */
+/**
+ * Playback sessions for `user-simon`:
+ *  - `sess-kings` (book-1, `timeListening = 3600`) and `sess-mist` (book-2, `timeListening = 1800`) —
+ *    the two resolvable book sessions.
+ *  - `sess-fidelity` (book-2, `timeListening = 60` but a ~28-hour wall span) — proves listen-seconds
+ *    follow `timeListening`, not the wall clock.
+ *  - `sess-unresolved` (book-unmatched) — its item never matches a ListenUp book → skipped on apply.
+ *  - `sess-podcast` (podcastEpisode) — excluded by the reader's media-type filter.
+ */
 private fun java.sql.Connection.insertAbsSessions() {
     prepareStatement(
         "INSERT INTO ${AbsSchema.PLAYBACK_SESSIONS} (${AbsSchema.SESSION_ID}, " +
@@ -210,6 +218,40 @@ private fun java.sql.Connection.insertAbsSessions() {
                 device = "Pixel 8",
             ),
             SessionRow(
+                "sess-mist",
+                "user-simon",
+                "book-2",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 1800.0,
+                timeListening = 1800,
+                startedAt = "2022-01-18T04:33:12.000Z",
+                device = "Pixel 8",
+            ),
+            // Wall span ~28h (currentTime far past timeListening) but only 60s actually listened.
+            SessionRow(
+                "sess-fidelity",
+                "user-simon",
+                "book-2",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 1800.0,
+                currentTime = 102_000.0,
+                timeListening = 60,
+                startedAt = "2022-01-19T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
+                "sess-unresolved",
+                "user-simon",
+                "book-unmatched",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 30.0,
+                timeListening = 30,
+                startedAt = "2022-01-20T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
                 "sess-podcast",
                 "user-simon",
                 "podcast-1",
@@ -217,7 +259,7 @@ private fun java.sql.Connection.insertAbsSessions() {
                 startTime = 0.0,
                 currentTime = 120.0,
                 timeListening = 120,
-                startedAt = "2022-01-18T04:33:12.000Z",
+                startedAt = "2022-01-21T04:33:12.000Z",
                 device = "Web",
             ),
         ).forEach { insertSession(ps, it) }

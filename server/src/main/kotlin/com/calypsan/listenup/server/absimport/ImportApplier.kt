@@ -9,24 +9,37 @@ import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * The apply stage of an ABS import: writes the staged listening progress into ListenUp through
- * [PlaybackPositionRepository.recordPosition], one row per resolvable `(ABS user, ABS item)` pair.
+ * [PlaybackPositionRepository.recordPosition] (one row per resolvable `(ABS user, ABS item)` pair),
+ * imports each playback session as a [com.calypsan.listenup.api.sync.ListeningEventSyncPayload] via
+ * [ListeningEventRepository.upsert], then recomputes every affected user's stats with
+ * [UserStatsBackfillService.backfillFor].
  *
  * Apply is deliberately thin. Analyze already did the matching (persisted as `matches.json`) and the
  * admin already confirmed the user map and any per-item overrides (`mapping.json`). Apply re-reads
- * the ABS progress rows, resolves each against those two artifacts, and records the position. It
- * never matches, never guesses, and never writes a row it can't fully resolve.
+ * the ABS progress + session rows, resolves each against those two artifacts, and writes. It never
+ * matches, never guesses, and never writes a row it can't fully resolve.
+ *
+ * **The progress + session writes run under [FirehoseSuppressed]** — a bulk import can produce an
+ * arbitrarily large burst, and the lossy live-tail would overflow. The rows still commit and bump
+ * the sync revision, so clients catch up via REST `pullSince`. The per-user [backfillFor][
+ * UserStatsBackfillService.backfillFor] runs *after* (outside) the suppressed block, so the final
+ * authoritative stats row publishes live.
  *
  * **Idempotency is inherited, not engineered.** `recordPosition` upserts on `(userId, bookId)` with
- * last-played-wins, keyed on the ABS `lastUpdate` timestamp. Re-applying the same import therefore
- * re-fires identical writes that no-op against the existing rows, and a fresher local position (a
- * device that played past the imported point) is preserved because its `lastPlayedAt` is newer.
+ * last-played-wins; sessions carry the stable `abs:<sessionId>` id, so a re-upsert no-ops the domain
+ * fields (append-only) and the per-event stats hook fires only on first insert. The final backfill
+ * is itself idempotent (it recomputes from the full event/position history). Re-applying the same
+ * import therefore produces no duplicate events and leaves stats unchanged.
  *
  * Unmapped users and unresolved items are **skipped, not errored** — a partial library overlap is
  * the normal case, not a failure. They are counted in [ImportResult.skippedCount].
@@ -36,6 +49,9 @@ class ImportApplier internal constructor(
     private val store: ImportStore,
     private val paths: ImportPaths,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val sessionConverter: SessionConverter,
+    private val listeningEventRepository: ListeningEventRepository,
+    private val statsBackfill: UserStatsBackfillService,
 ) {
     /**
      * Applies the confirmed import [importId], emitting [ImportEvent.Applying] progress through
@@ -61,10 +77,31 @@ class ImportApplier internal constructor(
 
             try {
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
-                val progress =
-                    reader.open(paths.absDbFor(importId.value)).use { handle -> handle.progress() }
+                val (progress, sessions) =
+                    reader.open(paths.absDbFor(importId.value)).use { handle ->
+                        handle.progress() to handle.playbackSessions()
+                    }
 
-                val result = recordAll(progress, mapping.userMappings, effectiveBooks, onEvent)
+                val affectedUsers = mutableSetOf<String>()
+                // Bulk import: suppress the live firehose so the burst can't overflow the lossy
+                // tail. Rows still commit + bump the revision, so clients catch up via REST.
+                val result =
+                    withContext(FirehoseSuppressed) {
+                        val progressResult =
+                            recordAll(progress, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
+                        val sessionCounts =
+                            recordSessions(sessions, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
+                        ImportResult(
+                            importedCount = progressResult.importedCount,
+                            sessionsImported = sessionCounts.imported,
+                            skippedCount = progressResult.skippedCount + sessionCounts.skipped,
+                            perUser = progressResult.perUser,
+                        )
+                    }
+
+                // Outside suppression: the authoritative per-user stats recompute publishes live.
+                affectedUsers.forEach { statsBackfill.backfillFor(it) }
+
                 store.markApplied(importId)
                 onEvent(ImportEvent.Applied(result))
                 AppResult.Success(result)
@@ -95,11 +132,16 @@ class ImportApplier internal constructor(
         return effective
     }
 
-    /** Records every resolvable progress row, counting imports per user and skips overall. */
+    /**
+     * Records every resolvable progress row, counting imports per user and skips overall, and adds
+     * each imported user to [affectedUsers] so their stats are backfilled (a finished position
+     * refreshes `booksFinished` even when the user has no imported sessions).
+     */
     private suspend fun recordAll(
         progress: List<AbsProgress>,
         userMappings: Map<AbsUserId, UserId>,
         effectiveBooks: Map<AbsItemId, BookId>,
+        affectedUsers: MutableSet<String>,
         onEvent: (ImportEvent) -> Unit,
     ): ImportResult {
         val total = progress.size
@@ -114,6 +156,7 @@ class ImportApplier internal constructor(
             } else {
                 recordPosition(targetUser, targetBook, row)
                 perUser[targetUser] = (perUser[targetUser] ?: 0) + 1
+                affectedUsers += targetUser.value
             }
             onEvent(ImportEvent.Applying(done = index + 1, total = total))
         }
@@ -124,6 +167,48 @@ class ImportApplier internal constructor(
             perUser = perUser,
         )
     }
+
+    /**
+     * Imports every resolvable playback session as a listening event (stable `abs:<id>`), counting
+     * imports vs skips and adding each imported user to [affectedUsers]. The per-event stats hook
+     * fires idempotently inside [ListeningEventRepository.upsert]; the final per-user backfill is
+     * the authority.
+     */
+    private suspend fun recordSessions(
+        sessions: List<AbsSession>,
+        userMappings: Map<AbsUserId, UserId>,
+        effectiveBooks: Map<AbsItemId, BookId>,
+        affectedUsers: MutableSet<String>,
+        onEvent: (ImportEvent) -> Unit,
+    ): SessionCounts {
+        val total = sessions.size
+        var imported = 0
+        var skipped = 0
+
+        sessions.forEachIndexed { index, session ->
+            val targetUser = userMappings[AbsUserId(session.userId)]
+            val targetBook = effectiveBooks[AbsItemId(session.itemId)]
+            if (targetUser == null || targetBook == null) {
+                skipped++
+            } else {
+                listeningEventRepository.upsert(
+                    value = sessionConverter.toEvent(session, targetBook.value),
+                    clientOpId = null,
+                    userId = targetUser.value,
+                )
+                imported++
+                affectedUsers += targetUser.value
+            }
+            onEvent(ImportEvent.Applying(done = index + 1, total = total))
+        }
+
+        return SessionCounts(imported = imported, skipped = skipped)
+    }
+
+    private data class SessionCounts(
+        val imported: Int,
+        val skipped: Int,
+    )
 
     private suspend fun recordPosition(
         targetUser: UserId,
