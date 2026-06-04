@@ -37,6 +37,7 @@ import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
@@ -278,6 +279,13 @@ val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             ShelfBookSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            PublicProfileSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
