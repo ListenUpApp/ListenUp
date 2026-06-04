@@ -87,6 +87,8 @@ data class AbsItemRef(
  * Summarises confidence-tiered matching results so an admin can review before
  * calling [com.calypsan.listenup.api.ImportService.confirmMapping]. Items in
  * [ambiguous] and [unmatched] can be resolved via manual book overrides or skipped.
+ * [importableSessionCount] is the number of ABS playback sessions that can be
+ * imported as listening events (filtered to book-type sessions with a matched item).
  */
 @Serializable
 @SerialName("ImportAnalysis")
@@ -95,12 +97,14 @@ data class ImportAnalysis(
     val bookMatchCounts: Map<MatchTier, Int>,
     val ambiguous: List<AbsItemRef>,
     val unmatched: List<AbsItemRef>,
+    val importableSessionCount: Int = 0,
 )
 
 /**
  * Outcome of a completed [com.calypsan.listenup.api.ImportService.apply] operation.
  *
- * [importedCount] is the total number of progress records written; [skippedCount]
+ * [importedCount] is the total number of progress records written; [sessionsImported]
+ * is the number of ABS playback sessions written as listening events; [skippedCount]
  * is the number skipped (unmapped user, no matched/overridden book, or manual null override).
  * [perUser] breaks down imported counts by ListenUp user ID.
  */
@@ -108,6 +112,7 @@ data class ImportAnalysis(
 @SerialName("ImportResult")
 data class ImportResult(
     val importedCount: Int,
+    val sessionsImported: Int = 0,
     val skippedCount: Int,
     val perUser: Map<UserId, Int>,
 )
