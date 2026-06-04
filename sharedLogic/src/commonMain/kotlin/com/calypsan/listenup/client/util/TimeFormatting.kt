@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber", "CyclomaticComplexMethod")
 @file:OptIn(kotlin.time.ExperimentalTime::class)
 
 package com.calypsan.listenup.client.util
@@ -8,6 +7,10 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
+
+private const val DAYS_IN_WEEK = 7
+private const val DAYS_IN_MONTH = 30
+private const val DAYS_IN_QUARTER = 90
 
 /**
  * Convert an ISO 8601 timestamp to a human-readable relative time or "Month Year" format.
@@ -28,17 +31,17 @@ fun String.toRelativeOrMonthYear(): String {
     val diffDays = diffMillis / (1000 * 60 * 60 * 24)
 
     return when {
-        diffDays < 7 -> {
+        diffDays < DAYS_IN_WEEK -> {
             "this week"
         }
 
-        diffDays < 30 -> {
-            val weeks = (diffDays / 7).toInt()
+        diffDays < DAYS_IN_MONTH -> {
+            val weeks = (diffDays / DAYS_IN_WEEK).toInt()
             "$weeks ${if (weeks == 1) "week" else "weeks"} ago"
         }
 
-        diffDays < 90 -> {
-            val months = (diffDays / 30).toInt()
+        diffDays < DAYS_IN_QUARTER -> {
+            val months = (diffDays / DAYS_IN_MONTH).toInt()
             "$months ${if (months == 1) "month" else "months"} ago"
         }
 

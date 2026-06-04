@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
 
 package com.calypsan.listenup.client.data.remote
 
@@ -28,6 +27,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+private const val PARAM_LIMIT = "limit"
+private const val PARAM_CURSOR = "cursor"
+private const val PARAM_UPDATED_AFTER = "updated_after"
 
 /**
  * API client for sync endpoints.
@@ -87,9 +90,9 @@ class SyncApi(
             clientFactory
                 .getClient()
                 .get("/api/v1/sync/books") {
-                    parameter("limit", limit)
-                    cursor?.let { parameter("cursor", it) }
-                    updatedAfter?.let { parameter("updated_after", it) }
+                    parameter(PARAM_LIMIT, limit)
+                    cursor?.let { parameter(PARAM_CURSOR, it) }
+                    updatedAfter?.let { parameter(PARAM_UPDATED_AFTER, it) }
                 }.body()
         }
 
@@ -148,9 +151,9 @@ class SyncApi(
             clientFactory
                 .getClient()
                 .get("/api/v1/sync/series") {
-                    parameter("limit", limit)
-                    cursor?.let { parameter("cursor", it) }
-                    updatedAfter?.let { parameter("updated_after", it) }
+                    parameter(PARAM_LIMIT, limit)
+                    cursor?.let { parameter(PARAM_CURSOR, it) }
+                    updatedAfter?.let { parameter(PARAM_UPDATED_AFTER, it) }
                 }.body()
         }
 
@@ -191,9 +194,9 @@ class SyncApi(
             clientFactory
                 .getClient()
                 .get("/api/v1/sync/contributors") {
-                    parameter("limit", limit)
-                    cursor?.let { parameter("cursor", it) }
-                    updatedAfter?.let { parameter("updated_after", it) }
+                    parameter(PARAM_LIMIT, limit)
+                    cursor?.let { parameter(PARAM_CURSOR, it) }
+                    updatedAfter?.let { parameter(PARAM_UPDATED_AFTER, it) }
                 }.body()
         }
 
@@ -263,7 +266,7 @@ class SyncApi(
             clientFactory
                 .getClient()
                 .get("/api/v1/listening/continue") {
-                    parameter("limit", limit)
+                    parameter(PARAM_LIMIT, limit)
                 }.body()
         }.map { it.items }
 
@@ -272,7 +275,7 @@ class SyncApi(
             clientFactory
                 .getClient()
                 .get("/api/v1/listening/progress") {
-                    updatedAfter?.let { parameter("updated_after", it) }
+                    updatedAfter?.let { parameter(PARAM_UPDATED_AFTER, it) }
                 }.body()
         }
 

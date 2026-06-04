@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber") // Atom-format constants — readability beats names.
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
@@ -74,6 +73,10 @@ private val CONTAINER_TYPES =
         // skip explicitly via [readMetaChildren].
     )
 
+// MP4 atom header field offsets/sizes (8-byte basic, 16-byte extended) and the
+// big-endian byte-assembly shift widths are fixed by the ISO base media file
+// format (ISO/IEC 14496-12).
+@Suppress("MagicNumber")
 internal object AtomWalker {
     /**
      * Read the atom header at [offset]. Throws [AtomParseException] if the

@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber") // Binary format constants — readability beats names.
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
@@ -25,6 +24,9 @@ internal data class Id3v2ReadResult(
     val tagSize: Int,
 )
 
+// ID3v2.3/2.4 frame offsets, sync-safe/big-endian shift widths, and encoding-byte
+// masks are fixed by the ID3v2 spec (https://id3.org/id3v2.3.0, id3v2.4.0-structure).
+@Suppress("MagicNumber")
 internal object Id3v2Reader {
     fun hasId3v2Prefix(bytes: ByteArray): Boolean =
         bytes.size >= 3 &&

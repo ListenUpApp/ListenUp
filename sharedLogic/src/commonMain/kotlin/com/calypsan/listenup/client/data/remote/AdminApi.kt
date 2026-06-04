@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
 
 package com.calypsan.listenup.client.data.remote
 
@@ -102,6 +101,10 @@ interface AdminApiContract {
     suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse>
 }
 
+private const val ADMIN_USERS_PATH = "/api/v1/admin/users"
+
+private fun userPath(userId: String) = "$ADMIN_USERS_PATH/$userId"
+
 /**
  * API client for admin operations.
  *
@@ -115,12 +118,12 @@ class AdminApi(
 
     override suspend fun getUsers(): AppResult<List<AdminUser>> =
         apiCall(errorMessage = "Admin users response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/users").body<ApiResponse<UsersResponse>>()
+            clientFactory.getClient().get(ADMIN_USERS_PATH).body<ApiResponse<UsersResponse>>()
         }.map { it.users }
 
     override suspend fun getUser(userId: String): AppResult<AdminUser> =
         apiCall(errorMessage = "Admin user detail response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/users/$userId").body<ApiResponse<AdminUser>>()
+            clientFactory.getClient().get(userPath(userId)).body<ApiResponse<AdminUser>>()
         }
 
     override suspend fun updateUser(
@@ -130,31 +133,31 @@ class AdminApi(
         apiCall(errorMessage = "Admin update-user response missing data") {
             clientFactory
                 .getClient()
-                .patch("/api/v1/admin/users/$userId") {
+                .patch(userPath(userId)) {
                     setBody(request)
                 }.body<ApiResponse<AdminUser>>()
         }
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().delete("/api/v1/admin/users/$userId").body<ApiResponse<Unit>>()
+            clientFactory.getClient().delete(userPath(userId)).body<ApiResponse<Unit>>()
         }
 
     // Pending User Management
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUser>> =
         apiCall(errorMessage = "Pending users response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/users/pending").body<ApiResponse<UsersResponse>>()
+            clientFactory.getClient().get("$ADMIN_USERS_PATH/pending").body<ApiResponse<UsersResponse>>()
         }.map { it.users }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUser> =
         apiCall(errorMessage = "Approve user response missing data") {
-            clientFactory.getClient().post("/api/v1/admin/users/$userId/approve").body<ApiResponse<AdminUser>>()
+            clientFactory.getClient().post("$ADMIN_USERS_PATH/$userId/approve").body<ApiResponse<AdminUser>>()
         }
 
     override suspend fun denyUser(userId: String): AppResult<Unit> =
         apiCallUnit {
-            clientFactory.getClient().post("/api/v1/admin/users/$userId/deny").body<ApiResponse<Unit>>()
+            clientFactory.getClient().post("$ADMIN_USERS_PATH/$userId/deny").body<ApiResponse<Unit>>()
         }
 
     // Invite Management

@@ -1,5 +1,4 @@
 @file:OptIn(ExperimentalTime::class)
-@file:Suppress("MagicNumber")
 
 package com.calypsan.listenup.client.playback
 
@@ -48,6 +47,7 @@ class SleepTimerManager(
 
     companion object {
         private const val TICK_INTERVAL_MS = 1000L
+        private const val MS_PER_MINUTE = 60_000L
     }
 
     /**
@@ -82,11 +82,13 @@ class SleepTimerManager(
     fun extendTimer(additionalMinutes: Int) {
         val current = state.value
         if (current is SleepTimerState.Active && current.mode is SleepTimerMode.Duration) {
-            val additionalMs = additionalMinutes * 60_000L
+            val additionalMs = additionalMinutes * MS_PER_MINUTE
             val newRemaining = current.remainingMs + additionalMs
             val newTotal = current.totalMs + additionalMs
 
-            logger.info { "Extending timer by $additionalMinutes min, new remaining: ${newRemaining / 60000} min" }
+            logger.info {
+                "Extending timer by $additionalMinutes min, new remaining: ${newRemaining / MS_PER_MINUTE} min"
+            }
 
             state.value =
                 current.copy(
@@ -126,7 +128,7 @@ class SleepTimerManager(
     }
 
     private fun startDurationTimer(minutes: Int) {
-        val totalMs = minutes * 60_000L
+        val totalMs = minutes * MS_PER_MINUTE
         val startedAt = Clock.System.now().toEpochMilliseconds()
 
         state.value =

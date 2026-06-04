@@ -1,7 +1,7 @@
-@file:Suppress("TooGenericExceptionThrown")
 
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.data.remote.model.ApiException
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -68,7 +68,7 @@ class StatsApi(
                 }.body()
 
         if (!response.success || response.data == null) {
-            throw RuntimeException("Stats API error: ${response.error ?: "Unknown error"}")
+            throw ApiException(message = "Stats API error: ${response.error ?: "Unknown error"}")
         }
 
         return response.data

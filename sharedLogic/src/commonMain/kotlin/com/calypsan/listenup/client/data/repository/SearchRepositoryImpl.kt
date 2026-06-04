@@ -1,4 +1,3 @@
-@file:Suppress("CognitiveComplexMethod")
 
 package com.calypsan.listenup.client.data.repository
 
@@ -138,48 +137,36 @@ class SearchRepositoryImpl(
                     buildList {
                         // Search each type
                         if (SearchHitType.BOOK in searchTypes) {
-                            try {
-                                val bookResults = searchDao.searchBooks(ftsQuery, limit)
-                                addAll(bookResults.map { it.toSearchHit(imageStorage) })
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                logger.warn(e) { "Book FTS search failed" }
-                            }
+                            addAll(
+                                safeSearch("Book FTS") {
+                                    searchDao.searchBooks(ftsQuery, limit).map { it.toSearchHit(imageStorage) }
+                                },
+                            )
                         }
 
                         if (SearchHitType.CONTRIBUTOR in searchTypes) {
-                            try {
-                                val contributors = searchDao.searchContributors(ftsQuery, limit / 2)
-                                addAll(contributors.map { it.toSearchHit() })
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                logger.warn(e) { "Contributor FTS search failed" }
-                            }
+                            addAll(
+                                safeSearch("Contributor FTS") {
+                                    searchDao.searchContributors(ftsQuery, limit / 2).map { it.toSearchHit() }
+                                },
+                            )
                         }
 
                         if (SearchHitType.SERIES in searchTypes) {
-                            try {
-                                val series = searchDao.searchSeries(ftsQuery, limit / 2)
-                                addAll(series.map { it.toSearchHit() })
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                logger.warn(e) { "Series FTS search failed" }
-                            }
+                            addAll(
+                                safeSearch("Series FTS") {
+                                    searchDao.searchSeries(ftsQuery, limit / 2).map { it.toSearchHit() }
+                                },
+                            )
                         }
 
                         if (SearchHitType.TAG in searchTypes) {
-                            try {
-                                // Tags use simple LIKE query, not FTS - use original query without *
-                                val tags = searchDao.searchTags(query, limit / 2)
-                                addAll(tags.map { it.toSearchHit() })
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                logger.warn(e) { "Tag search failed" }
-                            }
+                            // Tags use simple LIKE query, not FTS - use original query without *
+                            addAll(
+                                safeSearch("Tag") {
+                                    searchDao.searchTags(query, limit / 2).map { it.toSearchHit() }
+                                },
+                            )
                         }
                     }
                 }
@@ -192,6 +179,24 @@ class SearchRepositoryImpl(
                 facets = SearchFacets(), // No facets in local search
                 isOfflineResult = true,
             )
+        }
+
+    /**
+     * Run one per-type local FTS fetch, isolating its failure so a single failing
+     * type can't sink the whole [searchLocal] result. Re-throws
+     * [CancellationException] to preserve structured concurrency.
+     */
+    private inline fun safeSearch(
+        label: String,
+        fetch: () -> List<SearchHit>,
+    ): List<SearchHit> =
+        try {
+            fetch()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "$label search failed" }
+            emptyList()
         }
 }
 

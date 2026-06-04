@@ -1,4 +1,3 @@
-@file:Suppress("StringLiteralDuplication", "MagicNumber")
 
 package com.calypsan.listenup.client.data.remote
 
@@ -18,6 +17,26 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+private const val COVER_REQUEST_TIMEOUT_MS = 60_000L
+private const val TAR_BLOCK_SIZE = 512
+
+/** Builds the multipart form-data body for a binary image upload (single `file` part). */
+private fun imageFormData(
+    imageData: ByteArray,
+    filename: String,
+) = formData {
+    append(
+        "file",
+        imageData,
+        Headers.build {
+            append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+            append(HttpHeaders.ContentType, "image/*")
+        },
+    )
+}
+
+private fun seriesCoverPath(seriesId: String) = "/api/v1/series/$seriesId/cover"
 
 /**
  * API client for image operations (download and upload).
@@ -66,7 +85,7 @@ class ImageApi(
             val client = clientFactory.getClient()
             client
                 .get("/api/v1/covers/${bookId.value}") {
-                    timeout { requestTimeoutMillis = 60_000 }
+                    timeout { requestTimeoutMillis = COVER_REQUEST_TIMEOUT_MS }
                 }.body<ByteArray>()
         }
 
@@ -114,17 +133,7 @@ class ImageApi(
             client
                 .submitFormWithBinaryData(
                     url = "/api/v1/books/$bookId/cover",
-                    formData =
-                        formData {
-                            append(
-                                "file",
-                                imageData,
-                                Headers.build {
-                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                    append(HttpHeaders.ContentType, "image/*")
-                                },
-                            )
-                        },
+                    formData = imageFormData(imageData, filename),
                 ) {
                     method = io.ktor.http.HttpMethod.Put
                 }.body<ApiResponse<ImageUploadApiResponse>>()
@@ -158,17 +167,7 @@ class ImageApi(
             client
                 .submitFormWithBinaryData(
                     url = "/api/v1/contributors/$contributorId/image",
-                    formData =
-                        formData {
-                            append(
-                                "file",
-                                imageData,
-                                Headers.build {
-                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                    append(HttpHeaders.ContentType, "image/*")
-                                },
-                            )
-                        },
+                    formData = imageFormData(imageData, filename),
                 ) {
                     method = io.ktor.http.HttpMethod.Put
                 }.body<ApiResponse<ImageUploadApiResponse>>()
@@ -193,7 +192,7 @@ class ImageApi(
     override suspend fun downloadSeriesCover(seriesId: String): AppResult<ByteArray> =
         suspendRunCatching {
             val client = clientFactory.getClient()
-            client.get("/api/v1/series/$seriesId/cover").body<ByteArray>()
+            client.get(seriesCoverPath(seriesId)).body<ByteArray>()
         }
 
     /**
@@ -220,18 +219,8 @@ class ImageApi(
             val client = clientFactory.getClient()
             client
                 .submitFormWithBinaryData(
-                    url = "/api/v1/series/$seriesId/cover",
-                    formData =
-                        formData {
-                            append(
-                                "file",
-                                imageData,
-                                Headers.build {
-                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                                    append(HttpHeaders.ContentType, "image/*")
-                                },
-                            )
-                        },
+                    url = seriesCoverPath(seriesId),
+                    formData = imageFormData(imageData, filename),
                 ) {
                     method = io.ktor.http.HttpMethod.Put
                 }.body<ApiResponse<ImageUploadApiResponse>>()
@@ -255,7 +244,7 @@ class ImageApi(
     override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> =
         apiCallUnit {
             val client = clientFactory.getClient()
-            client.delete("/api/v1/series/$seriesId/cover").body<ApiResponse<Unit>>()
+            client.delete(seriesCoverPath(seriesId)).body<ApiResponse<Unit>>()
         }
 
     /**
@@ -318,7 +307,7 @@ class ImageApi(
         val result = mutableMapOf<String, ByteArray>()
         var offset = 0
 
-        while (offset + 512 <= tarData.size) {
+        while (offset + TAR_BLOCK_SIZE <= tarData.size) {
             // Check if we've hit the end marker (two zero blocks)
             if (isZeroBlock(tarData, offset)) {
                 break
@@ -345,7 +334,7 @@ class ImageApi(
                 }
 
             // Move past header to file data
-            offset += 512
+            offset += TAR_BLOCK_SIZE
 
             // Extract file data
             if (fileSize > 0 && offset + fileSize <= tarData.size) {
@@ -374,7 +363,7 @@ class ImageApi(
         data: ByteArray,
         offset: Int,
     ): Boolean {
-        val endOffset = minOf(offset + 512, data.size)
+        val endOffset = minOf(offset + TAR_BLOCK_SIZE, data.size)
         for (i in offset until endOffset) {
             if (data[i] != 0.toByte()) {
                 return false

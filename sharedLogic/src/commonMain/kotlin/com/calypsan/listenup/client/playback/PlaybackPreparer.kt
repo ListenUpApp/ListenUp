@@ -1,10 +1,3 @@
-@file:Suppress(
-    "MagicNumber",
-    "LongMethod",
-    "LongParameterList",
-    "CyclomaticComplexMethod",
-    "CognitiveComplexMethod",
-)
 
 package com.calypsan.listenup.client.playback
 
@@ -13,6 +6,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
@@ -34,6 +28,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** One second in milliseconds. */
+private const val MS_PER_SECOND = 1000L
+
+/** One minute in milliseconds. */
+private const val MS_PER_MINUTE = 60_000L
+
+/** One hour in milliseconds. */
+private const val MS_PER_HOUR = 3_600_000L
+
+/** 24 hours in milliseconds — ceiling above which a single-file duration is suspicious. */
+private const val MAX_PLAUSIBLE_FILE_DURATION_MS = 86_400_000L
 
 /**
  * Everything a player needs to begin playback of a book, as an immutable value.
@@ -61,7 +67,13 @@ data class PreparedPlayback(
  * Holds no mutable playback state. [PlaybackManagerImpl] constructs one
  * internally and delegates [PlaybackManager.prepareForPlayback] to it; the iOS
  * native player calls [prepare] directly via Koin.
+ *
+ * LongParameterList suppressed: the playback-prep pipeline orchestrates auth,
+ * persistence (3 DAOs + repo), cover storage, progress, signed-URL RPC, and
+ * download across the subsystem; [PlaybackManagerImpl] forwards the same
+ * collaborators. A parameter object would only bag them and ripples into platform code.
  */
+@Suppress("LongParameterList")
 class PlaybackPreparer(
     private val serverConfig: ServerConfig,
     private val playbackPreferences: PlaybackPreferences,
@@ -108,17 +120,7 @@ class PlaybackPreparer(
         }
         val book = bookWithContributors.book
 
-        // Extract author names (use creditedAs when available for proper attribution)
-        val contributorsById = bookWithContributors.contributors.associateBy { it.id }
-        val authorNames =
-            bookWithContributors.contributorRoles
-                .filter { it.role == ContributorRole.AUTHOR.apiValue }
-                .mapNotNull { crossRef ->
-                    contributorsById[crossRef.contributorId]?.let { entity ->
-                        crossRef.creditedAs ?: entity.name
-                    }
-                }.distinct()
-        val bookAuthor = authorNames.joinToString(", ").ifEmpty { "Unknown Author" }
+        val bookAuthor = deriveAuthorName(bookWithContributors)
 
         // Get series name (first series if multiple)
         val seriesName = bookWithContributors.series.firstOrNull()?.name
@@ -150,67 +152,11 @@ class PlaybackPreparer(
 
         val audioFiles: List<AudioFileResponse> = audioFileEntities.map { it.toAudioFileResponse() }
 
-        // Log detailed audio file info for diagnostics
-        logger.debug { "=== Audio Files for book ${bookId.value} ===" }
-        var totalDuration = 0L
-        audioFiles.forEachIndexed { index, file ->
-            logger.debug {
-                "  File[$index]: id=${file.id}, filename=${file.filename}, " +
-                    "duration=${file.duration}ms (${file.duration / 1000}s), " +
-                    "size=${file.size}, format=${file.format}"
-            }
-            if (file.duration <= 0) {
-                logger.warn { "  ⚠️ WARNING: File[$index] has invalid duration: ${file.duration}" }
-            }
-            if (file.duration > 86_400_000) {
-                logger.warn {
-                    "  ⚠️ WARNING: File[$index] has suspiciously large duration: " +
-                        "${file.duration}ms (${file.duration / 3_600_000}h)"
-                }
-            }
-            totalDuration += file.duration
-        }
-        logger.debug {
-            "=== Total calculated duration: ${totalDuration}ms (${totalDuration / 1000}s / ${totalDuration / 60000}min) ==="
-        }
+        logAudioFileDiagnostics(bookId, audioFiles)
 
         // 5. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toDomain() }
-        val localPaths: Map<String, String?> =
-            domainAudioFiles.associate { it.id to downloadService.getLocalPath(it.id) }
-
-        val signedUrls: Map<String, String> =
-            if (localPaths.values.all { it != null }) {
-                emptyMap() // fully downloaded — never touch the server (offline-first)
-            } else {
-                when (val result = playbackRpcFactory.playbackService().prepare(bookId)) {
-                    is AppResult.Success -> {
-                        result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
-                    }
-
-                    is AppResult.Failure -> {
-                        logger.error { "prepare() failed for ${bookId.value}: ${result.error.message}" }
-                        return null
-                    }
-                }
-            }
-
-        val timeline =
-            PlaybackTimeline.build(
-                bookId = bookId,
-                files =
-                    domainAudioFiles.map { file ->
-                        TimelineFileInput(
-                            audioFileId = file.id,
-                            filename = file.filename,
-                            format = file.format,
-                            durationMs = file.duration,
-                            size = file.size,
-                            localPath = localPaths[file.id],
-                            streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
-                        )
-                    },
-            )
+        val timeline = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
 
         // Load chapters for this book
         val chapters = loadChapters(bookId)
@@ -282,6 +228,103 @@ class PlaybackPreparer(
             coverPath = coverPath,
             resumePositionMs = resumePositionMs,
             resumeSpeed = resumeSpeed,
+        )
+    }
+
+    /**
+     * Derive the comma-joined author display name from the book's contributor
+     * roles, preferring `creditedAs` over the contributor's canonical name for
+     * proper attribution. Falls back to "Unknown Author" when no author is found.
+     */
+    private fun deriveAuthorName(bookWithContributors: BookWithContributors): String {
+        val contributorsById = bookWithContributors.contributors.associateBy { it.id }
+        val authorNames =
+            bookWithContributors.contributorRoles
+                .filter { it.role == ContributorRole.AUTHOR.apiValue }
+                .mapNotNull { crossRef ->
+                    contributorsById[crossRef.contributorId]?.let { entity ->
+                        crossRef.creditedAs ?: entity.name
+                    }
+                }.distinct()
+        return authorNames.joinToString(", ").ifEmpty { "Unknown Author" }
+    }
+
+    /**
+     * Log per-file diagnostics for [audioFiles], flagging invalid (≤0) and
+     * suspiciously large (>24h) durations and reporting the total.
+     */
+    private fun logAudioFileDiagnostics(
+        bookId: BookId,
+        audioFiles: List<AudioFileResponse>,
+    ) {
+        logger.debug { "=== Audio Files for book ${bookId.value} ===" }
+        var totalDuration = 0L
+        audioFiles.forEachIndexed { index, file ->
+            logger.debug {
+                "  File[$index]: id=${file.id}, filename=${file.filename}, " +
+                    "duration=${file.duration}ms (${file.duration / MS_PER_SECOND}s), " +
+                    "size=${file.size}, format=${file.format}"
+            }
+            if (file.duration <= 0) {
+                logger.warn { "  ⚠️ WARNING: File[$index] has invalid duration: ${file.duration}" }
+            }
+            if (file.duration > MAX_PLAUSIBLE_FILE_DURATION_MS) {
+                logger.warn {
+                    "  ⚠️ WARNING: File[$index] has suspiciously large duration: " +
+                        "${file.duration}ms (${file.duration / MS_PER_HOUR}h)"
+                }
+            }
+            totalDuration += file.duration
+        }
+        logger.debug {
+            "=== Total calculated duration: ${totalDuration}ms " +
+                "(${totalDuration / MS_PER_SECOND}s / ${totalDuration / MS_PER_MINUTE}min) ==="
+        }
+    }
+
+    /**
+     * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
+     * streaming URLs from the server only when not fully downloaded (offline-first),
+     * then assemble the timeline. Returns `null` if the server prepare call fails.
+     */
+    private suspend fun buildTimeline(
+        bookId: BookId,
+        domainAudioFiles: List<AudioFile>,
+        serverUrl: String,
+    ): PlaybackTimeline? {
+        val localPaths: Map<String, String?> =
+            domainAudioFiles.associate { it.id to downloadService.getLocalPath(it.id) }
+
+        val signedUrls: Map<String, String> =
+            if (localPaths.values.all { it != null }) {
+                emptyMap() // fully downloaded — never touch the server (offline-first)
+            } else {
+                when (val result = playbackRpcFactory.playbackService().prepare(bookId)) {
+                    is AppResult.Success -> {
+                        result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
+                    }
+
+                    is AppResult.Failure -> {
+                        logger.error { "prepare() failed for ${bookId.value}: ${result.error.message}" }
+                        return null
+                    }
+                }
+            }
+
+        return PlaybackTimeline.build(
+            bookId = bookId,
+            files =
+                domainAudioFiles.map { file ->
+                    TimelineFileInput(
+                        audioFileId = file.id,
+                        filename = file.filename,
+                        format = file.format,
+                        durationMs = file.duration,
+                        size = file.size,
+                        localPath = localPaths[file.id],
+                        streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                    )
+                },
         )
     }
 

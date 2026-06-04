@@ -1,5 +1,4 @@
 @file:OptIn(ExperimentalTime::class)
-@file:Suppress("MagicNumber")
 
 package com.calypsan.listenup.client.playback
 
@@ -22,6 +21,9 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
+
+/** Minimum elapsed playback within a chunk before it is recorded as a listening event. */
+private const val MIN_LISTENING_CHUNK_MS = 10_000L
 
 /**
  * Coordinates position persistence and event recording.
@@ -132,7 +134,7 @@ open class ProgressTracker(
             // CONCERN 2: Queue listening event (if meaningful session)
             if (priorState is SessionState.Active && priorState.bookId == bookId) {
                 val chunkDurationMs = positionMs - priorState.chunkStartPositionMs
-                if (chunkDurationMs >= 10_000) {
+                if (chunkDurationMs >= MIN_LISTENING_CHUNK_MS) {
                     queueListeningEvent(
                         bookId = bookId,
                         startPositionMs = priorState.chunkStartPositionMs,
@@ -188,7 +190,7 @@ open class ProgressTracker(
             val state = _sessionState.value
             if (state is SessionState.Active && state.bookId == bookId) {
                 val chunkDurationMs = positionMs - state.chunkStartPositionMs
-                if (chunkDurationMs >= 10_000) {
+                if (chunkDurationMs >= MIN_LISTENING_CHUNK_MS) {
                     val now = Clock.System.now().toEpochMilliseconds()
                     queueListeningEvent(
                         bookId = bookId,

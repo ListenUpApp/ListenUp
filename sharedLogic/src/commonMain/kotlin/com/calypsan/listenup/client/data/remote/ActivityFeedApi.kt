@@ -1,7 +1,7 @@
-@file:Suppress("TooGenericExceptionThrown")
 
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.data.remote.model.ApiException
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -77,7 +77,7 @@ class ActivityFeedApi(
                 }.body()
 
         if (!response.success || response.data == null) {
-            throw RuntimeException("Activity Feed API error: ${response.error ?: "Unknown error"}")
+            throw ApiException(message = "Activity Feed API error: ${response.error ?: "Unknown error"}")
         }
 
         return response.data
