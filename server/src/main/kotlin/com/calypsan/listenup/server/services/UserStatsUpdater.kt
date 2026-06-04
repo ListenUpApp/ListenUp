@@ -35,9 +35,7 @@ class UserStatsUpdater(
     private val db: Database,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
-    private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer = {
-        error("publicProfileMaintainerProvider not configured")
-    },
+    private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer,
 ) {
     /**
      * Increment-and-upsert called after a `listening_events` row commits.
