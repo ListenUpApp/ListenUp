@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.features.bookedit
 
 import com.calypsan.listenup.client.design.util.PlatformBackHandler

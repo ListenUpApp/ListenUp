@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +72,9 @@ import listenup.composeapp.generated.resources.admin_invite_created
 import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_role
 import listenup.composeapp.generated.resources.admin_share_this_link_with_invitename
+
+private const val ROLE_MEMBER = "member"
+private const val ROLE_ADMIN = "admin"
 
 /**
  * Create invite screen - form to create new invites.
@@ -198,7 +199,7 @@ private fun CreateInviteForm(
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("member") }
+    var role by remember { mutableStateOf(ROLE_MEMBER) }
     var expiresInDays by remember { mutableIntStateOf(7) }
 
     val focusManager = LocalFocusManager.current
@@ -289,20 +290,20 @@ private fun CreateInviteForm(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
-                    selected = role == "member",
-                    onClick = { role = "member" },
+                    selected = role == ROLE_MEMBER,
+                    onClick = { role = ROLE_MEMBER },
                     label = { Text(stringResource(Res.string.common_member)) },
                     enabled = !isSubmitting,
                 )
                 FilterChip(
-                    selected = role == "admin",
-                    onClick = { role = "admin" },
+                    selected = role == ROLE_ADMIN,
+                    onClick = { role = ROLE_ADMIN },
                     label = { Text(stringResource(Res.string.common_admin)) },
                     enabled = !isSubmitting,
                 )
             }
             Text(
-                text = if (role == "admin") "Can manage users and invites" else "Can access the library",
+                text = if (role == ROLE_ADMIN) "Can manage users and invites" else "Can access the library",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),

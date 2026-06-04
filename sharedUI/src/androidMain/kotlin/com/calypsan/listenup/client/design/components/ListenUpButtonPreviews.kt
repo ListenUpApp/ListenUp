@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +9,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 
+private const val SAMPLE_BUTTON_TEXT = "Connect to Server"
+
 @Preview(name = "Normal State")
 @Composable
 private fun PreviewListenUpButtonNormal() {
@@ -20,7 +20,7 @@ private fun PreviewListenUpButtonNormal() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpButton(
-                text = "Connect to Server",
+                text = SAMPLE_BUTTON_TEXT,
                 onClick = {},
             )
         }
@@ -36,7 +36,7 @@ private fun PreviewListenUpButtonDisabled() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpButton(
-                text = "Connect to Server",
+                text = SAMPLE_BUTTON_TEXT,
                 onClick = {},
                 enabled = false,
             )
@@ -53,7 +53,7 @@ private fun PreviewListenUpButtonLoading() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpButton(
-                text = "Connect to Server",
+                text = SAMPLE_BUTTON_TEXT,
                 onClick = {},
                 isLoading = true,
             )
