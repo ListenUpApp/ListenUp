@@ -10,8 +10,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
  * 1. book == null && error == null      → [NowPlayingState.Idle]
  * 2. book == null && error != null      → [NowPlayingState.Error] with null bookId/title
  * 3. error != null                       → [NowPlayingState.Error] with book context
- * 4. prepareProgress != null             → [NowPlayingState.Preparing]
- * 5. otherwise (book != null)            → [NowPlayingState.Active]
+ * 4. otherwise (book != null)            → [NowPlayingState.Active]
  *
  * Pure function — same inputs always produce the same output. Unit-testable in
  * isolation. The VM's combine chain calls this in its terminal `map { ... }` block.
@@ -39,19 +38,6 @@ fun mapToNowPlayingState(
             title = book.title,
             message = metadata.error.message,
             isRecoverable = metadata.error.isRecoverable,
-        )
-    }
-
-    val prepare = metadata.prepareProgress
-    if (prepare != null) {
-        return NowPlayingState.Preparing(
-            bookId = book.id.value,
-            title = book.title,
-            author = book.authorNames,
-            coverPath = book.coverPath,
-            coverBlurHash = book.coverBlurHash,
-            progress = prepare.progress,
-            message = prepare.message,
         )
     }
 
@@ -123,7 +109,6 @@ data class PlaybackDynamics(
  */
 data class SurfaceMetadata(
     val currentChapter: PlaybackManager.ChapterInfo?,
-    val prepareProgress: PlaybackManager.PrepareProgress?,
     val error: PlaybackManager.PlaybackErrorUiState?,
     val defaultPlaybackSpeed: Float,
 )

@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -23,10 +23,6 @@ import kotlinx.coroutines.flow.update
  *
  * Optional [enqueueFailure] lambda lets tests inject failure for [enqueueForBook] (returns the
  * lambda's value when set; `AppResult.Success(DownloadOutcome.Started)` when null).
- *
- * Phase B carveout: orchestration methods (`cancelForBook`, `resumeForAudioFile`,
- * `resumeIncompleteDownloads`) are intentional no-ops in this fake — they're filled in
- * meaningfully when Phase C/D move platform code onto the repository.
  */
 open class FakeDownloadRepository(
     initial: List<DownloadEntity> = emptyList(),
@@ -116,16 +112,6 @@ open class FakeDownloadRepository(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun markWaitingForServer(
-        audioFileId: String,
-        transcodeJobId: String,
-    ): AppResult<Unit> {
-        update(audioFileId) {
-            it.copy(state = DownloadState.WAITING_FOR_SERVER, transcodeJobId = transcodeJobId)
-        }
-        return AppResult.Success(Unit)
-    }
-
     // --- Orchestration ---
 
     override suspend fun enqueueForBook(bookId: BookId): AppResult<DownloadOutcome> =
@@ -145,36 +131,7 @@ open class FakeDownloadRepository(
         state.update { current -> current.filterValues { it.bookId != bookId } }
     }
 
-    private val _resumedAudioFiles = mutableListOf<String>()
-
-    /** Test helper: list of audioFileIds that resumeForAudioFile was called with (excludes silently-dropped late events). */
-    val resumedAudioFiles: List<String> get() = _resumedAudioFiles.toList()
-
-    override suspend fun resumeForAudioFile(audioFileId: String): AppResult<Unit> {
-        val entity =
-            state.value[audioFileId]
-                ?: return AppResult.Failure(
-                    DownloadError.DownloadFailed(
-                        debugInfo = "No download row for $audioFileId",
-                    ),
-                )
-        if (entity.state == DownloadState.CANCELLED || entity.state == DownloadState.COMPLETED) {
-            return AppResult.Success(Unit) // late event tolerance
-        }
-        _resumedAudioFiles.add(audioFileId)
-        return AppResult.Success(Unit)
-    }
-
     override suspend fun resumeIncompleteDownloads(): AppResult<Unit> = AppResult.Success(Unit)
-
-    /**
-     * Phase D production impl re-issues `preparePlayback` for WAITING_FOR_SERVER rows. The fake
-     * leaves this as a no-op deliberately — mirroring would require injecting a fake
-     * `PlaybackApiContract` into the fake's constructor, cascading to every test that uses it.
-     * Tests that need recheck behavior should use `DownloadRepositoryImplTest` against the real
-     * impl with a `FakePlaybackApiContract`.
-     */
-    override suspend fun recheckWaitingForServer(): AppResult<Unit> = AppResult.Success(Unit)
 
     // --- Test helpers ---
 
@@ -236,7 +193,6 @@ open class FakeDownloadRepository(
                     bookId = bookId,
                     totalFiles = totalFiles,
                     downloadingFiles = activeDownloads.count { it.state == DownloadState.DOWNLOADING },
-                    waitingForServerFiles = activeDownloads.count { it.state == DownloadState.WAITING_FOR_SERVER },
                     completedFiles = completedFiles,
                     totalBytes = totalBytes,
                     downloadedBytes = downloadedBytes,

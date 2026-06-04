@@ -487,12 +487,11 @@ private fun DetailScreen(
         is DetailDestination.NowPlaying -> {
             val screenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
             val state = screenState.state
-            // "Go to Book" only meaningful when there's a known bookId — Active or
-            // Preparing variants populate it; Error sometimes does; Idle never.
+            // "Go to Book" only meaningful when there's a known bookId — Active
+            // has one; Error sometimes does; Idle never.
             val activeBookId: String? =
                 when (state) {
                     is NowPlayingState.Active -> state.bookId
-                    is NowPlayingState.Preparing -> state.bookId
                     is NowPlayingState.Error -> state.bookId
                     is NowPlayingState.Idle -> null
                 }

@@ -52,8 +52,7 @@ import com.calypsan.listenup.client.playback.NowPlayingState
  * Full-width, flush with screen edges, Spotify-desktop style.
  * Progress bar at top, transport controls centered, chapter info on the right.
  *
- * Renders for [NowPlayingState.Active] and [NowPlayingState.Preparing] only;
- * hidden on Idle/Error.
+ * Renders for [NowPlayingState.Active] only; hidden on Idle/Error.
  */
 @Composable
 fun DockedNowPlayingBar(
@@ -65,12 +64,7 @@ fun DockedNowPlayingBar(
     onSkipForward: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isVisible =
-        when (state) {
-            is NowPlayingState.Active -> !isExpanded
-            is NowPlayingState.Preparing -> !isExpanded
-            else -> false
-        }
+    val isVisible = state is NowPlayingState.Active && !isExpanded
 
     AnimatedVisibility(
         visible = isVisible,
@@ -109,21 +103,13 @@ fun DockedNowPlayingBar(
             shape = RectangleShape,
             tonalElevation = 3.dp,
         ) {
-            when (state) {
-                is NowPlayingState.Active -> {
-                    ActiveDockedContent(
-                        state = state,
-                        onPlayPause = onPlayPause,
-                        onSkipBack = onSkipBack,
-                        onSkipForward = onSkipForward,
-                    )
-                }
-
-                is NowPlayingState.Preparing -> {
-                    PreparingDockedContent(state = state)
-                }
-
-                else -> { /* Idle/Error: not visible */ }
+            if (state is NowPlayingState.Active) {
+                ActiveDockedContent(
+                    state = state,
+                    onPlayPause = onPlayPause,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                )
             }
         }
     }
@@ -259,64 +245,6 @@ private fun ActiveDockedContent(
                             textAlign = TextAlign.End,
                         )
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PreparingDockedContent(state: NowPlayingState.Preparing) {
-    Column {
-        // Progress bar at the top
-        LinearProgressIndicator(
-            progress = { state.progress / 100f },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
-            trackColor = Color.Transparent,
-            color = MaterialTheme.colorScheme.tertiary,
-            drawStopIndicator = {},
-        )
-
-        // Cover + title/message — no transport controls or chapter info during preparing
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(80.dp)
-                    .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BookCoverImage(
-                    bookId = state.bookId,
-                    coverPath = state.coverPath,
-                    blurHash = state.coverBlurHash,
-                    contentDescription = "Book cover",
-                    modifier =
-                        Modifier
-                            .size(64.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                )
-
-                Spacer(Modifier.width(16.dp))
-
-                Column {
-                    Text(
-                        text = state.title.ifEmpty { "Preparing..." },
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = state.message ?: "Preparing audio...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }

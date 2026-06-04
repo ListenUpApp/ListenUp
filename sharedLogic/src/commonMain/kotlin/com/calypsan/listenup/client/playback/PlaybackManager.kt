@@ -54,9 +54,6 @@ interface PlaybackManager :
     /** Aggregate playback state (Idle/Buffering/Playing/Paused/Ended/Error). */
     val playbackState: StateFlow<PlaybackState>
 
-    /** Transcode preparation progress (null when not preparing). */
-    val prepareProgress: StateFlow<PrepareProgress?>
-
     /** Current playback error for display to the user (null when no error). */
     val playbackError: StateFlow<PlaybackErrorUiState?>
 
@@ -117,9 +114,9 @@ interface PlaybackManager :
     //
     // Kept nested (not promoted to top-level) because consumer code references
     // them as `PlaybackManager.PrepareResult`, `PlaybackManager.PlaybackErrorUiState`,
-    // `PlaybackManager.PrepareProgress`, `PlaybackManager.ChapterInfo` across
-    // shared, composeApp/{android,desktop}Main, and tests. Promoting to
-    // top-level would cause an avoidable churn through every reference site.
+    // `PlaybackManager.ChapterInfo` across shared, composeApp/{android,desktop}Main,
+    // and tests. Promoting to top-level would cause an avoidable churn through every
+    // reference site.
     // ====================================================================
 
     /** Result of preparing for playback. */
@@ -132,13 +129,6 @@ interface PlaybackManager :
         val totalChapters: Int,
         val resumePositionMs: Long,
         val resumeSpeed: Float,
-    )
-
-    /** Progress state during audio preparation (transcoding). */
-    data class PrepareProgress(
-        val audioFileId: String,
-        val progress: Int, // 0-100
-        val message: String = "Preparing audio...",
     )
 
     /** Playback error for display to the user. */

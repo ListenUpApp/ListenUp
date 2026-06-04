@@ -135,7 +135,6 @@ class DefaultBookAvailabilityTest :
                         bookId = "book-1",
                         totalFiles = 3,
                         downloadingFiles = 0,
-                        waitingForServerFiles = 0,
                         completedFiles = 0,
                         totalBytes = 100_000L,
                         downloadedBytes = 0L,

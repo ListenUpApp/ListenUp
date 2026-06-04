@@ -7,7 +7,6 @@ import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager.PlaybackErrorUiState
-import com.calypsan.listenup.client.playback.PlaybackManager.PrepareProgress
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,9 +60,6 @@ class FakePlaybackManager : PlaybackManager {
 
     val playbackStateFlow = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackState: StateFlow<PlaybackState> = playbackStateFlow.asStateFlow()
-
-    val prepareProgressFlow = MutableStateFlow<PrepareProgress?>(null)
-    override val prepareProgress: StateFlow<PrepareProgress?> = prepareProgressFlow.asStateFlow()
 
     val playbackErrorFlow = MutableStateFlow<PlaybackErrorUiState?>(null)
     override val playbackError: StateFlow<PlaybackErrorUiState?> = playbackErrorFlow.asStateFlow()

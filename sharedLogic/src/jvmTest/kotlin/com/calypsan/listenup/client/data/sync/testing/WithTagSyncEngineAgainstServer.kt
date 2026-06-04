@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -262,7 +261,6 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     sseClient = sseClient,
                     reconciler = reconciler,
                     dispatcher = dispatcher,
-                    downloadRepository = FakeDownloadRepository(),
                     scope = clientScope,
                 )
             engineRef = engine

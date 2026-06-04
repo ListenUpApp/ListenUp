@@ -8,8 +8,8 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
  * iOS / Desktop: no-op (iOS uses NSURLSession-driven downloads via AppleDownloadService; Desktop
  * doesn't download).
  *
- * Used by [com.calypsan.listenup.client.domain.repository.DownloadRepository.resumeForAudioFile]
- * to re-enqueue a worker after the SSE `transcode.complete` event re-activates a WAITING_FOR_SERVER row.
+ * Used by [com.calypsan.listenup.client.domain.repository.DownloadRepository.resumeIncompleteDownloads]
+ * to re-enqueue workers for downloads interrupted before completion.
  */
 interface DownloadEnqueuer {
     /**

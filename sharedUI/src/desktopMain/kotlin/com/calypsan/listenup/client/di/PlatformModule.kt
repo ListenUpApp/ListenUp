@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.client.data.remote.PlaybackApi
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.DesktopBookDetailPlatformActions
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -17,7 +15,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.DesktopPlaybackController
@@ -28,7 +25,6 @@ import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.FfmpegAudioPlayer
-import com.calypsan.listenup.client.playback.FfmpegCapabilityDetector
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +40,6 @@ import java.util.UUID
  * Provides desktop-specific implementations of platform abstractions:
  * - FFmpeg-based audio playback (decodes all formats, no system deps)
  * - AudioTokenProvider for auth token management
- * - AudioCapabilityDetector for codec reporting
  * - DownloadService (stub - downloads not yet implemented)
  * - BackgroundSyncScheduler (stub - relies on SSE while running)
  * - PlaybackManager for playback orchestration
@@ -87,9 +82,6 @@ val platformModule: Module =
             DesktopAudioTokenProvider(authSession = get())
         }
 
-        // Audio capability detector (FFmpeg decodes all formats)
-        single<AudioCapabilityDetector> { FfmpegCapabilityDetector() }
-
         // Audio player (FFmpeg decoder + javax.sound output)
         single<AudioPlayer> {
             FfmpegAudioPlayer(
@@ -111,9 +103,6 @@ val platformModule: Module =
 
         // DownloadEnqueuer seam — Desktop no-op (downloads not supported)
         single<DownloadEnqueuer> { JvmDownloadEnqueuer() }
-
-        // Playback API for codec negotiation
-        single<PlaybackApiContract> { PlaybackApi(clientFactory = get()) }
 
         // Progress tracker
         single {

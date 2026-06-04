@@ -102,17 +102,15 @@ class NowPlayingViewModel(
             )
         }
 
-    /** Aggregated surface metadata (chapter info + prepare progress + error + default speed). */
+    /** Aggregated surface metadata (chapter info + error + default speed). */
     private val surfaceMetadataFlow: Flow<SurfaceMetadata> =
         combine(
             playbackManager.currentChapter,
-            playbackManager.prepareProgress,
             playbackManager.playbackError,
             playbackPreferences.observeDefaultPlaybackSpeed(),
-        ) { chapter, prepare, error, defaultSpeed ->
+        ) { chapter, error, defaultSpeed ->
             SurfaceMetadata(
                 currentChapter = chapter,
-                prepareProgress = prepare,
                 error = error,
                 defaultPlaybackSpeed = defaultSpeed,
             )

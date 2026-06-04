@@ -18,8 +18,6 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.calypsan.listenup.core.ImageLoaderFactory
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
-import com.calypsan.listenup.client.data.remote.PlaybackApi
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.di.playbackPresentationModule
@@ -34,10 +32,8 @@ import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
-import com.calypsan.listenup.client.playback.AndroidAudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.AndroidPlaybackController
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
@@ -224,12 +220,6 @@ val playbackModule =
             )
         }
 
-        // Playback API - handles codec negotiation for transcoding
-        single<PlaybackApiContract> { PlaybackApi(clientFactory = get()) }
-
-        // Audio capability detector - detects device codec support
-        single<AudioCapabilityDetector> { AndroidAudioCapabilityDetector() }
-
         // Playback manager - orchestrates playback startup
         single<PlaybackManager> {
             PlaybackManagerImpl(
@@ -319,7 +309,7 @@ val downloadModule =
         // Also expose the concrete type for Android-specific features
         single { get<DownloadService>() as DownloadManager }
 
-        // DownloadEnqueuer seam — Android backend for DownloadRepository.resumeForAudioFile
+        // DownloadEnqueuer seam — Android backend for DownloadRepository.resumeIncompleteDownloads
         single<DownloadEnqueuer> {
             AndroidDownloadEnqueuer(
                 workManager = WorkManager.getInstance(androidContext()),

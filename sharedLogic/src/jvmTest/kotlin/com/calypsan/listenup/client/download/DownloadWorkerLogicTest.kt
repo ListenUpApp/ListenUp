@@ -63,8 +63,7 @@ import kotlin.test.assertTrue
  *
  * Per project memory `feedback_fakes_for_seams.md`: hand-rolled fakes + MockEngine, not mokkery.
  *
- * Phase D: transcode-poll loop replaced by WAITING_FOR_SERVER + SSE re-enqueue path.
- * Task 3: download URL now resolved via PlaybackService.prepare signed URLs (not PlaybackApiContract).
+ * Download URL is resolved via PlaybackService.prepare signed URLs.
  */
 class DownloadWorkerLogicTest {
     // ---- Fixtures ----
@@ -676,8 +675,8 @@ class DownloadWorkerLogicTest {
     /**
      * prepare() returns Failure → downloadAudioFile returns AppResult.Failure.
      *
-     * Task 3 replaces the WaitForServer path. When prepare() fails (RPC error, network, etc.),
-     * the download fails cleanly rather than falling back to a bare URL or writing WAITING_FOR_SERVER.
+     * When prepare() fails (RPC error, network, etc.), the download fails cleanly rather than
+     * falling back to a bare URL.
      */
     @Test
     fun `prepare failure propagates as AppResult Failure`() =

@@ -47,7 +47,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -89,10 +88,9 @@ private val logger = KotlinLogging.logger {}
  * Full-screen now-playing view for desktop.
  *
  * Dispatches over the [NowPlayingState] sealed hierarchy: [NowPlayingState.Active]
- * gets the full transport / wavy seek bar / overflow menu UI; [NowPlayingState.Preparing]
- * shows a centred preparing card; [NowPlayingState.Error] shows an error card with retry
- * affordances; [NowPlayingState.Idle] shows nothing meaningful (caller normally avoids
- * routing here when Idle).
+ * gets the full transport / wavy seek bar / overflow menu UI; [NowPlayingState.Error]
+ * shows an error card with retry affordances; [NowPlayingState.Idle] shows nothing
+ * meaningful (caller normally avoids routing here when Idle).
  *
  * Active layout adapts: wide → cover left / controls right; tall → vertical centre.
  */
@@ -117,13 +115,6 @@ fun DesktopNowPlayingScreen(
         when (state) {
             is NowPlayingState.Idle -> {
                 IdleScreen(onBackClick = onBackClick)
-            }
-
-            is NowPlayingState.Preparing -> {
-                PreparingScreen(
-                    state = state,
-                    onBackClick = onBackClick,
-                )
             }
 
             is NowPlayingState.Error -> {
@@ -167,61 +158,6 @@ private fun IdleScreen(onBackClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun PreparingScreen(
-    state: NowPlayingState.Preparing,
-    onBackClick: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        IconButton(onClick = onBackClick) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-        }
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier.size(180.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CoverArt(
-                    bookId = state.bookId,
-                    coverUrl = state.coverPath,
-                    blurHash = state.coverBlurHash,
-                )
-            }
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = state.title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = state.author,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
-            LinearProgressIndicator(
-                progress = { state.progress.coerceIn(0, 100) / 100f },
-                modifier = Modifier.width(240.dp),
-            )
-            val prepareMessage = state.message
-            if (prepareMessage != null) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = prepareMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }

@@ -34,7 +34,6 @@ class DownloadDaoCancelledTest :
             completedAt = null,
             errorMessage = null,
             retryCount = 0,
-            transcodeJobId = null,
         )
 
         test("getIncomplete excludes CANCELLED rows") {

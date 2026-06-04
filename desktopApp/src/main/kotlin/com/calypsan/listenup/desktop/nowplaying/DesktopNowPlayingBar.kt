@@ -36,9 +36,8 @@ import com.calypsan.listenup.client.playback.NowPlayingState
  * Mini player bar shown at the bottom of the desktop window during playback.
  *
  * Renders the appropriate UI for the [NowPlayingState] sealed variant — full controls
- * when [NowPlayingState.Active], a preparing indicator on [NowPlayingState.Preparing],
- * an error band on [NowPlayingState.Error]. Caller is expected to skip rendering
- * entirely on [NowPlayingState.Idle].
+ * when [NowPlayingState.Active], an error band on [NowPlayingState.Error]. Caller is
+ * expected to skip rendering entirely on [NowPlayingState.Idle].
  *
  * Clicking the bar (outside of controls) expands to the full now-playing screen.
  */
@@ -81,33 +80,6 @@ fun DesktopNowPlayingBar(
                 when (state) {
                     is NowPlayingState.Idle -> {
                         Unit
-                    }
-
-                    is NowPlayingState.Preparing -> {
-                        BarCover(
-                            bookId = state.bookId,
-                            coverPath = state.coverPath,
-                            blurHash = state.coverBlurHash,
-                            contentDescription = state.title,
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = state.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = state.message ?: "Preparing…",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
                     }
 
                     is NowPlayingState.Active -> {

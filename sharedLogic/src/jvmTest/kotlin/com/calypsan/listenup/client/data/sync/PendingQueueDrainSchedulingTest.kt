@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -288,7 +287,6 @@ private fun buildEngine(
         sseClient = sse,
         reconciler = noopSyncReconciler(registry, store, NoopCatchUp),
         dispatcher = dispatcher,
-        downloadRepository = FakeDownloadRepository(),
         scope = scope,
         retryBackoffMillis = retryBackoffMillis,
     )

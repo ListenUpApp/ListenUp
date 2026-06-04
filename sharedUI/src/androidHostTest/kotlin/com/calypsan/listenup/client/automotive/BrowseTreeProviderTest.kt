@@ -679,10 +679,6 @@ private class FakeDownloadDao(
 
     override suspend fun getIncomplete(): List<DownloadEntity> = emptyList()
 
-    override suspend fun getWaitingForServer(): List<DownloadEntity> = emptyList()
-
-    override suspend fun getOldWaitingForServer(thresholdMs: Long): List<DownloadEntity> = emptyList()
-
     override suspend fun getLocalPath(audioFileId: String): String? = null
 
     override suspend fun insert(download: DownloadEntity) = Unit
@@ -712,11 +708,6 @@ private class FakeDownloadDao(
         localPath: String,
         completedAt: Long,
         state: DownloadState,
-    ) = Unit
-
-    override suspend fun markWaitingForServer(
-        audioFileId: String,
-        transcodeJobId: String,
     ) = Unit
 
     override suspend fun updateErrorWithState(

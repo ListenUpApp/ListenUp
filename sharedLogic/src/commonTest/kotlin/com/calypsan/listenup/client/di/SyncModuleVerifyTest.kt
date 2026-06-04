@@ -28,7 +28,6 @@ import com.calypsan.listenup.client.data.local.db.UserStatsDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.PlaybackApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -40,10 +39,8 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.LibrarySync
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadEnqueuer
-import com.calypsan.listenup.client.playback.AudioCapabilityDetector
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
@@ -67,11 +64,7 @@ import org.koin.test.verify.verify
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [AuthSession] — owned by `clientAuthModule`.
- *  - [PlaybackPreferences] — owned by `dataModule`.
- *  - [PlaybackApiContract] — owned by `networkModule` (legacy API contract, used by
- *    `DownloadRepositoryImpl`).
  *  - [DownloadEnqueuer] — owned by the platform download module.
- *  - [AudioCapabilityDetector] — owned by the platform playback module.
  *  - [BookApiContract], [ContributorApiContract], [SeriesApiContract] — owned by `networkModule`.
  *  - [SyncEngine], [SyncEngineState], [PendingOperationQueue] — owned by
  *    `clientSyncRenovationModule`.
@@ -130,11 +123,9 @@ class SyncModuleVerifyTest :
                         BookApiContract::class,
                         ContributorApiContract::class,
                         SeriesApiContract::class,
-                        PlaybackApiContract::class,
                         // Settings / data layer (dataModule)
                         ServerConfig::class,
                         LibrarySync::class,
-                        PlaybackPreferences::class,
                         ErrorBus::class,
                         // Auth (clientAuthModule)
                         AuthSession::class,
@@ -147,7 +138,6 @@ class SyncModuleVerifyTest :
                         SeriesSyncDomainHandler::class,
                         // Playback + download (platform modules)
                         DownloadEnqueuer::class,
-                        AudioCapabilityDetector::class,
                         ListeningEventRecorder::class,
                         // Primitive qualifiers
                         String::class,

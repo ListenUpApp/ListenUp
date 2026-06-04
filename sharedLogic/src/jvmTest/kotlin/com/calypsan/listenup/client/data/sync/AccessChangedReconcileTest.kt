@@ -9,12 +9,10 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
-import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -193,7 +191,6 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                 )
             val fakeCatchUp = FakeReconcileCatchUp()
-            val downloadRepository: DownloadRepository = FakeDownloadRepository()
             val engine =
                 SyncEngine(
                     registry = registry,
@@ -204,7 +201,6 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     sseClient = FakeReconcileSse(),
                     reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
-                    downloadRepository = downloadRepository,
                     scope = scope,
                 )
             block(ReconcileHarness(engine, fakeCatchUp), db, store)

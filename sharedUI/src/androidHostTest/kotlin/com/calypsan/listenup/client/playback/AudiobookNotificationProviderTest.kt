@@ -218,7 +218,6 @@ private class StubPlaybackManager : PlaybackManager {
     override val totalDurationMs: StateFlow<Long> = MutableStateFlow(0L)
     override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
     override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
-    override val prepareProgress: StateFlow<PlaybackManager.PrepareProgress?> = MutableStateFlow(null)
     override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = MutableStateFlow(null)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
 
