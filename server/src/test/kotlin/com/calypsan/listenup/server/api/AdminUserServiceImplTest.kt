@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import app.cash.turbine.test
@@ -83,6 +84,7 @@ class AdminUserServiceImplTest :
                 clock = fixedClock,
                 registrationBroadcaster = broadcaster,
                 bus = bus,
+                publicProfileMaintainer = db.noOpPublicProfileMaintainer(),
             )
         }
 
@@ -212,6 +214,7 @@ class AdminUserServiceImplTest :
                             clock = fixedClock,
                             registrationBroadcaster = RegistrationBroadcaster(),
                             bus = ChangeBus(),
+                            publicProfileMaintainer = db.noOpPublicProfileMaintainer(),
                         ).copyWith(principalFor("a1", UserRole.ADMIN))
 
                     // m1 has an active session that must be revoked on delete.

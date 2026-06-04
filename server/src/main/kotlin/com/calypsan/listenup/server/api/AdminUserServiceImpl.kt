@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.toColumn
@@ -62,10 +63,20 @@ class AdminUserServiceImpl(
     private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val publicProfileMaintainer: PublicProfileMaintainer? = null,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
-        AdminUserServiceImpl(db, sessions, settings, registrationBroadcaster, bus, clock, provider)
+        AdminUserServiceImpl(
+            db,
+            sessions,
+            settings,
+            registrationBroadcaster,
+            bus,
+            clock,
+            provider,
+            publicProfileMaintainer,
+        )
 
     override suspend fun listUsers(): AppResult<List<User>> {
         requireAdmin()?.let { return it }
@@ -168,6 +179,7 @@ class AdminUserServiceImpl(
                 id.value,
             )
             sessions.revokeAll(id)
+            publicProfileMaintainer?.tombstone(id.value)
         }
         return outcome
     }
@@ -207,6 +219,9 @@ class AdminUserServiceImpl(
                 request.userId.value,
                 if (request.approved) RegistrationDecision.Approved else RegistrationDecision.Denied(null),
             )
+            // Refresh the public-profile projection only on approval; denied users are never
+            // active and should not appear in the public roster.
+            if (request.approved) publicProfileMaintainer?.refresh(request.userId.value)
         }
         return outcome
     }

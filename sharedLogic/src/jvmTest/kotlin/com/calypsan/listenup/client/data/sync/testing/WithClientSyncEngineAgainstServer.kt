@@ -76,8 +76,10 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -649,6 +651,9 @@ private fun buildServerRepositories(
                 UserStatsUpdater(
                     db = serverDb,
                     userStatsRepo = userStatsRepo,
+                    publicProfileMaintainerProvider = {
+                        PublicProfileMaintainer(serverDb, PublicProfileRepository(serverDb, bus, registry))
+                    },
                 ).also { statsUpdater = it },
         )
 

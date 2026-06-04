@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -24,7 +25,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 class ProfileServiceImplTest :
     FunSpec({
         fun Database.svc(userId: String): ProfileServiceImpl =
-            ProfileServiceImpl(db = this, passwordHasher = PasswordHasher())
+            ProfileServiceImpl(db = this, passwordHasher = PasswordHasher(), publicProfileMaintainer = noOpPublicProfileMaintainer())
                 .copyWith(
                     PrincipalProvider {
                         UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
@@ -63,7 +64,7 @@ class ProfileServiceImplTest :
                         UserEntity.findById("u1")!!.passwordHash = hash
                     }
                     val svc =
-                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher)
+                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher, publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer())
                             .copyWith(
                                 PrincipalProvider {
                                     UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
@@ -91,7 +92,7 @@ class ProfileServiceImplTest :
                         UserEntity.findById("u1")!!.passwordHash = hash
                     }
                     val svc =
-                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher)
+                        ProfileServiceImpl(db = this@withInMemoryDatabase, passwordHasher = hasher, publicProfileMaintainer = this@withInMemoryDatabase.noOpPublicProfileMaintainer())
                             .copyWith(
                                 PrincipalProvider {
                                     UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)

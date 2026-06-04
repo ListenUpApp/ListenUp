@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -23,6 +24,7 @@ class ProfileModuleVerifyTest :
                                 module {
                                     single { db }
                                     single { PasswordHasher() }
+                                    single { db.noOpPublicProfileMaintainer() }
                                 },
                                 profileModule(avatarsDir),
                             )

@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
@@ -31,6 +32,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 internal class ProfileServiceImpl(
     private val db: Database,
     private val passwordHasher: PasswordHasher,
+    private val publicProfileMaintainer: PublicProfileMaintainer,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ProfileService {
     override suspend fun getMyProfile(): AppResult<Profile> {
@@ -51,27 +53,36 @@ internal class ProfileServiceImpl(
                 ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Hash outside the transaction — Argon2 is CPU-bound and must not hold a DB connection.
         val newHash = request.password?.let { passwordHasher.hash(it.newPassword) }
-        return suspendTransaction(db) {
-            val u =
-                UserEntity.findById(userId)
-                    ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
-            request.password?.let { pc ->
-                if (!passwordHasher.verify(pc.currentPassword, u.passwordHash)) {
-                    return@suspendTransaction AppResult.Failure(ProfileError.WrongPassword())
+        val result =
+            suspendTransaction(db) {
+                val u =
+                    UserEntity.findById(userId)
+                        ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
+                request.password?.let { pc ->
+                    if (!passwordHasher.verify(pc.currentPassword, u.passwordHash)) {
+                        return@suspendTransaction AppResult.Failure(ProfileError.WrongPassword())
+                    }
+                    u.passwordHash = newHash!!
                 }
-                u.passwordHash = newHash!!
+                request.displayName?.let { u.displayName = it }
+                request.tagline?.let { u.tagline = it }
+                request.avatarType?.let { u.avatarType = it }
+                u.updatedAt = System.currentTimeMillis()
+                AppResult.Success(u.toProfile())
             }
-            request.displayName?.let { u.displayName = it }
-            request.tagline?.let { u.tagline = it }
-            request.avatarType?.let { u.avatarType = it }
-            u.updatedAt = System.currentTimeMillis()
-            AppResult.Success(u.toProfile())
-        }
+        // Refresh the projection after the user-row write commits — reads back from DB.
+        if (result is AppResult.Success) publicProfileMaintainer.refresh(userId)
+        return result
     }
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ProfileServiceImpl =
-        ProfileServiceImpl(db = db, passwordHasher = passwordHasher, principal = principal)
+        ProfileServiceImpl(
+            db = db,
+            passwordHasher = passwordHasher,
+            publicProfileMaintainer = publicProfileMaintainer,
+            principal = principal,
+        )
 
     private fun UserEntity.toProfile(): Profile =
         Profile(
@@ -94,7 +105,9 @@ internal class ProfileServiceImpl(
 fun createProfileService(
     db: Database,
     passwordHasher: PasswordHasher,
-): ProfileService = ProfileServiceImpl(db = db, passwordHasher = passwordHasher)
+    publicProfileMaintainer: PublicProfileMaintainer,
+): ProfileService =
+    ProfileServiceImpl(db = db, passwordHasher = passwordHasher, publicProfileMaintainer = publicProfileMaintainer)
 
 /**
  * Scopes a [ProfileService] built by [createProfileService] to [principal] for one request.

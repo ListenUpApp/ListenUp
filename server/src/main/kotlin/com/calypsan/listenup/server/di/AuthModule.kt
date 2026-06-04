@@ -93,6 +93,8 @@ fun authModule(config: ApplicationConfig): Module =
                 // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
                 // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
                 shelfRepository = getOrNull<ShelfRepository>(),
+                // Nullable — publicProfileModule may not be loaded in minimal test containers.
+                publicProfileMaintainer = getOrNull(),
             )
         }
 
@@ -104,6 +106,7 @@ fun authModule(config: ApplicationConfig): Module =
                 registrationBroadcaster = get(),
                 bus = get(),
                 clock = get(),
+                publicProfileMaintainer = getOrNull(),
             )
         }
 

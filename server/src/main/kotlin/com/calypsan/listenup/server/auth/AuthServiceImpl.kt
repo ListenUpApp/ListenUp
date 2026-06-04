@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -65,6 +66,7 @@ class AuthServiceImpl(
      * shelves are silently skipped — registration still succeeds.
      */
     internal val shelfRepository: ShelfRepository? = null,
+    internal val publicProfileMaintainer: PublicProfileMaintainer? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -162,6 +164,11 @@ class AuthServiceImpl(
                 )
             }
         createStarterShelfBestEffort(user.id.value)
+        // Only ACTIVE users get a projection row immediately; PENDING_APPROVAL users
+        // get their row when the admin approves them (via AdminUserServiceImpl).
+        if (user.status == UserStatusColumn.ACTIVE) {
+            publicProfileMaintainer?.refresh(user.id.value)
+        }
         return AppResult.Success(outcome)
     }
 
@@ -190,6 +197,7 @@ class AuthServiceImpl(
                 }
             }
         createStarterShelfBestEffort(user.id.value)
+        publicProfileMaintainer?.refresh(user.id.value)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
@@ -262,6 +270,7 @@ class AuthServiceImpl(
             principalProvider = provider,
             requestUserAgent = requestUserAgent,
             shelfRepository = shelfRepository,
+            publicProfileMaintainer = publicProfileMaintainer,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -277,6 +286,7 @@ class AuthServiceImpl(
             principalProvider = principalProvider,
             requestUserAgent = userAgent,
             shelfRepository = shelfRepository,
+            publicProfileMaintainer = publicProfileMaintainer,
         )
 
     /**
