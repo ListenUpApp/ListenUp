@@ -33,6 +33,9 @@ class ImportPaths(
     /** The persisted analysis preview (`analysis.json`) for the import [id]. */
     fun analysisFor(id: String): Path = dirFor(id).resolve("analysis.json")
 
+    /** The server-internal resolved matches (`matches.json`) for the import [id]. */
+    fun matchesFor(id: String): Path = dirFor(id).resolve("matches.json")
+
     /** The persisted confirmed mapping (`mapping.json`) for the import [id]. */
     fun mappingFor(id: String): Path = dirFor(id).resolve("mapping.json")
 

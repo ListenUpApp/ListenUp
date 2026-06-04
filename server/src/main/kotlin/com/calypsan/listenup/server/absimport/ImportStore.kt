@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.import.AbsUserMatch
 import com.calypsan.listenup.api.dto.import.ImportAnalysis
 import com.calypsan.listenup.api.dto.import.ImportStatus
 import com.calypsan.listenup.api.dto.import.ImportSummary
@@ -75,6 +76,28 @@ class ImportStore(
         onIo {
             val file = paths.analysisFor(id.value)
             if (file.exists()) json.decodeFromString<ImportAnalysis>(file.readText()) else null
+        }
+
+    /**
+     * Persists the server-internal resolved matches for [id] as `matches.json`.
+     *
+     * The contract [ImportAnalysis] is a lossy projection (counts + ambiguous/unmatched refs only),
+     * so apply can't reconstruct the per-item book resolution from it. [ResolvedImport] is the full
+     * `absItemId → matched BookId` map plus the user matches, written alongside `analysis.json` so
+     * apply reads it back instead of re-running matching.
+     */
+    suspend fun writeMatches(
+        id: ImportId,
+        matches: ResolvedImport,
+    ) = onIo {
+        paths.matchesFor(id.value).writeText(json.encodeToString(matches))
+    }
+
+    /** Reads the persisted resolved matches for [id], or null if not yet analyzed. */
+    suspend fun readMatches(id: ImportId): ResolvedImport? =
+        onIo {
+            val file = paths.matchesFor(id.value)
+            if (file.exists()) json.decodeFromString<ResolvedImport>(file.readText()) else null
         }
 
     /** Persists the confirmed mapping for [id] as `mapping.json`. */
@@ -162,6 +185,20 @@ class ImportStore(
     data class StoredMapping(
         val userMappings: Map<AbsUserId, UserId>,
         val bookOverrides: Map<AbsItemId, BookId?>,
+    )
+
+    /**
+     * Server-internal persisted resolution produced by analyze (`matches.json`).
+     *
+     * [itemMatches] maps each ABS item that resolved to exactly one ListenUp book; ambiguous and
+     * unmatched items are deliberately absent (never auto-resolved). [userMatches] mirrors the
+     * suggested user mapping so apply can validate without re-running the user matcher. Progress rows
+     * are *not* persisted here — apply re-reads them from the ABS database directly.
+     */
+    @Serializable
+    data class ResolvedImport(
+        val itemMatches: Map<AbsItemId, BookId>,
+        val userMatches: List<AbsUserMatch>,
     )
 
     /** Server-internal upload-time metadata sidecar (`meta.json`). */
