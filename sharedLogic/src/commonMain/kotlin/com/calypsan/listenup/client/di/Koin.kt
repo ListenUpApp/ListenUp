@@ -12,8 +12,10 @@ import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
 import com.calypsan.listenup.client.data.remote.AdminApiContract
+import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
@@ -669,6 +671,14 @@ val syncModule =
         // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
         single<AdminUserRpcFactory> {
             KtorAdminUserRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // AdminSettingsRpcFactory — kotlinx.rpc proxy for AdminSettingsService (server identity settings).
+        single<AdminSettingsRpcFactory> {
+            KtorAdminSettingsRpcFactory(
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
