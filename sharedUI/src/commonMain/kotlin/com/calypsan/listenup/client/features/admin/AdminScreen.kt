@@ -31,7 +31,6 @@ import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Save
 import com.calypsan.listenup.client.design.components.ListenUpFab
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
@@ -91,8 +90,6 @@ import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_deny
 import listenup.composeapp.generated.resources.admin_deny_registration
 import listenup.composeapp.generated.resources.common_email
-import listenup.composeapp.generated.resources.common_inbox
-import listenup.composeapp.generated.resources.admin_inbox_workflow
 import listenup.composeapp.generated.resources.admin_invite_someone
 import listenup.composeapp.generated.resources.connect_listenup_server
 import listenup.composeapp.generated.resources.common_name
@@ -104,7 +101,6 @@ import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
 import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.admin_remote_url
-import listenup.composeapp.generated.resources.admin_review_new_books_before_they
 import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.admin_revoke_invite
 import listenup.composeapp.generated.resources.common_role
@@ -131,17 +127,12 @@ fun AdminScreen(
     onCollectionsClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
     onUnmappedGenresClick: () -> Unit = {},
-    onInboxClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
     onServerNameChange: (String) -> Unit = {},
     remoteUrl: String = "",
     onRemoteUrlChange: (String) -> Unit = {},
-    inboxEnabled: Boolean = false,
-    inboxCount: Int = 0,
-    isSaving: Boolean = false,
-    onInboxEnabledChange: (Boolean) -> Unit = {},
     isDirty: Boolean = false,
     onSave: () -> Unit = {},
     settingsError: String? = null,
@@ -227,16 +218,11 @@ fun AdminScreen(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onUnmappedGenresClick = onUnmappedGenresClick,
-                    onInboxClick = onInboxClick,
                     onBackupClick = onBackupClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
                     onRemoteUrlChange = onRemoteUrlChange,
-                    inboxEnabled = inboxEnabled,
-                    inboxCount = inboxCount,
-                    isSaving = isSaving,
-                    onInboxEnabledChange = onInboxEnabledChange,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -329,16 +315,11 @@ private fun AdminContent(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onUnmappedGenresClick: () -> Unit,
-    onInboxClick: () -> Unit,
     onBackupClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
-    inboxEnabled: Boolean,
-    inboxCount: Int,
-    isSaving: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -366,9 +347,6 @@ private fun AdminContent(
                 openRegistration = state.openRegistration,
                 isTogglingOpenRegistration = state.isTogglingOpenRegistration,
                 onOpenRegistrationChange = onOpenRegistrationChange,
-                inboxEnabled = inboxEnabled,
-                isSaving = isSaving,
-                onInboxEnabledChange = onInboxEnabledChange,
             )
         }
 
@@ -418,17 +396,6 @@ private fun AdminContent(
         item {
             Spacer(modifier = Modifier.height(12.dp))
             UnmappedGenresCard(onClick = onUnmappedGenresClick)
-        }
-
-        // Inbox button (only shown when inbox workflow is enabled)
-        if (inboxEnabled) {
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                InboxCard(
-                    inboxCount = inboxCount,
-                    onClick = onInboxClick,
-                )
-            }
         }
 
         // Backup & Restore button
@@ -616,9 +583,6 @@ private fun SettingsCard(
     openRegistration: Boolean,
     isTogglingOpenRegistration: Boolean,
     onOpenRegistrationChange: (Boolean) -> Unit,
-    inboxEnabled: Boolean,
-    isSaving: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ElevatedCard(
@@ -652,16 +616,6 @@ private fun SettingsCard(
                 openRegistration = openRegistration,
                 isTogglingOpenRegistration = isTogglingOpenRegistration,
                 onOpenRegistrationChange = onOpenRegistrationChange,
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            SettingsInboxWorkflowRow(
-                inboxEnabled = inboxEnabled,
-                isSaving = isSaving,
-                onInboxEnabledChange = onInboxEnabledChange,
             )
         }
     }
@@ -762,48 +716,6 @@ private fun SettingsOpenRegistrationRow(
             Switch(
                 checked = openRegistration,
                 onCheckedChange = onOpenRegistrationChange,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsInboxWorkflowRow(
-    inboxEnabled: Boolean,
-    isSaving: Boolean,
-    onInboxEnabledChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Inbox,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(Res.string.admin_inbox_workflow),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(Res.string.admin_review_new_books_before_they),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (isSaving) {
-            ListenUpLoadingIndicatorSmall()
-        } else {
-            Switch(
-                checked = inboxEnabled,
-                onCheckedChange = onInboxEnabledChange,
             )
         }
     }
@@ -1239,55 +1151,6 @@ private fun UnmappedGenresCard(
                     text = stringResource(Res.string.admin_map_scanned_genre_strings_to_your_taxonomy),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun InboxCard(
-    inboxCount: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Inbox,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.common_inbox),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-                Text(
-                    text =
-                        if (inboxCount > 0) {
-                            "$inboxCount book${if (inboxCount != 1) "s" else ""} awaiting review"
-                        } else {
-                            "Review newly scanned books before publishing"
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
                 )
             }
         }
