@@ -71,7 +71,7 @@ internal class ProfileServiceImpl(
                 AppResult.Success(u.toProfile())
             }
         // Refresh the projection after the user-row write commits — reads back from DB.
-        if (result is AppResult.Success) publicProfileMaintainer.refresh(userId)
+        if (result is AppResult.Success) publicProfileMaintainer.refreshBestEffort(userId)
         return result
     }
 

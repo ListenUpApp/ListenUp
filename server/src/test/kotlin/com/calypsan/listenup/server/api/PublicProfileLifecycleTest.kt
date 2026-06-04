@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -182,10 +181,3 @@ class PublicProfileLifecycleTest :
             }
         }
     })
-
-private fun <T> AppResult<T>.shouldSucceed(): T = shouldBeInstanceOf<AppResult.Success<T>>().data
-
-private inline fun <reified E : AppError> AppResult<*>.shouldFail(): E =
-    shouldBeInstanceOf<AppResult.Failure>()
-        .error
-        .shouldBeInstanceOf<E>()

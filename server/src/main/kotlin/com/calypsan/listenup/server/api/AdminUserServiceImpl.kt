@@ -179,7 +179,7 @@ class AdminUserServiceImpl(
                 id.value,
             )
             sessions.revokeAll(id)
-            publicProfileMaintainer?.tombstone(id.value)
+            publicProfileMaintainer?.tombstoneBestEffort(id.value)
         }
         return outcome
     }
@@ -221,7 +221,7 @@ class AdminUserServiceImpl(
             )
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.
-            if (request.approved) publicProfileMaintainer?.refresh(request.userId.value)
+            if (request.approved) publicProfileMaintainer?.refreshBestEffort(request.userId.value)
         }
         return outcome
     }

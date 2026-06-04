@@ -167,7 +167,7 @@ class AuthServiceImpl(
         // Only ACTIVE users get a projection row immediately; PENDING_APPROVAL users
         // get their row when the admin approves them (via AdminUserServiceImpl).
         if (user.status == UserStatusColumn.ACTIVE) {
-            publicProfileMaintainer?.refresh(user.id.value)
+            publicProfileMaintainer?.refreshBestEffort(user.id.value)
         }
         return AppResult.Success(outcome)
     }
@@ -197,7 +197,7 @@ class AuthServiceImpl(
                 }
             }
         createStarterShelfBestEffort(user.id.value)
-        publicProfileMaintainer?.refresh(user.id.value)
+        publicProfileMaintainer?.refreshBestEffort(user.id.value)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,

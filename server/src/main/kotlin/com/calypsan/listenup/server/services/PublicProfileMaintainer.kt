@@ -5,6 +5,8 @@ import com.calypsan.listenup.server.db.ListeningEventTable
 import com.calypsan.listenup.server.db.UserStatsTable
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.sync.PublicProfileRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -13,6 +15,8 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+
+private val logger = KotlinLogging.logger {}
 
 /** Days in the longest rolling window the projection tracks. */
 private const val YEAR_WINDOW_DAYS = 365
@@ -75,6 +79,36 @@ class PublicProfileMaintainer(
     /** Soft-delete the projection row for a removed user, so clients prune it. */
     suspend fun tombstone(userId: String) {
         publicProfileRepo.softDelete(userId, clientOpId = null, userId = null)
+    }
+
+    /**
+     * Best-effort [refresh]: the public_profiles projection is a derived view that
+     * self-heals via [backfillAll] at startup, so a refresh failure must never fail
+     * the user-facing operation that triggered it. Logs and swallows everything except
+     * [CancellationException]. Use from user-lifecycle call sites (NOT the stats path,
+     * where the projection write is intentionally atomic with the stats write).
+     */
+    suspend fun refreshBestEffort(userId: String) {
+        try {
+            refresh(userId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "public_profiles refresh failed for $userId; projection will self-heal on next backfill" }
+        }
+    }
+
+    /** Best-effort [tombstone]; see [refreshBestEffort]. */
+    suspend fun tombstoneBestEffort(userId: String) {
+        try {
+            tombstone(userId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(
+                e,
+            ) { "public_profiles tombstone failed for $userId; projection will self-heal on next backfill" }
+        }
     }
 
     /**
