@@ -102,7 +102,12 @@ private class FakeAdminUserService : AdminUserService {
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> = AppResult.Success(RegistrationPolicy.OPEN)
 
-    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> = AppResult.Success(Unit)
+    var lastSetPolicy: RegistrationPolicy? = null
+
+    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> {
+        lastSetPolicy = policy
+        return AppResult.Success(Unit)
+    }
 }
 
 private class FakeAdminUserRpcFactory(
@@ -263,5 +268,39 @@ class AdminRepositoryImplUserTest :
                 )
 
             (repo.getUsers() is AppResult.Failure) shouldBe true
+        }
+
+        test("setOpenRegistration(true) sets policy OPEN") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+            val result = repo.setOpenRegistration(true)
+            (result is AppResult.Success) shouldBe true
+            service.lastSetPolicy shouldBe RegistrationPolicy.OPEN
+        }
+
+        test("setOpenRegistration(false) sets policy CLOSED") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+            val result = repo.setOpenRegistration(false)
+            (result is AppResult.Success) shouldBe true
+            service.lastSetPolicy shouldBe RegistrationPolicy.CLOSED
+        }
+
+        test("setOpenRegistration returns Failure (never throws) when the RPC transport throws") {
+            val throwingFactory =
+                object : AdminUserRpcFactory {
+                    override suspend fun get(): AdminUserService = throw RuntimeException("WS 401")
+
+                    override suspend fun invalidate() = Unit
+                }
+            val repo =
+                AdminRepositoryImpl(
+                    adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
+                    adminUserRpc = throwingFactory,
+                    inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                    serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
+                )
+            val result = repo.setOpenRegistration(true)
+            (result is AppResult.Failure) shouldBe true
         }
     })

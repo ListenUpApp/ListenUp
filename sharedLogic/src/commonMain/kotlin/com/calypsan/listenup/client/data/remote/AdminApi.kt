@@ -15,7 +15,6 @@ import io.ktor.http.encodeURLPath
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
-import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -49,9 +48,6 @@ interface AdminApiContract {
     suspend fun createInvite(request: CreateInviteRequest): AppResult<AdminInvite>
 
     suspend fun deleteInvite(inviteId: String): AppResult<Unit>
-
-    // Settings
-    suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit>
 
     // Server settings (inbox workflow)
     suspend fun getServerSettings(): AppResult<ServerSettingsResponse>
@@ -189,17 +185,6 @@ class AdminApi(
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
         apiCallUnit {
             clientFactory.getClient().delete("/api/v1/admin/invites/$inviteId").body<ApiResponse<Unit>>()
-        }
-
-    // Settings
-
-    override suspend fun setOpenRegistration(enabled: Boolean): AppResult<Unit> =
-        apiCallUnit {
-            clientFactory
-                .getClient()
-                .put("/api/v1/admin/settings/open-registration") {
-                    setBody(SetOpenRegistrationRequest(enabled))
-                }.body<ApiResponse<Unit>>()
         }
 
     // Server Settings (Inbox Workflow)
@@ -391,14 +376,6 @@ data class CreateInviteRequest(
     @SerialName("email") val email: String,
     @SerialName("role") val role: String = "member",
     @SerialName("expires_in_days") val expiresInDays: Int = 7,
-)
-
-/**
- * Request to set open registration setting.
- */
-@Serializable
-data class SetOpenRegistrationRequest(
-    @SerialName("enabled") val enabled: Boolean,
 )
 
 // =============================================================================
