@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber", "CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.shelf
 
 import androidx.compose.foundation.background
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -211,37 +210,11 @@ private fun ShelfDetailContent(
 
         // Description section (if available)
         detail.description?.takeIf { it.isNotBlank() }?.let { description ->
-            item {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 16.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.common_about),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (description.length > 150) {
-                        TextButton(
-                            onClick = { isDescriptionExpanded = !isDescriptionExpanded },
-                            contentPadding = PaddingValues(0.dp),
-                        ) {
-                            Text(if (isDescriptionExpanded) "Read less" else "Read more")
-                        }
-                    }
-                }
-            }
+            descriptionSection(
+                description = description,
+                isExpanded = isDescriptionExpanded,
+                onToggleExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
+            )
         }
 
         // Books section header
@@ -259,39 +232,7 @@ private fun ShelfDetailContent(
 
         // Empty state
         if (detail.books.isEmpty()) {
-            item {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Book,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            modifier = Modifier.size(48.dp),
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(Res.string.common_no_items_yet, "books"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (isOwner) {
-                            Text(
-                                text = stringResource(Res.string.shelf_add_books_from_the_library),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+            emptyBooksSection(isOwner = isOwner)
         }
 
         // Books list
@@ -304,6 +245,89 @@ private fun ShelfDetailContent(
                 onClick = { onBookClick(book.id) },
                 formatDuration = formatDuration,
             )
+        }
+    }
+}
+
+/** Description length beyond which the expandable "Read more" toggle is shown. */
+private const val DESCRIPTION_EXPAND_THRESHOLD = 150
+
+/**
+ * Expandable "About" description block within the shelf-detail list.
+ */
+private fun LazyListScope.descriptionSection(
+    description: String,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
+) {
+    item {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.common_about),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (isExpanded) Int.MAX_VALUE else 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (description.length > DESCRIPTION_EXPAND_THRESHOLD) {
+                TextButton(
+                    onClick = onToggleExpanded,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text(if (isExpanded) "Read less" else "Read more")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Empty-state block shown when the shelf has no books.
+ */
+private fun LazyListScope.emptyBooksSection(isOwner: Boolean) {
+    item {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Book,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(48.dp),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(Res.string.common_no_items_yet, "books"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (isOwner) {
+                    Text(
+                        text = stringResource(Res.string.shelf_add_books_from_the_library),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
