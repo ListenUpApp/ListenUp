@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilledIconButton
@@ -41,6 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.painterResource
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.brand_mark
 
 /** A tertiary-container pill shown in the hero (e.g. "Server administrator"). */
 data class AuthBadge(
@@ -287,10 +289,10 @@ fun BrandMark(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Rounded.Headphones,
+                painter = painterResource(Res.drawable.brand_mark),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(40.dp),
             )
         }
         Text(
