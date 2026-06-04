@@ -1,11 +1,16 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.data.remote.AdminApiContract
+import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.AdminInvite
-import com.calypsan.listenup.client.data.remote.AdminUser
 import com.calypsan.listenup.client.data.remote.CollectionRef
 import com.calypsan.listenup.client.data.remote.CreateInviteRequest
 import com.calypsan.listenup.client.data.remote.InboxBookResponse
@@ -14,8 +19,6 @@ import com.calypsan.listenup.client.data.remote.ServerSettingsRequest
 import com.calypsan.listenup.client.data.remote.UpdateInstanceRequest
 import com.calypsan.listenup.client.data.remote.ServerSettingsResponse
 import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
-import com.calypsan.listenup.client.data.remote.UpdatePermissionsRequest
-import com.calypsan.listenup.client.data.remote.UpdateUserRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InboxBook
@@ -24,39 +27,47 @@ import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.model.StagedCollection
-import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
 /**
- * Implementation of AdminRepository using AdminApiContract.
+ * Implementation of AdminRepository using AdminApiContract for non-user operations
+ * and [AdminUserRpcFactory] for user management (routed through the Kotlin RPC server).
  *
- * Wraps admin API calls and converts data layer types to domain models.
  * All methods return [AppResult] — no exceptions are thrown.
  *
- * @property adminApi API client for admin operations
+ * @property adminApi API client for invite/settings/inbox/library operations
+ * @property adminUserRpc RPC factory for user-management operations
  */
 class AdminRepositoryImpl(
     private val adminApi: AdminApiContract,
+    private val adminUserRpc: AdminUserRpcFactory,
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getUsers(): AppResult<List<AdminUserInfo>> =
-        adminApi.getUsers().map { users -> users.map { it.toDomain() } }
+        adminUserRpc.get().listUsers().map { users -> users.map { it.toAdminUserInfo() } }
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> =
-        adminApi.getPendingUsers().map { users -> users.map { it.toDomain() } }
+        adminUserRpc.get().listPendingUsers().map { users -> users.map { it.toAdminUserInfo() } }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        adminApi.approveUser(userId).map { it.toDomain() }
+        adminUserRpc.get()
+            .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
+            .flatMap { adminUserRpc.get().getUser(UserId(userId)) }
+            .map { it.toAdminUserInfo() }
 
-    override suspend fun denyUser(userId: String): AppResult<Unit> = adminApi.denyUser(userId)
+    override suspend fun denyUser(userId: String): AppResult<Unit> =
+        adminUserRpc.get()
+            .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = false))
+            .map { }
 
-    override suspend fun deleteUser(userId: String): AppResult<Unit> = adminApi.deleteUser(userId)
+    override suspend fun deleteUser(userId: String): AppResult<Unit> =
+        adminUserRpc.get().deleteUser(UserId(userId))
 
     override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
-        adminApi.getUser(userId).map { it.toDomain() }
+        adminUserRpc.get().getUser(UserId(userId)).map { it.toAdminUserInfo() }
 
     override suspend fun updateUser(
         userId: String,
@@ -65,24 +76,15 @@ class AdminRepositoryImpl(
         role: String?,
         canShare: Boolean?,
     ): AppResult<AdminUserInfo> {
-        val permissionsUpdate =
-            if (canShare != null) {
-                UpdatePermissionsRequest(
-                    canShare = canShare,
-                )
-            } else {
-                null
-            }
-
-        val request =
-            UpdateUserRequest(
-                firstName = firstName,
-                lastName = lastName,
-                role = role,
-                permissions = permissionsUpdate,
-            )
-
-        return adminApi.updateUser(userId, request).map { it.toDomain() }
+        // firstName/lastName have no contract field — they must NOT be sent to the server.
+        // displayName is deferred to a future domain-realignment follow-up.
+        val patch = AdminUserPatch(
+            role = role?.let { UserRole.valueOf(it) },
+            permissions = canShare?.let {
+                com.calypsan.listenup.api.dto.auth.UserPermissions(canShare = it)
+            },
+        )
+        return adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -201,26 +203,6 @@ class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVERSION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert AdminUser API model to AdminUserInfo domain model.
- */
-private fun AdminUser.toDomain(): AdminUserInfo =
-    AdminUserInfo(
-        id = id,
-        email = email,
-        displayName = displayName,
-        firstName = firstName,
-        lastName = lastName,
-        isRoot = isRoot,
-        role = role,
-        status = status,
-        permissions =
-            UserPermissions(
-                canShare = permissions.canShare,
-            ),
-        createdAt = createdAt,
-    )
 
 /**
  * Convert AdminInvite API model to InviteInfo domain model.
