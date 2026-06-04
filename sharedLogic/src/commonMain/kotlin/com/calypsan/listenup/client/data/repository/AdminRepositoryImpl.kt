@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -122,6 +123,11 @@ class AdminRepositoryImpl(
                 }
             val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = permissions)
             adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
+        }
+
+    override suspend fun getRegistrationPolicy(): AppResult<Boolean> =
+        catching("getRegistrationPolicy") {
+            adminUserRpc.get().getRegistrationPolicy().map { it == RegistrationPolicy.OPEN }
         }
 
     /**

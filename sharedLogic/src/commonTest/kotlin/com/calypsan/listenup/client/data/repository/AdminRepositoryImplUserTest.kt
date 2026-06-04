@@ -238,6 +238,15 @@ class AdminRepositoryImplUserTest :
             info.permissions.canShare shouldBe false
         }
 
+        test("getRegistrationPolicy returns Success(true) when policy is OPEN") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.getRegistrationPolicy()
+
+            result shouldBe AppResult.Success(true)
+        }
+
         test("a transport exception from the RPC factory becomes AppResult.Failure, not a throw") {
             val throwingFactory =
                 object : AdminUserRpcFactory {

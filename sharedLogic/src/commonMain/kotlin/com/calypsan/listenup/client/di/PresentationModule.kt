@@ -90,7 +90,7 @@ val adminPresentationModule =
     module {
         single {
             AdminViewModel(
-                instanceRepository = get(),
+                getRegistrationPolicyUseCase = get(),
                 loadUsersUseCase = get(),
                 loadPendingUsersUseCase = get(),
                 loadInvitesUseCase = get(),

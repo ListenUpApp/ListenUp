@@ -4,14 +4,12 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.domain.model.Instance
-import com.calypsan.listenup.client.domain.model.InstanceId
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
-import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
@@ -39,29 +37,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.calypsan.listenup.core.Timestamp
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AdminViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
-    private fun createMockInstance(openRegistration: Boolean = false) =
-        Instance(
-            id = InstanceId("test-instance"),
-            name = "Test Server",
-            version = "1.0.0",
-            localUrl = "http://localhost:8080",
-            remoteUrl = null,
-            openRegistration = openRegistration,
-            setupRequired = false,
-            createdAt = Timestamp(0L),
-            updatedAt = Timestamp(0L),
-        )
-
-    private fun createMockInstanceRepository(openRegistration: Boolean = false): InstanceRepository {
-        val instanceRepo: InstanceRepository = mock()
-        everySuspend { instanceRepo.getInstance() } returns AppResult.Success(createMockInstance(openRegistration))
-        return instanceRepo
+    private fun createMockGetRegistrationPolicyUseCase(isOpen: Boolean = false): GetRegistrationPolicyUseCase {
+        val useCase: GetRegistrationPolicyUseCase = mock()
+        everySuspend { useCase() } returns AppResult.Success(isOpen)
+        return useCase
     }
 
     private fun createMockEventStreamRepository(): EventStreamRepository {
@@ -114,7 +98,7 @@ class AdminViewModelTest {
     @Test
     fun `initial state is Loading`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -130,7 +114,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -148,7 +132,7 @@ class AdminViewModelTest {
     @Test
     fun `loadData transitions to Ready with users and invites`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -166,7 +150,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -187,7 +171,7 @@ class AdminViewModelTest {
     @Test
     fun `loadData filters out claimed invites`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -208,7 +192,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -229,7 +213,7 @@ class AdminViewModelTest {
     @Test
     fun `loadData initial users failure transitions to Error`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -245,7 +229,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -265,7 +249,7 @@ class AdminViewModelTest {
     @Test
     fun `deleteUser removes user from list`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -283,7 +267,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -309,7 +293,7 @@ class AdminViewModelTest {
     @Test
     fun `revokeInvite removes invite from list`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -327,7 +311,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -351,7 +335,7 @@ class AdminViewModelTest {
     @Test
     fun `clearError clears error state`() =
         runTest {
-            val instanceRepo = createMockInstanceRepository()
+            val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
             val loadUsersUseCase: LoadUsersUseCase = mock()
             val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
             val loadInvitesUseCase: LoadInvitesUseCase = mock()
@@ -368,7 +352,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
@@ -392,10 +376,10 @@ class AdminViewModelTest {
     @Test
     fun `loadData fetches all data in parallel`() =
         runTest {
-            val instanceRepo: InstanceRepository = mock()
-            everySuspend { instanceRepo.getInstance() } calls {
+            val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase = mock()
+            everySuspend { getRegistrationPolicyUseCase() } calls {
                 delay(100)
-                AppResult.Success(createMockInstance())
+                AppResult.Success(false)
             }
 
             val loadUsersUseCase: LoadUsersUseCase = mock()
@@ -422,7 +406,7 @@ class AdminViewModelTest {
 
             val viewModel =
                 AdminViewModel(
-                    instanceRepository = instanceRepo,
+                    getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
                     loadUsersUseCase = loadUsersUseCase,
                     loadPendingUsersUseCase = loadPendingUsersUseCase,
                     loadInvitesUseCase = loadInvitesUseCase,
