@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "CognitiveComplexMethod")
-
 package com.calypsan.listenup.client.features.browsegenre
 
 import androidx.compose.foundation.background
@@ -87,36 +85,11 @@ fun BrowseGenreScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("Browse by Genre") },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                        }
-                    },
-                    actions = {
-                        val ready = state as? BrowseGenreUiState.Ready
-                        if (ready != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Include subtree",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(end = 8.dp),
-                                )
-                                Switch(
-                                    checked = ready.includeDescendants,
-                                    onCheckedChange = { viewModel.toggleIncludeDescendants() },
-                                )
-                                Spacer(modifier = Modifier.size(8.dp))
-                            }
-                        }
-                    },
-                )
-                if ((state as? BrowseGenreUiState.Ready)?.isFetchingBooks == true) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            }
+            BrowseGenreTopBar(
+                state = state,
+                onBackClick = onBackClick,
+                onToggleIncludeDescendants = { viewModel.toggleIncludeDescendants() },
+            )
         },
     ) { innerPadding ->
         when (val s = state) {
@@ -136,6 +109,45 @@ fun BrowseGenreScreen(
                     topPadding = innerPadding.calculateTopPadding(),
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BrowseGenreTopBar(
+    state: BrowseGenreUiState,
+    onBackClick: () -> Unit,
+    onToggleIncludeDescendants: () -> Unit,
+) {
+    Column {
+        TopAppBar(
+            title = { Text("Browse by Genre") },
+            navigationIcon = {
+                IconButton(onClick = onBackClick) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+                }
+            },
+            actions = {
+                val ready = state as? BrowseGenreUiState.Ready
+                if (ready != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Include subtree",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Switch(
+                            checked = ready.includeDescendants,
+                            onCheckedChange = { onToggleIncludeDescendants() },
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+                }
+            },
+        )
+        if ((state as? BrowseGenreUiState.Ready)?.isFetchingBooks == true) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
     }
 }
