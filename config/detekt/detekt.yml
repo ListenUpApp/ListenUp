@@ -433,6 +433,7 @@ style:
     maxJumpCount: 3  # Media playback loops may have multiple break/continue
   MagicNumber:
     active: true
+    ignoreAnnotated: ['Composable']  # Compose layout literals (dp/sp/alpha/weight/durations) are self-documenting at the call site; parity with LongMethod/UnusedParameter Compose scoping
     excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
     ignoreNumbers:
       - '-1'
