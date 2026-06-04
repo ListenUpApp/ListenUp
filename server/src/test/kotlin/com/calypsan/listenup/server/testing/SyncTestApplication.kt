@@ -15,11 +15,12 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
-import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
@@ -175,6 +176,11 @@ internal fun withTestApplication(
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
                 )
+            // public_profiles is a first-class global domain in this harness — register it
+            // once on the shared bus/registry so its catch-up + firehose work, and so the
+            // maintainer (re-resolved per stats write via the provider) never re-registers.
+            val publicProfileRepo = PublicProfileRepository(db = db, bus = bus, registry = registry)
+            val publicProfileMaintainer = PublicProfileMaintainer(db = db, publicProfileRepo = publicProfileRepo)
             val eventRepo =
                 ListeningEventRepository(
                     db = db,
@@ -184,17 +190,7 @@ internal fun withTestApplication(
                         UserStatsUpdater(
                             db = db,
                             userStatsRepo = statsRepo,
-                            publicProfileMaintainerProvider = {
-                                com.calypsan.listenup.server.services.PublicProfileMaintainer(
-                                    db = db,
-                                    publicProfileRepo =
-                                        PublicProfileRepository(
-                                            db = db,
-                                            bus = ChangeBus(),
-                                            registry = SyncRegistry(),
-                                        ),
-                                )
-                            },
+                            publicProfileMaintainerProvider = { publicProfileMaintainer },
                         ).also { updater = it },
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
