@@ -1,140 +1,89 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.data.local.db.ListeningEventDao
-import com.calypsan.listenup.client.data.local.db.UserStatsDao
-import com.calypsan.listenup.client.data.local.db.UserStatsWithProfile
-import com.calypsan.listenup.client.data.local.db.UserWindowAggregate
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardSnapshot
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.TimeZone
 
 /**
- * Room-observed, offline-first leaderboard repository.
+ * Room-observed, offline-first leaderboard backed by the synced `public_profiles`
+ * roster (the global social projection). Every user's row is present locally, so all
+ * rankings compute client-side with no network call.
  *
- * All three category lists ([LeaderboardSnapshot.time], [LeaderboardSnapshot.books],
- * [LeaderboardSnapshot.streak]) are computed in a single upstream Room subscription
- * per period. Switching the active category on the UI is a pure state filter — no
- * additional DB query is triggered.
+ * Time ranks by the period-appropriate rolling-window seconds field (Week=last7,
+ * Month=last30, Year=last365, AllTime=allTime). Books and Streak are cumulative —
+ * populated for [LeaderboardPeriod.AllTime] only; bounded periods leave them empty,
+ * matching the [LeaderboardSnapshot] contract the UI already handles.
  *
- * **AllTime:** all three category lists are sourced from `user_stats`, joined with
- * `user_profiles` for display names.
- *
- * **Week/Month/Year:** [time] is sourced from `listening_events` aggregated within
- * the period bounds. [books] and [streak] are empty — per-period book/streak rankings
- * require domain math beyond P3's scope; Time is the headline ranking for bounded periods.
- *
- * Dense ranking: ties share a rank (`[1, 1, 1, 4, 5]`), next distinct value jumps
- * to `(position + 1)`.
+ * Dense ranking: ties share a rank; the next distinct value jumps to its 1-indexed position.
  */
 class LeaderboardRepositoryImpl(
-    private val userStatsDao: UserStatsDao,
-    private val listeningEventDao: ListeningEventDao,
-    private val clock: Clock = Clock.System,
-    private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
+    private val publicProfileDao: PublicProfileDao,
 ) : LeaderboardRepository {
     override fun observeSnapshot(
         period: LeaderboardPeriod,
         limit: Int,
-    ): Flow<LeaderboardSnapshot> =
-        when (period) {
-            LeaderboardPeriod.AllTime -> {
-                userStatsDao
-                    .observeAllJoinedWithProfiles()
-                    .map { rows -> snapshotFromUserStats(rows, limit) }
-            }
+    ): Flow<LeaderboardSnapshot> = publicProfileDao.observeAll().map { rows -> snapshot(rows, period, limit) }
 
-            else -> {
-                val (startMs, endMs) = period.bounds(clock.now(), timeZone())
-                listeningEventDao
-                    .observeUsersWithinWindow(startMs, endMs)
-                    .map { aggregates -> snapshotFromWindow(aggregates, limit) }
-            }
-        }
-
-    // ── All-time path ────────────────────────────────────────────────────────
-
-    /**
-     * Builds all three category rankings from the `user_stats` + `user_profiles` join.
-     */
-    private fun snapshotFromUserStats(
-        rows: List<UserStatsWithProfile>,
+    private fun snapshot(
+        rows: List<PublicProfileEntity>,
+        period: LeaderboardPeriod,
         limit: Int,
     ): LeaderboardSnapshot {
-        val byTime =
-            rankDense(
-                rows.sortedByDescending { it.stats.totalSecondsAllTime }.take(limit),
-            ) { it.stats.totalSecondsAllTime }
-                .map { (rank, row) -> rowToEntry(row, rank) }
-        val byBooks =
-            rankDense(
-                rows.sortedByDescending { it.stats.booksFinished }.take(limit),
-            ) { it.stats.booksFinished.toLong() }
-                .map { (rank, row) -> rowToEntry(row, rank) }
-        val byStreak =
-            rankDense(
-                rows.sortedByDescending { it.stats.longestStreakDays }.take(limit),
-            ) { it.stats.longestStreakDays.toLong() }
-                .map { (rank, row) -> rowToEntry(row, rank) }
-        return LeaderboardSnapshot(byTime, byBooks, byStreak)
+        val timeSelector: (PublicProfileEntity) -> Long =
+            when (period) {
+                LeaderboardPeriod.Week -> { e -> e.totalSecondsLast7Days }
+                LeaderboardPeriod.Month -> { e -> e.totalSecondsLast30Days }
+                LeaderboardPeriod.Year -> { e -> e.totalSecondsLast365Days }
+                LeaderboardPeriod.AllTime -> { e -> e.totalSecondsAllTime }
+            }
+
+        val time =
+            rankDense(rows.sortedByDescending(timeSelector).take(limit), timeSelector)
+                .map { (rank, e) -> e.toEntry(rank).copy(totalSeconds = timeSelector(e)) }
+
+        val books: List<LeaderboardEntry>
+        val streak: List<LeaderboardEntry>
+        if (period == LeaderboardPeriod.AllTime) {
+            books =
+                rankDense(
+                    rows.sortedByDescending { it.booksFinished }.take(limit),
+                ) { it.booksFinished.toLong() }
+                    .map { (rank, e) -> e.toEntry(rank) }
+            streak =
+                rankDense(
+                    rows.sortedByDescending { it.longestStreakDays }.take(limit),
+                ) { it.longestStreakDays.toLong() }
+                    .map { (rank, e) -> e.toEntry(rank) }
+        } else {
+            books = emptyList()
+            streak = emptyList()
+        }
+        return LeaderboardSnapshot(time, books, streak)
     }
 
-    private fun rowToEntry(
-        row: UserStatsWithProfile,
-        rank: Int,
-    ): LeaderboardEntry =
+    private fun PublicProfileEntity.toEntry(rank: Int): LeaderboardEntry =
         LeaderboardEntry(
             rank = rank,
-            userId = row.stats.id,
-            displayName = row.displayName ?: "User",
-            totalSeconds = row.stats.totalSecondsAllTime,
-            booksFinished = row.stats.booksFinished,
-            currentStreakDays = row.stats.currentStreakDays,
-            longestStreakDays = row.stats.longestStreakDays,
+            userId = id,
+            displayName = displayName,
+            totalSeconds = totalSecondsAllTime,
+            booksFinished = booksFinished,
+            currentStreakDays = currentStreakDays,
+            longestStreakDays = longestStreakDays,
         )
 
-    // ── Bounded-period path ───────────────────────────────────────────────────
-
     /**
-     * Builds only the [time] ranking from the window aggregate.
-     * [books] and [streak] are empty for bounded periods.
-     */
-    private fun snapshotFromWindow(
-        aggregates: List<UserWindowAggregate>,
-        limit: Int,
-    ): LeaderboardSnapshot {
-        val byTime =
-            rankDense(aggregates.sortedByDescending { it.totalSeconds }.take(limit)) { it.totalSeconds }
-                .map { (rank, agg) ->
-                    LeaderboardEntry(
-                        rank = rank,
-                        userId = agg.userId,
-                        displayName = agg.displayName ?: "User",
-                        totalSeconds = agg.totalSeconds,
-                        booksFinished = 0,
-                        currentStreakDays = 0,
-                        longestStreakDays = 0,
-                    )
-                }
-        return LeaderboardSnapshot(byTime, emptyList(), emptyList())
-    }
-
-    // ── Dense ranking ────────────────────────────────────────────────────────
-
-    /**
-     * Assigns dense ranks to a pre-sorted list. Ties share a rank; the next
-     * distinct value jumps to `(1-indexed position)`.
+     * Assigns dense ranks to a pre-sorted list. Ties share a rank; the next distinct
+     * value jumps to its 1-indexed position.
      *
-     * Example: `[100, 100, 100, 50, 25]` → `[(1, 100), (1, 100), (1, 100), (4, 50), (5, 25)]`.
+     * Example: `[100, 100, 50]` → `[(1, 100), (1, 100), (3, 50)]`.
      *
-     * Callers must pass the list **already sorted descending** by [value].
+     * Callers must pass the list already sorted descending by [value].
      */
     private fun <T> rankDense(
         sorted: List<T>,

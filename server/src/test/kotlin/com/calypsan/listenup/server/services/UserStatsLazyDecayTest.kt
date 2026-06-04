@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -98,7 +99,13 @@ class UserStatsLazyDecayTest :
                     val revisionAfterSeed = statsRepoThen.getForUser("u1").shouldNotBeNull().revision
 
                     // Now create a repo with the current clock and a lazy-decay updater.
-                    val updaterWithNowClock = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
+                    val updaterWithNowClock =
+                        UserStatsUpdater(
+                            db = db,
+                            userStatsRepo = statsRepoThen,
+                            clock = nowClock,
+                            publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+                        )
                     val statsRepoWithDecay =
                         UserStatsRepository(
                             db = db,
@@ -156,7 +163,13 @@ class UserStatsLazyDecayTest :
 
                     val revisionAfterSeed = statsRepoThen.getForUser("u1").shouldNotBeNull().revision
 
-                    val updaterWithNowClock = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
+                    val updaterWithNowClock =
+                        UserStatsUpdater(
+                            db = db,
+                            userStatsRepo = statsRepoThen,
+                            clock = nowClock,
+                            publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+                        )
                     val statsRepoWithDecay =
                         UserStatsRepository(
                             db = db,
@@ -202,7 +215,13 @@ class UserStatsLazyDecayTest :
                         userStatsUpdaterProvider = { updater },
                     )
                 // Construct the updater after the repo — mirroring Koin's resolution order.
-                updater = UserStatsUpdater(db = db, userStatsRepo = statsRepoThen, clock = nowClock)
+                updater =
+                    UserStatsUpdater(
+                        db = db,
+                        userStatsRepo = statsRepoThen,
+                        clock = nowClock,
+                        publicProfileMaintainerProvider = { db.noOpPublicProfileMaintainer() },
+                    )
 
                 val eventRepo = ListeningEventRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
 

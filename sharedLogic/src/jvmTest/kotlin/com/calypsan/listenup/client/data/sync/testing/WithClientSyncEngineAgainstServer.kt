@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -76,8 +77,10 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -517,7 +520,7 @@ private data class ServerRepositories(
  * Constructs and registers the real [ActiveSessionSyncDomainHandler], [BookSyncDomainHandler],
  * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
- * and [LibraryFolderSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
  * applying them into [clientDb] exactly as production does.
  */
@@ -572,6 +575,11 @@ private fun registerClientSyncHandlers(
         registry = registry,
     )
     UserStatsSyncDomainHandler(
+        database = clientDb,
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    PublicProfileSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
@@ -640,6 +648,8 @@ private fun buildServerRepositories(
             registry = registry,
             userStatsUpdaterProvider = { statsUpdater },
         )
+    val publicProfileMaintainer =
+        PublicProfileMaintainer(serverDb, PublicProfileRepository(serverDb, bus, registry))
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverDb,
@@ -649,6 +659,7 @@ private fun buildServerRepositories(
                 UserStatsUpdater(
                     db = serverDb,
                     userStatsRepo = userStatsRepo,
+                    publicProfileMaintainerProvider = { publicProfileMaintainer },
                 ).also { statsUpdater = it },
         )
 

@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -94,7 +95,12 @@ class ListeningEventRepositoryTest :
         test("upsert with userStatsUpdater wired fires onListeningEvent and materialises totalSecondsAllTime") {
             withInMemoryDatabase {
                 val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
-                val updater = UserStatsUpdater(db = this, userStatsRepo = statsRepo)
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                    )
                 val repo =
                     ListeningEventRepository(
                         db = this,

@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.profileModule
+import com.calypsan.listenup.server.di.publicProfileModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.InstanceIdentity
@@ -104,6 +105,8 @@ import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.db.PublicProfilesTable
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.serialization.kotlinx.json.json
@@ -122,6 +125,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import org.koin.core.parameter.parametersOf
 import org.koin.ktor.ext.get as koinGet
@@ -135,6 +141,36 @@ private val logger = KotlinLogging.logger {}
 private const val SEED_PROFILE_DEMO = "demo"
 
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
+
+/**
+ * One-time startup backfill for the `public_profiles` projection.
+ *
+ * Pre-existing users (created before the V31 migration that added the table) have
+ * no projection row until something refreshes them. This call populates them once,
+ * guarded by an emptiness check so subsequent boots skip it instantly. Must run
+ * after Flyway migrations (so `public_profiles` exists) and after Koin starts (so
+ * [PublicProfileMaintainer] is resolvable) — both are guaranteed by calling this
+ * from [module] after [installDependencies].
+ *
+ * Runs synchronously on the module init thread via [runBlocking], matching the idiom
+ * used by the genre-taxonomy seeder in [launchSeeders].
+ */
+private fun Application.backfillPublicProfiles() {
+    val db by inject<Database>()
+    val maintainer by inject<PublicProfileMaintainer>()
+    runBlocking {
+        runCatching {
+            val isEmpty =
+                suspendTransaction(db) {
+                    PublicProfilesTable.selectAll().limit(1).empty()
+                }
+            if (isEmpty) maintainer.backfillAll()
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.error(e) { "public_profiles startup backfill failed — projection will self-heal on next refresh" }
+        }
+    }
+}
 
 /**
  * Kicks off seed jobs after Koin is installed. In demo profile we run the full
@@ -214,6 +250,7 @@ private fun Application.installDependencies(
         modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()
+        modules += publicProfileModule()
         modules += shelfModule()
         val httpPort =
             environment.config
@@ -269,6 +306,7 @@ fun Application.module() {
         embeddedCoverCacheSize,
     )
 
+    backfillPublicProfiles()
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPath != null)
 
     installRequestPipeline()

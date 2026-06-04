@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
@@ -87,7 +88,13 @@ fun playbackModule(): Module =
                 userStatsUpdaterProvider = { get<UserStatsUpdater>() },
             )
         }
-        single { UserStatsUpdater(db = get(), userStatsRepo = get()) }
+        single {
+            UserStatsUpdater(
+                db = get(),
+                userStatsRepo = get(),
+                publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
+            )
+        }
         single(createdAtStart = true) {
             ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
         }

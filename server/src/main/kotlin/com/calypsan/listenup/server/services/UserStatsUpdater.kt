@@ -35,6 +35,7 @@ class UserStatsUpdater(
     private val db: Database,
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
+    private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer,
 ) {
     /**
      * Increment-and-upsert called after a `listening_events` row commits.
@@ -72,6 +73,7 @@ class UserStatsUpdater(
                 lastEventDate = eventDateStr,
             )
         userStatsRepo.upsert(updated, clientOpId = null, userId = userId)
+        publicProfileMaintainerProvider().refresh(userId)
     }
 
     /**
@@ -82,6 +84,7 @@ class UserStatsUpdater(
     suspend fun onPositionFinishedFlip(userId: String) {
         val base = userStatsRepo.getForUser(userId) ?: emptyStatsFor(userId)
         userStatsRepo.upsert(base.copy(booksFinished = base.booksFinished + 1), clientOpId = null, userId = userId)
+        publicProfileMaintainerProvider().refresh(userId)
     }
 
     /**

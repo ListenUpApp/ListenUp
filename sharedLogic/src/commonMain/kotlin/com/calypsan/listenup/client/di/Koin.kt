@@ -348,6 +348,7 @@ val repositoryModule =
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
+        single { get<ListenUpDatabase>().publicProfileDao() }
 
         single<com.calypsan.listenup.client.data.local.db.TransactionRunner> {
             com.calypsan.listenup.client.data.local.db
@@ -890,12 +891,10 @@ val syncModule =
             )
         }
 
-        // LeaderboardRepository — Room-observed, offline-first; no API dependency
+        // LeaderboardRepository — Room-observed, offline-first; reads the synced
+        // public_profiles roster so all users appear in each other's leaderboard.
         single<com.calypsan.listenup.client.domain.repository.LeaderboardRepository> {
-            LeaderboardRepositoryImpl(
-                userStatsDao = get(),
-                listeningEventDao = get(),
-            )
+            LeaderboardRepositoryImpl(publicProfileDao = get())
         }
 
         // ListeningEventRepository — transactional write (upsert + pending-op) + DAO read surface.

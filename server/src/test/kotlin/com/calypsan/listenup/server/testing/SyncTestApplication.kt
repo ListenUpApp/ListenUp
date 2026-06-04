@@ -15,10 +15,12 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
@@ -63,6 +65,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
+    val db: Database,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
     private val listeningEventRepoOrNull: ListeningEventRepository?,
@@ -148,14 +151,7 @@ internal fun withTestApplication(
         val bus = ChangeBus()
         val registry = SyncRegistry()
         val tagRepo = TagRepository(db, bus, registry)
-        val userScopedRepo =
-            if (userScoped) {
-                UserScopedFixtureRepository(db, bus, registry).also {
-                    suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
-                }
-            } else {
-                null
-            }
+        val userScopedRepo = if (userScoped) buildUserScopedFixtureRepo(db, bus, registry) else null
         val playbackPositionRepo =
             if (playbackPositions) PlaybackPositionRepository(db, bus, registry) else null
 
@@ -174,12 +170,18 @@ internal fun withTestApplication(
                     registry = registry,
                     userStatsUpdaterProvider = { updater },
                 )
+            val publicProfileMaintainer = buildPublicProfileMaintainer(db = db, bus = bus, registry = registry)
             val eventRepo =
                 ListeningEventRepository(
                     db = db,
                     bus = bus,
                     registry = registry,
-                    userStatsUpdater = UserStatsUpdater(db = db, userStatsRepo = statsRepo).also { updater = it },
+                    userStatsUpdater =
+                        UserStatsUpdater(
+                            db = db,
+                            userStatsRepo = statsRepo,
+                            publicProfileMaintainerProvider = { publicProfileMaintainer },
+                        ).also { updater = it },
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(db, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
@@ -255,6 +257,7 @@ internal fun withTestApplication(
         SyncTestScope(
             client = jsonClient,
             tagRepo = tagRepo,
+            db = db,
             userScopedRepoOrNull = userScopedRepo,
             playbackPositionRepoOrNull = playbackPositionRepo,
             listeningEventRepoOrNull = listeningEventRepo,
@@ -262,6 +265,29 @@ internal fun withTestApplication(
             bookRepoOrNull = bookRepoForScope,
         ).block()
     }
+}
+
+/** Creates and schema-initialises a [UserScopedFixtureRepository] for the given test database. */
+private suspend fun buildUserScopedFixtureRepo(
+    db: Database,
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): UserScopedFixtureRepository =
+    UserScopedFixtureRepository(db, bus, registry).also {
+        suspendTransaction(db) { SchemaUtils.create(UserScopedFixtureTable) }
+    }
+
+/**
+ * Constructs a [PublicProfileMaintainer] wired to the shared [bus]/[registry].
+ * Extracted from [withTestApplication] to keep that function within the size budget.
+ */
+private fun buildPublicProfileMaintainer(
+    db: Database,
+    bus: ChangeBus,
+    registry: SyncRegistry,
+): PublicProfileMaintainer {
+    val repo = PublicProfileRepository(db = db, bus = bus, registry = registry)
+    return PublicProfileMaintainer(db = db, publicProfileRepo = repo)
 }
 
 /**

@@ -10,6 +10,10 @@ import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.server.api.createProfileService
 import com.calypsan.listenup.server.api.profileServiceScopedTo
 import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -90,7 +94,16 @@ class ProfileE2ETest :
         test("updateMyProfile then getMyProfile returns updated displayName and tagline") {
             val serverDb = setupServerDb()
             serverDb.seedUser("u1")
-            val profileService = createProfileService(db = serverDb, passwordHasher = PasswordHasher())
+            val profileService =
+                createProfileService(
+                    db = serverDb,
+                    passwordHasher = PasswordHasher(),
+                    publicProfileMaintainer =
+                        PublicProfileMaintainer(
+                            serverDb,
+                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                        ),
+                )
 
             testApplication {
                 application {
@@ -134,7 +147,16 @@ class ProfileE2ETest :
             // Seed the user with a real Argon2 hash so passwordHasher.verify() can succeed or fail.
             val realHash = hasher.hash("correct-pass")
             serverDb.seedUser("u2", passwordHash = realHash)
-            val profileService = createProfileService(db = serverDb, passwordHasher = hasher)
+            val profileService =
+                createProfileService(
+                    db = serverDb,
+                    passwordHasher = hasher,
+                    publicProfileMaintainer =
+                        PublicProfileMaintainer(
+                            serverDb,
+                            PublicProfileRepository(serverDb, ChangeBus(), SyncRegistry()),
+                        ),
+                )
 
             testApplication {
                 application {
