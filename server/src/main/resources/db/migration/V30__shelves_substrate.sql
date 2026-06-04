@@ -33,5 +33,6 @@ CREATE TABLE shelf_books (
 );
 CREATE UNIQUE INDEX idx_shelf_books_id ON shelf_books(id);
 CREATE INDEX idx_shelf_books_shelf ON shelf_books(shelf_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_shelf_books_book ON shelf_books(book_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_shelf_books_user ON shelf_books(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_shelf_books_revision ON shelf_books(revision);

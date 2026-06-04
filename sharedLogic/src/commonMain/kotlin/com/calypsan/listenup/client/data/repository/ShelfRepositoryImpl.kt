@@ -58,6 +58,7 @@ class ShelfRepositoryImpl(
             entity?.toDomainWithDerived(
                 coverPaths = dao.coverHashesFor(id),
                 totalDurationMs = dao.totalDurationMsFor(id),
+                bookCountOverride = dao.bookCountFor(id),
             )
         }
 
@@ -65,6 +66,7 @@ class ShelfRepositoryImpl(
         dao.getById(id)?.toDomainWithDerived(
             coverPaths = dao.coverHashesFor(id),
             totalDurationMs = dao.totalDurationMsFor(id),
+            bookCountOverride = dao.bookCountFor(id),
         )
 
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
@@ -154,7 +156,7 @@ class ShelfRepositoryImpl(
     private suspend fun com.calypsan.listenup.client.data.local.db.ShelfEntity.toDomainWithDerived(
         coverPaths: List<String>,
         totalDurationMs: Long,
-        bookCountOverride: Int? = null,
+        bookCountOverride: Int,
     ): Shelf {
         val currentUser = userDao.getCurrentUser()
         return Shelf(
@@ -164,7 +166,7 @@ class ShelfRepositoryImpl(
             isPrivate = isPrivate,
             ownerId = currentUser?.id?.value ?: "",
             ownerDisplayName = currentUser?.displayName ?: "",
-            bookCount = bookCountOverride ?: coverPaths.size,
+            bookCount = bookCountOverride,
             totalDurationSeconds = totalDurationMs / 1000,
             createdAtMs = createdAt,
             updatedAtMs = updatedAt,

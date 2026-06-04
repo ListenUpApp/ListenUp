@@ -84,6 +84,16 @@ interface ShelfDao {
     suspend fun coverHashesFor(shelfId: String): List<String>
 
     /**
+     * True live (non-tombstoned) book count for a single shelf.
+     *
+     * Used by the single-shelf mapping paths ([ShelfRepositoryImpl.observeById] /
+     * [ShelfRepositoryImpl.getById]) so [com.calypsan.listenup.client.domain.model.Shelf.bookCount]
+     * is always the full junction count, not the cover-grid LIMIT.
+     */
+    @Query("SELECT COUNT(*) FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL")
+    suspend fun bookCountFor(shelfId: String): Int
+
+    /**
      * Sum of audio duration (ms) across the shelf's live books present in the local mirror.
      *
      * Books not yet synced to Room contribute zero. Returns 0 for an empty shelf.

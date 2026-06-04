@@ -39,10 +39,11 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * - What others are listening to: active_sessions table via SSE sync
  * - Discover something new: random unstarted books from books table
  * - Recently added: newest books from books table
- * - Shelves from other users: fetched initially from API, stored in Room, observed from Room
+ * - Shelves from other users: fetched on demand via [ShelfRepository.discoverShelves] RPC
+ *   (other users' shelves never enter Room; each [refresh] issues a fresh network call)
  *
- * This offline-first architecture ensures the Discover screen works
- * instantly on app launch without any API calls (after initial fetch).
+ * The first three sections are offline-first — they work instantly after initial sync.
+ * Discover shelves requires connectivity for each load.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
@@ -259,7 +260,7 @@ sealed interface DiscoverShelvesUiState {
     /** Pre-first-emission placeholder. */
     data object Loading : DiscoverShelvesUiState
 
-    /** Shelves grouped by owner, loaded from Room. */
+    /** Shelves grouped by owner, loaded via RPC. */
     data class Ready(
         val users: List<DiscoverUserShelves>,
     ) : DiscoverShelvesUiState {

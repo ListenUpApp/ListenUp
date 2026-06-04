@@ -229,6 +229,21 @@ class ShelfRepositoryImplTest :
             }
         }
 
+        test("observeById bookCount comes from bookCountFor, not coverHashesFor size") {
+            runTest {
+                // Cover grid is LIMIT 4 but the shelf has 7 live books — bookCount must be 7.
+                val dao =
+                    mock<ShelfDao> {
+                        every { observeById("s1") } returns flowOf(shelfEntity("s1", "Crowded"))
+                        everySuspend { coverHashesFor("s1") } returns listOf("h1", "h2", "h3", "h4")
+                        everySuspend { bookCountFor("s1") } returns 7
+                        everySuspend { totalDurationMsFor("s1") } returns 0L
+                    }
+                val shelf = repo(shelfDao = dao).observeById("s1").first()
+                shelf!!.bookCount shouldBe 7
+            }
+        }
+
         test("CancellationException from the service is re-raised, not swallowed") {
             runTest {
                 val service =
