@@ -1,36 +1,28 @@
 package com.calypsan.listenup.client.features.connect
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,39 +34,37 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.BrandLogo
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
+import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermission
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
-import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_no_items_found
+import listenup.composeapp.generated.resources.common_refresh
+import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.connect_add_server_manually
 import listenup.composeapp.generated.resources.connect_enter_server_url_directly
 import listenup.composeapp.generated.resources.connect_make_sure_your_listenup_server
-import listenup.composeapp.generated.resources.common_no_items_found
-import listenup.composeapp.generated.resources.common_refresh
+import listenup.composeapp.generated.resources.connect_on_your_network
+import listenup.composeapp.generated.resources.connect_rescan
 import listenup.composeapp.generated.resources.connect_select_server
-import listenup.composeapp.generated.resources.common_selected
+import listenup.composeapp.generated.resources.connect_select_server_subtitle
 
 /**
- * Server selection screen showing discovered and saved servers.
+ * Server selection — the first screen of the connect flow. Lists servers discovered via mDNS
+ * (plus previously connected ones), with a manual-entry escape hatch and a rescan control.
+ * Renders through the shared [AuthScaffold].
  *
- * Features:
- * - Lists servers discovered via mDNS with online status
- * - Shows previously connected servers (may be offline)
- * - Option to add a server manually via URL
- * - Refresh button to restart discovery
- *
- * @param onServerActivated Callback when a server is selected and activated
- * @param onManualEntryRequested Callback when user wants to enter URL manually
- * @param modifier Modifier for the root composable
+ * @param onServerActivated Invoked when a selected server is activated.
+ * @param onManualEntryRequested Invoked when the user opts to enter a URL manually.
  */
 @Composable
 fun ServerSelectScreen(
@@ -93,10 +83,6 @@ fun ServerSelectScreen(
     // discovery (or worse, trigger a spurious denial → navigate-to-manual-entry).
     var permissionResolved by rememberSaveable { mutableStateOf(false) }
     if (!permissionResolved) {
-        // Request ACCESS_LOCAL_NETWORK before starting mDNS discovery.
-        // On Android 17+ the platform requires this permission for any multicast
-        // traffic; on older Android and desktop the actual implementation grants
-        // immediately without a dialog.
         RequestLocalNetworkPermission { granted ->
             permissionResolved = true
             if (granted) {
@@ -107,7 +93,6 @@ fun ServerSelectScreen(
         }
     }
 
-    // Handle navigation events
     LaunchedEffect(viewModel) {
         viewModel.navigationEvents.collect { event ->
             when (event) {
@@ -126,280 +111,288 @@ fun ServerSelectScreen(
         }
     }
 
-    ServerSelectContent(
-        state = state,
-        snackbarHostState = snackbarHostState,
-        onEvent = viewModel::onEvent,
-        modifier = modifier,
-    )
-}
-
-/**
- * Stateless content for ServerSelectScreen.
- */
-@Composable
-private fun ServerSelectContent(
-    state: ServerSelectUiState,
-    snackbarHostState: SnackbarHostState,
-    onEvent: (ServerSelectUiEvent) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Box(modifier = modifier.fillMaxSize()) {
+        AuthScaffold(
+            title = stringResource(Res.string.connect_select_server),
+            subtitle = stringResource(Res.string.connect_select_server_subtitle),
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Logo
-            BrandLogo(size = 120.dp)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Title with refresh button
             val isDiscovering = state is ServerSelectUiState.Discovering
             val connectingId = (state as? ServerSelectUiState.Connecting)?.selectedServerId
             val selectedId =
-                when (state) {
-                    is ServerSelectUiState.Connecting -> state.selectedServerId
-                    is ServerSelectUiState.Error -> state.selectedServerId
+                when (val current = state) {
+                    is ServerSelectUiState.Connecting -> current.selectedServerId
+                    is ServerSelectUiState.Error -> current.selectedServerId
                     else -> null
                 }
 
-            Row(
-                modifier =
-                    Modifier
-                        .widthIn(max = 480.dp)
-                        .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(Res.string.connect_select_server),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+            NetworkHeader(
+                count = state.servers.size,
+                isDiscovering = isDiscovering,
+                onRescan = { viewModel.onEvent(ServerSelectUiEvent.RefreshClicked) },
+            )
+
+            state.servers.forEach { serverWithStatus ->
+                ServerRow(
+                    serverWithStatus = serverWithStatus,
+                    isSelected = selectedId == serverWithStatus.server.id,
+                    isConnecting = connectingId == serverWithStatus.server.id,
+                    onClick = { viewModel.onEvent(ServerSelectUiEvent.ServerSelected(serverWithStatus)) },
                 )
-
-                IconButton(
-                    onClick = { onEvent(ServerSelectUiEvent.RefreshClicked) },
-                    enabled = !isDiscovering,
-                ) {
-                    if (isDiscovering) {
-                        ListenUpLoadingIndicatorSmall()
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(Res.string.common_refresh),
-                        )
-                    }
-                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Server list
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .widthIn(max = 480.dp)
-                        .fillMaxWidth()
-                        .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // Discovered/saved servers
-                items(
-                    items = state.servers,
-                    key = { it.server.id },
-                ) { serverWithStatus ->
-                    ServerCard(
-                        serverWithStatus = serverWithStatus,
-                        isSelected = selectedId == serverWithStatus.server.id,
-                        isConnecting = connectingId == serverWithStatus.server.id,
-                        onClick = { onEvent(ServerSelectUiEvent.ServerSelected(serverWithStatus)) },
-                    )
-                }
-
-                // Empty state
-                if (state.servers.isEmpty() && !isDiscovering) {
-                    item {
-                        EmptyState()
-                    }
-                }
-
-                // Manual entry option
-                item {
-                    ManualEntryCard(
-                        onClick = { onEvent(ServerSelectUiEvent.ManualEntryClicked) },
-                    )
-                }
-
-                // Bottom spacing
-                item {
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
+            if (state.servers.isEmpty() && !isDiscovering) {
+                EmptyState()
             }
+
+            AddServerRow(onClick = { viewModel.onEvent(ServerSelectUiEvent.ManualEntryClicked) })
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+        )
     }
 }
 
-/**
- * Card displaying a server with its online status.
- */
-@Suppress("CognitiveComplexMethod")
 @Composable
-private fun ServerCard(
+private fun NetworkHeader(
+    count: Int,
+    isDiscovering: Boolean,
+    onRescan: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(Res.string.connect_on_your_network).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        CountBadge(count)
+        Box(modifier = Modifier.weight(1f))
+        AssistChip(
+            onClick = onRescan,
+            enabled = !isDiscovering,
+            label = { Text(stringResource(Res.string.connect_rescan)) },
+            leadingIcon = {
+                if (isDiscovering) {
+                    ListenUpLoadingIndicatorSmall()
+                } else {
+                    Icon(
+                        Icons.Outlined.Refresh,
+                        contentDescription = stringResource(Res.string.common_refresh),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun CountBadge(count: Int) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+    ) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun ServerRow(
     serverWithStatus: ServerWithStatus,
     isSelected: Boolean,
     isConnecting: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val server = serverWithStatus.server
-    val isOnline = serverWithStatus.isOnline
+    val onRow =
+        if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val onRowMuted =
+        if (isSelected) {
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
 
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(enabled = !isConnecting) { onClick() },
-        shape = MaterialTheme.shapes.medium,
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
+    Surface(
+        onClick = onClick,
+        enabled = !isConnecting,
+        shape = MaterialTheme.shapes.large,
+        color =
+            if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color =
                     if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerHigh
                     },
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = server.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color =
-                        if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Online indicator
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isOnline) {
-                                        MaterialTheme.colorScheme.tertiary
-                                    } else {
-                                        MaterialTheme.colorScheme.outline
-                                    },
-                                ),
-                    )
-                    Text(
-                        text = if (isOnline) "Online" else "Offline",
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
+                modifier = Modifier.size(52.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.Dns,
+                        contentDescription = null,
+                        tint =
                             if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                MaterialTheme.colorScheme.onPrimary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
                     )
-                    // Server version
-                    server.serverVersion.takeIf { it != "unknown" }?.let { version ->
-                        Text(
-                            text = "v$version",
-                            style = MaterialTheme.typography.bodySmall,
-                            color =
-                                if (isSelected) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                },
-                        )
-                    }
                 }
             }
 
-            // Loading or check indicator
-            AnimatedVisibility(
-                visible = isConnecting || isSelected,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                if (isConnecting) {
-                    ListenUpLoadingIndicatorSmall()
-                } else if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(Res.string.common_selected),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = server.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = onRow,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                server.getBestUrl()?.let { url ->
+                    Text(
+                        text = url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onRowMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
+                StatusRow(
+                    isOnline = serverWithStatus.isOnline,
+                    version = server.serverVersion,
+                    onRowMuted = onRowMuted,
+                )
             }
+
+            ServerRowTrailing(isSelected = isSelected, isConnecting = isConnecting)
         }
     }
 }
 
-/**
- * Card for manual server entry option.
- */
 @Composable
-private fun ManualEntryCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun StatusRow(
+    isOnline: Boolean,
+    version: String,
+    onRowMuted: Color,
 ) {
-    Card(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable { onClick() },
-        shape = MaterialTheme.shapes.medium,
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+    Row(
+        modifier = Modifier.padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = if (isOnline) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(8.dp),
+            content = {},
+        )
+        Text(
+            text = if (isOnline) "Online" else "Offline",
+            style = MaterialTheme.typography.bodySmall,
+            color = onRowMuted,
+        )
+        version.takeIf { it != "unknown" }?.let {
+            Text(
+                text = "v$it",
+                style = MaterialTheme.typography.bodySmall,
+                color = onRowMuted.copy(alpha = 0.8f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerRowTrailing(
+    isSelected: Boolean,
+    isConnecting: Boolean,
+) {
+    when {
+        isConnecting -> {
+            ListenUpLoadingIndicatorSmall()
+        }
+
+        isSelected -> {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.Check,
+                        contentDescription = stringResource(Res.string.common_selected),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+
+        else -> {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddServerRow(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Column {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(52.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(Res.string.connect_add_server_manually),
                     style = MaterialTheme.typography.titleMedium,
@@ -411,28 +404,27 @@ private fun ManualEntryCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
-/**
- * Empty state when no servers are discovered.
- */
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
+private fun EmptyState() {
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(vertical = 32.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = stringResource(Res.string.common_no_items_found, "servers"),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(Res.string.connect_make_sure_your_listenup_server),
             style = MaterialTheme.typography.bodySmall,

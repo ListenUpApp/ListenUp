@@ -44,6 +44,7 @@ private val md_theme_light_onBackground = Color(0xFF231917)
 private val md_theme_light_surface = Color(0xFFFFF8F6)
 private val md_theme_light_onSurface = Color(0xFF231917)
 private val md_theme_light_surfaceVariant = Color(0xFFF1DDD6)
+
 // ListenUp keeps a blue-grey as the muted ink (distinct from the warm surfaces)
 private val md_theme_light_onSurfaceVariant = Color(0xFF5B6B86)
 

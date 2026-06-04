@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -95,7 +97,7 @@ private fun AuthHeroLayout(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -182,6 +184,7 @@ private fun AuthSplitLayout(
                 modifier =
                     Modifier
                         .systemBarsPadding()
+                        .imePadding()
                         .padding(48.dp)
                         .widthIn(max = FormMaxWidth)
                         .fillMaxWidth()
@@ -237,7 +240,10 @@ private fun AuthTitleBlock(
 }
 
 @Composable
-private fun BrandRow(onBack: (() -> Unit)?, onColor: Boolean) {
+private fun BrandRow(
+    onBack: (() -> Unit)?,
+    onColor: Boolean,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (onBack != null) BackButton(onBack)
         BrandMark(onColor = onColor)
@@ -263,7 +269,10 @@ private fun BackButton(onBack: () -> Unit) {
  * [onColor] picks the on-primary-container ink for use over the hero panel.
  */
 @Composable
-fun BrandMark(modifier: Modifier = Modifier, onColor: Boolean = false) {
+fun BrandMark(
+    modifier: Modifier = Modifier,
+    onColor: Boolean = false,
+) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -320,14 +329,23 @@ private fun HeroBlobs() {
  * like…" tip on the connect screen.
  */
 @Composable
-fun AuthHelperCard(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+fun AuthHelperCard(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(22.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(22.dp),
+            )
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
