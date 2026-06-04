@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.api.InstanceServiceImpl
@@ -109,6 +111,9 @@ fun authModule(config: ApplicationConfig): Module =
                 publicProfileMaintainer = getOrNull(),
             )
         }
+
+        single { AdminSettingsServiceImpl(settings = get()) }
+        single<AdminSettingsService> { get<AdminSettingsServiceImpl>() }
 
         single { InviteCodeGenerator() }
 
