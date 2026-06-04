@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.profileModule
+import com.calypsan.listenup.server.di.publicProfileModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.InstanceIdentity
@@ -214,6 +215,7 @@ private fun Application.installDependencies(
         modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()
+        modules += publicProfileModule()
         modules += shelfModule()
         val httpPort =
             environment.config
