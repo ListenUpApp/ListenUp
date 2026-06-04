@@ -40,8 +40,8 @@ import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
-import com.calypsan.listenup.client.data.remote.ShelfApi
-import com.calypsan.listenup.client.data.remote.ShelfApiContract
+import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
@@ -160,6 +160,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
+import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
@@ -474,6 +475,11 @@ val useCaseModule =
                 shelfRepository = get(),
             )
         }
+        factory {
+            ReorderShelfBooksUseCase(
+                shelfRepository = get(),
+            )
+        }
         // Admin user management use cases
         factory {
             LoadUsersUseCase(
@@ -730,10 +736,13 @@ val syncModule =
             UserPreferencesApi(clientFactory = get())
         } bind UserPreferencesApiContract::class
 
-        // ShelfApi for personal curation shelves
-        single {
-            ShelfApi(clientFactory = get())
-        } bind ShelfApiContract::class
+        // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
+        single<ShelfRpcFactory> {
+            KtorShelfRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // ProfileApi for user profile operations
         single {
@@ -1006,10 +1015,8 @@ val syncModule =
         single<ShelfRepository> {
             ShelfRepositoryImpl(
                 dao = get(),
-                shelfBookDao = get(),
                 userDao = get(),
-                shelfApi = get(),
-                transactionRunner = get(),
+                rpcFactory = get(),
             )
         }
 

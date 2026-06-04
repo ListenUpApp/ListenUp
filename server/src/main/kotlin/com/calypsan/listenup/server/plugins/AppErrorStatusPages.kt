@@ -21,6 +21,7 @@ import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
@@ -96,6 +97,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is CollectionError -> toHttpStatus()
 
+        is ShelfError -> toHttpStatus()
+
         is AdminError -> toHttpStatus()
 
         is InviteError -> toHttpStatus()
@@ -125,49 +128,118 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 /**
  * Stamps the request's correlation id onto a typed wire error.
  *
- * Exhaustive over all direct [AppError] implementors. [TransportError] and [PlaybackError] are
- * client-local (never produced by the server), so they are delegated to [clientLocalWithCorrelationId]
- * which keeps the cyclomatic complexity of this function under the project threshold of 25.
+ * Exhaustive over all direct [AppError] implementors. The single-variant leaf families
+ * ([ValidationError], [InternalError]) and the client-local types ([TransportError],
+ * [PlaybackError]) are delegated to [leafWithCorrelationId] to keep the cyclomatic
+ * complexity of this function under the project threshold of 25.
  */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
-        is AuthError -> withCorrelationId(id)
-        is DownloadError -> withCorrelationId(id)
-        is ImportError -> withCorrelationId(id)
-        is ScanError -> withCorrelationId(id)
-        is ServerConnectError -> withCorrelationId(id)
-        is SyncError -> withCorrelationId(id)
-        is AudioMetadataError -> withCorrelationId(id)
-        is LibraryError -> withCorrelationId(id)
-        is MetadataError -> withCorrelationId(id)
-        is TagError -> withCorrelationId(id)
-        is CollectionError -> withCorrelationId(id)
-        is AdminError -> withCorrelationId(id)
-        is InviteError -> withCorrelationId(id)
-        is BookError -> withCorrelationId(id)
-        is CoverError -> withCorrelationId(id)
-        is ContributorError -> withCorrelationId(id)
-        is SeriesError -> withCorrelationId(id)
-        is GenreError -> withCorrelationId(id)
-        is ProfileError -> withCorrelationId(id)
-        is BackupError -> withCorrelationId(id)
-        is ValidationError -> copy(correlationId = id)
-        is InternalError -> copy(correlationId = id)
-        is TransportError, is PlaybackError -> clientLocalWithCorrelationId(id)
+        is AuthError -> {
+            withCorrelationId(id)
+        }
+
+        is DownloadError -> {
+            withCorrelationId(id)
+        }
+
+        is ImportError -> {
+            withCorrelationId(id)
+        }
+
+        is ScanError -> {
+            withCorrelationId(id)
+        }
+
+        is ServerConnectError -> {
+            withCorrelationId(id)
+        }
+
+        is SyncError -> {
+            withCorrelationId(id)
+        }
+
+        is AudioMetadataError -> {
+            withCorrelationId(id)
+        }
+
+        is LibraryError -> {
+            withCorrelationId(id)
+        }
+
+        is MetadataError -> {
+            withCorrelationId(id)
+        }
+
+        is TagError -> {
+            withCorrelationId(id)
+        }
+
+        is CollectionError -> {
+            withCorrelationId(id)
+        }
+
+        is ShelfError -> {
+            withCorrelationId(id)
+        }
+
+        is AdminError -> {
+            withCorrelationId(id)
+        }
+
+        is InviteError -> {
+            withCorrelationId(id)
+        }
+
+        is BookError -> {
+            withCorrelationId(id)
+        }
+
+        is CoverError -> {
+            withCorrelationId(id)
+        }
+
+        is ContributorError -> {
+            withCorrelationId(id)
+        }
+
+        is SeriesError -> {
+            withCorrelationId(id)
+        }
+
+        is GenreError -> {
+            withCorrelationId(id)
+        }
+
+        is ProfileError -> {
+            withCorrelationId(id)
+        }
+
+        is BackupError -> {
+            withCorrelationId(id)
+        }
+
+        is ValidationError, is InternalError, is TransportError, is PlaybackError -> {
+            leafWithCorrelationId(id)
+        }
     }
 
 /**
- * Stamps a correlation id onto client-local error types ([TransportError], [PlaybackError]).
+ * Stamps a correlation id onto the "leaf" error families that have no nested
+ * `when` of their own: [ValidationError] and [InternalError] (server-produced,
+ * single-variant `copy`) plus the client-local [TransportError] and [PlaybackError].
  *
  * Split from [withCorrelationId] solely to keep that function's cyclomatic complexity under the
  * project threshold. The `else` branch here is unreachable in practice — this function is only
- * called from the explicit `is TransportError, is PlaybackError` branch in [withCorrelationId].
+ * called from the single grouped branch in [withCorrelationId].
  */
-private fun AppError.clientLocalWithCorrelationId(id: String?): AppError =
+private fun AppError.leafWithCorrelationId(id: String?): AppError =
     when (this) {
+        is ValidationError -> copy(correlationId = id)
+        is InternalError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)
-        else -> this // unreachable: only called from the two explicit branches above
+        else -> this // unreachable: only called from the grouped branch above
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =
@@ -479,6 +551,20 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
         is CollectionError.InboxNotDeletable -> copy(correlationId = id)
         is CollectionError.SelfShare -> copy(correlationId = id)
         is CollectionError.AlreadyShared -> copy(correlationId = id)
+    }
+
+private fun ShelfError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ShelfError.NotFound -> HttpStatusCode.NotFound
+        is ShelfError.Forbidden -> HttpStatusCode.Forbidden
+        is ShelfError.InvalidName -> HttpStatusCode.BadRequest
+    }
+
+private fun ShelfError.withCorrelationId(id: String?): ShelfError =
+    when (this) {
+        is ShelfError.NotFound -> copy(correlationId = id)
+        is ShelfError.Forbidden -> copy(correlationId = id)
+        is ShelfError.InvalidName -> copy(correlationId = id)
     }
 
 private fun AdminError.toHttpStatus(): HttpStatusCode =

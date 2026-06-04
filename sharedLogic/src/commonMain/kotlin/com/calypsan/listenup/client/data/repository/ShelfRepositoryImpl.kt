@@ -1,365 +1,239 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
+import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.Timestamp
-import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.result.map
-import com.calypsan.listenup.client.data.local.db.ShelfBookCrossRef
-import com.calypsan.listenup.client.data.local.db.ShelfBookDao
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.ShelfDao
-import com.calypsan.listenup.client.data.local.db.ShelfEntity
-import com.calypsan.listenup.client.data.local.db.SyncState
-import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.remote.ShelfApiContract
-import com.calypsan.listenup.client.data.remote.ShelfDetailResponse
-import com.calypsan.listenup.client.data.remote.ShelfResponse
+import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
-import com.calypsan.listenup.client.domain.model.ShelfOwner
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
-import com.calypsan.listenup.client.util.NanoId
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Implementation of ShelfRepository using Room-first + pending-op pattern.
+ * Shelf repository — substrate-Room-backed reads, [com.calypsan.listenup.api.ShelfService]
+ * RPC-dispatched mutations (Shelves — Room v26).
  *
- * Command methods (create, update, delete, addBooks, removeBook) write to Room
- * atomically and enqueue a PendingOperation for server sync. The API boundary
- * moves entirely to the operation handlers (Task 11). Read-side methods and
- * fetch/cache methods retain direct API access for pull-side behaviour.
+ * Own-shelf reads (`observeMyShelves`, `observeById`, `getById`) come from the local Room
+ * mirror, which the sync engine populates via the substrate SSE stream and the shelf sync
+ * handlers. `bookCount` is JOIN-derived; `coverPaths` and `totalDurationSeconds` are derived
+ * from the shelf's member books present in the local `books` mirror; owner fields are filled
+ * from the current user (the local mirror holds only the caller's own shelves).
  *
- * @property dao Room DAO for shelf operations
- * @property shelfBookDao Room DAO for shelf-book junction operations
- * @property userDao Room DAO for current user lookup (needed for owner fields on create)
- * @property shelfApi API client for read-side fetches (getShelfDetail, fetchAndCache*)
- * @property pendingOperationRepository Repository for queuing push-sync operations
- * @property transactionRunner Runs multi-DAO writes atomically
- * @property createShelfHandler Handler for CREATE_SHELF operations
- * @property updateShelfHandler Handler for UPDATE_SHELF operations
- * @property deleteShelfHandler Handler for DELETE_SHELF operations
- * @property addBooksToShelfHandler Handler for ADD_BOOKS_TO_SHELF operations
- * @property removeBookFromShelfHandler Handler for REMOVE_BOOK_FROM_SHELF operations
+ * Discovery ([discoverShelves]) is **not** own-data — other users' shelves never enter the
+ * substrate. It is served on demand by [com.calypsan.listenup.api.ShelfService.discoverShelves].
+ *
+ * Mutations call [com.calypsan.listenup.api.ShelfService] over RPC and return the typed
+ * [AppResult] directly. No optimistic Room writes — the SSE echo from the server is the single
+ * write path back into Room (the Collections pattern).
+ *
+ * @property dao Substrate shelf DAO (own-shelf reads + derived cover/duration queries).
+ * @property userDao Current-user lookup for owner fields on own shelves.
+ * @property rpcFactory Supplies the [com.calypsan.listenup.api.ShelfService] RPC proxy.
  */
 class ShelfRepositoryImpl(
     private val dao: ShelfDao,
-    private val shelfBookDao: ShelfBookDao,
     private val userDao: UserDao,
-    private val shelfApi: ShelfApiContract,
-    private val transactionRunner: TransactionRunner,
+    private val rpcFactory: ShelfRpcFactory,
 ) : ShelfRepository {
+    // ── Own-shelf observation (Room) ──────────────────────────────────────────────
+
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
-        dao.observeMyShelves(userId).map { entities ->
-            entities.map { it.toDomain() }
+        dao.observeMyShelvesWithBookCount().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeById(id: String): Flow<Shelf?> =
+        dao.observeById(id).map { entity ->
+            entity?.toDomainWithDerived(
+                coverPaths = dao.coverHashesFor(id),
+                totalDurationMs = dao.totalDurationMsFor(id),
+                bookCountOverride = dao.bookCountFor(id),
+            )
         }
 
-    override fun observeDiscoverShelves(currentUserId: String): Flow<List<Shelf>> =
-        dao.observeDiscoverShelves(currentUserId).map { entities ->
-            entities.map { it.toDomain() }
-        }
+    override suspend fun getById(id: String): Shelf? =
+        dao.getById(id)?.toDomainWithDerived(
+            coverPaths = dao.coverHashesFor(id),
+            totalDurationMs = dao.totalDurationMsFor(id),
+            bookCountOverride = dao.bookCountFor(id),
+        )
 
-    override fun observeById(id: String): Flow<Shelf?> = dao.observeById(id).map { it?.toDomain() }
+    // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
-    override suspend fun getById(id: String): Shelf? = dao.getById(id)?.toDomain()
+    override suspend fun discoverShelves(): AppResult<List<Shelf>> =
+        rpcCall { rpcFactory.get().discoverShelves() }
+            .map { discovered -> discovered.map { it.toDomain() } }
 
-    override suspend fun countDiscoverShelves(currentUserId: String): Int = dao.countDiscoverShelves(currentUserId)
+    // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
-    override suspend fun fetchAndCacheMyShelves(): AppResult<Unit> {
-        logger.debug { "Fetching my shelves from API" }
-        return shelfApi.getMyShelves().map { shelves ->
-            val entities = shelves.map { it.toEntity() }
-            dao.upsertAll(entities)
-            logger.info { "Fetched and cached ${entities.size} my shelves" }
-        }
-    }
+    override suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail> =
+        rpcCall { rpcFactory.get().getShelf(ShelfId(shelfId)) }.map { it.toDomain() }
 
-    /**
-     * Fetch discover shelves from API and cache locally.
-     *
-     * Fetches shelves from other users via API and stores them in the local database.
-     * This is used for initial population when Room is empty and for manual refresh.
-     *
-     * @return [AppResult.Success] containing the number of shelves fetched, [AppResult.Failure] on API error
-     */
-    override suspend fun fetchAndCacheDiscoverShelves(): AppResult<Int> {
-        logger.debug { "Fetching discover shelves from API" }
-        return shelfApi.discoverShelves().map { userShelves ->
-            val entities =
-                userShelves.flatMap { userShelvesResponse ->
-                    userShelvesResponse.shelves.map { shelf ->
-                        shelf.toEntity()
-                    }
-                }
-            dao.upsertAll(entities)
-            logger.info { "Fetched and cached ${entities.size} discover shelves" }
-            entities.size
-        }
-    }
+    // ── Mutation (RPC) ────────────────────────────────────────────────────────────
 
-    override suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail> {
-        logger.debug { "Fetching shelf detail from API: $shelfId" }
-        return shelfApi.getShelf(shelfId).map { response ->
-            // Update local cache with latest book count and duration
-            dao.getById(shelfId)?.let { cached ->
-                dao.upsert(
-                    cached.copy(
-                        bookCount = response.bookCount,
-                        totalDurationSeconds = response.totalDuration,
-                    ),
-                )
-            }
-            response.toDomain()
-        }
-    }
-
-    /**
-     * Room-first: writes the new shelf locally then enqueues a CREATE_SHELF operation.
-     *
-     * A client-side NanoId is assigned immediately. The handler will create it on the
-     * server; ShelfPuller will later remap the local id to the server-assigned id via
-     * [ShelfDao.updateIdAndSyncState].
-     */
     override suspend fun createShelf(
         name: String,
         description: String?,
-    ): Shelf {
-        logger.info { "Creating shelf (offline-first): $name" }
-        val localId = NanoId.generate("shelf")
-        val now = currentEpochMilliseconds()
-
-        val currentUser = userDao.getCurrentUser()
-        val ownerId = currentUser?.id?.value ?: ""
-        val ownerDisplayName = currentUser?.displayName ?: ""
-        val ownerAvatarColor = currentUser?.avatarColor ?: "#6B7280"
-
-        val entity =
-            ShelfEntity(
-                id = localId,
+        isPrivate: Boolean,
+    ): AppResult<Shelf> =
+        rpcCall {
+            rpcFactory.get().createShelf(
                 name = name,
-                description = description,
-                ownerId = ownerId,
-                ownerDisplayName = ownerDisplayName,
-                ownerAvatarColor = ownerAvatarColor,
-                bookCount = 0,
-                totalDurationSeconds = 0L,
-                createdAt = Timestamp(now),
-                updatedAt = Timestamp(now),
-                syncState = SyncState.NOT_SYNCED,
+                description = description ?: "",
+                isPrivate = isPrivate,
             )
+        }.map { it.toDomain() }
 
-        transactionRunner.atomically {
-            dao.upsert(entity)
-        }
-
-        logger.info { "Shelf created locally: $localId" }
-        return entity.toDomain()
-    }
-
-    /**
-     * Room-first: applies the update locally then enqueues an UPDATE_SHELF operation.
-     */
     override suspend fun updateShelf(
         shelfId: String,
         name: String,
         description: String?,
-    ): Shelf {
-        logger.info { "Updating shelf (offline-first): $shelfId" }
-        val existing =
-            requireNotNull(dao.getById(shelfId)) {
-                "Shelf not found: $shelfId"
-            }
-        val updated =
-            existing.copy(
+        isPrivate: Boolean,
+    ): AppResult<Shelf> =
+        rpcCall {
+            rpcFactory.get().updateShelf(
+                shelfId = ShelfId(shelfId),
                 name = name,
-                description = description,
-                updatedAt = Timestamp(currentEpochMilliseconds()),
-                syncState = SyncState.NOT_SYNCED,
+                description = description ?: "",
+                isPrivate = isPrivate,
             )
+        }.map { it.toDomain() }
 
-        transactionRunner.atomically {
-            dao.upsert(updated)
-        }
+    override suspend fun deleteShelf(shelfId: String): AppResult<Unit> =
+        rpcCall { rpcFactory.get().deleteShelf(ShelfId(shelfId)) }
 
-        logger.info { "Shelf updated locally: $shelfId" }
-        return updated.toDomain()
-    }
-
-    /**
-     * Room-first: removes the shelf locally then enqueues a DELETE_SHELF operation.
-     *
-     * The shelf_books junction rows are cascade-deleted by the foreign key constraint.
-     */
-    override suspend fun deleteShelf(shelfId: String) {
-        logger.info { "Deleting shelf (offline-first): $shelfId" }
-        transactionRunner.atomically {
-            dao.deleteById(shelfId)
-        }
-        logger.info { "Shelf deleted locally: $shelfId" }
-    }
-
-    /**
-     * Room-first: inserts junction rows for each book then enqueues an ADD_BOOKS_TO_SHELF
-     * operation.
-     */
     override suspend fun addBooksToShelf(
         shelfId: String,
         bookIds: List<String>,
-    ) {
-        logger.info { "Adding ${bookIds.size} books to shelf $shelfId (offline-first)" }
-        val now = currentEpochMilliseconds()
-        val crossRefs =
-            bookIds.mapIndexed { index, bookId ->
-                ShelfBookCrossRef(
-                    shelfId = shelfId,
-                    bookId = bookId,
-                    // Offset each entry so ordering by addedAt DESC remains stable
-                    addedAt = now - index,
-                )
-            }
-
-        transactionRunner.atomically {
-            shelfBookDao.upsertAll(crossRefs)
+    ): AppResult<Unit> {
+        // The RPC surface adds one book at a time (idempotent); dispatch each and
+        // fail fast on the first error. SSE echoes update Room — no optimistic write.
+        bookIds.forEach { bookId ->
+            val result = rpcCall { rpcFactory.get().addBookToShelf(ShelfId(shelfId), BookId(bookId)) }
+            if (result is AppResult.Failure) return result
         }
-        logger.info { "Books added to shelf locally: $shelfId (${bookIds.size} books)" }
+        return AppResult.Success(Unit)
     }
 
-    /**
-     * Room-first: deletes the junction row then enqueues a REMOVE_BOOK_FROM_SHELF operation.
-     */
     override suspend fun removeBookFromShelf(
         shelfId: String,
         bookId: String,
-    ) {
-        logger.info { "Removing book $bookId from shelf $shelfId (offline-first)" }
-        transactionRunner.atomically {
-            shelfBookDao.deleteShelfBook(shelfId, bookId)
+    ): AppResult<Unit> = rpcCall { rpcFactory.get().removeBookFromShelf(ShelfId(shelfId), BookId(bookId)) }
+
+    override suspend fun reorderBooks(
+        shelfId: String,
+        orderedBookIds: List<String>,
+    ): AppResult<Unit> =
+        rpcCall {
+            rpcFactory.get().reorderShelfBooks(ShelfId(shelfId), orderedBookIds.map { BookId(it) })
         }
-        logger.info { "Book removed from shelf locally: shelfId=$shelfId, bookId=$bookId" }
+
+    // ── Mapping ───────────────────────────────────────────────────────────────────
+
+    /**
+     * Map a JOIN-projected shelf row to the domain model, deriving covers and duration
+     * from the shelf's member books in the local mirror. Owner fields come from the current
+     * user — the local mirror holds only the caller's own shelves.
+     */
+    private suspend fun ShelfWithBookCount.toDomain(): Shelf =
+        shelf.toDomainWithDerived(
+            coverPaths = dao.coverHashesFor(shelf.id),
+            totalDurationMs = dao.totalDurationMsFor(shelf.id),
+            bookCountOverride = bookCount,
+        )
+
+    private suspend fun com.calypsan.listenup.client.data.local.db.ShelfEntity.toDomainWithDerived(
+        coverPaths: List<String>,
+        totalDurationMs: Long,
+        bookCountOverride: Int,
+    ): Shelf {
+        val currentUser = userDao.getCurrentUser()
+        return Shelf(
+            id = id,
+            name = name,
+            description = description.ifEmpty { null },
+            isPrivate = isPrivate,
+            ownerId = currentUser?.id?.value ?: "",
+            ownerDisplayName = currentUser?.displayName ?: "",
+            bookCount = bookCountOverride,
+            totalDurationSeconds = totalDurationMs / 1000,
+            createdAtMs = createdAt,
+            updatedAtMs = updatedAt,
+            coverPaths = coverPaths,
+        )
     }
+
+    /**
+     * Run an RPC call and surface the typed [AppResult] directly. Re-throws
+     * [CancellationException]; any other throwable becomes [AppResult.Failure]
+     * via [ErrorMapper].
+     */
+    private suspend fun <T> rpcCall(block: suspend () -> AppResult<T>): AppResult<T> =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "Shelf RPC failed" }
+            AppResult.Failure(ErrorMapper.map(e))
+        }
 }
 
-/**
- * Convert ShelfResponse API model to Shelf domain model.
- */
-fun ShelfResponse.toDomain(): Shelf {
-    val createdAtMs =
-        try {
-            Instant.parse(createdAt).toEpochMilliseconds()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to parse createdAt '$createdAt' for shelf $id; using current time" }
-            currentEpochMilliseconds()
-        }
-    val updatedAtMs =
-        try {
-            Instant.parse(updatedAt).toEpochMilliseconds()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to parse updatedAt '$updatedAt' for shelf $id; using current time" }
-            currentEpochMilliseconds()
-        }
-
-    return Shelf(
-        id = id,
-        name = name,
-        description = description.ifEmpty { null },
-        ownerId = owner.id,
-        ownerDisplayName = owner.displayName,
-        ownerAvatarColor = owner.avatarColor,
-        bookCount = bookCount,
-        totalDurationSeconds = totalDuration,
-        createdAtMs = createdAtMs,
-        updatedAtMs = updatedAtMs,
-    )
-}
-
-/**
- * Convert API response to Room entity.
- */
-private fun ShelfResponse.toEntity(): ShelfEntity {
-    val createdAtMs =
-        try {
-            Instant.parse(createdAt).toEpochMilliseconds()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to parse createdAt '$createdAt' for shelf $id; using current time" }
-            currentEpochMilliseconds()
-        }
-    val updatedAtMs =
-        try {
-            Instant.parse(updatedAt).toEpochMilliseconds()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to parse updatedAt '$updatedAt' for shelf $id; using current time" }
-            currentEpochMilliseconds()
-        }
-
-    return ShelfEntity(
-        id = id,
-        name = name,
-        description = description.ifEmpty { null },
-        ownerId = owner.id,
-        ownerDisplayName = owner.displayName,
-        ownerAvatarColor = owner.avatarColor,
-        bookCount = bookCount,
-        totalDurationSeconds = totalDuration,
-        createdAt = Timestamp(createdAtMs),
-        updatedAt = Timestamp(updatedAtMs),
-    )
-}
-
-/**
- * Convert ShelfEntity to Shelf domain model.
- */
-private fun ShelfEntity.toDomain(): Shelf =
+private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
     Shelf(
-        id = id,
+        id = id.value,
         name = name,
-        description = description,
+        description = description.ifEmpty { null },
+        isPrivate = isPrivate,
+        ownerId = "",
+        ownerDisplayName = "",
+        bookCount = bookCount,
+        totalDurationSeconds = 0,
+        createdAtMs = updatedAt,
+        updatedAtMs = updatedAt,
+    )
+
+private fun DiscoveredShelf.toDomain(): Shelf =
+    Shelf(
+        id = shelf.id.value,
+        name = shelf.name,
+        description = shelf.description.ifEmpty { null },
+        isPrivate = shelf.isPrivate,
         ownerId = ownerId,
         ownerDisplayName = ownerDisplayName,
-        ownerAvatarColor = ownerAvatarColor,
-        bookCount = bookCount,
-        totalDurationSeconds = totalDurationSeconds,
-        createdAtMs = createdAt.epochMillis,
-        updatedAtMs = updatedAt.epochMillis,
-        coverPaths = coverPaths,
+        bookCount = shelf.bookCount,
+        totalDurationSeconds = 0,
+        createdAtMs = shelf.updatedAt,
+        updatedAtMs = shelf.updatedAt,
     )
 
-/**
- * Convert ShelfDetailResponse API model to ShelfDetail domain model.
- */
-private fun ShelfDetailResponse.toDomain(): ShelfDetail =
+private fun ShelfDetailDto.toDomain(): ShelfDetail =
     ShelfDetail(
-        id = id,
+        id = id.value,
         name = name,
-        description = description,
-        owner =
-            ShelfOwner(
-                id = owner.id,
-                displayName = owner.displayName,
-                avatarColor = owner.avatarColor,
-            ),
+        description = description.ifEmpty { null },
+        isPrivate = isPrivate,
+        isOwner = isOwner,
         bookCount = bookCount,
-        totalDurationSeconds = totalDuration,
+        totalDurationSeconds = totalDurationMs / 1000,
         books =
             books.map { book ->
                 ShelfBook(
-                    id = book.id,
+                    id = book.bookId,
                     title = book.title,
-                    authorNames = book.authorNames,
-                    coverPath = book.coverPath,
-                    durationSeconds = book.durationSeconds,
+                    authorNames = book.authors,
+                    coverPath = null,
                 )
             },
     )

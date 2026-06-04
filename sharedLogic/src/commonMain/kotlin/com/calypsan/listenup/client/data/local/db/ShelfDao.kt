@@ -6,130 +6,117 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Room DAO for [ShelfEntity] operations.
+ * Room DAO for [ShelfEntity] sync-substrate operations (Shelves — Room v26).
  *
- * Provides both reactive (Flow-based) and one-shot queries for shelves.
- * Shelves are user-created curated lists of books for personal organization
- * and social discovery.
+ * The local mirror holds only the authenticated user's own shelves. Tombstones are
+ * soft-deletes: [ShelfEntity.deletedAt] is set to a non-null epoch-ms value when a
+ * shelf is removed. All observation queries exclude tombstones. `bookCount` is
+ * JOIN-derived (no denormalized column) — see [observeMyShelvesWithBookCount].
+ * Mirrors [CollectionDao].
  */
 @Dao
 interface ShelfDao {
-    /**
-     * Observe shelves owned by the specified user, ordered by most recently updated.
-     * Used for the "My Shelves" section on the Home screen.
-     *
-     * @param userId The owner's user ID
-     * @return Flow emitting list of user's shelves
-     */
-    @Query("SELECT * FROM shelves WHERE ownerId = :userId ORDER BY updatedAt DESC")
-    fun observeMyShelves(userId: String): Flow<List<ShelfEntity>>
-
-    /**
-     * Observe shelves from other users for the Discover tab, ordered by owner name and shelf name.
-     * Groups shelves by user for display purposes.
-     *
-     * @param userId The current user's ID (to exclude their own shelves)
-     * @return Flow emitting list of other users' shelves
-     */
-    @Query("SELECT * FROM shelves WHERE ownerId != :userId ORDER BY ownerDisplayName ASC, name ASC")
-    fun observeDiscoverShelves(userId: String): Flow<List<ShelfEntity>>
-
-    /**
-     * Observe a single shelf by ID.
-     *
-     * @param id The shelf ID
-     * @return Flow emitting the shelf or null if not found
-     */
-    @Query("SELECT * FROM shelves WHERE id = :id")
-    fun observeById(id: String): Flow<ShelfEntity?>
-
-    /**
-     * Get a single shelf by ID synchronously.
-     *
-     * @param id The shelf ID
-     * @return The shelf entity or null if not found
-     */
-    @Query("SELECT * FROM shelves WHERE id = :id")
-    suspend fun getById(id: String): ShelfEntity?
-
-    /**
-     * Insert or update a shelf entity.
-     * If a shelf with the same ID exists, it will be updated.
-     *
-     * @param shelf The shelf entity to upsert
-     */
+    /** Insert or update a shelf. Replaces on conflict using the primary key. */
     @Upsert
     suspend fun upsert(shelf: ShelfEntity)
 
-    /**
-     * Insert or update multiple shelf entities in a single transaction.
-     *
-     * @param shelves List of shelf entities to upsert
-     */
+    /** Insert or update multiple shelves in one operation. */
     @Upsert
     suspend fun upsertAll(shelves: List<ShelfEntity>)
 
-    /**
-     * Delete a shelf by ID.
-     *
-     * @param id The shelf ID to delete
-     */
-    @Query("DELETE FROM shelves WHERE id = :id")
-    suspend fun deleteById(id: String)
-
-    /**
-     * Delete all shelves.
-     * Used for testing and full re-sync scenarios.
-     */
-    @Query("DELETE FROM shelves")
-    suspend fun deleteAll()
-
-    /**
-     * Update sync state for a shelf.
-     */
-    @Query("UPDATE shelves SET syncState = :syncState WHERE id = :id")
-    suspend fun updateSyncState(
+    /** Apply a server tombstone: set [ShelfEntity.deletedAt] and advance [ShelfEntity.revision]. */
+    @Query(
+        "UPDATE shelves SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
+    )
+    suspend fun softDelete(
         id: String,
-        syncState: SyncState,
+        deletedAt: Long,
+        revision: Long,
     )
 
+    /** Retrieve a single non-tombstoned shelf by primary key, or null if absent or deleted. */
+    @Query("SELECT * FROM shelves WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    suspend fun getById(id: String): ShelfEntity?
+
+    /** Observe a single shelf by primary key, emitting null when absent or tombstoned. */
+    @Query("SELECT * FROM shelves WHERE id = :id AND deletedAt IS NULL LIMIT 1")
+    fun observeById(id: String): Flow<ShelfEntity?>
+
     /**
-     * Remap shelf ID after server creation and update sync state.
-     * Used when server assigns a new ID to a client-generated shelf.
+     * Observe the caller's non-tombstoned shelves with their live book counts, ordered by
+     * most-recently-updated first.
+     *
+     * `bookCount` counts live (non-tombstoned) [ShelfBookEntity] rows per shelf via LEFT JOIN —
+     * the [CollectionDao.observeAllWithBookCount] precedent.
      */
-    @Query("UPDATE shelves SET id = :newId, syncState = :syncState WHERE id = :oldId")
-    suspend fun updateIdAndSyncState(
-        oldId: String,
-        newId: String,
-        syncState: SyncState,
+    @Query(
+        """
+        SELECT s.*, COALESCE(b.cnt, 0) AS bookCount
+        FROM shelves s
+        LEFT JOIN (
+            SELECT shelfId, COUNT(*) AS cnt
+            FROM shelf_books
+            WHERE deletedAt IS NULL
+            GROUP BY shelfId
+        ) b ON b.shelfId = s.id
+        WHERE s.deletedAt IS NULL
+        ORDER BY s.updatedAt DESC
+    """,
     )
+    fun observeMyShelvesWithBookCount(): Flow<List<ShelfWithBookCount>>
 
     /**
-     * Count shelves from other users.
-     * Used to check if initial fetch is needed.
+     * Cover hashes for the first few live books on a shelf, in sort order.
      *
-     * @param userId The current user's ID (to exclude their own shelves)
-     * @return Count of other users' shelves
-     */
-    @Query("SELECT COUNT(*) FROM shelves WHERE ownerId != :userId")
-    suspend fun countDiscoverShelves(userId: String): Int
-
-    /**
-     * Get cover paths for a shelf using the join table.
-     * Returns up to 4 cover paths for the shelf card grid display.
-     *
-     * @param shelfId The shelf ID
-     * @return List of cover URLs for the first 4 books in the shelf
+     * Used to render the shelf-card cover grid offline. Joins the live junction rows to
+     * the local `books` mirror; only books present in Room with a non-null cover are returned.
      */
     @Query(
         """
         SELECT b.coverHash
-        FROM shelf_books lb
-        JOIN books b ON lb.bookId = b.id
-        WHERE lb.shelfId = :shelfId AND b.coverHash IS NOT NULL
-        ORDER BY lb.addedAt DESC
+        FROM shelf_books sb
+        JOIN books b ON sb.bookId = b.id
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND b.coverHash IS NOT NULL
+        ORDER BY sb.sortOrder ASC
         LIMIT 4
     """,
     )
-    suspend fun getShelfCoverPaths(shelfId: String): List<String>
+    suspend fun coverHashesFor(shelfId: String): List<String>
+
+    /**
+     * True live (non-tombstoned) book count for a single shelf.
+     *
+     * Used by the single-shelf mapping paths ([ShelfRepositoryImpl.observeById] /
+     * [ShelfRepositoryImpl.getById]) so [com.calypsan.listenup.client.domain.model.Shelf.bookCount]
+     * is always the full junction count, not the cover-grid LIMIT.
+     */
+    @Query("SELECT COUNT(*) FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL")
+    suspend fun bookCountFor(shelfId: String): Int
+
+    /**
+     * Sum of audio duration (ms) across the shelf's live books present in the local mirror.
+     *
+     * Books not yet synced to Room contribute zero. Returns 0 for an empty shelf.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(b.totalDuration), 0)
+        FROM shelf_books sb
+        JOIN books b ON sb.bookId = b.id
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL
+    """,
+    )
+    suspend fun totalDurationMsFor(shelfId: String): Long
+
+    /** Live (non-tombstoned) shelf ids. */
+    @Query("SELECT id FROM shelves WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /** Delete all shelf rows (used in tests and full re-sync scenarios). */
+    @Query("DELETE FROM shelves")
+    suspend fun deleteAll()
+
+    /** All rows (including tombstones) with [revision][ShelfEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM shelves WHERE revision <= :max")
+    suspend fun digestRows(max: Long): List<IdRevision>
 }

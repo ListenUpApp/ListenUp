@@ -42,7 +42,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         CollectionBookEntity::class,
         CollectionShareEntity::class,
         ShelfEntity::class,
-        ShelfBookCrossRef::class,
+        ShelfBookEntity::class,
         TagEntity::class,
         BookTagEntity::class,
         GenreEntity::class,
@@ -57,7 +57,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = true,
 )
 @TypeConverters(

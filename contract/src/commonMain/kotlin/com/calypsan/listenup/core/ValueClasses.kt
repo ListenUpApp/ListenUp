@@ -258,6 +258,33 @@ value class CollectionId(
 }
 
 /**
+ * Type-safe wrapper for Shelf IDs.
+ *
+ * Shelves are user-owned curated lists of books for personal organization and
+ * social discovery. Each user may create multiple shelves; every shelf is scoped
+ * to the owning user. Wrapping the id prevents accidentally passing a [BookId],
+ * [CollectionId], or any other string id where a shelf id is expected —
+ * particularly at `ShelfService` call sites that thread shelf, book, and user
+ * identifiers through ownership and discovery operations.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying shelf ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class ShelfId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "Shelf ID cannot be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for backup archive IDs.
  *
  * A backup id is the archive's stable filename stem (e.g. `backup-2026-06-02T18-30-00Z`),

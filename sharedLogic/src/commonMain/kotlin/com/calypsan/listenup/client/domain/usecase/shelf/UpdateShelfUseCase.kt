@@ -1,16 +1,15 @@
 package com.calypsan.listenup.client.domain.usecase.shelf
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.api.result.validationError
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.api.result.validationError
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Updates an existing shelf's name and description.
+ * Updates an existing shelf's name, description, and privacy flag.
  *
  * Validates that the name is not blank before calling the repository.
  * Empty descriptions are converted to null.
@@ -20,7 +19,8 @@ private val logger = KotlinLogging.logger {}
  * val result = updateShelfUseCase(
  *     shelfId = "shelf-123",
  *     name = "Updated Name",
- *     description = "New description"
+ *     description = "New description",
+ *     isPrivate = true,
  * )
  * ```
  */
@@ -33,12 +33,14 @@ open class UpdateShelfUseCase(
      * @param shelfId The ID of the shelf to update
      * @param name The new shelf name (required, will be trimmed)
      * @param description Optional new description (empty strings converted to null)
+     * @param isPrivate The new privacy flag
      * @return Result containing the updated shelf or a failure
      */
     open suspend operator fun invoke(
         shelfId: String,
         name: String,
         description: String?,
+        isPrivate: Boolean = false,
     ): AppResult<Shelf> {
         val trimmedName = name.trim()
         if (trimmedName.isBlank()) {
@@ -49,8 +51,6 @@ open class UpdateShelfUseCase(
 
         logger.info { "Updating shelf $shelfId: $trimmedName" }
 
-        return suspendRunCatching {
-            shelfRepository.updateShelf(shelfId, trimmedName, trimmedDescription)
-        }
+        return shelfRepository.updateShelf(shelfId, trimmedName, trimmedDescription, isPrivate)
     }
 }

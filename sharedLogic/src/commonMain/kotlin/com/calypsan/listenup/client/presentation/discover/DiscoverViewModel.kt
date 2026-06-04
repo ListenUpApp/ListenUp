@@ -39,10 +39,11 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * - What others are listening to: active_sessions table via SSE sync
  * - Discover something new: random unstarted books from books table
  * - Recently added: newest books from books table
- * - Shelves from other users: fetched initially from API, stored in Room, observed from Room
+ * - Shelves from other users: fetched on demand via [ShelfRepository.discoverShelves] RPC
+ *   (other users' shelves never enter Room; each [refresh] issues a fresh network call)
  *
- * This offline-first architecture ensures the Discover screen works
- * instantly on app launch without any API calls (after initial fetch).
+ * The first three sections are offline-first — they work instantly after initial sync.
+ * Discover shelves requires connectivity for each load.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
@@ -53,8 +54,8 @@ class DiscoverViewModel(
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     init {
-        // Fetch initial discover shelves if Room is empty
-        fetchInitialShelvesIfNeeded()
+        // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
+        loadDiscoverShelves()
     }
 
     // === Currently Listening State (from Room) ===
@@ -181,51 +182,14 @@ class DiscoverViewModel(
             createdAt = createdAt,
         )
 
-    // === Discover Shelves State (from Room) ===
+    // === Discover Shelves State (on-demand RPC) ===
 
     /**
-     * Observe shelves from other users from Room.
-     * Initial data fetched from API if Room is empty.
-     * Subsequent updates via SSE events.
+     * Discovered shelves are an on-demand RPC read (other users' shelves never enter Room).
+     * Loaded on init and refreshed via [refresh]; the latest result is held here.
      */
-    private val discoverShelvesFlow =
-        authSession.authState.flatMapLatest { authState ->
-            if (authState is AuthState.Authenticated) {
-                shelfRepository.observeDiscoverShelves(authState.userId.value)
-            } else {
-                flowOf(emptyList())
-            }
-        }
-
-    val discoverShelvesState: StateFlow<DiscoverShelvesUiState> =
-        discoverShelvesFlow
-            .map<_, DiscoverShelvesUiState> { shelves ->
-                // Group shelves by owner for display
-                val groupedByOwner = shelves.groupBy { it.ownerId }
-                val userShelves =
-                    groupedByOwner.map { (ownerId, ownerShelves) ->
-                        val firstShelf = ownerShelves.first()
-                        DiscoverUserShelves(
-                            user =
-                                DiscoverShelfOwner(
-                                    id = ownerId,
-                                    displayName = firstShelf.ownerDisplayName,
-                                    avatarColor = firstShelf.ownerAvatarColor,
-                                ),
-                            shelves = ownerShelves.map { it.toUiModel() },
-                        )
-                    }
-                DiscoverShelvesUiState.Ready(users = userShelves)
-            }.onStart { emit(DiscoverShelvesUiState.Loading) }
-            .catch { e ->
-                if (e is kotlin.coroutines.cancellation.CancellationException) throw e
-                logger.error(e) { "Error observing discover shelves" }
-                emit(DiscoverShelvesUiState.Error("Failed to load discover shelves"))
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = DiscoverShelvesUiState.Loading,
-            )
+    val discoverShelvesState: StateFlow<DiscoverShelvesUiState>
+        field = MutableStateFlow<DiscoverShelvesUiState>(DiscoverShelvesUiState.Loading)
 
     /**
      * Convert Shelf domain model to UI model.
@@ -240,51 +204,38 @@ class DiscoverViewModel(
         )
 
     /**
-     * Fetch initial discover shelves from API if Room is empty.
-     * This ensures data is available on first launch before any SSE events arrive.
+     * Fetch discovered shelves from the server and publish the grouped UI state.
+     * Groups by owner so the screen can render each user's shelves together.
      */
-    private fun fetchInitialShelvesIfNeeded() {
+    private fun loadDiscoverShelves() {
         viewModelScope.launch {
-            val authState = authSession.authState.value
-            if (authState !is AuthState.Authenticated) {
+            if (authSession.authState.value !is AuthState.Authenticated) {
                 logger.debug { "Not authenticated, skipping shelf fetch" }
                 return@launch
             }
 
-            val existingCount = shelfRepository.countDiscoverShelves(authState.userId.value)
-            if (existingCount > 0) {
-                logger.debug { "Room has $existingCount discover shelves, skipping initial fetch" }
-                return@launch
-            }
-
-            logger.debug { "Room is empty, fetching discover shelves from API" }
-            when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
+            when (val result = shelfRepository.discoverShelves()) {
                 is AppResult.Success -> {
-                    logger.info { "Fetched and stored ${result.data} discover shelves" }
+                    val userShelves =
+                        result.data
+                            .groupBy { it.ownerId }
+                            .map { (ownerId, ownerShelves) ->
+                                DiscoverUserShelves(
+                                    user =
+                                        DiscoverShelfOwner(
+                                            id = ownerId,
+                                            displayName = ownerShelves.first().ownerDisplayName,
+                                        ),
+                                    shelves = ownerShelves.map { it.toUiModel() },
+                                )
+                            }
+                    discoverShelvesState.value = DiscoverShelvesUiState.Ready(users = userShelves)
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to fetch discover shelves: ${result.error.message}" }
-                    // Not fatal - Room Flow will show empty state, SSE will populate over time
-                }
-            }
-        }
-    }
-
-    /**
-     * Refresh discover shelves from API.
-     */
-    private fun refreshDiscoverShelves() {
-        viewModelScope.launch {
-            when (val result = shelfRepository.fetchAndCacheDiscoverShelves()) {
-                is AppResult.Success -> {
-                    logger.debug { "Refreshed ${result.data} discover shelves from API" }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to refresh discover shelves: ${result.error.message}" }
+                    logger.error { "Failed to load discover shelves: ${result.error.message}" }
+                    discoverShelvesState.value = DiscoverShelvesUiState.Error("Failed to load discover shelves")
                 }
             }
         }
@@ -292,13 +243,13 @@ class DiscoverViewModel(
 
     /**
      * Refresh all discovery content.
-     * - Shelves: fetched from API and stored in Room
+     * - Shelves: re-fetched via the discover RPC
      * - Books: new RANDOM() selection via refresh trigger
      * - Sessions & recently added: automatically updated via Room flows
      */
     fun refresh() {
         discoverBooksRefreshTrigger.update { it + 1 }
-        refreshDiscoverShelves()
+        loadDiscoverShelves()
     }
 }
 
@@ -309,7 +260,7 @@ sealed interface DiscoverShelvesUiState {
     /** Pre-first-emission placeholder. */
     data object Loading : DiscoverShelvesUiState
 
-    /** Shelves grouped by owner, loaded from Room. */
+    /** Shelves grouped by owner, loaded via RPC. */
     data class Ready(
         val users: List<DiscoverUserShelves>,
     ) : DiscoverShelvesUiState {
@@ -336,11 +287,13 @@ data class DiscoverUserShelves(
 
 /**
  * Shelf owner info for display.
+ *
+ * Avatar color is derived from [id] at the UI layer — the discovery contract
+ * supplies owner identity but no avatar color.
  */
 data class DiscoverShelfOwner(
     val id: String,
     val displayName: String,
-    val avatarColor: String,
 )
 
 /**

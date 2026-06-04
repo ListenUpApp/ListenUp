@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.presentation.shelf
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -67,6 +66,7 @@ class CreateEditShelfViewModel(
                         CreateEditShelfUiState.Loaded(
                             name = shelf.name,
                             description = shelf.description ?: "",
+                            isPrivate = shelf.isPrivate,
                         )
                     } else {
                         CreateEditShelfUiState.Error("Shelf not found")
@@ -89,6 +89,7 @@ class CreateEditShelfViewModel(
     fun save(
         name: String,
         description: String,
+        isPrivate: Boolean,
     ) {
         viewModelScope.launch {
             _state.value = CreateEditShelfUiState.Saving
@@ -101,17 +102,25 @@ class CreateEditShelfViewModel(
                         shelfId = editingId,
                         name = name,
                         description = trimmedDescription,
+                        isPrivate = isPrivate,
                     )
                 } else {
                     createShelfUseCase(
                         name = name,
                         description = trimmedDescription,
+                        isPrivate = isPrivate,
                     )
                 }
 
             when (result) {
-                is AppResult.Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
-                is AppResult.Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
+                is AppResult.Success -> {
+                    _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    _state.value = CreateEditShelfUiState.Error(result.message)
+                }
             }
         }
     }
@@ -124,8 +133,14 @@ class CreateEditShelfViewModel(
             _state.value = CreateEditShelfUiState.Saving
 
             when (val result = deleteShelfUseCase(shelfId)) {
-                is AppResult.Success -> _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
-                is AppResult.Failure -> _state.value = CreateEditShelfUiState.Error(result.message)
+                is AppResult.Success -> {
+                    _navActions.trySend(CreateEditShelfNavAction.NavigateBack)
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    _state.value = CreateEditShelfUiState.Error(result.message)
+                }
             }
         }
     }
@@ -155,6 +170,7 @@ sealed interface CreateEditShelfUiState {
     data class Loaded(
         val name: String,
         val description: String,
+        val isPrivate: Boolean,
     ) : CreateEditShelfUiState
 
     /** A save or delete operation is in flight. */

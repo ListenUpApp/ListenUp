@@ -2,36 +2,36 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.client.domain.model.ShelfDetail
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository contract for shelf operations.
  *
- * Provides access to user-created curated book lists.
- * Shelves are personal organization tools that enable social discovery.
+ * Provides access to user-created curated book lists. Shelves are personal
+ * organization tools that enable social discovery.
  *
- * Part of the domain layer - implementations live in the data layer.
+ * **Read model:** own shelves are mirrored into Room by the sync engine and
+ * observed reactively ([observeMyShelves], [observeById]). Discovery of other
+ * users' shelves is an on-demand RPC read ([discoverShelves]) — those shelves
+ * are never persisted locally.
+ *
+ * **Write model:** mutations dispatch over RPC and return a typed [AppResult];
+ * Room is updated by the SSE echo, not an optimistic local write. There is no
+ * `getOrThrow` bridge — every fallible call folds an [AppResult].
+ *
+ * Part of the domain layer — implementations live in the data layer.
  */
 interface ShelfRepository {
     /**
      * Observe shelves owned by a specific user.
      *
-     * Used for "My Shelves" section, ordered by most recently updated.
+     * Used for the "My Shelves" section, ordered by most recently updated.
      *
      * @param userId The owner's user ID
-     * @return Flow emitting list of user's shelves
+     * @return Flow emitting the list of the user's shelves
      */
     fun observeMyShelves(userId: String): Flow<List<Shelf>>
-
-    /**
-     * Observe shelves from other users for discovery.
-     *
-     * Used for social discovery, excludes current user's shelves.
-     *
-     * @param currentUserId The current user's ID (to exclude)
-     * @return Flow emitting list of other users' shelves
-     */
-    fun observeDiscoverShelves(currentUserId: String): Flow<List<Shelf>>
 
     /**
      * Observe a single shelf by ID.
@@ -42,7 +42,7 @@ interface ShelfRepository {
     fun observeById(id: String): Flow<Shelf?>
 
     /**
-     * Get a shelf by ID synchronously.
+     * Get a shelf by ID synchronously from the local mirror.
      *
      * @param id The shelf ID
      * @return Shelf if found, null otherwise
@@ -50,45 +50,23 @@ interface ShelfRepository {
     suspend fun getById(id: String): Shelf?
 
     /**
-     * Count shelves from other users.
+     * Discover public shelves owned by other users.
      *
-     * Used to check if initial fetch is needed.
+     * On-demand RPC read; book counts reflect only books accessible to the caller.
      *
-     * @param currentUserId The current user's ID (to exclude)
-     * @return Count of discover shelves
+     * @return [AppResult.Success] with the discovered shelves, or [AppResult.Failure] on RPC error
      */
-    suspend fun countDiscoverShelves(currentUserId: String): Int
-
-    /**
-     * Fetch current user's shelves from API and cache locally.
-     *
-     * Used for initial population when Room is empty (e.g., fresh install
-     * or after adding sync support for shelves).
-     *
-     * @return [AppResult.Success] when fetch and cache succeeds, [AppResult.Failure] on API error
-     */
-    suspend fun fetchAndCacheMyShelves(): AppResult<Unit>
-
-    /**
-     * Fetch discover shelves from API and cache locally.
-     *
-     * Used for initial population of discover shelves when Room is empty,
-     * and for manual refresh. Fetches shelves from other users via API
-     * and stores them in the local database.
-     *
-     * @return [AppResult.Success] containing the number of shelves fetched, [AppResult.Failure] on API error
-     */
-    suspend fun fetchAndCacheDiscoverShelves(): AppResult<Int>
+    suspend fun discoverShelves(): AppResult<List<Shelf>>
 
     /**
      * Get full shelf detail including books from the server.
      *
-     * Fetches shelf details via API and updates local cache.
+     * Owner receives all books; a non-owner receives the access-filtered set.
      *
      * @param shelfId The shelf ID to fetch
-     * @return [AppResult.Success] containing the shelf detail, [AppResult.Failure] on API error
+     * @return [AppResult.Success] with the shelf detail, or [AppResult.Failure] on RPC error
      */
-    suspend fun getShelfDetail(shelfId: String): AppResult<com.calypsan.listenup.client.domain.model.ShelfDetail>
+    suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail>
 
     /**
      * Remove a book from a shelf.
@@ -99,7 +77,7 @@ interface ShelfRepository {
     suspend fun removeBookFromShelf(
         shelfId: String,
         bookId: String,
-    )
+    ): AppResult<Unit>
 
     /**
      * Add books to a shelf.
@@ -110,19 +88,34 @@ interface ShelfRepository {
     suspend fun addBooksToShelf(
         shelfId: String,
         bookIds: List<String>,
-    )
+    ): AppResult<Unit>
+
+    /**
+     * Reorder the books in a shelf.
+     *
+     * [orderedBookIds] is the new full ordering of the shelf's live members.
+     *
+     * @param shelfId The shelf to reorder
+     * @param orderedBookIds The books in their new order
+     */
+    suspend fun reorderBooks(
+        shelfId: String,
+        orderedBookIds: List<String>,
+    ): AppResult<Unit>
 
     /**
      * Create a new shelf.
      *
      * @param name The shelf name
      * @param description Optional description
-     * @return The created shelf
+     * @param isPrivate Whether the shelf is visible only to the owner
+     * @return [AppResult.Success] with the created shelf, or [AppResult.Failure] on RPC error
      */
     suspend fun createShelf(
         name: String,
         description: String?,
-    ): Shelf
+        isPrivate: Boolean,
+    ): AppResult<Shelf>
 
     /**
      * Update an existing shelf.
@@ -130,18 +123,20 @@ interface ShelfRepository {
      * @param shelfId The shelf ID to update
      * @param name The new name
      * @param description The new description (null to clear)
-     * @return The updated shelf
+     * @param isPrivate The new privacy flag
+     * @return [AppResult.Success] with the updated shelf, or [AppResult.Failure] on RPC error
      */
     suspend fun updateShelf(
         shelfId: String,
         name: String,
         description: String?,
-    ): Shelf
+        isPrivate: Boolean,
+    ): AppResult<Shelf>
 
     /**
      * Delete a shelf.
      *
      * @param shelfId The shelf ID to delete
      */
-    suspend fun deleteShelf(shelfId: String)
+    suspend fun deleteShelf(shelfId: String): AppResult<Unit>
 }

@@ -313,47 +313,6 @@ data class BookWithTags(
 )
 
 /**
- * Cross-reference entity for the many-to-many relationship between Shelves and Books.
- *
- * Stores which books belong to which shelves for offline-first shelf content display.
- * This enables showing shelf cover grids and contents without hitting the server.
- *
- * The addedAt timestamp preserves the order books were added (newest first),
- * matching the server's shelf.BookIDs ordering.
- *
- * @property shelfId Foreign key to the shelf
- * @property bookId Foreign key to the book
- * @property addedAt When the book was added to the shelf (epoch ms)
- */
-@Entity(
-    tableName = "shelf_books",
-    primaryKeys = ["shelfId", "bookId"],
-    foreignKeys = [
-        ForeignKey(
-            entity = ShelfEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["shelfId"],
-            onDelete = ForeignKey.CASCADE, // If shelf is deleted, remove relation
-        ),
-        ForeignKey(
-            entity = BookEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["bookId"],
-            onDelete = ForeignKey.CASCADE, // If book is deleted, remove relation
-        ),
-    ],
-    indices = [
-        Index(value = ["shelfId"]),
-        Index(value = ["bookId"]),
-    ],
-)
-data class ShelfBookCrossRef(
-    val shelfId: String,
-    val bookId: String,
-    val addedAt: Long, // Unix epoch milliseconds
-)
-
-/**
  * Junction entity mapping contributors to their aliases (pen names, former names).
  *
  * Replaces the legacy [ContributorEntity.aliases] comma-separated string, which

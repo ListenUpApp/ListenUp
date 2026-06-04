@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
+import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -44,11 +46,6 @@ import listenup.composeapp.generated.resources.home_cover_1
 import listenup.composeapp.generated.resources.home_cover_2
 import listenup.composeapp.generated.resources.home_cover_3
 import listenup.composeapp.generated.resources.home_cover_4
-
-private const val DEFAULT_HEX_COLOR = 0xFF6B7280L
-private const val ALPHA_MASK = 0xFF000000L
-private const val HEX_RADIX = 16
-private const val MAX_RGB_LENGTH = 6
 
 /**
  * Card for a shelf in the My Shelves section.
@@ -81,10 +78,10 @@ fun ShelfCard(
         label = "card_scale",
     )
 
-    // Parse avatar color from hex string (e.g. "#FF6B72" or "#FFFF6B72")
+    // Owner identity carries no avatar color — derive a stable color from the owner id.
     val avatarColor =
-        remember(shelf.ownerAvatarColor) {
-            parseHexColor(shelf.ownerAvatarColor)
+        remember(shelf.ownerId) {
+            stableColorForId(shelf.ownerId)
         }
 
     Column(
@@ -111,17 +108,30 @@ fun ShelfCard(
 
         // Metadata
         Column(modifier = Modifier.padding(horizontal = 2.dp)) {
-            Text(
-                text = shelf.name,
-                style =
-                    MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp,
-                    ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (shelf.isPrivate) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Private shelf",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+                Text(
+                    text = shelf.name,
+                    style =
+                        MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.2).sp,
+                        ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             Text(
                 text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}",
@@ -131,21 +141,6 @@ fun ShelfCard(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-/**
- * Parse a hex color string (with or without alpha) to a Compose Color.
- * Supports "#RRGGBB" and "#AARRGGBB" formats.
- */
-private fun parseHexColor(hex: String?): Color {
-    if (hex == null) return Color(DEFAULT_HEX_COLOR.toInt())
-    val clean = hex.removePrefix("#")
-    val longValue = clean.toLongOrNull(16) ?: return Color(DEFAULT_HEX_COLOR.toInt())
-    return if (clean.length <= 6) {
-        Color((ALPHA_MASK or longValue).toInt())
-    } else {
-        Color(longValue.toInt())
     }
 }
 

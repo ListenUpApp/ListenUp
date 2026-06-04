@@ -2,9 +2,11 @@
 
 package com.calypsan.listenup.server.di
 
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
+import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
@@ -12,8 +14,6 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
-import com.calypsan.listenup.api.InstanceService
-import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ShelfRepository
 import io.ktor.server.config.ApplicationConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
@@ -89,6 +90,9 @@ fun authModule(config: ApplicationConfig): Module =
                 sessionIssuer = get(),
                 clock = get(),
                 settings = get(),
+                // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
+                // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
+                shelfRepository = getOrNull<ShelfRepository>(),
             )
         }
 

@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
+import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
@@ -262,16 +263,8 @@ private fun UserShelvesSection(
     onShelfClick: (String) -> Unit,
 ) {
     val avatarColor =
-        remember(userShelves.user.avatarColor) {
-            try {
-                Color(
-                    userShelves.user.avatarColor
-                        .removePrefix("#")
-                        .toLong(16) or 0xFF000000,
-                )
-            } catch (_: Exception) {
-                Color(0xFF6B7280)
-            }
+        remember(userShelves.user.id) {
+            stableColorForId(userShelves.user.id)
         }
 
     Column {

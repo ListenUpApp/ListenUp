@@ -27,12 +27,17 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sync.ShelfRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * The contract implementation. Pure domain logic — Ktor types are deliberately
@@ -54,6 +59,12 @@ class AuthServiceImpl(
     internal val settings: ServerSettingsRepository,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
     internal val requestUserAgent: String? = null,
+    /**
+     * Nullable so the auth module can be assembled independently of the shelf
+     * module (test environments, phased startup). A null value means starter
+     * shelves are silently skipped — registration still succeeds.
+     */
+    internal val shelfRepository: ShelfRepository? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -150,6 +161,7 @@ class AuthServiceImpl(
                     ),
                 )
             }
+        createStarterShelfBestEffort(user.id.value)
         return AppResult.Success(outcome)
     }
 
@@ -177,6 +189,7 @@ class AuthServiceImpl(
                     updatedAt = now
                 }
             }
+        createStarterShelfBestEffort(user.id.value)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
@@ -248,6 +261,7 @@ class AuthServiceImpl(
             settings = settings,
             principalProvider = provider,
             requestUserAgent = requestUserAgent,
+            shelfRepository = shelfRepository,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -262,7 +276,25 @@ class AuthServiceImpl(
             settings = settings,
             principalProvider = principalProvider,
             requestUserAgent = userAgent,
+            shelfRepository = shelfRepository,
         )
+
+    /**
+     * Best-effort starter-shelf creation — called immediately after a new user row is
+     * committed. Failure is logged and swallowed so a shelf-infra hiccup never
+     * rolls back or fails registration. [CancellationException] is re-raised so
+     * structured-concurrency cancellation is never eaten.
+     */
+    private suspend fun createStarterShelfBestEffort(userId: String) {
+        shelfRepository ?: return
+        try {
+            shelfRepository.createStarterShelf(userId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "starter shelf creation failed for user $userId — registration still succeeds" }
+        }
+    }
 
     override suspend fun currentUser(): AppResult<User> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
