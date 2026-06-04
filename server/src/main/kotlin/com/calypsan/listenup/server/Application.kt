@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.event.ScanEvent
@@ -25,6 +26,7 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.shelfModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.mdnsModule
@@ -212,6 +214,7 @@ private fun Application.installDependencies(
         modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()
+        modules += shelfModule()
         val httpPort =
             environment.config
                 .propertyOrNull("ktor.deployment.port")
@@ -301,6 +304,7 @@ fun Application.module() {
     val tagService by inject<TagService>()
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
+    val shelfService by inject<ShelfService>()
     val profileService by inject<ProfileService>()
     val backupService by inject<BackupService>()
     val importService by inject<ImportService>()
@@ -333,6 +337,7 @@ fun Application.module() {
             tagService,
             genreService,
             collectionService,
+            shelfService,
             adminUserService,
             inviteService,
             profileService,

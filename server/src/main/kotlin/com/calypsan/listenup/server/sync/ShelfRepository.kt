@@ -8,11 +8,26 @@ import kotlinx.serialization.KSerializer
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
+
+/**
+ * A live shelf paired with its owner's user id.
+ *
+ * The wire [ShelfSyncPayload] omits `user_id` (it never crosses to other users), so
+ * service-layer ownership gating and discovery read the owner through this projection.
+ *
+ * @property ownerId The user id that owns [shelf].
+ * @property shelf The shelf payload (without owner identity).
+ */
+data class OwnedShelf(
+    val ownerId: String,
+    val shelf: ShelfSyncPayload,
+)
 
 /**
  * Syncable repository for per-user, user-owned shelves.
@@ -112,6 +127,41 @@ class ShelfRepository(
                 .firstOrNull()
                 ?.toSyncPayload()
         }
+
+    /**
+     * Returns the live shelf with [id] alongside its owner's user id, or null when
+     * absent or tombstoned. The wire [ShelfSyncPayload] deliberately omits `user_id`,
+     * so service-layer ownership gating reads the owner through this projection rather
+     * than the payload.
+     */
+    suspend fun findOwnedById(id: String): OwnedShelf? =
+        suspendTransaction(db) {
+            ShelvesTable
+                .selectAll()
+                .where { (ShelvesTable.id eq id) and ShelvesTable.deletedAt.isNull() }
+                .firstOrNull()
+                ?.toOwnedShelf()
+        }
+
+    /**
+     * Returns every live, public shelf NOT owned by [excludeUserId], each paired with
+     * its owner's user id — the discovery candidate set before per-caller book-access
+     * filtering. A direct service-layer read (not a sync-substrate pull): discovery
+     * crosses the user-scoping boundary by design.
+     */
+    suspend fun listDiscoverable(excludeUserId: String): List<OwnedShelf> =
+        suspendTransaction(db) {
+            ShelvesTable
+                .selectAll()
+                .where {
+                    (ShelvesTable.isPrivate eq false) and
+                        (ShelvesTable.userId neq excludeUserId) and
+                        ShelvesTable.deletedAt.isNull()
+                }.map { row -> row.toOwnedShelf() }
+        }
+
+    private fun org.jetbrains.exposed.v1.core.ResultRow.toOwnedShelf(): OwnedShelf =
+        OwnedShelf(ownerId = this[ShelvesTable.userId], shelf = toSyncPayload())
 
     private fun org.jetbrains.exposed.v1.core.ResultRow.toSyncPayload(): ShelfSyncPayload =
         ShelfSyncPayload(
