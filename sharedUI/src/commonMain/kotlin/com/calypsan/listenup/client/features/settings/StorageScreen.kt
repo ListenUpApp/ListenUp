@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.foundation.layout.Arrangement

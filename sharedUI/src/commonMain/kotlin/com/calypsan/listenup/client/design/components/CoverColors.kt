@@ -1,10 +1,14 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+
+/** Neutral grey used as the fallback cover color when no art is available. */
+private const val DEFAULT_COVER_COLOR = 0xFF424242
+
+/** Relative-luminance midpoint; above this a color reads as "light". */
+private const val LIGHT_LUMINANCE_THRESHOLD = 0.5
 
 /**
  * Color scheme extracted from cover art.
@@ -31,7 +35,7 @@ data class CoverColors(
  * Creates a default CoverColors instance with a single color.
  * Useful for previews and fallback states.
  */
-fun defaultCoverColors(color: Color = Color(0xFF424242)): CoverColors =
+fun defaultCoverColors(color: Color = Color(DEFAULT_COVER_COLOR)): CoverColors =
     CoverColors(
         dominant = color,
         vibrant = color,
@@ -50,7 +54,7 @@ fun isColorLight(color: Int): Boolean {
     val green = (color shr 8) and 0xFF
     val blue = color and 0xFF
     val luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-    return luminance > 0.5
+    return luminance > LIGHT_LUMINANCE_THRESHOLD
 }
 
 /**

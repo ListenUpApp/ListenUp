@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber", "StringLiteralDuplication")
-
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.clickable

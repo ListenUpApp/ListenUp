@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber")
-
 package com.calypsan.listenup.core
 
 import android.content.Context
@@ -9,6 +7,8 @@ import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import coil3.util.DebugLogger
 import okio.Path.Companion.toOkioPath
+
+private const val DISK_CACHE_MAX_SIZE_BYTES = 50L * 1024 * 1024 // 50 MB
 
 /**
  * Factory for creating configured Coil ImageLoader instances.
@@ -38,7 +38,7 @@ object ImageLoaderFactory {
                 DiskCache
                     .Builder()
                     .directory(context.cacheDir.resolve("image_cache").toOkioPath())
-                    .maxSizeBytes(50 * 1024 * 1024)
+                    .maxSizeBytes(DISK_CACHE_MAX_SIZE_BYTES)
                     .build()
             }.crossfade(enable = true)
             .apply {

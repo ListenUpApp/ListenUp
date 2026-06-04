@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber") // Binary-format constants — readability beats named constants.
-
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
 import com.calypsan.listenup.api.result.AppResult

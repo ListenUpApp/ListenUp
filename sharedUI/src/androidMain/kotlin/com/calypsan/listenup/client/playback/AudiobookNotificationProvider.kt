@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication", "SwallowedException")
-
 package com.calypsan.listenup.client.playback
 
 import android.content.Context
@@ -16,6 +14,11 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.google.common.collect.ImmutableList
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
+
+private const val RES_TYPE_DRAWABLE = "drawable"
 
 /**
  * Custom notification provider for audiobook playback.
@@ -67,9 +70,9 @@ class AudiobookNotificationProvider(
     private fun loadResourceIds() {
         val resources = context.resources
         val packageName = context.packageName
-        icNotification = resources.getIdentifier("ic_notification", "drawable", packageName)
-        icPlay = resources.getIdentifier("ic_play", "drawable", packageName)
-        icPause = resources.getIdentifier("ic_pause", "drawable", packageName)
+        icNotification = resources.getIdentifier("ic_notification", RES_TYPE_DRAWABLE, packageName)
+        icPlay = resources.getIdentifier("ic_play", RES_TYPE_DRAWABLE, packageName)
+        icPause = resources.getIdentifier("ic_pause", RES_TYPE_DRAWABLE, packageName)
     }
 
     /** LRU artwork cache — Media3 re-emits createNotification on every state tick. */
@@ -130,7 +133,10 @@ class AudiobookNotificationProvider(
                         context.contentResolver.openInputStream(uri)?.use { stream ->
                             android.graphics.BitmapFactory.decodeStream(stream)
                         }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
+                        logger.warn(e) { "Failed to decode notification artwork from $uri" }
                         null
                     }
                 }

@@ -1,8 +1,8 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.core
 
 import android.os.Build
+
+private const val GENERIC_BUILD_PREFIX = "generic"
 
 /**
  * Android implementation of PlatformUtils.
@@ -17,13 +17,13 @@ import android.os.Build
  */
 actual object PlatformUtils {
     actual fun isEmulator(): Boolean =
-        Build.FINGERPRINT.startsWith("generic") ||
+        Build.FINGERPRINT.startsWith(GENERIC_BUILD_PREFIX) ||
             Build.FINGERPRINT.startsWith("unknown") ||
             Build.MODEL.contains("google_sdk") ||
             Build.MODEL.contains("Emulator") ||
             Build.MODEL.contains("Android SDK built for x86") ||
             Build.MANUFACTURER.contains("Genymotion") ||
-            (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic")) ||
+            (Build.BRAND.startsWith(GENERIC_BUILD_PREFIX) && Build.DEVICE.startsWith(GENERIC_BUILD_PREFIX)) ||
             Build.PRODUCT == "google_sdk" ||
             Build.HARDWARE.contains("goldfish") ||
             Build.HARDWARE.contains("ranchu")

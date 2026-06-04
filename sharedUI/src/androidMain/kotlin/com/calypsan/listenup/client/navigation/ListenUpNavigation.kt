@@ -705,9 +705,6 @@ private fun AuthenticatedNavigation(
                                 onContributorClick = { contributorId ->
                                     backStack.add(ContributorDetail(contributorId))
                                 },
-                                onShelfClick = { shelfId ->
-                                    backStack.add(ShelfDetail(shelfId))
-                                },
                                 onTagClick = { tagId ->
                                     backStack.add(TagDetail(tagId))
                                 },

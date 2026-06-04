@@ -1,5 +1,4 @@
 @file:OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-@file:Suppress("NestedBlockDepth")
 
 package com.calypsan.listenup.client.data.discovery
 
@@ -167,12 +166,9 @@ class AppleDiscoveryService : ServerDiscoveryService {
         try {
             val dictionary = NSNetService.dictionaryFromTXTRecordData(data)
             dictionary.forEach { (key, value) ->
-                if (key is String && value is NSData) {
-                    val string = NSString.create(value, NSUTF8StringEncoding)
-                    if (string != null) {
-                        result[key] = string.toString()
-                    }
-                }
+                if (key !is String || value !is NSData) return@forEach
+                val string = NSString.create(value, NSUTF8StringEncoding) ?: return@forEach
+                result[key] = string.toString()
             }
         } catch (e: Exception) {
             logger.error(e) { "Failed to parse TXT records" }

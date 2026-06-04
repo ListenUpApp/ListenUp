@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +12,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 
+private const val SAMPLE_LABEL = "Server URL"
+
 @Preview(name = "Empty Field")
 @Composable
 private fun PreviewListenUpTextFieldEmpty() {
@@ -25,7 +25,7 @@ private fun PreviewListenUpTextFieldEmpty() {
             ListenUpTextField(
                 value = "",
                 onValueChange = {},
-                label = "Server URL",
+                label = SAMPLE_LABEL,
                 placeholder = "https://example.com",
             )
         }
@@ -43,7 +43,7 @@ private fun PreviewListenUpTextFieldWithText() {
             ListenUpTextField(
                 value = "https://listenup.example.com",
                 onValueChange = {},
-                label = "Server URL",
+                label = SAMPLE_LABEL,
                 supportingText = "Enter your ListenUp server address",
             )
         }
@@ -61,7 +61,7 @@ private fun PreviewListenUpTextFieldError() {
             ListenUpTextField(
                 value = "invalid-url",
                 onValueChange = {},
-                label = "Server URL",
+                label = SAMPLE_LABEL,
                 isError = true,
                 supportingText = "Invalid URL format. Use https://example.com",
                 keyboardOptions =

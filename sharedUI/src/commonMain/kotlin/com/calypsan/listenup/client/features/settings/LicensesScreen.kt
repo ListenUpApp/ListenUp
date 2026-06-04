@@ -1,5 +1,3 @@
-@file:Suppress("StringLiteralDuplication")
-
 package com.calypsan.listenup.client.features.settings
 
 import androidx.compose.foundation.layout.Column
@@ -29,6 +27,10 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.settings_listenup_uses_the_following_open
 import listenup.composeapp.generated.resources.settings_open_source_licenses
 
+private const val LICENSE_APACHE_2 = "Apache 2.0"
+private const val AUTHOR_GOOGLE = "Google"
+private const val AUTHOR_JETBRAINS = "JetBrains"
+
 /**
  * Data class representing an open source library.
  */
@@ -46,74 +48,74 @@ private val libraries =
     listOf(
         Library(
             name = "Jetpack Compose",
-            author = "Google",
-            license = "Apache 2.0",
+            author = AUTHOR_GOOGLE,
+            license = LICENSE_APACHE_2,
             url = "https://developer.android.com/jetpack/compose",
         ),
         Library(
             name = "Material 3",
-            author = "Google",
-            license = "Apache 2.0",
+            author = AUTHOR_GOOGLE,
+            license = LICENSE_APACHE_2,
             url = "https://m3.material.io",
         ),
         Library(
             name = "Kotlin",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://kotlinlang.org",
         ),
         Library(
             name = "Kotlin Coroutines",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://github.com/Kotlin/kotlinx.coroutines",
         ),
         Library(
             name = "Ktor Client",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://ktor.io",
         ),
         Library(
             name = "Koin",
             author = "InsertKoinIO",
-            license = "Apache 2.0",
+            license = LICENSE_APACHE_2,
             url = "https://insert-koin.io",
         ),
         Library(
             name = "Media3 / ExoPlayer",
-            author = "Google",
-            license = "Apache 2.0",
+            author = AUTHOR_GOOGLE,
+            license = LICENSE_APACHE_2,
             url = "https://developer.android.com/media/media3",
         ),
         Library(
             name = "Coil",
             author = "Coil Contributors",
-            license = "Apache 2.0",
+            license = LICENSE_APACHE_2,
             url = "https://coil-kt.github.io/coil",
         ),
         Library(
             name = "Navigation 3",
-            author = "Google",
-            license = "Apache 2.0",
+            author = AUTHOR_GOOGLE,
+            license = LICENSE_APACHE_2,
             url = "https://developer.android.com/guide/navigation",
         ),
         Library(
             name = "WorkManager",
-            author = "Google",
-            license = "Apache 2.0",
+            author = AUTHOR_GOOGLE,
+            license = LICENSE_APACHE_2,
             url = "https://developer.android.com/topic/libraries/architecture/workmanager",
         ),
         Library(
             name = "Kotlin Logging",
             author = "oshai",
-            license = "Apache 2.0",
+            license = LICENSE_APACHE_2,
             url = "https://github.com/oshai/kotlin-logging",
         ),
         Library(
             name = "Multiplatform Markdown Renderer",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://github.com/JetBrains/markdown",
         ),
         Library(
@@ -124,14 +126,14 @@ private val libraries =
         ),
         Library(
             name = "kotlinx-datetime",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://github.com/Kotlin/kotlinx-datetime",
         ),
         Library(
             name = "kotlinx-serialization",
-            author = "JetBrains",
-            license = "Apache 2.0",
+            author = AUTHOR_JETBRAINS,
+            license = LICENSE_APACHE_2,
             url = "https://github.com/Kotlin/kotlinx.serialization",
         ),
     )

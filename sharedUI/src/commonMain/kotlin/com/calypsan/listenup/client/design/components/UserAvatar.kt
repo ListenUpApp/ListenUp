@@ -1,4 +1,3 @@
-@file:Suppress("MagicNumber")
 @file:OptIn(ExperimentalUuidApi::class)
 
 package com.calypsan.listenup.client.design.components
@@ -205,6 +204,9 @@ private fun LoadingPlaceholder(modifier: Modifier) {
 // Internal utilities
 // ---------------------------------------------------------------------------
 
+/** Fully-opaque alpha channel OR-ed onto a parsed 24-bit RGB hex color. */
+private const val OPAQUE_ALPHA_MASK = 0xFF000000L
+
 /**
  * Parse a server-assigned hex color string (e.g. `"#6B7280"`) into a [Color].
  *
@@ -222,7 +224,7 @@ private fun parseAvatarHexColor(
 ): Color =
     try {
         if (hexColor.isBlank()) error("blank")
-        Color(hexColor.removePrefix("#").toLong(16) or 0xFF000000L)
+        Color(hexColor.removePrefix("#").toLong(16) or OPAQUE_ALPHA_MASK)
     } catch (_: Exception) {
         stableColorForUserId(userId)
     }

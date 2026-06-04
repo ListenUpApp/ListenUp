@@ -1,5 +1,3 @@
-@file:Suppress("MagicNumber") // Atom-format constants — readability beats named constants.
-
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.api.error.AudioMetadataError

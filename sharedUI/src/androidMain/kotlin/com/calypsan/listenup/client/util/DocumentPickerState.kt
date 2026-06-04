@@ -1,5 +1,3 @@
-@file:Suppress("NestedBlockDepth")
-
 package com.calypsan.listenup.client.util
 
 import android.content.Context
@@ -90,24 +88,9 @@ class DocumentPickerState(
         val contentResolver = context.contentResolver
 
         // Get file info from URI
-        var filename = "backup"
-        var size: Long? = null
-
-        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    filename = cursor.getString(nameIndex) ?: filename
-                }
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (sizeIndex >= 0) {
-                    val queriedSize = cursor.getLong(sizeIndex)
-                    if (queriedSize > 0) {
-                        size = queriedSize
-                    }
-                }
-            }
-        }
+        val metadata = queryDocumentMetadata(context, uri)
+        val filename = metadata.filename
+        val size = metadata.size
 
         // Get MIME type
         val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
@@ -135,7 +118,35 @@ class DocumentPickerState(
             uri = uri,
         )
     }
+
+    /** Display name and byte size resolved from a SAF document [uri]. */
+    private data class DocumentMetadata(
+        val filename: String,
+        val size: Long?,
+    )
+
+    private fun queryDocumentMetadata(
+        context: Context,
+        uri: Uri,
+    ): DocumentMetadata {
+        var filename = "backup"
+        var size: Long? = null
+
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use
+            cursor.columnValue(OpenableColumns.DISPLAY_NAME)?.let { filename = cursor.getString(it) ?: filename }
+            cursor.columnValue(OpenableColumns.SIZE)?.let { index ->
+                val queriedSize = cursor.getLong(index)
+                if (queriedSize > 0) size = queriedSize
+            }
+        }
+
+        return DocumentMetadata(filename = filename, size = size)
+    }
 }
+
+/** Returns the column index for [name], or `null` when the cursor lacks that column. */
+private fun android.database.Cursor.columnValue(name: String): Int? = getColumnIndex(name).takeIf { it >= 0 }
 
 /**
  * Remember a document picker state for selecting files from the device.
