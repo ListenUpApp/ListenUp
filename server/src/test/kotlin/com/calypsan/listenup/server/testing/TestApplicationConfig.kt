@@ -44,6 +44,9 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 "jwt.issuer" to "listenup",
                 "jwt.audience" to "listenup-client",
                 "registration.policy" to registrationPolicy,
+                // No test should bind multicast sockets or run an mDNS receive loop — pure overhead
+                // and a source of cross-test load that flakes the firehose timeout budget.
+                "mdns.enabled" to "false",
             ).apply {
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
                 if (seedProfile != null) put("seed.profile", seedProfile)

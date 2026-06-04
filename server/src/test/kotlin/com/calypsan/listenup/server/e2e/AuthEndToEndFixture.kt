@@ -78,6 +78,7 @@ internal class AuthEndToEndFixture private constructor(
                             "jwt.issuer" to "listenup",
                             "jwt.audience" to "listenup-client",
                             "registration.policy" to "OPEN",
+                            "mdns.enabled" to "false",
                         )
                 }
 
