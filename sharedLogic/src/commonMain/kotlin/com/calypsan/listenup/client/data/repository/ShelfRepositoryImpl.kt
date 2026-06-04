@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.ShelfDao
@@ -13,17 +12,13 @@ import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
-import com.calypsan.listenup.client.domain.model.ShelfOwner
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
-
-private const val DEFAULT_AVATAR_COLOR = "#6B7280"
 
 private val logger = KotlinLogging.logger {}
 
@@ -37,13 +32,12 @@ private val logger = KotlinLogging.logger {}
  * from the shelf's member books present in the local `books` mirror; owner fields are filled
  * from the current user (the local mirror holds only the caller's own shelves).
  *
- * Discovery (`observeDiscoverShelves`, `countDiscoverShelves`, `fetchAndCacheDiscoverShelves`)
- * is **not** own-data — other users' shelves never enter the substrate. It is served on demand
- * by [com.calypsan.listenup.api.ShelfService.discoverShelves] and held in an in-memory cache so
- * the existing observe/count interface keeps working.
+ * Discovery ([discoverShelves]) is **not** own-data — other users' shelves never enter the
+ * substrate. It is served on demand by [com.calypsan.listenup.api.ShelfService.discoverShelves].
  *
- * Mutations call [com.calypsan.listenup.api.ShelfService] over RPC. No optimistic Room writes —
- * the SSE echo from the server is the single write path back into Room (the Collections pattern).
+ * Mutations call [com.calypsan.listenup.api.ShelfService] over RPC and return the typed
+ * [AppResult] directly. No optimistic Room writes — the SSE echo from the server is the single
+ * write path back into Room (the Collections pattern).
  *
  * @property dao Substrate shelf DAO (own-shelf reads + derived cover/duration queries).
  * @property userDao Current-user lookup for owner fields on own shelves.
@@ -54,9 +48,6 @@ class ShelfRepositoryImpl(
     private val userDao: UserDao,
     private val rpcFactory: ShelfRpcFactory,
 ) : ShelfRepository {
-    /** In-memory cache of discovered (other-user) shelves, refreshed via the discover RPC. */
-    private val discoverShelves = MutableStateFlow<List<Shelf>>(emptyList())
-
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
@@ -76,22 +67,11 @@ class ShelfRepositoryImpl(
             totalDurationMs = dao.totalDurationMsFor(id),
         )
 
-    // ── Discovery (on-demand RPC + in-memory cache) ───────────────────────────────
+    // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
-    override fun observeDiscoverShelves(currentUserId: String): Flow<List<Shelf>> = discoverShelves
-
-    override suspend fun countDiscoverShelves(currentUserId: String): Int = discoverShelves.value.size
-
-    override suspend fun fetchAndCacheDiscoverShelves(): AppResult<Int> =
+    override suspend fun discoverShelves(): AppResult<List<Shelf>> =
         rpcCall { rpcFactory.get().discoverShelves() }
-            .map { discovered ->
-                val shelves = discovered.map { it.toDomain() }
-                discoverShelves.value = shelves
-                shelves.size
-            }
-
-    /** No-op for the substrate path: own shelves hydrate via the sync engine, not a manual pull. */
-    override suspend fun fetchAndCacheMyShelves(): AppResult<Unit> = AppResult.Success(Unit)
+            .map { discovered -> discovered.map { it.toDomain() } }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
@@ -103,46 +83,59 @@ class ShelfRepositoryImpl(
     override suspend fun createShelf(
         name: String,
         description: String?,
-    ): Shelf =
-        rpcCall { rpcFactory.get().createShelf(name = name, description = description ?: "") }
-            .map { it.toDomain() }
-            .getOrThrow()
+        isPrivate: Boolean,
+    ): AppResult<Shelf> =
+        rpcCall {
+            rpcFactory.get().createShelf(
+                name = name,
+                description = description ?: "",
+                isPrivate = isPrivate,
+            )
+        }.map { it.toDomain() }
 
     override suspend fun updateShelf(
         shelfId: String,
         name: String,
         description: String?,
-    ): Shelf {
-        val existing = dao.getById(shelfId)
-        return rpcCall {
+        isPrivate: Boolean,
+    ): AppResult<Shelf> =
+        rpcCall {
             rpcFactory.get().updateShelf(
                 shelfId = ShelfId(shelfId),
                 name = name,
                 description = description ?: "",
-                isPrivate = existing?.isPrivate ?: false,
+                isPrivate = isPrivate,
             )
-        }.map { it.toDomain() }.getOrThrow()
-    }
+        }.map { it.toDomain() }
 
-    override suspend fun deleteShelf(shelfId: String) {
-        rpcCall { rpcFactory.get().deleteShelf(ShelfId(shelfId)) }.getOrThrow()
-    }
+    override suspend fun deleteShelf(shelfId: String): AppResult<Unit> =
+        rpcCall { rpcFactory.get().deleteShelf(ShelfId(shelfId)) }
 
     override suspend fun addBooksToShelf(
         shelfId: String,
         bookIds: List<String>,
-    ) {
+    ): AppResult<Unit> {
+        // The RPC surface adds one book at a time (idempotent); dispatch each and
+        // fail fast on the first error. SSE echoes update Room — no optimistic write.
         bookIds.forEach { bookId ->
-            rpcCall { rpcFactory.get().addBookToShelf(ShelfId(shelfId), BookId(bookId)) }.getOrThrow()
+            val result = rpcCall { rpcFactory.get().addBookToShelf(ShelfId(shelfId), BookId(bookId)) }
+            if (result is AppResult.Failure) return result
         }
+        return AppResult.Success(Unit)
     }
 
     override suspend fun removeBookFromShelf(
         shelfId: String,
         bookId: String,
-    ) {
-        rpcCall { rpcFactory.get().removeBookFromShelf(ShelfId(shelfId), BookId(bookId)) }.getOrThrow()
-    }
+    ): AppResult<Unit> = rpcCall { rpcFactory.get().removeBookFromShelf(ShelfId(shelfId), BookId(bookId)) }
+
+    override suspend fun reorderBooks(
+        shelfId: String,
+        orderedBookIds: List<String>,
+    ): AppResult<Unit> =
+        rpcCall {
+            rpcFactory.get().reorderShelfBooks(ShelfId(shelfId), orderedBookIds.map { BookId(it) })
+        }
 
     // ── Mapping ───────────────────────────────────────────────────────────────────
 
@@ -168,9 +161,9 @@ class ShelfRepositoryImpl(
             id = id,
             name = name,
             description = description.ifEmpty { null },
+            isPrivate = isPrivate,
             ownerId = currentUser?.id?.value ?: "",
             ownerDisplayName = currentUser?.displayName ?: "",
-            ownerAvatarColor = currentUser?.avatarColor ?: DEFAULT_AVATAR_COLOR,
             bookCount = bookCountOverride ?: coverPaths.size,
             totalDurationSeconds = totalDurationMs / 1000,
             createdAtMs = createdAt,
@@ -180,16 +173,13 @@ class ShelfRepositoryImpl(
     }
 
     /**
-     * Run an RPC call, converting the contract-layer [WireAppResult] into the client
-     * [AppResult]. Re-throws [CancellationException]; all other throwables become
-     * [AppResult.Failure] via [ErrorMapper].
+     * Run an RPC call and surface the typed [AppResult] directly. Re-throws
+     * [CancellationException]; any other throwable becomes [AppResult.Failure]
+     * via [ErrorMapper].
      */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
+    private suspend fun <T> rpcCall(block: suspend () -> AppResult<T>): AppResult<T> =
         try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
+            block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -198,26 +188,14 @@ class ShelfRepositoryImpl(
         }
 }
 
-/** Throw the typed error on failure; used to satisfy the legacy non-result mutation signatures. */
-private fun <T> AppResult<T>.getOrThrow(): T =
-    when (this) {
-        is AppResult.Success -> data
-        is AppResult.Failure -> throw ShelfOperationException(error.message)
-    }
-
-/** Internal carrier so the legacy throw-based mutation signatures can surface a typed failure's message. */
-private class ShelfOperationException(
-    message: String,
-) : Exception(message)
-
 private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
     Shelf(
         id = id.value,
         name = name,
         description = description.ifEmpty { null },
+        isPrivate = isPrivate,
         ownerId = "",
         ownerDisplayName = "",
-        ownerAvatarColor = DEFAULT_AVATAR_COLOR,
         bookCount = bookCount,
         totalDurationSeconds = 0,
         createdAtMs = updatedAt,
@@ -229,9 +207,9 @@ private fun DiscoveredShelf.toDomain(): Shelf =
         id = shelf.id.value,
         name = shelf.name,
         description = shelf.description.ifEmpty { null },
+        isPrivate = shelf.isPrivate,
         ownerId = ownerId,
         ownerDisplayName = ownerDisplayName,
-        ownerAvatarColor = DEFAULT_AVATAR_COLOR,
         bookCount = shelf.bookCount,
         totalDurationSeconds = 0,
         createdAtMs = shelf.updatedAt,
@@ -243,12 +221,8 @@ private fun ShelfDetailDto.toDomain(): ShelfDetail =
         id = id.value,
         name = name,
         description = description.ifEmpty { null },
-        owner =
-            ShelfOwner(
-                id = "",
-                displayName = "",
-                avatarColor = DEFAULT_AVATAR_COLOR,
-            ),
+        isPrivate = isPrivate,
+        isOwner = isOwner,
         bookCount = bookCount,
         totalDurationSeconds = totalDurationMs / 1000,
         books =
@@ -258,7 +232,6 @@ private fun ShelfDetailDto.toDomain(): ShelfDetail =
                     title = book.title,
                     authorNames = book.authors,
                     coverPath = null,
-                    durationSeconds = 0,
                 )
             },
     )

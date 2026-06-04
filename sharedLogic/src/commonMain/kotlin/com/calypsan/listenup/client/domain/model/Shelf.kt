@@ -7,24 +7,31 @@ package com.calypsan.listenup.client.domain.model
  * and social discovery. Each user can create multiple shelves to organize
  * their reading journey.
  *
+ * Owner identity (`ownerId`, `ownerDisplayName`) is populated from the current
+ * user for the caller's own shelves and from the server for discovered shelves.
+ * `coverPaths` and `totalDurationSeconds` are derived from the shelf's member
+ * books in the local Room mirror — discovered (other-user) shelves carry empty
+ * covers and zero duration because their member books never enter the mirror.
+ *
  * @property id Unique identifier
  * @property name Display name (e.g., "To Read", "Favorites")
  * @property description Optional description
+ * @property isPrivate `true` if only the owner can see this shelf
  * @property ownerId User who created this shelf
  * @property ownerDisplayName Owner's display name for social context
- * @property ownerAvatarColor Owner's avatar color for UI display
  * @property bookCount Number of books in this shelf
  * @property totalDurationSeconds Total duration of all books in seconds
  * @property createdAtMs Creation timestamp
  * @property updatedAtMs Last update timestamp
+ * @property coverPaths Cover hashes for the shelf's first few member books, in sort order
  */
 data class Shelf(
     val id: String,
     val name: String,
     val description: String?,
+    val isPrivate: Boolean,
     val ownerId: String,
     val ownerDisplayName: String,
-    val ownerAvatarColor: String,
     val bookCount: Int,
     val totalDurationSeconds: Long,
     val createdAtMs: Long,

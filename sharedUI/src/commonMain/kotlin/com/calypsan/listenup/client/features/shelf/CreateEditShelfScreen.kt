@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -36,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -79,6 +83,7 @@ fun CreateEditShelfScreen(
     // shelfId discards stale text and re-seeds from the next Loaded emission.
     var name by rememberSaveable(shelfId) { mutableStateOf("") }
     var description by rememberSaveable(shelfId) { mutableStateOf("") }
+    var isPrivate by rememberSaveable(shelfId) { mutableStateOf(false) }
     var seeded by rememberSaveable(shelfId) { mutableStateOf(false) }
 
     LaunchedEffect(shelfId) {
@@ -90,6 +95,7 @@ fun CreateEditShelfScreen(
         if (current is CreateEditShelfUiState.Loaded && !seeded) {
             name = current.name
             description = current.description
+            isPrivate = current.isPrivate
             seeded = true
         }
     }
@@ -135,12 +141,14 @@ fun CreateEditShelfScreen(
             CreateEditShelfFormBody(
                 name = name,
                 description = description,
+                isPrivate = isPrivate,
                 isEditing = isEditing,
                 isSaving = isSaving,
                 canSave = name.isNotBlank() && !isSaving,
                 onNameChange = { name = it },
                 onDescriptionChange = { description = it },
-                onSave = { viewModel.save(name, description) },
+                onPrivateChange = { isPrivate = it },
+                onSave = { viewModel.save(name, description, isPrivate) },
                 paddingValues = paddingValues,
             )
         }
@@ -196,11 +204,13 @@ private fun CreateEditShelfTopBar(
 private fun CreateEditShelfFormBody(
     name: String,
     description: String,
+    isPrivate: Boolean,
     isEditing: Boolean,
     isSaving: Boolean,
     canSave: Boolean,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onPrivateChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
 ) {
@@ -231,6 +241,30 @@ private fun CreateEditShelfFormBody(
             maxLines = 5,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Private shelf",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = "Only you can see this shelf.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = isPrivate,
+                onCheckedChange = onPrivateChange,
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

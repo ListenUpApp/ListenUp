@@ -41,7 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.util.parseHexColor
+import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
@@ -262,10 +262,10 @@ private fun ShelfRow(
     onClick: () -> Unit,
     enabled: Boolean = true,
 ) {
-    // Parse the owner's avatar color for the shelf icon background
+    // Derive a stable icon color from the owner id (no avatar color on the contract).
     val iconColor =
-        remember(shelf.ownerAvatarColor) {
-            parseHexColor(shelf.ownerAvatarColor)
+        remember(shelf.ownerId) {
+            stableColorForId(shelf.ownerId)
         }
 
     Surface(

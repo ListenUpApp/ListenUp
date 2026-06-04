@@ -101,7 +101,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
         "/data/repository/SeriesRepositoryImpl.kt",
         "/data/repository/SessionRepositoryImpl.kt",
         "/data/repository/SettingsRepositoryImpl.kt",
-        "/data/repository/ShelfRepositoryImpl.kt",
     )
 
 private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.containsDisallowedThrow(): Boolean {

@@ -3,18 +3,16 @@ package com.calypsan.listenup.client.presentation.shelf
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ShelfDetail
-import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
+import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -30,7 +28,7 @@ private val logger = KotlinLogging.logger {}
 class ShelfDetailViewModel(
     private val loadShelfDetailUseCase: LoadShelfDetailUseCase,
     private val removeBookFromShelfUseCase: RemoveBookFromShelfUseCase,
-    private val userRepository: UserRepository,
+    private val reorderShelfBooksUseCase: ReorderShelfBooksUseCase,
 ) : ViewModel() {
     private val _state = MutableStateFlow<ShelfDetailUiState>(ShelfDetailUiState.Idle)
     val state: StateFlow<ShelfDetailUiState> = _state.asStateFlow()
@@ -47,13 +45,6 @@ class ShelfDetailViewModel(
         viewModelScope.launch {
             _state.value = ShelfDetailUiState.Loading
 
-            val currentUserId =
-                userRepository
-                    .observeCurrentUser()
-                    .first()
-                    ?.id
-                    ?.value
-
             _state.value =
                 when (val result = loadShelfDetailUseCase(shelfId)) {
                     is AppResult.Success -> {
@@ -61,7 +52,7 @@ class ShelfDetailViewModel(
                         logger.debug { "Loaded shelf detail: ${shelfDetail.name}" }
                         ShelfDetailUiState.Ready(
                             detail = shelfDetail,
-                            isOwner = currentUserId == shelfDetail.owner.id,
+                            isOwner = shelfDetail.isOwner,
                         )
                     }
 
@@ -70,6 +61,29 @@ class ShelfDetailViewModel(
                         ShelfDetailUiState.Error(result.message)
                     }
                 }
+        }
+    }
+
+    /**
+     * Reorder the shelf's books to [orderedBookIds] and reload on success.
+     * Owner-only — the screen gates this on [ShelfDetailUiState.Ready.isOwner].
+     */
+    fun reorderBooks(orderedBookIds: List<String>) {
+        val shelfId = currentShelfId ?: return
+
+        viewModelScope.launch {
+            when (val result = reorderShelfBooksUseCase(shelfId, orderedBookIds)) {
+                is AppResult.Success -> {
+                    logger.info { "Reordered books in shelf $shelfId" }
+                    currentShelfId = null // Force reload
+                    loadShelf(shelfId)
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to reorder shelf books: ${result.message}" }
+                    _snackbarMessages.trySend(result.message)
+                }
+            }
         }
     }
 

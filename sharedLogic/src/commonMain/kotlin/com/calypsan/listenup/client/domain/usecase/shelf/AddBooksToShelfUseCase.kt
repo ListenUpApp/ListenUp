@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.domain.usecase.shelf
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
+import com.calypsan.listenup.api.result.validationError
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import com.calypsan.listenup.api.result.validationError
 
 private val logger = KotlinLogging.logger {}
 
@@ -42,8 +41,6 @@ open class AddBooksToShelfUseCase(
 
         logger.info { "Adding ${bookIds.size} books to shelf $shelfId" }
 
-        return suspendRunCatching {
-            shelfRepository.addBooksToShelf(shelfId, bookIds)
-        }
+        return shelfRepository.addBooksToShelf(shelfId, bookIds)
     }
 }

@@ -2,15 +2,17 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf as ShelfDto
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
@@ -18,10 +20,12 @@ import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -31,8 +35,10 @@ import kotlinx.coroutines.test.runTest
  * Unit tests for [ShelfRepositoryImpl] — substrate-Room reads + RPC-dispatched writes.
  *
  * Observation maps Room projections to the domain model (owner fields from the current
- * user, JOIN-derived `bookCount`); writes dispatch to a faked [ShelfService]. No optimistic
- * Room writes — Room updates arrive via the sync handler on SSE. Cancellation is re-raised.
+ * user, JOIN-derived `bookCount`, surfaced `isPrivate`); writes dispatch to a faked
+ * [ShelfService] and surface the typed [AppResult] directly (no throwing bridge). No
+ * optimistic Room writes — Room updates arrive via the sync handler on SSE. Cancellation
+ * is re-raised.
  */
 class ShelfRepositoryImplTest :
     FunSpec({
@@ -61,11 +67,12 @@ class ShelfRepositoryImplTest :
         fun shelfEntity(
             id: String,
             name: String,
+            isPrivate: Boolean = false,
         ) = ShelfEntity(
             id = id,
             name = name,
             description = "desc",
-            isPrivate = false,
+            isPrivate = isPrivate,
             revision = 1L,
             deletedAt = null,
             updatedAt = 100L,
@@ -75,21 +82,24 @@ class ShelfRepositoryImplTest :
         fun summary(
             id: String,
             name: String,
+            isPrivate: Boolean = false,
         ) = ShelfDto(
             id = ShelfId(id),
             name = name,
             description = "",
-            isPrivate = false,
+            isPrivate = isPrivate,
             bookCount = 3,
             updatedAt = 100L,
         )
 
-        test("observeMyShelves maps Room rows to domain with JOIN-derived bookCount and owner") {
+        test("observeMyShelves maps Room rows to domain with bookCount, owner, and isPrivate") {
             runTest {
                 val dao =
                     mock<ShelfDao> {
                         every { observeMyShelvesWithBookCount() } returns
-                            flowOf(listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha"), bookCount = 5)))
+                            flowOf(
+                                listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha", isPrivate = true), bookCount = 5)),
+                            )
                         everySuspend { coverHashesFor("s1") } returns listOf("hash1")
                         everySuspend { totalDurationMsFor("s1") } returns 7_200_000L
                     }
@@ -97,45 +107,75 @@ class ShelfRepositoryImplTest :
                 result.map { it.id } shouldContainExactly listOf("s1")
                 val shelf = result.first()
                 shelf.bookCount shouldBe 5
+                shelf.isPrivate shouldBe true
                 shelf.ownerId shouldBe "owner1"
                 shelf.ownerDisplayName shouldBe "Owner"
-                shelf.ownerAvatarColor shouldBe "#112233"
                 shelf.coverPaths shouldContainExactly listOf("hash1")
                 shelf.totalDurationSeconds shouldBe 7_200L
             }
         }
 
-        test("createShelf dispatches to the service and maps the summary") {
+        test("createShelf dispatches with the privacy flag and maps the summary") {
             runTest {
                 val service =
                     mock<ShelfService> {
-                        everySuspend { createShelf("New", "", false) } returns
-                            WireAppResult.Success(summary("s-new", "New"))
+                        everySuspend { createShelf("New", "", true) } returns
+                            AppResult.Success(summary("s-new", "New", isPrivate = true))
                     }
-                val shelf = repo(service = service).createShelf("New", null)
+                val result = repo(service = service).createShelf("New", null, isPrivate = true)
+                val shelf = (result as AppResult.Success).data
                 shelf.id shouldBe "s-new"
                 shelf.name shouldBe "New"
+                shelf.isPrivate shouldBe true
             }
         }
 
-        test("createShelf throws when the service returns a failure (no optimistic write)") {
+        test("createShelf surfaces the typed failure (no optimistic write, no throw)") {
             runTest {
                 val service =
                     mock<ShelfService> {
                         everySuspend { createShelf("Dup", "", false) } returns
-                            WireAppResult.Failure(ValidationError(message = "duplicate"))
+                            AppResult.Failure(ValidationError(message = "duplicate"))
                     }
-                shouldThrow<Exception> { repo(service = service).createShelf("Dup", null) }
+                val result = repo(service = service).createShelf("Dup", null, isPrivate = false)
+                result.shouldBeInstanceOf<AppResult.Failure>()
             }
         }
 
-        test("deleteShelf dispatches to the service") {
+        test("updateShelf dispatches name, description, and privacy flag") {
             runTest {
                 val service =
                     mock<ShelfService> {
-                        everySuspend { deleteShelf(ShelfId("s1")) } returns WireAppResult.Success(Unit)
+                        everySuspend {
+                            updateShelf(ShelfId("s1"), "Renamed", "", true)
+                        } returns AppResult.Success(summary("s1", "Renamed", isPrivate = true))
                     }
-                repo(service = service).deleteShelf("s1")
+                repo(service = service).updateShelf("s1", "Renamed", null, isPrivate = true)
+                verifySuspend { service.updateShelf(ShelfId("s1"), "Renamed", "", true) }
+            }
+        }
+
+        test("deleteShelf dispatches to the service and returns success") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { deleteShelf(ShelfId("s1")) } returns AppResult.Success(Unit)
+                    }
+                val result = repo(service = service).deleteShelf("s1")
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("addBooksToShelf dispatches one RPC per book and fails fast") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { addBookToShelf(ShelfId("s1"), BookId("b1")) } returns AppResult.Success(Unit)
+                        everySuspend { addBookToShelf(ShelfId("s1"), BookId("b2")) } returns
+                            AppResult.Failure(ValidationError(message = "nope"))
+                    }
+                val result = repo(service = service).addBooksToShelf("s1", listOf("b1", "b2"))
+                result.shouldBeInstanceOf<AppResult.Failure>()
             }
         }
 
@@ -143,16 +183,49 @@ class ShelfRepositoryImplTest :
             runTest {
                 val service =
                     mock<ShelfService> {
-                        everySuspend {
-                            removeBookFromShelf(
-                                ShelfId("s1"),
-                                com.calypsan.listenup.core
-                                    .BookId("b1"),
-                            )
-                        } returns
-                            WireAppResult.Success(Unit)
+                        everySuspend { removeBookFromShelf(ShelfId("s1"), BookId("b1")) } returns AppResult.Success(Unit)
                     }
-                repo(service = service).removeBookFromShelf("s1", "b1")
+                val result = repo(service = service).removeBookFromShelf("s1", "b1")
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("reorderBooks maps ids and dispatches the new order") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend {
+                            reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
+                        } returns AppResult.Success(Unit)
+                    }
+                repo(service = service).reorderBooks("s1", listOf("b2", "b1"))
+                verifySuspend { service.reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1"))) }
+            }
+        }
+
+        test("discoverShelves maps owner identity and access-filtered counts") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { discoverShelves() } returns
+                            AppResult.Success(
+                                listOf(
+                                    DiscoveredShelf(
+                                        shelf = summary("s9", "Sam's picks"),
+                                        ownerId = "u2",
+                                        ownerDisplayName = "Sam",
+                                    ),
+                                ),
+                            )
+                    }
+                val result = repo(service = service).discoverShelves()
+                val shelves = (result as AppResult.Success).data
+                shelves shouldContainExactly shelves // size assertion below
+                val shelf = shelves.first()
+                shelf.id shouldBe "s9"
+                shelf.ownerId shouldBe "u2"
+                shelf.ownerDisplayName shouldBe "Sam"
+                shelf.bookCount shouldBe 3
             }
         }
 

@@ -389,7 +389,6 @@ val discoverPresentationModule =
                 userRepository = get(),
                 shelfRepository = get(),
                 syncRepository = get(),
-                errorBus = get(),
             )
         }
         // HomeStatsViewModel for home screen stats section (observes local stats)
@@ -424,7 +423,7 @@ val tagShelfPresentationModule =
             com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel(
                 loadShelfDetailUseCase = get(),
                 removeBookFromShelfUseCase = get(),
-                userRepository = get(),
+                reorderShelfBooksUseCase = get(),
             )
         }
         factory {

@@ -49,8 +49,8 @@ import com.calypsan.listenup.core.error.ErrorBus
  * - `Error` emissions when the upstream flow throws
  * - `discoverBooksState` initial random load via the refresh trigger and
  *   re-query on `refresh()`
- * - `fetchInitialShelvesIfNeeded` gate: fetches when Room is empty, skips when
- *   populated
+ * - discover shelves: on-demand RPC load on init, grouped-by-owner Ready state,
+ *   and Error state when the RPC fails
  *
  * Uses Mokkery for mocking all four repositories plus `AuthSession`.
  */
@@ -69,7 +69,6 @@ class DiscoverViewModelTest {
         val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
         val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
         val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
-        val discoverShelvesFlow = MutableStateFlow<List<Shelf>>(emptyList())
 
         fun build(): DiscoverViewModel =
             DiscoverViewModel(
@@ -83,7 +82,7 @@ class DiscoverViewModelTest {
 
     private fun createFixture(
         authState: AuthState = AuthState.Authenticated(userId = UserId(USER_ID), sessionId = SessionId(SESSION_ID)),
-        existingDiscoverShelfCount: Int = 1,
+        discoveredShelves: List<Shelf> = emptyList(),
         randomBooks: List<DiscoveryBook> = emptyList(),
     ): TestFixture {
         val fixture = TestFixture()
@@ -93,9 +92,7 @@ class DiscoverViewModelTest {
         every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns fixture.activeSessionsFlow
         every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns fixture.recentlyAddedFlow
         every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
-        every { fixture.shelfRepository.observeDiscoverShelves(any()) } returns fixture.discoverShelvesFlow
-        everySuspend { fixture.shelfRepository.countDiscoverShelves(any()) } returns existingDiscoverShelfCount
-        everySuspend { fixture.shelfRepository.fetchAndCacheDiscoverShelves() } returns AppResult.Success(0)
+        everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
 
         return fixture
     }
@@ -161,9 +158,9 @@ class DiscoverViewModelTest {
                 id = id,
                 name = "A Shelf",
                 description = null,
+                isPrivate = false,
                 ownerId = ownerId,
                 ownerDisplayName = ownerDisplayName,
-                ownerAvatarColor = "#00FF00",
                 bookCount = 0,
                 totalDurationSeconds = 0L,
                 createdAtMs = 0L,
@@ -288,12 +285,14 @@ class DiscoverViewModelTest {
     fun `discoverShelvesState becomes Ready grouped by owner`() =
         runTest {
             // Given - two shelves from the same owner, one from another owner
-            val fixture = createFixture()
-            fixture.discoverShelvesFlow.value =
-                listOf(
-                    createShelf(id = "s1", ownerId = "alice", ownerDisplayName = "Alice"),
-                    createShelf(id = "s2", ownerId = "alice", ownerDisplayName = "Alice"),
-                    createShelf(id = "s3", ownerId = "bob", ownerDisplayName = "Bob"),
+            val fixture =
+                createFixture(
+                    discoveredShelves =
+                        listOf(
+                            createShelf(id = "s1", ownerId = "alice", ownerDisplayName = "Alice"),
+                            createShelf(id = "s2", ownerId = "alice", ownerDisplayName = "Alice"),
+                            createShelf(id = "s3", ownerId = "bob", ownerDisplayName = "Bob"),
+                        ),
                 )
 
             // When
@@ -306,6 +305,26 @@ class DiscoverViewModelTest {
             assertEquals(3, ready.totalShelfCount)
             val alice = ready.users.single { it.user.id == "alice" }
             assertEquals(2, alice.shelves.size)
+        }
+
+    @Test
+    fun `discoverShelvesState becomes Error when the discover RPC fails`() =
+        runTest {
+            // Given - the discover RPC returns a failure
+            val fixture = createFixture()
+            everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                AppResult.Failure(
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "boom"),
+                )
+
+            // When
+            val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
+            advanceUntilIdle()
+
+            // Then
+            val err = assertIs<DiscoverShelvesUiState.Error>(viewModel.discoverShelvesState.value)
+            assertEquals("Failed to load discover shelves", err.message)
         }
 
     // ========== Discover Books Tests ==========
@@ -348,27 +367,27 @@ class DiscoverViewModelTest {
             }
         }
 
-    // ========== Initial Fetch Gate Tests ==========
+    // ========== Discover RPC Load Tests ==========
 
     @Test
-    fun `fetchInitialShelvesIfNeeded fetches when count is zero`() =
+    fun `discover shelves are loaded on init when authenticated`() =
         runTest {
-            // Given - Room is empty
-            val fixture = createFixture(existingDiscoverShelfCount = 0)
+            // Given
+            val fixture = createFixture()
 
             // When - init runs
             fixture.build()
             advanceUntilIdle()
 
             // Then
-            verifySuspend { fixture.shelfRepository.fetchAndCacheDiscoverShelves() }
+            verifySuspend { fixture.shelfRepository.discoverShelves() }
         }
 
     @Test
-    fun `fetchInitialShelvesIfNeeded skips when count is positive`() =
+    fun `discover shelves are not loaded when unauthenticated`() =
         runTest {
-            // Given - Room already has discover shelves
-            val fixture = createFixture(existingDiscoverShelfCount = 5)
+            // Given - unauthenticated
+            val fixture = createFixture(authState = AuthState.NeedsLogin())
 
             // When
             fixture.build()
@@ -376,7 +395,28 @@ class DiscoverViewModelTest {
 
             // Then
             verifySuspend(dev.mokkery.verify.VerifyMode.not) {
-                fixture.shelfRepository.fetchAndCacheDiscoverShelves()
+                fixture.shelfRepository.discoverShelves()
+            }
+        }
+
+    @Test
+    fun `refresh re-fetches discover shelves`() =
+        runTest {
+            // Given
+            val fixture = createFixture()
+            val viewModel = fixture.build()
+            advanceUntilIdle()
+
+            // When
+            viewModel.refresh()
+            advanceUntilIdle()
+
+            // Then - once on init, once on refresh
+            verifySuspend(
+                dev.mokkery.verify.VerifyMode
+                    .atLeast(2),
+            ) {
+                fixture.shelfRepository.discoverShelves()
             }
         }
 }

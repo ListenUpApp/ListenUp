@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.util.parseHexColor
+import com.calypsan.listenup.client.design.util.stableColorForId
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.client.domain.model.ShelfBook
@@ -201,8 +200,8 @@ private fun ShelfDetailContent(
         // Hero section with shelf icon and stats
         item {
             ShelfHeroSection(
-                avatarColor = detail.owner.avatarColor,
-                ownerDisplayName = detail.owner.displayName,
+                shelfId = detail.id,
+                isPrivate = detail.isPrivate,
                 bookCount = detail.bookCount,
                 totalDuration = formatDuration(detail.totalDurationSeconds),
             )
@@ -243,7 +242,6 @@ private fun ShelfDetailContent(
             ShelfBookItem(
                 book = book,
                 onClick = { onBookClick(book.id) },
-                formatDuration = formatDuration,
             )
         }
     }
@@ -333,16 +331,16 @@ private fun LazyListScope.emptyBooksSection(isOwner: Boolean) {
 }
 
 /**
- * Hero section with shelf icon, owner info, and aggregate stats.
+ * Hero section with shelf icon, privacy indicator, and aggregate stats.
  */
 @Composable
 private fun ShelfHeroSection(
-    avatarColor: String,
-    ownerDisplayName: String,
+    shelfId: String,
+    isPrivate: Boolean,
     bookCount: Int,
     totalDuration: String,
 ) {
-    val color = remember(avatarColor) { parseHexColor(avatarColor) }
+    val color = remember(shelfId) { stableColorForId(shelfId) }
 
     Column(
         modifier =
@@ -368,32 +366,24 @@ private fun ShelfHeroSection(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Owner info
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(color),
-                contentAlignment = Alignment.Center,
+        if (isPrivate) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
                 Text(
-                    text = ownerDisplayName.firstOrNull()?.uppercaseChar()?.toString() ?: "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    text = "Private",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                text = ownerDisplayName,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -460,7 +450,6 @@ private fun StatItem(
 private fun ShelfBookItem(
     book: ShelfBook,
     onClick: () -> Unit,
-    formatDuration: (Long) -> String,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -528,15 +517,6 @@ private fun ShelfBookItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Duration
-                Text(
-                    text = formatDuration(book.durationSeconds),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

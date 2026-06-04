@@ -160,6 +160,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
+import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
@@ -471,6 +472,11 @@ val useCaseModule =
         }
         factory {
             AddBooksToShelfUseCase(
+                shelfRepository = get(),
+            )
+        }
+        factory {
+            ReorderShelfBooksUseCase(
                 shelfRepository = get(),
             )
         }
