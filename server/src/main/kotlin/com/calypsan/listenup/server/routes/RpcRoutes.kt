@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.InviteServicePublic
@@ -30,6 +31,7 @@ import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
+import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -112,6 +114,7 @@ fun Route.rpcRoutes(
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
     backupService: BackupService,
+    importService: ImportService,
 ) {
     publicRpc(authService, instanceService, scannerService, inviteService)
     authenticate(JWT_PROVIDER) {
@@ -132,6 +135,7 @@ fun Route.rpcRoutes(
             inviteService,
             profileService,
             backupService,
+            importService,
         )
     }
 }
@@ -179,6 +183,7 @@ private fun Route.authedRpc(
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
     backupService: BackupService,
+    importService: ImportService,
 ) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
@@ -202,5 +207,6 @@ private fun Route.authedRpc(
         registerScoped<InviteService> { guard(inviteService.copyWith(it) as InviteService) }
         registerScoped<ProfileService> { guard((profileService as ProfileServiceImpl).copyWith(it)) }
         registerScoped<BackupService> { guard((backupService as BackupServiceImpl).copyWith(it)) }
+        registerScoped<ImportService> { guard((importService as ImportServiceImpl).copyWith(it)) }
     }
 }

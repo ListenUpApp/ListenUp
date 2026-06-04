@@ -33,7 +33,7 @@ import kotlin.io.path.exists
  * matching the whole library would be wasteful and pointless, since an item with no listening history
  * has nothing to import.
  */
-internal class ImportAnalyzer(
+class ImportAnalyzer internal constructor(
     private val reader: AbsBackupReader,
     private val store: ImportStore,
     private val paths: ImportPaths,

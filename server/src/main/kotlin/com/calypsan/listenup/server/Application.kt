@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -302,6 +303,7 @@ fun Application.module() {
     val collectionService by inject<CollectionService>()
     val profileService by inject<ProfileService>()
     val backupService by inject<BackupService>()
+    val importService by inject<ImportService>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
@@ -335,6 +337,7 @@ fun Application.module() {
             inviteService,
             profileService,
             backupService,
+            importService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()

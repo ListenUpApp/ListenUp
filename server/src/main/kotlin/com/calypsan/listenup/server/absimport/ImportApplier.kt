@@ -31,7 +31,7 @@ import kotlinx.coroutines.withContext
  * Unmapped users and unresolved items are **skipped, not errored** — a partial library overlap is
  * the normal case, not a failure. They are counted in [ImportResult.skippedCount].
  */
-internal class ImportApplier(
+class ImportApplier internal constructor(
     private val reader: AbsBackupReader,
     private val store: ImportStore,
     private val paths: ImportPaths,
