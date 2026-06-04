@@ -65,6 +65,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
+    val db: Database,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
     private val playbackPositionRepoOrNull: PlaybackPositionRepository?,
     private val listeningEventRepoOrNull: ListeningEventRepository?,
@@ -256,6 +257,7 @@ internal fun withTestApplication(
         SyncTestScope(
             client = jsonClient,
             tagRepo = tagRepo,
+            db = db,
             userScopedRepoOrNull = userScopedRepo,
             playbackPositionRepoOrNull = playbackPositionRepo,
             listeningEventRepoOrNull = listeningEventRepo,
