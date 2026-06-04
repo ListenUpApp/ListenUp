@@ -57,4 +57,31 @@ sealed interface ImportError : AppError {
         override val code: String = "IMPORT_APPLY_FAILED"
         override val isRetryable: Boolean = true
     }
+
+    /** The requested import job does not exist or has already been deleted. */
+    @Serializable
+    @SerialName("ImportError.ImportNotFound")
+    data class ImportNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ImportError {
+        override val message: String = "That import no longer exists."
+        override val code: String = "IMPORT_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * The confirmed mapping references a user or book that no longer exists, or
+     * maps two ABS users to the same ListenUp user.
+     */
+    @Serializable
+    @SerialName("ImportError.MappingInvalid")
+    data class MappingInvalid(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ImportError {
+        override val message: String = "The import mapping references something that no longer exists."
+        override val code: String = "IMPORT_MAPPING_INVALID"
+        override val isRetryable: Boolean = false
+    }
 }

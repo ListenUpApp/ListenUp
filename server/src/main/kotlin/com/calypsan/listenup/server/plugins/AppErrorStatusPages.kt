@@ -265,9 +265,11 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
 
 private fun ImportError.toHttpStatus(): HttpStatusCode =
     when (this) {
-        is ImportError.UploadFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.UploadFailed -> HttpStatusCode.UnprocessableEntity
         is ImportError.AnalysisFailed -> HttpStatusCode.ServiceUnavailable
         is ImportError.ApplyFailed -> HttpStatusCode.ServiceUnavailable
+        is ImportError.ImportNotFound -> HttpStatusCode.NotFound
+        is ImportError.MappingInvalid -> HttpStatusCode.BadRequest
     }
 
 private fun ImportError.withCorrelationId(id: String?): ImportError =
@@ -275,6 +277,8 @@ private fun ImportError.withCorrelationId(id: String?): ImportError =
         is ImportError.UploadFailed -> copy(correlationId = id)
         is ImportError.AnalysisFailed -> copy(correlationId = id)
         is ImportError.ApplyFailed -> copy(correlationId = id)
+        is ImportError.ImportNotFound -> copy(correlationId = id)
+        is ImportError.MappingInvalid -> copy(correlationId = id)
     }
 
 private fun ServerConnectError.toHttpStatus(): HttpStatusCode =

@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -24,6 +25,7 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.mdnsModule
 import com.calypsan.listenup.server.di.metadataModule
@@ -65,6 +67,7 @@ import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
+import com.calypsan.listenup.server.routes.importRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.collectionAdminRoutes
 import com.calypsan.listenup.server.routes.collectionRoutes
@@ -217,6 +220,7 @@ private fun Application.installDependencies(
         modules += mdnsModule(applicationScope, httpPort)
         modules += profileModule(homeDir.resolve("avatars"))
         modules += backupModule(homeDir)
+        modules += importModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -299,8 +303,10 @@ fun Application.module() {
     val collectionService by inject<CollectionService>()
     val profileService by inject<ProfileService>()
     val backupService by inject<BackupService>()
+    val importService by inject<ImportService>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
+    val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
     val avatarImageStore by inject<ImageStore>()
     val db by inject<Database>()
     val audioRoleLookup by inject<UserRoleLookup>()
@@ -331,6 +337,7 @@ fun Application.module() {
             inviteService,
             profileService,
             backupService,
+            importService,
         )
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -352,6 +359,7 @@ fun Application.module() {
             collectionAdminRoutes(collectionService)
             profileRoutes(db, avatarImageStore)
             backupRoutes(backupPaths, backupArchive)
+            importRoutes(importPaths)
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
