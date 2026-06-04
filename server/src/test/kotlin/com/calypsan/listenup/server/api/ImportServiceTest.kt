@@ -77,7 +77,10 @@ class ImportServiceTest :
 
                     val applied = service.apply(importId)
                     applied.shouldBeInstanceOf<AppResult.Success<*>>()
-                    (applied as AppResult.Success).data.importedCount shouldBeGreaterThan 0
+                    val appliedData = (applied as AppResult.Success).data
+                    appliedData.importedCount shouldBeGreaterThan 0
+                    // kings + mist + fidelity resolve to ListenUp books; unresolved + podcast skipped.
+                    appliedData.sessionsImported shouldBe 3
 
                     val summary = service.getImport(importId)
                     summary.shouldBeInstanceOf<AppResult.Success<*>>()

@@ -110,6 +110,8 @@ class ImportApplierTest :
                     stats.booksStarted shouldBe 2
                     // book-1's finished progress position is reflected after backfill.
                     stats.booksFinished shouldBe 1
+                    // sess-kings/mist/fidelity end on Jan 17/18/19 UTC (consecutive days) → streak = 3.
+                    stats.longestStreakDays shouldBe 3
                 }
             }
         }
