@@ -1,4 +1,3 @@
-@file:Suppress("LongMethod")
 
 package com.calypsan.listenup.client.features.settings
 
@@ -44,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -228,167 +228,228 @@ fun SettingsScreen(
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
         ) {
-            // Appearance section
-            SettingsSection(title = stringResource(Res.string.settings_appearance)) {
-                SettingsDropdownItem(
-                    title = stringResource(Res.string.common_theme),
-                    description = stringResource(Res.string.settings_choose_light_dark_or_follow),
-                    selectedValue = state.themeMode,
-                    options = ThemeMode.entries.toList(),
-                    formatValue = { mode ->
-                        when (mode) {
-                            ThemeMode.SYSTEM -> "System"
-                            ThemeMode.LIGHT -> "Light"
-                            ThemeMode.DARK -> "Dark"
-                        }
-                    },
-                    onValueSelected = viewModel::setThemeMode,
-                )
-                if (showDynamicColors) {
-                    SettingsToggleItem(
-                        title = "Dynamic colors",
-                        description = "Use colors from your wallpaper (Material You)",
-                        checked = state.dynamicColorsEnabled,
-                        onCheckedChange = viewModel::setDynamicColorsEnabled,
-                    )
-                }
-            }
+            AppearanceSection(
+                state = state,
+                showDynamicColors = showDynamicColors,
+                viewModel = viewModel,
+            )
 
             SettingsDivider()
 
-            // Playback section
-            SettingsSection(title = stringResource(Res.string.common_playback)) {
-                SettingsDropdownItem(
-                    title = stringResource(Res.string.settings_default_speed),
-                    description = stringResource(Res.string.settings_speed_used_for_new_books),
-                    selectedValue = state.defaultPlaybackSpeed,
-                    options = PlaybackSpeedPresets.presets,
-                    formatValue = { PlaybackSpeedPresets.format(it) },
-                    onValueSelected = viewModel::setDefaultPlaybackSpeed,
-                )
-                SettingsDropdownItem(
-                    title = stringResource(Res.string.settings_skip_forward),
-                    description = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
-                    selectedValue = state.defaultSkipForwardSec,
-                    options = SkipForwardPresets.presets,
-                    formatValue = { SkipForwardPresets.format(it) },
-                    onValueSelected = viewModel::setDefaultSkipForwardSec,
-                )
-                SettingsDropdownItem(
-                    title = stringResource(Res.string.settings_skip_backward),
-                    description = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
-                    selectedValue = state.defaultSkipBackwardSec,
-                    options = SkipBackwardPresets.presets,
-                    formatValue = { SkipBackwardPresets.format(it) },
-                    onValueSelected = viewModel::setDefaultSkipBackwardSec,
-                )
-                SettingsToggleItem(
-                    title = stringResource(Res.string.settings_autorewind_on_resume),
-                    description = stringResource(Res.string.settings_rewind_a_few_seconds_when),
-                    checked = state.autoRewindEnabled,
-                    onCheckedChange = viewModel::setAutoRewindEnabled,
-                )
-                SettingsToggleItem(
-                    title = stringResource(Res.string.settings_spatial_audio),
-                    description = stringResource(Res.string.settings_51_surround_sound_for_immersive),
-                    checked = state.spatialPlayback,
-                    onCheckedChange = viewModel::setSpatialPlayback,
-                )
-            }
+            PlaybackSection(state = state, viewModel = viewModel)
 
             if (showSleepTimer) {
                 SettingsDivider()
-
-                // Sleep timer section
-                SettingsSection(title = stringResource(Res.string.settings_sleep_timer)) {
-                    SettingsDropdownItem(
-                        title = stringResource(Res.string.settings_default_timer),
-                        description = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
-                        selectedValue = state.defaultSleepTimerMin,
-                        options = SleepTimerPresets.presets,
-                        formatValue = { SleepTimerPresets.format(it) },
-                        onValueSelected = viewModel::setDefaultSleepTimerMin,
-                    )
-                }
+                SleepTimerSection(state = state, viewModel = viewModel)
             }
 
             SettingsDivider()
 
-            // Library section
-            SettingsSection(title = stringResource(Res.string.common_library)) {
-                SettingsToggleItem(
-                    title = stringResource(Res.string.settings_ignore_articles_when_sorting),
-                    description = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
-                    checked = state.ignoreTitleArticles,
-                    onCheckedChange = viewModel::setIgnoreTitleArticles,
-                )
-                SettingsToggleItem(
-                    title = stringResource(Res.string.settings_hide_singlebook_series),
-                    description = stringResource(Res.string.settings_hide_series_with_only_one),
-                    checked = state.hideSingleBookSeries,
-                    onCheckedChange = viewModel::setHideSingleBookSeries,
-                )
-            }
+            LibrarySection(state = state, viewModel = viewModel)
 
             SettingsDivider()
 
-            // Account section
-            SettingsSection(title = stringResource(Res.string.common_account)) {
-                state.serverUrl?.let { url ->
-                    SettingsInfoItem(
-                        title = stringResource(Res.string.common_server),
-                        value = url.removePrefix("https://").removePrefix("http://"),
-                    )
-                }
-                if (onNavigateToDevices != null) {
-                    SettingsNavigationItem(
-                        title = stringResource(Res.string.settings_devices),
-                        description = stringResource(Res.string.devices_manage_active_sessions),
-                        onClick = onNavigateToDevices,
-                    )
-                }
-                SettingsActionItem(
-                    title = stringResource(Res.string.common_sign_out),
-                    icon = Icons.AutoMirrored.Filled.Logout,
-                    onClick = { showSignOutDialog = true },
-                    destructive = true,
-                )
-            }
+            AccountSection(
+                state = state,
+                onNavigateToDevices = onNavigateToDevices,
+                onSignOutClick = { showSignOutDialog = true },
+            )
 
             if (onNavigateToStorage != null) {
                 SettingsDivider()
-
-                SettingsSection(title = stringResource(Res.string.common_storage)) {
-                    SettingsNavigationItem(
-                        title = stringResource(Res.string.settings_manage_storage),
-                        description = stringResource(Res.string.settings_view_and_manage_downloaded_audiobooks),
-                        onClick = onNavigateToStorage,
-                    )
-                }
+                StorageSection(onNavigateToStorage = onNavigateToStorage)
             }
 
             SettingsDivider()
 
-            // About section
-            SettingsSection(title = stringResource(Res.string.common_about)) {
-                SettingsInfoItem(
-                    title = stringResource(Res.string.settings_app_version),
-                    value = stringResource(Res.string.settings_desktop),
-                )
-                state.serverVersion?.let { version ->
-                    SettingsInfoItem(
-                        title = stringResource(Res.string.settings_server_version),
-                        value = version,
-                    )
+            AboutSection(state = state, onNavigateToLicenses = onNavigateToLicenses)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.AppearanceSection(
+    state: SettingsUiState,
+    showDynamicColors: Boolean,
+    viewModel: SettingsViewModel,
+) {
+    // Appearance section
+    SettingsSection(title = stringResource(Res.string.settings_appearance)) {
+        SettingsDropdownItem(
+            title = stringResource(Res.string.common_theme),
+            description = stringResource(Res.string.settings_choose_light_dark_or_follow),
+            selectedValue = state.themeMode,
+            options = ThemeMode.entries.toList(),
+            formatValue = { mode ->
+                when (mode) {
+                    ThemeMode.SYSTEM -> "System"
+                    ThemeMode.LIGHT -> "Light"
+                    ThemeMode.DARK -> "Dark"
                 }
-                if (onNavigateToLicenses != null) {
-                    SettingsNavigationItem(
-                        title = stringResource(Res.string.settings_open_source_licenses),
-                        description = stringResource(Res.string.settings_view_thirdparty_licenses),
-                        onClick = onNavigateToLicenses,
-                    )
-                }
-            }
+            },
+            onValueSelected = viewModel::setThemeMode,
+        )
+        if (showDynamicColors) {
+            SettingsToggleItem(
+                title = "Dynamic colors",
+                description = "Use colors from your wallpaper (Material You)",
+                checked = state.dynamicColorsEnabled,
+                onCheckedChange = viewModel::setDynamicColorsEnabled,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.PlaybackSection(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    // Playback section
+    SettingsSection(title = stringResource(Res.string.common_playback)) {
+        SettingsDropdownItem(
+            title = stringResource(Res.string.settings_default_speed),
+            description = stringResource(Res.string.settings_speed_used_for_new_books),
+            selectedValue = state.defaultPlaybackSpeed,
+            options = PlaybackSpeedPresets.presets,
+            formatValue = { PlaybackSpeedPresets.format(it) },
+            onValueSelected = viewModel::setDefaultPlaybackSpeed,
+        )
+        SettingsDropdownItem(
+            title = stringResource(Res.string.settings_skip_forward),
+            description = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
+            selectedValue = state.defaultSkipForwardSec,
+            options = SkipForwardPresets.presets,
+            formatValue = { SkipForwardPresets.format(it) },
+            onValueSelected = viewModel::setDefaultSkipForwardSec,
+        )
+        SettingsDropdownItem(
+            title = stringResource(Res.string.settings_skip_backward),
+            description = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
+            selectedValue = state.defaultSkipBackwardSec,
+            options = SkipBackwardPresets.presets,
+            formatValue = { SkipBackwardPresets.format(it) },
+            onValueSelected = viewModel::setDefaultSkipBackwardSec,
+        )
+        SettingsToggleItem(
+            title = stringResource(Res.string.settings_autorewind_on_resume),
+            description = stringResource(Res.string.settings_rewind_a_few_seconds_when),
+            checked = state.autoRewindEnabled,
+            onCheckedChange = viewModel::setAutoRewindEnabled,
+        )
+        SettingsToggleItem(
+            title = stringResource(Res.string.settings_spatial_audio),
+            description = stringResource(Res.string.settings_51_surround_sound_for_immersive),
+            checked = state.spatialPlayback,
+            onCheckedChange = viewModel::setSpatialPlayback,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.SleepTimerSection(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    // Sleep timer section
+    SettingsSection(title = stringResource(Res.string.settings_sleep_timer)) {
+        SettingsDropdownItem(
+            title = stringResource(Res.string.settings_default_timer),
+            description = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
+            selectedValue = state.defaultSleepTimerMin,
+            options = SleepTimerPresets.presets,
+            formatValue = { SleepTimerPresets.format(it) },
+            onValueSelected = viewModel::setDefaultSleepTimerMin,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.LibrarySection(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    // Library section
+    SettingsSection(title = stringResource(Res.string.common_library)) {
+        SettingsToggleItem(
+            title = stringResource(Res.string.settings_ignore_articles_when_sorting),
+            description = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
+            checked = state.ignoreTitleArticles,
+            onCheckedChange = viewModel::setIgnoreTitleArticles,
+        )
+        SettingsToggleItem(
+            title = stringResource(Res.string.settings_hide_singlebook_series),
+            description = stringResource(Res.string.settings_hide_series_with_only_one),
+            checked = state.hideSingleBookSeries,
+            onCheckedChange = viewModel::setHideSingleBookSeries,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.AccountSection(
+    state: SettingsUiState,
+    onNavigateToDevices: (() -> Unit)?,
+    onSignOutClick: () -> Unit,
+) {
+    // Account section
+    SettingsSection(title = stringResource(Res.string.common_account)) {
+        state.serverUrl?.let { url ->
+            SettingsInfoItem(
+                title = stringResource(Res.string.common_server),
+                value = url.removePrefix("https://").removePrefix("http://"),
+            )
+        }
+        if (onNavigateToDevices != null) {
+            SettingsNavigationItem(
+                title = stringResource(Res.string.settings_devices),
+                description = stringResource(Res.string.devices_manage_active_sessions),
+                onClick = onNavigateToDevices,
+            )
+        }
+        SettingsActionItem(
+            title = stringResource(Res.string.common_sign_out),
+            icon = Icons.AutoMirrored.Filled.Logout,
+            onClick = onSignOutClick,
+            destructive = true,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.StorageSection(onNavigateToStorage: () -> Unit) {
+    SettingsSection(title = stringResource(Res.string.common_storage)) {
+        SettingsNavigationItem(
+            title = stringResource(Res.string.settings_manage_storage),
+            description = stringResource(Res.string.settings_view_and_manage_downloaded_audiobooks),
+            onClick = onNavigateToStorage,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.AboutSection(
+    state: SettingsUiState,
+    onNavigateToLicenses: (() -> Unit)?,
+) {
+    // About section
+    SettingsSection(title = stringResource(Res.string.common_about)) {
+        SettingsInfoItem(
+            title = stringResource(Res.string.settings_app_version),
+            value = stringResource(Res.string.settings_desktop),
+        )
+        state.serverVersion?.let { version ->
+            SettingsInfoItem(
+                title = stringResource(Res.string.settings_server_version),
+                value = version,
+            )
+        }
+        if (onNavigateToLicenses != null) {
+            SettingsNavigationItem(
+                title = stringResource(Res.string.settings_open_source_licenses),
+                description = stringResource(Res.string.settings_view_thirdparty_licenses),
+                onClick = onNavigateToLicenses,
+            )
         }
     }
 }
