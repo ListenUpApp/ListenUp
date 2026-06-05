@@ -34,7 +34,9 @@ class MdnsModuleVerifyTest :
                     }
                 try {
                     app.koin.get<InstanceIdentity>() shouldNotBe null
-                    app.koin.get<MdnsAdvertiser> { parametersOf("test-id") } shouldNotBe null
+                    app.koin.get<MdnsAdvertiser> {
+                        parametersOf("test-id", "Test Library", "https://listen.example.com")
+                    } shouldNotBe null
                 } finally {
                     app.close()
                 }
