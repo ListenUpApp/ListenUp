@@ -2,11 +2,16 @@
 
 package com.calypsan.listenup.client.features.home.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -69,6 +74,12 @@ fun DailyListeningChart(
     val maxMinutes = chartData.maxOf { it.minutes }.coerceAtLeast(1f)
     val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
 
+    // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
+    val growth = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        growth.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 700, easing = LinearEasing))
+    }
+
     Canvas(
         modifier =
             modifier
@@ -83,12 +94,16 @@ fun DailyListeningChart(
         val barWidth = ((size.width - totalSpacing) / barCount).coerceAtLeast(12.dp.toPx())
 
         val emptyStub = barWidth // a circular nub so empty days read as dots, not bars
+        // Each bar opens a little after the one to its left, so the row ripples up on entry.
+        val barStagger = if (barCount > 1) (1f - BAR_GROW_FRACTION) / (barCount - 1) else 0f
         chartData.forEachIndexed { index, bar ->
             val x = index * (barWidth + barSpacing)
             val isToday = index == chartData.lastIndex
             val isEmpty = bar.minutes <= 0f
             // Empty days draw a small nub so the baseline reads as a row of days, not gaps.
-            val barHeight = if (isEmpty) emptyStub else bar.minutes / maxMinutes * chartHeight
+            val fullHeight = if (isEmpty) emptyStub else bar.minutes / maxMinutes * chartHeight
+            val barProgress = ((growth.value - index * barStagger) / BAR_GROW_FRACTION).coerceIn(0f, 1f)
+            val barHeight = fullHeight * LinearOutSlowInEasing.transform(barProgress)
             val barTop = chartHeight - barHeight
             // Today always reads as the coral accent (even at zero), emphasizing the current day.
             val color =
@@ -114,6 +129,9 @@ fun DailyListeningChart(
         }
     }
 }
+
+/** Fraction of the entry animation each bar spends growing; the remainder is its stagger offset. */
+private const val BAR_GROW_FRACTION = 0.6f
 
 private data class ChartBar(
     val label: String,
