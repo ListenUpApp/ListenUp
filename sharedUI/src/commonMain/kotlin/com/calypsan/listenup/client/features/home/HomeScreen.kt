@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -78,6 +78,7 @@ fun HomeScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent,
         modifier = modifier.fillMaxSize(),
     ) { paddingValues ->
         when (val s = state) {
@@ -117,10 +118,7 @@ fun HomeScreen(
                     onNavigateToLibrary = onNavigateToLibrary,
                     onShelfClick = onShelfClick,
                     onSeeAllShelves = onSeeAllShelves,
-                    modifier =
-                        Modifier
-                            .padding(paddingValues)
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                    modifier = Modifier.padding(paddingValues),
                 )
             }
         }

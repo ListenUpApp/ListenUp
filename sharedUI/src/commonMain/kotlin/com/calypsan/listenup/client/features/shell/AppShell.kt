@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -316,6 +317,7 @@ fun AppShell(
         // Phone layout: bottom navigation, mini-player stacked above it.
         Scaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            containerColor = Color.Transparent,
             topBar = topBar,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
@@ -348,6 +350,7 @@ fun AppShell(
                     Modifier
                         .weight(1f)
                         .nestedScroll(scrollBehavior.nestedScrollConnection),
+                containerColor = Color.Transparent,
                 topBar = topBar,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 content = shellContent,
