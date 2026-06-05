@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
@@ -25,6 +26,7 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BackupServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
@@ -114,6 +116,7 @@ fun Route.rpcRoutes(
     collectionService: CollectionService,
     shelfService: ShelfService,
     adminUserService: AdminUserService,
+    adminSettingsService: AdminSettingsService,
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
     backupService: BackupService,
@@ -136,6 +139,7 @@ fun Route.rpcRoutes(
             collectionService,
             shelfService,
             adminUserService,
+            adminSettingsService,
             inviteService,
             profileService,
             backupService,
@@ -185,6 +189,7 @@ private fun Route.authedRpc(
     collectionService: CollectionService,
     shelfService: ShelfService,
     adminUserService: AdminUserService,
+    adminSettingsService: AdminSettingsService,
     inviteService: InviteServiceImpl,
     profileService: ProfileService,
     backupService: BackupService,
@@ -210,6 +215,7 @@ private fun Route.authedRpc(
         registerScoped<CollectionService> { guard((collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<ShelfService> { guard((shelfService as ShelfServiceImpl).copyWith(it)) }
         registerScoped<AdminUserService> { guard((adminUserService as AdminUserServiceImpl).copyWith(it)) }
+        registerScoped<AdminSettingsService> { guard((adminSettingsService as AdminSettingsServiceImpl).copyWith(it)) }
         registerScoped<InviteService> { guard(inviteService.copyWith(it) as InviteService) }
         registerScoped<ProfileService> { guard((profileService as ProfileServiceImpl).copyWith(it)) }
         registerScoped<BackupService> { guard((backupService as BackupServiceImpl).copyWith(it)) }

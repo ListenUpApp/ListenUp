@@ -25,7 +25,7 @@ class InstanceServiceImpl(
         val setupRequired = suspendTransaction(db) { UserEntity.all().limit(1).empty() }
         return AppResult.Success(
             ServerInfo(
-                name = ServerIdentity.NAME,
+                name = settings.serverName(),
                 version = ServerIdentity.VERSION,
                 apiVersion = ServerIdentity.API_VERSION,
                 setupRequired = setupRequired,

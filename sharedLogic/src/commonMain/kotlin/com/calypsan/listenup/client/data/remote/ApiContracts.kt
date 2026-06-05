@@ -874,61 +874,6 @@ data class UserPreferencesRequest(
 // =============================================================================
 
 /**
- * Contract interface for admin server settings API operations.
- *
- * Handles server-wide settings like inbox workflow.
- * Server endpoints: /api/v1/admin/settings (GET/PATCH)
- */
-interface AdminSettingsApiContract {
-    /**
-     * Get server settings (admin only).
-     *
-     * Endpoint: GET /api/v1/admin/settings
-     * Auth: Required (admin)
-     *
-     * @return Result containing server settings
-     */
-    suspend fun getServerSettings(): AppResult<ServerSettingsResponse>
-
-    /**
-     * Update server settings (admin only).
-     *
-     * Endpoint: PATCH /api/v1/admin/settings
-     * Auth: Required (admin)
-     *
-     * @param request Fields to update (only non-null fields are sent)
-     * @return Result containing updated settings
-     */
-    suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse>
-}
-
-/**
- * Response from server settings endpoint.
- *
- * Contains server-wide configuration managed by admins.
- */
-@Serializable
-data class ServerSettingsResponse(
-    /** Display name for the server */
-    @SerialName("server_name") val serverName: String,
-    /** Whether inbox workflow is enabled */
-    @SerialName("inbox_enabled") val inboxEnabled: Boolean,
-    /** Number of books currently in inbox */
-    @SerialName("inbox_count") val inboxCount: Int,
-)
-
-/**
- * Request to update server settings (PATCH semantics).
- */
-@Serializable
-data class ServerSettingsRequest(
-    /** Display name for the server */
-    @SerialName("server_name") val serverName: String? = null,
-    /** Enable or disable inbox workflow */
-    @SerialName("inbox_enabled") val inboxEnabled: Boolean? = null,
-)
-
-/**
  * Contract interface for admin inbox API operations.
  *
  * Handles the inbox staging workflow where newly scanned books

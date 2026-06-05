@@ -83,18 +83,18 @@ class ClientKoinGraphE2ETest :
             }
         }
 
-        test("RpcCacheInvalidator receives all 18 RemoteCache instances via getAll") {
+        test("RpcCacheInvalidator receives all 19 RemoteCache instances via getAll") {
             val fixture = autoClose(DiWiredClientFixture.start())
             val koin = fixture.koin.koin
 
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 18: ApiClientFactory + 17 KtorXRpcFactory
+            // getAll<RemoteCache>() must return exactly 19: ApiClientFactory + 18 KtorXRpcFactory
             // implementations. If any single is missing a `bind RemoteCache::class` declaration,
             // the count will be wrong and the assertion fails before production code ever misses
             // an invalidation.
-            defaultInvalidator.caches shouldHaveSize 18
+            defaultInvalidator.caches shouldHaveSize 19
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

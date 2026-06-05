@@ -1027,9 +1027,6 @@ private fun AuthenticatedNavigation(
                                 onUnmappedGenresClick = {
                                     backStack.add(UnmappedGenres)
                                 },
-                                onInboxClick = {
-                                    backStack.add(AdminInbox)
-                                },
                                 onBackupClick = {
                                     backStack.add(AdminBackups)
                                 },
@@ -1040,10 +1037,6 @@ private fun AuthenticatedNavigation(
                                 onServerNameChange = { settingsViewModel.setServerName(it) },
                                 remoteUrl = readySettings?.remoteUrl ?: "",
                                 onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
-                                inboxEnabled = readySettings?.inboxEnabled == true,
-                                inboxCount = readySettings?.inboxCount ?: 0,
-                                isSaving = readySettings?.isSaving == true,
-                                onInboxEnabledChange = { settingsViewModel.setInboxEnabled(it) },
                                 isDirty = readySettings?.isDirty == true,
                                 onSave = { settingsViewModel.saveAll() },
                                 settingsError =
@@ -1051,23 +1044,6 @@ private fun AuthenticatedNavigation(
                                         ?: (settingsState as? AdminSettingsUiState.Error)?.message,
                                 onClearSettingsError = { settingsViewModel.clearError() },
                             )
-
-                            // Handle disable inbox confirmation dialog
-                            if (readySettings?.showDisableConfirmation == true) {
-                                val pendingCount = readySettings.inboxCount
-                                com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog(
-                                    onDismissRequest = { settingsViewModel.cancelDisableInbox() },
-                                    title = "Disable Inbox Workflow",
-                                    text =
-                                        "This will release all $pendingCount " +
-                                            "book${if (pendingCount != 1) "s" else ""} " +
-                                            "currently in the inbox with their staged collection assignments.\n\n" +
-                                            "New books will become immediately visible to users.",
-                                    confirmText = "Disable & Release",
-                                    onConfirm = { settingsViewModel.confirmDisableInbox() },
-                                    onDismiss = { settingsViewModel.cancelDisableInbox() },
-                                )
-                            }
                         }
                         entry<AdminInbox> {
                             val viewModel: AdminInboxViewModel = koinViewModel()

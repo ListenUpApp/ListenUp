@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.settings
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.api.ServerIdentity
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -66,8 +67,22 @@ class ServerSettingsRepository(
         }
     }
 
+    /** The operator-set server name, or [ServerIdentity.NAME] when unset. */
+    suspend fun serverName(): String = getValue(KEY_SERVER_NAME) ?: ServerIdentity.NAME
+
+    /** Replaces the server name. */
+    suspend fun setServerName(name: String) = setValue(KEY_SERVER_NAME, name)
+
+    /** The operator-set public remote URL, or null when unset/blank. */
+    suspend fun remoteUrl(): String? = getValue(KEY_REMOTE_URL)?.takeIf { it.isNotBlank() }
+
+    /** Replaces the remote URL; an empty/blank [url] clears it. */
+    suspend fun setRemoteUrl(url: String) = setValue(KEY_REMOTE_URL, url.trim())
+
     private companion object {
         const val KEY_REGISTRATION_POLICY = "registration_policy"
+        const val KEY_SERVER_NAME = "server_name"
+        const val KEY_REMOTE_URL = "remote_url"
     }
 }
 

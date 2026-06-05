@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -12,15 +13,13 @@ import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.client.data.remote.AdminApiContract
+import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.CollectionRef
 import com.calypsan.listenup.client.data.remote.InboxBookResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryResponse
-import com.calypsan.listenup.client.data.remote.ServerSettingsRequest
-import com.calypsan.listenup.client.data.remote.UpdateInstanceRequest
-import com.calypsan.listenup.client.data.remote.ServerSettingsResponse
 import com.calypsan.listenup.client.data.remote.UpdateLibraryRequest
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -47,14 +46,16 @@ private val logger = KotlinLogging.logger {}
  * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
  * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
  *
- * @property adminApi API client for settings/inbox/library operations
+ * @property adminApi API client for inbox/library operations
  * @property adminUserRpc RPC factory for user-management operations
+ * @property adminSettingsRpc RPC factory for server-identity settings operations
  * @property inviteRpc RPC factory for invite-management operations
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  */
 class AdminRepositoryImpl(
     private val adminApi: AdminApiContract,
     private val adminUserRpc: AdminUserRpcFactory,
+    private val adminSettingsRpc: AdminSettingsRpcFactory,
     private val inviteRpc: InviteRpcFactory,
     private val serverConfig: ServerConfig,
 ) : AdminRepository {
@@ -196,20 +197,21 @@ class AdminRepositoryImpl(
             )
         }
 
-    override suspend fun updateInstanceRemoteUrl(remoteUrl: String): AppResult<String?> =
-        adminApi.updateInstance(UpdateInstanceRequest(remoteUrl = remoteUrl)).map { it.remoteUrl }
-
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
-        adminApi.getServerSettings().map { it.toDomain() }
+        catching("getServerSettings") {
+            adminSettingsRpc.get().getServerSettings().map { ServerSettings(it.serverName, it.remoteUrl) }
+        }
 
     override suspend fun updateServerSettings(
         serverName: String?,
-        inboxEnabled: Boolean?,
+        remoteUrl: String?,
     ): AppResult<ServerSettings> =
-        adminApi
-            .updateServerSettings(
-                ServerSettingsRequest(serverName = serverName, inboxEnabled = inboxEnabled),
-            ).map { it.toDomain() }
+        catching("updateServerSettings") {
+            adminSettingsRpc
+                .get()
+                .updateServerSettings(AdminServerSettingsPatch(serverName = serverName, remoteUrl = remoteUrl))
+                .map { ServerSettings(it.serverName, it.remoteUrl) }
+        }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INBOX MANAGEMENT
@@ -281,16 +283,6 @@ class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVERSION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert ServerSettingsResponse API model to ServerSettings domain model.
- */
-private fun ServerSettingsResponse.toDomain(): ServerSettings =
-    ServerSettings(
-        serverName = serverName,
-        inboxEnabled = inboxEnabled,
-        inboxCount = inboxCount,
-    )
 
 /**
  * Convert InboxBookResponse API model to InboxBook domain model.

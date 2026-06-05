@@ -46,6 +46,7 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallIdAndLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.backup.MaintenanceState
@@ -316,6 +317,7 @@ fun Application.module() {
     val sessions by inject<SessionService>()
     val authService by inject<AuthServiceImpl>()
     val adminUserService by inject<AdminUserServiceImpl>()
+    val adminSettingsService by inject<AdminSettingsServiceImpl>()
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
     val registrationBroadcaster by inject<RegistrationBroadcaster>()
@@ -378,6 +380,7 @@ fun Application.module() {
             collectionService,
             shelfService,
             adminUserService,
+            adminSettingsService,
             inviteService,
             profileService,
             backupService,

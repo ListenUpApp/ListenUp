@@ -2,11 +2,7 @@ package com.calypsan.listenup.client.presentation.admin
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.domain.model.Instance
-import com.calypsan.listenup.client.domain.model.InstanceId
 import com.calypsan.listenup.client.domain.model.ServerSettings
-import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
 import dev.mokkery.answering.returns
@@ -29,7 +25,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.error.ErrorBus
 
 /**
@@ -37,12 +32,11 @@ import com.calypsan.listenup.core.error.ErrorBus
  *
  * Tests cover:
  * - Initial `Loading` state before the load completes
- * - `Ready` emission once settings + remote URL are loaded
+ * - `Ready` emission once settings are loaded (serverName + remoteUrl from getServerSettings)
  * - `Error` state when the initial load fails
- * - Edit-buffer mutations (`setServerName`, `setRemoteUrl`, `setInboxEnabled`)
- *   update Ready and recompute `isDirty`
- * - Toggling inbox off with pending books surfaces the confirmation overlay
- * - `saveAll` happy path clears `isSaving` and resets `isDirty`
+ * - Edit-buffer mutations (`setServerName`, `setRemoteUrl`) update Ready and recompute `isDirty`
+ * - `saveAll` happy path clears `isSaving` and resets `isDirty` for server name
+ * - `saveAll` happy path clears `isSaving` and resets `isDirty` for remote URL
  * - `saveAll` failure surfaces as transient `error` on Ready
  * - `clearError` clears the transient error on Ready
  */
@@ -55,27 +49,18 @@ class AdminSettingsViewModelTest {
     private class TestFixture {
         val loadServerSettingsUseCase: LoadServerSettingsUseCase = mock()
         val updateServerSettingsUseCase: UpdateServerSettingsUseCase = mock()
-        val instanceRepository: InstanceRepository = mock()
-        val adminRepository: AdminRepository = mock()
 
         fun build(): AdminSettingsViewModel =
             AdminSettingsViewModel(
                 loadServerSettingsUseCase = loadServerSettingsUseCase,
                 updateServerSettingsUseCase = updateServerSettingsUseCase,
-                instanceRepository = instanceRepository,
-                adminRepository = adminRepository,
                 errorBus = ErrorBus(),
             )
     }
 
-    private fun createFixture(
-        settings: ServerSettings = createServerSettings(),
-        remoteUrl: String? = "https://remote.example.com",
-    ): TestFixture {
+    private fun createFixture(settings: ServerSettings = createServerSettings()): TestFixture {
         val fixture = TestFixture()
         everySuspend { fixture.loadServerSettingsUseCase() } returns AppResult.Success(settings)
-        everySuspend { fixture.instanceRepository.getInstance(forceRefresh = true) } returns
-            AppResult.Success(createInstance(remoteUrl = remoteUrl))
         return fixture
     }
 
@@ -83,26 +68,11 @@ class AdminSettingsViewModelTest {
 
     private fun createServerSettings(
         serverName: String = "My Server",
-        inboxEnabled: Boolean = false,
-        inboxCount: Int = 0,
+        remoteUrl: String? = null,
     ): ServerSettings =
         ServerSettings(
             serverName = serverName,
-            inboxEnabled = inboxEnabled,
-            inboxCount = inboxCount,
-        )
-
-    private fun createInstance(remoteUrl: String? = null): Instance =
-        Instance(
-            id = InstanceId("instance-1"),
-            name = "My Server",
-            version = "1.0.0",
-            localUrl = null,
             remoteUrl = remoteUrl,
-            openRegistration = false,
-            setupRequired = false,
-            createdAt = Timestamp(0L),
-            updatedAt = Timestamp(0L),
         )
 
     @BeforeTest
@@ -130,12 +100,11 @@ class AdminSettingsViewModelTest {
     // ========== Load ==========
 
     @Test
-    fun `load transitions to Ready with server settings and remote URL`() =
+    fun `load transitions to Ready with server settings`() =
         runTest {
             val fixture =
                 createFixture(
-                    settings = createServerSettings(serverName = "ListenUp Prod", inboxEnabled = true, inboxCount = 3),
-                    remoteUrl = "https://audio.example.com",
+                    settings = createServerSettings(serverName = "ListenUp Prod", remoteUrl = "https://audio.example.com"),
                 )
 
             val viewModel = fixture.build()
@@ -144,8 +113,6 @@ class AdminSettingsViewModelTest {
             val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
             assertEquals("ListenUp Prod", ready.serverName)
             assertEquals("https://audio.example.com", ready.remoteUrl)
-            assertTrue(ready.inboxEnabled)
-            assertEquals(3, ready.inboxCount)
             assertFalse(ready.isDirty)
             assertFalse(ready.isSaving)
             assertNull(ready.error)
@@ -186,47 +153,10 @@ class AdminSettingsViewModelTest {
             assertTrue(ready.isDirty)
         }
 
-    @Test
-    fun `setInboxEnabled with no pending books updates Ready and marks dirty`() =
-        runTest {
-            val fixture =
-                createFixture(
-                    settings = createServerSettings(inboxEnabled = false, inboxCount = 0),
-                )
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            viewModel.setInboxEnabled(true)
-
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            assertTrue(ready.inboxEnabled)
-            assertTrue(ready.isDirty)
-            assertFalse(ready.showDisableConfirmation)
-        }
-
-    @Test
-    fun `setInboxEnabled to false with pending books shows confirmation overlay`() =
-        runTest {
-            val fixture =
-                createFixture(
-                    settings = createServerSettings(inboxEnabled = true, inboxCount = 5),
-                )
-            val viewModel = fixture.build()
-            advanceUntilIdle()
-
-            viewModel.setInboxEnabled(false)
-
-            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
-            // Still enabled in buffer; confirmation overlay shown.
-            assertTrue(ready.inboxEnabled)
-            assertTrue(ready.showDisableConfirmation)
-            assertFalse(ready.isDirty)
-        }
-
     // ========== Save ==========
 
     @Test
-    fun `saveAll happy-path persists changes and resets dirty`() =
+    fun `saveAll happy-path persists server name changes and resets dirty`() =
         runTest {
             val fixture = createFixture(settings = createServerSettings(serverName = "Original"))
             everySuspend { fixture.updateServerSettingsUseCase.updateServerName("Renamed") } returns
@@ -245,6 +175,28 @@ class AdminSettingsViewModelTest {
             assertNull(ready.error)
             verifySuspend(VerifyMode.atLeast(1)) {
                 fixture.updateServerSettingsUseCase.updateServerName("Renamed")
+            }
+        }
+
+    @Test
+    fun `saveAll happy-path persists remote URL changes and resets dirty`() =
+        runTest {
+            val fixture = createFixture(settings = createServerSettings(remoteUrl = "https://old.example.com"))
+            everySuspend { fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com") } returns
+                AppResult.Success(createServerSettings(remoteUrl = "https://new.example.com"))
+            val viewModel = fixture.build()
+            advanceUntilIdle()
+
+            viewModel.setRemoteUrl("https://new.example.com")
+            viewModel.saveAll()
+            advanceUntilIdle()
+
+            val ready = assertIs<AdminSettingsUiState.Ready>(viewModel.state.value)
+            assertFalse(ready.isSaving)
+            assertFalse(ready.isDirty)
+            assertNull(ready.error)
+            verifySuspend(VerifyMode.atLeast(1)) {
+                fixture.updateServerSettingsUseCase.updateRemoteUrl("https://new.example.com")
             }
         }
 

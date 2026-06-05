@@ -5,9 +5,7 @@ import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
 /**
- * Loads server settings.
- *
- * Returns current server-wide settings including inbox workflow status.
+ * Loads the server-identity settings (server name + optional remote URL).
  */
 open class LoadServerSettingsUseCase(
     private val adminRepository: AdminRepository,

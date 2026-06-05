@@ -3,10 +3,7 @@ package com.calypsan.listenup.client.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
 import com.calypsan.listenup.client.presentation.error.userMessageFor
@@ -23,18 +20,13 @@ private const val SAVE_SETTINGS_FAILURE_PREFIX = "Failed to save settings: "
 /**
  * ViewModel for admin server settings screen.
  *
- * Manages server-wide settings like the server name and inbox workflow toggle.
+ * Manages server-identity settings: display name and optional public remote URL.
  * All changes are local-only until the user taps the Save FAB, which persists
  * everything at once via [saveAll].
- *
- * When inbox is disabled with pending books, they are automatically
- * released with their staged collections.
  */
 class AdminSettingsViewModel(
     private val loadServerSettingsUseCase: LoadServerSettingsUseCase,
     private val updateServerSettingsUseCase: UpdateServerSettingsUseCase,
-    private val instanceRepository: InstanceRepository,
-    private val adminRepository: AdminRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     val state: StateFlow<AdminSettingsUiState>
@@ -43,7 +35,6 @@ class AdminSettingsViewModel(
     /** Baseline values from the server, used to compute dirty state. */
     private var savedServerName: String = ""
     private var savedRemoteUrl: String = ""
-    private var savedInboxEnabled: Boolean = false
 
     init {
         loadSettings()
@@ -54,25 +45,21 @@ class AdminSettingsViewModel(
             when (val result = loadServerSettingsUseCase()) {
                 is AppResult.Success -> {
                     savedServerName = result.data.serverName
-                    savedInboxEnabled = result.data.inboxEnabled
+                    savedRemoteUrl = result.data.remoteUrl ?: ""
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
                                 serverName = result.data.serverName,
-                                inboxEnabled = result.data.inboxEnabled,
-                                inboxCount = result.data.inboxCount,
+                                remoteUrl = result.data.remoteUrl ?: "",
                                 error = null,
                             )
                         } else {
                             AdminSettingsUiState.Ready(
                                 serverName = result.data.serverName,
-                                inboxEnabled = result.data.inboxEnabled,
-                                inboxCount = result.data.inboxCount,
+                                remoteUrl = result.data.remoteUrl ?: "",
                             )
                         }
                     }
-                    // Also load remote URL from instance
-                    loadRemoteUrl()
                 }
 
                 is AppResult.Failure -> {
@@ -95,60 +82,6 @@ class AdminSettingsViewModel(
      */
     fun setServerName(name: String) {
         updateReady { it.copy(serverName = name).withDirty() }
-    }
-
-    /**
-     * Toggle the inbox workflow on/off (local only).
-     *
-     * When disabling with pending books, shows confirmation first.
-     */
-    fun setInboxEnabled(enabled: Boolean) {
-        val ready = state.value as? AdminSettingsUiState.Ready ?: return
-
-        // If disabling and there are books in inbox, show confirmation
-        if (!enabled && ready.inboxCount > 0) {
-            updateReady { it.copy(showDisableConfirmation = true) }
-            return
-        }
-
-        updateReady { it.copy(inboxEnabled = enabled).withDirty() }
-    }
-
-    /**
-     * Confirm disabling inbox workflow (local only).
-     * Called after user confirms they want to release all pending books.
-     */
-    fun confirmDisableInbox() {
-        updateReady {
-            it
-                .copy(
-                    showDisableConfirmation = false,
-                    inboxEnabled = false,
-                ).withDirty()
-        }
-    }
-
-    /**
-     * Cancel disabling inbox workflow.
-     */
-    fun cancelDisableInbox() {
-        updateReady { it.copy(showDisableConfirmation = false) }
-    }
-
-    private fun loadRemoteUrl() {
-        viewModelScope.launch {
-            when (val result = instanceRepository.getInstance(forceRefresh = true)) {
-                is AppResult.Success -> {
-                    val url = result.data.remoteUrl ?: ""
-                    savedRemoteUrl = url
-                    updateReady { it.copy(remoteUrl = url).withDirty() }
-                }
-
-                is AppResult.Failure -> {
-                    // Non-fatal, just leave remote URL empty
-                }
-            }
-        }
     }
 
     /**
@@ -197,7 +130,7 @@ class AdminSettingsViewModel(
 
             // Save remote URL if changed
             if (ready.remoteUrl != savedRemoteUrl) {
-                when (val result = adminRepository.updateInstanceRemoteUrl(ready.remoteUrl)) {
+                when (val result = updateServerSettingsUseCase.updateRemoteUrl(ready.remoteUrl)) {
                     is AppResult.Success -> {
                         savedRemoteUrl = ready.remoteUrl
                         logger.info { "Remote URL saved: ${ready.remoteUrl}" }
@@ -206,31 +139,6 @@ class AdminSettingsViewModel(
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to save remote URL: ${result.error}" }
-                        updateReady {
-                            it
-                                .copy(
-                                    isSaving = false,
-                                    error = SAVE_SETTINGS_FAILURE_PREFIX + userMessageFor(result.error),
-                                ).withDirty()
-                        }
-                        return@launch
-                    }
-                }
-            }
-
-            // Save inbox enabled if changed
-            if (ready.inboxEnabled != savedInboxEnabled) {
-                when (val result = updateServerSettingsUseCase(ready.inboxEnabled)) {
-                    is AppResult.Success -> {
-                        savedInboxEnabled = result.data.inboxEnabled
-                        val refreshedCount = result.data.inboxCount
-                        updateReady { it.copy(inboxCount = refreshedCount) }
-                        logger.info { "Inbox workflow ${if (ready.inboxEnabled) "enabled" else "disabled"}" }
-                    }
-
-                    is AppResult.Failure -> {
-                        errorBus.emit(result.error)
-                        logger.error { "Failed to save inbox setting: ${result.error}" }
                         updateReady {
                             it
                                 .copy(
@@ -269,8 +177,7 @@ class AdminSettingsViewModel(
         copy(
             isDirty =
                 serverName != savedServerName ||
-                    remoteUrl != savedRemoteUrl ||
-                    inboxEnabled != savedInboxEnabled,
+                    remoteUrl != savedRemoteUrl,
         )
 }
 
@@ -280,11 +187,9 @@ class AdminSettingsViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `LoadServerSettingsUseCase` response.
  * - [Ready] once settings have loaded; carries the edit-buffer fields
- *   (`serverName`, `remoteUrl`, `inboxEnabled`) that the user mutates before
- *   tapping Save, plus the server-owned `inboxCount`, the `isDirty` flag
- *   (recomputed on every edit-buffer mutation), the `isSaving` and
- *   `showDisableConfirmation` overlays, and a transient `error` surfaced via
- *   snackbar.
+ *   (`serverName`, `remoteUrl`) that the user mutates before tapping Save,
+ *   plus the `isDirty` flag (recomputed on every edit-buffer mutation),
+ *   the `isSaving` overlay, and a transient `error` surfaced via snackbar.
  * - [Error] terminal state when the initial load fails. Refresh failures
  *   after reaching [Ready] surface via the transient `error` field on
  *   [Ready] instead.
@@ -293,21 +198,16 @@ sealed interface AdminSettingsUiState {
     data object Loading : AdminSettingsUiState
 
     /**
-     * Settings have loaded; carries edit-buffer fields, the server-owned `inboxCount`,
-     * `isDirty`, action overlays, and a transient `error`.
+     * Settings have loaded; carries edit-buffer fields, `isDirty`, `isSaving`,
+     * and a transient `error`.
      */
     data class Ready(
         val serverName: String = "",
         val remoteUrl: String = "",
-        val inboxEnabled: Boolean = false,
-        val inboxCount: Int = 0,
-        val showDisableConfirmation: Boolean = false,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: String? = null,
-    ) : AdminSettingsUiState {
-        val hasPendingBooks: Boolean get() = inboxCount > 0
-    }
+    ) : AdminSettingsUiState
 
     /** Terminal state when the initial settings load fails. */
     data class Error(
