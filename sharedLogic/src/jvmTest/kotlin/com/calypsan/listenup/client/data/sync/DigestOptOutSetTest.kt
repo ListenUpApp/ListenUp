@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -55,7 +56,12 @@ class DigestOptOutSetTest :
                     SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     GenreSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     PlaybackPositionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    ListeningEventSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    ListeningEventSyncDomainHandler(
+                        database = clientDb,
+                        transactionRunner = txRunner,
+                        registry = registry,
+                        authSession = FakeAuthSession(),
+                    )
                     UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     LibrarySyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     LibraryFolderSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)

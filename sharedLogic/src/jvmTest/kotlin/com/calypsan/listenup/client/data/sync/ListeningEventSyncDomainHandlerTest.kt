@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -36,6 +37,32 @@ class ListeningEventSyncDomainHandlerTest :
                 row.deviceLabel shouldBe null
                 row.revision shouldBe 1L
                 row.deletedAt shouldBe null
+            }
+        }
+
+        test("Created event is stamped with the signed-in user's id so cross-device events count") {
+            withHandler(userId = "u1") { handler, db ->
+                handler.onEvent(created(payload("ev-x", "book-1")), isOwnEcho = false)
+
+                // The wire payload omits userId; the handler must stamp the current user's id,
+                // otherwise the user-scoped stats query (WHERE userId = :userId) excludes it.
+                db
+                    .listeningEventDao()
+                    .getById("ev-x")
+                    .shouldNotBeNull()
+                    .userId shouldBe "u1"
+            }
+        }
+
+        test("onCatchUpItem also stamps the signed-in user's id") {
+            withHandler(userId = "u9") { handler, db ->
+                handler.onCatchUpItem(payload("ev-y", "book-2"), isTombstone = false)
+
+                db
+                    .listeningEventDao()
+                    .getById("ev-y")
+                    .shouldNotBeNull()
+                    .userId shouldBe "u9"
             }
         }
 
@@ -106,7 +133,7 @@ class ListeningEventSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), registry, FakeAuthSession("u1"))
                 handler.domainName shouldBe "listening_events"
                 registry.lookup("listening_events") shouldBe handler
             } finally {
@@ -117,15 +144,19 @@ class ListeningEventSyncDomainHandlerTest :
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (ListeningEventSyncDomainHandler, ListenUpDatabase) -> Unit) =
-    runTest {
-        val db = createInMemoryTestDatabase()
-        try {
-            block(ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
-        } finally {
-            db.close()
-        }
+private fun withHandler(
+    userId: String = "u1",
+    block: suspend (ListeningEventSyncDomainHandler, ListenUpDatabase) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        val handler =
+            ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), FakeAuthSession(userId))
+        block(handler, db)
+    } finally {
+        db.close()
     }
+}
 
 private fun created(p: ListeningEventSyncPayload) =
     SyncEvent.Created(

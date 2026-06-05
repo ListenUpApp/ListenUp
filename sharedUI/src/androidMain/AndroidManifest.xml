@@ -75,6 +75,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Debug-only: on-device component gallery (mock data). Started via adb, not in launcher. -->
+        <activity
+            android:name="com.calypsan.listenup.client.PreviewGalleryActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ListenUp" />
+
         <service
             android:name="com.calypsan.listenup.client.playback.PlaybackService"
             android:enabled="true"

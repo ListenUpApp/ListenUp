@@ -223,6 +223,7 @@ val clientSyncRenovationModule =
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
+                authSession = get(),
             )
         }
         single(createdAtStart = true) {

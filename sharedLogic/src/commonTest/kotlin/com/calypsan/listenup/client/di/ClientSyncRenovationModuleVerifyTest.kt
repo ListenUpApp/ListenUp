@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,8 @@ import org.koin.test.verify.verify
  *    module's `single { }` block.
  *  - [Boolean] (named `"playbackAvailable"`) — platform-provided: `true` on Android/iOS,
  *    `false` on Desktop. Declared here so `verify()` does not fail on the qualified lookup.
+ *  - [AuthSession] — owned by `dataModule` (bound to SettingsRepositoryImpl). The listening-event
+ *    sync handler reads the signed-in user id from it to stamp synced cross-device events.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncRenovationModuleVerifyTest :
@@ -45,6 +48,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         ApiClientFactory::class,
                         ServerConfig::class,
                         CoroutineScope::class,
+                        AuthSession::class,
                         Function1::class,
                         Function2::class,
                         Function3::class,

@@ -45,6 +45,8 @@ import com.calypsan.listenup.client.features.library.components.LibraryTabRow
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SelectionToolbar
 import com.calypsan.listenup.client.features.library.components.SeriesContent
+import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.library.LibraryActionEvent
 import com.calypsan.listenup.client.presentation.library.LibraryActionsViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -76,7 +78,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onAuthorClick Callback when an author is clicked
  * @param onNarratorClick Callback when a narrator is clicked
  * @param onBrowseGenresClick Callback to open the browse-by-genre screen
- * @param topBarCollapseFraction Fraction of top bar collapse (0 = expanded, 1 = collapsed)
+ * @param appHeader The shell header slot, rendered above the tab row
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  */
@@ -87,7 +89,7 @@ fun LibraryScreen(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     onBrowseGenresClick: () -> Unit,
-    topBarCollapseFraction: Float = 0f,
+    appHeader: AppHeaderSlot,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
     actionsViewModel: LibraryActionsViewModel = koinViewModel(),
@@ -121,7 +123,7 @@ fun LibraryScreen(
                 onAuthorClick = onAuthorClick,
                 onNarratorClick = onNarratorClick,
                 onBrowseGenresClick = onBrowseGenresClick,
-                topBarCollapseFraction = topBarCollapseFraction,
+                appHeader = appHeader,
                 onEvent = viewModel::onEvent,
                 onEnterSelectionMode = viewModel::enterSelectionMode,
                 onToggleBookSelection = viewModel::toggleBookSelection,
@@ -186,7 +188,7 @@ private fun LibraryLoadedContent(
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     onBrowseGenresClick: () -> Unit,
-    topBarCollapseFraction: Float,
+    appHeader: AppHeaderSlot,
     onEvent: (LibraryUiEvent) -> Unit,
     onEnterSelectionMode: (String) -> Unit,
     onToggleBookSelection: (String) -> Unit,
@@ -282,7 +284,16 @@ private fun LibraryLoadedContent(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Tab row + overflow menu - tabs collapse icons when top bar collapses
+            // Custom shell header above the tabs (search/sync/avatar live here, not a Material bar).
+            appHeader {
+                Text(
+                    text = ShellDestination.Library.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            // Tab row + overflow menu
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -294,7 +305,6 @@ private fun LibraryLoadedContent(
                             pagerState.animateScrollToPage(index)
                         }
                     },
-                    collapseFraction = topBarCollapseFraction,
                     modifier = Modifier.weight(1f),
                 )
 

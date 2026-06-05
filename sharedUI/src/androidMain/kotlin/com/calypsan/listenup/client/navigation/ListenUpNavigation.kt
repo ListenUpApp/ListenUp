@@ -747,16 +747,17 @@ private fun AuthenticatedNavigation(
                                 onUserProfileClick = { userId ->
                                     backStack.add(UserProfile(userId))
                                 },
-                                homeContent = { padding, _, onNavigateToLibrary ->
+                                homeContent = { padding, appHeader, onNavigateToLibrary ->
                                     HomeScreen(
+                                        appHeader = appHeader,
                                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                                         onNavigateToLibrary = onNavigateToLibrary,
                                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                                         onSeeAllShelves = onNavigateToLibrary,
-                                        modifier = Modifier.padding(padding),
+                                        contentPadding = padding,
                                     )
                                 },
-                                libraryContent = { padding, topBarCollapseFraction ->
+                                libraryContent = { padding, appHeader ->
                                     LibraryScreen(
                                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                                         onSeriesClick = { seriesId -> backStack.add(SeriesDetail(seriesId)) },
@@ -765,16 +766,17 @@ private fun AuthenticatedNavigation(
                                             backStack.add(ContributorDetail(narratorId))
                                         },
                                         onBrowseGenresClick = { backStack.add(BrowseGenre) },
-                                        topBarCollapseFraction = topBarCollapseFraction,
+                                        appHeader = appHeader,
                                         modifier = Modifier.padding(padding),
                                     )
                                 },
-                                discoverContent = { padding ->
+                                discoverContent = { padding, appHeader ->
                                     DiscoverScreen(
+                                        appHeader = appHeader,
                                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                                         onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                                        modifier = Modifier.padding(padding),
+                                        contentPadding = padding,
                                     )
                                 },
                             )

@@ -49,6 +49,8 @@ import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
+import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -71,9 +73,11 @@ import listenup.composeapp.generated.resources.discover_when_other_users_create_
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
+    appHeader: AppHeaderSlot,
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
@@ -95,6 +99,8 @@ fun DiscoverScreen(
             isLoading = shelvesState is DiscoverShelvesUiState.Loading,
             users = shelvesReady?.users.orEmpty(),
             isEmpty = shelvesReady?.isEmpty ?: false,
+            appHeader = appHeader,
+            contentPadding = contentPadding,
             onShelfClick = onShelfClick,
             onBookClick = onBookClick,
             onUserProfileClick = onUserProfileClick,
@@ -149,6 +155,8 @@ private fun DiscoverContent(
     isLoading: Boolean,
     users: List<DiscoverUserShelves>,
     isEmpty: Boolean,
+    appHeader: AppHeaderSlot,
+    contentPadding: PaddingValues,
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
@@ -159,10 +167,27 @@ private fun DiscoverContent(
         )
 
     LazyColumn(
-        contentPadding = PaddingValues(vertical = 16.dp),
+        // Shell system-bar/nav insets fold into the feed's own 16dp so content scrolls under the
+        // bars and rests clear of them — no outer pad that would clip the first/last item.
+        contentPadding =
+            PaddingValues(
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
+        // Custom shell header scrolls with the feed (search/sync/avatar live here).
+        item {
+            appHeader {
+                Text(
+                    text = ShellDestination.Discover.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
         // Discover Something New - random book discovery (top section)
         item {
             DiscoverBooksSection(

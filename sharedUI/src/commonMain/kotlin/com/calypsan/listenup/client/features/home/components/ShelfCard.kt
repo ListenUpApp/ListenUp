@@ -10,16 +10,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,41 +30,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
-import com.calypsan.listenup.client.design.util.stableColorForId
+import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.domain.model.Shelf
-import org.jetbrains.compose.resources.stringResource
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.home_cover_1
-import listenup.composeapp.generated.resources.home_cover_2
-import listenup.composeapp.generated.resources.home_cover_3
-import listenup.composeapp.generated.resources.home_cover_4
+
+private val ShelfCardWidth = 180.dp
+private val ShelfCardHeight = 116.dp
 
 /**
- * Card for a shelf in the My Shelves section.
+ * A color-blocked shelf card: a filled container with a soft blob, the shelf icon, its name, and the
+ * book count. Colors are supplied by the caller so a row of shelves cycles through the
+ * primary/tertiary/secondary container roles.
  *
- * Features:
- * - 2x2 book cover grid (or empty state icon)
- * - Shelf name and book count
- * - Press-to-scale animation
- *
- * @param shelf The shelf domain model to display
- * @param onClick Callback when card is clicked
- * @param modifier Optional modifier
+ * @param shelf The shelf domain model.
+ * @param containerColor The card's fill color (a `*Container` role).
+ * @param contentColor The matching `on*Container` color for icon + text.
+ * @param onClick Card click.
+ * @param modifier Optional modifier.
+ * @param fillWidth When true the card fills its parent width (desktop vertical stack); otherwise it
+ *   takes a fixed width (mobile carousel).
  */
 @Composable
 fun ShelfCard(
     shelf: Shelf,
+    containerColor: Color,
+    contentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    fillWidth: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -75,186 +73,76 @@ fun ShelfCard(
                 isFocused -> 1.05f
                 else -> 1f
             },
-        label = "card_scale",
+        label = "shelf_card_scale",
     )
 
-    // Owner identity carries no avatar color — derive a stable color from the owner id.
-    val avatarColor =
-        remember(shelf.ownerId) {
-            stableColorForId(shelf.ownerId)
-        }
+    val widthModifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(ShelfCardWidth)
 
-    Column(
+    Box(
         modifier =
             modifier
-                .width(140.dp)
+                .then(widthModifier)
+                .height(ShelfCardHeight)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.clickable(
+                }.clip(ContentShapes.card)
+                .background(containerColor)
+                .clickable(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = onClick,
                 ),
     ) {
-        // Cover grid container
-        ShelfCoverGrid(
-            coverPaths = shelf.coverPaths,
-            color = avatarColor,
-            modifier = Modifier.size(140.dp),
+        // Soft decorative blob, bottom-right.
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 24.dp, y = 24.dp)
+                    .size(90.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.12f)),
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Metadata
-        Column(modifier = Modifier.padding(horizontal = 2.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (shelf.isPrivate) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Private shelf",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp),
+        Column(
+            modifier = Modifier.fillMaxSize().padding(18.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.LibraryBooks,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(26.dp),
+            )
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (shelf.isPrivate) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Private shelf",
+                            tint = contentColor.copy(alpha = 0.8f),
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                    Text(
+                        text = shelf.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Text(
-                    text = shelf.name,
-                    style =
-                        MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.2).sp,
-                        ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor.copy(alpha = 0.8f),
                 )
             }
-
-            Text(
-                text = "${shelf.bookCount} ${if (shelf.bookCount == 1) "book" else "books"}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-/**
- * 2x2 grid of book covers for a shelf card.
- *
- * Shows up to 4 book covers in a grid layout. Empty slots are filled
- * with a colored placeholder. If no covers at all, shows a bookshelf icon.
- */
-@Composable
-private fun ShelfCoverGrid(
-    coverPaths: List<String>,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    val shape = MaterialTheme.shapes.medium
-
-    if (coverPaths.isEmpty()) {
-        // Empty state — bookshelf icon
-        Box(
-            modifier =
-                modifier
-                    .shadow(elevation = 4.dp, shape = shape)
-                    .clip(shape)
-                    .background(color.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.AutoStories,
-                contentDescription = null,
-                tint = color.copy(alpha = 0.6f),
-                modifier = Modifier.size(48.dp),
-            )
-        }
-    } else {
-        // 2x2 cover grid
-        Box(
-            modifier =
-                modifier
-                    .shadow(elevation = 4.dp, shape = shape)
-                    .clip(shape),
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    CoverCell(
-                        path = coverPaths.getOrNull(0),
-                        color = color,
-                        contentDescription = stringResource(Res.string.home_cover_1),
-                        modifier = Modifier.weight(1f).fillMaxSize(),
-                    )
-                    CoverCell(
-                        path = coverPaths.getOrNull(1),
-                        color = color,
-                        contentDescription = stringResource(Res.string.home_cover_2),
-                        modifier = Modifier.weight(1f).fillMaxSize(),
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    CoverCell(
-                        path = coverPaths.getOrNull(2),
-                        color = color,
-                        contentDescription = stringResource(Res.string.home_cover_3),
-                        modifier = Modifier.weight(1f).fillMaxSize(),
-                    )
-                    CoverCell(
-                        path = coverPaths.getOrNull(3),
-                        color = color,
-                        contentDescription = stringResource(Res.string.home_cover_4),
-                        modifier = Modifier.weight(1f).fillMaxSize(),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * A single cell in the cover grid — either a book cover image or a colored placeholder.
- */
-@Composable
-private fun CoverCell(
-    path: String?,
-    color: Color,
-    contentDescription: String,
-    modifier: Modifier = Modifier,
-) {
-    if (path != null) {
-        ListenUpAsyncImage(
-            path = path,
-            contentDescription = contentDescription,
-            modifier = modifier,
-            contentScale = ContentScale.Crop,
-        )
-    } else {
-        Box(
-            modifier =
-                modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                contentDescription = null,
-                tint = color.copy(alpha = 0.3f),
-                modifier = Modifier.size(20.dp),
-            )
         }
     }
 }

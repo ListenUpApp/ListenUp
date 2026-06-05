@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -218,6 +219,7 @@ class DigestParityE2ETest :
                             database = clientDb,
                             transactionRunner = RoomTransactionRunner(clientDb),
                             registry = registry,
+                            authSession = FakeAuthSession(userId),
                         )
 
                     val serverPage = listeningEventRepo.pullSince(userId = userId, cursor = 0L, limit = 100)

@@ -7,7 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
@@ -252,6 +256,10 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         darkTheme = darkTheme,
         dynamicColor = dynamicColorsEnabled,
     ) {
-        ListenUpNavigation()
+        // Paint the themed surface edge-to-edge (behind the system bars) so there are no
+        // window-background bands at the top/bottom; inner scaffolds stay transparent over it.
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            ListenUpNavigation()
+        }
     }
 }
