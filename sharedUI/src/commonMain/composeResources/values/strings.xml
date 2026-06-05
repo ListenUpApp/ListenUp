@@ -157,6 +157,7 @@
     <string name="book_detail_progresspercent">%1$s%</string>
     <string name="book_detail_queued">Queued...</string>
     <string name="book_detail_readers">Readers</string>
+    <string name="book_detail_readers_listening_now">%1$d listening now</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
     <string name="book_detail_retry">Retry</string>
     <string name="book_detail_retry_download">Retry download</string>
