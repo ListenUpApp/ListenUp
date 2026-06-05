@@ -33,10 +33,10 @@ fun StreakIndicator(
     modifier: Modifier = Modifier,
 ) {
     val title =
-        when {
-            currentStreak == 0 && longestStreak > 0 -> "Best: $longestStreak-day streak"
-            currentStreak == 1 -> "1-day streak"
-            else -> "$currentStreak-day streak"
+        if (currentStreak == 0 && longestStreak > 0) {
+            "Best: ${dayCount(longestStreak)} streak"
+        } else {
+            "${dayCount(currentStreak)} streak"
         }
     Row(
         modifier = modifier,
@@ -67,7 +67,7 @@ fun StreakIndicator(
             )
             if (longestStreak > 0 && currentStreak > 0) {
                 Text(
-                    text = "Best: $longestStreak days",
+                    text = "Best: ${dayCount(longestStreak)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -75,3 +75,6 @@ fun StreakIndicator(
         }
     }
 }
+
+/** Formats a day count with correct singular/plural casing: "1 Day", "2 Days". */
+private fun dayCount(days: Int): String = "$days " + if (days == 1) "Day" else "Days"
