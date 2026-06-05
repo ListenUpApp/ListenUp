@@ -51,7 +51,7 @@ fun HomeStatsSection(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(if (isWide) 28.dp else 22.dp)) {
@@ -153,9 +153,11 @@ internal fun HomeStatsContent(
         }
 
         else -> {
-            chartColumn()
-            HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
-            detailColumn()
+            Column {
+                chartColumn()
+                HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
+                detailColumn()
+            }
         }
     }
 }

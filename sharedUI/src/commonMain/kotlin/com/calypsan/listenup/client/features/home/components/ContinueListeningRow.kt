@@ -39,6 +39,7 @@ fun ContinueListeningRow(
     items: List<ContinueListeningItem>,
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    playingBookId: String? = null,
 ) {
     Column(modifier = modifier) {
         SectionTitle(
@@ -61,6 +62,7 @@ fun ContinueListeningRow(
                         authorName = item.book.authorNames,
                         progress = item.book.progress,
                         timeRemaining = item.book.timeRemainingFormatted,
+                        isPlaying = item.book.bookId == playingBookId,
                         cardWidth = 140.dp,
                     )
                 }

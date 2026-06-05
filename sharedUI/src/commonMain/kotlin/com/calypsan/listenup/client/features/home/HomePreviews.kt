@@ -1,11 +1,19 @@
 package com.calypsan.listenup.client.features.home
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -125,7 +133,7 @@ private fun StatsCardPreview(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Box(Modifier.padding(if (isWide) 28.dp else 22.dp)) { HomeStatsContent(state, isWide) }
@@ -173,3 +181,51 @@ private fun ShelvesWidePreview() =
 @Preview
 @Composable
 private fun StatsCardDarkPreview() = PreviewSurface(dark = true) { StatsCardPreview(mockStats(), isWide = false) }
+
+/**
+ * On-device gallery of the Home components rendered with mock data — a fallback for validating the
+ * design without real listening data when the IDE preview pane is unavailable. Launched by the
+ * debug `PreviewGalleryActivity`; not part of the navigation graph.
+ */
+@Composable
+fun HomePreviewGallery() {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            GalleryLabel("Greeting")
+            HomeHeader(timeGreeting = "Good evening", userName = "Simon", isWide = false)
+
+            GalleryLabel("Continue Listening")
+            ContinueListeningRow(items = mockContinue(), onBookClick = {})
+
+            GalleryLabel("This week — populated (compact)")
+            StatsCardPreview(mockStats(), isWide = false)
+
+            GalleryLabel("This week — populated (wide)")
+            StatsCardPreview(mockStats(), isWide = true)
+
+            GalleryLabel("This week — zero state")
+            StatsCardPreview(zeroStats, isWide = false)
+
+            GalleryLabel("My Shelves (compact)")
+            MyShelvesRow(shelves = mockShelves(), isWide = false, onShelfClick = {}, onSeeAllClick = {})
+
+            GalleryLabel("My Shelves (wide)")
+            MyShelvesRow(shelves = mockShelves(), isWide = true, onShelfClick = {}, onSeeAllClick = {})
+
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun GalleryLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 24.dp),
+    )
+}

@@ -35,8 +35,10 @@ import com.calypsan.listenup.client.features.home.components.EmptyContinueListen
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsSection
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
+import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -65,6 +67,10 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Observe the currently-playing book so its Continue Listening card gets the now-playing frame.
+    val playback: PlaybackManager = koinInject()
+    val playingBookId by playback.currentBookId.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.snackbarMessages.collect { snackbarHostState.showSnackbar(it) }
@@ -113,6 +119,7 @@ fun HomeScreen(
                 HomeContent(
                     state = s,
                     isWide = isWide,
+                    playingBookId = playingBookId?.value,
                     onRefresh = { viewModel.refresh() },
                     onBookClick = onBookClick,
                     onNavigateToLibrary = onNavigateToLibrary,
@@ -130,6 +137,7 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState.Ready,
     isWide: Boolean,
+    playingBookId: String?,
     onRefresh: () -> Unit,
     onBookClick: (String) -> Unit,
     onNavigateToLibrary: () -> Unit,
@@ -154,6 +162,7 @@ private fun HomeContent(
                 ContinueListeningRow(
                     items = state.continueListening,
                     onBookClick = onBookClick,
+                    playingBookId = playingBookId,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             } else {

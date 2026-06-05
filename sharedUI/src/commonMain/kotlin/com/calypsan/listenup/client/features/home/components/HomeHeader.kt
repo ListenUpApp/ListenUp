@@ -27,7 +27,7 @@ fun HomeHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 8.dp),
     ) {
         Text(
             text = if (userName.isNotBlank()) "$timeGreeting," else timeGreeting,

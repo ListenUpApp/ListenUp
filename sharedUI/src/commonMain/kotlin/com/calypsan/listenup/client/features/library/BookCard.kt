@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.contributorAvatarShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import kotlin.math.PI
@@ -120,6 +122,7 @@ fun BookCard(
     progress: Float? = null,
     timeRemaining: String? = null,
     isFinished: Boolean = false,
+    isPlaying: Boolean = false,
     avatarOverlay: AvatarOverlayData? = null,
     isInSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -199,6 +202,8 @@ fun BookCard(
         Box {
             val isCompleted = isFinished
 
+            // The now-playing book gets a coral frame; selection/focus still win when active.
+            val playingBorder = MaterialTheme.colorScheme.primary
             BookCardCover(
                 bookId = bookId,
                 coverPath = coverPath,
@@ -207,8 +212,14 @@ fun BookCard(
                 progress = if (isCompleted) null else progress,
                 timeRemaining = if (isCompleted) null else timeRemaining,
                 avatarOverlay = avatarOverlay,
-                isSelected = isSelected || isFocused,
-                borderColor = if (isSelected) borderColor else focusBorderColor,
+                isSelected = isSelected || isFocused || isPlaying,
+                borderColor =
+                    when {
+                        isSelected -> borderColor
+                        isFocused -> focusBorderColor
+                        isPlaying -> playingBorder
+                        else -> focusBorderColor
+                    },
                 modifier =
                     if (cardWidth != null) {
                         Modifier.aspectRatio(1f)
@@ -217,22 +228,16 @@ fun BookCard(
                     },
             )
 
-            // Selection checkbox takes precedence over completion badge
+            // Selection checkbox takes precedence over completion / now-playing badges.
             if (isInSelectionMode) {
                 SelectionIndicator(
                     isSelected = isSelected || isFocused,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 )
+            } else if (isPlaying) {
+                NowPlayingBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (isCompleted) {
-                CompletionBadge(
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                )
+                CompletionBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
 
@@ -300,6 +305,26 @@ fun BookCard(
  * - Avatar overlay (when avatarOverlay != null)
  * - Selection/focus border
  */
+/** Scallop badge with an equalizer glyph, shown on the cover of the currently-playing book. */
+@Composable
+private fun NowPlayingBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .size(28.dp)
+                .clip(contributorAvatarShape())
+                .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.GraphicEq,
+            contentDescription = "Now playing",
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
 @Composable
 private fun BookCardCover(
     bookId: String,
