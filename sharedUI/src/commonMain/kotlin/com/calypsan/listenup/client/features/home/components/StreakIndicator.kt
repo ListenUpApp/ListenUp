@@ -1,25 +1,26 @@
 package com.calypsan.listenup.client.features.home.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.resources.stringResource
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.home_best_longeststreak
+import com.calypsan.listenup.client.design.components.contributorAvatarShape
 
 /**
- * Streak indicator showing current and optionally longest streak.
- *
- * Displays a fire emoji followed by the current streak count.
- * If the longest streak is greater than current, shows it in parentheses.
+ * Streak indicator \u2014 a scallop badge with a flame, the current streak, and the longest as a subtitle.
  *
  * @param currentStreak Current listening streak in days
  * @param longestStreak Longest ever streak in days
@@ -31,40 +32,46 @@ fun StreakIndicator(
     longestStreak: Int,
     modifier: Modifier = Modifier,
 ) {
+    val title =
+        when {
+            currentStreak == 0 && longestStreak > 0 -> "Best: $longestStreak-day streak"
+            currentStreak == 1 -> "1-day streak"
+            else -> "$currentStreak-day streak"
+        }
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Fire emoji
-        Text(
-            text = "\uD83D\uDD25",
-            fontSize = 20.sp,
-        )
-
-        Spacer(Modifier.width(8.dp))
-
-        // Current streak text
-        val streakText =
-            when {
-                currentStreak == 0 && longestStreak > 0 -> "Best: $longestStreak day streak"
-                currentStreak == 1 -> "1 day streak"
-                else -> "$currentStreak day streak"
-            }
-        Text(
-            text = streakText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        // Show longest streak if greater than current and current > 0
-        if (longestStreak > currentStreak && currentStreak > 0) {
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = stringResource(Res.string.home_best_longeststreak, longestStreak),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Box(
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .clip(contributorAvatarShape())
+                    .background(MaterialTheme.colorScheme.tertiaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.LocalFireDepartment,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(26.dp),
             )
+        }
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (longestStreak > 0 && currentStreak > 0) {
+                Text(
+                    text = "Best: $longestStreak days",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
