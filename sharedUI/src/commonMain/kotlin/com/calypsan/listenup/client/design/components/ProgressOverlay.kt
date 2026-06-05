@@ -2,26 +2,28 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+/** Scrim behind the progress pill — a translucent dark wash standing in for the design's blur. */
+private val ProgressScrim = Color.Black.copy(alpha = 0.42f)
+
 /**
- * Progress overlay for book covers.
- *
- * Displays a compact progress bar with percentage and optional time remaining.
- * Uses theme colors (primaryContainer/primary) for a cohesive look.
+ * Progress pill for book covers — a floating, inset capsule with a coral percentage chip and the
+ * optional time-remaining text, over a translucent dark scrim. Sits at the bottom of a cover.
  *
  * @param progress Progress value from 0.0 to 1.0
  * @param timeRemaining Optional formatted time remaining string (e.g., "2h 15m left")
@@ -37,46 +39,32 @@ fun ProgressOverlay(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f))
+                .padding(8.dp)
+                .clip(CircleShape)
+                .background(ProgressScrim)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Progress bar with percentage inside
-        Box(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .height(18.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)),
-        ) {
-            // Filled portion
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress.coerceIn(0f, 1f))
-                        .background(MaterialTheme.colorScheme.primary),
-            )
-            // Percentage text centered
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
             Text(
-                text = "${(progress * 100).toInt()}%",
-                style = MaterialTheme.typography.labelSmall,
+                text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
             )
         }
 
-        // Time remaining (if provided)
         if (timeRemaining != null) {
             Text(
                 text = timeRemaining,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
         }
     }
