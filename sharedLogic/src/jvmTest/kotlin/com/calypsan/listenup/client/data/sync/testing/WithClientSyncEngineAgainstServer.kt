@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
@@ -569,6 +570,7 @@ private fun registerClientSyncHandlers(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
+        authSession = FakeAuthSession(),
     )
     UserStatsSyncDomainHandler(
         database = clientDb,

@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -32,12 +34,19 @@ private val logger = KotlinLogging.logger {}
  * at the SSE level is a no-op (same reasoning as [PlaybackPositionSyncDomainHandler]'s
  * Deleted handling — the catch-up pass converges it).
  *
+ * **Ownership stamping.** The wire payload omits `userId` — the server only streams a
+ * client its *own* user's events. Synced rows are stamped with the signed-in user's id (read
+ * from [authSession]) so they share the id of locally-recorded events; without this they'd land
+ * with a blank id and the user-scoped stats query ([com.calypsan.listenup.client.data.local.db.ListeningEventDao.observeWithinWindow])
+ * would silently exclude cross-device listening from the Home stats.
+ *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
 class ListeningEventSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
+    private val authSession: AuthSession,
 ) : SyncDomainHandler<ListeningEventSyncPayload> {
     override val domainName: String = "listening_events"
     override val payloadSerializer = ListeningEventSyncPayload.serializer()
@@ -97,10 +106,14 @@ class ListeningEventSyncDomainHandler(
         val existing = database.listeningEventDao().getById(payload.id)
         if (existing != null) return
 
+        // The wire payload omits userId — stamp the signed-in user so the row shares the id of
+        // locally-recorded events and the user-scoped stats query counts it (cross-device totals).
+        val currentUserId = (authSession.authState.value as? AuthState.Authenticated)?.userId?.value ?: ""
+
         database.listeningEventDao().upsert(
             ListeningEventEntity(
                 id = payload.id,
-                userId = "", // userId is not on the wire payload; the server owns it
+                userId = currentUserId,
                 bookId = payload.bookId,
                 startPositionMs = payload.startPositionMs,
                 endPositionMs = payload.endPositionMs,
