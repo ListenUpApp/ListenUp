@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.result.AppResult
@@ -70,6 +71,10 @@ class ShelfRepositoryImpl(
         )
 
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
+
+    override suspend fun getUserShelves(userId: String): AppResult<List<Shelf>> =
+        rpcCall { rpcFactory.get().getUserShelves(UserId(userId)) }
+            .map { shelves -> shelves.map { it.toDomain() } }
 
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
         rpcCall { rpcFactory.get().discoverShelves() }

@@ -244,6 +244,46 @@ class ShelfRepositoryImplTest :
             }
         }
 
+        test("getUserShelves returns the user's public shelves mapped from the contract Shelf type") {
+            runTest {
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { getUserShelves(UserId("u1")) } returns
+                            AppResult.Success(
+                                listOf(
+                                    ShelfDto(
+                                        id = ShelfId("s9"),
+                                        name = "Alice's picks",
+                                        description = "",
+                                        isPrivate = false,
+                                        bookCount = 4,
+                                        updatedAt = 100L,
+                                    ),
+                                ),
+                            )
+                    }
+                val result = repo(service = service).getUserShelves("u1")
+                val shelves = (result as AppResult.Success).data
+                shelves.size shouldBe 1
+                val shelf = shelves.first()
+                shelf.id shouldBe "s9"
+                shelf.name shouldBe "Alice's picks"
+                shelf.bookCount shouldBe 4
+            }
+        }
+
+        test("getUserShelves surfaces transport failure as AppResult.Failure (rpcCall boundary)") {
+            runTest {
+                val factory: ShelfRpcFactory =
+                    mock {
+                        everySuspend { get() } throws RuntimeException("connection refused")
+                    }
+                val repo = ShelfRepositoryImpl(mock(), mock { everySuspend { getCurrentUser() } returns user() }, factory)
+                val result = repo.getUserShelves("u1")
+                result.shouldBeInstanceOf<AppResult.Failure>()
+            }
+        }
+
         test("CancellationException from the service is re-raised, not swallowed") {
             runTest {
                 val service =
