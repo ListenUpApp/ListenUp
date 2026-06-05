@@ -105,7 +105,22 @@ class ChangeBus {
         controlFlow.emit(ControlFrame(control, userId))
     }
 
+    /**
+     * Publishes a [control] frame to EVERY connected subscriber, addressed to the
+     * [BROADCAST] sentinel userId. The firehose delivers it to all subscribers
+     * regardless of their own userId. Use for content-free nudges only — a
+     * broadcast frame carries no per-user or per-resource data, so it cannot leak.
+     */
+    suspend fun broadcastControl(control: SyncControl) {
+        controlFlow.emit(ControlFrame(control, BROADCAST))
+    }
+
     fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
+
+    companion object {
+        /** Sentinel [ControlFrame.userId] marking a frame destined for every subscriber. */
+        const val BROADCAST = "*"
+    }
 
     /**
      * Best-effort lower bound on the oldest revision still in the live-tail

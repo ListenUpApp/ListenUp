@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
@@ -98,6 +99,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is CollectionError -> toHttpStatus()
 
         is ShelfError -> toHttpStatus()
+
+        is SocialError -> toHttpStatus()
 
         is AdminError -> toHttpStatus()
 
@@ -180,6 +183,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is ShelfError -> {
+            withCorrelationId(id)
+        }
+
+        is SocialError -> {
             withCorrelationId(id)
         }
 
@@ -565,6 +572,16 @@ private fun ShelfError.withCorrelationId(id: String?): ShelfError =
         is ShelfError.NotFound -> copy(correlationId = id)
         is ShelfError.Forbidden -> copy(correlationId = id)
         is ShelfError.InvalidName -> copy(correlationId = id)
+    }
+
+private fun SocialError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SocialError.NotFound -> HttpStatusCode.NotFound
+    }
+
+private fun SocialError.withCorrelationId(id: String?): SocialError =
+    when (this) {
+        is SocialError.NotFound -> copy(correlationId = id)
     }
 
 private fun AdminError.toHttpStatus(): HttpStatusCode =

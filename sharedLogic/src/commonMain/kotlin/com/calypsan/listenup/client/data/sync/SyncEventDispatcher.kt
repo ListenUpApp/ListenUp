@@ -65,6 +65,10 @@ class SyncEventDispatcher(
                 logger.info { "UserDeleted received; clearing auth" }
                 onUserDeleted(control.reason)
             }
+
+            SyncControl.ActiveSessionsChanged -> {
+                logger.debug { "ActiveSessionsChanged received; presence consumers re-derive on demand" }
+            }
         }
     }
 
