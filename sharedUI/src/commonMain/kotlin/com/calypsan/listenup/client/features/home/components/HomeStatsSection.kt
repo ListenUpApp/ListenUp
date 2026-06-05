@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.home.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +23,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_loading_item
-import listenup.composeapp.generated.resources.home_this_week
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -49,29 +51,33 @@ fun HomeStatsSection(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(if (isWide) 28.dp else 22.dp)) {
-            when (val s = state) {
-                HomeStatsUiState.Loading -> {
-                    StatsPlaceholder(stringResource(Res.string.common_loading_item, "stats"))
-                }
+    Column(modifier = modifier.fillMaxWidth()) {
+        SectionTitle(title = "My stats")
+        Spacer(Modifier.height(Spacing.titleGap))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(if (isWide) 32.dp else 22.dp)) {
+                when (val s = state) {
+                    HomeStatsUiState.Loading -> {
+                        StatsPlaceholder(stringResource(Res.string.common_loading_item, "stats"))
+                    }
 
-                HomeStatsUiState.Empty -> {
-                    // Render the card at zero (chart + "0m") rather than a placeholder; streak and
-                    // genres collapse until there's data.
-                    HomeStatsContent(state = EmptyWeekStats, isWide = isWide)
-                }
+                    HomeStatsUiState.Empty -> {
+                        // Render the card at zero (chart + "0m") rather than a placeholder; streak and
+                        // genres collapse until there's data.
+                        HomeStatsContent(state = EmptyWeekStats, isWide = isWide)
+                    }
 
-                is HomeStatsUiState.Data -> {
-                    HomeStatsContent(state = s, isWide = isWide)
-                }
+                    is HomeStatsUiState.Data -> {
+                        HomeStatsContent(state = s, isWide = isWide)
+                    }
 
-                is HomeStatsUiState.Error -> {
-                    StatsPlaceholder("Couldn't load stats.", color = MaterialTheme.colorScheme.error)
+                    is HomeStatsUiState.Error -> {
+                        StatsPlaceholder("Couldn't load stats.", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -83,8 +89,6 @@ private fun StatsPlaceholder(
     message: String,
     color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    Overline(stringResource(Res.string.home_this_week))
-    Spacer(Modifier.height(12.dp))
     Text(text = message, style = MaterialTheme.typography.bodyMedium, color = color)
 }
 
@@ -99,13 +103,11 @@ internal fun HomeStatsContent(
 
     val chartColumn: @Composable () -> Unit = {
         Column {
-            Overline(stringResource(Res.string.home_this_week))
-            Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "${hours}h ${minutes}m",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
+                    style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-1.5).sp,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -118,7 +120,11 @@ internal fun HomeStatsContent(
             }
             Spacer(Modifier.height(18.dp))
             if (state.dailyBuckets.isNotEmpty()) {
-                DailyListeningChart(dailyBuckets = state.dailyBuckets, modifier = Modifier.fillMaxWidth())
+                DailyListeningChart(
+                    dailyBuckets = state.dailyBuckets,
+                    modifier = Modifier.fillMaxWidth(),
+                    chartHeight = if (isWide) 150.dp else 124.dp,
+                )
             }
         }
     }
@@ -145,7 +151,9 @@ internal fun HomeStatsContent(
         }
 
         isWide -> {
-            Row {
+            // height(IntrinsicSize.Min) gives the VerticalDivider the tallest column's height;
+            // without it the divider collapses to nothing (it has no intrinsic height of its own).
+            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
                 Box(Modifier.weight(1.3f)) { chartColumn() }
                 VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
                 Box(Modifier.weight(1f)) { detailColumn() }

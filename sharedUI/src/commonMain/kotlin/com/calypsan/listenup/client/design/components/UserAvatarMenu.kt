@@ -178,7 +178,7 @@ private fun UserAvatarCircle(
                 user?.let { Color.hsl((it.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f) }
                     ?: MaterialTheme.colorScheme.surfaceContainerHighest
             },
-        modifier = Modifier.size(40.dp),
+        modifier = Modifier.size(48.dp),
     ) {
         if (hasImageAvatar && user != null) {
             // Offline-first: prefer local cached avatar
@@ -202,7 +202,7 @@ private fun UserAvatarCircle(
                     contentDescription = "${user.displayName} avatar",
                     modifier =
                         Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(CircleShape),
                     contentScale = ContentScale.Crop,
                 )
@@ -220,7 +220,7 @@ private fun UserAvatarCircle(
                     contentDescription = "${user.displayName} avatar",
                     modifier =
                         Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(CircleShape),
                     contentScale = ContentScale.Crop,
                 )

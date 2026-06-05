@@ -40,18 +40,22 @@ fun MyShelvesRow(
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Wide places this section inside a parent Row that already owns the page margin and the gap to
+    // the stats card, so it adds none of its own (a second screenMargin would double the right
+    // gutter and inflate the stats↔shelves gap). Compact is full-bleed and supplies its own gutter.
+    val horizontalGutter = if (isWide) 0.dp else Spacing.screenMargin
+
     Column(modifier = modifier) {
         SectionTitle(
             title = stringResource(Res.string.home_my_shelves),
             onSeeAll = onSeeAllClick,
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+            modifier = Modifier.padding(horizontal = horizontalGutter),
         )
 
         Spacer(modifier = Modifier.height(Spacing.titleGap))
 
         if (isWide) {
             Column(
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 shelves.forEachIndexed { index, shelf ->

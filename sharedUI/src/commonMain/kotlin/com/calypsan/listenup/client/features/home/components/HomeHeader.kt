@@ -35,10 +35,10 @@ fun HomeHeader(
             Text(
                 text = userName,
                 style =
-                    (if (isWide) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium)
+                    (if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineMedium)
                         .copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-1).sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = if (isWide) (-1.5).sp else (-1).sp,
                         ),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,

@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
@@ -45,6 +46,7 @@ import kotlin.time.ExperimentalTime
 fun DailyListeningChart(
     dailyBuckets: List<DayBucket>,
     modifier: Modifier = Modifier,
+    chartHeight: Dp = 124.dp,
 ) {
     val todayColor = MaterialTheme.colorScheme.primary
     val barColor = MaterialTheme.colorScheme.primaryContainer
@@ -84,7 +86,7 @@ fun DailyListeningChart(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(100.dp),
+                .height(chartHeight),
     ) {
         val labelHeight = 16.dp.toPx()
         val chartHeight = size.height - labelHeight - 4.dp.toPx()
