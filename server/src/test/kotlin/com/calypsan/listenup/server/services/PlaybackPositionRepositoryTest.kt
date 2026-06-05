@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.PlaybackPositionId
@@ -398,6 +399,118 @@ class PlaybackPositionRepositoryTest :
                         currentChapterId = null,
                     )
                     activeSessionRepo.listReadersForBook("book-in-progress", excludeUserId = "none") shouldHaveSize 1
+                }
+            }
+        }
+
+        test("recordPosition finish-flip records exactly one finished_book for (user, book)") {
+            withInMemoryDatabase {
+                val activities = ActivityRepository(db = this)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    // First record: in progress — no finish
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    // Second record: finished=true — flip fires
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_999_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+
+                    val finished = activities.page(before = null, limit = 50).filter { it.type == ActivityType.FINISHED_BOOK }
+                    finished shouldHaveSize 1
+                    finished.single().userId shouldBe "u1"
+                    finished.single().bookId shouldBe "book-1"
+                }
+            }
+        }
+
+        test("recordPosition first-ever in-progress position records one started_book (isReread=false)") {
+            withInMemoryDatabase {
+                val activities = ActivityRepository(db = this)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 10_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+
+                    val started = activities.page(before = null, limit = 50).filter { it.type == ActivityType.STARTED_BOOK }
+                    started shouldHaveSize 1
+                    started.single().bookId shouldBe "book-1"
+                    started.single().isReread shouldBe false
+                }
+            }
+        }
+
+        test("recordPosition re-read (prior finished, new in-progress) records one started_book with isReread=true") {
+            withInMemoryDatabase {
+                val activities = ActivityRepository(db = this)
+                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val repo =
+                    PlaybackPositionRepository(
+                        db = this,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        activityRecorder = recorder,
+                    )
+                runTest {
+                    // Seed a finished position
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 99_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    // Re-open it (in progress again) — a re-read
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 5_000L,
+                        lastPlayedAt = 1_730_000_999_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+
+                    val started = activities.page(before = null, limit = 50).filter { it.type == ActivityType.STARTED_BOOK }
+                    started shouldHaveSize 1
+                    started.single().bookId shouldBe "book-1"
+                    started.single().isReread shouldBe true
                 }
             }
         }

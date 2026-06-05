@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -15,6 +16,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -71,6 +74,23 @@ class ShelfServiceTest :
             )
         }
 
+        fun makeServiceWithRecorder(
+            db: Database,
+            activities: ActivityRepository,
+        ): ShelfServiceImpl {
+            val bus = ChangeBus()
+            val registry = SyncRegistry()
+            return ShelfServiceImpl(
+                shelfRepo = ShelfRepository(db = db, bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = db, bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(db),
+                readAssembler = ShelfReadAssembler(db),
+                clock = fixedClock,
+                principal = principalFor("u1"),
+                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+            )
+        }
+
         fun ShelfServiceImpl.actAs(
             userId: String,
             role: UserRole = UserRole.MEMBER,
@@ -98,6 +118,49 @@ class ShelfServiceTest :
                     val mine = service.listMyShelves().value()
                     mine shouldHaveSize 1
                     mine.first().id shouldBe created.id
+                }
+            }
+        }
+
+        test("createShelf of a public shelf records one shelf_created with shelfId and shelfName") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                runTest {
+                    val activities = ActivityRepository(db = db)
+                    val created =
+                        makeServiceWithRecorder(db, activities)
+                            .actAs("u1")
+                            .createShelf(name = "Winter Reads", isPrivate = false)
+                            .value()
+
+                    val recorded =
+                        activities.page(before = null, limit = 50).filter { it.type == ActivityType.SHELF_CREATED }
+                    recorded shouldHaveSize 1
+                    recorded.single().userId shouldBe "u1"
+                    recorded.single().shelfId shouldBe created.id.value
+                    recorded.single().shelfName shouldBe "Winter Reads"
+                }
+            }
+        }
+
+        test("createShelf of a private shelf records no activity") {
+            withInMemoryDatabase {
+                val db = this
+                seedTestLibraryAndFolder()
+                seedTestUser("u1")
+                runTest {
+                    val activities = ActivityRepository(db = db)
+                    makeServiceWithRecorder(db, activities)
+                        .actAs("u1")
+                        .createShelf(name = "Secret", isPrivate = true)
+                        .value()
+
+                    activities
+                        .page(before = null, limit = 50)
+                        .filter { it.type == ActivityType.SHELF_CREATED }
+                        .shouldHaveSize(0)
                 }
             }
         }

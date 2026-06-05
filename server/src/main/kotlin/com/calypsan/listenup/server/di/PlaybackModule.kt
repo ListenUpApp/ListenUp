@@ -81,6 +81,7 @@ fun playbackModule(): Module =
                 registry = get(),
                 userStatsUpdater = get(),
                 activeSessionRepo = get(),
+                activityRecorder = get(),
             )
         }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
@@ -101,10 +102,17 @@ fun playbackModule(): Module =
                 db = get(),
                 userStatsRepo = get(),
                 publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
+                activityRecorder = get(),
             )
         }
         single(createdAtStart = true) {
-            ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
+            ListeningEventRepository(
+                db = get(),
+                bus = get(),
+                registry = get(),
+                userStatsUpdater = get(),
+                activityRecorder = get(),
+            )
         }
         single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
         single { ActiveSessionCleanupTask(db = get(), bus = get()) }

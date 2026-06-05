@@ -5,6 +5,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.ShelfReadAssembler
 import com.calypsan.listenup.server.api.ShelfServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import org.koin.core.module.Module
@@ -39,6 +40,7 @@ fun shelfModule(): Module =
                 readAssembler = get(),
                 clock = get(),
                 principal = unscopedShelfPlaceholder(),
+                activityRecorder = getOrNull<ActivityRecorder>(),
             )
         }
         single<ShelfService> { get<ShelfServiceImpl>() }

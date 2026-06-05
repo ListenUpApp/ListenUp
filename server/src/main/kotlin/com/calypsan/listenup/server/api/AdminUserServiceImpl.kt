@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
@@ -16,6 +17,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
@@ -64,6 +66,7 @@ class AdminUserServiceImpl(
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val publicProfileMaintainer: PublicProfileMaintainer? = null,
+    private val activityRecorder: ActivityRecorder? = null,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -76,6 +79,7 @@ class AdminUserServiceImpl(
             clock,
             provider,
             publicProfileMaintainer,
+            activityRecorder,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -221,7 +225,10 @@ class AdminUserServiceImpl(
             )
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.
-            if (request.approved) publicProfileMaintainer?.refreshBestEffort(request.userId.value)
+            if (request.approved) {
+                publicProfileMaintainer?.refreshBestEffort(request.userId.value)
+                activityRecorder?.record(request.userId.value, ActivityType.USER_JOINED)
+            }
         }
         return outcome
     }

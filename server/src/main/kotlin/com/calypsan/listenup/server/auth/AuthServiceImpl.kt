@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -26,6 +27,7 @@ import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -67,6 +69,7 @@ class AuthServiceImpl(
      */
     internal val shelfRepository: ShelfRepository? = null,
     internal val publicProfileMaintainer: PublicProfileMaintainer? = null,
+    internal val activityRecorder: ActivityRecorder? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -168,6 +171,7 @@ class AuthServiceImpl(
         // get their row when the admin approves them (via AdminUserServiceImpl).
         if (user.status == UserStatusColumn.ACTIVE) {
             publicProfileMaintainer?.refreshBestEffort(user.id.value)
+            activityRecorder?.record(user.id.value, ActivityType.USER_JOINED)
         }
         return AppResult.Success(outcome)
     }
@@ -198,6 +202,7 @@ class AuthServiceImpl(
             }
         createStarterShelfBestEffort(user.id.value)
         publicProfileMaintainer?.refreshBestEffort(user.id.value)
+        activityRecorder?.record(user.id.value, ActivityType.USER_JOINED)
         return AppResult.Success(
             sessionIssuer.issue(
                 user,
@@ -271,6 +276,7 @@ class AuthServiceImpl(
             requestUserAgent = requestUserAgent,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
+            activityRecorder = activityRecorder,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -287,6 +293,7 @@ class AuthServiceImpl(
             requestUserAgent = userAgent,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
+            activityRecorder = activityRecorder,
         )
 
     /**

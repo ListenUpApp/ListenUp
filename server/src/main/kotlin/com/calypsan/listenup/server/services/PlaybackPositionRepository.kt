@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -48,6 +49,7 @@ class PlaybackPositionRepository(
     clock: Clock = Clock.System,
     private val userStatsUpdater: UserStatsUpdater? = null,
     private val activeSessionRepo: ActiveSessionRepository? = null,
+    private val activityRecorder: ActivityRecorder? = null,
 ) : SyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         table = PlaybackPositionTable,
@@ -172,8 +174,14 @@ class PlaybackPositionRepository(
             if (result is AppResult.Success && finished && !priorFinished) {
                 userStatsUpdater?.onPositionFinishedFlip(userId)
                 activeSessionRepo?.deleteForUserBook(userId, bookId)
+                activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId)
             } else if (result is AppResult.Success && !finished) {
                 activeSessionRepo?.startOrRefresh(userId, bookId)
+                if (existing == null) {
+                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId)
+                } else if (priorFinished) {
+                    activityRecorder?.record(userId, ActivityType.STARTED_BOOK, bookId = bookId, isReread = true)
+                }
             }
             result
         }

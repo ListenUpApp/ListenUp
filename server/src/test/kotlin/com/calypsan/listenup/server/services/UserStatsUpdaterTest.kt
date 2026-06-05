@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -9,6 +10,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlin.time.Instant
@@ -227,6 +229,79 @@ class UserStatsUpdaterTest :
                     // Only recent1 + recent2 should count for last 7 days
                     stats.totalSecondsLast7Days shouldBe 100L
                     stats.totalSecondsAllTime shouldBe 200L
+                }
+            }
+        }
+
+        test("streak reaching exactly 7 records one streak_milestone(7, days); a same-day no-op event adds no duplicate") {
+            withInMemoryDatabase {
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val activities = ActivityRepository(db = this)
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()),
+                    )
+
+                runTest {
+                    // Seven consecutive days → streak climbs 1..7
+                    repeat(7) { day ->
+                        val e = eventAt("evt-$day", "book-1", endedAtMs = day0Ms + day * dayMs, wallSeconds = 30L)
+                        eventRepo.upsert(e, clientOpId = null, userId = "u1")
+                        updater.onListeningEvent("u1", e)
+                    }
+                    statsRepo.getForUser("u1").shouldNotBeNull().currentStreakDays shouldBe 7
+
+                    val afterStreak =
+                        activities.page(before = null, limit = 50).filter { it.type == ActivityType.STREAK_MILESTONE }
+                    afterStreak shouldHaveSize 1
+                    afterStreak.single().milestoneValue shouldBe 7
+                    afterStreak.single().milestoneUnit shouldBe "days"
+
+                    // A same-day event (day 6 again) leaves the streak at 7 — no new milestone.
+                    val sameDay = eventAt("evt-same", "book-1", endedAtMs = day0Ms + 6 * dayMs + 60_000L, wallSeconds = 30L)
+                    eventRepo.upsert(sameDay, clientOpId = null, userId = "u1")
+                    updater.onListeningEvent("u1", sameDay)
+
+                    activities
+                        .page(before = null, limit = 50)
+                        .filter { it.type == ActivityType.STREAK_MILESTONE } shouldHaveSize 1
+                }
+            }
+        }
+
+        test("total listening hours crossing 10 records one listening_milestone(10, hours)") {
+            withInMemoryDatabase {
+                val statsRepo = UserStatsRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = this, bus = ChangeBus(), registry = SyncRegistry())
+                val activities = ActivityRepository(db = this)
+                val updater =
+                    UserStatsUpdater(
+                        db = this,
+                        userStatsRepo = statsRepo,
+                        clock = clock,
+                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()),
+                    )
+
+                runTest {
+                    // A single 10-hour span carries the all-time total from 0 across the 10-hour mark.
+                    val tenHoursSeconds = 10L * 3600L
+                    val e = eventAt("evt-10h", "book-1", endedAtMs = day0Ms, wallSeconds = tenHoursSeconds)
+                    eventRepo.upsert(e, clientOpId = null, userId = "u1")
+                    updater.onListeningEvent("u1", e)
+
+                    statsRepo.getForUser("u1").shouldNotBeNull().totalSecondsAllTime shouldBe tenHoursSeconds
+
+                    val milestones =
+                        activities.page(before = null, limit = 50).filter { it.type == ActivityType.LISTENING_MILESTONE }
+                    milestones shouldHaveSize 1
+                    milestones.single().milestoneValue shouldBe 10
+                    milestones.single().milestoneUnit shouldBe "hours"
                 }
             }
         }

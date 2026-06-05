@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.core.ListeningEventId
@@ -37,6 +38,7 @@ class ListeningEventRepository(
     registry: SyncRegistry,
     clock: Clock = Clock.System,
     private val userStatsUpdater: UserStatsUpdater? = null,
+    private val activityRecorder: ActivityRecorder? = null,
 ) : SyncableRepository<ListeningEventSyncPayload, ListeningEventId>(
         db = db,
         table = ListeningEventTable,
@@ -72,6 +74,12 @@ class ListeningEventRepository(
             val result = super.upsert(value, clientOpId, userId)
             if (result is AppResult.Success && userId != null && !alreadyExisted) {
                 userStatsUpdater?.onListeningEvent(userId, value)
+                activityRecorder?.record(
+                    userId,
+                    ActivityType.LISTENING_SESSION,
+                    bookId = value.bookId,
+                    durationMs = value.endedAt - value.startedAt,
+                )
             }
             result
         }

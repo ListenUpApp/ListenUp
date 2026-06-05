@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.ListeningEventTable
@@ -36,6 +37,7 @@ class UserStatsUpdater(
     private val userStatsRepo: UserStatsRepository,
     private val clock: Clock = Clock.System,
     private val publicProfileMaintainerProvider: () -> PublicProfileMaintainer,
+    private val activityRecorder: ActivityRecorder? = null,
 ) {
     /**
      * Increment-and-upsert called after a `listening_events` row commits.
@@ -74,6 +76,25 @@ class UserStatsUpdater(
             )
         userStatsRepo.upsert(updated, clientOpId = null, userId = userId)
         publicProfileMaintainerProvider().refresh(userId)
+
+        if (updated.currentStreakDays != base.currentStreakDays && updated.currentStreakDays in STREAK_MILESTONES) {
+            activityRecorder?.record(
+                userId,
+                ActivityType.STREAK_MILESTONE,
+                milestoneValue = updated.currentStreakDays,
+                milestoneUnit = "days",
+            )
+        }
+        val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
+        val newHours = (updated.totalSecondsAllTime / 3600L).toInt()
+        LISTENING_MILESTONES.firstOrNull { prevHours < it && newHours >= it }?.let { milestone ->
+            activityRecorder?.record(
+                userId,
+                ActivityType.LISTENING_MILESTONE,
+                milestoneValue = milestone,
+                milestoneUnit = "hours",
+            )
+        }
     }
 
     /**
@@ -164,6 +185,14 @@ class UserStatsUpdater(
                     (row[ListeningEventTable.endedAt] - row[ListeningEventTable.startedAt]) / 1_000L
                 }
         }
+    }
+
+    private companion object {
+        /** Streak lengths (in days) that fire a `streak_milestone` activity when first crossed. */
+        private val STREAK_MILESTONES = listOf(7, 14, 30, 60, 100, 365)
+
+        /** All-time listening totals (in hours) that fire a `listening_milestone` activity when first crossed. */
+        private val LISTENING_MILESTONES = listOf(10, 50, 100, 250, 500, 1000)
     }
 
     private fun emptyStatsFor(userId: String): UserStatsSyncPayload =
