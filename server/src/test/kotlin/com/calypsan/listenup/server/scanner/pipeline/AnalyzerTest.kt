@@ -462,6 +462,71 @@ class AnalyzerTest :
             }
         }
 
+        test("strips (Unabridged) from the resolved title and records abridged=false") {
+            audioLibrary {
+                book("Author/Some Book (Unabridged)") {
+                    tracks(count = 1)
+                }
+            }.use { fixture ->
+                runTest {
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val rel = "Author/Some Book (Unabridged)"
+                    val candidate =
+                        candidateOf(
+                            rel,
+                            files = listOf(fileEntry("$rel/01 - Track.mp3", FileType.AUDIO)),
+                        )
+                    val book =
+                        analyzer
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.title shouldBe "Some Book"
+                    book.abridged shouldBe false
+                }
+            }
+        }
+
+        test("metadata.json abridged wins over the title indicator, title still cleaned") {
+            audioLibrary {
+                book("Author/Some Book (Unabridged)") {
+                    tracks(count = 1)
+                    metadataJson(
+                        """
+                        {
+                          "abridged": true
+                        }
+                        """.trimIndent(),
+                    )
+                }
+            }.use { fixture ->
+                runTest {
+                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val rel = "Author/Some Book (Unabridged)"
+                    val candidate =
+                        candidateOf(
+                            rel,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01 - Track.mp3", FileType.AUDIO),
+                                    fileEntry("$rel/metadata.json", FileType.METADATA),
+                                ),
+                        )
+                    val book =
+                        analyzer
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.abridged shouldBe true
+                    book.title shouldBe "Some Book"
+                }
+            }
+        }
+
         test("read returns the live cover FileEntry, not a copy") {
             audioLibrary {}.use { fixture ->
                 runTest {

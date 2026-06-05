@@ -311,7 +311,8 @@ internal class Analyzer(
         sidecar: SidecarMetadata?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val title = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
+        val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
+        val (title, titleAbridged) = parseAbridgedFromTitle(rawTitle)
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
         return AnalyzedBook(
             candidate = candidate,
@@ -329,15 +330,17 @@ internal class Analyzer(
             asin = metadata?.asin ?: embedded?.tags?.asin ?: parsed.asin,
             isbn = metadata?.isbn ?: embedded?.tags?.isbn,
             description =
-                metadata?.description
-                    ?: embedded?.tags?.description
-                    ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
-                    ?: sidecar?.description,
+                (
+                    metadata?.description
+                        ?: embedded?.tags?.description
+                        ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
+                        ?: sidecar?.description
+                )?.let { HtmlToMarkdown.convert(it) },
             publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
             language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
             genres = pickGenres(embedded, metadata),
             tags = metadata?.tags.orEmpty(),
-            abridged = metadata?.abridged,
+            abridged = metadata?.abridged ?: titleAbridged,
             explicit = metadata?.explicit,
             cover = cover,
             tracks = tracks,
