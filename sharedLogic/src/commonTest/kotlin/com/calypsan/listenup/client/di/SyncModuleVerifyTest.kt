@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.local.db.ActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookContributorDao
@@ -95,7 +94,6 @@ class SyncModuleVerifyTest :
                         ImageStorage::class,
                         NetworkMonitor::class,
                         // DAOs (provided by repositoryModule via ListenUpDatabase)
-                        ActiveSessionDao::class,
                         ActivityDao::class,
                         AudioFileDao::class,
                         BookContributorDao::class,

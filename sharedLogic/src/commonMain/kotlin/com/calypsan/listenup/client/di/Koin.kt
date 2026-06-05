@@ -345,7 +345,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().genreDao() }
         single { get<ListenUpDatabase>().audioFileDao() }
         single { get<ListenUpDatabase>().listeningEventDao() }
-        single { get<ListenUpDatabase>().activeSessionDao() }
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }

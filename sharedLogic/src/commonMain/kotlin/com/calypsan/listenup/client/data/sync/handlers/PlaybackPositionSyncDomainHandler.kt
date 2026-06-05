@@ -105,7 +105,7 @@ class PlaybackPositionSyncDomainHandler(
     // Positions are keyed locally by bookId, but the server identifies each row by a random
     // UUID the client never stores — so the client cannot reproduce the server's digest
     // identity. Opt out of digest reconciliation (positions self-heal via lastPlayedAt-wins
-    // re-saves on next playback). Same rationale as active_sessions.
+    // re-saves on next playback).
     override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>? = null
 
     /**

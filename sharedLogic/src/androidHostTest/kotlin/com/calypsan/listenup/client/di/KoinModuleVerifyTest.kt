@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
-import com.calypsan.listenup.client.data.local.db.ActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.BookContributorDao
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -92,7 +91,6 @@ class KoinModuleVerifyTest {
                     CoverColorExtractor::class,
                     NetworkMonitor::class,
                     // DAOs from database module
-                    ActiveSessionDao::class,
                     ActivityDao::class,
                     AudioFileDao::class,
                     BookContributorDao::class,

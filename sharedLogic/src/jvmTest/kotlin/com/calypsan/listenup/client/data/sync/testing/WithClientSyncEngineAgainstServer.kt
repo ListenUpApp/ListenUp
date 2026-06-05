@@ -35,7 +35,6 @@ import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
@@ -519,7 +518,7 @@ private data class ServerRepositories(
 )
 
 /**
- * Constructs and registers the real [ActiveSessionSyncDomainHandler], [BookSyncDomainHandler],
+ * Constructs and registers the real [BookSyncDomainHandler],
  * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
  * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
@@ -536,11 +535,6 @@ private fun registerClientSyncHandlers(
         registry = registry,
     )
     LibraryFolderSyncDomainHandler(
-        database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    ActiveSessionSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,

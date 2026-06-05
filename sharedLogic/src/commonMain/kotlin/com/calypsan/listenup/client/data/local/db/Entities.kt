@@ -419,35 +419,6 @@ data class GenreEntity(
 }
 
 /**
- * Tracks active reading sessions from other users.
- *
- * Populated via SSE session.started/ended events.
- * Used for "What Others Are Listening To" section on Discover screen.
- *
- * Sessions are ephemeral - cleared on app start or after 24h staleness.
- * Join with UserProfileEntity and BookEntity for display data.
- */
-@Entity(
-    tableName = "active_sessions",
-    indices = [
-        Index(value = ["userId"]),
-        Index(value = ["bookId"]),
-    ],
-)
-data class ActiveSessionEntity(
-    @PrimaryKey
-    val sessionId: String,
-    /** User who started this session - join with UserProfileEntity */
-    val userId: String,
-    /** Book being read - join with BookEntity */
-    val bookId: String,
-    /** When the session started (epoch ms) */
-    val startedAt: Long,
-    /** Last update time (epoch ms) - for staleness detection */
-    val updatedAt: Long,
-)
-
-/**
  * Stores activity feed items locally for offline-first display.
  *
  * Populated via SSE activity.created events and initial sync.
