@@ -173,6 +173,22 @@ class ShelfRepository(
     }
 
     /**
+     * Returns every live, public shelf owned by [ownerId], each paired with its owner's
+     * user id — the building block for [getUserShelves][com.calypsan.listenup.server.api.ShelfServiceImpl.getUserShelves].
+     * A direct service-layer read that crosses the user-scoping boundary by design.
+     */
+    suspend fun listForOwner(ownerId: String): List<OwnedShelf> =
+        suspendTransaction(db) {
+            ShelvesTable
+                .selectAll()
+                .where {
+                    (ShelvesTable.userId eq ownerId) and
+                        (ShelvesTable.isPrivate eq false) and
+                        ShelvesTable.deletedAt.isNull()
+                }.map { row -> row.toOwnedShelf() }
+        }
+
+    /**
      * Returns every live, public shelf NOT owned by [excludeUserId], each paired with
      * its owner's user id — the discovery candidate set before per-caller book-access
      * filtering. A direct service-layer read (not a sync-substrate pull): discovery

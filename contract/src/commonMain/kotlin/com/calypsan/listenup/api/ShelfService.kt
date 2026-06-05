@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail
@@ -172,6 +173,16 @@ interface ShelfService {
      * @param shelfId Identifies the shelf to retrieve.
      */
     suspend fun getShelf(shelfId: ShelfId): AppResult<ShelfDetail>
+
+    /**
+     * Returns [userId]'s **public** shelves, each with a book count reflecting only books the
+     * **calling viewer** can access; shelves with zero accessible books are excluded. Any
+     * authenticated user may call this (the view-other-profile surface). Private shelves are
+     * never returned.
+     *
+     * @param userId Identifies the user whose public shelves are requested.
+     */
+    suspend fun getUserShelves(userId: UserId): AppResult<List<Shelf>>
 
     /**
      * Returns up to [limit] public shelves owned by other users, each with its
