@@ -27,8 +27,9 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
  *   revealing the book exists — and otherwise lists its other readers.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
- * the Koin singleton carries an unscoped placeholder that yields no principal, which
- * surfaces as `NotFound`.
+ * the Koin singleton carries an unscoped placeholder [PrincipalProvider] that throws
+ * (fail-loud) if ever invoked, so a route that forgets to [copyWith] surfaces as a
+ * guarded `InternalError` rather than silently leaking unscoped data.
  */
 internal class SocialServiceImpl(
     private val activeSessions: ActiveSessionRepository,

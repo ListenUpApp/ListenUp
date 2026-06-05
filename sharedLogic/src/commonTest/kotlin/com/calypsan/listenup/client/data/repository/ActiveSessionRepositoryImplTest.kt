@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.MockMode
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
@@ -228,6 +229,40 @@ class ActiveSessionRepositoryImplTest :
 
                 val emitted = withTimeoutOrNull(100) { flow.first() }
                 emitted shouldBe null
+            }
+        }
+
+        // ── Enrichment throw → empty list (Never-Stranded), next ping recovers ──
+
+        // A transient Room/disk error during book enrichment must not terminate the flow:
+        // the fetch maps to an empty list, and the next presence ping re-fetches and succeeds.
+        test("book enrichment throwable yields an empty list, and the next ping recovers") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
+                        everySuspend { bookReaders(any()) } returns AppResult.Success(emptyList())
+                    }
+                // First lookup throws (transient SQLite/disk error); second lookup succeeds.
+                var lookups = 0
+                val bookDao = mock<BookDao>(MockMode.autoUnit)
+                everySuspend { bookDao.getBookSummary("bookA") } calls {
+                    if (lookups++ == 0) throw RuntimeException("transient Room failure")
+                    BookSummary(id = "bookA", title = "A", coverBlurHash = null, authorName = null)
+                }
+                val presence = PresenceRefreshSignal()
+
+                repo(fakeRpc(service), bookDao, presence).observeActiveSessions("u1").test {
+                    // Enrichment threw → empty list, flow stays alive.
+                    awaitItem().shouldBeEmpty()
+                    // A subsequent ping triggers a fresh fetch that now succeeds → recovers.
+                    presence.ping()
+                    val recovered = awaitItem()
+                    recovered.size shouldBe 1
+                    recovered.first().bookId shouldBe "bookA"
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
     })

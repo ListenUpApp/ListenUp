@@ -31,8 +31,12 @@ import org.jetbrains.exposed.v1.jdbc.update
  *
  * Mutations publish a content-free [SyncControl.ActiveSessionsChanged] broadcast nudge
  * — a re-derive hint that carries no per-user or per-resource data, so it cannot leak.
- * Connected clients re-query presence on receipt. The nudge is published after the
- * transaction commits, so subscribers never observe a pre-commit state.
+ * Connected clients re-query presence on receipt. Standalone calls (cleanup, finish-flip)
+ * publish after their own transaction commits; when [startOrRefresh] runs inside a caller's
+ * outer transaction (e.g. `recordPosition`), the nudge nests within that transaction — matching
+ * the [com.calypsan.listenup.server.sync.SyncableRepository] convention. This is harmless: the
+ * nudge is only a re-derive hint, and a client that re-queries before the outer commit simply
+ * sees the prior state and re-derives again on the next nudge.
  */
 class ActiveSessionRepository(
     private val db: Database,

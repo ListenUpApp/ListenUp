@@ -42,19 +42,18 @@ sealed interface BookReadersUiState {
  * Backs the Book Detail "Readers" section.
  *
  * Observes [BookReadersRepository.observeReadersFor] for the given [bookId] and maps each
- * emission to a sealed [BookReadersUiState]. There is no debounce, no REST refresh, and no
- * manual refresh action — Room handles change coalescing, and the server's P3-B completion
- * cascade (deleting `active_sessions` rows when a book is finished)
- * means transitions are immediate without any side-channel refresh.
+ * emission to a sealed [BookReadersUiState]. The repository is RPC-backed by
+ * [com.calypsan.listenup.api.SocialService.bookReaders] (the server gates book access and
+ * excludes the caller), re-fetched on every presence ping — no debounce or manual refresh action.
  *
- * @param repo The readers repository providing reactive Room observation.
+ * @param repo The readers repository, RPC-backed and refreshed on presence pings.
  * @param bookId The book whose readers this ViewModel tracks.
  */
 class BookReadersViewModel(
     private val repo: BookReadersRepository,
     private val bookId: String,
 ) : ViewModel() {
-    /** Current UI state derived from the Room observation. */
+    /** Current UI state derived from the RPC-backed readers observation. */
     val uiState: StateFlow<BookReadersUiState> =
         repo
             .observeReadersFor(bookId)

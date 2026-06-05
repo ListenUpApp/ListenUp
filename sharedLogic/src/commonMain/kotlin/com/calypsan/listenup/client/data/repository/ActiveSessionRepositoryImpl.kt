@@ -4,7 +4,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
@@ -58,19 +57,18 @@ class ActiveSessionRepositoryImpl(
         observeActiveSessions(currentUserId).map { it.size }
 
     private suspend fun fetchSessions(): List<ActiveSession> =
-        when (val result = currentlyListening()) {
-            is AppResult.Success -> result.data.mapNotNull { it.toDomainOrNull() }
-            is AppResult.Failure -> emptyList()
-        }
-
-    private suspend fun currentlyListening(): AppResult<List<CurrentlyListeningSession>> =
         try {
-            socialRpc.get().currentlyListening()
+            when (val result = socialRpc.get().currentlyListening()) {
+                is AppResult.Success -> result.data.mapNotNull { it.toDomainOrNull() }
+                is AppResult.Failure -> emptyList()
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            logger.warn(e) { "currentlyListening RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
+            // Never-Stranded: an RPC fault or a transient Room/disk error during book enrichment
+            // must not terminate the flow. Emit an empty list; the next presence ping recovers.
+            logger.warn(e) { "currently-listening fetch failed" }
+            emptyList()
         }
 
     private suspend fun CurrentlyListeningSession.toDomainOrNull(): ActiveSession? {
