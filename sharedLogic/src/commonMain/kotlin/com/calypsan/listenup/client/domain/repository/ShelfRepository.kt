@@ -50,6 +50,17 @@ interface ShelfRepository {
     suspend fun getById(id: String): Shelf?
 
     /**
+     * Get a specific user's public shelves (view-other-profile surface).
+     *
+     * On-demand RPC read; book counts reflect only books accessible to the caller.
+     * Private shelves are never returned.
+     *
+     * @param userId The target user's ID
+     * @return [AppResult.Success] with the user's public shelves, or [AppResult.Failure] on RPC error
+     */
+    suspend fun getUserShelves(userId: String): AppResult<List<Shelf>>
+
+    /**
      * Discover public shelves owned by other users.
      *
      * On-demand RPC read; book counts reflect only books accessible to the caller.

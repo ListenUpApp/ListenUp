@@ -14,6 +14,7 @@ internal object PublicProfilesTable : SyncableTable("public_profiles") {
     val id = text("id")
     val displayName = text("display_name")
     val avatarType = text("avatar_type").default("auto")
+    val tagline = text("tagline").nullable()
     val totalSecondsAllTime = long("total_seconds_all_time").default(0L)
     val totalSecondsLast7Days = long("total_seconds_last_7_days").default(0L)
     val totalSecondsLast30Days = long("total_seconds_last_30_days").default(0L)

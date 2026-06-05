@@ -1,39 +1,43 @@
 package com.calypsan.listenup.client.presentation.profile
 
-import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.model.UserProfile
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
 /**
  * UI state for the [UserProfileViewModel].
  *
- * Single [Ready] variant covers both own-profile (local cache, stats stubbed at 0)
- * and other-user (server-fetched stats + recent books + shelves) — the screen
- * renders identically aside from the `isOwnProfile` admin-control toggle.
+ * Single [Ready] variant covers both own-profile and other-user paths — the screen
+ * renders identically aside from the `isOwnProfile` admin-control toggle. Header and
+ * stats are sourced uniformly from the synced `public_profiles` row; only the shelves
+ * source differs (own → local synced mirror; other → one-shot RPC).
  */
 sealed interface UserProfileUiState {
     /** Pre-[UserProfileViewModel.loadProfile]. */
@@ -61,7 +65,7 @@ sealed interface UserProfileUiState {
         val publicShelves: List<ProfileShelfSummary>,
     ) : UserProfileUiState
 
-    /** Load failed (only used for other-user fetches — own profile falls through to local cache). */
+    /** Load failed (only used when no header data is available — e.g. an unsynced other-user row). */
     data class Error(
         val message: String,
     ) : UserProfileUiState
@@ -70,15 +74,17 @@ sealed interface UserProfileUiState {
 /**
  * ViewModel for the User Profile screen.
  *
- * Own profile: observe [UserRepository.observeCurrentUser] reactively; all fields sourced
- * from the local User row, stats default to 0 until local stats computation lands.
+ * Both own and other-user paths derive header + stats from the synced `public_profiles`
+ * Room row ([PublicProfileDao.observeById]). Shelves split by path: own profiles read the
+ * locally-mirrored synced shelves ([ShelfRepository.observeMyShelves]); other profiles
+ * fetch the caller-accessible public shelves once over RPC ([ShelfRepository.getUserShelves]).
  *
- * Other user: one-shot fetch via [LoadUserProfileUseCase]; if the avatar image is not
- * cached, download it and emit a refined [UserProfileUiState.Ready] with the local path.
+ * The header never blocks on shelves: a shelf failure renders an empty shelf list, not an error.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
 class UserProfileViewModel(
-    private val loadUserProfileUseCase: LoadUserProfileUseCase,
+    private val publicProfileDao: PublicProfileDao,
+    private val shelfRepository: ShelfRepository,
     private val userRepository: UserRepository,
     private val imageRepository: ImageRepository,
     private val errorBus: ErrorBus,
@@ -122,100 +128,142 @@ class UserProfileViewModel(
     private fun profileFlow(userId: String): Flow<UserProfileUiState> =
         flow {
             emit(UserProfileUiState.Loading)
-            val localUser = userRepository.getCurrentUser()
-            val isOwn = localUser != null && localUser.id.value == userId
+            val isOwn = userRepository.getCurrentUser()?.id?.value == userId
             if (isOwn) {
-                emitAll(ownProfileFlow())
+                emitAll(ownProfileFlow(userId))
             } else {
                 emitAll(otherProfileFlow(userId))
             }
         }
 
-    private fun ownProfileFlow(): Flow<UserProfileUiState> =
-        userRepository.observeCurrentUser().map { user ->
-            if (user == null) {
-                UserProfileUiState.Error("No user data available")
-            } else {
-                buildOwnReady(user)
+    /**
+     * Own profile: header + stats from the synced row, falling back to the local [User]
+     * (header only, stats 0) while the row is briefly absent. Shelves come from the
+     * locally-mirrored synced shelves and merge into [UserProfileUiState.Ready] reactively.
+     */
+    private fun ownProfileFlow(userId: String): Flow<UserProfileUiState> =
+        combine(
+            publicProfileDao.observeById(userId),
+            userRepository.observeCurrentUser(),
+            shelfRepository.observeMyShelves(userId),
+        ) { row, currentUser, shelves ->
+            val cacheBuster = currentUser?.updatedAtMs ?: 0L
+            when {
+                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), cacheBuster)
+                currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries())
+                else -> UserProfileUiState.Error("No user data available")
             }
+        }.withAvatarSelfHeal(userId)
+
+    /**
+     * Other profile: header + stats from the synced row; shelves fetched once over RPC.
+     * A shelf failure yields an empty shelf list (header still renders); an absent row
+     * yields an error, since no header data is available.
+     */
+    private fun otherProfileFlow(userId: String): Flow<UserProfileUiState> =
+        flow {
+            val shelves =
+                when (val result = shelfRepository.getUserShelves(userId)) {
+                    is AppResult.Success -> {
+                        result.data.toSummaries()
+                    }
+
+                    is AppResult.Failure -> {
+                        logger.warn { "Failed to load shelves for user $userId" }
+                        emptyList()
+                    }
+                }
+            emitAll(
+                publicProfileDao.observeById(userId).withAvatarSelfHeal(userId) { row ->
+                    if (row == null) {
+                        logger.error { "No public profile row for user: $userId" }
+                        UserProfileUiState.Error("Failed to load profile")
+                    } else {
+                        readyFromRow(userId, isOwn = false, row, shelves, cacheBuster = 0L)
+                    }
+                },
+            )
         }
 
-    private fun buildOwnReady(user: User): UserProfileUiState.Ready {
-        val localAvatarPath = resolveLocalAvatarPath(user.id.value, user.avatarType)
-        return UserProfileUiState.Ready(
-            userId = user.id.value,
+    private fun readyFromRow(
+        userId: String,
+        isOwn: Boolean,
+        row: PublicProfileEntity,
+        shelves: List<ProfileShelfSummary>,
+        cacheBuster: Long,
+    ): UserProfileUiState.Ready =
+        UserProfileUiState.Ready(
+            userId = userId,
+            isOwnProfile = isOwn,
+            displayName = row.displayName,
+            avatarType = row.avatarType,
+            avatarValue = null,
+            avatarColor = stableAvatarColorHex(userId),
+            tagline = row.tagline,
+            localAvatarPath = resolveLocalAvatarPath(userId, row.avatarType),
+            avatarCacheBuster = cacheBuster,
+            totalListenTimeMs = row.totalSecondsAllTime * MS_PER_SECOND,
+            booksFinished = row.booksFinished,
+            currentStreak = row.currentStreakDays,
+            longestStreak = row.longestStreakDays,
+            recentBooks = emptyList(),
+            publicShelves = shelves,
+        )
+
+    private fun readyFromUser(
+        userId: String,
+        user: User,
+        shelves: List<ProfileShelfSummary>,
+    ): UserProfileUiState.Ready =
+        UserProfileUiState.Ready(
+            userId = userId,
             isOwnProfile = true,
             displayName = user.displayName,
             avatarType = user.avatarType,
-            avatarValue = user.avatarValue,
-            avatarColor = user.avatarColor,
+            avatarValue = null,
+            avatarColor = stableAvatarColorHex(userId),
             tagline = user.tagline,
-            localAvatarPath = localAvatarPath,
+            localAvatarPath = resolveLocalAvatarPath(userId, user.avatarType),
             avatarCacheBuster = user.updatedAtMs,
-            // Stats default to 0 — local computation from ListeningEventEntity pending.
-            totalListenTimeMs = 0,
+            totalListenTimeMs = 0L,
             booksFinished = 0,
             currentStreak = 0,
             longestStreak = 0,
             recentBooks = emptyList(),
-            publicShelves = emptyList(),
+            publicShelves = shelves,
         )
-    }
 
-    private fun otherProfileFlow(userId: String): Flow<UserProfileUiState> =
+    /**
+     * Self-heal image avatars: when a [UserProfileUiState.Ready] reports an image avatar with no
+     * cached local path, attempt a download and re-emit with the resolved path. Each upstream
+     * emission is mapped through [transform] first, so the self-heal applies to whatever the row
+     * (or fallback) produced.
+     */
+    private fun <T> Flow<T>.withAvatarSelfHeal(
+        userId: String,
+        transform: (T) -> UserProfileUiState,
+    ): Flow<UserProfileUiState> =
         flow {
-            when (val result = loadUserProfileUseCase(userId)) {
-                is AppResult.Success -> {
-                    emitAll(otherProfileReadyFlow(result.data))
-                }
-
-                else -> {
-                    logger.error { "Failed to load profile for: $userId" }
-                    emit(UserProfileUiState.Error("Failed to load profile"))
+            collect { upstream ->
+                val state = transform(upstream)
+                emit(state)
+                if (state is UserProfileUiState.Ready &&
+                    state.avatarType == "image" &&
+                    state.localAvatarPath == null
+                ) {
+                    val downloaded = tryDownloadAvatar(userId)
+                    if (downloaded != null) {
+                        emit(state.copy(localAvatarPath = downloaded))
+                    }
                 }
             }
         }
 
-    private fun otherProfileReadyFlow(profile: UserProfile): Flow<UserProfileUiState> =
-        flow {
-            val booksWithLocalCovers = profile.recentBooks.mapWithLocalCovers()
-            val cachedAvatarPath = resolveLocalAvatarPath(profile.userId, profile.avatarType)
-            emit(buildOtherReady(profile, booksWithLocalCovers, cachedAvatarPath))
+    private fun Flow<UserProfileUiState>.withAvatarSelfHeal(userId: String): Flow<UserProfileUiState> =
+        withAvatarSelfHeal(userId) { it }
 
-            val needsAvatarDownload =
-                profile.avatarType == "image" &&
-                    profile.avatarValue != null &&
-                    cachedAvatarPath == null
-            if (needsAvatarDownload) {
-                val downloaded = tryDownloadAvatar(profile.userId)
-                if (downloaded != null) {
-                    emit(buildOtherReady(profile, booksWithLocalCovers, downloaded))
-                }
-            }
-        }
-
-    private fun buildOtherReady(
-        profile: UserProfile,
-        books: List<ProfileRecentBook>,
-        avatarPath: String?,
-    ): UserProfileUiState.Ready =
-        UserProfileUiState.Ready(
-            userId = profile.userId,
-            isOwnProfile = false,
-            displayName = profile.displayName,
-            avatarType = profile.avatarType,
-            avatarValue = profile.avatarValue,
-            avatarColor = profile.avatarColor,
-            tagline = profile.tagline,
-            localAvatarPath = avatarPath,
-            avatarCacheBuster = 0,
-            totalListenTimeMs = profile.totalListenTimeMs,
-            booksFinished = profile.booksFinished,
-            currentStreak = profile.currentStreak,
-            longestStreak = profile.longestStreak,
-            recentBooks = books,
-            publicShelves = profile.publicShelves,
-        )
+    private fun List<Shelf>.toSummaries(): List<ProfileShelfSummary> =
+        map { ProfileShelfSummary(id = it.id, name = it.name, bookCount = it.bookCount) }
 
     private fun resolveLocalAvatarPath(
         userId: String,
@@ -225,14 +273,6 @@ class UserProfileViewModel(
             imageRepository.getUserAvatarPath(userId)
         } else {
             null
-        }
-
-    private fun List<ProfileRecentBook>.mapWithLocalCovers(): List<ProfileRecentBook> =
-        map { book ->
-            val id = BookId(book.bookId)
-            val localCoverPath =
-                if (imageRepository.bookCoverExists(id)) imageRepository.getBookCoverPath(id) else null
-            book.copy(coverPath = localCoverPath)
         }
 
     private suspend fun tryDownloadAvatar(userId: String): String? =
@@ -257,8 +297,40 @@ class UserProfileViewModel(
 
     companion object {
         private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
+        private const val MS_PER_SECOND = 1_000L
     }
 }
+
+/**
+ * Stable, per-user avatar background as a hex string, mirroring the UI-layer palette in
+ * `design/components/UserAvatar.kt` so generated colors stay consistent app-wide.
+ */
+@OptIn(ExperimentalUuidApi::class)
+fun stableAvatarColorHex(userId: String): String {
+    val index =
+        try {
+            Uuid.parse(userId).toLongs { msb, _ -> msb.hashCode() }.mod(AVATAR_PALETTE.size)
+        } catch (_: IllegalArgumentException) {
+            userId.length.mod(AVATAR_PALETTE.size)
+        }
+    return AVATAR_PALETTE[index]
+}
+
+private val AVATAR_PALETTE =
+    listOf(
+        "#E53935",
+        "#D81B60",
+        "#8E24AA",
+        "#5E35B1",
+        "#3949AB",
+        "#1E88E5",
+        "#039BE5",
+        "#00ACC1",
+        "#00897B",
+        "#43A047",
+        "#FB8C00",
+        "#6D4C41",
+    )
 
 /** Formats milliseconds to a short human-readable duration (e.g. "42h 30m"). */
 fun formatListenTime(totalMs: Long): String {

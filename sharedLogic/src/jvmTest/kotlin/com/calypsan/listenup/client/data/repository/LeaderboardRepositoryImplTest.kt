@@ -40,6 +40,8 @@ private class FakePublicProfileDao(
 ) : PublicProfileDao {
     override fun observeAll(): Flow<List<PublicProfileEntity>> = flow
 
+    override fun observeById(userId: String): Flow<PublicProfileEntity?> = error("unused")
+
     override suspend fun upsert(entity: PublicProfileEntity) = error("unused")
 
     override suspend fun softDelete(

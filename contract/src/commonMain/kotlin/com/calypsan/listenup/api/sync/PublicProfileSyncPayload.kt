@@ -25,6 +25,7 @@ data class PublicProfileSyncPayload(
     val id: String,
     val displayName: String,
     val avatarType: String,
+    val tagline: String?,
     val totalSecondsAllTime: Long,
     val totalSecondsLast7Days: Long,
     val totalSecondsLast30Days: Long,

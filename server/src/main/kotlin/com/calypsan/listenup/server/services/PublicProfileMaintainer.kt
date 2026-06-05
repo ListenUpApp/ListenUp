@@ -59,6 +59,7 @@ class PublicProfileMaintainer(
                     id = userId,
                     displayName = userRow[UserTable.displayName],
                     avatarType = userRow[UserTable.avatarType],
+                    tagline = userRow[UserTable.tagline],
                     totalSecondsAllTime = statsRow?.get(UserStatsTable.totalSecondsAllTime) ?: 0L,
                     totalSecondsLast7Days = statsRow?.get(UserStatsTable.totalSecondsLast7Days) ?: 0L,
                     totalSecondsLast30Days = statsRow?.get(UserStatsTable.totalSecondsLast30Days) ?: 0L,

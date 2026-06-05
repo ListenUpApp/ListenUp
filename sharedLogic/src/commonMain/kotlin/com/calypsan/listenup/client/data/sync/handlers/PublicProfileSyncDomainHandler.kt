@@ -89,6 +89,7 @@ class PublicProfileSyncDomainHandler(
                 id = payload.id,
                 displayName = payload.displayName,
                 avatarType = payload.avatarType,
+                tagline = payload.tagline,
                 totalSecondsAllTime = payload.totalSecondsAllTime,
                 totalSecondsLast7Days = payload.totalSecondsLast7Days,
                 totalSecondsLast30Days = payload.totalSecondsLast30Days,

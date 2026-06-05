@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v27. Migrations live in the `data/local/migrations/` package
+ * Schema is at v28. Migrations live in the `data/local/migrations/` package
  * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
@@ -58,7 +58,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = true,
 )
 @TypeConverters(

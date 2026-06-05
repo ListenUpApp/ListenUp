@@ -4,14 +4,7 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.local.db.UserProfileEntity
-import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
-import com.calypsan.listenup.client.data.remote.model.RecentBookResponse
-import com.calypsan.listenup.client.data.remote.model.ShelfSummaryResponse
-import com.calypsan.listenup.client.domain.model.ProfileRecentBook
-import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
-import com.calypsan.listenup.client.domain.model.UserProfile
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.api.result.AppResult
@@ -37,17 +30,12 @@ private val logger = KotlinLogging.logger {}
  * also triggers a force-refresh avatar download (when [avatarType] == `"image"`)
  * or deletes the local avatar file (when [avatarType] == `"auto"`).
  *
- * [getUserProfile] delegates to [ProfileApiContract] for the other-user public-profile
- * fetch (stats, recent books, shelves).
- *
- * @property profileApi Go-era REST contract used for other-user profile fetches.
  * @property profileRpcFactory Produces the [com.calypsan.listenup.api.ProfileService] proxy.
  * @property userDao DAO for the current user's [com.calypsan.listenup.client.data.local.db.UserEntity] row.
  * @property userProfileDao DAO for the cached [UserProfileEntity] table.
  * @property avatarDownloadRepository Schedules / deletes local avatar files.
  */
 class ProfileRepositoryImpl(
-    private val profileApi: ProfileApiContract,
     private val profileRpcFactory: ProfileRpcFactory,
     private val userDao: UserDao,
     private val userProfileDao: UserProfileDao,
@@ -133,14 +121,6 @@ class ProfileRepositoryImpl(
             }
         }
 
-    // ── Other-user profile read path ────────────────────────────────────────────
-
-    override suspend fun getUserProfile(userId: String): AppResult<UserProfile> =
-        when (val result = profileApi.getUserProfile(userId)) {
-            is AppResult.Success -> AppResult.Success(result.data.toDomain())
-            is AppResult.Failure -> result
-        }
-
     // ── Plumbing ────────────────────────────────────────────────────────────────
 
     /**
@@ -160,46 +140,3 @@ class ProfileRepositoryImpl(
             AppResult.Failure(ErrorMapper.map(e))
         }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONVERSION FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert FullProfileResponse API model to UserProfile domain model.
- */
-private fun FullProfileResponse.toDomain(): UserProfile =
-    UserProfile(
-        userId = userId,
-        displayName = displayName,
-        avatarType = avatarType,
-        avatarValue = avatarValue,
-        avatarColor = avatarColor,
-        tagline = tagline,
-        totalListenTimeMs = totalListenTimeMs,
-        booksFinished = booksFinished,
-        currentStreak = currentStreak,
-        longestStreak = longestStreak,
-        recentBooks = recentBooks.map { it.toDomain() },
-        publicShelves = publicShelves.map { it.toDomain() },
-    )
-
-/**
- * Convert RecentBookResponse to ProfileRecentBook domain model.
- */
-private fun RecentBookResponse.toDomain(): ProfileRecentBook =
-    ProfileRecentBook(
-        bookId = bookId,
-        title = title,
-        coverPath = coverPath,
-    )
-
-/**
- * Convert ShelfSummaryResponse to ProfileShelfSummary domain model.
- */
-private fun ShelfSummaryResponse.toDomain(): ProfileShelfSummary =
-    ProfileShelfSummary(
-        id = id,
-        name = name,
-        bookCount = bookCount,
-    )

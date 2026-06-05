@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.Shelf
@@ -229,6 +230,15 @@ internal class ShelfServiceImpl(
         return AppResult.Success(discovered)
     }
 
+    override suspend fun getUserShelves(userId: UserId): AppResult<List<Shelf>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val shelves =
+            shelfRepo
+                .listForOwner(userId.value)
+                .mapNotNull { owned -> accessibleSummaryOrNull(owned, caller) }
+        return AppResult.Success(shelves)
+    }
+
     // ── Principal binding ─────────────────────────────────────────────────────
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -316,6 +326,21 @@ internal class ShelfServiceImpl(
             ownerId = owned.ownerId,
             ownerDisplayName = readAssembler.displayNameFor(owned.ownerId),
         )
+    }
+
+    /**
+     * Like [discoveredOrNull] but returns the bare [Shelf] summary (no owner wrapper); null
+     * when zero books are accessible to [caller] — a shelf with zero accessible books is
+     * excluded from [getUserShelves] entirely.
+     */
+    private suspend fun accessibleSummaryOrNull(
+        owned: OwnedShelf,
+        caller: Caller,
+    ): Shelf? {
+        val liveBookIds = shelfBookRepo.listByShelf(owned.shelf.id).map { it.bookId }
+        val accessibleCount = filterAccessible(liveBookIds, caller).size
+        if (accessibleCount == 0) return null
+        return owned.shelf.toSummary(bookCount = accessibleCount)
     }
 
     private suspend fun liveBookCount(shelfId: ShelfId): Int = shelfBookRepo.listByShelf(shelfId.value).size
