@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.activity
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -34,8 +33,6 @@ open class FetchActivitiesUseCase(
      */
     open suspend operator fun invoke(limit: Int): AppResult<Int> {
         logger.debug { "Fetching activities (limit=$limit)" }
-        return suspendRunCatching {
-            activityRepository.fetchAndCacheActivities(limit)
-        }
+        return activityRepository.fetchAndCacheActivities(limit)
     }
 }

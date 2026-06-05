@@ -6,8 +6,6 @@ import com.calypsan.listenup.client.device.DeviceContextProvider
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.platformDatabaseModule
-import com.calypsan.listenup.client.data.remote.ActivityFeedApi
-import com.calypsan.listenup.client.data.remote.ActivityFeedApiContract
 import com.calypsan.listenup.client.data.remote.ABSImportApi
 import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminApi
@@ -611,11 +609,6 @@ val syncModule =
             StatsApi(clientFactory = get())
         } bind StatsApiContract::class
 
-        // ActivityFeedApi for social activity feed
-        single {
-            ActivityFeedApi(clientFactory = get())
-        } bind ActivityFeedApiContract::class
-
         // SessionApi for reading session operations
         single {
             com.calypsan.listenup.client.data.remote
@@ -1065,7 +1058,7 @@ val syncModule =
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
         single<ActivityRepository> {
-            ActivityRepositoryImpl(dao = get(), activityFeedApi = get())
+            ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
         }
 
         // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,

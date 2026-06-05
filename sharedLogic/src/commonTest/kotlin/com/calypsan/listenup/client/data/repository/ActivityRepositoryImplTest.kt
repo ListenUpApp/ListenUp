@@ -1,21 +1,32 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ActivityService
+import com.calypsan.listenup.api.dto.activity.ActivityEvent
+import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityEntity
-import com.calypsan.listenup.client.data.remote.ActivityFeedApiContract
-import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.client.data.local.db.BookSummary
+import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
+import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -23,11 +34,13 @@ import kotlin.test.assertTrue
 /**
  * Tests for ActivityRepositoryImpl.
  *
- * Tests cover:
- * - All interface methods (observeRecent, getOlderThan, getNewestTimestamp)
- * - Entity to domain model conversion including nested classes
- * - Handling of nullable fields (book, milestoneUnit, shelfId, shelfName, avatarValue)
- * - Various activity types (started_book, finished_book, listening_milestone, etc.)
+ * Read path (Room): `observeRecent`, `getOlderThan`, `getNewestTimestamp` are unchanged —
+ * the local cache is the offline-first read source.
+ *
+ * Write path (RPC → Room): `fetchAndCacheActivities` now drives [ActivityService.feed] via
+ * [ActivityRpcFactory], maps each [ActivityEvent] to a domain [Activity] (identity from the DTO,
+ * `avatarColor` from [stableAvatarColorHex], book card enriched from local Room via
+ * [BookDao.getBookSummary]), upserts into Room, and returns the count as an [AppResult].
  *
  * Uses Mokkery for mocking and follows Given-When-Then style.
  */
@@ -36,128 +49,234 @@ class ActivityRepositoryImplTest {
 
     private fun createMockDao(): ActivityDao = mock<ActivityDao>()
 
-    private fun createMockApi(): ActivityFeedApiContract = mock<ActivityFeedApiContract>()
+    private fun createMockBookDao(): BookDao = mock<BookDao>()
+
+    /** A fake [ActivityRpcFactory] that always returns the supplied [service]. */
+    private fun fakeRpcFactory(service: ActivityService): ActivityRpcFactory =
+        object : ActivityRpcFactory {
+            override suspend fun get(): ActivityService = service
+
+            override suspend fun invalidate() = Unit
+        }
 
     private fun createRepository(
         dao: ActivityDao = createMockDao(),
-        api: ActivityFeedApiContract = createMockApi(),
-    ): ActivityRepositoryImpl = ActivityRepositoryImpl(dao, api)
+        rpc: ActivityRpcFactory = fakeRpcFactory(mock<ActivityService>()),
+        bookDao: BookDao = createMockBookDao(),
+    ): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao, activityRpc = rpc, bookDao = bookDao)
 
     // ========== Test Data Factories ==========
 
-    /**
-     * Creates a full ActivityEntity with all fields populated.
-     * Use this as the base for most tests.
-     */
+    private fun bookEvent(
+        id: String = "event-book",
+        userId: String = "11111111-1111-1111-1111-111111111111",
+        bookId: String = "book-1",
+    ): ActivityEvent =
+        ActivityEvent(
+            id = id,
+            userId = userId,
+            displayName = "John Smith",
+            avatarType = "auto",
+            type = ActivityType.FINISHED_BOOK,
+            createdAtMs = 1704067200000L,
+            bookId = bookId,
+            isReread = true,
+            durationMs = 3600000L,
+            milestoneValue = 0,
+            milestoneUnit = null,
+        )
+
+    private fun shelfEvent(
+        id: String = "event-shelf",
+        userId: String = "22222222-2222-2222-2222-222222222222",
+    ): ActivityEvent =
+        ActivityEvent(
+            id = id,
+            userId = userId,
+            displayName = "Jane Doe",
+            avatarType = "auto",
+            type = ActivityType.SHELF_CREATED,
+            createdAtMs = 1704000000000L,
+            shelfId = "shelf-1",
+            shelfName = "Fantasy Favorites",
+        )
+
+    private fun bookSummary(id: String = "book-1"): BookSummary =
+        BookSummary(
+            id = id,
+            title = "The Way of Kings",
+            coverBlurHash = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+            authorName = "Brandon Sanderson",
+        )
+
     private fun createActivityEntity(
         id: String = "activity-1",
-        userId: String = "user-1",
-        type: String = "finished_book",
-        createdAt: Long = 1704067200000L,
-        userDisplayName: String = "John Smith",
-        userAvatarColor: String = "#FF5733",
-        userAvatarType: String = "initials",
-        userAvatarValue: String? = "JS",
         bookId: String? = "book-1",
         bookTitle: String? = "The Way of Kings",
-        bookAuthorName: String? = "Brandon Sanderson",
-        bookCoverPath: String? = "/covers/book-1.jpg",
-        isReread: Boolean = false,
-        durationMs: Long = 3600000L,
-        milestoneValue: Int = 0,
-        milestoneUnit: String? = null,
-        shelfId: String? = null,
-        shelfName: String? = null,
     ): ActivityEntity =
         ActivityEntity(
             id = id,
-            userId = userId,
-            type = type,
-            createdAt = createdAt,
-            userDisplayName = userDisplayName,
-            userAvatarColor = userAvatarColor,
-            userAvatarType = userAvatarType,
-            userAvatarValue = userAvatarValue,
+            userId = "user-1",
+            type = "finished_book",
+            createdAt = 1704067200000L,
+            userDisplayName = "John Smith",
+            userAvatarColor = "#FF5733",
+            userAvatarType = "auto",
+            userAvatarValue = null,
             bookId = bookId,
             bookTitle = bookTitle,
-            bookAuthorName = bookAuthorName,
-            bookCoverPath = bookCoverPath,
-            isReread = isReread,
-            durationMs = durationMs,
-            milestoneValue = milestoneValue,
-            milestoneUnit = milestoneUnit,
-            shelfId = shelfId,
-            shelfName = shelfName,
-        )
-
-    /**
-     * Creates an ActivityEntity for a milestone activity (no book).
-     */
-    private fun createMilestoneActivityEntity(
-        id: String = "activity-milestone",
-        type: String = "listening_milestone",
-        milestoneValue: Int = 100,
-        milestoneUnit: String = "hours",
-    ): ActivityEntity =
-        createActivityEntity(
-            id = id,
-            type = type,
-            bookId = null,
-            bookTitle = null,
-            bookAuthorName = null,
+            bookAuthorName = "Brandon Sanderson",
             bookCoverPath = null,
-            milestoneValue = milestoneValue,
-            milestoneUnit = milestoneUnit,
+            isReread = false,
+            durationMs = 3600000L,
+            milestoneValue = 0,
+            milestoneUnit = null,
+            shelfId = null,
+            shelfName = null,
         )
 
-    /**
-     * Creates an ActivityEntity for a shelf created activity.
-     */
-    private fun createShelfActivityEntity(
-        id: String = "activity-shelf",
-        shelfId: String = "shelf-1",
-        shelfName: String = "Fantasy Favorites",
-    ): ActivityEntity =
-        createActivityEntity(
-            id = id,
-            type = "shelf_created",
-            bookId = null,
-            bookTitle = null,
-            bookAuthorName = null,
-            bookCoverPath = null,
-            shelfId = shelfId,
-            shelfName = shelfName,
-        )
-
-    // ========== observeRecent Tests ==========
+    // ========== fetchAndCacheActivities (RPC → Room) ==========
 
     @Test
-    fun `observeRecent returns empty list when no activities`() =
+    fun `fetchAndCacheActivities maps events to activities and upserts them`() =
+        runTest {
+            // Given - feed yields a book-bearing event and a shelf_created event
+            val dao = createMockDao()
+            everySuspend { dao.upsertAll(any()) } returns Unit
+            val bookDao = createMockBookDao()
+            everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
+
+            val service =
+                mock<ActivityService> {
+                    everySuspend { feed(any(), any()) } returns
+                        AppResult.Success(listOf(bookEvent(), shelfEvent()))
+                }
+            val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
+
+            // When
+            val result = repository.fetchAndCacheActivities(limit = 50)
+
+            // Then - success with the mapped count
+            val success = assertIs<AppResult.Success<Int>>(result)
+            assertEquals(2, success.data)
+
+            // And the head was fetched (before = null)
+            verifySuspend { service.feed(null, 50) }
+
+            // And the mapped entities were persisted
+            verifySuspend { dao.upsertAll(any()) }
+        }
+
+    @Test
+    fun `fetchAndCacheActivities maps identity and avatar colour from the DTO`() =
         runTest {
             // Given
             val dao = createMockDao()
-            every { dao.observeRecent(any()) } returns flowOf(emptyList())
-            val repository = createRepository(dao)
+            val captured = mutableListOf<ActivityEntity>()
+            everySuspend { dao.upsertAll(any()) } calls { args ->
+                @Suppress("UNCHECKED_CAST")
+                captured.addAll(args.arg(0) as List<ActivityEntity>)
+            }
+            val bookDao = createMockBookDao()
+            everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
+
+            val event = bookEvent()
+            val service =
+                mock<ActivityService> {
+                    everySuspend { feed(any(), any()) } returns AppResult.Success(listOf(event))
+                }
+            val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
 
             // When
-            val result = repository.observeRecent(10).first()
+            repository.fetchAndCacheActivities(limit = 50)
 
-            // Then
-            assertTrue(result.isEmpty())
+            // Then - identity from the DTO, avatarColor derived, avatarValue null
+            val entity = captured.single()
+            assertEquals("John Smith", entity.userDisplayName)
+            assertEquals("auto", entity.userAvatarType)
+            assertEquals(stableAvatarColorHex(event.userId), entity.userAvatarColor)
+            assertNull(entity.userAvatarValue)
+            // Book card enriched from local Room
+            assertEquals("book-1", entity.bookId)
+            assertEquals("The Way of Kings", entity.bookTitle)
+            assertEquals("Brandon Sanderson", entity.bookAuthorName)
+            // DTO-borne activity fields preserved
+            assertTrue(entity.isReread)
+            assertEquals(3600000L, entity.durationMs)
         }
+
+    @Test
+    fun `fetchAndCacheActivities leaves book null for non-book events`() =
+        runTest {
+            // Given - only the shelf event (no bookId)
+            val dao = createMockDao()
+            val captured = mutableListOf<ActivityEntity>()
+            everySuspend { dao.upsertAll(any()) } calls { args ->
+                @Suppress("UNCHECKED_CAST")
+                captured.addAll(args.arg(0) as List<ActivityEntity>)
+            }
+            val bookDao = createMockBookDao()
+
+            val service =
+                mock<ActivityService> {
+                    everySuspend { feed(any(), any()) } returns AppResult.Success(listOf(shelfEvent()))
+                }
+            val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
+
+            // When
+            repository.fetchAndCacheActivities(limit = 50)
+
+            // Then - no book card, shelf fields from the DTO
+            val entity = captured.single()
+            assertNull(entity.bookId)
+            assertNull(entity.bookTitle)
+            assertEquals("shelf-1", entity.shelfId)
+            assertEquals("Fantasy Favorites", entity.shelfName)
+        }
+
+    @Test
+    fun `fetchAndCacheActivities returns Failure when the RPC throws`() =
+        runTest {
+            // Given - feed throws a non-cancellation error
+            val service =
+                mock<ActivityService> {
+                    everySuspend { feed(any(), any()) } throws RuntimeException("rpc down")
+                }
+            val repository = createRepository(rpc = fakeRpcFactory(service))
+
+            // When
+            val result = repository.fetchAndCacheActivities(limit = 50)
+
+            // Then - a typed Failure, NOT a thrown exception
+            assertIs<AppResult.Failure>(result)
+        }
+
+    @Test
+    fun `fetchAndCacheActivities re-raises CancellationException`() =
+        runTest {
+            // Given - feed throws CancellationException (structured concurrency must propagate)
+            val service =
+                mock<ActivityService> {
+                    everySuspend { feed(any(), any()) } throws CancellationException("cancelled")
+                }
+            val repository = createRepository(rpc = fakeRpcFactory(service))
+
+            // When / Then - the cancellation propagates rather than being swallowed
+            assertFailsWith<CancellationException> {
+                repository.fetchAndCacheActivities(limit = 50)
+            }
+        }
+
+    // ========== observeRecent (Room read path — unchanged) ==========
 
     @Test
     fun `observeRecent returns activities from dao`() =
         runTest {
             // Given
             val dao = createMockDao()
-            val entities =
-                listOf(
-                    createActivityEntity(id = "act-1"),
-                    createActivityEntity(id = "act-2"),
-                )
+            val entities = listOf(createActivityEntity(id = "act-1"), createActivityEntity(id = "act-2"))
             every { dao.observeRecent(10) } returns flowOf(entities)
-            val repository = createRepository(dao)
+            val repository = createRepository(dao = dao)
 
             // When
             val result = repository.observeRecent(10).first()
@@ -169,115 +288,59 @@ class ActivityRepositoryImplTest {
         }
 
     @Test
-    fun `observeRecent passes limit parameter to dao`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            every { dao.observeRecent(5) } returns flowOf(emptyList())
-            val repository = createRepository(dao)
-
-            // When
-            repository.observeRecent(5).first()
-
-            // Then - verify correct limit was passed (verified by the specific mock setup)
-            // The test would fail if observeRecent(5) wasn't called
-        }
-
-    @Test
     fun `observeRecent emits updates when flow updates`() =
         runTest {
             // Given
             val dao = createMockDao()
             val flowSource = MutableStateFlow<List<ActivityEntity>>(emptyList())
             every { dao.observeRecent(any()) } returns flowSource
-            val repository = createRepository(dao)
+            val repository = createRepository(dao = dao)
 
             // When - initial emission
-            val result1 = repository.observeRecent(10).first()
-
-            // Then - initially empty
-            assertTrue(result1.isEmpty())
+            assertTrue(repository.observeRecent(10).first().isEmpty())
 
             // When - flow updates
             flowSource.value = listOf(createActivityEntity(id = "new-activity"))
-            val result2 = repository.observeRecent(10).first()
 
             // Then - updated list
+            val result2 = repository.observeRecent(10).first()
             assertEquals(1, result2.size)
             assertEquals("new-activity", result2[0].id)
         }
 
-    // ========== getOlderThan Tests ==========
-
     @Test
-    fun `getOlderThan returns empty list when no older activities`() =
+    fun `observeRecent maps entity book card to domain`() =
         runTest {
             // Given
             val dao = createMockDao()
-            everySuspend { dao.getOlderThan(any(), any()) } returns emptyList()
-            val repository = createRepository(dao)
+            every { dao.observeRecent(any()) } returns flowOf(listOf(createActivityEntity(bookId = "book-9", bookTitle = "Mistborn")))
+            val repository = createRepository(dao = dao)
 
             // When
-            val result = repository.getOlderThan(beforeMs = 1704067200000L, limit = 10)
+            val activity = repository.observeRecent(10).first().first()
 
             // Then
-            assertTrue(result.isEmpty())
+            assertNotNull(activity.book)
+            assertEquals("book-9", activity.book?.id)
+            assertEquals("Mistborn", activity.book?.title)
         }
+
+    // ========== getOlderThan / getNewestTimestamp (Room) ==========
 
     @Test
     fun `getOlderThan returns activities from dao`() =
         runTest {
             // Given
             val dao = createMockDao()
-            val entities =
-                listOf(
-                    createActivityEntity(id = "old-1", createdAt = 1704000000000L),
-                    createActivityEntity(id = "old-2", createdAt = 1703900000000L),
-                )
-            everySuspend { dao.getOlderThan(1704067200000L, 10) } returns entities
-            val repository = createRepository(dao)
+            everySuspend { dao.getOlderThan(1704067200000L, 10) } returns listOf(createActivityEntity(id = "old-1"))
+            val repository = createRepository(dao = dao)
 
             // When
             val result = repository.getOlderThan(beforeMs = 1704067200000L, limit = 10)
 
             // Then
-            assertEquals(2, result.size)
+            assertEquals(1, result.size)
             assertEquals("old-1", result[0].id)
-            assertEquals("old-2", result[1].id)
-        }
-
-    @Test
-    fun `getOlderThan passes correct parameters to dao`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val beforeMs = 1704067200000L
-            val limit = 25
-            everySuspend { dao.getOlderThan(beforeMs, limit) } returns emptyList()
-            val repository = createRepository(dao)
-
-            // When
-            repository.getOlderThan(beforeMs = beforeMs, limit = limit)
-
-            // Then
-            verifySuspend { dao.getOlderThan(beforeMs, limit) }
-        }
-
-    // ========== getNewestTimestamp Tests ==========
-
-    @Test
-    fun `getNewestTimestamp returns null when no activities`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            everySuspend { dao.getNewestTimestamp() } returns null
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.getNewestTimestamp()
-
-            // Then
-            assertNull(result)
         }
 
     @Test
@@ -285,782 +348,10 @@ class ActivityRepositoryImplTest {
         runTest {
             // Given
             val dao = createMockDao()
-            val expectedTimestamp = 1704067200000L
-            everySuspend { dao.getNewestTimestamp() } returns expectedTimestamp
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.getNewestTimestamp()
-
-            // Then
-            assertEquals(expectedTimestamp, result)
-        }
-
-    // ========== Entity to Domain Conversion - Basic Fields ==========
-
-    @Test
-    fun `toDomain converts id correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(id = "unique-activity-id")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("unique-activity-id", result.id)
-        }
-
-    @Test
-    fun `toDomain converts type correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(type = "finished_book")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("finished_book", result.type)
-        }
-
-    @Test
-    fun `toDomain converts userId correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userId = "user-123")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("user-123", result.userId)
-        }
-
-    @Test
-    fun `toDomain converts createdAt to createdAtMs correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val timestamp = 1704067200000L
-            val entity = createActivityEntity(createdAt = timestamp)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(timestamp, result.createdAtMs)
-        }
-
-    @Test
-    fun `toDomain converts isReread correctly when true`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(isReread = true)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertTrue(result.isReread)
-        }
-
-    @Test
-    fun `toDomain converts isReread correctly when false`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(isReread = false)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(false, result.isReread)
-        }
-
-    @Test
-    fun `toDomain converts durationMs correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val duration = 7200000L // 2 hours
-            val entity = createActivityEntity(durationMs = duration)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(duration, result.durationMs)
-        }
-
-    @Test
-    fun `toDomain converts milestoneValue correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createMilestoneActivityEntity(milestoneValue = 500)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(500, result.milestoneValue)
-        }
-
-    @Test
-    fun `toDomain converts milestoneUnit correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createMilestoneActivityEntity(milestoneUnit = "hours")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("hours", result.milestoneUnit)
-        }
-
-    @Test
-    fun `toDomain converts milestoneUnit correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(milestoneUnit = null)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.milestoneUnit)
-        }
-
-    @Test
-    fun `toDomain converts shelfId correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createShelfActivityEntity(shelfId = "shelf-abc-123")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("shelf-abc-123", result.shelfId)
-        }
-
-    @Test
-    fun `toDomain converts shelfId correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(shelfId = null)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.shelfId)
-        }
-
-    @Test
-    fun `toDomain converts shelfName correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createShelfActivityEntity(shelfName = "My Reading List")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("My Reading List", result.shelfName)
-        }
-
-    @Test
-    fun `toDomain converts shelfName correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(shelfName = null)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.shelfName)
-        }
-
-    // ========== Entity to Domain Conversion - ActivityUser ==========
-
-    @Test
-    fun `toDomain converts user displayName correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userDisplayName = "Jane Doe")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("Jane Doe", result.user.displayName)
-        }
-
-    @Test
-    fun `toDomain converts user avatarColor correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userAvatarColor = "#3498DB")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("#3498DB", result.user.avatarColor)
-        }
-
-    @Test
-    fun `toDomain converts user avatarType correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userAvatarType = "emoji")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("emoji", result.user.avatarType)
-        }
-
-    @Test
-    fun `toDomain converts user avatarValue correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userAvatarValue = "AB")
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("AB", result.user.avatarValue)
-        }
-
-    @Test
-    fun `toDomain converts user avatarValue correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createActivityEntity(userAvatarValue = null)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.user.avatarValue)
-        }
-
-    // ========== Entity to Domain Conversion - ActivityBook ==========
-
-    @Test
-    fun `toDomain creates ActivityBook when bookId and bookTitle are present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-123",
-                    bookTitle = "Mistborn",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNotNull(result.book)
-            assertEquals("book-123", result.book?.id)
-            assertEquals("Mistborn", result.book?.title)
-        }
-
-    @Test
-    fun `toDomain returns null book when bookId is null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = null,
-                    bookTitle = "Some Title", // Even if title is present
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.book)
-        }
-
-    @Test
-    fun `toDomain returns null book when bookTitle is null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-123", // Even if id is present
-                    bookTitle = null,
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.book)
-        }
-
-    @Test
-    fun `toDomain returns null book when both bookId and bookTitle are null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity = createMilestoneActivityEntity() // No book info
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNull(result.book)
-        }
-
-    @Test
-    fun `toDomain converts book authorName correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-1",
-                    bookTitle = "Elantris",
-                    bookAuthorName = "Brandon Sanderson",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNotNull(result.book)
-            assertEquals("Brandon Sanderson", result.book?.authorName)
-        }
-
-    @Test
-    fun `toDomain converts book authorName correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-1",
-                    bookTitle = "Unknown Author Book",
-                    bookAuthorName = null,
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNotNull(result.book)
-            assertNull(result.book?.authorName)
-        }
-
-    @Test
-    fun `toDomain converts book coverPath correctly when present`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-1",
-                    bookTitle = "Test Book",
-                    bookCoverPath = "/covers/book-1.webp",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNotNull(result.book)
-            assertEquals("/covers/book-1.webp", result.book?.coverPath)
-        }
-
-    @Test
-    fun `toDomain converts book coverPath correctly when null`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    bookId = "book-1",
-                    bookTitle = "No Cover Book",
-                    bookCoverPath = null,
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertNotNull(result.book)
-            assertNull(result.book?.coverPath)
-        }
-
-    // ========== Activity Type Tests ==========
-
-    @Test
-    fun `toDomain handles started_book activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    type = "started_book",
-                    bookId = "book-1",
-                    bookTitle = "New Read",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("started_book", result.type)
-            assertNotNull(result.book)
-        }
-
-    @Test
-    fun `toDomain handles finished_book activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    type = "finished_book",
-                    bookId = "book-1",
-                    bookTitle = "Completed Read",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("finished_book", result.type)
-            assertNotNull(result.book)
-        }
-
-    @Test
-    fun `toDomain handles streak_milestone activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createMilestoneActivityEntity(
-                    type = "streak_milestone",
-                    milestoneValue = 30,
-                    milestoneUnit = "days",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("streak_milestone", result.type)
-            assertEquals(30, result.milestoneValue)
-            assertEquals("days", result.milestoneUnit)
-            assertNull(result.book)
-        }
-
-    @Test
-    fun `toDomain handles listening_milestone activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createMilestoneActivityEntity(
-                    type = "listening_milestone",
-                    milestoneValue = 100,
-                    milestoneUnit = "hours",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("listening_milestone", result.type)
-            assertEquals(100, result.milestoneValue)
-            assertEquals("hours", result.milestoneUnit)
-        }
-
-    @Test
-    fun `toDomain handles shelf_created activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createShelfActivityEntity(
-                    shelfId = "shelf-xyz",
-                    shelfName = "Sci-Fi Favorites",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("shelf_created", result.type)
-            assertEquals("shelf-xyz", result.shelfId)
-            assertEquals("Sci-Fi Favorites", result.shelfName)
-            assertNull(result.book)
-        }
-
-    @Test
-    fun `toDomain handles listening_session activity type`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    type = "listening_session",
-                    bookId = "book-1",
-                    bookTitle = "Podcast Episode",
-                    durationMs = 1800000L, // 30 minutes
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("listening_session", result.type)
-            assertEquals(1800000L, result.durationMs)
-            assertNotNull(result.book)
-        }
-
-    // ========== Edge Cases ==========
-
-    @Test
-    fun `toDomain handles empty string fields`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    userDisplayName = "",
-                    userAvatarColor = "",
-                    userAvatarType = "",
-                    userAvatarValue = "",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals("", result.user.displayName)
-            assertEquals("", result.user.avatarColor)
-            assertEquals("", result.user.avatarType)
-            assertEquals("", result.user.avatarValue)
-        }
-
-    @Test
-    fun `toDomain handles zero values`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    createdAt = 0L,
-                    durationMs = 0L,
-                    milestoneValue = 0,
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(0L, result.createdAtMs)
-            assertEquals(0L, result.durationMs)
-            assertEquals(0, result.milestoneValue)
-        }
-
-    @Test
-    fun `toDomain handles large timestamp values`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val farFutureTimestamp = 4102444800000L // Year 2100
-            val entity = createActivityEntity(createdAt = farFutureTimestamp)
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertEquals(farFutureTimestamp, result.createdAtMs)
-        }
-
-    @Test
-    fun `toDomain handles reread activity with book info`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    type = "finished_book",
-                    isReread = true,
-                    bookId = "book-1",
-                    bookTitle = "Re-read Favorite",
-                )
-            every { dao.observeRecent(any()) } returns flowOf(listOf(entity))
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first().first()
-
-            // Then
-            assertTrue(result.isReread)
-            assertNotNull(result.book)
-            assertEquals("finished_book", result.type)
-        }
-
-    @Test
-    fun `toDomain handles multiple activities in single list`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entities =
-                listOf(
-                    createActivityEntity(id = "act-1", type = "finished_book"),
-                    createMilestoneActivityEntity(id = "act-2", type = "listening_milestone"),
-                    createShelfActivityEntity(id = "act-3"),
-                )
-            every { dao.observeRecent(any()) } returns flowOf(entities)
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.observeRecent(10).first()
-
-            // Then
-            assertEquals(3, result.size)
-            assertEquals("finished_book", result[0].type)
-            assertNotNull(result[0].book)
-            assertEquals("listening_milestone", result[1].type)
-            assertNull(result[1].book)
-            assertEquals("shelf_created", result[2].type)
-            assertNotNull(result[2].shelfId)
-        }
-
-    @Test
-    fun `getOlderThan converts entities correctly`() =
-        runTest {
-            // Given
-            val dao = createMockDao()
-            val entity =
-                createActivityEntity(
-                    id = "older-act",
-                    type = "started_book",
-                    userId = "user-456",
-                    userDisplayName = "Bob",
-                    bookId = "book-old",
-                    bookTitle = "Old Book",
-                )
-            everySuspend { dao.getOlderThan(any(), any()) } returns listOf(entity)
-            val repository = createRepository(dao)
-
-            // When
-            val result = repository.getOlderThan(beforeMs = 1704067200000L, limit = 10)
-
-            // Then
-            assertEquals(1, result.size)
-            val activity = result[0]
-            assertEquals("older-act", activity.id)
-            assertEquals("started_book", activity.type)
-            assertEquals("user-456", activity.userId)
-            assertEquals("Bob", activity.user.displayName)
-            assertNotNull(activity.book)
-            assertEquals("book-old", activity.book?.id)
-            assertEquals("Old Book", activity.book?.title)
+            everySuspend { dao.getNewestTimestamp() } returns 1704067200000L
+            val repository = createRepository(dao = dao)
+
+            // When / Then
+            assertEquals(1704067200000L, repository.getNewestTimestamp())
         }
 }

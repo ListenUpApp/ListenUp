@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
@@ -9,7 +10,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,21 +31,28 @@ private const val MAX_ACTIVITIES = 100
  * ViewModel for the Activity Feed section on the Discover screen.
  *
  * Offline-first architecture:
- * - On first launch, fetches initial activities from API and stores in Room
+ * - On first launch, fetches initial activities from the feed RPC and stores in Room
  * - UI observes Room Flow and automatically updates
- * - Activity sync will be restored when its domain migrates to the renovated sync engine.
+ * - On each [ActivityRefreshSignal] ping (server nudge or firehose reconnect), re-fetches the
+ *   feed head into Room — the Room observation then repaints the UI
  * - After initial fetch, works completely offline
  *
  * @property activityRepository Repository for activity feed operations
- * @property fetchActivitiesUseCase Use case for fetching activities from API
+ * @property fetchActivitiesUseCase Use case for fetching activities from the feed RPC
+ * @property refreshSignal Pings when the feed may have changed (nudge or reconnect)
  */
 class ActivityFeedViewModel(
     private val activityRepository: ActivityRepository,
     private val fetchActivitiesUseCase: FetchActivitiesUseCase,
+    private val refreshSignal: ActivityRefreshSignal,
 ) : ViewModel() {
     init {
         // Fetch initial activities if Room is empty
         fetchInitialActivitiesIfNeeded()
+        // Re-fetch the feed head whenever the server signals a change; Room observation repaints.
+        refreshSignal.signal
+            .onEach { fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE) }
+            .launchIn(viewModelScope)
     }
 
     /**
