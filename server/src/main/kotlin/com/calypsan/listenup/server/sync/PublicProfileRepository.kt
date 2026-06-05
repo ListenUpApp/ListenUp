@@ -47,6 +47,7 @@ class PublicProfileRepository(
                     id = row[PublicProfilesTable.id],
                     displayName = row[PublicProfilesTable.displayName],
                     avatarType = row[PublicProfilesTable.avatarType],
+                    tagline = row[PublicProfilesTable.tagline],
                     totalSecondsAllTime = row[PublicProfilesTable.totalSecondsAllTime],
                     totalSecondsLast7Days = row[PublicProfilesTable.totalSecondsLast7Days],
                     totalSecondsLast30Days = row[PublicProfilesTable.totalSecondsLast30Days],
@@ -73,6 +74,7 @@ class PublicProfileRepository(
             PublicProfilesTable.update({ PublicProfilesTable.id eq value.id }) { stmt ->
                 stmt[PublicProfilesTable.displayName] = value.displayName
                 stmt[PublicProfilesTable.avatarType] = value.avatarType
+                stmt[PublicProfilesTable.tagline] = value.tagline
                 stmt[PublicProfilesTable.totalSecondsAllTime] = value.totalSecondsAllTime
                 stmt[PublicProfilesTable.totalSecondsLast7Days] = value.totalSecondsLast7Days
                 stmt[PublicProfilesTable.totalSecondsLast30Days] = value.totalSecondsLast30Days
@@ -90,6 +92,7 @@ class PublicProfileRepository(
                 stmt[PublicProfilesTable.id] = value.id
                 stmt[PublicProfilesTable.displayName] = value.displayName
                 stmt[PublicProfilesTable.avatarType] = value.avatarType
+                stmt[PublicProfilesTable.tagline] = value.tagline
                 stmt[PublicProfilesTable.totalSecondsAllTime] = value.totalSecondsAllTime
                 stmt[PublicProfilesTable.totalSecondsLast7Days] = value.totalSecondsLast7Days
                 stmt[PublicProfilesTable.totalSecondsLast30Days] = value.totalSecondsLast30Days

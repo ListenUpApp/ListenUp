@@ -14,6 +14,7 @@ private fun row(
     id = id,
     displayName = "User $id",
     avatarType = "auto",
+    tagline = null,
     totalSecondsAllTime = secs,
     totalSecondsLast7Days = secs,
     totalSecondsLast30Days = secs,

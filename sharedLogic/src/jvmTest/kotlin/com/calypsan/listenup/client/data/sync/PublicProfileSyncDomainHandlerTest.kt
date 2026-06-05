@@ -179,6 +179,7 @@ private fun payload(
     id = id,
     displayName = "Test User",
     avatarType = "auto",
+    tagline = null,
     totalSecondsAllTime = totalSecondsAllTime,
     totalSecondsLast7Days = totalSecondsLast7Days,
     totalSecondsLast30Days = totalSecondsLast30Days,

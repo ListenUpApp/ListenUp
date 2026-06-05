@@ -99,6 +99,37 @@ class PublicProfileMaintainerTest :
             }
         }
 
+        test("refresh projects the user's tagline") {
+            withInMemoryDatabase {
+                val db = this
+                transaction(db) {
+                    UserEntity.new("u4") {
+                        email = "lovelace@example.com"
+                        emailNormalized = "lovelace@example.com"
+                        passwordHash = "phc"
+                        role = UserRoleColumn.MEMBER
+                        displayName = "Ada Lovelace"
+                        avatarType = "auto"
+                        tagline = "Fantasy & sci-fi devotee"
+                        status = UserStatusColumn.ACTIVE
+                        createdAt = 1L
+                        updatedAt = 1L
+                    }
+                }
+
+                val repo = PublicProfileRepository(db = db, bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(db = db, publicProfileRepo = repo)
+
+                runTest {
+                    maintainer.refresh("u4")
+
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 10).items.single()
+                    saved.id shouldBe "u4"
+                    saved.tagline shouldBe "Fantasy & sci-fi devotee"
+                }
+            }
+        }
+
         test("tombstone soft-deletes the projection row") {
             withInMemoryDatabase {
                 val db = this
