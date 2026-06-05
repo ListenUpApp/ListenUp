@@ -21,7 +21,10 @@ private fun PreviewTheme(
 }
 
 @Composable
-private fun PrimaryActionsSectionPreviewBody(playEnabled: Boolean = true) {
+private fun PrimaryActionsSectionPreviewBody(
+    playEnabled: Boolean = true,
+    showServerWarning: Boolean = false,
+) {
     PrimaryActionsSection(
         downloadStatus = BookDownloadStatus.NotDownloaded(bookId = "preview-book"),
         onPlayClick = {},
@@ -30,6 +33,7 @@ private fun PrimaryActionsSectionPreviewBody(playEnabled: Boolean = true) {
         onDeleteClick = {},
         modifier = Modifier.padding(horizontal = 16.dp),
         playEnabled = playEnabled,
+        showServerWarning = showServerWarning,
     )
 }
 
@@ -55,4 +59,20 @@ private fun PrimaryActionsLightDisabled() {
 @Composable
 private fun PrimaryActionsDarkDisabled() {
     PreviewTheme(dark = true) { PrimaryActionsSectionPreviewBody(playEnabled = false) }
+}
+
+@Preview(name = "PrimaryActions · light · offline morph", widthDp = 412, heightDp = 100)
+@Composable
+private fun PrimaryActionsLightOffline() {
+    PreviewTheme(dark = false) {
+        PrimaryActionsSectionPreviewBody(playEnabled = false, showServerWarning = true)
+    }
+}
+
+@Preview(name = "PrimaryActions · dark · offline morph", widthDp = 412, heightDp = 100)
+@Composable
+private fun PrimaryActionsDarkOffline() {
+    PreviewTheme(dark = true) {
+        PrimaryActionsSectionPreviewBody(playEnabled = false, showServerWarning = true)
+    }
 }
