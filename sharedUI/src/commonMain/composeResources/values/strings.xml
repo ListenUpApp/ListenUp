@@ -163,6 +163,7 @@
     <string name="book_detail_stream_now">Play Now</string>
     <string name="book_detail_synopsis">Synopsis</string>
     <string name="book_detail_tags">Tags</string>
+    <string name="book_detail_title">Book details</string>
     <string name="book_detail_waiting_for_wifi">Waiting for WiFi</string>
     <string name="book_detail_written_by">Written by</string>
     <string name="book_detail_you_can_redownload_anytime_by">You can re-download anytime by playing the book.</string>
