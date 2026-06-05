@@ -26,8 +26,10 @@ private val logger = KotlinLogging.logger {}
  *
  * Runs after [ActiveSessionSeeder] (order 30): like the other playback seeders it depends on the
  * scanner having written at least one book. If no books have been scanned when this seeder runs,
- * the `finished_book` is skipped and [isAlreadySeeded] returns false on the next restart — by which
- * point the scan should be complete and the book activity will be seeded then.
+ * *both* rows are deferred — [isAlreadySeeded] keys off any activity row for the demo user, so the
+ * `user_joined` row is written only after the book-bearing row, ensuring a no-book first run seeds
+ * nothing and [isAlreadySeeded] returns false on the next restart — by which point the scan should
+ * be complete and both activities will be seeded then.
  */
 internal class ActivitySeeder(
     private val db: Database,
@@ -56,16 +58,19 @@ internal class ActivitySeeder(
             return
         }
 
-        activityRepository.record(userId = userId, type = ActivityType.USER_JOINED)
-        logger.info { "seed [$domainName]: user_joined for demo user" }
-
         val bookId = firstAvailableBookId()
         if (bookId == null) {
-            logger.info { "seed [$domainName]: no books scanned yet — deferring the book activity to next restart" }
+            // Seed nothing until a book exists. isAlreadySeeded() keys off any activity row for the
+            // demo user, so writing user_joined now would mark the domain done and permanently skip
+            // the book activity. Deferring both rows lets the seeder genuinely re-run next restart.
+            logger.info { "seed [$domainName]: no books scanned yet — deferring activity seeding to next restart" }
             return
         }
         activityRepository.record(userId = userId, type = ActivityType.FINISHED_BOOK, bookId = bookId)
         logger.info { "seed [$domainName]: finished_book for book $bookId" }
+
+        activityRepository.record(userId = userId, type = ActivityType.USER_JOINED)
+        logger.info { "seed [$domainName]: user_joined for demo user" }
     }
 
     /** Returns the demo user's id string, or null if not yet in the database. */

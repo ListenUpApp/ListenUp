@@ -87,6 +87,7 @@ class UserStatsUpdater(
         }
         val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
         val newHours = (updated.totalSecondsAllTime / 3600L).toInt()
+        // A single event crossing two thresholds records only the lowest milestone — acceptable; real events rarely jump two.
         LISTENING_MILESTONES.firstOrNull { prevHours < it && newHours >= it }?.let { milestone ->
             activityRecorder?.record(
                 userId,

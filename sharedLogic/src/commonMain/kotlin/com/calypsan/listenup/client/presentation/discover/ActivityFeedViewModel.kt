@@ -56,8 +56,8 @@ class ActivityFeedViewModel(
     }
 
     /**
-     * Observe recent activities from Room.
-     * Automatically updates when SSE events add new activities.
+     * Observe recent activities from Room — the single read source.
+     * Room repaints whenever the feed RPC refreshes the cache (ActivityChanged nudge or reconnect).
      */
     val state: StateFlow<ActivityFeedUiState> =
         activityRepository
@@ -76,8 +76,8 @@ class ActivityFeedViewModel(
             )
 
     /**
-     * Fetch initial activities from API if Room is empty.
-     * This ensures data is available on first launch before any SSE events arrive.
+     * Fetch the feed head from the RPC into Room if the cache is empty.
+     * This ensures data is available on first launch before any ActivityChanged nudge arrives.
      */
     private fun fetchInitialActivitiesIfNeeded() {
         viewModelScope.launch {
@@ -87,15 +87,15 @@ class ActivityFeedViewModel(
                 return@launch
             }
 
-            logger.debug { "Room is empty, fetching initial activities from API" }
+            logger.debug { "Room is empty, fetching the feed head from the RPC" }
             fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE)
-            // Not fatal if fails - Room Flow will show empty state, SSE will populate over time
+            // Not fatal if it fails — Room shows the empty state and the next nudge/reconnect refills.
         }
     }
 
     /**
-     * Refresh activities from API.
-     * Fetches latest activities and stores in Room.
+     * Refresh the feed from the RPC.
+     * Re-fetches the feed head into the Room cache; the Room observation then repaints.
      */
     fun refresh() {
         viewModelScope.launch {

@@ -5,9 +5,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Pings whenever active-session presence may have changed — on the server's broadcast
- * `ActiveSessionsChanged` nudge or on firehose reconnect. The social repositories
- * (currently-listening, book-readers) re-fetch their ACL-filtered RPC on each ping.
+ * Pings whenever a new activity may have been recorded — on the server's broadcast
+ * `ActivityChanged` nudge or on firehose reconnect. The activity-feed repository re-fetches
+ * the feed head on each ping.
  */
 class ActivityRefreshSignal {
     private val flow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)

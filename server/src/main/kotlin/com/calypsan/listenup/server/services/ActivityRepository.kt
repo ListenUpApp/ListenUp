@@ -38,7 +38,7 @@ data class ActivityRow(
  * action; [page] reads them back most-recent-first for the feed. NOT a syncable client domain —
  * clients read it through the `feed` RPC and never write it.
  *
- * [page] is intentionally raw (no identity join, no ACL filter): the [SocialService] layer
+ * [page] is intentionally raw (no identity join, no ACL filter): the [ActivityServiceImpl] layer
  * overfetches, joins `public_profiles` identity, and drops items the caller may not see, then
  * re-pages. Keeping that policy out of the store keeps this class a thin persistence seam.
  */
