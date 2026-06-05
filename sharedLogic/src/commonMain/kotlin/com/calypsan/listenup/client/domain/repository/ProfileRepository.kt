@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.UserProfile
 
 /**
  * Repository contract for user profile operations.
@@ -11,9 +10,6 @@ import com.calypsan.listenup.client.domain.model.UserProfile
  * reflects the latest server-side values. It also triggers a local avatar file refresh
  * when the profile reports [avatarType] == `"image"`, and deletes any stale avatar
  * file when [avatarType] == `"auto"`.
- *
- * [getUserProfile] fetches another user's full public profile (stats, recent books,
- * shelves) and is used for the social profile-view screen.
  *
  * Part of the domain layer — implementations live in the data layer.
  */
@@ -34,12 +30,4 @@ interface ProfileRepository {
      * @return [AppResult.Success] on a successful server round-trip, [AppResult.Failure] otherwise.
      */
     suspend fun refreshMyProfile(): AppResult<Unit>
-
-    /**
-     * Get a user's public profile.
-     *
-     * @param userId The user ID to fetch profile for
-     * @return Result containing the user profile or an error
-     */
-    suspend fun getUserProfile(userId: String): AppResult<UserProfile>
 }

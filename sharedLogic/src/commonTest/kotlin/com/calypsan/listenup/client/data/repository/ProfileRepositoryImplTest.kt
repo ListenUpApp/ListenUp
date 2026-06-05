@@ -9,9 +9,7 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.local.db.UserProfileEntity
-import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.model.FullProfileResponse
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.Timestamp
@@ -23,16 +21,12 @@ import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
  * Unit tests for [ProfileRepositoryImpl] — own-profile fetch via [ProfileService] RPC
  * and resulting local Room cache updates.
- *
- * The [ProfileApiContract.getUserProfile] path (other-user fetch) is covered by a
- * dedicated test at the end of this suite.
  */
 class ProfileRepositoryImplTest :
     FunSpec({
@@ -72,9 +66,6 @@ class ProfileRepositoryImplTest :
                 updatedAt = 3_000L,
             )
 
-        /** Minimal [ProfileApiContract] stub for tests that don't exercise the other-user path. */
-        val unusedProfileApi = mock<ProfileApiContract>()
-
         fun repo(
             userDao: UserDao = mock(),
             userProfileDao: UserProfileDao = mock(),
@@ -84,7 +75,6 @@ class ProfileRepositoryImplTest :
             val rpcFactory = mock<ProfileRpcFactory>()
             everySuspend { rpcFactory.get() } returns service
             return ProfileRepositoryImpl(
-                profileApi = unusedProfileApi,
                 profileRpcFactory = rpcFactory,
                 userDao = userDao,
                 userProfileDao = userProfileDao,
@@ -205,47 +195,6 @@ class ProfileRepositoryImplTest :
                     repo(userDao = userDao, service = service).refreshMyProfile()
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
-            }
-        }
-
-        test("getUserProfile delegates to ProfileApiContract for other-user fetches") {
-            runTest {
-                val profileApi = mock<ProfileApiContract>()
-                val rpcFactory = mock<ProfileRpcFactory>()
-                val stubFullProfile =
-                    FullProfileResponse(
-                        userId = "other-1",
-                        displayName = "Other User",
-                        avatarType = "auto",
-                        avatarValue = null,
-                        avatarColor = "#000",
-                        tagline = null,
-                        totalListenTimeMs = 100L,
-                        booksFinished = 2,
-                        currentStreak = 1,
-                        longestStreak = 3,
-                        isOwnProfile = false,
-                        recentBooks = emptyList(),
-                        publicShelves = emptyList(),
-                    )
-                everySuspend { profileApi.getUserProfile("other-1") } returns
-                    AppResult.Success(stubFullProfile)
-
-                val repo =
-                    ProfileRepositoryImpl(
-                        profileApi = profileApi,
-                        profileRpcFactory = rpcFactory,
-                        userDao = mock(),
-                        userProfileDao = mock(),
-                        avatarDownloadRepository = mock(),
-                    )
-
-                val result = repo.getUserProfile("other-1")
-
-                result.shouldBeInstanceOf<AppResult.Success<*>>()
-                val profile = (result as AppResult.Success).data
-                profile.userId shouldBe "other-1"
-                profile.displayName shouldBe "Other User"
             }
         }
     })

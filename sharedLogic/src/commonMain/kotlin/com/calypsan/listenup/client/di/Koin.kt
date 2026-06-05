@@ -49,8 +49,6 @@ import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.ProfileApi
-import com.calypsan.listenup.client.data.remote.ProfileApiContract
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
 import com.calypsan.listenup.client.data.remote.SearchApi
@@ -166,7 +164,6 @@ import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseC
 import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
-import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
@@ -545,12 +542,6 @@ val useCaseModule =
                 adminRepository = get(),
             )
         }
-        // Profile use cases
-        factory {
-            LoadUserProfileUseCase(
-                profileRepository = get(),
-            )
-        }
         // Activity use cases
         factory {
             FetchActivitiesUseCase(
@@ -760,11 +751,6 @@ val syncModule =
                 serverConfig = get(),
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // ProfileApi for user profile operations
-        single {
-            ProfileApi(clientFactory = get())
-        } bind ProfileApiContract::class
 
         // FtsPopulator for rebuilding FTS tables after sync
         single {
@@ -1069,7 +1055,6 @@ val syncModule =
         // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
         single<ProfileRepository> {
             ProfileRepositoryImpl(
-                profileApi = get(),
                 profileRpcFactory = get(),
                 userDao = get(),
                 userProfileDao = get(),
