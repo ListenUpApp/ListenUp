@@ -4,10 +4,14 @@ import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
 import com.calypsan.listenup.server.db.PublicProfilesTable
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
@@ -36,6 +40,30 @@ class PublicProfileRepository(
     override val PublicProfileSyncPayload.id: String get() = this.id
 
     override fun PublicProfileSyncPayload.revisionOf(): Long = revision
+
+    /**
+     * Batch identity read: the public display name and avatar type for each live profile in
+     * [ids]. Tombstoned (`deleted_at` set) and absent rows are simply missing from the result —
+     * callers drop sessions whose user has no identity to display. An empty [ids] short-circuits
+     * without a query.
+     */
+    suspend fun identities(ids: Set<String>): Map<String, PublicIdentity> =
+        if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            suspendTransaction(db) {
+                PublicProfilesTable
+                    .selectAll()
+                    .where { (PublicProfilesTable.id inList ids) and PublicProfilesTable.deletedAt.isNull() }
+                    .associate { row ->
+                        row[PublicProfilesTable.id] to
+                            PublicIdentity(
+                                displayName = row[PublicProfilesTable.displayName],
+                                avatarType = row[PublicProfilesTable.avatarType],
+                            )
+                    }
+            }
+        }
 
     override suspend fun readPayload(idStr: String): PublicProfileSyncPayload? =
         PublicProfilesTable
@@ -109,3 +137,12 @@ class PublicProfileRepository(
         }
     }
 }
+
+/**
+ * A user's display identity projected from `public_profiles`, for the social presence
+ * surfaces. [avatarType] is `"auto"` or `"image"`.
+ */
+data class PublicIdentity(
+    val displayName: String,
+    val avatarType: String,
+)
