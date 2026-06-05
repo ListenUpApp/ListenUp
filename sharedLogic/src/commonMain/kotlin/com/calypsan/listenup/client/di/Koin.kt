@@ -45,7 +45,9 @@ import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
@@ -757,6 +759,14 @@ val syncModule =
         // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
         single<ShelfRpcFactory> {
             KtorShelfRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
+        single<SocialRpcFactory> {
+            KtorSocialRpcFactory(
                 apiClientFactory = get(),
                 serverConfig = get(),
             )
