@@ -23,6 +23,7 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
@@ -43,6 +44,7 @@ import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.ShelfServiceImpl
+import com.calypsan.listenup.server.api.SocialServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.rpcguard.guard
@@ -115,6 +117,7 @@ fun Route.rpcRoutes(
     genreService: GenreService,
     collectionService: CollectionService,
     shelfService: ShelfService,
+    socialService: SocialService,
     adminUserService: AdminUserService,
     adminSettingsService: AdminSettingsService,
     inviteService: InviteServiceImpl,
@@ -138,6 +141,7 @@ fun Route.rpcRoutes(
             genreService,
             collectionService,
             shelfService,
+            socialService,
             adminUserService,
             adminSettingsService,
             inviteService,
@@ -188,6 +192,7 @@ private fun Route.authedRpc(
     genreService: GenreService,
     collectionService: CollectionService,
     shelfService: ShelfService,
+    socialService: SocialService,
     adminUserService: AdminUserService,
     adminSettingsService: AdminSettingsService,
     inviteService: InviteServiceImpl,
@@ -214,6 +219,7 @@ private fun Route.authedRpc(
         registerScoped<GenreService> { guard((genreService as GenreServiceImpl).copyWith(it)) }
         registerScoped<CollectionService> { guard((collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<ShelfService> { guard((shelfService as ShelfServiceImpl).copyWith(it)) }
+        registerScoped<SocialService> { guard((socialService as SocialServiceImpl).copyWith(it)) }
         registerScoped<AdminUserService> { guard((adminUserService as AdminUserServiceImpl).copyWith(it)) }
         registerScoped<AdminSettingsService> { guard((adminSettingsService as AdminSettingsServiceImpl).copyWith(it)) }
         registerScoped<InviteService> { guard(inviteService.copyWith(it) as InviteService) }

@@ -410,7 +410,52 @@ interface BookDao {
     /** All rows (including tombstones) with [revision][BookEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * One-shot lightweight summary for a single book — title, cover blur hash, and primary
+     * author — used to enrich social presence sessions from the viewer's local library.
+     *
+     * Returns null when the book is absent from the local mirror (the viewer cannot access it),
+     * which the caller treats as "drop this session".
+     *
+     * @param id The book id to summarise.
+     * @return The summary row, or null if the book is not present locally.
+     */
+    @Query(
+        """
+        SELECT
+            b.id, b.title, b.coverBlurHash,
+            (
+                SELECT c.name FROM book_contributors bc
+                INNER JOIN contributors c ON bc.contributorId = c.id
+                WHERE bc.bookId = b.id AND bc.role = 'author'
+                LIMIT 1
+            ) as authorName
+        FROM books b
+        WHERE b.id = :id AND b.deletedAt IS NULL
+        LIMIT 1
+    """,
+    )
+    suspend fun getBookSummary(id: String): BookSummary?
 }
+
+/**
+ * Minimal book identity for enriching social presence sessions.
+ *
+ * Carries exactly what the "currently listening" UI needs beyond wire identity: the title,
+ * the cover blur hash for the placeholder, and the primary author's name.
+ *
+ * @property id The book id.
+ * @property title The book title.
+ * @property coverBlurHash BlurHash placeholder for the cover, or null when none is stored.
+ * @property authorName Primary author's display name, or null when no author is linked.
+ */
+data class BookSummary(
+    val id: String,
+    val title: String,
+    val coverBlurHash: String?,
+    val authorName: String?,
+)
 
 /**
  * Lightweight book data for discovery sections.

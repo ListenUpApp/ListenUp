@@ -35,15 +35,16 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 /**
  * ViewModel for the Discover screen.
  *
- * All discovery data comes from local Room database:
- * - What others are listening to: active_sessions table via SSE sync
+ * Discovery data comes from a mix of local Room and RPC:
+ * - What others are listening to: the ACL-filtered [com.calypsan.listenup.api.SocialService.currentlyListening]
+ *   RPC, re-fetched on each presence nudge + firehose reconnect (via [ActiveSessionRepository])
  * - Discover something new: random unstarted books from books table
  * - Recently added: newest books from books table
  * - Shelves from other users: fetched on demand via [ShelfRepository.discoverShelves] RPC
  *   (other users' shelves never enter Room; each [refresh] issues a fresh network call)
  *
- * The first three sections are offline-first — they work instantly after initial sync.
- * Discover shelves requires connectivity for each load.
+ * Discover-new and recently-added are offline-first — they work instantly after initial sync.
+ * Currently-listening and discover-shelves require connectivity for each load.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModel(
@@ -58,11 +59,13 @@ class DiscoverViewModel(
         loadDiscoverShelves()
     }
 
-    // === Currently Listening State (from Room) ===
+    // === Currently Listening State (from SocialService RPC) ===
 
     /**
-     * Observe active sessions from Room, filtered to exclude current user.
-     * Automatically updates when SSE events modify the active_sessions table.
+     * Observe active sessions via [ActiveSessionRepository], which fetches the ACL-filtered
+     * [com.calypsan.listenup.api.SocialService.currentlyListening] RPC (the server excludes the
+     * caller). Re-fetched on every presence nudge ([com.calypsan.listenup.client.data.sync.PresenceRefreshSignal])
+     * and firehose reconnect.
      */
     private val currentlyListeningFlow =
         authSession.authState.flatMapLatest { authState ->

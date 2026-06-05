@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
@@ -35,18 +34,17 @@ import kotlinx.coroutines.test.runTest
 class DigestOptOutSetTest :
     FunSpec({
 
-        test("exactly active_sessions and playback_positions opt out of digest reconciliation") {
+        test("exactly playback_positions opts out of digest reconciliation") {
             runTest {
                 val clientDb = createInMemoryTestDatabase()
                 try {
                     val registry = ClientSyncDomainRegistry()
                     val txRunner = RoomTransactionRunner(clientDb)
 
-                    // Register all 15 production handlers — mirrors the clientSyncRenovationModule
+                    // Register all production handlers — mirrors the clientSyncRenovationModule
                     // Koin wiring so this test tracks production exactly.
                     TagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     BookTagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    ActiveSessionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     BookSyncDomainHandler(
                         database = clientDb,
                         mapper = BookEntityMapper(),
@@ -76,7 +74,7 @@ class DigestOptOutSetTest :
                                 handler.localDigestRows(Long.MAX_VALUE) == null
                             }.toSet()
 
-                    optedOut shouldBe setOf("active_sessions", "playback_positions")
+                    optedOut shouldBe setOf("playback_positions")
                 } finally {
                     clientDb.close()
                 }

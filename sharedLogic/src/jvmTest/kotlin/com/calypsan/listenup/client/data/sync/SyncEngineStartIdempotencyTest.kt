@@ -195,6 +195,7 @@ private fun buildEngine(
         sseClient = sse,
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
+        presenceRefreshSignal = PresenceRefreshSignal(),
         scope = scope,
     )
 }

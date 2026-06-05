@@ -11,12 +11,12 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
@@ -164,11 +164,6 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
 
             // Register remaining handlers so SSE events on other domains don't
             // get logged as "unhandled" warnings during the test.
-            ActiveSessionSyncDomainHandler(
-                database = clientDb,
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
             LibrarySyncDomainHandler(
                 database = clientDb,
                 transactionRunner = RoomTransactionRunner(clientDb),
@@ -261,6 +256,7 @@ fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -> Unit)
                     sseClient = sseClient,
                     reconciler = reconciler,
                     dispatcher = dispatcher,
+                    presenceRefreshSignal = PresenceRefreshSignal(),
                     scope = clientScope,
                 )
             engineRef = engine

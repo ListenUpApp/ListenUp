@@ -128,6 +128,7 @@ private fun buildEngineWithCatchUp(
         sseClient = NoopSseClient(state),
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
+        presenceRefreshSignal = PresenceRefreshSignal(),
         scope = scope,
     )
 }

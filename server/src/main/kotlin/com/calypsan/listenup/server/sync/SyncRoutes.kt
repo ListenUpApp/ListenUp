@@ -217,15 +217,16 @@ private suspend fun ServerSSESession.streamFirehose(
     // on the session's own scope is observable end-to-end.
     val heartbeatJob = launch { runKeepalive(heartbeatIntervalMillis) }
 
-    // Per-user control frames (e.g. AccessChanged) ride a separate, non-replayed bus
-    // channel — they carry no revision and must not enter Last-Event-Id resume. Deliver
-    // only the frames addressed to this subscriber, on the same `event: control` line the
-    // CursorStale/StreamError frames use, so the client branches on `event:` alone.
+    // Control frames (e.g. AccessChanged) ride a separate, non-replayed bus channel —
+    // they carry no revision and must not enter Last-Event-Id resume. Deliver frames
+    // addressed to this subscriber, plus content-free BROADCAST frames destined for every
+    // subscriber, on the same `event: control` line the CursorStale/StreamError frames
+    // use, so the client branches on `event:` alone.
     val controlJob =
         launch {
             bus
                 .subscribeControl()
-                .filter { it.userId == userId }
+                .filter { it.userId == userId || it.userId == ChangeBus.BROADCAST }
                 .collect { frame -> sendControl(frame.control) }
         }
 

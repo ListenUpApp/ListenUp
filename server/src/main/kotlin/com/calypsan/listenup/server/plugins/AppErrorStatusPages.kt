@@ -22,6 +22,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
@@ -67,11 +68,11 @@ fun Application.installAppErrorStatusPages() {
 /**
  * Status mapping for typed [AppError]. Used by both REST handlers and tests.
  *
- * This `when` is exhaustive over all direct [AppError] implementors (22 sealed sub-interfaces +
- * [ValidationError] + a merged client-local branch for [InternalError]/[TransportError]/[PlaybackError]).
- * The multi-type branch for the three 500-mapped client-local types keeps cyclomatic complexity at 22
- * (under the project threshold of 25) while preserving compile-time exhaustiveness: adding a new
- * [AppError] sub-interface will fail this `when` at compile time.
+ * This `when` is exhaustive over all direct [AppError] implementors. Two grouped branches keep its
+ * cyclomatic complexity under the project threshold of 25 while preserving compile-time
+ * exhaustiveness: the client-local [InternalError]/[TransportError]/[PlaybackError] share a 500
+ * branch, and [ShelfError]/[SocialError] delegate to [shelfOrSocialHttpStatus]. Adding a new
+ * [AppError] sub-interface will still fail this `when` at compile time.
  */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
     when (this) {
@@ -97,7 +98,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is CollectionError -> toHttpStatus()
 
-        is ShelfError -> toHttpStatus()
+        // ShelfError + SocialError share one branch (delegating to an exhaustive helper) to keep
+        // this function's cyclomatic complexity under the project threshold while preserving
+        // per-variant exhaustiveness for both families.
+        is ShelfError, is SocialError -> shelfOrSocialHttpStatus()
 
         is AdminError -> toHttpStatus()
 
@@ -180,6 +184,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is ShelfError -> {
+            withCorrelationId(id)
+        }
+
+        is SocialError -> {
             withCorrelationId(id)
         }
 
@@ -565,6 +573,28 @@ private fun ShelfError.withCorrelationId(id: String?): ShelfError =
         is ShelfError.NotFound -> copy(correlationId = id)
         is ShelfError.Forbidden -> copy(correlationId = id)
         is ShelfError.InvalidName -> copy(correlationId = id)
+    }
+
+/**
+ * Re-dispatches the grouped `ShelfError`/`SocialError` branch of [toHttpStatus] to each family's
+ * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
+ * project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ShelfError -> toHttpStatus()
+        is SocialError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun SocialError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is SocialError.NotFound -> HttpStatusCode.NotFound
+    }
+
+private fun SocialError.withCorrelationId(id: String?): SocialError =
+    when (this) {
+        is SocialError.NotFound -> copy(correlationId = id)
     }
 
 private fun AdminError.toHttpStatus(): HttpStatusCode =

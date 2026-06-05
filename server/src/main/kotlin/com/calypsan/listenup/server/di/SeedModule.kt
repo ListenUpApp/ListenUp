@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.InviteServiceImpl
+import com.calypsan.listenup.server.seed.ActiveSessionSeeder
 import com.calypsan.listenup.server.seed.CollectionDomainSeeder
 import com.calypsan.listenup.server.seed.ContributorEnrichmentSeeder
 import com.calypsan.listenup.server.seed.DomainSeeder
@@ -26,11 +27,12 @@ import org.koin.dsl.module
  * every future domain phase adds its `DomainSeeder` to this list.
  *
  * @param hasPlaybackModule whether the `:playback` slice is active (i.e., a library
- *   path is configured). When false, [PlaybackPositionDomainSeeder] and
- *   [ListeningEventDomainSeeder] are omitted from the runner — they depend on
- *   [com.calypsan.listenup.server.services.PlaybackPositionRepository] and
- *   [com.calypsan.listenup.server.services.ListeningEventRepository] which are only
- *   bound when the playback module is loaded.
+ *   path is configured). When false, [PlaybackPositionDomainSeeder],
+ *   [ListeningEventDomainSeeder] and [ActiveSessionSeeder] are omitted from the runner —
+ *   they depend on [com.calypsan.listenup.server.services.PlaybackPositionRepository],
+ *   [com.calypsan.listenup.server.services.ListeningEventRepository] and
+ *   [com.calypsan.listenup.server.services.ActiveSessionRepository] respectively, which
+ *   are only bound when the playback module is loaded.
  * @param hasBooksModule whether the `:books` slice is active (i.e., a library
  *   path is configured). When false, [ContributorEnrichmentSeeder] is omitted —
  *   it depends on [com.calypsan.listenup.server.services.ContributorRepository]
@@ -77,6 +79,7 @@ fun seedModule(
         if (hasPlaybackModule) {
             single { PlaybackPositionDomainSeeder(db = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(db = get(), listeningEventRepository = get()) }
+            single { ActiveSessionSeeder(db = get(), activeSessionRepository = get()) }
         }
         if (hasBooksModule) {
             single { ContributorEnrichmentSeeder(db = get(), contributorRepository = get()) }
@@ -142,6 +145,7 @@ private fun assembleSeeders(
         if (hasPlaybackModule) {
             add(koin.get<PlaybackPositionDomainSeeder>())
             add(koin.get<ListeningEventDomainSeeder>())
+            add(koin.get<ActiveSessionSeeder>())
         }
         if (hasBooksModule) {
             add(koin.get<ContributorEnrichmentSeeder>())

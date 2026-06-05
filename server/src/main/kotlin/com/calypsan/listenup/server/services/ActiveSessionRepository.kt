@@ -1,167 +1,154 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.ActiveSessionSyncPayload
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.db.ActiveSessionTable
 import com.calypsan.listenup.server.sync.ChangeBus
-import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.sync.SyncableRepository
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.core.Column
+import kotlin.uuid.Uuid
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 
 /**
- * Syncable-domain repository for per-user active listening sessions (Playback P3).
+ * Server-derived presence store for per-user active listening sessions.
  *
- * One row exists per active listener — written by the client when playback starts
- * and deleted when playback stops, the book is finished, or the cleanup sweep
- * evicts it after the staleness threshold.
+ * Presence (who is currently listening, and who is reading a given book) is owned by
+ * the server: clients do not sync this domain, they query it through [SocialService].
+ * One live row exists per `(userId, bookId)` pair while that user is actively
+ * listening; the row is created/refreshed by [startOrRefresh], removed by
+ * [deleteForUserBook] when the book is finished, and swept after a staleness threshold
+ * by [com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask].
  *
- * The primary key is `session_id` (not the substrate's conventional `id`), so
- * [idColumn] is overridden to point at [ActiveSessionTable.sessionId].
- *
- * `userScoped = true` — every `upsert`, `softDelete`, `pullSince`, and `digest`
- * call routes through the per-user dimension of the substrate.
- *
- * [deleteForUserBook] is the completion cascade entry point: when
- * [PlaybackPositionRepository.recordPosition] detects a `finished` flip it calls
- * this method to soft-delete the active session row(s) and publish a [SyncEvent.Deleted]
- * SSE event so SSE-connected clients can remove the row reactively.
+ * Mutations publish a content-free [SyncControl.ActiveSessionsChanged] broadcast nudge
+ * — a re-derive hint that carries no per-user or per-resource data, so it cannot leak.
+ * Connected clients re-query presence on receipt. Standalone calls (cleanup, finish-flip)
+ * publish after their own transaction commits; when [startOrRefresh] runs inside a caller's
+ * outer transaction (e.g. `recordPosition`), the nudge nests within that transaction — matching
+ * the [com.calypsan.listenup.server.sync.SyncableRepository] convention. This is harmless: the
+ * nudge is only a re-derive hint, and a client that re-queries before the outer commit simply
+ * sees the prior state and re-derives again on the next nudge.
  */
 class ActiveSessionRepository(
-    db: Database,
-    bus: ChangeBus,
-    registry: SyncRegistry,
-    clock: Clock = Clock.System,
-) : SyncableRepository<ActiveSessionSyncPayload, String>(
-        db = db,
-        table = ActiveSessionTable,
-        bus = bus,
-        registry = registry,
-        domainName = "active_sessions",
-        clock = clock,
-    ) {
-    override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<ActiveSessionSyncPayload> =
-        ActiveSessionSyncPayload.serializer()
-
-    // session_id is the PK, not the substrate's conventional `id` column.
-    override fun idColumn(): Column<String> = ActiveSessionTable.sessionId
-
-    override val ActiveSessionSyncPayload.id: String get() = this.sessionId
-
-    override fun ActiveSessionSyncPayload.revisionOf(): Long = revision
-
-    override suspend fun readPayload(idStr: String): ActiveSessionSyncPayload? =
-        ActiveSessionTable
-            .selectAll()
-            .where { ActiveSessionTable.sessionId eq idStr }
-            .firstOrNull()
-            ?.let { row ->
-                ActiveSessionSyncPayload(
-                    sessionId = row[ActiveSessionTable.sessionId],
-                    bookId = row[ActiveSessionTable.bookId],
-                    startedAt = row[ActiveSessionTable.startedAt],
-                    revision = row[ActiveSessionTable.revision],
-                    updatedAt = row[ActiveSessionTable.updatedAt],
-                    createdAt = row[ActiveSessionTable.createdAt],
-                    deletedAt = row[ActiveSessionTable.deletedAt],
-                )
-            }
-
-    override suspend fun writePayload(
-        value: ActiveSessionSyncPayload,
-        rev: Long,
-        now: Long,
-        clientOpId: String?,
-        userId: String?,
-        existed: Boolean,
-    ) {
-        requireNotNull(userId) { "ActiveSessionRepository.writePayload requires a userId" }
-        if (existed) {
-            ActiveSessionTable.update({ ActiveSessionTable.sessionId eq value.sessionId }) { stmt ->
-                stmt[ActiveSessionTable.bookId] = value.bookId
-                stmt[ActiveSessionTable.startedAt] = value.startedAt
-                stmt[ActiveSessionTable.revision] = rev
-                stmt[ActiveSessionTable.updatedAt] = now
-                stmt[ActiveSessionTable.deletedAt] = null
-                stmt[ActiveSessionTable.clientOpId] = clientOpId
-            }
-        } else {
-            ActiveSessionTable.insert { stmt ->
-                stmt[ActiveSessionTable.sessionId] = value.sessionId
-                stmt[ActiveSessionTable.userId] = userId
-                stmt[ActiveSessionTable.bookId] = value.bookId
-                stmt[ActiveSessionTable.startedAt] = value.startedAt
-                stmt[ActiveSessionTable.revision] = rev
-                stmt[ActiveSessionTable.createdAt] = now
-                stmt[ActiveSessionTable.updatedAt] = now
-                stmt[ActiveSessionTable.deletedAt] = null
-                stmt[ActiveSessionTable.clientOpId] = clientOpId
-            }
-        }
-    }
-
+    private val db: Database,
+    private val bus: ChangeBus,
+    private val clock: Clock = Clock.System,
+) {
     /**
-     * Soft-delete all active-session row(s) for the `(userId, bookId)` pair,
-     * publishing a [SyncEvent.Deleted] SSE event for each. Idempotent: no matching
-     * row is a no-op.
+     * Create a live session row for `(userId, bookId)`, or refresh the existing one's
+     * `updatedAt` if it is already live. Returns `true` when a new row was inserted,
+     * `false` when an existing row was refreshed.
      *
-     * Called from [PlaybackPositionRepository.recordPosition]'s atomic side-effect
-     * branch when a book's `finished` flag flips `false→true`. Using soft-delete
-     * (rather than a hard `DELETE`) ensures the substrate event is published so
-     * SSE-connected clients can remove the row from their local `active_sessions`
-     * table reactively, without waiting for the next digest / pull cycle.
+     * Publishes [SyncControl.ActiveSessionsChanged] only on insert: a refresh does not
+     * change who is present, so it needs no nudge.
      */
-    suspend fun deleteForUserBook(
+    suspend fun startOrRefresh(
         userId: String,
         bookId: String,
-    ): AppResult<Unit> {
-        val sessionIds =
+    ): Boolean {
+        val created =
             suspendTransaction(db) {
-                ActiveSessionTable
-                    .selectAll()
-                    .where {
-                        (ActiveSessionTable.userId eq userId) and
-                            (ActiveSessionTable.bookId eq bookId) and
-                            (ActiveSessionTable.deletedAt eq null)
-                    }.map { it[ActiveSessionTable.sessionId] }
+                val now = clock.now().toEpochMilliseconds()
+                val existing =
+                    ActiveSessionTable
+                        .selectAll()
+                        .where {
+                            (ActiveSessionTable.userId eq userId) and
+                                (ActiveSessionTable.bookId eq bookId) and
+                                ActiveSessionTable.deletedAt.isNull()
+                        }.firstOrNull()
+                if (existing != null) {
+                    ActiveSessionTable.update({
+                        ActiveSessionTable.sessionId eq existing[ActiveSessionTable.sessionId]
+                    }) { it[updatedAt] = now }
+                    false
+                } else {
+                    ActiveSessionTable.insert {
+                        it[sessionId] = Uuid.random().toString()
+                        it[ActiveSessionTable.userId] = userId
+                        it[ActiveSessionTable.bookId] = bookId
+                        it[startedAt] = now
+                        it[updatedAt] = now
+                        it[createdAt] = now
+                        it[revision] = 0L
+                        it[deletedAt] = null
+                    }
+                    true
+                }
             }
-        for (sessionId in sessionIds) {
-            softDelete(id = sessionId, userId = userId)
-        }
-        return AppResult.Success(Unit)
+        if (created) bus.broadcastControl(SyncControl.ActiveSessionsChanged)
+        return created
     }
 
     /**
-     * Return all active sessions for the given user, excluding soft-deleted rows.
-     * Used in tests and diagnostics to assert repository state.
+     * Live presence across all users except [excludeUserId] — the "currently listening"
+     * feed, with the requesting user filtered out so they don't see themselves.
      */
-    suspend fun getForUser(userId: String): List<ActiveSessionSyncPayload> =
+    suspend fun listCurrentlyListening(excludeUserId: String): List<ActiveSessionRow> =
+        suspendTransaction(db) {
+            ActiveSessionTable
+                .selectAll()
+                .where { (ActiveSessionTable.userId neq excludeUserId) and ActiveSessionTable.deletedAt.isNull() }
+                .map { it.toRow() }
+        }
+
+    /**
+     * Live presence on [bookId] except [excludeUserId] — the "readers of this book"
+     * surface on BookDetail, with the requesting user filtered out.
+     */
+    suspend fun listReadersForBook(
+        bookId: String,
+        excludeUserId: String,
+    ): List<ActiveSessionRow> =
         suspendTransaction(db) {
             ActiveSessionTable
                 .selectAll()
                 .where {
-                    (ActiveSessionTable.userId eq userId) and
-                        (ActiveSessionTable.deletedAt eq null)
-                }.map { row ->
-                    ActiveSessionSyncPayload(
-                        sessionId = row[ActiveSessionTable.sessionId],
-                        bookId = row[ActiveSessionTable.bookId],
-                        startedAt = row[ActiveSessionTable.startedAt],
-                        revision = row[ActiveSessionTable.revision],
-                        updatedAt = row[ActiveSessionTable.updatedAt],
-                        createdAt = row[ActiveSessionTable.createdAt],
-                        deletedAt = row[ActiveSessionTable.deletedAt],
-                    )
-                }
+                    (ActiveSessionTable.bookId eq bookId) and
+                        (ActiveSessionTable.userId neq excludeUserId) and
+                        ActiveSessionTable.deletedAt.isNull()
+                }.map { it.toRow() }
         }
+
+    /**
+     * Remove the session row(s) for `(userId, bookId)`. Called by the completion
+     * cascade in [PlaybackPositionRepository.recordPosition] when a book's `finished`
+     * flag flips `false→true`. Publishes [SyncControl.ActiveSessionsChanged] when a row
+     * was actually removed; a no-op delete publishes nothing.
+     */
+    suspend fun deleteForUserBook(
+        userId: String,
+        bookId: String,
+    ) {
+        val deleted =
+            suspendTransaction(db) {
+                ActiveSessionTable.deleteWhere {
+                    (ActiveSessionTable.userId eq userId) and (ActiveSessionTable.bookId eq bookId)
+                } > 0
+            }
+        if (deleted) bus.broadcastControl(SyncControl.ActiveSessionsChanged)
+    }
 }
+
+/** One live presence row: who is listening to which book, and when they started. */
+data class ActiveSessionRow(
+    val userId: String,
+    val bookId: String,
+    val startedAt: Long,
+)
+
+private fun ResultRow.toRow() =
+    ActiveSessionRow(
+        userId = this[ActiveSessionTable.userId],
+        bookId = this[ActiveSessionTable.bookId],
+        startedAt = this[ActiveSessionTable.startedAt],
+    )

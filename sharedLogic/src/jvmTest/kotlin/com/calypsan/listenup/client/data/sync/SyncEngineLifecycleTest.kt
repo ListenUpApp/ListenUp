@@ -92,6 +92,7 @@ class SyncEngineLifecycleTest :
                         sseClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                         dispatcher = dispatcher,
+                        presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
                     )
 
@@ -134,6 +135,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
+                        presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
                     )
                 engine.start(currentUserId = "u2")
@@ -197,6 +199,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
+                        presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
                     )
 
@@ -284,6 +287,7 @@ class SyncEngineLifecycleTest :
                                 state = state,
                                 cursorAdvance = { _, _ -> },
                             ),
+                        presenceRefreshSignal = PresenceRefreshSignal(),
                         scope = backgroundScope,
                     )
 

@@ -23,6 +23,7 @@ class SyncEventDispatcher(
     private val onCursorStale: suspend () -> Unit = {},
     private val onAccessChanged: suspend () -> Unit = {},
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
+    private val onActiveSessionsChanged: () -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -64,6 +65,11 @@ class SyncEventDispatcher(
             is SyncControl.UserDeleted -> {
                 logger.info { "UserDeleted received; clearing auth" }
                 onUserDeleted(control.reason)
+            }
+
+            SyncControl.ActiveSessionsChanged -> {
+                logger.debug { "presence nudge" }
+                onActiveSessionsChanged()
             }
         }
     }

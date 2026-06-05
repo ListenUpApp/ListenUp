@@ -45,7 +45,9 @@ import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
@@ -343,7 +345,6 @@ val repositoryModule =
         single { get<ListenUpDatabase>().genreDao() }
         single { get<ListenUpDatabase>().audioFileDao() }
         single { get<ListenUpDatabase>().listeningEventDao() }
-        single { get<ListenUpDatabase>().activeSessionDao() }
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
@@ -762,6 +763,14 @@ val syncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
+        // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
+        single<SocialRpcFactory> {
+            KtorSocialRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
         // FtsPopulator for rebuilding FTS tables after sync
         single {
             FtsPopulator(
@@ -1052,9 +1061,15 @@ val syncModule =
             ActivityRepositoryImpl(dao = get(), activityFeedApi = get())
         }
 
-        // ActiveSessionRepository for live sessions (SOLID: interface in domain, impl in data)
+        // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
+        // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
         single<ActiveSessionRepository> {
-            ActiveSessionRepositoryImpl(dao = get(), imageStorage = get())
+            ActiveSessionRepositoryImpl(
+                socialRpc = get(),
+                bookDao = get(),
+                imageStorage = get(),
+                presence = get(),
+            )
         }
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
@@ -1085,14 +1100,12 @@ val syncModule =
             )
         }
 
-        // BookReadersRepository for Book Detail Readers section (SOLID: interface in domain, impl in data)
-        // Pure Room observation — no REST refresh, no debounce, no cache layer.
-        // active_sessions is kept current by SSE events; P3-B completion cascade deletes
-        // rows when a user finishes a book, so the table is always current without polling.
+        // BookReadersRepository for Book Detail Readers section — SocialService RPC, ACL-filtered
+        // and caller-excluded server-side, re-fetched on every PresenceRefreshSignal ping.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
-                activeSessionDao = get(),
-                authSession = get(),
+                socialRpc = get(),
+                presence = get(),
             )
         }
 

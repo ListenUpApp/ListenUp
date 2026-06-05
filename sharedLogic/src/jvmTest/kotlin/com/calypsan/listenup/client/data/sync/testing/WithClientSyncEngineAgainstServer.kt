@@ -31,10 +31,10 @@ import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncReconciler
+import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.handlers.ActiveSessionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
@@ -453,6 +453,7 @@ fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -> Uni
                     sseClient = sseClient,
                     reconciler = reconciler,
                     dispatcher = dispatcher,
+                    presenceRefreshSignal = PresenceRefreshSignal(),
                     scope = clientScope,
                 )
             engineRef = engine
@@ -517,7 +518,7 @@ private data class ServerRepositories(
 )
 
 /**
- * Constructs and registers the real [ActiveSessionSyncDomainHandler], [BookSyncDomainHandler],
+ * Constructs and registers the real [BookSyncDomainHandler],
  * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
  * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
@@ -534,11 +535,6 @@ private fun registerClientSyncHandlers(
         registry = registry,
     )
     LibraryFolderSyncDomainHandler(
-        database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    ActiveSessionSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
@@ -634,7 +630,7 @@ private fun buildServerRepositories(
     val seriesRepo = SeriesRepository(serverDb, bus, registry)
     val genreRepo = ServerGenreRepository(serverDb, bus, registry)
     val bookRepo = BookRepository(serverDb, bus, registry, contributorRepo, seriesRepo)
-    val activeSessionRepo = ActiveSessionRepository(serverDb, bus, registry)
+    val activeSessionRepo = ActiveSessionRepository(serverDb, bus)
     val playbackPositionRepo =
         PlaybackPositionRepository(serverDb, bus, registry, activeSessionRepo = activeSessionRepo)
 

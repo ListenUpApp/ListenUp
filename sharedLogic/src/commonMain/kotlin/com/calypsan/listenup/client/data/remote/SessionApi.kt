@@ -14,8 +14,8 @@ private val logger = KotlinLogging.logger {}
  * API client for user-profile operations.
  *
  * `getBookReaders` and `getUserReadingHistory` were removed in P3: the Readers
- * section now derives its data entirely from Room observation of `active_sessions`
- * and `playback_positions` (populated by SSE events), with no REST fallback.
+ * section now sources its data from the [com.calypsan.listenup.api.SocialService] RPC
+ * (ACL-filtered server-side, refreshed on presence pings), with no REST fallback.
  *
  * @property clientFactory Factory for creating authenticated HttpClient.
  */
