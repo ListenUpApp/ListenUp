@@ -49,14 +49,6 @@ interface AdminApiContract {
 
     suspend fun deleteInvite(inviteId: String): AppResult<Unit>
 
-    // Server settings (inbox workflow)
-    suspend fun getServerSettings(): AppResult<ServerSettingsResponse>
-
-    suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse>
-
-    // Instance settings
-    suspend fun updateInstance(request: UpdateInstanceRequest): AppResult<InstanceSettingsResponse>
-
     // Inbox management
     suspend fun listInboxBooks(): AppResult<InboxBooksResponse>
 
@@ -185,33 +177,6 @@ class AdminApi(
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
         apiCallUnit {
             clientFactory.getClient().delete("/api/v1/admin/invites/$inviteId").body<ApiResponse<Unit>>()
-        }
-
-    // Server Settings (Inbox Workflow)
-
-    override suspend fun getServerSettings(): AppResult<ServerSettingsResponse> =
-        apiCall(errorMessage = "Server settings response missing data") {
-            clientFactory.getClient().get("/api/v1/admin/settings").body<ApiResponse<ServerSettingsApiResponse>>()
-        }.map { it.toDomain() }
-
-    override suspend fun updateServerSettings(request: ServerSettingsRequest): AppResult<ServerSettingsResponse> =
-        apiCall(errorMessage = "Update server settings response missing data") {
-            clientFactory
-                .getClient()
-                .patch("/api/v1/admin/settings") {
-                    setBody(request.toApiRequest())
-                }.body<ApiResponse<ServerSettingsApiResponse>>()
-        }.map { it.toDomain() }
-
-    // Instance Management
-
-    override suspend fun updateInstance(request: UpdateInstanceRequest): AppResult<InstanceSettingsResponse> =
-        apiCall(errorMessage = "Update instance response missing data") {
-            clientFactory
-                .getClient()
-                .patch("/api/v1/admin/instance") {
-                    setBody(request)
-                }.body<ApiResponse<InstanceSettingsResponse>>()
         }
 
     // Inbox Management
@@ -376,62 +341,6 @@ data class CreateInviteRequest(
     @SerialName("email") val email: String,
     @SerialName("role") val role: String = "member",
     @SerialName("expires_in_days") val expiresInDays: Int = 7,
-)
-
-// =============================================================================
-// Server Settings API Models
-// =============================================================================
-
-/**
- * API response for server settings endpoint.
- */
-@Serializable
-private data class ServerSettingsApiResponse(
-    @SerialName("server_name") val serverName: String,
-    @SerialName("inbox_enabled") val inboxEnabled: Boolean,
-    @SerialName("inbox_count") val inboxCount: Int,
-) {
-    fun toDomain(): ServerSettingsResponse =
-        ServerSettingsResponse(
-            serverName = serverName,
-            inboxEnabled = inboxEnabled,
-            inboxCount = inboxCount,
-        )
-}
-
-/**
- * API request for updating server settings.
- */
-@Serializable
-private data class ServerSettingsApiRequest(
-    @SerialName("server_name") val serverName: String?,
-    @SerialName("inbox_enabled") val inboxEnabled: Boolean?,
-)
-
-private fun ServerSettingsRequest.toApiRequest(): ServerSettingsApiRequest =
-    ServerSettingsApiRequest(serverName = serverName, inboxEnabled = inboxEnabled)
-
-// =============================================================================
-// Instance Settings API Models
-// =============================================================================
-
-/**
- * Request to update instance settings (PATCH semantics).
- */
-@Serializable
-data class UpdateInstanceRequest(
-    @SerialName("name") val name: String? = null,
-    @SerialName("remote_url") val remoteUrl: String? = null,
-)
-
-/**
- * Response from instance settings update.
- */
-@Serializable
-data class InstanceSettingsResponse(
-    @SerialName("id") val id: String,
-    @SerialName("name") val name: String,
-    @SerialName("remote_url") val remoteUrl: String? = null,
 )
 
 // =============================================================================
