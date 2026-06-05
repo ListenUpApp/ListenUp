@@ -330,10 +330,12 @@ internal class Analyzer(
             asin = metadata?.asin ?: embedded?.tags?.asin ?: parsed.asin,
             isbn = metadata?.isbn ?: embedded?.tags?.isbn,
             description =
-                metadata?.description
-                    ?: embedded?.tags?.description
-                    ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
-                    ?: sidecar?.description,
+                (
+                    metadata?.description
+                        ?: embedded?.tags?.description
+                        ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
+                        ?: sidecar?.description
+                )?.let { HtmlToMarkdown.convert(it) },
             publisher = metadata?.publisher ?: embedded?.tags?.publisher ?: sidecar?.publisher,
             language = metadata?.language ?: embedded?.tags?.language ?: sidecar?.language,
             genres = pickGenres(embedded, metadata),
