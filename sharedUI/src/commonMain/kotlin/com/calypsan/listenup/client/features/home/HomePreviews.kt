@@ -138,7 +138,7 @@ private fun StatsCardPreview(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Box(Modifier.padding(if (isWide) 28.dp else 22.dp)) { HomeStatsContent(state, isWide) }
+        Box(Modifier.padding(if (isWide) 28.dp else 22.dp)) { HomeStatsContent(state) }
     }
 }
 
