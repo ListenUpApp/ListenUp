@@ -42,22 +42,25 @@ fun TagsSection(
     isLoading: Boolean,
     onTagClick: (Tag) -> Unit,
     modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
 ) {
     if (tags.isEmpty() && !isLoading) return
 
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        // Header - matches "About" and "Chapters" heading style
-        Text(
-            text = stringResource(Res.string.book_detail_tags),
-            style =
-                MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
+        if (showHeader) {
+            // Header - matches "About" and "Chapters" heading style
+            Text(
+                text = stringResource(Res.string.book_detail_tags),
+                style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
 
         // Tags (left-aligned via Arrangement.Start)
         if (tags.isNotEmpty()) {

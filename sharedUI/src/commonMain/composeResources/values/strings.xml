@@ -140,6 +140,7 @@
     <string name="book_detail_cancel_download">Cancel download</string>
     <string name="book_detail_chapters">Chapters</string>
     <string name="book_detail_chapters_chaptercount">Chapters (%1$s)</string>
+    <string name="book_detail_credits">Credits</string>
     <string name="book_detail_discard_progress">Discard Progress</string>
     <string name="book_detail_download">Download</string>
     <string name="book_detail_download_book">Download book</string>

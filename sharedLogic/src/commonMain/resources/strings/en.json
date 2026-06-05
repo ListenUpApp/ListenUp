@@ -226,6 +226,7 @@
     "detail_server_is_unreachable_connect_to": "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
     "detail_show_less": "Show Less",
     "detail_synopsis": "Synopsis",
+    "detail_credits": "Credits",
     "detail_tags": "Tags",
     "detail_waiting_for_wifi": "Waiting for WiFi",
     "detail_written_by": "Written by",
