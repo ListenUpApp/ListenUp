@@ -10,9 +10,10 @@ import androidx.compose.ui.unit.sp
 /**
  * ListenUp typography system for desktop.
  *
- * Uses the system default sans-serif font family since we don't bundle
- * custom fonts on desktop. This provides a native feel on each platform
- * (Segoe UI on Windows, system font on Linux).
+ * Uses the system default sans-serif (Segoe UI on Windows, system font on Linux) since we don't
+ * bundle a custom font here. System families carry real weights, so the design ramp maps directly:
+ * body **400**, title/label **600**, headline **700**, Expressive `*Emphasized` **800** — kept in
+ * lock-step with the Android (`Google Sans Flex`) scale so hierarchy is identical across platforms.
  */
 actual val DisplayFontFamily: FontFamily = FontFamily.SansSerif
 
@@ -36,11 +37,19 @@ actual val ListenUpTypography =
                 lineHeight = 52.sp,
                 letterSpacing = (-0.25).sp,
             ),
-        // Headline - Screen titles, section headers
+        displaySmall =
+            TextStyle(
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Bold,
+                fontSize = 36.sp,
+                lineHeight = 44.sp,
+                letterSpacing = (-0.25).sp,
+            ),
+        // Headline - Screen titles, section headers (design weight 700)
         headlineLarge =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 32.sp,
                 lineHeight = 40.sp,
                 letterSpacing = (-0.5).sp,
@@ -48,7 +57,7 @@ actual val ListenUpTypography =
         headlineMedium =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 28.sp,
                 lineHeight = 36.sp,
                 letterSpacing = (-0.3).sp,
@@ -56,43 +65,43 @@ actual val ListenUpTypography =
         headlineSmall =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 24.sp,
                 lineHeight = 32.sp,
                 letterSpacing = (-0.2).sp,
             ),
-        // Title - List items, card headers
+        // Title - List items, card headers (design weight 600)
         titleLarge =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 22.sp,
                 lineHeight = 28.sp,
             ),
         titleMedium =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
-                letterSpacing = 0.15.sp,
+                letterSpacing = 0.1.sp,
             ),
         titleSmall =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 letterSpacing = 0.1.sp,
             ),
-        // Body - Main content text
+        // Body - Main content text (design weight 400)
         bodyLarge =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
-                letterSpacing = 0.5.sp,
+                letterSpacing = 0.15.sp,
             ),
         bodyMedium =
             TextStyle(
@@ -100,7 +109,7 @@ actual val ListenUpTypography =
                 fontWeight = FontWeight.Normal,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
-                letterSpacing = 0.25.sp,
+                letterSpacing = 0.2.sp,
             ),
         bodySmall =
             TextStyle(
@@ -110,11 +119,11 @@ actual val ListenUpTypography =
                 lineHeight = 16.sp,
                 letterSpacing = 0.4.sp,
             ),
-        // Label - Buttons, tabs, chips
+        // Label - Buttons, tabs, chips (design weight 600)
         labelLarge =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 letterSpacing = 0.1.sp,
@@ -122,7 +131,7 @@ actual val ListenUpTypography =
         labelMedium =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 letterSpacing = 0.5.sp,
@@ -130,12 +139,12 @@ actual val ListenUpTypography =
         labelSmall =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
                 letterSpacing = 0.5.sp,
             ),
-        // Emphasized roles (M3 Expressive) — heavier variants for hero/title/header text
+        // Emphasized roles (M3 Expressive) — ExtraBold for heroes, section headers, big numbers
         displayLargeEmphasized =
             TextStyle(
                 fontFamily = FontFamily.SansSerif,
