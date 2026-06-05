@@ -59,4 +59,9 @@ sealed interface SyncControl {
     data class UserDeleted(
         val reason: String? = null,
     ) : SyncControl
+
+    /** Content-free broadcast nudge: active-session presence changed; re-fetch via SocialService. */
+    @Serializable
+    @SerialName("SyncControl.ActiveSessionsChanged")
+    data object ActiveSessionsChanged : SyncControl
 }
