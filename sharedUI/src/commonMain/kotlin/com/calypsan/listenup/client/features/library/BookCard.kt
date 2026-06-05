@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -312,7 +313,7 @@ private fun BookCardCover(
     borderColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
 ) {
-    val shape = MaterialTheme.shapes.medium
+    val shape = RoundedCornerShape(20.dp)
 
     // Outer Box allows avatar to overflow the clipped cover area
     Box(modifier = modifier) {
