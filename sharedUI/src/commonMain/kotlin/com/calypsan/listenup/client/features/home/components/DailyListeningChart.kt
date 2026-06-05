@@ -41,7 +41,9 @@ fun DailyListeningChart(
     dailyBuckets: List<DayBucket>,
     modifier: Modifier = Modifier,
 ) {
-    val barColor = MaterialTheme.colorScheme.primary
+    val todayColor = MaterialTheme.colorScheme.primary
+    val barColor = MaterialTheme.colorScheme.primaryContainer
+    val emptyColor = MaterialTheme.colorScheme.surfaceContainerHighest
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
 
@@ -80,20 +82,27 @@ fun DailyListeningChart(
         val totalSpacing = barSpacing * (barCount - 1)
         val barWidth = ((size.width - totalSpacing) / barCount).coerceAtLeast(12.dp.toPx())
 
+        val emptyStub = 4.dp.toPx()
         chartData.forEachIndexed { index, bar ->
             val x = index * (barWidth + barSpacing)
-            val barHeight = bar.minutes / maxMinutes * chartHeight
+            val isToday = index == chartData.lastIndex
+            val isEmpty = bar.minutes <= 0f
+            // Empty days draw a small stub so the baseline reads as a row of days, not gaps.
+            val barHeight = if (isEmpty) emptyStub else (bar.minutes / maxMinutes * chartHeight)
             val barTop = chartHeight - barHeight
+            val color =
+                when {
+                    isEmpty -> emptyColor
+                    isToday -> todayColor
+                    else -> barColor
+                }
 
-            // Draw bar with rounded top corners
-            if (barHeight > 0f) {
-                drawRoundRect(
-                    color = barColor,
-                    topLeft = Offset(x, barTop),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = CornerRadius(4.dp.toPx()),
-                )
-            }
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(x, barTop),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(8.dp.toPx()),
+            )
 
             // Draw day label centered below bar
             val labelResult = textMeasurer.measure(bar.label, labelStyle)

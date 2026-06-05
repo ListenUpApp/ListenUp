@@ -188,7 +188,7 @@ private fun HomeContentWide(
     onSeeAllShelves: () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        HomeStatsSection()
+        HomeStatsSection(isWide = true)
         if (state.hasMyShelves) {
             Spacer(modifier = Modifier.width(16.dp))
             MyShelvesRow(
@@ -207,7 +207,7 @@ private fun HomeContentCompact(
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
 ) {
-    HomeStatsSection()
+    HomeStatsSection(isWide = false)
 
     if (state.hasMyShelves) {
         Spacer(modifier = Modifier.height(24.dp))

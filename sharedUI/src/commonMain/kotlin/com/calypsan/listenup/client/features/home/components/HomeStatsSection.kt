@@ -1,18 +1,26 @@
 package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
@@ -24,116 +32,132 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Home screen stats section.
+ * Home "This week" stats card — listening total + 7-day chart, with streak and top-genre breakdown.
  *
- * Displays a card with the user's listening stats:
- * - 7-day bar chart showing daily listening time
- * - Current streak indicator with fire emoji
- * - Top 3 genres breakdown
+ * Adaptive: on wide windows the chart sits beside the streak/genres column (vertical divider); on
+ * compact they stack (horizontal divider) — mirroring the design's `StatsCard` / `StatsCard wide`.
  *
- * Renders one of four states driven by [HomeStatsUiState]:
- * - [HomeStatsUiState.Loading]: skeleton placeholder while Room query loads
- * - [HomeStatsUiState.Empty]: friendly prompt before any listening history exists
- * - [HomeStatsUiState.Data]: populated chart + streak + genres
- * - [HomeStatsUiState.Error]: error message (retry is implicit — stateIn resubscribes)
- *
- * @param modifier Modifier from parent
- * @param viewModel HomeStatsViewModel injected via Koin
+ * @param isWide Whether the window is medium+ (drives the two-column vs stacked layout).
+ * @param modifier Modifier from parent.
+ * @param viewModel HomeStatsViewModel injected via Koin.
  */
 @Composable
 fun HomeStatsSection(
+    isWide: Boolean,
     modifier: Modifier = Modifier,
     viewModel: HomeStatsViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Card(
-        modifier =
-            modifier
-                .widthIn(max = 600.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Section title — always visible regardless of state
-            Text(
-                text = stringResource(Res.string.home_this_week),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
+        Column(modifier = Modifier.fillMaxWidth().padding(if (isWide) 28.dp else 22.dp)) {
             when (val s = state) {
                 HomeStatsUiState.Loading -> {
-                    Text(
-                        text = stringResource(Res.string.common_loading_item, "stats"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    StatsPlaceholder(stringResource(Res.string.common_loading_item, "stats"))
                 }
 
                 HomeStatsUiState.Empty -> {
-                    Text(
-                        text = stringResource(Res.string.home_start_listening_to_see_your),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    StatsPlaceholder(stringResource(Res.string.home_start_listening_to_see_your))
                 }
 
                 is HomeStatsUiState.Data -> {
-                    HomeStatsContent(state = s)
+                    HomeStatsContent(state = s, isWide = isWide)
                 }
 
                 is HomeStatsUiState.Error -> {
-                    Text(
-                        text = "Couldn't load stats.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    StatsPlaceholder("Couldn't load stats.", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
     }
 }
 
-/**
- * Stats content when data is available and the user has listening history.
- */
 @Composable
-private fun HomeStatsContent(state: HomeStatsUiState.Data) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        // 7-day listening chart
-        if (state.dailyBuckets.isNotEmpty()) {
-            DailyListeningChart(
-                dailyBuckets = state.dailyBuckets,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+private fun StatsPlaceholder(
+    message: String,
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    Overline(stringResource(Res.string.home_this_week))
+    Spacer(Modifier.height(12.dp))
+    Text(text = message, style = MaterialTheme.typography.bodyMedium, color = color)
+}
 
-        // Streak indicator
-        if (state.hasStreak) {
-            StreakIndicator(
-                currentStreak = state.currentStreakDays,
-                longestStreak = state.longestStreakDays,
-            )
-        }
+@Composable
+private fun HomeStatsContent(
+    state: HomeStatsUiState.Data,
+    isWide: Boolean,
+) {
+    val totalSeconds = state.dailyBuckets.sumOf { it.totalSeconds }
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
 
-        // Genre breakdown
-        if (state.hasGenreData) {
-            GenreBreakdownBars(
-                genres = state.topGenres,
-            )
+    val chartColumn: @Composable () -> Unit = {
+        Column {
+            Overline(stringResource(Res.string.home_this_week))
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "${hours}h ${minutes}m",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-1.5).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "listened",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            if (state.dailyBuckets.isNotEmpty()) {
+                DailyListeningChart(dailyBuckets = state.dailyBuckets, modifier = Modifier.fillMaxWidth())
+            }
         }
     }
+
+    val detailColumn: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            if (state.hasStreak) {
+                StreakIndicator(currentStreak = state.currentStreakDays, longestStreak = state.longestStreakDays)
+            }
+            if (state.hasGenreData) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Overline("Top genres")
+                    GenreBreakdownBars(genres = state.topGenres)
+                }
+            }
+        }
+    }
+
+    if (isWide) {
+        Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+            Box(Modifier.weight(1.3f)) { chartColumn() }
+            VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
+            Box(Modifier.weight(1f)) { detailColumn() }
+        }
+    } else {
+        chartColumn()
+        if (state.hasStreak || state.hasGenreData) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
+            detailColumn()
+        }
+    }
+}
+
+/** Small uppercase overline label used inside the stats card. */
+@Composable
+private fun Overline(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
