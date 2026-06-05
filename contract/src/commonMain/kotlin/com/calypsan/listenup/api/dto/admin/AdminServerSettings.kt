@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api.dto.admin
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,8 +10,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AdminServerSettings(
-    val serverName: String,
-    val remoteUrl: String?,
+    @SerialName("serverName") val serverName: String,
+    @SerialName("remoteUrl") val remoteUrl: String?,
 )
 
 /**
@@ -19,6 +20,6 @@ data class AdminServerSettings(
  */
 @Serializable
 data class AdminServerSettingsPatch(
-    val serverName: String? = null,
-    val remoteUrl: String? = null,
+    @SerialName("serverName") val serverName: String? = null,
+    @SerialName("remoteUrl") val remoteUrl: String? = null,
 )
