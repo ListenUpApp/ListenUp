@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -308,24 +308,26 @@ fun AlphabetScrollbar(
             modifier = Modifier.align(Alignment.TopEnd),
         ) {
             selectedLetter?.let { letter ->
+                // Big Material scallop "cookie" scrub bubble (matches the design's LetterBubble).
                 Box(
                     modifier =
                         Modifier
                             .offset {
                                 IntOffset(
-                                    x = -72.dp.roundToPx(),
-                                    y = (selectedLetterY - 24.dp.toPx()).toInt(),
+                                    x = -88.dp.roundToPx(),
+                                    y = (selectedLetterY - 36.dp.toPx()).toInt(),
                                 )
-                            }.size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            }.size(72.dp)
+                            .shadow(elevation = 12.dp, shape = contributorAvatarShape())
+                            .clip(contributorAvatarShape())
+                            .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = letter.toString(),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimary,
                     )
                 }
             }

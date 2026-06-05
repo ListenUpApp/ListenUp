@@ -765,7 +765,6 @@ private fun AuthenticatedNavigation(
                                         onNarratorClick = { narratorId ->
                                             backStack.add(ContributorDetail(narratorId))
                                         },
-                                        onBrowseGenresClick = { backStack.add(BrowseGenre) },
                                         appHeader = appHeader,
                                         modifier = Modifier.padding(padding),
                                     )

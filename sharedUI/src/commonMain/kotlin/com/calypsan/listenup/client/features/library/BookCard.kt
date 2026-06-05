@@ -36,19 +36,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -57,9 +51,6 @@ import com.calypsan.listenup.client.design.components.contributorAvatarShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_selected
@@ -469,51 +460,12 @@ private fun SelectionIndicator(
 }
 
 /**
- * Organic blob shape inspired by Material 3 Expressive design.
- */
-private class SquigglyShape(
-    private val wobbleAmount: Float = 0.12f,
-    private val waves: Int = 6,
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density,
-    ): Outline {
-        val path = Path()
-        val centerX = size.width / 2
-        val centerY = size.height / 2
-        val baseRadius = minOf(size.width, size.height) / 2
-
-        val points = 72
-        for (i in 0..points) {
-            val angle = i.toFloat() / points * 2 * PI
-            val wobble =
-                1f + wobbleAmount * sin(waves * angle).toFloat() +
-                    wobbleAmount / 2 * cos((waves * 2 + 1) * angle).toFloat()
-            val radius = baseRadius * wobble
-
-            val x = centerX + radius * cos(angle).toFloat()
-            val y = centerY + radius * sin(angle).toFloat()
-
-            if (i == 0) {
-                path.moveTo(x, y)
-            } else {
-                path.lineTo(x, y)
-            }
-        }
-        path.close()
-
-        return Outline.Generic(path)
-    }
-}
-
-/**
- * Completion badge shown when a book is marked as finished.
+ * Completion badge shown when a book is marked as finished — the Material 3 Expressive scallop
+ * ([contributorAvatarShape], `MaterialShapes.Cookie9Sided`), matching every other badge in the app.
  */
 @Composable
 private fun CompletionBadge(modifier: Modifier = Modifier) {
-    val squigglyShape = remember { SquigglyShape(wobbleAmount = 0.1f, waves = 5) }
+    val shape = contributorAvatarShape()
 
     Box(
         modifier =
@@ -521,10 +473,10 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
                 .size(28.dp)
                 .shadow(
                     elevation = 3.dp,
-                    shape = squigglyShape,
+                    shape = shape,
                 ).background(
                     color = MaterialTheme.colorScheme.tertiary,
-                    shape = squigglyShape,
+                    shape = shape,
                 ),
         contentAlignment = Alignment.Center,
     ) {
