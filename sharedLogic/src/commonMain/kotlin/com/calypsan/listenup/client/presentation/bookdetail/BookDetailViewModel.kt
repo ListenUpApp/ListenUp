@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -56,6 +57,7 @@ class BookDetailViewModel(
     private val createShelfUseCase: CreateShelfUseCase,
     private val errorBus: ErrorBus,
     private val bookAvailability: BookAvailability,
+    private val serverReachability: ServerReachability,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -421,6 +423,17 @@ class BookDetailViewModel(
                     logger.error { "Failed to restart book $bookId" }
                 }
             }
+        }
+    }
+
+    /**
+     * Force a fresh server-reachability check, backing the offline banner's "Retry"
+     * action. Tears down and re-opens the SSE firehose so the reachability indicator
+     * recovers without waiting on the automatic backoff loop.
+     */
+    fun retryConnection() {
+        viewModelScope.launch {
+            serverReachability.retry()
         }
     }
 

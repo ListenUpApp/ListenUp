@@ -12,6 +12,8 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -78,6 +80,18 @@ class BookDetailViewModelTest :
             override fun observe(bookId: BookId): Flow<BookAvailability.State> = stateFlow
         }
 
+        // Fake ServerReachability that records retry() invocations and exposes a
+        // controllable state flow.
+        class FakeServerReachability : ServerReachability {
+            override val state = MutableStateFlow<Reachability>(Reachability.Unknown)
+            var retryCalls = 0
+                private set
+
+            override suspend fun retry() {
+                retryCalls++
+            }
+        }
+
         // Convenience fixture class to avoid Triple unpacking
         class TestFixture {
             val bookRepository: BookRepository = mock()
@@ -88,6 +102,7 @@ class BookDetailViewModelTest :
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
             val bookAvailability = FakeBookAvailability()
+            val serverReachability = FakeServerReachability()
 
             fun setup() {
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
@@ -108,6 +123,7 @@ class BookDetailViewModelTest :
                     createShelfUseCase = createShelfUseCase,
                     errorBus = ErrorBus(),
                     bookAvailability = bookAvailability,
+                    serverReachability = serverReachability,
                 )
         }
 
@@ -889,6 +905,20 @@ class BookDetailViewModelTest :
                     ready.isPlaybackAvailable shouldBe false
                     states.cancel()
                 }
+            }
+        }
+
+        // ========== Manual reconnect (offline-banner Retry) ==========
+
+        test("retryConnection asks the server reachability to reconnect") {
+            runTest {
+                val fixture = createTestFixture()
+                val viewModel = fixture.build()
+
+                viewModel.retryConnection()
+                advanceUntilIdle()
+
+                fixture.serverReachability.retryCalls shouldBe 1
             }
         }
     })

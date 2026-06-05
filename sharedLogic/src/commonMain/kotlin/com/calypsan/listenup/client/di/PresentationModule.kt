@@ -277,6 +277,7 @@ val bookPresentationModule =
                 createShelfUseCase = get(),
                 errorBus = get(),
                 bookAvailability = get(),
+                serverReachability = get(),
             )
         }
         factory { params ->
