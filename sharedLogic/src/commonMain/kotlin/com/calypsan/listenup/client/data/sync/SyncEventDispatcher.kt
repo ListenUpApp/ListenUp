@@ -71,6 +71,10 @@ class SyncEventDispatcher(
                 logger.debug { "presence nudge" }
                 onActiveSessionsChanged()
             }
+
+            SyncControl.ActivityChanged -> {
+                logger.debug { "activity nudge" }
+            }
         }
     }
 
