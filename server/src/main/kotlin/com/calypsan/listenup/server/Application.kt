@@ -41,6 +41,7 @@ import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
@@ -595,8 +596,11 @@ private fun Application.startBackgroundTasks(
     ) {
         scope.launch {
             runCatching {
+                val settings = koinGet<ServerSettingsRepository>()
                 val instanceId = inject<InstanceIdentity>().value.instanceId()
-                val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId) }
+                val serverName = settings.serverName()
+                val remoteUrl = settings.remoteUrl()
+                val advertiser = koinGet<MdnsAdvertiser> { parametersOf(instanceId, serverName, remoteUrl) }
                 advertiser.start()
                 monitor.subscribe(ApplicationStopped) {
                     scope.launch { advertiser.stop() }

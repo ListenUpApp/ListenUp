@@ -56,6 +56,18 @@ class DnsCodecTest :
             String(packet, Charsets.US_ASCII) shouldContain "name=ListenUp"
         }
 
+        test("encodeResponse emits a remote= TXT pair when present") {
+            val service =
+                MdnsServiceInfo(
+                    instanceName = "host",
+                    port = 8080,
+                    txt = buildMdnsTxt("abc", "Simon's Library", "https://listen.example.com"),
+                )
+            val packet = DnsCodec.encodeResponse(service, ipv4 = byteArrayOf(10, 0, 0, 1), ttlSeconds = 120)
+            String(packet, Charsets.US_ASCII) shouldContain "name=Simon's Library"
+            String(packet, Charsets.US_ASCII) shouldContain "remote=https://listen.example.com"
+        }
+
         test("encodeResponse with ttl 0 is a goodbye packet and is non-empty") {
             val service = MdnsServiceInfo("h", 8080, mapOf("id" to "x"))
             val packet = DnsCodec.encodeResponse(service, byteArrayOf(10, 0, 0, 1), ttlSeconds = 0)
