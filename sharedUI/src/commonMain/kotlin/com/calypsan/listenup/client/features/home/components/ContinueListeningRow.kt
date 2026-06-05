@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BrowseCarousel
+import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
 import org.jetbrains.compose.resources.stringResource
@@ -41,12 +41,9 @@ fun ContinueListeningRow(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        // Section header
-        Text(
-            text = stringResource(Res.string.home_continue_listening),
-            style = MaterialTheme.typography.titleLargeEmphasized,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 16.dp),
+        SectionTitle(
+            title = stringResource(Res.string.home_continue_listening),
+            modifier = Modifier.padding(horizontal = 24.dp),
         )
 
         Spacer(modifier = Modifier.height(12.dp))
