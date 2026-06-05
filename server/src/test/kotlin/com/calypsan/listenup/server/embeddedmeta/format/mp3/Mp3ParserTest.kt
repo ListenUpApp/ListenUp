@@ -128,6 +128,20 @@ class Mp3ParserTest :
             result.data.tags.custom["CUSTOM_KEY"] shouldBe "custom-value"
         }
 
+        test("parse maps TDES description frame to tags.description") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Book")
+                        textFrame("TDES", "A sweeping epic of stone and storm.")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.description shouldBe "A sweeping epic of stone and storm."
+        }
+
         test("parse falls back to ID3v1 footer when no ID3v2") {
             val bytes =
                 buildMp3File {

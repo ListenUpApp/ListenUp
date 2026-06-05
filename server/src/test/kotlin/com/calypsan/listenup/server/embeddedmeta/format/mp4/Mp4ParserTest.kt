@@ -305,6 +305,26 @@ class Mp4ParserTest :
             result.data.tags.description shouldBe "The long description."
         }
 
+        test("parse maps a synopsis freeform atom to tags.description") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Book")
+                                freeform(mean = "com.apple.iTunes", name = "synopsis", value = "The blurb.")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.description shouldBe "The blurb."
+        }
+
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
                 object : SeekableAudioSource {

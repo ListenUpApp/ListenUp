@@ -182,6 +182,8 @@ internal object Id3v2Reader {
 
             "MVIN" -> builder.seriesPart = builder.seriesPart ?: text
 
+            "TDES" -> builder.description = builder.description ?: text
+
             else -> builder.custom[frameId] = text
         }
     }
