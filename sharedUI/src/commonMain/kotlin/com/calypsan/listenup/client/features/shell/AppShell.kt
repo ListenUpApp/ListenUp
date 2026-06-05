@@ -8,12 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -29,8 +26,9 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.features.shell.components.AppHeader
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
-import com.calypsan.listenup.client.features.shell.components.AppTopBar
 
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.features.search.SearchResultsOverlay
@@ -94,10 +92,10 @@ fun AppShell(
     onSettingsClick: () -> Unit,
     onSignOut: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
-    homeContent: @Composable (PaddingValues, topBarCollapseFraction: Float, onNavigateToLibrary: () -> Unit) -> Unit,
-    libraryContent: @Composable (PaddingValues, topBarCollapseFraction: Float) -> Unit,
+    homeContent: @Composable (PaddingValues, appHeader: AppHeaderSlot, onNavigateToLibrary: () -> Unit) -> Unit,
+    libraryContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
     nowPlayingContent: @Composable () -> Unit = {},
-    discoverContent: @Composable (PaddingValues) -> Unit,
+    discoverContent: @Composable (PaddingValues, appHeader: AppHeaderSlot) -> Unit,
 ) {
     // Inject dependencies
     val syncRepository: SyncRepository = koinInject()
@@ -209,31 +207,14 @@ fun AppShell(
         },
     )
 
-    // Scroll behavior for collapsing top bar
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-
-    // Derive collapse fraction for child components (0 = expanded, 1 = fully collapsed)
-    val topBarCollapseFraction by remember {
-        derivedStateOf {
-            val limit = scrollBehavior.state.heightOffsetLimit
-            if (limit != 0f) {
-                scrollBehavior.state.heightOffset / limit
-            } else {
-                0f
-            }
-        }
-    }
-
     // Adaptive navigation surface for the current window size.
     val navType = shellNavType(currentWindowAdaptiveInfo().windowSizeClass)
 
-    // The account menu lives in the top bar at every size now.
-    val showAvatarInTopBar = true
-
-    // Common top bar configuration
-    val topBar: @Composable () -> Unit = {
-        AppTopBar(
-            currentDestination = currentDestination,
+    // The custom header that screens place at the top of their own scroll, so it scrolls away with
+    // content. The shell binds the trailing actions; the screen supplies the leading hero.
+    val appHeader: AppHeaderSlot = { leadingContent ->
+        AppHeader(
+            leadingContent = leadingContent,
             syncState = syncState,
             user = user,
             isSearchExpanded = isSearchExpanded,
@@ -267,8 +248,6 @@ fun AppShell(
                 syncIndicatorViewModel.onEvent(SyncIndicatorUiEvent.DismissAll)
             },
             onSyncDetailsDismiss = { syncIndicatorViewModel.toggleExpanded() },
-            scrollBehavior = scrollBehavior,
-            showAvatar = showAvatarInTopBar,
             showAvatarLabel = false,
         )
     }
@@ -281,17 +260,17 @@ fun AppShell(
                 ShellDestination.Home -> {
                     homeContent(
                         padding,
-                        topBarCollapseFraction,
+                        appHeader,
                         { onDestinationChange(ShellDestination.Library) },
                     )
                 }
 
                 ShellDestination.Library -> {
-                    libraryContent(padding, topBarCollapseFraction)
+                    libraryContent(padding, appHeader)
                 }
 
                 ShellDestination.Discover -> {
-                    discoverContent(padding)
+                    discoverContent(padding, appHeader)
                 }
             }
 
@@ -316,9 +295,8 @@ fun AppShell(
     if (navType == ShellNavType.BottomBar) {
         // Phone layout: bottom navigation, mini-player stacked above it.
         Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
-            topBar = topBar,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 Column {
@@ -346,12 +324,8 @@ fun AppShell(
                 onSignOut = onSignOut,
             )
             Scaffold(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                modifier = Modifier.weight(1f),
                 containerColor = Color.Transparent,
-                topBar = topBar,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 content = shellContent,
             )

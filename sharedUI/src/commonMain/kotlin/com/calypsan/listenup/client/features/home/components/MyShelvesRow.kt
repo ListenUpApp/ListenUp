@@ -2,16 +2,19 @@ package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -41,14 +44,14 @@ fun MyShelvesRow(
         SectionTitle(
             title = stringResource(Res.string.home_my_shelves),
             onSeeAll = onSeeAllClick,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.titleGap))
 
         if (isWide) {
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 shelves.forEachIndexed { index, shelf ->
@@ -63,14 +66,21 @@ fun MyShelvesRow(
                 }
             }
         } else {
-            BrowseCarousel(items = shelves) { shelf ->
-                val (container, content) = shelfColors(shelves.indexOf(shelf))
-                ShelfCard(
-                    shelf = shelf,
-                    containerColor = container,
-                    contentColor = content,
-                    onClick = { onShelfClick(shelf.id) },
-                )
+            // LazyRow (not a clipping carousel) so the cards' rounded corners aren't cropped, and the
+            // gutter matches the title (screenMargin).
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+            ) {
+                items(shelves, key = { it.id }) { shelf ->
+                    val (container, content) = shelfColors(shelves.indexOf(shelf))
+                    ShelfCard(
+                        shelf = shelf,
+                        containerColor = container,
+                        contentColor = content,
+                        onClick = { onShelfClick(shelf.id) },
+                    )
+                }
             }
         }
     }

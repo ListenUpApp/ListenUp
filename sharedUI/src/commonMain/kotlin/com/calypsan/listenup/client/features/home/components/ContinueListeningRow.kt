@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.SectionTitle
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
 import org.jetbrains.compose.resources.stringResource
@@ -49,14 +50,14 @@ fun ContinueListeningRow(
     Column(modifier = modifier) {
         SectionTitle(
             title = stringResource(Res.string.home_continue_listening),
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.titleGap))
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
         ) {
             items(items, key = { it.bookId }) { item ->
                 when (item) {

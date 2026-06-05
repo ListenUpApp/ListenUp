@@ -49,6 +49,8 @@ import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
+import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -71,6 +73,7 @@ import listenup.composeapp.generated.resources.discover_when_other_users_create_
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
+    appHeader: AppHeaderSlot,
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
@@ -95,6 +98,7 @@ fun DiscoverScreen(
             isLoading = shelvesState is DiscoverShelvesUiState.Loading,
             users = shelvesReady?.users.orEmpty(),
             isEmpty = shelvesReady?.isEmpty ?: false,
+            appHeader = appHeader,
             onShelfClick = onShelfClick,
             onBookClick = onBookClick,
             onUserProfileClick = onUserProfileClick,
@@ -149,6 +153,7 @@ private fun DiscoverContent(
     isLoading: Boolean,
     users: List<DiscoverUserShelves>,
     isEmpty: Boolean,
+    appHeader: AppHeaderSlot,
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
@@ -163,6 +168,17 @@ private fun DiscoverContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
+        // Custom shell header scrolls with the feed (search/sync/avatar live here).
+        item {
+            appHeader {
+                Text(
+                    text = ShellDestination.Discover.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
         // Discover Something New - random book discovery (top section)
         item {
             DiscoverBooksSection(

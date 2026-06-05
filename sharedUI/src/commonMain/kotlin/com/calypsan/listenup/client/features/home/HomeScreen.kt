@@ -35,9 +35,11 @@ import com.calypsan.listenup.client.features.home.components.EmptyContinueListen
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsSection
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
+import com.calypsan.listenup.client.design.theme.Spacing
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -58,6 +60,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    appHeader: AppHeaderSlot,
     onBookClick: (String) -> Unit,
     onNavigateToLibrary: () -> Unit,
     onShelfClick: (String) -> Unit,
@@ -120,6 +123,7 @@ fun HomeScreen(
                     state = s,
                     isWide = isWide,
                     playingBookId = playingBookId?.value,
+                    appHeader = appHeader,
                     onRefresh = { viewModel.refresh() },
                     onBookClick = onBookClick,
                     onNavigateToLibrary = onNavigateToLibrary,
@@ -138,6 +142,7 @@ private fun HomeContent(
     state: HomeUiState.Ready,
     isWide: Boolean,
     playingBookId: String?,
+    appHeader: AppHeaderSlot,
     onRefresh: () -> Unit,
     onBookClick: (String) -> Unit,
     onNavigateToLibrary: () -> Unit,
@@ -155,8 +160,12 @@ private fun HomeContent(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
-            HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
+            // The shell header scrolls away with the page; the greeting is its leading hero.
+            appHeader {
+                HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
+            }
 
             if (state.hasContinueListening) {
                 ContinueListeningRow(
@@ -164,7 +173,6 @@ private fun HomeContent(
                     onBookClick = onBookClick,
                     playingBookId = playingBookId,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
             } else {
                 EmptyContinueListening(onBrowseLibrary = onNavigateToLibrary)
             }
@@ -183,7 +191,7 @@ private fun HomeContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -217,10 +225,13 @@ private fun HomeContentCompact(
     onShelfClick: (String) -> Unit,
     onSeeAllShelves: () -> Unit,
 ) {
-    HomeStatsSection(isWide = false)
+    HomeStatsSection(
+        isWide = false,
+        modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+    )
 
     if (state.hasMyShelves) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.sectionGap))
         MyShelvesRow(
             shelves = state.myShelves,
             isWide = false,
