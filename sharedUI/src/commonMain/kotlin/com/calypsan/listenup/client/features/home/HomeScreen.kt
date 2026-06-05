@@ -148,7 +148,7 @@ private fun HomeContent(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
         ) {
-            HomeHeader(greeting = state.greeting, isWide = isWide)
+            HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
 
             if (state.hasContinueListening) {
                 ContinueListeningRow(

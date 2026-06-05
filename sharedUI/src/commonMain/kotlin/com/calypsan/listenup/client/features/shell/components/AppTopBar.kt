@@ -110,8 +110,8 @@ fun AppTopBar(
     TopAppBar(
         colors =
             TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
             ),
         navigationIcon = {
             if (isSearchExpanded) {

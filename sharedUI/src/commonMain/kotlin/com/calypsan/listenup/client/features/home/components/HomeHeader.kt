@@ -11,34 +11,40 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Header section for the Home screen.
+ * Header for the Home screen — a muted time-of-day line over the user's name as an emphasized hero,
+ * matching the design's two-line greeting. Scales up on wide windows to anchor the desktop layout.
  *
- * Displays a time-aware greeting (e.g., "Good morning, Simon") as an emphasized hero line — the
- * Home content's header, since the shell top bar already carries search and the account menu.
- * Scales up on wide windows to anchor the desktop layout.
- *
- * @param greeting The personalized greeting text
- * @param isWide Whether the current window is medium+ (drives the display size)
- * @param modifier Optional modifier
+ * @param timeGreeting Time-of-day line, e.g. "Good evening".
+ * @param userName The user's first name; when blank, only the greeting line shows.
+ * @param isWide Whether the current window is medium+ (drives the display size).
+ * @param modifier Optional modifier.
  */
 @Composable
 fun HomeHeader(
-    greeting: String,
+    timeGreeting: String,
+    userName: String,
     isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 8.dp),
     ) {
         Text(
-            text = greeting,
-            style =
-                (if (isWide) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineLarge)
-                    .copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-1).sp,
-                    ),
-            color = MaterialTheme.colorScheme.onSurface,
+            text = if (userName.isNotBlank()) "$timeGreeting," else timeGreeting,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (userName.isNotBlank()) {
+            Text(
+                text = userName,
+                style =
+                    (if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall)
+                        .copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-1.5).sp,
+                        ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
