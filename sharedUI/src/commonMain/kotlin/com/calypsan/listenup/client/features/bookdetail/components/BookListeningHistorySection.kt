@@ -15,6 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.history.BookListeningHistory
 import com.calypsan.listenup.client.domain.history.DayBucket
 import com.calypsan.listenup.client.domain.history.EventEntry
@@ -50,26 +53,47 @@ import org.koin.core.parameter.parametersOf
  *
  * @param bookId The book whose listening history to display.
  * @param modifier Optional modifier applied to the outer column.
+ * @param isCard When true, wraps the section in a [Surface] with [MaterialTheme.colorScheme.surfaceContainerLow]
+ *   background and [ContentShapes.card] shape — used by the wide layout. When false (the default),
+ *   renders frameless, preserving the compact layout's appearance.
  * @param viewModel The ViewModel scoped to [bookId]; resolved via Koin by default.
  */
 @Composable
 fun BookListeningHistorySection(
     bookId: String,
     modifier: Modifier = Modifier,
+    isCard: Boolean = false,
     viewModel: BookListeningHistoryViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var expanded by rememberSaveable { mutableStateOf(false) }
 
-    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        SectionHeader(expanded = expanded, onToggle = { expanded = !expanded })
-        if (expanded) {
-            when (val s = state) {
-                BookListeningHistoryUiState.Loading -> LoadingPlaceholder()
-                BookListeningHistoryUiState.Empty -> EmptyMessage()
-                is BookListeningHistoryUiState.Data -> DayBuckets(s.history)
-                is BookListeningHistoryUiState.Error -> ErrorMessage(isRetryable = s.isRetryable)
+    val horizontalPadding = if (isCard) Spacing.screenMargin else 16.dp
+
+    val content: @Composable () -> Unit = {
+        Column(modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)) {
+            SectionHeader(expanded = expanded, onToggle = { expanded = !expanded })
+            if (expanded) {
+                when (val s = state) {
+                    BookListeningHistoryUiState.Loading -> LoadingPlaceholder()
+                    BookListeningHistoryUiState.Empty -> EmptyMessage()
+                    is BookListeningHistoryUiState.Data -> DayBuckets(s.history)
+                    is BookListeningHistoryUiState.Error -> ErrorMessage(isRetryable = s.isRetryable)
+                }
             }
+        }
+    }
+
+    if (isCard) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = ContentShapes.card,
+            modifier = modifier,
+            content = content,
+        )
+    } else {
+        Box(modifier = modifier) {
+            content()
         }
     }
 }
