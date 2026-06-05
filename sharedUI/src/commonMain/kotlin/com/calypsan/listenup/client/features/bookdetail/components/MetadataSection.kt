@@ -101,6 +101,15 @@ fun SeriesBadge(
     }
 }
 
+/** Tone variants for [StatChip]. */
+enum class StatChipTone {
+    /** Neutral surface — default for most chips. */
+    Surface,
+
+    /** Tertiary container — for the lead/accent chip. */
+    Tertiary,
+}
+
 /**
  * Row of stat chips showing rating, duration, year, and date added.
  */
@@ -142,6 +151,7 @@ fun StatsRow(
             StatChip(
                 icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
                 text = formatAddedDate(timestamp),
+                tone = StatChipTone.Tertiary,
             )
         }
     }
@@ -154,10 +164,22 @@ fun StatsRow(
 fun StatChip(
     icon: @Composable () -> Unit,
     text: String,
+    tone: StatChipTone = StatChipTone.Surface,
 ) {
+    val containerColor =
+        when (tone) {
+            StatChipTone.Surface -> MaterialTheme.colorScheme.surfaceContainerHigh
+            StatChipTone.Tertiary -> MaterialTheme.colorScheme.tertiaryContainer
+        }
+    val contentColor =
+        when (tone) {
+            StatChipTone.Surface -> MaterialTheme.colorScheme.onSurface
+            StatChipTone.Tertiary -> MaterialTheme.colorScheme.onTertiaryContainer
+        }
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = containerColor,
+        contentColor = contentColor,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
