@@ -3,15 +3,12 @@ package com.calypsan.listenup.client.domain.readers
 /**
  * Readers state for one book.
  *
- * [currentlyListening] is populated from the `active_sessions` Room table, which is kept
- * current by SSE events. Rows are deleted from `active_sessions` when the server records
- * a book-completion flip (the P3-B cascade), so a user moves out of [currentlyListening]
- * automatically when they finish.
+ * [currentlyListening] is populated from the `SocialService.bookReaders` RPC, which is
+ * ACL-filtered and already excludes the current user server-side. The list refreshes on
+ * subscribe and on every presence ping (see
+ * [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl]).
  *
- * The current user is excluded from the list via [currentUserId] filtering in
- * [com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl].
- *
- * @property currentlyListening Users currently listening to this book (active sessions, others only).
+ * @property currentlyListening Users currently listening to this book (others only).
  */
 data class BookReaders(
     val currentlyListening: List<Reader>,

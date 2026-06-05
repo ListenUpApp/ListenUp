@@ -1062,9 +1062,15 @@ val syncModule =
             ActivityRepositoryImpl(dao = get(), activityFeedApi = get())
         }
 
-        // ActiveSessionRepository for live sessions (SOLID: interface in domain, impl in data)
+        // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
+        // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
         single<ActiveSessionRepository> {
-            ActiveSessionRepositoryImpl(dao = get(), imageStorage = get())
+            ActiveSessionRepositoryImpl(
+                socialRpc = get(),
+                bookDao = get(),
+                imageStorage = get(),
+                presence = get(),
+            )
         }
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
@@ -1095,14 +1101,12 @@ val syncModule =
             )
         }
 
-        // BookReadersRepository for Book Detail Readers section (SOLID: interface in domain, impl in data)
-        // Pure Room observation — no REST refresh, no debounce, no cache layer.
-        // active_sessions is kept current by SSE events; P3-B completion cascade deletes
-        // rows when a user finishes a book, so the table is always current without polling.
+        // BookReadersRepository for Book Detail Readers section — SocialService RPC, ACL-filtered
+        // and caller-excluded server-side, re-fetched on every PresenceRefreshSignal ping.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
-                activeSessionDao = get(),
-                authSession = get(),
+                socialRpc = get(),
+                presence = get(),
             )
         }
 

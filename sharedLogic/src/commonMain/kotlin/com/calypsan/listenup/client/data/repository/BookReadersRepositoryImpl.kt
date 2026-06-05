@@ -2,41 +2,67 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.data.local.db.ActiveSessionDao
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
+import com.calypsan.listenup.core.BookId
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+
+private val logger = KotlinLogging.logger {}
 
 /**
- * Implementation of [BookReadersRepository] backed entirely by Room observation.
+ * Book-readers repository backed by the [com.calypsan.listenup.api.SocialService] RPC.
  *
- * Observes [ActiveSessionDao.observeForBook] — SSE-maintained table of who is currently
- * listening. Rows are deleted by the server's P3-B completion cascade when a user finishes
- * the book, so this table is always current without any manual refresh.
+ * The server's `bookReaders` result is already ACL-filtered and excludes the caller, so this
+ * repository maps the wire list straight to [Reader] — no Room, no auth lookup. It fetches on
+ * first subscribe and re-fetches on every [PresenceRefreshSignal] ping (the server's presence
+ * nudge or a firehose reconnect).
  *
- * The current user is filtered out so they don't appear in the list while listening to
- * their own book.
+ * On any RPC failure the flow emits empty [BookReaders] — Never-Stranded: the section renders
+ * empty rather than hanging, and the next ping recovers.
  *
- * No debounce, no REST refresh, no cache layer. Room handles change coalescing.
+ * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
+ * @property presence Pings whenever presence may have changed, driving a re-fetch.
  */
 class BookReadersRepositoryImpl(
-    private val activeSessionDao: ActiveSessionDao,
-    private val authSession: AuthSession,
+    private val socialRpc: SocialRpcFactory,
+    private val presence: PresenceRefreshSignal,
 ) : BookReadersRepository {
     override fun observeReadersFor(bookId: String): Flow<BookReaders> =
-        flow { emit(authSession.getUserId()) }.flatMapLatest { currentUserId ->
-            activeSessionDao.observeForBook(bookId).map { activeSessions ->
-                val currentlyListening =
-                    activeSessions
-                        .filter { it.userId != currentUserId }
-                        .map { Reader(userId = it.userId, displayName = it.displayName) }
-                BookReaders(currentlyListening = currentlyListening)
+        presence.signal
+            .onStart { emit(Unit) }
+            .flatMapLatest { flow { emit(fetchReaders(bookId)) } }
+
+    private suspend fun fetchReaders(bookId: String): BookReaders =
+        when (val result = bookReaders(bookId)) {
+            is AppResult.Success -> {
+                BookReaders(
+                    currentlyListening = result.data.map { Reader(userId = it.userId, displayName = it.displayName) },
+                )
             }
+
+            is AppResult.Failure -> {
+                BookReaders(currentlyListening = emptyList())
+            }
+        }
+
+    private suspend fun bookReaders(bookId: String) =
+        try {
+            socialRpc.get().bookReaders(BookId(bookId))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.warn(e) { "bookReaders RPC failed" }
+            AppResult.Failure(ErrorMapper.map(e))
         }
 }
