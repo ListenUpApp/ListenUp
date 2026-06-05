@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -68,11 +69,11 @@ fun HomeStatsSection(
                     HomeStatsUiState.Empty -> {
                         // Render the card at zero (chart + "0m") rather than a placeholder; streak and
                         // genres collapse until there's data.
-                        HomeStatsContent(state = EmptyWeekStats, isWide = isWide)
+                        HomeStatsContent(state = EmptyWeekStats)
                     }
 
                     is HomeStatsUiState.Data -> {
-                        HomeStatsContent(state = s, isWide = isWide)
+                        HomeStatsContent(state = s)
                     }
 
                     is HomeStatsUiState.Error -> {
@@ -93,80 +94,82 @@ private fun StatsPlaceholder(
 }
 
 @Composable
-internal fun HomeStatsContent(
-    state: HomeStatsUiState.Data,
-    isWide: Boolean,
-) {
-    val totalSeconds = state.dailyBuckets.sumOf { it.totalSeconds }
-    val hours = totalSeconds / 3600
-    val minutes = totalSeconds % 3600 / 60
+internal fun HomeStatsContent(state: HomeStatsUiState.Data) {
+    // Two columns only when the card is actually wide enough; a narrow card (phone landscape,
+    // portrait tablet) stacks. Actual width beats the window size class here.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val twoColumn = maxWidth >= 520.dp
+        val totalSeconds = state.dailyBuckets.sumOf { it.totalSeconds }
+        val hours = totalSeconds / 3600
+        val minutes = totalSeconds % 3600 / 60
 
-    val chartColumn: @Composable () -> Unit = {
-        Column {
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "${hours}h ${minutes}m",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-1.5).sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                )
-                Text(
-                    text = "listened",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    modifier = Modifier.padding(bottom = 6.dp),
-                )
-            }
-            Spacer(Modifier.height(18.dp))
-            if (state.dailyBuckets.isNotEmpty()) {
-                DailyListeningChart(
-                    dailyBuckets = state.dailyBuckets,
-                    modifier = Modifier.fillMaxWidth(),
-                    chartHeight = if (isWide) 150.dp else 124.dp,
-                )
-            }
-        }
-    }
-
-    val detailColumn: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (state.hasStreak) {
-                StreakIndicator(currentStreak = state.currentStreakDays, longestStreak = state.longestStreakDays)
-            }
-            if (state.hasGenreData) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Overline("Top genres")
-                    GenreBreakdownBars(genres = state.topGenres)
+        val chartColumn: @Composable () -> Unit = {
+            Column {
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "${hours}h ${minutes}m",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-1.5).sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "listened",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                Spacer(Modifier.height(18.dp))
+                if (state.dailyBuckets.isNotEmpty()) {
+                    DailyListeningChart(
+                        dailyBuckets = state.dailyBuckets,
+                        modifier = Modifier.fillMaxWidth(),
+                        chartHeight = if (twoColumn) 150.dp else 124.dp,
+                    )
                 }
             }
         }
-    }
 
-    val hasDetail = state.hasStreak || state.hasGenreData
-    when {
-        // No streak/genres yet — show only the chart column (collapse the detail side).
-        !hasDetail -> {
-            chartColumn()
-        }
-
-        isWide -> {
-            // height(IntrinsicSize.Min) gives the VerticalDivider the tallest column's height;
-            // without it the divider collapses to nothing (it has no intrinsic height of its own).
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                Box(Modifier.weight(1.3f)) { chartColumn() }
-                VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
-                Box(Modifier.weight(1f)) { detailColumn() }
+        val detailColumn: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                if (state.hasStreak) {
+                    StreakIndicator(currentStreak = state.currentStreakDays, longestStreak = state.longestStreakDays)
+                }
+                if (state.hasGenreData) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Overline("Top genres")
+                        GenreBreakdownBars(genres = state.topGenres)
+                    }
+                }
             }
         }
 
-        else -> {
-            Column {
+        val hasDetail = state.hasStreak || state.hasGenreData
+        when {
+            // No streak/genres yet — show only the chart column (collapse the detail side).
+            !hasDetail -> {
                 chartColumn()
-                HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
-                detailColumn()
+            }
+
+            twoColumn -> {
+                // height(IntrinsicSize.Min) gives the VerticalDivider the tallest column's height;
+                // without it the divider collapses to nothing (it has no intrinsic height of its own).
+                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                    Box(Modifier.weight(1.3f)) { chartColumn() }
+                    VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
+                    Box(Modifier.weight(1f)) { detailColumn() }
+                }
+            }
+
+            else -> {
+                Column {
+                    chartColumn()
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
+                    detailColumn()
+                }
             }
         }
     }

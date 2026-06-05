@@ -122,9 +122,11 @@ fun AppHeader(
     showAvatarLabel: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    // The persistent inline search box needs real room beside the hero + avatar — only show it on
+    // genuinely wide (expanded) chrome. Medium widths (e.g. tablet portrait) keep the compact icon.
     val isWide =
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     AnimatedContent(
         // On wide windows search is a persistent inline field (below); never run the compact
