@@ -57,8 +57,9 @@ typealias AppHeaderSlot = @Composable (leadingContent: @Composable () -> Unit) -
  * Custom shell header — the design uses its own header band, not a Material `TopAppBar`.
  *
  * A single row: a screen-supplied [leadingContent] hero (the Home greeting, a screen title) on the
- * left, and the shell's trailing actions (search, sync indicator, avatar menu) top-aligned on the
- * right. The header is placed at the top of each screen's scroll, so it scrolls away with content.
+ * left, and the shell's trailing actions (search, sync indicator, avatar menu) vertically centred
+ * against it on the right. The header is placed at the top of each screen's scroll, so it scrolls
+ * away with content.
  *
  * Collapsed: leading hero + search icon + sync indicator + avatar.
  * Search expanded: back arrow + full-width search field (the hero and other actions step aside).
@@ -141,7 +142,7 @@ fun AppHeader(
                 )
             }
         } else {
-            Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     leadingContent()
                 }
