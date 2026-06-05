@@ -49,6 +49,7 @@ class SyncEngine(
     private val sseClient: SseClient,
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
+    private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
 ) {
@@ -316,6 +317,10 @@ class SyncEngine(
         val newCursor = store.highestCursor()
         sseClient.reseed(newCursor)
         sseClient.connect()
+        // A dropped-then-restored firehose may have missed an ActiveSessionsChanged nudge while
+        // disconnected. Ping presence so the social repos re-fetch their ACL-filtered RPCs — the
+        // Never-Stranded fallback for presence across a reconnect.
+        presenceRefreshSignal.ping()
     }
 
     /**

@@ -201,6 +201,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     sseClient = FakeReconcileSse(),
                     reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
+                    presenceRefreshSignal = PresenceRefreshSignal(),
                     scope = scope,
                 )
             block(ReconcileHarness(engine, fakeCatchUp), db, store)

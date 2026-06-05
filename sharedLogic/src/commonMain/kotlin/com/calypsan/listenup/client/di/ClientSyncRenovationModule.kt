@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.sync.ListeningEventOpSender
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
+import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -72,6 +73,7 @@ val clientSyncRenovationModule =
 
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
+        single { PresenceRefreshSignal() }
         single<ServerReachability> { SseServerReachability(get(), get(qualifier = named(APP_SCOPE))) }
         single { SyncCursorStore(dao = get()) }
 
@@ -159,6 +161,9 @@ val clientSyncRenovationModule =
                 // AuthSession into the dispatcher's construction graph. The reason is logged
                 // by the dispatcher; there's no existing one-shot channel here to surface it.
                 onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
+                // The server's content-free presence nudge pings the shared signal so the social
+                // repos (currently-listening, book-readers) re-fetch their ACL-filtered RPCs.
+                onActiveSessionsChanged = { get<PresenceRefreshSignal>().ping() },
             )
         }
 
@@ -312,6 +317,7 @@ val clientSyncRenovationModule =
                 sseClient = get(),
                 reconciler = get(),
                 dispatcher = get(),
+                presenceRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
             )
         }
