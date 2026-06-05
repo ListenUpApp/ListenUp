@@ -299,6 +299,7 @@ class AdminRepositoryImplUserTest :
                 AdminRepositoryImpl(
                     adminApi = mock<com.calypsan.listenup.client.data.remote.AdminApiContract>(),
                     adminUserRpc = throwingFactory,
+                    adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 )
