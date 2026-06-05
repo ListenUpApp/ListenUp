@@ -614,7 +614,13 @@ private fun ImmersiveBookDetail(
             items = displayedChapters,
             key = { _, chapter -> chapter.id },
         ) { index, chapter ->
-            ChapterListItem(chapter = chapter, chapterNumber = index + 1)
+            ChapterListItem(
+                chapter = chapter,
+                chapterNumber = index + 1,
+                // TODO(book-detail): mark current chapter once progress→chapter mapping is available.
+                isCurrent = false,
+                showDivider = index < displayedChapters.lastIndex,
+            )
         }
 
         if (state.chapters.size > 5 && !isChaptersExpanded) {
