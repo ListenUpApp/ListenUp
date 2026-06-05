@@ -13,7 +13,7 @@ import kotlinx.rpc.withService
 
 /**
  * Supplies the [AdminSettingsService] kotlinx.rpc proxy backing the admin server-identity
- * settings surface (server name, cover, logo, branding). An interface so repositories depend
+ * settings surface (server name + remote URL). An interface so repositories depend
  * on a seam that fakes in tests; [KtorAdminSettingsRpcFactory] is the production implementation
  * over the bearer-gated `/api/rpc/authed` WebSocket.
  *
