@@ -445,7 +445,8 @@ val profilePresentationModule =
         // UserProfileViewModel for viewing user profiles
         factory {
             com.calypsan.listenup.client.presentation.profile.UserProfileViewModel(
-                loadUserProfileUseCase = get(),
+                publicProfileDao = get(),
+                shelfRepository = get(),
                 userRepository = get(),
                 imageRepository = get(),
                 errorBus = get(),

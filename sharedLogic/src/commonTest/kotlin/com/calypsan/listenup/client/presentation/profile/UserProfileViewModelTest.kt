@@ -1,21 +1,25 @@
 package com.calypsan.listenup.client.presentation.profile
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.client.domain.model.ProfileRecentBook
-import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.model.UserProfile
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.profile.LoadUserProfileUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,356 +30,223 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import com.calypsan.listenup.core.error.ErrorBus
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class UserProfileViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+class UserProfileViewModelTest :
+    FunSpec({
+        val testDispatcher = StandardTestDispatcher()
 
-    private class TestFixture {
-        val userRepository: UserRepository = mock()
-        val imageRepository: ImageRepository = mock()
-        val loadUserProfileUseCase: LoadUserProfileUseCase = mock()
-        val currentUserFlow = MutableStateFlow<User?>(null)
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
-        fun configure(
-            currentUser: User?,
-            isAvatarCached: Boolean = false,
-            avatarPath: String = "/cache/avatars/avatar.jpg",
-            bookCoverPath: String = "/cache/covers/book.jpg",
-            isBookCoverCached: Boolean = false,
-        ) {
-            currentUserFlow.value = currentUser
-            every { userRepository.observeCurrentUser() } returns currentUserFlow
-            everySuspend { userRepository.getCurrentUser() } returns currentUser
-            every { imageRepository.userAvatarExists(any()) } returns isAvatarCached
-            every { imageRepository.getUserAvatarPath(any()) } returns avatarPath
-            every { imageRepository.bookCoverExists(any()) } returns isBookCoverCached
-            every { imageRepository.getBookCoverPath(any()) } returns bookCoverPath
-        }
-
-        fun build(): UserProfileViewModel =
-            UserProfileViewModel(
-                loadUserProfileUseCase = loadUserProfileUseCase,
-                userRepository = userRepository,
-                imageRepository = imageRepository,
-                errorBus = ErrorBus(),
+        fun publicProfile(
+            id: String,
+            displayName: String = "Display",
+            avatarType: String = "auto",
+            tagline: String? = "a tagline",
+            totalSecondsAllTime: Long = 0L,
+            booksFinished: Int = 0,
+            currentStreakDays: Int = 0,
+            longestStreakDays: Int = 0,
+        ): PublicProfileEntity =
+            PublicProfileEntity(
+                id = id,
+                displayName = displayName,
+                avatarType = avatarType,
+                tagline = tagline,
+                totalSecondsAllTime = totalSecondsAllTime,
+                totalSecondsLast7Days = 0L,
+                totalSecondsLast30Days = 0L,
+                totalSecondsLast365Days = 0L,
+                booksFinished = booksFinished,
+                currentStreakDays = currentStreakDays,
+                longestStreakDays = longestStreakDays,
             )
-    }
 
-    private fun TestScope.createFixture(): TestFixture = TestFixture()
+        fun user(
+            id: String,
+            displayName: String = "Display",
+            avatarType: String = "auto",
+            tagline: String? = "a tagline",
+            updatedAtMs: Long = 1_000L,
+        ): User =
+            User(
+                id = UserId(id),
+                email = "$id@example.com",
+                displayName = displayName,
+                firstName = null,
+                lastName = null,
+                isAdmin = false,
+                avatarType = avatarType,
+                avatarValue = null,
+                avatarColor = "#6B7280",
+                tagline = tagline,
+                createdAtMs = 0L,
+                updatedAtMs = updatedAtMs,
+            )
 
-    private fun TestScope.keepStateHot(viewModel: UserProfileViewModel) {
-        backgroundScope.launch { viewModel.state.collect { } }
-    }
+        fun shelf(
+            id: String,
+            name: String = "Shelf $id",
+            ownerId: String,
+            bookCount: Int = 3,
+        ): Shelf =
+            Shelf(
+                id = id,
+                name = name,
+                description = null,
+                isPrivate = false,
+                ownerId = ownerId,
+                ownerDisplayName = "Owner",
+                bookCount = bookCount,
+                totalDurationSeconds = 0L,
+                createdAtMs = 0L,
+                updatedAtMs = 0L,
+            )
 
-    private fun createUser(
-        id: String = "user-1",
-        displayName: String = "Alice",
-        avatarType: String = "auto",
-        avatarValue: String? = null,
-        tagline: String? = "hello",
-        updatedAtMs: Long = 1000L,
-    ): User =
-        User(
-            id = UserId(id),
-            email = "$id@example.com",
-            displayName = displayName,
-            firstName = null,
-            lastName = null,
-            isAdmin = false,
-            avatarType = avatarType,
-            avatarValue = avatarValue,
-            avatarColor = "#6B7280",
-            tagline = tagline,
-            createdAtMs = 0L,
-            updatedAtMs = updatedAtMs,
-        )
+        class Fixture {
+            val userRepository: UserRepository = mock()
+            val imageRepository: ImageRepository = mock()
+            val publicProfileDao: PublicProfileDao = mock()
+            val shelfRepository: ShelfRepository = mock()
 
-    private fun createProfile(
-        userId: String = "other-1",
-        displayName: String = "Bob",
-        avatarType: String = "auto",
-        avatarValue: String? = null,
-        totalListenTimeMs: Long = 3_600_000L,
-        booksFinished: Int = 5,
-        recentBooks: List<ProfileRecentBook> = emptyList(),
-        publicShelves: List<ProfileShelfSummary> = emptyList(),
-    ): UserProfile =
-        UserProfile(
-            userId = userId,
-            displayName = displayName,
-            avatarType = avatarType,
-            avatarValue = avatarValue,
-            avatarColor = "#6B7280",
-            tagline = null,
-            totalListenTimeMs = totalListenTimeMs,
-            booksFinished = booksFinished,
-            currentStreak = 0,
-            longestStreak = 0,
-            recentBooks = recentBooks,
-            publicShelves = publicShelves,
-        )
+            fun configureImage() {
+                every { imageRepository.userAvatarExists(any()) } returns false
+                every { imageRepository.getUserAvatarPath(any()) } returns "/cache/avatar.jpg"
+            }
 
-    @BeforeTest
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterTest
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Test
-    fun `initial state is Idle`() =
-        runTest {
-            val fixture = createFixture().apply { configure(currentUser = null) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-            advanceUntilIdle()
-
-            assertEquals(UserProfileUiState.Idle, viewModel.state.value)
-        }
-
-    @Test
-    fun `loadProfile for own user emits Ready with isOwnProfile true and stats zeroed`() =
-        runTest {
-            val user = createUser(id = "me", displayName = "Me", tagline = "taglined")
-            val fixture = createFixture().apply { configure(currentUser = user) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("me")
-            advanceUntilIdle()
-
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals("me", ready.userId)
-            assertEquals(true, ready.isOwnProfile)
-            assertEquals("Me", ready.displayName)
-            assertEquals("taglined", ready.tagline)
-            assertEquals(0L, ready.totalListenTimeMs)
-            assertEquals(0, ready.booksFinished)
-            assertEquals(emptyList(), ready.recentBooks)
-            assertEquals(emptyList(), ready.publicShelves)
-        }
-
-    @Test
-    fun `own profile updates reactively when local user changes`() =
-        runTest {
-            val user1 = createUser(id = "me", displayName = "Old Name")
-            val user2 = createUser(id = "me", displayName = "New Name", updatedAtMs = 2000L)
-            val fixture = createFixture().apply { configure(currentUser = user1) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("me")
-            advanceUntilIdle()
-            assertEquals("Old Name", (viewModel.state.value as UserProfileUiState.Ready).displayName)
-
-            fixture.currentUserFlow.value = user2
-            advanceUntilIdle()
-
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals("New Name", ready.displayName)
-            assertEquals(2000L, ready.avatarCacheBuster)
-        }
-
-    @Test
-    fun `own profile with image avatar exposes local path when cached`() =
-        runTest {
-            val user = createUser(avatarType = "image", avatarValue = "avatar.jpg")
-            val fixture = createFixture().apply { configure(currentUser = user, isAvatarCached = true) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile(user.id.value)
-            advanceUntilIdle()
-
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals("/cache/avatars/avatar.jpg", ready.localAvatarPath)
-        }
-
-    @Test
-    fun `loadProfile for other user emits Ready with server stats`() =
-        runTest {
-            val profile =
-                createProfile(
-                    userId = "other-1",
-                    displayName = "Bob",
-                    totalListenTimeMs = 7_200_000L,
-                    booksFinished = 12,
+            fun build(): UserProfileViewModel =
+                UserProfileViewModel(
+                    publicProfileDao = publicProfileDao,
+                    shelfRepository = shelfRepository,
+                    userRepository = userRepository,
+                    imageRepository = imageRepository,
+                    errorBus = ErrorBus(),
                 )
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
-
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals("other-1", ready.userId)
-            assertEquals(false, ready.isOwnProfile)
-            assertEquals("Bob", ready.displayName)
-            assertEquals(7_200_000L, ready.totalListenTimeMs)
-            assertEquals(12, ready.booksFinished)
         }
 
-    @Test
-    fun `loadProfile for other user with uncached avatar downloads and refines Ready`() =
-        runTest {
-            val profile = createProfile(avatarType = "image", avatarValue = "avatar.jpg")
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null, isAvatarCached = false)
-                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
-                    everySuspend { imageRepository.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile(profile.userId)
-            advanceUntilIdle()
-
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals("/cache/avatars/avatar.jpg", ready.localAvatarPath)
-            verifySuspend { fixture.imageRepository.downloadUserAvatar(profile.userId, false) }
+        fun TestScope.keepHot(viewModel: UserProfileViewModel) {
+            backgroundScope.launch { viewModel.state.collect { } }
         }
 
-    @Test
-    fun `loadProfile for other user failure emits Error`() =
-        runTest {
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns
-                        AppResult.Failure(InternalError(debugInfo = "nope"))
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
-
-            val err = assertIs<UserProfileUiState.Error>(viewModel.state.value)
-            assertEquals("Failed to load profile", err.message)
-        }
-
-    @Test
-    fun `loadProfile maps recent book covers to local paths when cached`() =
-        runTest {
-            val profile =
-                createProfile(
-                    recentBooks =
+        test("own profile shows real stats from public_profiles row (not zeroed)") {
+            runTest {
+                val ownId = "me"
+                val fixture = Fixture()
+                fixture.configureImage()
+                val row =
+                    publicProfile(
+                        id = ownId,
+                        displayName = "Me",
+                        totalSecondsAllTime = 151_200,
+                        booksFinished = 23,
+                        currentStreakDays = 5,
+                        longestStreakDays = 14,
+                    )
+                val ownUser = user(id = ownId, displayName = "Me", updatedAtMs = 4_242L)
+                everySuspend { fixture.userRepository.getCurrentUser() } returns ownUser
+                every { fixture.userRepository.observeCurrentUser() } returns MutableStateFlow(ownUser)
+                every { fixture.publicProfileDao.observeById(ownId) } returns MutableStateFlow(row)
+                every { fixture.shelfRepository.observeMyShelves(ownId) } returns
+                    MutableStateFlow(
                         listOf(
-                            ProfileRecentBook(bookId = "book-1", title = "Book One", coverPath = "remote.jpg"),
+                            shelf("s1", ownerId = ownId),
+                            shelf("s2", ownerId = ownId),
                         ),
-                )
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null, isBookCoverCached = true, bookCoverPath = "/local/book-1.jpg")
-                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
+                    )
 
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
+                val viewModel = fixture.build()
+                keepHot(viewModel)
 
-            val ready = assertIs<UserProfileUiState.Ready>(viewModel.state.value)
-            assertEquals(1, ready.recentBooks.size)
-            assertEquals("/local/book-1.jpg", ready.recentBooks.first().coverPath)
-        }
+                viewModel.loadProfile(ownId)
+                advanceUntilIdle()
 
-    @Test
-    fun `loadProfile ignores redundant call for same userId`() =
-        runTest {
-            val profile = createProfile()
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
-
-            // Should only fire once: the second loadProfile with same id & forceRefresh=false is a no-op.
-            verifySuspend { fixture.loadUserProfileUseCase("other-1") }
-        }
-
-    @Test
-    fun `refresh re-runs pipeline even for same userId`() =
-        runTest {
-            val profile = createProfile()
-            val fixture =
-                createFixture().apply {
-                    configure(currentUser = null)
-                    everySuspend { loadUserProfileUseCase(any()) } returns AppResult.Success(profile)
-                }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
-
-            viewModel.loadProfile("other-1")
-            advanceUntilIdle()
-            viewModel.refresh()
-            advanceUntilIdle()
-
-            verifySuspend(
-                mode =
-                    dev.mokkery.verify.VerifyMode
-                        .exactly(2),
-            ) {
-                fixture.loadUserProfileUseCase("other-1")
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
+                ready.userId shouldBe ownId
+                ready.isOwnProfile shouldBe true
+                ready.displayName shouldBe "Me"
+                ready.totalListenTimeMs shouldBe 151_200_000L
+                ready.booksFinished shouldBe 23
+                ready.currentStreak shouldBe 5
+                ready.longestStreak shouldBe 14
+                ready.publicShelves.size shouldBe 2
+                ready.recentBooks shouldBe emptyList()
             }
         }
 
-    @Test
-    fun `loadProfile for non-existent own user returns Error`() =
-        runTest {
-            val fixture = createFixture().apply { configure(currentUser = null) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
+        test("other profile assembles header+stats from Room and shelves from RPC") {
+            runTest {
+                val otherId = "other"
+                val fixture = Fixture()
+                fixture.configureImage()
+                val row =
+                    publicProfile(
+                        id = otherId,
+                        displayName = "Bob",
+                        totalSecondsAllTime = 7_200,
+                        booksFinished = 9,
+                        currentStreakDays = 2,
+                        longestStreakDays = 7,
+                    )
+                everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
+                every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
+                everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
+                    AppResult.Success(
+                        listOf(
+                            shelf("s1", ownerId = otherId),
+                            shelf("s2", ownerId = otherId),
+                        ),
+                    )
 
-            // currentUser is null → isOwn = false → falls through to other-user fetch → no mock → test expects failure
-            everySuspend { fixture.loadUserProfileUseCase(any()) } returns
-                AppResult.Failure(InternalError(debugInfo = "nope"))
+                val viewModel = fixture.build()
+                keepHot(viewModel)
 
-            viewModel.loadProfile("ghost")
-            advanceUntilIdle()
+                viewModel.loadProfile(otherId)
+                advanceUntilIdle()
 
-            assertIs<UserProfileUiState.Error>(viewModel.state.value)
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
+                ready.userId shouldBe otherId
+                ready.isOwnProfile shouldBe false
+                ready.displayName shouldBe "Bob"
+                ready.totalListenTimeMs shouldBe 7_200_000L
+                ready.booksFinished shouldBe 9
+                ready.currentStreak shouldBe 2
+                ready.longestStreak shouldBe 7
+                ready.publicShelves.size shouldBe 2
+                ready.recentBooks shouldBe emptyList()
+            }
         }
 
-    @Test
-    fun `own profile with null user in observe emits Error`() =
-        runTest {
-            val user = createUser()
-            val fixture = createFixture().apply { configure(currentUser = user) }
-            val viewModel = fixture.build()
-            keepStateHot(viewModel)
+        test("other profile renders header even when shelf RPC fails") {
+            runTest {
+                val otherId = "other"
+                val fixture = Fixture()
+                fixture.configureImage()
+                val row = publicProfile(id = otherId, displayName = "Bob", totalSecondsAllTime = 60)
+                everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
+                every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
+                everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
+                    AppResult.Failure(InternalError(debugInfo = "boom"))
 
-            viewModel.loadProfile(user.id.value)
-            advanceUntilIdle()
-            assertIs<UserProfileUiState.Ready>(viewModel.state.value)
+                val viewModel = fixture.build()
+                keepHot(viewModel)
 
-            fixture.currentUserFlow.value = null
-            advanceUntilIdle()
+                viewModel.loadProfile(otherId)
+                advanceUntilIdle()
 
-            val err = assertIs<UserProfileUiState.Error>(viewModel.state.value)
-            assertEquals("No user data available", err.message)
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
+                ready.displayName shouldBe "Bob"
+                ready.totalListenTimeMs shouldBe 60_000L
+                ready.publicShelves shouldBe emptyList()
+            }
         }
-}
+
+        test("stableAvatarColorHex is deterministic and from the palette") {
+            val id = "a3f2b1c4-1234-4567-89ab-cdef01234567"
+            val first = stableAvatarColorHex(id)
+            val second = stableAvatarColorHex(id)
+            first shouldBe second
+            first shouldStartWith "#"
+            first.length shouldBe 7
+        }
+    })
