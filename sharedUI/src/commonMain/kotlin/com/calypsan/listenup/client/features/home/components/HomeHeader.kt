@@ -13,27 +13,31 @@ import androidx.compose.ui.unit.sp
 /**
  * Header section for the Home screen.
  *
- * Displays a time-aware greeting (e.g., "Good morning, Simon")
- * with balanced typography that doesn't dominate the screen.
+ * Displays a time-aware greeting (e.g., "Good morning, Simon") as an emphasized hero line — the
+ * Home content's header, since the shell top bar already carries search and the account menu.
+ * Scales up on wide windows to anchor the desktop layout.
  *
  * @param greeting The personalized greeting text
+ * @param isWide Whether the current window is medium+ (drives the display size)
  * @param modifier Optional modifier
  */
 @Composable
 fun HomeHeader(
     greeting: String,
+    isWide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+        modifier = modifier.padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         Text(
             text = greeting,
             style =
-                MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.3).sp,
-                ),
+                (if (isWide) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineLarge)
+                    .copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-1).sp,
+                    ),
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
