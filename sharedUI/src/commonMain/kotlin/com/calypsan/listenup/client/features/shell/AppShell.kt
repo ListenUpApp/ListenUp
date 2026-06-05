@@ -268,6 +268,7 @@ fun AppShell(
             onSyncDetailsDismiss = { syncIndicatorViewModel.toggleExpanded() },
             scrollBehavior = scrollBehavior,
             showAvatar = showAvatarInTopBar,
+            showAvatarLabel = navType != ShellNavType.BottomBar,
         )
     }
 

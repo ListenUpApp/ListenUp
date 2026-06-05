@@ -102,6 +102,7 @@ fun AppTopBar(
     onSyncDetailsDismiss: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null,
     showAvatar: Boolean = true,
+    showAvatarLabel: Boolean = false,
 ) {
     // Guard against null destination during recomposition transitions
     val safeDestination = currentDestination ?: ShellDestination.Home
@@ -176,6 +177,7 @@ fun AppTopBar(
                     onSettingsClick = onSettingsClick,
                     onSignOutClick = onSignOutClick,
                     modifier = Modifier.padding(end = 8.dp),
+                    showLabel = showAvatarLabel,
                 )
             }
         },

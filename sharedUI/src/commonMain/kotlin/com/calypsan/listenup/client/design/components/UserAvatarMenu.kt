@@ -1,8 +1,10 @@
 
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AdminPanelSettings
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,6 +74,7 @@ fun UserAvatarMenu(
     onSettingsClick: (() -> Unit)? = null,
     onSignOutClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showLabel: Boolean = false,
 ) {
     val platformContext = LocalPlatformContext.current
     val serverConfig: ServerConfig = koinInject()
@@ -82,15 +86,19 @@ fun UserAvatarMenu(
     val hasImageAvatar = user?.avatarType == "image" && !user.avatarValue.isNullOrEmpty()
 
     Box(modifier = modifier) {
-        // Clickable avatar circle
-        UserAvatarCircle(
-            user = user,
-            hasImageAvatar = hasImageAvatar,
-            serverUrl = serverUrl,
-            imageStorage = imageStorage,
-            platformContext = platformContext,
-            onClick = { onExpandedChange(true) },
-        )
+        // Anchor: a labelled pill (name + email + chevron) on wide chrome, or the bare circle.
+        if (showLabel && user != null) {
+            UserAvatarPill(user = user, onClick = { onExpandedChange(true) })
+        } else {
+            UserAvatarCircle(
+                user = user,
+                hasImageAvatar = hasImageAvatar,
+                serverUrl = serverUrl,
+                imageStorage = imageStorage,
+                platformContext = platformContext,
+                onClick = { onExpandedChange(true) },
+            )
+        }
 
         // Dropdown menu
         DropdownMenu(
@@ -104,6 +112,48 @@ fun UserAvatarMenu(
                 onAdminClick = onAdminClick,
                 onSettingsClick = onSettingsClick,
                 onSignOutClick = onSignOutClick,
+            )
+        }
+    }
+}
+
+/**
+ * Labelled avatar anchor for wide chrome (top bar): a tonal pill showing the avatar, the user's
+ * display name and email, and an expand chevron. The whole pill is the click target.
+ */
+@Composable
+private fun UserAvatarPill(
+    user: User,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            UserAvatar(userId = user.id.value, size = AvatarSize.Small)
+            Column {
+                Text(
+                    text = user.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = user.email,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
