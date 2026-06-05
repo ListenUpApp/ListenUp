@@ -88,7 +88,7 @@ fun DailyListeningChart(
             val isToday = index == chartData.lastIndex
             val isEmpty = bar.minutes <= 0f
             // Empty days draw a small stub so the baseline reads as a row of days, not gaps.
-            val barHeight = if (isEmpty) emptyStub else (bar.minutes / maxMinutes * chartHeight)
+            val barHeight = if (isEmpty) emptyStub else bar.minutes / maxMinutes * chartHeight
             val barTop = chartHeight - barHeight
             val color =
                 when {

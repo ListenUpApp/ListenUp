@@ -93,7 +93,7 @@ private fun HomeStatsContent(
 ) {
     val totalSeconds = state.dailyBuckets.sumOf { it.totalSeconds }
     val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
+    val minutes = totalSeconds % 3600 / 60
 
     val chartColumn: @Composable () -> Unit = {
         Column {
