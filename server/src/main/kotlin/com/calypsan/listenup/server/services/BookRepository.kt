@@ -539,12 +539,19 @@ class BookRepository(
     }
 
     /**
-     * Resolves the scanner's raw genre strings for [bookId]: each string either
-     * matches a [GenreAliasTable] row (→ `book_genres`) or queues for curator
-     * mapping in [PendingBookGenreTable]. Idempotent on rescan — wipes the
-     * prior `book_genres` and `pending_book_genres` rows for the book before
-     * re-writing, so a book whose `metadata.json` lost a string no longer
-     * appears as its source.
+     * Resolves the scanner's raw genre strings for [bookId] through a 3-step
+     * cascade, in precedence order:
+     *  1. **Curator alias** — a [GenreAliasTable] row maps the raw string to a
+     *     genre id (→ `book_genres`). Custom mappings always win.
+     *  2. **Built-in normalization** — [GenreNormalizer] turns the raw string
+     *     into canonical slug(s), each resolved against the live taxonomy via
+     *     [GenreTable.findBySlug] (→ `book_genres`).
+     *  3. **Unresolved** — nothing matched, so the string queues for curator
+     *     mapping in [PendingBookGenreTable].
+     *
+     * Idempotent on rescan — wipes the prior `book_genres` and
+     * `pending_book_genres` rows for the book before re-writing, so a book
+     * whose `metadata.json` lost a string no longer appears as its source.
      *
      * Inputs are case-insensitive-deduped (`.lowercase().trim()`) so scanning
      * `["Fantasy", "fantasy", "FANTASY"]` yields a single junction row even
@@ -564,12 +571,7 @@ class BookRepository(
 
         for (raw in rawStrings.distinctBy { it.trim().lowercase() }) {
             if (raw.isBlank()) continue
-            val resolvedGenreId = GenreAliasTable.resolve(raw)
-            if (resolvedGenreId != null) {
-                BookGenreTable.insertIfAbsent(bookIdStr, resolvedGenreId)
-            } else {
-                PendingBookGenreTable.addPending(bookIdStr, raw, now)
-            }
+            resolveGenreString(bookIdStr, raw, now)
         }
     }
 
@@ -1028,4 +1030,37 @@ class BookRepository(
      * outside the substrate's `upsert` / `pullSince` orchestration.
      */
     internal suspend fun readPayloadForTest(idStr: String): BookSyncPayload? = readPayload(idStr)
+}
+
+/**
+ * Resolves a single raw scanner genre [raw] for [bookIdStr] through the 3-step
+ * cascade — curator alias → built-in normalization → pending. See
+ * [BookRepository.processGenreStrings] for the full contract.
+ *
+ * Must be called inside a `suspendTransaction { }` block.
+ */
+private fun resolveGenreString(
+    bookIdStr: String,
+    raw: String,
+    now: Long,
+) {
+    // 1. Custom curator alias (genre_aliases DB table) wins.
+    val customGenreId = GenreAliasTable.resolve(raw)
+    if (customGenreId != null) {
+        BookGenreTable.insertIfAbsent(bookIdStr, customGenreId)
+        return
+    }
+
+    // 2. Built-in normalization: raw -> canonical slug(s) -> live taxonomy genre id.
+    var resolvedAny = false
+    for (slug in GenreNormalizer.normalizeToSlugs(raw)) {
+        val genreId = GenreTable.findBySlug(slug) ?: continue
+        BookGenreTable.insertIfAbsent(bookIdStr, genreId)
+        resolvedAny = true
+    }
+
+    // 3. Nothing matched -> queue for curator review.
+    if (!resolvedAny) {
+        PendingBookGenreTable.addPending(bookIdStr, raw, now)
+    }
 }
