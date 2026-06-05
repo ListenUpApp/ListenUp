@@ -121,6 +121,48 @@ class PublicProfileSyncDomainHandlerTest :
             }
         }
 
+        test("tagline is mapped through sync and emitted by observeById") {
+            withHandler { handler, db ->
+                val p = payload("user-tagline", tagline = "Audiobook enthusiast")
+                handler.onEvent(created(p), isOwnEcho = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val entity = db.publicProfileDao().observeById("user-tagline").first()
+                entity shouldNotBe null
+                entity!!.tagline shouldBe "Audiobook enthusiast"
+            }
+        }
+
+        test("tagline null payload produces null tagline in entity") {
+            withHandler { handler, db ->
+                val p = payload("user-no-tagline", tagline = null)
+                handler.onEvent(created(p), isOwnEcho = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val entity = db.publicProfileDao().observeById("user-no-tagline").first()
+                entity shouldNotBe null
+                entity!!.tagline shouldBe null
+            }
+        }
+
+        test("observeById returns null for absent userId") {
+            withHandler { _, db ->
+                val entity = db.publicProfileDao().observeById("nonexistent").first()
+                entity shouldBe null
+            }
+        }
+
+        test("observeById returns null for tombstoned row") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("user-tomb", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "user-tomb", revision = 2L, occurredAt = 999_000L),
+                    isOwnEcho = false,
+                )
+
+                val entity = db.publicProfileDao().observeById("user-tomb").first()
+                entity shouldBe null
+            }
+        }
+
         test("handler self-registers under domainName 'public_profiles'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
@@ -175,11 +217,12 @@ private fun payload(
     longestStreakDays: Int = 10,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    tagline: String? = null,
 ) = PublicProfileSyncPayload(
     id = id,
     displayName = "Test User",
     avatarType = "auto",
-    tagline = null,
+    tagline = tagline,
     totalSecondsAllTime = totalSecondsAllTime,
     totalSecondsLast7Days = totalSecondsLast7Days,
     totalSecondsLast30Days = totalSecondsLast30Days,

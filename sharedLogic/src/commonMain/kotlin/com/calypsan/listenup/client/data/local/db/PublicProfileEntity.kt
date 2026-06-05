@@ -23,6 +23,8 @@ data class PublicProfileEntity(
     val displayName: String,
     /** Avatar type: `"auto"` for generated avatar, `"image"` for uploaded image. */
     val avatarType: String,
+    /** User-visible tagline/bio. */
+    val tagline: String? = null,
     /** Cumulative listening seconds across all time. */
     val totalSecondsAllTime: Long,
     /** Cumulative listening seconds in the trailing 7-day window. */
@@ -59,6 +61,10 @@ interface PublicProfileDao {
      */
     @Query("SELECT * FROM public_profiles WHERE deletedAt IS NULL")
     fun observeAll(): Flow<List<PublicProfileEntity>>
+
+    /** Observe a single public profile by user ID (live rows only); null when tombstoned/absent. */
+    @Query("SELECT * FROM public_profiles WHERE id = :userId AND deletedAt IS NULL")
+    fun observeById(userId: String): Flow<PublicProfileEntity?>
 
     /**
      * Insert or update a public profile row.
