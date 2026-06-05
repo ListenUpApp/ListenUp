@@ -15,9 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.SectionTitle
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_browse_library
@@ -40,15 +40,9 @@ fun EmptyContinueListening(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        // Section header
-        Text(
-            text = stringResource(Res.string.home_continue_listening),
-            style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                ),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 16.dp),
+        SectionTitle(
+            title = stringResource(Res.string.home_continue_listening),
+            modifier = Modifier.padding(horizontal = 24.dp),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
