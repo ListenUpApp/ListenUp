@@ -22,11 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_loading_item
-import listenup.composeapp.generated.resources.home_start_listening_to_see_your
 import listenup.composeapp.generated.resources.home_this_week
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -61,7 +61,9 @@ fun HomeStatsSection(
                 }
 
                 HomeStatsUiState.Empty -> {
-                    StatsPlaceholder(stringResource(Res.string.home_start_listening_to_see_your))
+                    // Render the card at zero (chart + "0m") rather than a placeholder; streak and
+                    // genres collapse until there's data.
+                    HomeStatsContent(state = EmptyWeekStats, isWide = isWide)
                 }
 
                 is HomeStatsUiState.Data -> {
@@ -87,7 +89,7 @@ private fun StatsPlaceholder(
 }
 
 @Composable
-private fun HomeStatsContent(
+internal fun HomeStatsContent(
     state: HomeStatsUiState.Data,
     isWide: Boolean,
 ) {
@@ -135,20 +137,38 @@ private fun HomeStatsContent(
         }
     }
 
-    if (isWide) {
-        Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-            Box(Modifier.weight(1.3f)) { chartColumn() }
-            VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
-            Box(Modifier.weight(1f)) { detailColumn() }
+    val hasDetail = state.hasStreak || state.hasGenreData
+    when {
+        // No streak/genres yet — show only the chart column (collapse the detail side).
+        !hasDetail -> {
+            chartColumn()
         }
-    } else {
-        chartColumn()
-        if (state.hasStreak || state.hasGenreData) {
+
+        isWide -> {
+            Row {
+                Box(Modifier.weight(1.3f)) { chartColumn() }
+                VerticalDivider(modifier = Modifier.padding(horizontal = 24.dp))
+                Box(Modifier.weight(1f)) { detailColumn() }
+            }
+        }
+
+        else -> {
+            chartColumn()
             HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp))
             detailColumn()
         }
     }
 }
+
+/** A zeroed week used for the empty stats state — renders the chart at 0 with no streak/genres. */
+private val EmptyWeekStats =
+    HomeStatsUiState.Data(
+        totalSecondsThisWeek = 0L,
+        currentStreakDays = 0,
+        longestStreakDays = 0,
+        dailyBuckets = List(7) { DayBucket(dayOffsetFromToday = it, totalSeconds = 0L) },
+        topGenres = emptyList(),
+    )
 
 /** Small uppercase overline label used inside the stats card. */
 @Composable

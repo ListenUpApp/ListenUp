@@ -135,7 +135,8 @@ fun AppTopBar(
                         onQueryChange = onSearchQueryChange,
                         onClose = { onSearchExpandedChange(false) },
                     )
-                } else {
+                } else if (safeDestination != ShellDestination.Home) {
+                    // Home provides its own greeting header, so the bar title would be redundant.
                     Text(safeDestination.title)
                 }
             }
