@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import org.jetbrains.compose.resources.stringResource
@@ -64,6 +65,7 @@ fun DownloadButton(
     modifier: Modifier = Modifier,
     isWaitingForWifi: Boolean = false,
     enabled: Boolean = true,
+    shape: Shape = MaterialTheme.shapes.medium,
 ) {
     val containerColor =
         if (enabled) {
@@ -80,7 +82,7 @@ fun DownloadButton(
 
     Surface(
         modifier = modifier.size(56.dp),
-        shape = MaterialTheme.shapes.medium,
+        shape = shape,
         color = containerColor,
     ) {
         Box(
