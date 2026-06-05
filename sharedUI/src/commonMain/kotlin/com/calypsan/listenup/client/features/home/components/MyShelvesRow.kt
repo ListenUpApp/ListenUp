@@ -2,80 +2,85 @@ package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BrowseCarousel
+import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.domain.model.Shelf
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_my_shelves
-import listenup.composeapp.generated.resources.common_see_all
 
 /**
- * Horizontal scrolling row of My Shelves.
+ * "My shelves" section: a [SectionTitle] with a "See all" action over the shelves, color-blocked.
  *
- * Displays a section header with "See All" action, followed by a
- * horizontally scrollable list of ShelfCard components.
+ * Adaptive: a full-width vertical stack on wide windows; a horizontal carousel of fixed-width cards
+ * on compact. Container colors cycle through the primary/tertiary/secondary container roles.
  *
- * @param shelves List of shelves owned by the user
- * @param onShelfClick Callback when a shelf card is clicked
- * @param onSeeAllClick Callback when "See All" is clicked
- * @param modifier Optional modifier
+ * @param shelves List of shelves owned by the user.
+ * @param isWide Whether the window is medium+ (stack vs carousel).
+ * @param onShelfClick Callback when a shelf is clicked.
+ * @param onSeeAllClick Callback when "See all" is clicked.
+ * @param modifier Optional modifier.
  */
 @Composable
 fun MyShelvesRow(
     shelves: List<Shelf>,
+    isWide: Boolean,
     onShelfClick: (String) -> Unit,
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        // Section header with See All button
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(Res.string.home_my_shelves),
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                    ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        SectionTitle(
+            title = stringResource(Res.string.home_my_shelves),
+            onSeeAll = onSeeAllClick,
+            modifier = Modifier.padding(horizontal = 24.dp),
+        )
 
-            TextButton(onClick = onSeeAllClick) {
-                Text(
-                    text = stringResource(Res.string.common_see_all),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (isWide) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                shelves.forEachIndexed { index, shelf ->
+                    val (container, content) = shelfColors(index)
+                    ShelfCard(
+                        shelf = shelf,
+                        containerColor = container,
+                        contentColor = content,
+                        onClick = { onShelfClick(shelf.id) },
+                        fillWidth = true,
+                    )
+                }
+            }
+        } else {
+            BrowseCarousel(items = shelves) { shelf ->
+                val (container, content) = shelfColors(shelves.indexOf(shelf))
+                ShelfCard(
+                    shelf = shelf,
+                    containerColor = container,
+                    contentColor = content,
+                    onClick = { onShelfClick(shelf.id) },
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Horizontally scrolling shelf cards
-        BrowseCarousel(items = shelves) { shelf ->
-            ShelfCard(
-                shelf = shelf,
-                onClick = { onShelfClick(shelf.id) },
-            )
-        }
     }
 }
+
+/** Cycles the container/on-container color pair so adjacent shelves read distinctly. */
+@Composable
+private fun shelfColors(index: Int): Pair<Color, Color> =
+    when (index % 3) {
+        0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        1 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    }
