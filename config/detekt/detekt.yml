@@ -434,7 +434,7 @@ style:
   MagicNumber:
     active: true
     ignoreAnnotated: ['Composable']  # Compose layout literals (dp/sp/alpha/weight/durations) are self-documenting at the call site; parity with LongMethod/UnusedParameter Compose scoping
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/*Previews.kt']  # *Previews.kt are non-shipping mock-data fixtures, same category as test fixtures
     ignoreNumbers:
       - '-1'
       - '0'

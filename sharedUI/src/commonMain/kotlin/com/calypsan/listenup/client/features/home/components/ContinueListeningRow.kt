@@ -1,19 +1,21 @@
 package com.calypsan.listenup.client.features.home.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
@@ -21,19 +23,22 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_continue_listening
 
+/** Width of a Continue Listening cover card — larger than a grid card so the hero row reads big. */
+private val ContinueCardWidth = 176.dp
+
 /**
  * Horizontal scrolling row of Continue Listening items.
  *
  * Renders [ContinueListeningItem.Ready] items as full [BookCard]s and
  * [ContinueListeningItem.Loading] items as skeleton placeholder cards that
- * match the real card's dimensions. Rendered in a [BrowseCarousel]; the list order is
- * stable, so a Loading item transitions to Ready in place — no flicker or re-enter animation.
+ * match the real card's dimensions. Rendered in a [LazyRow] (not a carousel) so the cards' soft
+ * cover shadows aren't clipped at the item bounds; the list order is stable, so a Loading item
+ * transitions to Ready in place — no flicker or re-enter animation.
  *
  * @param items List of [ContinueListeningItem] — Ready or Loading
  * @param onBookClick Callback when a ready book card is clicked
  * @param modifier Optional modifier
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ContinueListeningRow(
     items: List<ContinueListeningItem>,
@@ -49,26 +54,30 @@ fun ContinueListeningRow(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Horizontally scrolling book cards
-        BrowseCarousel(items = items) { item ->
-            when (item) {
-                is ContinueListeningItem.Ready -> {
-                    BookCard(
-                        bookId = item.book.bookId,
-                        title = item.book.title,
-                        coverPath = item.book.coverPath,
-                        blurHash = item.book.coverBlurHash,
-                        onClick = { onBookClick(item.bookId) },
-                        authorName = item.book.authorNames,
-                        progress = item.book.progress,
-                        timeRemaining = item.book.timeRemainingFormatted,
-                        isPlaying = item.book.bookId == playingBookId,
-                        cardWidth = 140.dp,
-                    )
-                }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(items, key = { it.bookId }) { item ->
+                when (item) {
+                    is ContinueListeningItem.Ready -> {
+                        BookCard(
+                            bookId = item.book.bookId,
+                            title = item.book.title,
+                            coverPath = item.book.coverPath,
+                            blurHash = item.book.coverBlurHash,
+                            onClick = { onBookClick(item.bookId) },
+                            authorName = item.book.authorNames,
+                            progress = item.book.progress,
+                            timeRemaining = item.book.timeRemainingFormatted,
+                            isPlaying = item.book.bookId == playingBookId,
+                            cardWidth = ContinueCardWidth,
+                        )
+                    }
 
-                is ContinueListeningItem.Loading -> {
-                    ContinueListeningSkeletonCard()
+                    is ContinueListeningItem.Loading -> {
+                        ContinueListeningSkeletonCard()
+                    }
                 }
             }
         }
@@ -87,11 +96,11 @@ private fun ContinueListeningSkeletonCard(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
-                .width(140.dp)
-                .height(198.dp)
+                .width(ContinueCardWidth)
+                .height(ContinueCardWidth)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(20.dp),
                 ),
     )
 }

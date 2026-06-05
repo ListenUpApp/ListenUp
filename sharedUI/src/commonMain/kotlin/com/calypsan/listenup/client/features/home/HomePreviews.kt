@@ -32,6 +32,8 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
+private const val PREVIEW_USER_NAME = "Simon"
+
 private fun mockBook(
     id: String,
     title: String,
@@ -66,7 +68,7 @@ private fun mockShelf(
     description = null,
     isPrivate = false,
     ownerId = "owner",
-    ownerDisplayName = "Simon",
+    ownerDisplayName = PREVIEW_USER_NAME,
     bookCount = count,
     totalDurationSeconds = 0L,
     createdAtMs = 0L,
@@ -146,7 +148,7 @@ private fun StatsCardPreview(
 @Composable
 private fun GreetingPreview() =
     PreviewSurface {
-        HomeHeader(timeGreeting = "Good evening", userName = "Simon", isWide = false)
+        HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
     }
 
 @Preview
@@ -195,7 +197,7 @@ fun HomePreviewGallery() {
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             GalleryLabel("Greeting")
-            HomeHeader(timeGreeting = "Good evening", userName = "Simon", isWide = false)
+            HomeHeader(timeGreeting = "Good evening", userName = PREVIEW_USER_NAME, isWide = false)
 
             GalleryLabel("Continue Listening")
             ContinueListeningRow(items = mockContinue(), onBookClick = {})

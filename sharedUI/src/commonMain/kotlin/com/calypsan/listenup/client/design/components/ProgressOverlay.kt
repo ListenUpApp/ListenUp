@@ -2,8 +2,10 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** Scrim behind the progress pill — a translucent dark wash standing in for the design's blur. */
 private val ProgressScrim = Color.Black.copy(alpha = 0.42f)
@@ -40,26 +43,31 @@ fun ProgressOverlay(
             modifier
                 .fillMaxWidth()
                 .padding(8.dp)
+                .height(34.dp)
                 .clip(CircleShape)
                 .background(ProgressScrim)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
-            Text(
-                text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-            )
+            Box(
+                modifier = Modifier.height(24.dp).padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                    fontSize = 12.5.sp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
         }
 
         if (timeRemaining != null) {
             Text(
                 text = timeRemaining,
-                style = MaterialTheme.typography.labelMedium,
+                fontSize = 12.5.sp,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,

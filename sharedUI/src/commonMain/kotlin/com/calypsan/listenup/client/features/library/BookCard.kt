@@ -295,16 +295,6 @@ fun BookCard(
     }
 }
 
-/**
- * Unified cover composable handling all overlay variants.
- *
- * Supports:
- * - BookCoverImage with blurHash placeholder
- * - Gradient placeholder fallback (no cover/blurHash)
- * - Progress overlay (when progress != null and > 0)
- * - Avatar overlay (when avatarOverlay != null)
- * - Selection/focus border
- */
 /** Scallop badge with an equalizer glyph, shown on the cover of the currently-playing book. */
 @Composable
 private fun NowPlayingBadge(modifier: Modifier = Modifier) {
@@ -325,6 +315,16 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Unified cover composable handling all overlay variants.
+ *
+ * Supports:
+ * - BookCoverImage with blurHash placeholder
+ * - Gradient placeholder fallback (no cover/blurHash)
+ * - Progress overlay (when progress != null and > 0)
+ * - Avatar overlay (when avatarOverlay != null)
+ * - Selection/focus border
+ */
 @Composable
 private fun BookCardCover(
     bookId: String,
