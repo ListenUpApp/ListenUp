@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_chapters
+import org.jetbrains.compose.resources.stringResource
 
 private val tabularNumsStyle: TextStyle
     @Composable get() =
@@ -47,7 +50,7 @@ fun ChaptersHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Chapters",
+            text = stringResource(Res.string.book_detail_chapters),
             style =
                 MaterialTheme.typography.titleMedium.copy(
                     fontFamily = DisplayFontFamily,
