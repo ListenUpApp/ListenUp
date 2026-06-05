@@ -193,6 +193,7 @@ private fun HomeContentWide(
             Spacer(modifier = Modifier.width(16.dp))
             MyShelvesRow(
                 shelves = state.myShelves,
+                isWide = true,
                 onShelfClick = onShelfClick,
                 onSeeAllClick = onSeeAllShelves,
                 modifier = Modifier.weight(1f),
@@ -213,6 +214,7 @@ private fun HomeContentCompact(
         Spacer(modifier = Modifier.height(24.dp))
         MyShelvesRow(
             shelves = state.myShelves,
+            isWide = false,
             onShelfClick = onShelfClick,
             onSeeAllClick = onSeeAllShelves,
         )
