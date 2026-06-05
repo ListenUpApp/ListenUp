@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.db.ActiveSessionTable
+import com.calypsan.listenup.server.sync.ChangeBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -37,6 +39,7 @@ private val log = KotlinLogging.logger {}
  */
 internal class ActiveSessionCleanupTask(
     private val db: Database,
+    private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 5.minutes,
     private val staleAfter: Duration = 30.minutes,
@@ -62,14 +65,19 @@ internal class ActiveSessionCleanupTask(
      * Delete all rows whose `updated_at` column is older than [staleAfter] relative
      * to the current clock. Returns the number of rows deleted.
      */
-    suspend fun runOnce(): Int =
-        suspendTransaction(db) {
-            val cutoffMs = clock.now().toEpochMilliseconds() - staleAfter.inWholeMilliseconds
-            val removed =
+    suspend fun runOnce(): Int {
+        val removed =
+            suspendTransaction(db) {
+                val cutoffMs = clock.now().toEpochMilliseconds() - staleAfter.inWholeMilliseconds
                 ActiveSessionTable.deleteWhere {
                     ActiveSessionTable.updatedAt less cutoffMs
                 }
-            if (removed > 0) log.info { "ActiveSessionCleanupTask removed $removed stale active_sessions rows" }
-            removed
+            }
+        if (removed > 0) {
+            log.info { "ActiveSessionCleanupTask removed $removed stale active_sessions rows" }
+            // A sweep changes who is present — nudge connected clients to re-derive presence.
+            bus.broadcastControl(SyncControl.ActiveSessionsChanged)
         }
+        return removed
+    }
 }

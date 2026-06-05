@@ -2,10 +2,8 @@
 
 package com.calypsan.listenup.server.scheduler
 
-import com.calypsan.listenup.api.sync.ActiveSessionSyncPayload
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
-import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withInMemoryDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -22,21 +20,7 @@ class ActiveSessionCleanupTaskTest :
         fun makeRepo(
             db: org.jetbrains.exposed.v1.jdbc.Database,
             clock: kotlin.time.Clock = kotlin.time.Clock.System,
-        ): ActiveSessionRepository = ActiveSessionRepository(db = db, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
-
-        fun session(
-            sessionId: String,
-            bookId: String,
-            startedAt: Long,
-        ) = ActiveSessionSyncPayload(
-            sessionId = sessionId,
-            bookId = bookId,
-            startedAt = startedAt,
-            revision = 0L,
-            updatedAt = 0L,
-            createdAt = 0L,
-            deletedAt = null,
-        )
+        ): ActiveSessionRepository = ActiveSessionRepository(db = db, bus = ChangeBus(), clock = clock)
 
         test("runOnce deletes only rows whose updated_at is older than staleAfter") {
             withInMemoryDatabase {
@@ -44,7 +28,7 @@ class ActiveSessionCleanupTaskTest :
                 val nowInstant = Instant.fromEpochMilliseconds(nowMs)
 
                 // Three repos with different fixed clocks simulate rows written at different times.
-                // The substrate sets updated_at from the repo's clock on every upsert.
+                // startOrRefresh stamps updated_at from the repo's clock on insert.
                 val freshClock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 5 * 60_000)) // 5m ago — fresh
                 val stale35Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 35 * 60_000)) // 35m ago — stale
                 val stale60Clock = FixedClock(Instant.fromEpochMilliseconds(nowMs - 60 * 60_000)) // 60m ago — stale
@@ -55,13 +39,14 @@ class ActiveSessionCleanupTaskTest :
                 val readRepo = makeRepo(this)
 
                 runTest {
-                    freshRepo.upsert(session("sess-fresh", "b1", nowMs - 5 * 60_000), userId = "u1")
-                    stale35Repo.upsert(session("sess-stale-35", "b2", nowMs - 35 * 60_000), userId = "u2")
-                    stale60Repo.upsert(session("sess-stale-60", "b3", nowMs - 60 * 60_000), userId = "u3")
+                    freshRepo.startOrRefresh("u1", "b1")
+                    stale35Repo.startOrRefresh("u2", "b2")
+                    stale60Repo.startOrRefresh("u3", "b3")
 
                     val task =
                         ActiveSessionCleanupTask(
                             db = this@withInMemoryDatabase,
+                            bus = ChangeBus(),
                             clock = FixedClock(nowInstant),
                             staleAfter = 30.minutes,
                         )
@@ -69,9 +54,9 @@ class ActiveSessionCleanupTaskTest :
                     removed shouldBe 2
 
                     // Fresh row survives; stale rows are gone
-                    readRepo.getForUser("u1") shouldHaveSize 1
-                    readRepo.getForUser("u2").shouldBeEmpty()
-                    readRepo.getForUser("u3").shouldBeEmpty()
+                    readRepo.listReadersForBook("b1", excludeUserId = "none") shouldHaveSize 1
+                    readRepo.listReadersForBook("b2", excludeUserId = "none").shouldBeEmpty()
+                    readRepo.listReadersForBook("b3", excludeUserId = "none").shouldBeEmpty()
                 }
             }
         }
@@ -79,7 +64,7 @@ class ActiveSessionCleanupTaskTest :
         test("runOnce on an empty table returns 0 without throwing") {
             withInMemoryDatabase {
                 val clock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
-                val task = ActiveSessionCleanupTask(db = this, clock = clock, staleAfter = 30.minutes)
+                val task = ActiveSessionCleanupTask(db = this, bus = ChangeBus(), clock = clock, staleAfter = 30.minutes)
                 runTest {
                     task.runOnce() shouldBe 0
                 }
@@ -96,19 +81,20 @@ class ActiveSessionCleanupTaskTest :
 
                 runTest {
                     repeat(3) { i ->
-                        repo.upsert(session("sess-fresh-$i", "book-$i", nowMs - 1_000L), userId = "u$i")
+                        repo.startOrRefresh("u$i", "book-$i")
                     }
 
                     val task =
                         ActiveSessionCleanupTask(
                             db = this@withInMemoryDatabase,
+                            bus = ChangeBus(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                             staleAfter = 30.minutes,
                         )
                     task.runOnce() shouldBe 0
 
                     repeat(3) { i ->
-                        readRepo.getForUser("u$i") shouldHaveSize 1
+                        readRepo.listReadersForBook("book-$i", excludeUserId = "none") shouldHaveSize 1
                     }
                 }
             }

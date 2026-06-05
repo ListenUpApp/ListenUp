@@ -65,7 +65,7 @@ fun playbackModule(): Module =
             )
         }
         single { UserRoleLookup(db = get()) }
-        single(createdAtStart = true) { ActiveSessionRepository(get(), get(), get()) }
+        single(createdAtStart = true) { ActiveSessionRepository(db = get(), bus = get()) }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
                 db = get(),
@@ -99,7 +99,7 @@ fun playbackModule(): Module =
             ListeningEventRepository(db = get(), bus = get(), registry = get(), userStatsUpdater = get())
         }
         single { UserStatsBackfillService(db = get(), userStatsRepo = get()) }
-        single { ActiveSessionCleanupTask(db = get()) }
+        single { ActiveSessionCleanupTask(db = get(), bus = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),
