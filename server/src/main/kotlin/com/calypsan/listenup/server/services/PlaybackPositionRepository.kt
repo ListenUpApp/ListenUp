@@ -172,6 +172,8 @@ class PlaybackPositionRepository(
             if (result is AppResult.Success && finished && !priorFinished) {
                 userStatsUpdater?.onPositionFinishedFlip(userId)
                 activeSessionRepo?.deleteForUserBook(userId, bookId)
+            } else if (result is AppResult.Success && !finished) {
+                activeSessionRepo?.startOrRefresh(userId, bookId)
             }
             result
         }
