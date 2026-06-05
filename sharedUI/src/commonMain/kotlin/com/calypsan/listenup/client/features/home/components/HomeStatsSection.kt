@@ -106,15 +106,17 @@ internal fun HomeStatsContent(
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "${hours}h ${minutes}m",
-                    style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-1.5).sp,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
                 )
                 Text(
                     text = "listened",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }

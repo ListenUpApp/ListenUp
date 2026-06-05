@@ -64,6 +64,7 @@ fun StreakIndicator(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
             )
             if (longestStreak > 0 && currentStreak > 0) {
                 Text(
